@@ -298,7 +298,29 @@ class FeagiStateManager:
         # Initialize cortical areas cache for event-driven updates
         self._cortical_areas_cache = None
         self._cortical_areas_cache_dirty = True  # Mark as dirty initially
-        
+
+        # Initialize attributes expected by service health checks to avoid transient warnings
+        # These placeholders are replaced as the system initializes but prevent noisy WARN logs
+        if not hasattr(self, "brain_stats"):
+            self.brain_stats: Dict[str, int] = {
+                "neuron_count": 0,
+                "synapse_count": 0,
+                "cortical_area_count": 0,
+            }
+        if not hasattr(self, "cortical_list"):
+            self.cortical_list: List[str] = []
+        if not hasattr(self, "genome_validity"):
+            self.genome_validity: Dict[str, Any] = {"status": "unknown"}
+        if not hasattr(self, "connected_agents"):
+            self.connected_agents: Dict[str, Any] = {}
+        if not hasattr(self, "changes_saved_externally"):
+            self.changes_saved_externally: bool = False
+        if not hasattr(self, "exit_condition"):
+            self.exit_condition: Optional[str] = None
+
+        # Flag to indicate a resynchronization is ongoing to reduce duplicate warnings
+        self._resync_in_progress: bool = False
+ 
         logger.info("FeagiStateManager initialized")
         logger.info(f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}")
     
@@ -560,12 +582,18 @@ class FeagiStateManager:
     
     def get_brain_stats(self) -> Dict[str, Any]:
         """Get current brain statistics."""
-        return getattr(self._state, 'brain_stats', {
-            "neuron_count": self._state.neuron_count,
-            "synapse_count": self._state.synapse_count,
-            "cortical_area_count": self._state.cortical_area_count
-        })
-    
+        stats = getattr(self._state, 'brain_stats', None)
+        if not isinstance(stats, dict):
+            stats = {
+                "neuron_count": getattr(self._state, 'neuron_count', 0),
+                "synapse_count": getattr(self._state, 'synapse_count', 0),
+                "cortical_area_count": getattr(self._state, 'cortical_area_count', 0),
+            }
+        # Ensure memory/non-memory counts are always present
+        stats.setdefault("memory_neuron_count", 0)
+        stats.setdefault("non_memory_neuron_count", stats.get("neuron_count", 0))
+        return stats
+ 
     def set_brain_stats(self, stats: Dict[str, Any]) -> Result[None]:
         """Set brain statistics."""
         if not isinstance(stats, dict):
@@ -573,10 +601,44 @@ class FeagiStateManager:
         
         # Atomic update
         with self._instance_lock:
+            # Extract incoming values
+            in_total = stats.get("neuron_count")
+            in_synapses = stats.get("synapse_count", 0)
+            in_areas = stats.get("cortical_area_count", 0)
+            in_mem = stats.get("memory_neuron_count")
+            in_non_mem = stats.get("non_memory_neuron_count")
+
+            # Derive missing parts and enforce consistency
+            if in_mem is None and in_non_mem is None:
+                # Only total provided → default memory=0, non_memory=total
+                mem_cnt = 0
+                total_cnt = int(in_total or 0)
+                non_mem_cnt = total_cnt
+            elif in_mem is None and in_non_mem is not None:
+                non_mem_cnt = max(0, int(in_non_mem))
+                total_cnt = int(in_total or non_mem_cnt)
+                mem_cnt = max(0, total_cnt - non_mem_cnt)
+            elif in_mem is not None and in_non_mem is None:
+                mem_cnt = max(0, int(in_mem))
+                total_cnt = int(in_total or mem_cnt)
+                non_mem_cnt = max(0, total_cnt - mem_cnt)
+            else:
+                # Both provided → recompute total for consistency
+                mem_cnt = max(0, int(in_mem))
+                non_mem_cnt = max(0, int(in_non_mem))
+                total_cnt = mem_cnt + non_mem_cnt
+
             # Store in both structured fields and as a dict for compatibility
-            self._state.neuron_count = stats.get("neuron_count", 0)
-            self._state.synapse_count = stats.get("synapse_count", 0)
-            self._state.cortical_area_count = stats.get("cortical_area_count", 0)
+            self._state.neuron_count = total_cnt
+            self._state.synapse_count = int(in_synapses)
+            self._state.cortical_area_count = int(in_areas)
+
+            # Store in brain_stats dict
+            stats["neuron_count"] = total_cnt
+            stats["synapse_count"] = int(in_synapses)
+            stats["cortical_area_count"] = int(in_areas)
+            stats["memory_neuron_count"] = mem_cnt
+            stats["non_memory_neuron_count"] = non_mem_cnt
             
             # Also store as brain_stats attribute for backward compatibility
             self._state.brain_stats = stats

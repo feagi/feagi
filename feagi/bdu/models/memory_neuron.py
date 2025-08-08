@@ -25,6 +25,7 @@ import numpy as np
 from typing import Dict, Set, Optional, Tuple, List, Any
 from dataclasses import dataclass
 import time
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,11 @@ class MemoryNeuronArray:
         # Pattern identification: pattern_key -> neuron_index
         self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         self.index_to_pattern: Dict[int, MemoryPatternKey] = {}
+
+        # Rust-friendly digest mapping (primary for future migration): digest(bytes[32]) -> neuron_index
+        # Digest is computed deterministically from (pattern_data bytes, temporal_depth, source_cortical_areas)
+        self.pattern_digest_to_index: Dict[bytes, int] = {}
+        self.index_to_pattern_digest: Dict[int, bytes] = {}
         
         # Memory-specific lifecycle properties
         self.lifespan_current = np.zeros(capacity, dtype=np.uint32)     # Current remaining lifespan
@@ -103,7 +109,35 @@ class MemoryNeuronArray:
         self.is_active = np.zeros(capacity, dtype=np.bool_)            # Whether neuron is active
         
         logger.info(f"MemoryNeuronArray initialized with capacity {capacity}")
-    
+
+    @staticmethod
+    def _compute_pattern_digest(pattern_key: MemoryPatternKey) -> bytes:
+        """Compute a stable 32-byte digest for a pattern key.
+
+        The digest is computed over:
+        - temporal_depth (u32 LE)
+        - number of source areas (u32 LE) and each area id as UTF-8 bytes with length prefix
+        - number of timesteps (u32 LE) and each timestep's serialized bitmap with length prefix
+
+        Returns:
+            32-byte digest (blake2b-256)
+        """
+        h = hashlib.blake2b(digest_size=32)
+        # temporal_depth
+        h.update(int(pattern_key.temporal_depth).to_bytes(4, "little", signed=False))
+        # source areas (stable order already stored)
+        h.update(len(pattern_key.source_cortical_areas).to_bytes(4, "little", signed=False))
+        for area_id in pattern_key.source_cortical_areas:
+            b = area_id.encode("utf-8")
+            h.update(len(b).to_bytes(4, "little", signed=False))
+            h.update(b)
+        # pattern_data bitmaps
+        h.update(len(pattern_key.pattern_data).to_bytes(4, "little", signed=False))
+        for blob in pattern_key.pattern_data:
+            h.update(len(blob).to_bytes(4, "little", signed=False))
+            h.update(blob)
+        return h.digest()
+
     def create_memory_neuron(
         self, 
         pattern_key: MemoryPatternKey,
@@ -125,9 +159,13 @@ class MemoryNeuronArray:
         Returns:
             Neuron index if successful, None if capacity exceeded or pattern exists
         """
-        # Check if pattern already exists
-        if pattern_key in self.pattern_to_index:
+        # Prefer digest-based lookup (Rust-friendly); keep legacy mapping for compatibility
+        digest = self._compute_pattern_digest(pattern_key)
+        existing_idx = self.pattern_digest_to_index.get(digest)
+        if existing_idx is None and pattern_key in self.pattern_to_index:
             existing_idx = self.pattern_to_index[pattern_key]
+
+        if existing_idx is not None:
             if self.is_active[existing_idx]:
                 # Reactivate existing neuron instead of creating new one
                 self.reactivate_memory_neuron(existing_idx, current_burst)
@@ -145,6 +183,9 @@ class MemoryNeuronArray:
         # Initialize neuron properties
         self.pattern_to_index[pattern_key] = neuron_idx
         self.index_to_pattern[neuron_idx] = pattern_key
+        # Store digest mapping as primary path
+        self.pattern_digest_to_index[digest] = neuron_idx
+        self.index_to_pattern_digest[neuron_idx] = digest
         
         self.lifespan_current[neuron_idx] = initial_lifespan
         self.lifespan_initial[neuron_idx] = initial_lifespan
@@ -200,7 +241,11 @@ class MemoryNeuronArray:
         Returns:
             Neuron index if found and active, None otherwise
         """
-        neuron_idx = self.pattern_to_index.get(pattern_key)
+        # Try digest-based lookup first
+        digest = self._compute_pattern_digest(pattern_key)
+        neuron_idx = self.pattern_digest_to_index.get(digest)
+        if neuron_idx is None:
+            neuron_idx = self.pattern_to_index.get(pattern_key)
         if neuron_idx is not None and self.is_active[neuron_idx]:
             return neuron_idx
         return None
@@ -336,6 +381,7 @@ class MemoryNeuronArray:
             "capacity": self.capacity,
             "total_neurons_created": self.next_available_index,
             "active_neurons": int(np.sum(active_mask)),
+            "total_active_neurons": int(np.sum(active_mask)),
             "longterm_memory_neurons": int(np.sum(longterm_mask)),
             "deleted_indices_available": len(self.deleted_indices),
             "memory_usage_bytes": self._calculate_memory_usage(),

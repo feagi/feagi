@@ -1692,24 +1692,12 @@ class NeuroEmbryogenesis:
                 logger.info(f"🧠 [MAPPING-DEBUG] New properties: {src_area.properties}")
 
                 # Process mappings to target areas
+                memory_mappings_processed = 0
                 for dst_area_id, connection_data in target_mappings.items():
                     try:
                         logger.info(
                             f"Creating synapses from {src_area_id} to {dst_area_id}"
                         )
-
-                        # Get destination area and neurons
-                        # dst_area = self.connectome_manager.cortical_areas[dst_area_id]  # Unused variable removed
-                        dst_neurons = self.connectome_manager.get_neurons_by_area(
-                            dst_area_id
-                        )
-
-                        if not dst_neurons:
-                            logger.warning(
-                                f"No neurons found in destination area {dst_area_id}"
-                            )
-                            continue
-
                         # Process each connection specification
                         for connection_spec in connection_data:
                             if not isinstance(connection_spec, dict):
@@ -1717,7 +1705,7 @@ class NeuroEmbryogenesis:
                                     f"Invalid connection specification format: {connection_spec}"
                                 )
                                 continue
-
+ 
                             # Extract connection parameters from dictionary format
                             # Format: {"morphology_id": "block_to_block", "morphology_scalar": [1,1,1], ...}
                             morphology_id = connection_spec.get("morphology_id", "")
@@ -1741,14 +1729,14 @@ class NeuroEmbryogenesis:
                             ltd_multiplier = float(
                                 connection_spec.get("ltd_multiplier", 1.0)
                             )
-
+ 
                             # Validate required parameters
                             if not morphology_id:
                                 logger.warning(
                                     f"Missing morphology_id in connection specification: {connection_spec}"
                                 )
                                 continue
-
+ 
                             if (
                                 not isinstance(morphology_scalar, list)
                                 or len(morphology_scalar) != 3
@@ -1757,7 +1745,32 @@ class NeuroEmbryogenesis:
                                     f"Invalid morphology_scalar format: {morphology_scalar}, using default [1,1,1]"
                                 )
                                 morphology_scalar = [1, 1, 1]
-
+ 
+                            # MEMORY MORPHOLOGY: register upstream mapping only, no synapses by design
+                            mapping_type = connection_spec.get("mapping_type", "").lower()
+                            if morphology_id.lower() == "memory" or mapping_type == "memory":
+                                try:
+                                    self.connectome_manager.add_memory_area_mapping(src_area_id, dst_area_id)
+                                    memory_mappings_processed += 1
+                                    logger.info(
+                                        f"[MEMORY-MAPPING] Registered upstream mapping {src_area_id} -> {dst_area_id} (no synapses by design)"
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"[MEMORY-MAPPING] Failed to register memory mapping {src_area_id} -> {dst_area_id}: {e}"
+                                    )
+                                # Skip synaptogenesis for memory morphology
+                                continue
+ 
+                            # NON-MEMORY MORPHOLOGIES: proceed with synaptogenesis
+                            # Get destination neurons lazily here to avoid false warnings for memory mappings
+                            dst_neurons = self.connectome_manager.get_neurons_by_area(dst_area_id)
+                            if not dst_neurons:
+                                logger.warning(
+                                    f"No neurons found in destination area {dst_area_id}"
+                                )
+                                continue
+ 
                             # Apply morphology-based synaptogenesis
                             synapses_created = self._apply_morphology_mapping(
                                 src_area_id=src_area_id,
@@ -1772,30 +1785,35 @@ class NeuroEmbryogenesis:
                                 ltp_multiplier=ltp_multiplier,
                                 ltd_multiplier=ltd_multiplier,
                             )
-
+ 
                             total_synapses_created += synapses_created
                             logger.info(
                                 f"Created {synapses_created} synapses for {morphology_id} mapping"
                             )
-
+ 
                     except Exception as e:
                         logger.error(
                             f"Failed to update mapping from {src_area_id} to {dst_area_id}: {e}"
                         )
                         # Continue processing other mappings rather than failing completely
                         continue
-
-            # Log final results
-            if total_synapses_created > 0:
-                logger.info(
-                    f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
-                )
-                return True
-            else:
-                logger.warning("No synapses were created from cortical mapping updates")
-                # Return True for graceful handling - empty mappings or invalid morphologies
-                # should not be considered failures, just no-ops
-                return True
+ 
+                # Log final results
+                if total_synapses_created > 0:
+                    logger.info(
+                        f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
+                    )
+                    return True
+                else:
+                    if memory_mappings_processed > 0:
+                        logger.info(
+                            "Memory morphology mappings processed with zero synapses (by design)"
+                        )
+                        return True
+                    logger.warning("No synapses were created from cortical mapping updates")
+                    # Return True for graceful handling - empty mappings or invalid morphologies
+                    # should not be considered failures, just no-ops
+                    return True
 
         except Exception as e:
             logger.error(f"Error updating cortical mapping: {e}")

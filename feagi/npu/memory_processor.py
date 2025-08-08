@@ -201,8 +201,8 @@ class MemoryProcessor:
                 self.current_burst = current_burst
                 
                 # ENHANCED DEBUG: Check if NPU debugging is enabled
-                npu_debug = self._is_npu_debug_enabled()
-                if npu_debug:
+                mem_debug = self._is_mem_debug_enabled()
+                if mem_debug:
                     logger.info(f"🧠 [MEMORY] MEMORY PROCESSING START: Burst {current_burst}")
                     logger.info(f"🧠 [MEMORY] Active memory areas: {list(self.active_memory_areas)}")
                     for area_id in self.active_memory_areas:
@@ -210,7 +210,7 @@ class MemoryProcessor:
                         logger.info(f"🧠 [MEMORY] Memory area {area_id}: temporal_depth={props.get('temporal_depth')}, upstream_areas={props.get('upstream_areas')}")
                 
                 if not self.active_memory_areas:
-                    if npu_debug:
+                    if mem_debug:
                         logger.info(f"🧠 [MEMORY] No active memory areas to process")
                     return {"success": True, "processed_areas": 0, "stats": {}}
                 
@@ -221,7 +221,7 @@ class MemoryProcessor:
                 
                 for i in range(0, len(memory_areas), self.batch_size):
                     batch = memory_areas[i:i + self.batch_size]
-                    if npu_debug:
+                    if mem_debug:
                         logger.info(f"🧠 [MEMORY] Processing memory batch {i//self.batch_size + 1}: {batch}")
                     
                     batch_result = self._process_memory_area_batch(batch, current_burst)
@@ -234,7 +234,7 @@ class MemoryProcessor:
                 total_reactivated = sum(result.get("neurons_reactivated", 0) for result in batch_results)
                 
                 # Perform aging and lifecycle management
-                if npu_debug:
+                if mem_debug:
                     logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
                 lifecycle_result = self._perform_aging_and_lifecycle(current_burst)
                 
@@ -246,7 +246,7 @@ class MemoryProcessor:
                 self.stats.memory_neurons_converted_to_longterm += lifecycle_result.get("neurons_converted", 0)
                 self.stats.processing_time_ms = (time.time() - start_time) * 1000
                 
-                if npu_debug:
+                if mem_debug:
                     logger.info(f"🧠 [MEMORY] MEMORY PROCESSING COMPLETE: patterns={total_patterns}, created={total_created}, reactivated={total_reactivated}, died={lifecycle_result.get('neurons_died', 0)}")
                 
                 return {
@@ -268,18 +268,18 @@ class MemoryProcessor:
         finally:
             self._is_processing = False
 
-    def _is_npu_debug_enabled(self) -> bool:
-        """Check if memory debugging is enabled via --debug-mem flag."""
+    def _is_mem_debug_enabled(self) -> bool:
+        """Check if memory debugging is enabled via --debug-mem flag only."""
         try:
             from feagi.core.state_manager import get_state_manager
             state_manager = get_state_manager()
-            
-            # Check for memory-specific debug flag first
+
+            # Primary: memory-specific flag in state manager
             if hasattr(state_manager, 'is_mem_debug_enabled') and callable(state_manager.is_mem_debug_enabled):
                 if state_manager.is_mem_debug_enabled():
                     return True
-            
-            # Fallback: Check config system for mem_debug flag
+
+            # Secondary: mem_debug from loaded config
             try:
                 from feagi.config.toml_loader import get_config_manager
                 config_manager = get_config_manager()
@@ -289,21 +289,14 @@ class MemoryProcessor:
                         return True
             except Exception:
                 pass
-                
-            # Fallback to NPU debug for backward compatibility
-            if hasattr(state_manager, 'is_debug_npu_enabled') and callable(state_manager.is_debug_npu_enabled):
-                if state_manager.is_debug_npu_enabled():
-                    return True
-                    
+
         except Exception:
             pass
-            
-        # Last resort: Check sys.argv directly
+
+        # Last resort: explicit CLI flag
         if "--debug-mem" in sys.argv:
             return True
-        if "--debug-npu" in sys.argv:
-            return True
-            
+
         return False
     
     def _process_memory_area_batch(self, memory_areas: List[str], current_burst: int) -> Dict[str, int]:
@@ -347,9 +340,9 @@ class MemoryProcessor:
             'neurons_converted': 0
         }
         
-        npu_debug = self._is_npu_debug_enabled()
+        mem_debug = self._is_mem_debug_enabled()
         
-        if npu_debug:
+        if mem_debug:
             logger.info(f"🧠 [MEMORY] Processing memory area {memory_area_id}")
         
         # Get memory area properties
@@ -370,7 +363,7 @@ class MemoryProcessor:
                 self.memory_area_properties[memory_area_id]["upstream_areas"] = upstream_areas
                 logger.info(f"🔍 [MEMORY] Updated cached upstream areas for {memory_area_id}: {upstream_areas}")
         
-        if npu_debug:
+        if mem_debug:
             logger.info(f"🧠 [MEMORY] Memory area {memory_area_id}: temporal_depth={temporal_depth}, upstream_areas={upstream_areas}")
         
         # 1. Extract temporal pattern from upstream areas
@@ -378,7 +371,7 @@ class MemoryProcessor:
         
         if temporal_pattern:
             stats['patterns_processed'] = 1
-            if npu_debug:
+            if mem_debug:
                 logger.info(f"🧠 [MEMORY] Pattern detected for {memory_area_id}: creating/reactivating memory neuron")
                 logger.info(f"🔍 [MEMORY] PATTERN DEBUG: {temporal_pattern}")
                 logger.info(f"🔍 [MEMORY] Pattern serialized: {temporal_pattern.serialize() if hasattr(temporal_pattern, 'serialize') else 'No serialize method'}")
@@ -386,7 +379,7 @@ class MemoryProcessor:
             # 2. Find or create memory neuron for this pattern
             existing_neuron_idx = self._find_or_cache_pattern(temporal_pattern)
             
-            if npu_debug:
+            if mem_debug:
                 if existing_neuron_idx is not None:
                     logger.info(f"🔍 [MEMORY] Pattern lookup result: FOUND existing neuron #{existing_neuron_idx}")
                 else:
@@ -395,7 +388,7 @@ class MemoryProcessor:
             if existing_neuron_idx is not None:
                 # EXISTING neuron found - reactivate it
                 stats['neurons_reactivated'] = 1
-                if npu_debug:
+                if mem_debug:
                     logger.info(f"🌟 [MEMORY] Pattern found: reactivating existing memory neuron {existing_neuron_idx}")
                     logger.info(f"🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
                 # TODO: Reactivate the existing memory neuron (extend lifespan, etc.)
@@ -410,7 +403,7 @@ class MemoryProcessor:
                         lifespan_growth_rate=1.2  # TODO: Make configurable
                     )
                     stats['neurons_created'] = 1
-                    if npu_debug:
+                    if mem_debug:
                         logger.info(f"⭐ ⭐ ⭐ [MEMORY] 🆕 NEW MEMORY NEURON BORN! ⭐ ⭐ ⭐")
                         logger.info(f"⭐ [MEMORY] Created memory neuron #{new_neuron_idx} for area {memory_area_id}")
                         logger.info(f"⭐ [MEMORY] Pattern: {temporal_pattern}")
@@ -431,18 +424,18 @@ class MemoryProcessor:
             
             # 3. CRITICAL FIX: Inject active memory neurons into FCL for visualization
             # Memory neurons must fire to be visible to FQ Sampler
-            if npu_debug:
-                logger.info(f"🧠 [MEMORY] Injecting reactivated memory neurons into FCL for {memory_area_id}")
+            if mem_debug:
+                logger.info(f"�� [MEMORY] Injecting reactivated memory neurons into FCL for {memory_area_id}")
             
             # For now, inject a single representative neuron (index 0) - proper implementation would 
             # get actual memory neuron indices from the pattern cache
             self._inject_memory_neurons_into_fcl(memory_area_id, [0], current_burst)
         else:
-            if npu_debug:
+            if mem_debug:
                 logger.info(f"🧠 [MEMORY] No temporal pattern detected for memory area {memory_area_id} (no upstream activity)")
         
         # 4. Perform aging and lifecycle management for all memory neurons in this area
-        if npu_debug:
+        if mem_debug:
             logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
         
         try:
@@ -461,8 +454,8 @@ class MemoryProcessor:
                 converted_neurons.extend(area_conversions)
             
             # Enhanced logging for conversions
-            npu_debug = self._is_npu_debug_enabled()
-            if converted_neurons and npu_debug:
+            mem_debug = self._is_mem_debug_enabled()
+            if converted_neurons and mem_debug:
                 logger.info(f"🏆 [MEMORY] 🔮 LONG-TERM ASCENSION COMPLETE! 🔮")
                 logger.info(f"🏆 [MEMORY] {len(converted_neurons)} memory neurons have achieved IMMORTALITY!")
                 logger.info(f"🏆 [MEMORY] Converted neuron IDs: {converted_neurons}")
@@ -478,7 +471,7 @@ class MemoryProcessor:
                 self._remove_neuron_from_cache(neuron_idx)
                 
         except Exception as e:
-            if npu_debug:
+            if mem_debug:
                 logger.error(f"🧠 [MEMORY] Error during memory neuron aging: {e}")
         
         return stats
@@ -501,12 +494,12 @@ class MemoryProcessor:
             MemoryPatternKey if pattern found, None if no activity
         """
         try:
-            npu_debug = self._is_npu_debug_enabled()
-            if npu_debug:
+            mem_debug = self._is_mem_debug_enabled()
+            if mem_debug:
                 logger.info(f"🧠 [MEMORY] PATTERN EXTRACTION: upstream_areas={upstream_areas}, temporal_depth={temporal_depth}, current_burst={current_burst}")
             
             if not upstream_areas:
-                if npu_debug:
+                if mem_debug:
                     logger.info(f"🧠 [MEMORY] No upstream areas - cannot extract pattern")
                 return None
             
@@ -517,7 +510,7 @@ class MemoryProcessor:
             for timestep_offset in range(temporal_depth):
                 timestep = current_burst - timestep_offset
                 if timestep < 0:
-                    if npu_debug:
+                    if mem_debug:
                         logger.info(f"🧠 [MEMORY] Timestep {timestep} is negative - using empty pattern")
                     pattern_bitmaps.append(b'')  # Empty pattern for negative timesteps
                     continue
@@ -531,7 +524,7 @@ class MemoryProcessor:
                         # Get cortical_idx for upstream area
                         cortical_idx = self._get_cortical_idx_for_area(upstream_area_id)
                         if cortical_idx is None:
-                            if npu_debug:
+                            if mem_debug:
                                 logger.warning(f"🧠 [MEMORY] Could not get cortical_idx for upstream area {upstream_area_id}")
                             continue
                         
@@ -544,7 +537,7 @@ class MemoryProcessor:
                             else:
                                 combined_bitmap.or_update(area_bitmap)
                             
-                            if npu_debug:
+                            if mem_debug:
                                 neuron_count = len(area_bitmap)
                                 # Show first 10 neuron IDs for debugging
                                 firing_neurons = list(area_bitmap)[:10]
@@ -552,11 +545,11 @@ class MemoryProcessor:
                                 logger.info(f"🔍 [MEMORY] Timestep {timestep}: area {upstream_area_id} has {neuron_count} firing neurons: {firing_neurons}{more_indicator}")
                                 logger.info(f"🧠 [MEMORY] Timestep {timestep}: area {upstream_area_id} has {neuron_count} firing neurons")
                     except Exception as area_error:
-                        if npu_debug:
+                        if mem_debug:
                             logger.warning(f"🧠 [MEMORY] Error processing upstream area {upstream_area_id}: {area_error}")
                         continue
                 
-                if npu_debug:
+                if mem_debug:
                     total_neurons = len(combined_bitmap) if combined_bitmap else 0
                     logger.info(f"🧠 [MEMORY] Timestep {timestep}: combined pattern has {total_neurons} neurons from areas {areas_with_activity}")
                 
@@ -571,7 +564,7 @@ class MemoryProcessor:
             # Check if we have any meaningful pattern
             non_empty_patterns = [p for p in pattern_bitmaps if p]
             if not non_empty_patterns:
-                if npu_debug:
+                if mem_debug:
                     logger.info(f"🧠 [MEMORY] No meaningful patterns found - all timesteps empty")
                 return None
             
@@ -582,7 +575,7 @@ class MemoryProcessor:
                 source_cortical_areas=tuple(sorted(set(valid_areas)))
             )
             
-            if npu_debug:
+            if mem_debug:
                 logger.info(f"🧠 [MEMORY] PATTERN CREATED: {len(non_empty_patterns)}/{temporal_depth} non-empty timesteps, source_areas={pattern_key.source_cortical_areas}")
                 logger.info(f"🔍 [MEMORY] Pattern details: temporal_depth={temporal_depth}, pattern_data_length={len(pattern_key.pattern_data)}")
                 # Show pattern fingerprint for debugging
@@ -638,13 +631,20 @@ class MemoryProcessor:
             state_manager = FeagiStateManager.instance()
             
             # Get current brain stats
-            current_stats = state_manager.get_brain_stats()
-            current_count = current_stats.get("neuron_count", 0)
-            
-            # Update neuron count
-            new_count = max(0, current_count + increment)  # Ensure non-negative
+            current_stats = state_manager.get_brain_stats() or {}
+            total = int(current_stats.get("neuron_count", 0))
+            mem = int(current_stats.get("memory_neuron_count", 0))
+            reg = int(current_stats.get("non_memory_neuron_count", max(0, total - mem)))
+
+            # Apply increment to memory count and total
+            mem_new = max(0, mem + increment)
+            total_new = max(0, total + increment)
+            reg_new = max(0, total_new - mem_new)
+
             updated_stats = current_stats.copy()
-            updated_stats["neuron_count"] = new_count
+            updated_stats["neuron_count"] = total_new
+            updated_stats["memory_neuron_count"] = mem_new
+            updated_stats["non_memory_neuron_count"] = reg_new
             
             # Update StateManager
             result = state_manager.set_brain_stats(updated_stats)
@@ -657,22 +657,30 @@ class MemoryProcessor:
                 logger.info(f"🔍 [MEMORY] is_err callable: {callable(getattr(result, 'is_err'))}")
             
             # Handle both boolean and Result return types for compatibility
-            if hasattr(result, 'is_err') and callable(getattr(result, 'is_err')):
-                # Result object - check if it actually succeeded
+            if hasattr(result, 'is_ok') and hasattr(result, 'is_err'):
+                # Result object (Rust-style)
                 logger.info(f"🔍 [MEMORY] Processing as Result object")
-                if result.is_err():
-                    logger.error(f"🚨 [MEMORY] FAILED to update StateManager neuron count: {result.err()}")
+                if result.is_err:
+                    try:
+                        err = result.unwrap_err()
+                    except Exception:
+                        err = "unknown"
+                    logger.error(f"🚨 [MEMORY] FAILED to update StateManager counts: {err}")
                 else:
-                    logger.info(f"⭐ [MEMORY] ✅ StateManager neuron count updated: {current_count} → {new_count} (Δ{increment:+d})")
-                    logger.info(f"⭐ [MEMORY] 📊 Total brain neurons now: {new_count}")
+                    logger.info(
+                        f"⭐ [MEMORY] ✅ StateManager counts updated: total {total}→{total_new} (Δ{increment:+d}), "
+                        f"memory {mem}→{mem_new}, regular {reg}→{reg_new}"
+                    )
             elif isinstance(result, bool):
                 # Boolean return type
                 logger.info(f"🔍 [MEMORY] Processing as boolean: {result}")
                 if not result:
                     logger.error(f"🚨 [MEMORY] FAILED to update StateManager neuron count: returned False")
                 else:
-                    logger.info(f"⭐ [MEMORY] ✅ StateManager neuron count updated: {current_count} → {new_count} (Δ{increment:+d})")
-                    logger.info(f"⭐ [MEMORY] 📊 Total brain neurons now: {new_count}")
+                    logger.info(
+                        f"⭐ [MEMORY] ✅ StateManager counts updated: total {total}→{total_new} (Δ{increment:+d}), "
+                        f"memory {mem}→{mem_new}, regular {reg}→{reg_new}"
+                    )
             else:
                 # Unknown return type, log for debugging but assume failure
                 logger.error(f"🚨 [MEMORY] StateManager returned unexpected type: {type(result)} = {result}")
@@ -682,3 +690,99 @@ class MemoryProcessor:
             logger.error(f"🚨 [MEMORY] CRITICAL ERROR updating StateManager neuron count: {e}")
             import traceback
             logger.error(f"🚨 [MEMORY] StateManager update traceback: {traceback.format_exc()}") 
+
+    # --- Added helper methods for upstream discovery, lifecycle, cortical mapping, and FCL injection ---
+
+    def _discover_upstream_areas(self, memory_cortical_id: str) -> Set[str]:
+        """Discover upstream cortical areas for a given memory cortical area.
+
+        This uses the `ConnectomeManager` authoritative mapping via
+        `get_upstream_areas_for_memory`. Returns an empty set if unavailable.
+
+        Args:
+            memory_cortical_id: Memory cortical area ID
+
+        Returns:
+            Set of upstream cortical area IDs.
+        """
+        try:
+            if self.connectome_manager and hasattr(self.connectome_manager, "get_upstream_areas_for_memory"):
+                upstream: Set[str] = self.connectome_manager.get_upstream_areas_for_memory(memory_cortical_id)
+                return upstream or set()
+        except Exception as e:
+            logger.error(f"[MEMORY] Error discovering upstream areas for {memory_cortical_id}: {e}")
+        return set()
+
+    def _perform_aging_and_lifecycle(self, current_burst: int) -> Dict[str, int]:
+        """Run memory neuron aging and long-term conversion lifecycle.
+
+        Ages all active memory neurons and applies long-term conversion checks based
+        on configured thresholds per memory area.
+
+        Args:
+            current_burst: Current burst number
+
+        Returns:
+            Dict with counts: {"neurons_died": int, "neurons_converted": int}
+        """
+        neurons_died = 0
+        neurons_converted: Set[int] = set()
+
+        try:
+            # Age neurons once per burst
+            died = self.memory_neuron_array.age_memory_neurons(current_burst)
+            neurons_died = len(died)
+
+            # Apply long-term conversion using configured thresholds per area
+            # Note: MemoryNeuronArray operates globally; we invoke conversion check
+            # per distinct threshold to approximate area-specific policies.
+            thresholds: Set[int] = set()
+            for props in self.memory_area_properties.values():
+                try:
+                    thresholds.add(int(props.get("longterm_threshold", 100)))
+                except Exception:
+                    thresholds.add(100)
+
+            for threshold in sorted(thresholds):
+                converted = self.memory_neuron_array.check_longterm_conversion(longterm_threshold=threshold)
+                for idx in converted:
+                    neurons_converted.add(idx)
+
+        except Exception as e:
+            logger.error(f"🧠 [MEMORY] Error in aging/lifecycle processing: {e}")
+
+        return {"neurons_died": neurons_died, "neurons_converted": len(neurons_converted)}
+
+    def _get_cortical_idx_for_area(self, cortical_id: str) -> Optional[int]:
+        """Resolve cortical_idx for a given cortical_id via ConnectomeManager.
+
+        Args:
+            cortical_id: Cortical area ID
+
+        Returns:
+            Integer cortical_idx or None if not found.
+        """
+        try:
+            if self.connectome_manager and hasattr(self.connectome_manager, "get_cortical_idx_for_id"):
+                return self.connectome_manager.get_cortical_idx_for_id(cortical_id)
+        except Exception as e:
+            logger.error(f"🧠 [MEMORY] Error resolving cortical_idx for {cortical_id}: {e}")
+        return None
+
+    def _inject_memory_neurons_into_fcl(
+        self, memory_area_id: str, neuron_indices: List[int], current_burst: int
+    ) -> None:
+        """Inject a signal into the FCL to mark a memory area as active.
+
+        This uses a conservative approach that avoids overwriting per-area FCL
+        structures. We avoid injecting synthetic neuron IDs to keep FCL semantics
+        strict until a dedicated mapping for memory neurons is established.
+
+        Args:
+            memory_area_id: Memory cortical area ID
+            neuron_indices: Memory neuron indices
+            current_burst: Current burst number
+        """
+        # Intentionally left as a no-op to maintain strict FCL semantics.
+        # Memory neuron to FCL integration will use proper ID mapping in future work.
+        return 

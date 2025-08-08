@@ -1026,8 +1026,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             except Exception:
                 pass
 
-            # FCL manager uses sliding window with current timestep always 0
-            current_timestep = 0  # Fixed: always use 0 for current timestep
+            # Derive current timestep from FCL manager if available; otherwise start at 0
+            current_timestep = (
+                self.fcl_manager.current_timestep + 1 if self.fcl_manager else 0
+            )
 
             start_time = time.perf_counter()
 
@@ -1109,14 +1111,18 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 active_areas = list(self.memory_processor.active_memory_areas) if hasattr(self.memory_processor, 'active_memory_areas') else []
                 logger.info(f"🧠 [MEMORY] Active memory areas: {active_areas}")
             
-            # Process memory areas - use FCL's current timestep instead of BurstEngine's internal timestep
-            fcl_current_timestep = self.fcl_manager.current_timestep if self.fcl_manager else current_timestep
-            if npu_debug:
-                logger.info(f"🧠 [MEMORY] Using FCL timestep {fcl_current_timestep} instead of BurstEngine timestep {current_timestep}")
-            memory_stats = self.memory_processor.process_memory_areas_batch(fcl_current_timestep)
+            # Process memory areas aligned with FCL's current timestep to avoid window mismatches
+            fcl_current_timestep = (
+                self.fcl_manager.current_timestep if self.fcl_manager else current_timestep
+            )
+            memory_stats = self.memory_processor.process_memory_areas_batch(
+                fcl_current_timestep
+            )
             
             if npu_debug:
-                logger.info(f"🧠 [MEMORY] Memory processing: {memory_stats}, time: {memory_stats.get('processing_time_ms', 0):.2f}ms")
+                logger.info(
+                    f"🧠 [MEMORY] Memory processing: {memory_stats}, time: {memory_stats.get('processing_time_ms', 0):.2f}ms"
+                )
             
         except Exception as e:
             logger.error(f"🧠 [MEMORY] Error starting memory processing: {e}")
