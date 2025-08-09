@@ -107,3 +107,9 @@ Implement a complete rewrite of `VisualizationStream` with threading-based archi
 - [ZMQ Architecture Documentation](arch-zmq.md)
 - [Visualization Stream Tests](../../tests/api/zmq/test_visualization_stream.py)
 - [Threading Documentation](../feagi/api/zmq/streams/README.md)
+
+### Related Change: Physiology-Driven Sleep Trigger
+
+- Decision: Move sleep/maintenance triggering under genome physiology control using cumulative counters in State Manager
+- Rationale: Decouple from fixed FCL window limits; align with genome-driven runtime configuration and enable runtime tuning
+- Consequences: Sleep Manager reads thresholds from genome; counters are exposed in /v1/burst_engine/stats; endpoints added at /v1/physiology for updates
