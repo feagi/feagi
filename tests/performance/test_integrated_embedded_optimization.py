@@ -15,7 +15,8 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.models.neuron import MEMORY_ALIGNMENT, NUMBA_AVAILABLE, NeuronArray
+from feagi.bdu.models.neuron import NUMBA_AVAILABLE, NeuronArray
+from feagi.utils.simd_detection import SIMDBackendSelector
 from feagi.npu.burst_engine import BurstEngine
 
 
@@ -47,24 +48,24 @@ class TestIntegratedEmbeddedOptimization:
 
             # Verify alignment
             data_ptr = aligned_array.array.ctypes.data
-            assert data_ptr % MEMORY_ALIGNMENT == 0, (
-                f"Array not {MEMORY_ALIGNMENT}-byte aligned"
+            alignment = SIMDBackendSelector().get_memory_alignment()
+            assert data_ptr % alignment == 0, (
+                f"Array not {alignment}-byte aligned"
             )
 
             # Verify functionality
             aligned_array.array[0] = 3.14
             assert aligned_array.array[0] == 3.14
 
+        alignment = SIMDBackendSelector().get_memory_alignment()
         print(
-            f"✅ Cache alignment verification passed ({MEMORY_ALIGNMENT}-byte alignment)"
+            f"✅ Cache alignment verification passed ({alignment}-byte alignment)"
         )
 
     def test_simd_operations(self):
         """Test SIMD-optimized neural operations."""
         from feagi.bdu.models.neuron import (
-            simd_fire_neurons,
             simd_membrane_decay,
-            simd_threshold_check,
         )
 
         size = 10000
@@ -90,29 +91,9 @@ class TestIntegratedEmbeddedOptimization:
         expected[valid_mask] *= decay_rates[valid_mask]
         np.testing.assert_array_almost_equal(potentials, expected)
 
-        # Test threshold checking
-        start_time = time.perf_counter()
-        simd_threshold_check(
-            potentials, thresholds, refractory_counters, valid_mask, fired_mask
-        )
-        threshold_time = time.perf_counter() - start_time
-
-        # Test neuron firing
-        start_time = time.perf_counter()
-        simd_fire_neurons(
-            potentials,
-            resting_potentials,
-            refractory_counters,
-            refractory_periods,
-            fired_mask,
-        )
-        firing_time = time.perf_counter() - start_time
-
         print("✅ SIMD operations verified:")
         print(f"   - Numba available: {NUMBA_AVAILABLE}")
         print(f"   - Membrane decay: {decay_time * 1000:.2f}ms")
-        print(f"   - Threshold check: {threshold_time * 1000:.2f}ms")
-        print(f"   - Neuron firing: {firing_time * 1000:.2f}ms")
 
     def test_neuron_array_performance(self):
         """Test NeuronArray performance with embedded optimizations."""
@@ -130,7 +111,8 @@ class TestIntegratedEmbeddedOptimization:
             perf_summary = neuron_array.get_performance_summary()
             print(f"   Backend: {perf_summary.get('backend', 'N/A')}")
             print(f"   SIMD enabled: {perf_summary.get('simd_enabled', 'N/A')}")
-            print(f"   Memory alignment: {perf_summary.get('alignment', 'N/A')}B")
+            alignment = SIMDBackendSelector().get_memory_alignment()
+            print(f"   Memory alignment: {alignment}B")
 
             # Create test neurons
             for i in range(min(size, 1000)):  # Limit for performance

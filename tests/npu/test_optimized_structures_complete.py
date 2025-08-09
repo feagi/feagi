@@ -26,7 +26,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from feagi.npu.optimized_structures import FireCandidateList, GlobalNeuronArray
+from feagi.npu.optimized_structures import FireCandidateList
+from feagi.bdu.models.neuron import NeuronArray as GlobalNeuronArray
 
 
 class MockRustGNA:

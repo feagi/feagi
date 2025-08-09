@@ -1,7 +1,8 @@
+import asyncio
 import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.api.v1.physiology import create_physiology_api
+from feagi.api.v1.physiology import create_physiology_api, PhysiologyUpdateRequest
 
 
 class DummyGenomeService:
@@ -28,28 +29,27 @@ class DummyCoreAPI(CoreAPIService):
         return self._genome_service.update_physiology(updates)
 
 
-@pytest.mark.asyncio
-async def test_get_and_update_physiology_endpoints():
+def test_get_and_update_physiology_endpoints():
     core = DummyCoreAPI()
     api = create_physiology_api(core)
 
     # GET
-    resp = await api.get_physiology()
+    resp = asyncio.run(api.get_physiology())
     assert "physiology" in resp
     assert resp["physiology"]["simulation_timestep"] == 0.05
 
     # PUT update sleep thresholds
-    upd = {
-        "physiology": {
+    req = PhysiologyUpdateRequest(
+        physiology={
             "sleep_trigger_inactivity_window": 7,
             "sleep_trigger_neural_activity_max": 1234,
         }
-    }
-    result = await api.update_physiology(upd)  # type: ignore[arg-type]
+    )
+    result = asyncio.run(api.update_physiology(req))
     assert result["success"] is True
     assert result["updated"]["sleep_trigger_inactivity_window"] == 7
 
     # GET reflect update
-    resp2 = await api.get_physiology()
+    resp2 = asyncio.run(api.get_physiology())
     assert resp2["physiology"]["sleep_trigger_inactivity_window"] == 7
     assert resp2["physiology"]["sleep_trigger_neural_activity_max"] == 1234 
