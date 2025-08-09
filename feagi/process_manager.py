@@ -1952,6 +1952,8 @@ class SleepManager:
         self._gc_prune_after = int(gc_prune_after_bursts)
         self._running = False
         self._thread = None
+        # Genome physiology overrides
+        self._use_genome_trigger = True
 
     def start(self) -> None:
         if self._running:
@@ -1976,24 +1978,41 @@ class SleepManager:
                         time.sleep(self._interval)
                         continue
                     current_ts = int(self._fcl.current_timestep)
-                    # Compute average global activity over the last window bursts
-                    total = 0
-                    steps = 0
-                    for i in range(self._window):
-                        ts = current_ts - i
-                        if ts < 0:
-                            break
-                        try:
-                            global_fcl = self._fcl.get_global_fcl(ts)
-                            total += len(global_fcl) if global_fcl is not None else 0
-                            steps += 1
-                        except Exception:
-                            # If FCL not available for this timestep, skip
+
+                    # Prefer genome physiology thresholds if available
+                    window_bursts = self._window
+                    activity_max = self._threshold
+                    try:
+                        physiology = None
+                        if hasattr(self._cm, "genome") and isinstance(self._cm.genome, dict):
+                            physiology = self._cm.genome.get("physiology", {})
+                        if not physiology:
+                            # Attempt to get via state manager genome cache if available in future
                             pass
-                    avg = (total / steps) if steps > 0 else 0
-                    if steps >= self._window and avg <= self._threshold:
-                        # Low activity sustained -> run memory maintenance
-                        self._run_memory_maintenance(current_ts)
+                        if physiology:
+                            window_bursts = int(physiology.get("sleep_trigger_inactivity_window", window_bursts))
+                            activity_max = int(physiology.get("sleep_trigger_neural_activity_max", activity_max))
+                    except Exception:
+                        # Use configured defaults
+                        pass
+
+                    # Use cumulative counters from StateManager
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        sm = FeagiStateManager.instance()
+                        counters = sm.get_cumulative_activity()
+                        bursts = int(counters.get("bursts", 0))
+                        neurons = int(counters.get("neurons", 0))
+                        if bursts >= window_bursts and neurons <= activity_max:
+                            self._run_memory_maintenance(current_ts)
+                            # Reset counters after a maintenance pass
+                            sm.reset_cumulative_activity()
+                        else:
+                            # Optional debug log to understand gating
+                            if bursts > 0 and (bursts % max(1, window_bursts // 4) == 0):
+                                logger.debug(f"[SLEEP] Not triggering: bursts={bursts}/{window_bursts}, neurons={neurons} (max {activity_max})")
+                    except Exception as counter_err:
+                        logger.debug(f"Sleep Manager counter read error: {counter_err}")
                 except Exception as loop_err:
                     logger.debug(f"Sleep Manager loop error: {loop_err}")
                 time.sleep(self._interval)

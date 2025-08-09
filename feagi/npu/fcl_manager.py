@@ -664,6 +664,13 @@ class FCLManager:
         self.total_neurons_fired = burst_total
         self.current_window_index = standard_index
 
+        # Update cumulative activity counters in StateManager for sleep trigger
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            FeagiStateManager.instance().increment_cumulative_activity(burst_total)
+        except Exception:
+            pass
+
         # Gate debug logging with --debug-npu flag
         from feagi.core.state_manager import FeagiStateManager
         state_manager = FeagiStateManager.instance()

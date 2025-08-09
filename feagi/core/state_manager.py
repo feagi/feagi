@@ -1108,6 +1108,47 @@ class FeagiStateManager:
             return False
         return self._debug_config.get('mem_debug', False)
 
+    # === CUMULATIVE ACTIVITY COUNTERS (Sleep trigger support) ===
+
+    def _ensure_activity_counters(self) -> None:
+        """Initialize activity counters if missing."""
+        if not hasattr(self, '_cumulative_activity_total'):
+            self._cumulative_activity_total = 0  # Total neurons fired accumulated
+        if not hasattr(self, '_cumulative_activity_bursts'):
+            self._cumulative_activity_bursts = 0  # Bursts counted in current window
+
+    def increment_cumulative_activity(self, neurons_fired_this_burst: int) -> None:
+        """Increment cumulative FCL activity counters.
+
+        Args:
+            neurons_fired_this_burst: Total neurons fired across all areas in the burst
+        """
+        try:
+            self._ensure_activity_counters()
+            # Guard inputs
+            inc = int(neurons_fired_this_burst)
+            if inc < 0:
+                inc = 0
+            self._cumulative_activity_total += inc
+            self._cumulative_activity_bursts += 1
+        except Exception:
+            # Keep counters best-effort; never raise in hot path
+            pass
+
+    def get_cumulative_activity(self) -> Dict[str, int]:
+        """Get current cumulative FCL activity window counters."""
+        self._ensure_activity_counters()
+        return {
+            "bursts": int(self._cumulative_activity_bursts),
+            "neurons": int(self._cumulative_activity_total),
+        }
+
+    def reset_cumulative_activity(self) -> None:
+        """Reset cumulative counters (e.g., when Sleep maintenance triggers)."""
+        self._ensure_activity_counters()
+        self._cumulative_activity_total = 0
+        self._cumulative_activity_bursts = 0
+
     def get_critical_services_status(self) -> Dict[str, Any]:
         """Get status of all critical services for system readiness checks."""
         # Create mock state objects with .value attribute for compatibility

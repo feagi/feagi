@@ -4486,3 +4486,25 @@ class CoreAPIService:
             return f"{int(size)} {units[unit_index]}"
         else:
             return f"{size:.1f} {units[unit_index]}"
+
+    def update_genome_physiology(self, updates: Dict[str, Any]) -> bool:
+        """Update physiology parameters in the current genome and refresh state.
+
+        Args:
+            updates: dict of physiology fields to update
+
+        Returns:
+            True on success
+        """
+        try:
+            success = self._genome_service.update_physiology(updates)
+            if success:
+                # Refresh any caches or dependent services
+                try:
+                    self.refresh_cached_data()
+                except Exception:
+                    pass
+            return bool(success)
+        except Exception as e:
+            self.logger.error(f"Failed to update genome physiology: {e}")
+            return False

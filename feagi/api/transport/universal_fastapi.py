@@ -215,6 +215,7 @@ else:
     from feagi.api.v1.evolution import create_evolution_api
     from feagi.api.v1.feagi_agent import create_feagi_agent_api
     from feagi.api.v1.genome import create_genome_api
+    from feagi.api.v1.physiology import create_physiology_api
     from feagi.api.v1.inputs import create_inputs_api
     from feagi.api.v1.insights import create_insights_api
     from feagi.api.v1.monitoring import create_monitoring_api
@@ -326,6 +327,10 @@ else:
                         )
                     elif module_name == "genome":
                         self._api_instances[module_name] = create_genome_api(
+                            core_api_service
+                        )
+                    elif module_name == "physiology":
+                        self._api_instances[module_name] = create_physiology_api(
                             core_api_service
                         )
                     elif module_name == "cortical_area":

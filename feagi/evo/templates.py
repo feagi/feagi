@@ -684,6 +684,11 @@ physiology_template = {
     "ipu_idle_threshold": 1000,  # Threshold for IPU idle detection
     "plasticity_queue_depth": 3,  # Depth of plasticity processing queue
     "lifespan_mgmt_interval": 10,  # Interval for neuron lifespan management
+    # Sleep triggering (inactivity-based maintenance)
+    # Number of bursts to accumulate activity for before evaluating sleep trigger
+    "sleep_trigger_inactivity_window": 1000,
+    # Maximum cumulative neurons fired within the window to qualify as "low activity"
+    "sleep_trigger_neural_activity_max": 10000,
 }
 
 
@@ -696,6 +701,8 @@ physiology_property_types = {
     "ipu_idle_threshold": "int",
     "plasticity_queue_depth": "int",
     "lifespan_mgmt_interval": "int",
+    "sleep_trigger_inactivity_window": "int",
+    "sleep_trigger_neural_activity_max": "int",
 }
 
 

@@ -692,6 +692,17 @@ def create_rest_app(connectome: ConnectomeManager = None):
         responses=standard_response,
     )
 
+    # Physiology router (genome parameters)
+    from feagi.api.transport.universal_fastapi import UniversalFastAPIWrapper
+    physiology_router = UniversalFastAPIWrapper().create_router_for_module("physiology")
+    app.include_router(
+        physiology_router,
+        prefix="/v1/physiology",
+        tags=["PHYSIOLOGY"],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
+        responses=standard_response,
+    )
+
     app.include_router(
         get_evolution_router(),
         prefix="/v1/evolution",

@@ -185,6 +185,15 @@ class BurstEngineAPI:
         """Get the burst engine statistics."""
         try:
             stats = self.core_api_service.get_burst_engine_stats()
+            # Augment with cumulative activity counters from state manager
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                counters = FeagiStateManager.instance().get_cumulative_activity()
+                stats = dict(stats)
+                stats["cumulative_activity_bursts"] = int(counters.get("bursts", 0))
+                stats["cumulative_activity_neurons"] = int(counters.get("neurons", 0))
+            except Exception:
+                pass
             return BurstEngineStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting burst engine stats: {e}")

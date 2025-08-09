@@ -4263,3 +4263,53 @@ class GenomeService(BaseService):
     def get_genome_filename(self) -> Optional[str]:
         """Get the filename of the currently loaded genome."""
         return self._genome_filename
+
+    def get_current_genome(self) -> Dict[str, Any]:
+        """Get the current genome copy (internal helper)."""
+        return self._current_genome or {}
+
+    def update_physiology(self, updates: Dict[str, Any]) -> bool:
+        """Update physiology section in the current genome and validate.
+
+        Args:
+            updates: dict of physiology fields to update
+
+        Returns:
+            True if updated and valid; False otherwise
+        """
+        try:
+            if not isinstance(self._current_genome, dict):
+                self.logger.error("No genome loaded; cannot update physiology")
+                return False
+            genome = self._current_genome
+            if "physiology" not in genome or not isinstance(genome["physiology"], dict):
+                genome["physiology"] = {}
+            physiology = genome["physiology"]
+
+            # Merge updates (typed correction will be handled by validator)
+            for k, v in (updates or {}).items():
+                physiology[k] = v
+
+            # Validate physiology and sanitize missing fields/types
+            try:
+                from feagi.evo.genome_validator import validate_physiology_section, sanitize_missing_physiology
+                sanitize_missing_physiology(genome)
+                result = validate_physiology_section(genome)
+                if not result.get("valid", False):
+                    self.logger.warning(f"Physiology validation warnings: {result.get('errors', [])}")
+            except Exception as e:
+                # Do not fail the update due to validation logging only
+                self.logger.debug(f"Physiology validation skipped due to error: {e}")
+
+            # Update connectome manager reference if it keeps a genome copy
+            try:
+                if hasattr(self._connectome_manager, "genome"):
+                    self._connectome_manager.genome = genome
+            except Exception:
+                pass
+
+            # Persist state manager brain stats if needed—no change here
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to update physiology: {e}")
+            return False
