@@ -207,6 +207,30 @@ else:
     from feagi.api.rest.dependencies import get_core_api_service
     from feagi.api.v1.burst_engine import create_burst_engine_api
 
+    def _maybe_file_response(result):
+        """Convert result dict with {path, filename} into a FileResponse and cleanup."""
+        try:
+            if isinstance(result, dict) and "path" in result and result.get("filename"):
+                from fastapi.responses import FileResponse
+                from starlette.background import BackgroundTask
+                zip_path = result["path"]
+                filename = result["filename"]
+                def _cleanup():
+                    try:
+                        import os
+                        os.remove(zip_path)
+                    except Exception:
+                        pass
+                return FileResponse(
+                    path=zip_path,
+                    filename=filename,
+                    media_type="application/zip",
+                    background=BackgroundTask(_cleanup),
+                )
+        except Exception:
+            return result
+        return result
+
     # Import all the new API modules
     from feagi.api.v1.connectome import create_connectome_api
     from feagi.api.v1.cortical_area import create_cortical_area_api
@@ -227,6 +251,7 @@ else:
     from feagi.api.v1.simulation import create_simulation_api
     from feagi.api.v1.system import create_system_api
     from feagi.api.v1.training import create_training_api
+    from feagi.api.v1.snapshot import create_snapshot_api
     from feagi.utils.logger import setup_logger
 
     logger = setup_logger(__name__)
@@ -397,6 +422,10 @@ else:
                         self._api_instances[module_name] = create_evolution_api(
                             core_api_service
                         )
+                    elif module_name == "snapshot":
+                        self._api_instances[module_name] = create_snapshot_api(
+                            core_api_service
+                        )
                     else:
                         raise ValueError(f"Unknown module: {module_name}")
 
@@ -444,7 +473,8 @@ else:
                         file: UploadFile, api_instance=Depends(_get_api_instance)
                     ):
                         try:
-                            return await original_handler(api_instance, file)
+                            result = await original_handler(api_instance, file)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -460,7 +490,8 @@ else:
                         file: UploadFile, api_instance=Depends(_get_api_instance)
                     ):
                         try:
-                            return original_handler(api_instance, file)
+                            result = original_handler(api_instance, file)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -483,7 +514,8 @@ else:
                         try:
                             # Pass path parameters first, then request body
                             args = list(path_params.values()) + [request_data]
-                            return await original_handler(api_instance, *args)
+                            result = await original_handler(api_instance, *args)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -503,7 +535,8 @@ else:
                         try:
                             # Pass path parameters first, then request body
                             args = list(path_params.values()) + [request_data]
-                            return original_handler(api_instance, *args)
+                            result = original_handler(api_instance, *args)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -523,7 +556,8 @@ else:
                         api_instance=Depends(_get_api_instance),
                     ):
                         try:
-                            return await original_handler(api_instance, request_data)
+                            result = await original_handler(api_instance, request_data)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -540,7 +574,8 @@ else:
                         api_instance=Depends(_get_api_instance),
                     ):
                         try:
-                            return original_handler(api_instance, request_data)
+                            result = original_handler(api_instance, request_data)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -571,9 +606,10 @@ else:
                                 api_instance=Depends(_get_api_instance),
                             ):
                                 try:
-                                    return await original_handler(
+                                    result = await original_handler(
                                         api_instance, cortical_area
                                     )
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -591,9 +627,10 @@ else:
                                 agent_id: str, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return await original_handler(
+                                    result = await original_handler(
                                         api_instance, agent_id
                                     )
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -611,9 +648,10 @@ else:
                                 neuron_id: int, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return await original_handler(
+                                    result = await original_handler(
                                         api_instance, neuron_id
                                     )
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -631,9 +669,10 @@ else:
                                 cortical_id: str, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return await original_handler(
+                                    result = await original_handler(
                                         api_instance, cortical_id
                                     )
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -645,15 +684,38 @@ else:
                                     )
 
                             return fastapi_handler_with_cortical_id
+                        elif param_name == "snapshot_id":
+
+                            async def fastapi_handler_with_snapshot_id(
+                                snapshot_id: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    result = await original_handler(
+                                        api_instance, snapshot_id
+                                    )
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+
+                            return fastapi_handler_with_snapshot_id
                         else:
                             # Generic parameter handling
                             async def fastapi_handler_with_path_params(
-                                path_param: str, api_instance=Depends(_get_api_instance)
+                                api_instance=Depends(_get_api_instance), **path_params
                             ):
                                 try:
-                                    return await original_handler(
-                                        api_instance, path_param
+                                    value = path_params.get(param_name)
+                                    result = await original_handler(
+                                        api_instance, value
                                     )
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -665,6 +727,25 @@ else:
                                     )
                     else:
                         # Handle multiple path parameters
+                        if path_param_names == ["snapshot_id", "fmt"]:
+                            async def fastapi_handler_with_snapshot_id_and_fmt(
+                                snapshot_id: str,
+                                fmt: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    result = await original_handler(api_instance, snapshot_id, fmt)
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+
                         async def fastapi_handler_with_path_params(
                             api_instance=Depends(_get_api_instance), **path_params
                         ):
@@ -675,7 +756,8 @@ else:
                                     for param in handler_params
                                     if param in path_params
                                 ]
-                                return await original_handler(api_instance, *args)
+                                result = await original_handler(api_instance, *args)
+                                return _maybe_file_response(result)
                             except ValueError as e:
                                 raise HTTPException(status_code=400, detail=str(e))
                             except Exception as e:
@@ -700,7 +782,8 @@ else:
                                 api_instance=Depends(_get_api_instance),
                             ):
                                 try:
-                                    return original_handler(api_instance, cortical_area)
+                                    result = original_handler(api_instance, cortical_area)
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -718,7 +801,8 @@ else:
                                 agent_id: str, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return original_handler(api_instance, agent_id)
+                                    result = original_handler(api_instance, agent_id)
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -736,7 +820,8 @@ else:
                                 neuron_id: int, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return original_handler(api_instance, neuron_id)
+                                    result = original_handler(api_instance, neuron_id)
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -754,7 +839,8 @@ else:
                                 cortical_id: str, api_instance=Depends(_get_api_instance)
                             ):
                                 try:
-                                    return original_handler(api_instance, cortical_id)
+                                    result = original_handler(api_instance, cortical_id)
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -766,13 +852,34 @@ else:
                                     )
 
                             return fastapi_handler_with_cortical_id
+                        elif param_name == "snapshot_id":
+
+                            def fastapi_handler_with_snapshot_id(
+                                snapshot_id: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    result = original_handler(api_instance, snapshot_id)
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+
+                            return fastapi_handler_with_snapshot_id
                         else:
                             # Generic parameter handling
                             def fastapi_handler_with_path_params(
-                                path_param: str, api_instance=Depends(_get_api_instance)
+                                api_instance=Depends(_get_api_instance), **path_params
                             ):
                                 try:
-                                    return original_handler(api_instance, path_param)
+                                    value = path_params.get(param_name)
+                                    result = original_handler(api_instance, value)
+                                    return _maybe_file_response(result)
                                 except ValueError as e:
                                     raise HTTPException(status_code=400, detail=str(e))
                                 except Exception as e:
@@ -784,6 +891,25 @@ else:
                                     )
                     else:
                         # Handle multiple path parameters
+                        if path_param_names == ["snapshot_id", "fmt"]:
+                            def fastapi_handler_with_snapshot_id_and_fmt(
+                                snapshot_id: str,
+                                fmt: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    result = original_handler(api_instance, snapshot_id, fmt)
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+
                         def fastapi_handler_with_path_params(
                             api_instance=Depends(_get_api_instance), **path_params
                         ):
@@ -794,7 +920,8 @@ else:
                                     for param in handler_params
                                     if param in path_params
                                 ]
-                                return original_handler(api_instance, *args)
+                                result = original_handler(api_instance, *args)
+                                return _maybe_file_response(result)
                             except ValueError as e:
                                 raise HTTPException(status_code=400, detail=str(e))
                             except Exception as e:
@@ -815,7 +942,8 @@ else:
                         api_instance=Depends(_get_api_instance),
                     ):
                         try:
-                            return await original_handler(api_instance)
+                            result = await original_handler(api_instance)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -829,7 +957,8 @@ else:
 
                     def fastapi_handler_simple(api_instance=Depends(_get_api_instance)):
                         try:
-                            return original_handler(api_instance)
+                            result = original_handler(api_instance)
+                            return _maybe_file_response(result)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -958,6 +1087,37 @@ else:
         wrapper = UniversalFastAPIWrapper()
         return wrapper.create_router_for_module("evolution")
 
+    def create_snapshot_router() -> APIRouter:
+        """Create a FastAPI router for snapshot endpoints."""
+        wrapper = UniversalFastAPIWrapper()
+        router = wrapper.create_router_for_module("snapshot")
+        # Manually add the artifact and restore endpoints to avoid path param issues
+        from fastapi import Depends, HTTPException
+        from feagi.api.rest.dependencies import get_core_api_service
+        from feagi.api.v1.snapshot import SnapshotAPI
+
+        @router.get("/{snapshot_id}/artifact/{fmt}")
+        async def get_snapshot_artifact(snapshot_id: str, fmt: str, core_api_service=Depends(get_core_api_service)):
+            try:
+                api = SnapshotAPI(core_api_service)
+                return await api.get_snapshot_artifact(snapshot_id, fmt)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Internal server error")
+
+        @router.post("/{snapshot_id}/restore")
+        async def restore_snapshot(snapshot_id: str, core_api_service=Depends(get_core_api_service)):
+            try:
+                api = SnapshotAPI(core_api_service)
+                return await api.restore_snapshot(snapshot_id)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Internal server error")
+
+        return router
+
     # Create the router instance that can be imported
     def get_system_router() -> APIRouter:
         """Get the system router for use in main FastAPI app."""
@@ -1030,5 +1190,9 @@ else:
     def get_evolution_router() -> APIRouter:
         """Get the evolution router for use in main FastAPI app."""
         return create_evolution_router()
+
+    def get_snapshot_router() -> APIRouter:
+        """Get the snapshot router for use in main FastAPI app."""
+        return create_snapshot_router()
 
     # Force import of API classes to ensure endpoint registration

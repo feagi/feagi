@@ -2485,15 +2485,6 @@ class CoreAPIService:
             self.logger.error(f"Error checking pending amalgamation: {str(e)}")
             return False
 
-    def save_connectome_snapshot(self, path: str) -> bool:
-        """Save connectome snapshot."""
-        try:
-            # This would need implementation
-            return True
-        except Exception as e:
-            self.logger.error(f"Error saving connectome snapshot: {str(e)}")
-            return False
-
     def import_cortical_area(self, cortical_area_data: Dict[str, Any]) -> bool:
         """Import cortical area data."""
         try:

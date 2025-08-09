@@ -179,3 +179,15 @@ fcl_low_activity_window_bursts = 50          # Window length (bursts) to average
 fcl_low_activity_threshold = 5               # Avg neurons per burst considered "low activity"
 monitor_interval_seconds = 2.0               # Polling interval for activity check
 gc_prune_inactive_after_bursts = 500         # Prune inactive pattern mappings older than this many bursts
+
+[snapshot]
+# Brain snapshot configuration (required for /v1/snapshot endpoints)
+# Set absolute, writable paths for your environment
+output_dir = ""            # e.g., "/var/lib/feagi/snapshots" or "C:/feagi/snapshots"
+temp_dir = ""              # e.g., "/var/lib/feagi/snapshots/tmp" or "C:/feagi/snapshots/tmp"
+zip_compression = "deflate"  # "deflate" or "store"
+# Optional defaults for the new FEAGI Container format (.fc)
+# default_format can be "zip" or "fc" (download prefers this format when present)
+default_format = "zip"
+# fc_compression can be "store" (uncompressed) or "deflate" (zlib)
+fc_compression = "store"

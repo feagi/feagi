@@ -276,27 +276,6 @@ class ConnectomeAPI:
             logger.error(f"Error getting cortical stats: {e}")
             raise ValueError(f"Failed to get cortical stats: {str(e)}")
 
-    # ===== Snapshot Operations =====
-
-    @connectome_endpoint("POST", "/snapshot", response_model=ConnectomeSnapshotResponse)
-    async def create_connectome_snapshot(
-        self, connectome_storage_path: str
-    ) -> ConnectomeSnapshotResponse:
-        """Create a snapshot of the current connectome."""
-        try:
-            success = self.core_api_service.save_connectome_snapshot(
-                connectome_storage_path
-            )
-            if not success:
-                raise ValueError("Failed to create connectome snapshot")
-            return ConnectomeSnapshotResponse(
-                message="Connectome snapshot saved successfully",
-                path=connectome_storage_path,
-            )
-        except Exception as e:
-            logger.error(f"Error creating connectome snapshot: {e}")
-            raise ValueError(f"Failed to create connectome snapshot: {str(e)}")
-
     # ===== Download Operations =====
 
     @connectome_endpoint(

@@ -60,6 +60,7 @@ from feagi.api.transport.universal_fastapi import (
     get_simulation_router,
     get_system_router,
     get_training_router,
+    get_snapshot_router,
 )
 
 # Import the visualization router
@@ -822,6 +823,16 @@ def create_rest_app(connectome: ConnectomeManager = None):
         prefix="/v1/monitoring",
         tags=["MONITORING"],
         dependencies=[Depends(check_active_genome)],
+        responses=standard_response,
+    )
+
+    # Add the snapshot router
+    from feagi.api.transport.universal_fastapi import get_snapshot_router
+    app.include_router(
+        get_snapshot_router(),
+        prefix="/v1/snapshots",
+        tags=["SNAPSHOTS"],
+        dependencies=[],
         responses=standard_response,
     )
 
