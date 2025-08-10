@@ -271,6 +271,10 @@ else:
 
         def create_router_for_module(self, module_name: str) -> APIRouter:
             """Create a FastAPI router for a specific v1 API module."""
+            # Special-case snapshot: use manual router to avoid param binding issues
+            if module_name == "snapshot":
+                from feagi.api.transport.universal_fastapi import create_snapshot_router
+                return create_snapshot_router()
             registry = get_endpoint_registry()
             endpoints = registry.get_endpoints_by_module(module_name)
 
@@ -1088,19 +1092,59 @@ else:
         return wrapper.create_router_for_module("evolution")
 
     def create_snapshot_router() -> APIRouter:
-        """Create a FastAPI router for snapshot endpoints."""
-        wrapper = UniversalFastAPIWrapper()
-        router = wrapper.create_router_for_module("snapshot")
-        # Manually add the artifact and restore endpoints to avoid path param issues
-        from fastapi import Depends, HTTPException
-        from feagi.api.rest.dependencies import get_core_api_service
+        """Create a FastAPI router for snapshot endpoints (manual wiring to avoid param issues)."""
+        from fastapi import APIRouter, Depends, HTTPException
         from feagi.api.v1.snapshot import SnapshotAPI
+        from fastapi.responses import FileResponse
+        from starlette.background import BackgroundTask
+        import os
+
+        router = APIRouter()
+
+        @router.post("/")
+        async def create_snapshot(request: dict, core_api_service=Depends(get_core_api_service)):
+            try:
+                api = SnapshotAPI(core_api_service)
+                # Pydantic model parsing is inside the API method
+                # We call the same logic by instantiating model inside
+                from feagi.api.v1.snapshot import SnapshotCreateRequest
+
+                parsed = SnapshotCreateRequest(**request)
+                return await api.create_snapshot(parsed)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Internal server error")
 
         @router.get("/{snapshot_id}/artifact/{fmt}")
         async def get_snapshot_artifact(snapshot_id: str, fmt: str, core_api_service=Depends(get_core_api_service)):
             try:
                 api = SnapshotAPI(core_api_service)
-                return await api.get_snapshot_artifact(snapshot_id, fmt)
+                result = await api.get_snapshot_artifact(snapshot_id, fmt)
+                if isinstance(result, dict) and "path" in result and result.get("filename"):
+                    file_path = result["path"]
+                    filename = result["filename"]
+                    if fmt.lower() == "zip":
+                        # Clean up the temporary zip after sending
+                        def _cleanup():
+                            try:
+                                os.remove(file_path)
+                            except Exception:
+                                pass
+                        return FileResponse(
+                            path=file_path,
+                            filename=filename,
+                            media_type="application/zip",
+                            background=BackgroundTask(_cleanup),
+                        )
+                    else:
+                        # For .fc, persist artifact stays; no cleanup
+                        return FileResponse(
+                            path=file_path,
+                            filename=filename,
+                            media_type="application/octet-stream",
+                        )
+                return result
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception:
@@ -1111,6 +1155,26 @@ else:
             try:
                 api = SnapshotAPI(core_api_service)
                 return await api.restore_snapshot(snapshot_id)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Internal server error")
+
+        @router.get("/")
+        async def list_snapshots(core_api_service=Depends(get_core_api_service)):
+            try:
+                api = SnapshotAPI(core_api_service)
+                return await api.list_snapshots()
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Internal server error")
+
+        @router.delete("/{snapshot_id}")
+        async def delete_snapshot(snapshot_id: str, core_api_service=Depends(get_core_api_service)):
+            try:
+                api = SnapshotAPI(core_api_service)
+                return await api.delete_snapshot(snapshot_id)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception:

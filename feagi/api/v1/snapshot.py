@@ -203,6 +203,41 @@ class SnapshotAPI:
             logger.error(f"Failed to get snapshot artifact '{snapshot_id}:{fmt}': {e}")
             raise ValueError(str(e))
 
+    @snapshot_endpoint("GET", "/")
+    async def list_snapshots(self) -> Dict[str, Any]:
+        try:
+            config = load_feagi_config()
+            root = Path(config.get("snapshot", {}).get("output_dir", ""))
+            if not root or not root.exists():
+                return {"snapshots": []}
+            items = []
+            for child in root.iterdir():
+                if child.is_dir() and (child / "manifest.json").exists():
+                    items.append(child.name)
+            return {"snapshots": sorted(items)}
+        except Exception as e:
+            logger.error(f"Failed to list snapshots: {e}")
+            raise ValueError(str(e))
+
+    @snapshot_endpoint("DELETE", "/{snapshot_id}")
+    async def delete_snapshot(self, snapshot_id: str) -> Dict[str, Any]:
+        try:
+            config = load_feagi_config()
+            root = Path(config.get("snapshot", {}).get("output_dir", ""))
+            if not root:
+                raise ValueError("Snapshot configuration missing required key: output_dir.")
+            snap_dir = root / snapshot_id
+            if not snap_dir.exists():
+                return {"deleted": False}
+            # Delete folder and its contents
+            import shutil
+
+            shutil.rmtree(snap_dir)
+            return {"deleted": True}
+        except Exception as e:
+            logger.error(f"Failed to delete snapshot '{snapshot_id}': {e}")
+            raise ValueError(str(e))
+
 
 def create_snapshot_api(core_api_service: CoreAPIService) -> SnapshotAPI:
     return SnapshotAPI(core_api_service) 

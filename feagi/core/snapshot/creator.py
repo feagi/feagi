@@ -47,7 +47,10 @@ def _build_connectome_summary(connectome_manager) -> Dict[str, Any]:
         if hasattr(connectome_manager, "cortical_mapping"):
             try:
                 m = connectome_manager.cortical_mapping.get_all_mappings()
-                mappings = {str(k): list(v) if not isinstance(v, dict) else v for k, v in m.items()}
+                mappings = {
+                    str(k): (list(v) if not isinstance(v, dict) else v)
+                    for k, v in m.items()
+                }
             except Exception:
                 mappings = {}
         return {"areas": areas, "mappings": mappings}
@@ -102,6 +105,14 @@ def create_brain_snapshot(
         snapshot_id = f"brain-{ts}"
 
     snap_dir = output_dir / snapshot_id
+    # Ensure unique snapshot directory by adding a numeric suffix if needed
+    if snap_dir.exists():
+        counter = 1
+        base = snapshot_id
+        while (output_dir / f"{base}-{counter}").exists():
+            counter += 1
+        snapshot_id = f"{base}-{counter}"
+        snap_dir = output_dir / snapshot_id
     _safe_mkdirs(snap_dir)
 
     connectome_json = _build_connectome_summary(connectome_manager)
@@ -114,6 +125,15 @@ def create_brain_snapshot(
         json.dumps(state_json, separators=(",", ":")), encoding="utf-8"
     )
 
+    # Compute checksums for integrity verification
+    from hashlib import blake2b
+    c_bytes = (snap_dir / "connectome.json").read_bytes()
+    s_bytes = (snap_dir / "state.json").read_bytes()
+    checksums = {
+        "connectome.json": blake2b(c_bytes, digest_size=32).hexdigest(),
+        "state.json": blake2b(s_bytes, digest_size=32).hexdigest(),
+    }
+
     manifest = {
         "schema_version": "brain-snapshot-v1",
         "created_at": _now_iso(),
@@ -121,6 +141,7 @@ def create_brain_snapshot(
             "connectome": "connectome.json",
             "state": "state.json",
         },
+        "checksums": checksums,
     }
     (snap_dir / "manifest.json").write_text(
         json.dumps(manifest, separators=(",", ":")), encoding="utf-8"

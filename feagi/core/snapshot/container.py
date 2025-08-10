@@ -9,11 +9,17 @@ Format:
     "endianness": "little",
     "alignment": 4096,
     "chunks": [
-      {"name": "connectome.json", "encoding": "store|deflate", "offset": int, "length": int, "uncompressed_length": int, "checksum": "blake2b-256-hex"},
-      {"name": "state.json",      "encoding": "store|deflate", "offset": int, "length": int, "uncompressed_length": int, "checksum": "..."}
+      {"name": "connectome.json", "encoding": "store|deflate",
+       "offset": int, "length": int,
+       "uncompressed_length": int,
+       "checksum": "blake2b-256-hex"},
+      {"name": "state.json", "encoding": "store|deflate",
+       "offset": int, "length": int,
+       "uncompressed_length": int,
+       "checksum": "..."}
     ]
   }
-- Data region: concatenated chunk payloads at given offsets; offsets aligned to "alignment"
+- Data region: chunk payloads at aligned offsets (alignment boundary)
 
 Chunk encodings:
 - store: raw bytes
@@ -94,7 +100,8 @@ def write_fc(
         "chunks": [],
     }
 
-    # We will compute offsets after building header JSON length; we need chunk metadata first
+    # Compute offsets after building header JSON length;
+    # we need chunk metadata first
     chunks_meta: List[Dict[str, Any]] = [
         {
             "name": "connectome.json",
@@ -156,7 +163,9 @@ def write_fc(
         f.seek(chunks_meta[0]["offset"])  # no-op if sequential
         f.write(cj_enc)
         # pad to next alignment
-        next_off = _align_offset(chunks_meta[0]["offset"] + chunks_meta[0]["length"], ALIGNMENT)
+        next_off = _align_offset(
+            chunks_meta[0]["offset"] + chunks_meta[0]["length"], ALIGNMENT
+        )
         if next_off > f.tell():
             f.write(b"\x00" * (next_off - f.tell()))
         # state
@@ -218,12 +227,29 @@ def restore_fc_snapshot(snapshot_root: Path, snapshot_id: str, state_manager) ->
     fc_path = Path(snapshot_root) / snapshot_id / f"{snapshot_id}.fc"
     if not fc_path.exists():
         raise FileNotFoundError(str(fc_path))
-    # Extract and apply state.json
-    state_bytes = extract_chunk(fc_path, "state.json")
+    # Verify checksum for state.json chunk before applying
+    header = read_fc_header(fc_path)
+    chunks = header.get("chunks", [])
+    state_meta = next((c for c in chunks if c.get("name") == "state.json"), None)
+    if not state_meta:
+        raise ValueError("state.json chunk missing in FC")
+    offset = int(state_meta["offset"])  # type: ignore[index]
+    length = int(state_meta["length"])  # type: ignore[index]
+    encoding = state_meta.get("encoding", "store")  # type: ignore[assignment]
+    uncompressed = int(state_meta.get("uncompressed_length", 0))  # type: ignore[arg-type]
+    with open(fc_path, "rb") as f:
+        f.seek(offset)
+        data = f.read(length)
+    state_bytes = _decode(data, encoding, uncompressed)
+    from hashlib import blake2b
+    actual = blake2b(state_bytes, digest_size=32).hexdigest()
+    expected = state_meta.get("checksum")
+    if expected and actual != expected:
+        raise ValueError("FC checksum mismatch for state.json")
     try:
         state = json.loads(state_bytes.decode("utf-8"))
     except Exception as e:
-        raise ValueError(f"Invalid state.json in FC: {e}")
+        raise ValueError(f"Invalid state.json in FC: {e}") from e
     stats = state.get("stats", {})
     try:
         current = state_manager.get_brain_stats() or {}
