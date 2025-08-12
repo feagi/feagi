@@ -548,8 +548,9 @@ class SystemService(BaseService):
                         "frequency_hz": getattr(
                             viz_sampler, "sample_frequency", "unknown"
                         ),
-                        "mode": getattr(viz_sampler, "current_strategy", {}).get(
-                            "mode", "unknown"
+                        "mode": (
+                            getattr(getattr(viz_sampler, "current_strategy", None), "mode", None)
+                            or "unknown"
                         ),
                         "running": getattr(viz_sampler, "running", False),
                     }
@@ -571,8 +572,9 @@ class SystemService(BaseService):
                         "frequency_hz": getattr(
                             motor_sampler, "sample_frequency", "unknown"
                         ),
-                        "mode": getattr(motor_sampler, "current_strategy", {}).get(
-                            "mode", "unknown"
+                        "mode": (
+                            getattr(getattr(motor_sampler, "current_strategy", None), "mode", None)
+                            or "unknown"
                         ),
                         "running": getattr(motor_sampler, "running", False),
                     }

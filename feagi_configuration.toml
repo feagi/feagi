@@ -183,8 +183,8 @@ gc_prune_inactive_after_bursts = 500         # Prune inactive pattern mappings o
 [snapshot]
 # Brain snapshot configuration (required for /v1/snapshot endpoints)
 # Set absolute, writable paths for your environment
-output_dir = ""            # e.g., "/var/lib/feagi/snapshots" or "C:/feagi/snapshots"
-temp_dir = ""              # e.g., "/var/lib/feagi/snapshots/tmp" or "C:/feagi/snapshots/tmp"
+output_dir = "output/snapshots"            # default under repository output/
+temp_dir = "output/snapshots/tmp"          # default temporary staging
 zip_compression = "deflate"  # "deflate" or "store"
 # Optional defaults for the new FEAGI Container format (.fc)
 # default_format can be "zip" or "fc" (download prefers this format when present)

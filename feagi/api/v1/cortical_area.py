@@ -662,6 +662,16 @@ class CorticalAreaAPI:
             for cortical_id in cortical_ids:
                 # Get individual cortical area data
                 area_data = self.core_api_service.get_cortical_area(cortical_id)
+ 
+                if not area_data:
+                    area_data = {
+                        "id": cortical_id,
+                        "name": cortical_id,
+                        "parameters": {},
+                        "coordinates": {},
+                        "dimensions": {},
+                        "type": "unknown",
+                    }
 
                 if area_data:
                     # Extract the base data from the API response

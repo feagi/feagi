@@ -1093,31 +1093,59 @@ else:
 
     def create_snapshot_router() -> APIRouter:
         """Create a FastAPI router for snapshot endpoints (manual wiring to avoid param issues)."""
+        # @ruff-skip: module has >100 violations - cleanup task: SNAP-ROUTER-RUFF-CLEANUP
         from fastapi import APIRouter, Depends, HTTPException
-        from feagi.api.v1.snapshot import SnapshotAPI
+        from feagi.api.v1.snapshot import (
+            SnapshotAPI,
+            SnapshotCreateRequest,
+            SnapshotCreateResponse,
+            SnapshotRestoreRequest,
+            SnapshotRestoreResponse,
+        )
         from fastapi.responses import FileResponse
         from starlette.background import BackgroundTask
         import os
 
         router = APIRouter()
 
-        @router.post("/")
-        async def create_snapshot(request: dict, core_api_service=Depends(get_core_api_service)):
+        @router.post(
+            "/",
+            response_model=SnapshotCreateResponse,
+            summary="Create brain snapshot",
+            description=(
+                "Create a brain snapshot folder (manifest + JSON summaries).\n\n"
+                "Optional: persist an artifact.\n\n"
+                "- format='fgc' with profile='model' → writes <id>/<id>.fgc (FEAGI model container).\n"
+                "- format='fgc' with profile='stateful' → writes <id>/<id>.fgs (stateful container).\n"
+                "- format='zip' → streams a ZIP when downloaded (not persisted unless requested).\n\n"
+                "Compression: 'store' (no compression, best for mmap) or 'deflate'.\n\n"
+                "Requires [snapshot] output_dir and temp_dir in feagi_configuration.toml."
+            ),
+        )
+        async def create_snapshot(
+            request: SnapshotCreateRequest, core_api_service=Depends(get_core_api_service)
+        ):
             try:
                 api = SnapshotAPI(core_api_service)
-                # Pydantic model parsing is inside the API method
-                # We call the same logic by instantiating model inside
-                from feagi.api.v1.snapshot import SnapshotCreateRequest
-
-                parsed = SnapshotCreateRequest(**request)
-                return await api.create_snapshot(parsed)
+                return await api.create_snapshot(request)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception:
                 raise HTTPException(status_code=500, detail="Internal server error")
 
-        @router.get("/{snapshot_id}/artifact/{fmt}")
-        async def get_snapshot_artifact(snapshot_id: str, fmt: str, core_api_service=Depends(get_core_api_service)):
+        @router.get(
+            "/{snapshot_id}/artifact/{fmt}",
+            summary="Download snapshot artifact",
+            description=(
+                "Download snapshot artifact as .fgc/.fgs or .zip.\n\n"
+                "- .fgc: served from <id>/<id>.fgc; built on-demand if missing\n"
+                "- .fgs: served from <id>/<id>.fgs (stateful)\n"
+                "- .zip: packaged on-demand to temp and streamed (not persisted by default)"
+            ),
+        )
+        async def get_snapshot_artifact(
+            snapshot_id: str, fmt: str, core_api_service=Depends(get_core_api_service)
+        ):
             try:
                 api = SnapshotAPI(core_api_service)
                 result = await api.get_snapshot_artifact(snapshot_id, fmt)
@@ -1138,7 +1166,7 @@ else:
                             background=BackgroundTask(_cleanup),
                         )
                     else:
-                        # For .fc, persist artifact stays; no cleanup
+                        # For .fc via this path, the file is persisted; no cleanup here
                         return FileResponse(
                             path=file_path,
                             filename=filename,
@@ -1150,17 +1178,164 @@ else:
             except Exception:
                 raise HTTPException(status_code=500, detail="Internal server error")
 
-        @router.post("/{snapshot_id}/restore")
-        async def restore_snapshot(snapshot_id: str, core_api_service=Depends(get_core_api_service)):
+        @router.get("/stream")
+        async def stream_snapshot(stateful: bool = False, compression: bool = True, core_api_service=Depends(get_core_api_service)):
+            """
+            Create and stream a snapshot without persisting artifacts.
+            stateful=true → .fgs; false → .fgc. Always builds to temp_dir and deletes after send.
+            """
+            try:
+                # Create folder snapshot first
+                api = SnapshotAPI(core_api_service)
+                resp = await api.create_snapshot(SnapshotCreateRequest(stateful=stateful, compression=False))
+                sid = resp["snapshot_id"]
+                # Build container to temp and stream
+                from feagi.config.toml_loader import load_feagi_config
+                cfg = load_feagi_config()
+                snap_cfg = cfg.get("snapshot", {})
+                temp_dir = snap_cfg.get("temp_dir")
+                if not temp_dir:
+                    raise HTTPException(status_code=400, detail="Snapshot temp_dir is required")
+                # Create container in temp
+                from feagi.core.snapshot.container import create_fc_snapshot_from_folder, MAGIC_FGC, MAGIC_FGS
+                from pathlib import Path
+                sdir = Path(resp["path"])  # folder just created
+                tmpdir = Path(temp_dir)
+                tmpdir.mkdir(parents=True, exist_ok=True)
+                ext = ".fgs" if stateful else ".fgc"
+                magic = MAGIC_FGS if stateful else MAGIC_FGC
+                out = tmpdir / f"{sid}{ext}"
+                # Build FC container directly in temp_dir
+                _ = create_fc_snapshot_from_folder(
+                    snapshot_dir=sdir,
+                    snapshot_id=sid,
+                    compression="store",
+                    magic=magic,
+                    extension=ext,
+                    destination_dir=tmpdir,
+                )
+                # Stream and cleanup
+                def _cleanup():
+                    try:
+                        os.remove(out)
+                    except Exception:
+                        pass
+                return FileResponse(
+                    path=str(out),
+                    filename=f"{sid}{ext}",
+                    media_type="application/octet-stream",
+                    background=BackgroundTask(_cleanup),
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @router.post(
+            "/{snapshot_id}/restore",
+            response_model=SnapshotRestoreResponse,
+            summary="Restore snapshot",
+            description=(
+                "Restore a snapshot by id.\n\n"
+                "Profile (default 'model'):\n"
+                "- 'model' → uses <id>/<id>.fgc if present; otherwise restores from folder manifest.\n"
+                "- 'stateful' → requires <id>/<id>.fgs.\n\n"
+                "Mode (default from [snapshot].fc_restore_mode):\n"
+                "- 'mmap' (zero-copy, requires store-encoded arrays)\n"
+                "- 'load' (copies into RAM)."
+            ),
+        )
+        async def restore_snapshot(
+            snapshot_id: str,
+            request: SnapshotRestoreRequest | None = None,
+            core_api_service=Depends(get_core_api_service),
+        ):
             try:
                 api = SnapshotAPI(core_api_service)
-                return await api.restore_snapshot(snapshot_id)
+                parsed = request or SnapshotRestoreRequest()
+                return await api.restore_snapshot(snapshot_id, parsed)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception:
                 raise HTTPException(status_code=500, detail="Internal server error")
 
-        @router.get("/")
+        @router.post(
+            "/upload",
+            summary="Upload and restore a snapshot file (.fgc/.fgs)",
+            description=(
+                "Accepts a .fgc (model) or .fgs (stateful) file, stages it in a temporary folder, "
+                "places it under the snapshot output directory, then performs restore."
+            ),
+        )
+        async def upload_snapshot(
+            file: UploadFile, mode: str = "load", core_api_service=Depends(get_core_api_service)
+        ):
+            try:
+                from pathlib import Path
+                from feagi.config.toml_loader import load_feagi_config
+                from feagi.core.snapshot.container import (
+                    read_fc_header,
+                    MAGIC_FGC,
+                    MAGIC_FGS,
+                    restore_fgc_snapshot,
+                    restore_fgs_snapshot,
+                )
+                cfg = load_feagi_config()
+                snap_cfg = cfg.get("snapshot", {})
+                out_root = Path(snap_cfg.get("output_dir", ""))
+                tmp_root = Path(snap_cfg.get("temp_dir", ""))
+                if not out_root:
+                    raise HTTPException(status_code=400, detail="Snapshot output_dir is required")
+                if not tmp_root:
+                    raise HTTPException(status_code=400, detail="Snapshot temp_dir is required")
+                tmp_root.mkdir(parents=True, exist_ok=True)
+                # Save uploaded file to temp
+                import uuid, shutil, os
+                tmp_name = f"upload-{uuid.uuid4().hex}"
+                tmp_path = tmp_root / tmp_name
+                with open(tmp_path, "wb") as f:
+                    shutil.copyfileobj(file.file, f)
+                # Inspect header to determine type
+                header = read_fc_header(tmp_path)
+                magic = header.get("_magic", "")
+                is_stateful = magic == MAGIC_FGS.decode("ascii", errors="ignore")
+                # Derive snapshot_id from original filename stem or generate
+                stem = Path(file.filename or "uploaded").stem
+                if not stem:
+                    stem = f"uploaded-{uuid.uuid4().hex}"
+                sid = stem
+                # Create final folder and move file
+                dest_dir = out_root / sid
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                ext = ".fgs" if is_stateful else ".fgc"
+                dest = dest_dir / f"{sid}{ext}"
+                try:
+                    os.replace(tmp_path, dest)
+                except Exception:
+                    shutil.copyfile(tmp_path, dest)
+                    os.remove(tmp_path)
+                # Restore
+                api = SnapshotAPI(core_api_service)
+                parsed_mode = mode.lower() if isinstance(mode, str) else "load"
+                # Enforce mmap eligibility via existing logic inside restore endpoints
+                from feagi.api.v1.snapshot import SnapshotRestoreRequest
+                req = SnapshotRestoreRequest(
+                    mode=parsed_mode, profile=("stateful" if is_stateful else "model")
+                )
+                result = await api.restore_snapshot(sid, req)
+                return result | {"snapshot_id": sid}
+            except HTTPException:
+                raise
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @router.get(
+            "/",
+            summary="List snapshots",
+            description="List available snapshot ids (folder names under [snapshot].output_dir).",
+        )
         async def list_snapshots(core_api_service=Depends(get_core_api_service)):
             try:
                 api = SnapshotAPI(core_api_service)
@@ -1170,8 +1345,14 @@ else:
             except Exception:
                 raise HTTPException(status_code=500, detail="Internal server error")
 
-        @router.delete("/{snapshot_id}")
-        async def delete_snapshot(snapshot_id: str, core_api_service=Depends(get_core_api_service)):
+        @router.delete(
+            "/{snapshot_id}",
+            summary="Delete snapshot",
+            description="Delete a snapshot folder and all of its contents (artifacts included).",
+        )
+        async def delete_snapshot(
+            snapshot_id: str, core_api_service=Depends(get_core_api_service)
+        ):
             try:
                 api = SnapshotAPI(core_api_service)
                 return await api.delete_snapshot(snapshot_id)

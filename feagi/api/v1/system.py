@@ -456,6 +456,231 @@ class SystemAPI:
             logger.error(f"Error getting FQ sampler status: {e}")
             raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
 
+    # ===== Diagnostics: FCL and Process Manager =====
+
+    @system_endpoint("GET", "/fcl_status")
+    def get_fcl_status(self) -> Dict[str, Any]:
+        """Return detailed status of the FCL manager (queues/windows by cortical)."""
+        try:
+            fclm = self.core_api_service.get_fcl_manager()
+            if not fclm:
+                return {"available": False, "error": "FCL manager not available"}
+
+            # Basic stats
+            status: Dict[str, Any] = {
+                "available": True,
+                "current_timestep": getattr(fclm, "current_timestep", 0),
+                "default_window_size": getattr(fclm, "default_window_size", 0),
+                "dynamic_window_sizing": getattr(
+                    fclm, "_dynamic_sizing_enabled", False
+                ),
+                "total_neurons_fired": getattr(fclm, "total_neurons_fired", 0),
+            }
+
+            # Active corticals and per-cortical window size (ids as strings)
+            active_idx = []
+            try:
+                active_idx = list(
+                    getattr(fclm, "cortical_fcl_history", {}).keys()
+                )
+            except Exception:
+                active_idx = []
+
+            # Resolve cortical_id from idx where possible
+            from feagi.bdu.connectome_manager import ConnectomeManager
+
+            cm = ConnectomeManager.instance()
+            per_cortical = {}
+            for idx in active_idx:
+                try:
+                    cid = cm.get_cortical_id_for_idx(int(idx)) or str(idx)
+                except Exception:
+                    cid = str(idx)
+                try:
+                    w = fclm.get_cortical_window_size(int(idx))
+                except Exception:
+                    w = status["default_window_size"]
+                per_cortical[str(cid)] = {"window_size": int(w)}
+
+            status["corticals"] = per_cortical
+
+            # Memory corticals
+            try:
+                mem_idxs = list(getattr(fclm, "memory_cortical_indices", set()))
+                mem_ids = []
+                for midx in mem_idxs:
+                    try:
+                        mem_ids.append(
+                            cm.get_cortical_id_for_idx(int(midx)) or str(midx)
+                        )
+                    except Exception:
+                        mem_ids.append(str(midx))
+                status["memory_corticals"] = mem_ids
+            except Exception:
+                status["memory_corticals"] = []
+
+            # Current global FCL occupancy (count only to keep it light)
+            try:
+                gi = getattr(fclm, "current_window_index", 0)
+                ghist = getattr(fclm, "global_fcl_history", [])
+                current_global = ghist[gi] if gi < len(ghist) else None
+                status["current_fcl_count"] = (
+                    int(len(current_global)) if current_global else 0
+                )
+                status["window_index"] = int(gi)
+            except Exception:
+                status["current_fcl_count"] = 0
+
+            # Transient recent counts (small N) for quick trend view
+            try:
+                last_n = 3
+                ghist = getattr(fclm, "global_fcl_history", [])
+                gi = getattr(fclm, "current_window_index", 0)
+                recent = []
+                if ghist:
+                    for off in range(last_n - 1, -1, -1):
+                        idx = gi - off
+                        if idx >= 0 and idx < len(ghist):
+                            recent.append(int(len(ghist[idx])))
+                status["recent_global_counts"] = recent
+            except Exception:
+                status["recent_global_counts"] = []
+
+            # Top-K corticals by current activity with recent counts (transient)
+            try:
+                top_k = 8
+                gi = getattr(fclm, "current_window_index", 0)
+                chist = getattr(fclm, "cortical_fcl_history", {})
+                # Build list of (cid, current_count)
+                current_counts = []
+                for cidx, hist in chist.items():
+                    try:
+                        cur = int(len(hist[gi])) if gi < len(hist) else 0
+                    except Exception:
+                        cur = 0
+                    # Resolve id
+                    try:
+                        cid = cm.get_cortical_id_for_idx(int(cidx)) or str(cidx)
+                    except Exception:
+                        cid = str(cidx)
+                    current_counts.append((str(cid), cur))
+                # Sort and pick top_k
+                current_counts.sort(key=lambda t: t[1], reverse=True)
+                top = current_counts[:top_k]
+                recent_per_cortical: Dict[str, List[int]] = {}
+                for cid, _cur in top:
+                    try:
+                        # Recover index from id
+                        # Use mapping: id -> idx
+                        idx = cm.cortical_mapping.get_idx(cid)  # type: ignore[attr-defined]
+                        hist = chist.get(idx, [])
+                        series: List[int] = []
+                        for off in range(2, -1, -1):
+                            pos = gi - off
+                            if (
+                                isinstance(hist, list)
+                                and pos >= 0
+                                and pos < len(hist)
+                            ):
+                                series.append(int(len(hist[pos])))
+                        recent_per_cortical[str(cid)] = series
+                    except Exception:
+                        recent_per_cortical[str(cid)] = []
+                status["top_corticals_recent_counts"] = recent_per_cortical
+            except Exception:
+                status["top_corticals_recent_counts"] = {}
+
+            return status
+        except Exception as e:
+            logger.error(f"Error getting FCL status: {e}")
+            raise ValueError(f"Failed to get FCL status: {str(e)}")
+
+    @system_endpoint("GET", "/processes")
+    def get_active_processes(self) -> Dict[str, Any]:
+        """Return details about active FEAGI processes/tasks managed by the ProcessManager."""
+        try:
+            from feagi.process_manager import get_process_manager
+
+            pm = get_process_manager()
+            if not pm:
+                return {"available": False, "error": "Process manager not available"}
+
+            procs: Dict[str, Any] = {}
+            processes = getattr(pm, "_processes", {})
+            for name, svc in processes.items():
+                entry: Dict[str, Any] = {"name": name}
+                try:
+                    if hasattr(svc, "is_running") and callable(svc.is_running):
+                        entry["type"] = "service"
+                        entry["running"] = bool(svc.is_running())
+                    elif hasattr(svc, "is_alive") and callable(svc.is_alive):
+                        entry["type"] = "thread"
+                        entry["running"] = bool(svc.is_alive())
+                    elif hasattr(svc, "poll") and callable(svc.poll):
+                        entry["type"] = "process"
+                        entry["exit_code"] = svc.poll()
+                        entry["running"] = svc.poll() is None
+                    else:
+                        entry["type"] = "unknown"
+                except Exception:
+                    entry["type"] = entry.get("type", "unknown")
+
+                # Optional: quick psutil metrics for processes with pid
+                try:
+                    import psutil  # noqa: F401
+
+                    pid = getattr(svc, "pid", None)
+                    if isinstance(pid, int) and pid > 0:
+                        try:
+                            p = psutil.Process(pid)
+                            mi = p.memory_info()
+                            entry["rss_mb"] = round(mi.rss / (1024 * 1024), 2)
+                            # Non-blocking CPU snapshot
+                            entry["cpu_percent"] = p.cpu_percent(interval=0.0)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                procs[str(name)] = entry
+
+            # Include sampler presence flags and performance stats (transient)
+            summary: Dict[str, Any] = {}
+            try:
+                viz = getattr(pm, "_viz_fq_sampler", None)
+                mot = getattr(pm, "_motor_fq_sampler", None)
+                summary["viz_sampler_present"] = bool(viz)
+                summary["motor_sampler_present"] = bool(mot)
+                # Lightweight stats if method exists
+                def _safe_stats(obj):
+                    try:
+                        fn = getattr(obj, "get_performance_stats", None)
+                        if callable(fn):
+                            return fn() or {}
+                    except Exception:
+                        return {}
+                    return {}
+
+                summary["viz_stats"] = _safe_stats(viz)
+                summary["motor_stats"] = _safe_stats(mot)
+            except Exception:
+                pass
+
+            # Burst engine status snapshot (transient)
+            try:
+                be = self.core_api_service.get_burst_engine_status()
+                summary["burst_engine"] = {
+                    "status": be.get("status", "unknown"),
+                    "is_running": be.get("is_running", False),
+                }
+            except Exception:
+                summary["burst_engine"] = {"status": "unknown", "is_running": False}
+
+            return {"available": True, "processes": procs, "summary": summary}
+        except Exception as e:
+            logger.error(f"Error getting processes: {e}")
+            raise ValueError(f"Failed to get processes: {str(e)}")
+
 
 # ===== Factory Function =====
 

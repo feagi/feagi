@@ -2105,7 +2105,22 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of cortical area IDs
         """
-        return list(self.cortical_areas.keys())
+        try:
+            # Prefer mapping: id -> idx
+            if hasattr(self, "cortical_mapping") and self.cortical_mapping:
+                all_mappings = self.cortical_mapping.get_all_mappings()
+                # Keys are cortical IDs
+                return sorted(list(all_mappings.keys()))
+            # Fallback to extracting IDs from area objects
+            ids: List[str] = []
+            for idx, area in getattr(self, "cortical_areas", {}).items():
+                cid = getattr(area, "cortical_id", None)
+                if cid:
+                    ids.append(cid)
+            return sorted(ids)
+        except Exception:
+            # Last resort: empty list on failure
+            return []
 
     def get_all_cortical_indices(self) -> List[int]:
         """Get all cortical area indices (integers) used by the FCL.
