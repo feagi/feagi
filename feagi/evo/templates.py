@@ -21,23 +21,23 @@ cortical_types = {
     "IPU": {
         "gui_name": "Sensors",
         "supported_devices": {
-            "i__inf": {
+            "iinf00": {
                 "enabled": True,
                 "cortical_name": "Infrared sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "i_iinf": {
+            "iiif00": {
                 "enabled": True,
-                "cortical_name": "Infrared sensor (Inverse)",
+                "cortical_name": "Reverse infrared sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "idgpio": {
+            "idgp00": {
                 "enabled": True,
-                "cortical_name": "Digital input",
+                "cortical_name": "Digital GPIO input",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [35, 20, -70],
@@ -49,7 +49,7 @@ cortical_types = {
                 "resolution": [1, 1, 10],
                 "coordinate_3d": [35, 0, -70],
             },
-            "i__pro": {
+            "ipro00": {
                 "enabled": True,
                 "cortical_name": "Proximity sensor",
                 "structure": "asymmetric",
@@ -84,14 +84,14 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [60, 0, 0],
             },
-            "ishock": {
+            "ishk00": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "i__bat": {
+            "ibat00": {
                 "enabled": True,
                 "cortical_name": "Battery gauge",
                 "structure": "asymmetric",
@@ -105,63 +105,63 @@ cortical_types = {
                 "resolution": [32, 32, 3],
                 "coordinate_3d": [30, 100, -20],
             },
-            "iv00_C": {
+            "iic400": {
                 "enabled": True,
                 "cortical_name": "Central vision sensor",
                 "structure": "asymmetric",
                 "resolution": [64, 64, 1],
                 "coordinate_3d": [30, 40, -20],
             },
-            "iv00TR": {
+            "iic800": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 105, -20],
             },
-            "iv00TL": {
+            "iic600": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 105, -20],
             },
-            "iv00TM": {
+            "iic700": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top middle",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [55, 105, -20],
             },
-            "iv00ML": {
+            "iic300": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 70, -20],
             },
-            "iv00MR": {
+            "iic900": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 70, -20],
             },
-            "iv00BL": {
+            "iic000": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 30, -20],
             },
-            "iv00BR": {
+            "iic200": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 30, -20],
             },
-            "iv00BM": {
+            "iic100": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom middle",
                 "structure": "asymmetric",
@@ -175,7 +175,7 @@ cortical_types = {
                 "resolution": [1, 10, 1],
                 "coordinate_3d": [111, 91, 0],
             },
-            "i_spos": {
+            "isvp00": {
                 "enabled": True,
                 "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
@@ -226,33 +226,33 @@ cortical_types = {
             },
         },
         "name_to_id_mapping": {
-            "infrared": ["i__inf"],
-            "infrared_inverse": ["ii_inf"],
-            "proximity": ["i__pro"],
-            "gpio_digital": ["idgpio"],
+            "infrared": ["iinf00"],
+            "infrared_inverse": ["iiif00"],
+            "proximity": ["ipro00"],
+            "gpio_digital": ["idgp00"],
             "gpio_analog": ["iagpio"],
             "accelerometer": ["i__acc"],
             "gyro": ["i__gyr"],
             "euler": ["ieuler"],
-            "shock": ["ishock"],
-            "battery": ["i__bat"],
+            "shock": ["ishk00"],
+            "battery": ["ibat00"],
             "compass": ["i_comp"],
             "camera": [
                 "iv00CC",
-                "iv00_C",
-                "iv00TL",
-                "iv00TM",
-                "iv00TR",
-                "iv00ML",
-                "iv00MR",
-                "iv00BL",
-                "iv00BR",
-                "iv00BM",
+                "iic400",
+                "iic600",
+                "iic700",
+                "iic800",
+                "iic300",
+                "iic900",
+                "iic000",
+                "iic100",
+                "iic200",
             ],
             "miscellaneous": ["i_misc"],
-            "servo_position": ["i_spos"],
+            "servo_position": ["isvp00"],
             "servo_motion": ["i_smot"],
-            "digital_input": ["idgpio"],
+            "digital_input": ["idgp00"],
             "analog_input": ["iagpio"],
             "id_trainer": ["i___id"],
             "pressure": ["i_pres"],
@@ -263,7 +263,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "o__mot": {
+            "co_mot": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Motor control",
@@ -518,7 +518,7 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "motor": [
-                "o__mot",
+                "co_mot",
             ],
             "servo": [
                 "o__ser",
@@ -569,7 +569,7 @@ cortical_types = {
                 "coordinate_3d": [0, 0, -10],
                 "coordinate_2d": [-10, -20],
             },
-            "___pwr": {
+            "_power": {
                 "idx": 1,
                 "enabled": False,
                 "cortical_name": "Power",

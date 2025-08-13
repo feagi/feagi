@@ -944,7 +944,7 @@ class ManualStimulationRequest(BaseModel):
     Example payload:
     {
         "stimulation_payload": {
-            "___pwr": [[1, 0, 0], [2, 4, 3]], 
+            "_power": [[1, 0, 0], [2, 4, 3]], 
             "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
         }
     }

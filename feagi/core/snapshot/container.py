@@ -462,6 +462,79 @@ def restore_fgc_snapshot(
     # Verify checksum for state.json chunk before applying
     header = read_fc_header(fc_path)
     chunks = header.get("chunks", [])
+    # Pre-restore: perform deterministic cleanup of existing connectome state
+    try:
+        cm = connectome_manager
+        if cm is not None:
+            # Clear cortical areas and mapping state
+            if hasattr(cm, "cortical_areas") and isinstance(cm.cortical_areas, dict):
+                cm.cortical_areas.clear()
+            if hasattr(cm, "cortical_mapping") and hasattr(cm.cortical_mapping, "clear"):
+                cm.cortical_mapping.clear()
+            if hasattr(cm, "cortical_connections"):
+                cm.cortical_connections = {}
+            # Clear id/index mappings
+            if hasattr(cm, "_neuron_id_to_index_map"):
+                cm._neuron_id_to_index_map.clear()
+            if hasattr(cm, "_index_to_neuron_id_map"):
+                cm._index_to_neuron_id_map.clear()
+            # Reset spatial structures if present
+            if hasattr(cm, "_spatial_hash") and cm._spatial_hash:
+                try:
+                    cm._spatial_hash.clear()
+                except Exception:
+                    pass
+            if hasattr(cm, "_spatial_index") and cm._spatial_index:
+                try:
+                    cm._spatial_index.clear()
+                except Exception:
+                    pass
+            # Reset arrays to empty-valid state where possible
+            try:
+                na = getattr(cm, "neuron_array", None)
+                if na is not None:
+                    # Reset counters and masks
+                    if hasattr(na, "next_index"):
+                        na.next_index = 0
+                    if hasattr(na, "neuron_count"):
+                        na.neuron_count = 0
+                    if hasattr(na, "free_indices"):
+                        na.free_indices = set()
+                    if hasattr(na, "valid_mask"):
+                        na.valid_mask[:] = False
+                    if hasattr(na, "is_active"):
+                        na.is_active[:] = False
+            except Exception:
+                pass
+            try:
+                sa = getattr(cm, "synapse_array", None)
+                if sa is not None:
+                    for attr in ("next_slot",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, 0)
+                    for attr in ("free_slots",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, set())
+            except Exception:
+                pass
+            # Clear FCL caches
+            fclm = getattr(cm, "fcl_manager", None)
+            if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                try:
+                    fclm.clear_all_window_caches()
+                except Exception:
+                    pass
+            # Invalidate StateManager caches
+            try:
+                sm = state_manager
+                if hasattr(sm, "invalidate_cortical_areas_cache"):
+                    sm.invalidate_cortical_areas_cache()
+                if hasattr(sm, "set_cortical_list"):
+                    sm.set_cortical_list([])
+            except Exception:
+                pass
+    except Exception:
+        pass
     state_meta = next((c for c in chunks if c.get("name") == "state.json"), None)
     if not state_meta:
         raise ValueError("state.json chunk missing in FC")
@@ -701,14 +774,95 @@ def restore_fgc_snapshot(
                 })
             except Exception:
                 pass
+            # Post-restore: rebuild coordinate indices and id/index maps
             try:
-                # Mark genome loaded and set validity conservatively true
-                # for restored model
+                na = getattr(connectome_manager, "neuron_array", None)
+                areas = getattr(connectome_manager, "cortical_areas", {})
+                if na is not None and isinstance(areas, dict) and areas:
+                    try:
+                        connectome_manager._neuron_id_to_index_map.clear()
+                        connectome_manager._index_to_neuron_id_map.clear()
+                    except Exception:
+                        pass
+                    # Optional index_to_id mapping from chunk if present
+                    idx2id_arr = None
+                    try:
+                        meta = next((c for c in chunks if c.get("name") == "neurons/index_to_id.npy"), None)
+                        if meta:
+                            with open(fc_path, "rb") as f:
+                                f.seek(int(meta["offset"]))
+                                raw = f.read(int(meta["length"]))
+                            import numpy as _np
+                            idx2id_arr = _np.load(BytesIO(raw))
+                    except Exception:
+                        idx2id_arr = None
+                    for cid, area in areas.items():
+                        try:
+                            if hasattr(area, "_position_map"):
+                                area._position_map.clear()
+                            if hasattr(area, "_position_to_neurons"):
+                                area._position_to_neurons.clear()
+                            cidx = getattr(area, "cortical_idx", None)
+                            if cidx is None:
+                                continue
+                            import numpy as _np
+                            idxs = []
+                            try:
+                                if hasattr(na, "cortical_idxs") and hasattr(na, "valid_mask"):
+                                    mask = (
+                                        _np.asarray(na.cortical_idxs) == int(cidx)
+                                    ) & (
+                                        _np.asarray(na.valid_mask, dtype=_np.bool_)
+                                    )
+                                    idxs = _np.flatnonzero(mask).tolist()
+                            except Exception:
+                                idxs = []
+                            for i in idxs:
+                                try:
+                                    nid = -1
+                                    if idx2id_arr is not None and int(i) < idx2id_arr.shape[0]:
+                                        nid = int(idx2id_arr[int(i)])
+                                    if nid < 0:
+                                        nid = int(getattr(na, "index_to_id_map", {}).get(int(i), -1))
+                                    if nid < 0:
+                                        continue
+                                    connectome_manager._neuron_id_to_index_map[nid] = int(i)
+                                    connectome_manager._index_to_neuron_id_map[int(i)] = nid
+                                    pos = None
+                                    try:
+                                        x = int(na.coordinates_x[i])
+                                        y = int(na.coordinates_y[i])
+                                        z = int(na.coordinates_z[i])
+                                        pos = (x, y, z)
+                                    except Exception:
+                                        pos = None
+                                    if pos is not None:
+                                        if hasattr(area, "_position_map"):
+                                            area._position_map[nid] = pos
+                                        if hasattr(area, "_position_to_neurons"):
+                                            lst = area._position_to_neurons.get(pos)
+                                            if lst is None:
+                                                area._position_to_neurons[pos] = [nid]
+                                            else:
+                                                lst.append(nid)
+                                except Exception:
+                                    continue
+                        except Exception:
+                            pass
+                    fclm = getattr(connectome_manager, "fcl_manager", None)
+                    if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                        try:
+                            fclm.clear_all_window_caches()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            # Mark genome loaded and set validity conservatively true
+            # for restored model
+            try:
                 state_manager.set_genome_state(2)  # GenomeState.LOADED
                 state_manager.set_genome_validity(True)
-                # Set burst engine READY (or ON_HOLD) to unblock healthcheck
                 state_manager.set_burst_engine_state(2)  # ServiceState.READY
-                # Set brain readiness true
                 state_manager.set_brain_readiness(True)
             except Exception:
                 pass
@@ -724,241 +878,362 @@ def restore_fgs_snapshot(
     fcs_path = Path(snapshot_root) / snapshot_id / f"{snapshot_id}.fgs"
     if not fcs_path.exists():
         raise FileNotFoundError(str(fcs_path))
+    # Pre-restore: perform deterministic cleanup of existing connectome state
+    try:
+        cm = connectome_manager
+        if cm is not None:
+            if hasattr(cm, "cortical_areas") and isinstance(cm.cortical_areas, dict):
+                cm.cortical_areas.clear()
+            if hasattr(cm, "cortical_mapping") and hasattr(cm.cortical_mapping, "clear"):
+                cm.cortical_mapping.clear()
+            if hasattr(cm, "cortical_connections"):
+                cm.cortical_connections = {}
+            if hasattr(cm, "_neuron_id_to_index_map"):
+                cm._neuron_id_to_index_map.clear()
+            if hasattr(cm, "_index_to_neuron_id_map"):
+                cm._index_to_neuron_id_map.clear()
+            if hasattr(cm, "_spatial_hash") and cm._spatial_hash:
+                try:
+                    cm._spatial_hash.clear()
+                except Exception:
+                    pass
+            if hasattr(cm, "_spatial_index") and cm._spatial_index:
+                try:
+                    cm._spatial_index.clear()
+                except Exception:
+                    pass
+            try:
+                na = getattr(cm, "neuron_array", None)
+                if na is not None:
+                    if hasattr(na, "next_index"):
+                        na.next_index = 0
+                    if hasattr(na, "neuron_count"):
+                        na.neuron_count = 0
+                    if hasattr(na, "free_indices"):
+                        na.free_indices = set()
+                    if hasattr(na, "valid_mask"):
+                        na.valid_mask[:] = False
+                    if hasattr(na, "is_active"):
+                        na.is_active[:] = False
+            except Exception:
+                pass
+            try:
+                sa = getattr(cm, "synapse_array", None)
+                if sa is not None:
+                    for attr in ("next_slot",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, 0)
+                    for attr in ("free_slots",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, set())
+            except Exception:
+                pass
+            fclm = getattr(cm, "fcl_manager", None)
+            if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                try:
+                    fclm.clear_all_window_caches()
+                except Exception:
+                    pass
+            try:
+                sm = state_manager
+                if hasattr(sm, "invalidate_cortical_areas_cache"):
+                    sm.invalidate_cortical_areas_cache()
+                if hasattr(sm, "set_cortical_list"):
+                    sm.set_cortical_list([])
+            except Exception:
+                pass
+    except Exception:
+        pass
     # Reuse same logic as fc restore; read_fc_header accepts both magics
     # Extract and apply state.json
     header = read_fc_header(fcs_path)
     chunks = header.get("chunks", [])
-    state_meta = next((c for c in chunks if c.get("name") == "state.json"), None)
-    if not state_meta:
-        raise ValueError("state.json chunk missing in FCS")
-    offset = int(state_meta["offset"])  # type: ignore[index]
-    length = int(state_meta["length"])  # type: ignore[index]
-    encoding = state_meta.get("encoding", "store")  # type: ignore[assignment]
-    uncompressed = int(state_meta.get("uncompressed_length", 0))  # type: ignore[arg-type]
-    with open(fcs_path, "rb") as f:
-        f.seek(offset)
-        data = f.read(length)
-    state_bytes = _decode(data, encoding, uncompressed)
-    from hashlib import blake2b
-    actual = blake2b(state_bytes, digest_size=32).hexdigest()
-    expected = state_meta.get("checksum")
-    if expected and actual != expected:
-        raise ValueError("FCS checksum mismatch for state.json")
-    try:
-        state = json.loads(state_bytes.decode("utf-8"))
-    except Exception as e:
-        raise ValueError(f"Invalid state.json in FCS: {e}") from e
-    stats = state.get("stats", {})
-    try:
-        current = state_manager.get_brain_stats() or {}
-        merged = dict(current)
-        for k in ("neuron_count", "memory_neuron_count", "non_memory_neuron_count"):
-            if k in stats and isinstance(stats[k], int):
-                merged[k] = stats[k]
-        state_manager.set_brain_stats(merged)
-    except Exception:
-        pass
-    try:
-        if hasattr(state_manager, "reset_cumulative_activity"):
-            state_manager.reset_cumulative_activity()
-    except Exception:
-        pass
-    # Restore arrays from embedded chunks within the .fgs file when available
-    try:
-        if connectome_manager is not None:
-            from io import BytesIO
-
-            import numpy as np
-            chunks = header.get("chunks", [])
-            def _read_chunk_bytes(name: str) -> bytes | None:
-                meta = next((c for c in chunks if c.get("name") == name), None)
-                if not meta:
-                    return None
-                with open(fcs_path, "rb") as f:
-                    f.seek(int(meta["offset"]))
-                    data = f.read(int(meta["length"]))
-                return _decode(
-                    data,
-                    meta.get("encoding", "store"),
-                    int(meta.get("uncompressed_length", 0)),
-                )
-            # Rehydrate connectome cortical areas and mapping
-            cj = _read_chunk_bytes("connectome.json")
-            if cj is not None:
+    def _read_chunk_bytes(name: str) -> bytes | None:
+        meta = next((c for c in chunks if c.get("name") == name), None)
+        if not meta:
+            return None
+        with open(fcs_path, "rb") as f:
+            f.seek(int(meta["offset"]))
+            data = f.read(int(meta["length"]))
+        return _decode(
+            data,
+            meta.get("encoding", "store"),
+            int(meta.get("uncompressed_length", 0)),
+        )
+    # Rehydrate connectome cortical areas and mapping
+    cj = _read_chunk_bytes("connectome.json")
+    if cj is not None:
+        try:
+            cobj = json.loads(cj.decode("utf-8"))
+            areas = cobj.get("areas", [])
+            if isinstance(areas, list):
+                if hasattr(connectome_manager, "cortical_areas"):
+                    connectome_manager.cortical_areas.clear()
+                if (
+                    hasattr(connectome_manager, "cortical_mapping")
+                    and hasattr(connectome_manager.cortical_mapping, "clear")
+                ):
+                    connectome_manager.cortical_mapping.clear()
+                from feagi.bdu.models.cortical_area import CorticalArea
+                for idx, entry in enumerate(areas):
+                    cid = str(entry.get("id", f"C{idx:05d}"))
+                    dims = entry.get("dimensions", [1, 1, 1])
+                    if isinstance(dims, dict):
+                        dims = [
+                            dims.get("x", 1),
+                            dims.get("y", 1),
+                            dims.get("z", 1),
+                        ]
+                    pos = entry.get("position", [0, 0, 0])
+                    if isinstance(pos, dict):
+                        pos = [
+                            pos.get("x", 0),
+                            pos.get("y", 0),
+                            pos.get("z", 0),
+                        ]
+                    cidx_val = entry.get("cortical_idx")
+                    cortical_idx = int(cidx_val) if isinstance(cidx_val, int) else idx
+                    area_name = entry.get("name") or cid
+                    area_type = entry.get("area_type") or entry.get("type") or "custom"
+                    area_props = entry.get("properties") or entry.get("parameters") or {}
+                    area = CorticalArea(
+                        name=area_name,
+                        dimensions=tuple(dims),
+                        position=tuple(pos),
+                        area_type=area_type,
+                        properties=area_props,
+                        cortical_id=cid,
+                        cortical_idx=cortical_idx,
+                    )
+                    if hasattr(connectome_manager, "cortical_areas"):
+                        # Store areas keyed by cortical_id (string), not index
+                        connectome_manager.cortical_areas[cid] = area
+                    if hasattr(connectome_manager, "_sync_cortical_mapping"):
+                        connectome_manager._sync_cortical_mapping(cid, cortical_idx)
+                if hasattr(connectome_manager, "validate_cortical_mapping"):
+                    try:
+                        connectome_manager.validate_cortical_mapping()
+                    except Exception:
+                        pass
+            # Restore connections if present
+            conns = cobj.get("connections", {})
+            if (
+                isinstance(conns, dict)
+                and hasattr(connectome_manager, "cortical_connections")
+            ):
+                connectome_manager.cortical_connections = conns
+            phys = cobj.get("physiology", {})
+            if isinstance(phys, dict):
                 try:
-                    cobj = json.loads(cj.decode("utf-8"))
-                    areas = cobj.get("areas", [])
-                    if isinstance(areas, list):
-                        if hasattr(connectome_manager, "cortical_areas"):
-                            connectome_manager.cortical_areas.clear()
-                        if (
-                            hasattr(connectome_manager, "cortical_mapping")
-                            and hasattr(connectome_manager.cortical_mapping, "clear")
-                        ):
-                            connectome_manager.cortical_mapping.clear()
-                        from feagi.bdu.models.cortical_area import CorticalArea
-                        for idx, entry in enumerate(areas):
-                            cid = str(entry.get("id", f"C{idx:05d}"))
-                            dims = entry.get("dimensions", [1, 1, 1])
-                            if isinstance(dims, dict):
-                                dims = [
-                                    dims.get("x", 1),
-                                    dims.get("y", 1),
-                                    dims.get("z", 1),
-                                ]
-                            pos = entry.get("position", [0, 0, 0])
-                            if isinstance(pos, dict):
-                                pos = [
-                                    pos.get("x", 0),
-                                    pos.get("y", 0),
-                                    pos.get("z", 0),
-                                ]
-                            area = CorticalArea(
-                                name=cid,
-                                dimensions=tuple(dims),
-                                position=tuple(pos),
-                                cortical_id=cid,
-                                cortical_idx=idx,
-                            )
-                            if hasattr(connectome_manager, "cortical_areas"):
-                                # Store areas keyed by cortical_id (string), not index
-                                connectome_manager.cortical_areas[cid] = area
-                            if hasattr(connectome_manager, "_sync_cortical_mapping"):
-                                connectome_manager._sync_cortical_mapping(cid, idx)
-                        if hasattr(connectome_manager, "validate_cortical_mapping"):
-                            try:
-                                connectome_manager.validate_cortical_mapping()
-                            except Exception:
-                                pass
-                    # Restore connections if present
-                    conns = cobj.get("connections", {})
-                    if (
-                        isinstance(conns, dict)
-                        and hasattr(connectome_manager, "cortical_connections")
-                    ):
-                        connectome_manager.cortical_connections = conns
-                    phys = cobj.get("physiology", {})
-                    if isinstance(phys, dict):
-                        try:
-                            if hasattr(state_manager, "set_physiology"):
-                                state_manager.set_physiology(phys)
-                        except Exception:
-                            pass
+                    if hasattr(state_manager, "set_physiology"):
+                        state_manager.set_physiology(phys)
                 except Exception:
                     pass
-            # Neurons
-            npz_bytes = _read_chunk_bytes("neurons/neurons_soa.npz")
-            if npz_bytes is not None and hasattr(connectome_manager, "neuron_array"):
-                with np.load(BytesIO(npz_bytes)) as npz:
-                    base_len = None
-                    for k in npz.files:
-                        if not k.endswith("__bitpacked"):
-                            arr0 = npz[k]
-                            if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
-                                base_len = arr0.shape[0]
-                                break
-                    na = connectome_manager.neuron_array
-                    for key in npz.files:
-                        if key.endswith("__bitpacked"):
-                            continue
-                        arr = npz[key]
-                        if f"{key}__bitpacked" in npz.files:
-                            arr = np.unpackbits(
-                                arr,
-                                count=(int(base_len) if base_len is not None else None),
-                            )
-                        setattr(na, key, arr)
-            # Synapses
-            sp_bytes = _read_chunk_bytes("synapses/synapses_soa.npz")
-            if sp_bytes is not None and hasattr(connectome_manager, "synapse_array"):
-                with np.load(BytesIO(sp_bytes)) as npz:
-                    base_len = None
-                    for k in npz.files:
-                        if not k.endswith("__bitpacked"):
-                            arr0 = npz[k]
-                            if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
-                                base_len = arr0.shape[0]
-                                break
-                    sa = connectome_manager.synapse_array
-                    for key in npz.files:
-                        if key.endswith("__bitpacked"):
-                            continue
-                        arr = npz[key]
-                        if f"{key}__bitpacked" in npz.files:
-                            arr = np.unpackbits(
-                                arr,
-                                count=(int(base_len) if base_len is not None else None),
-                            )
-                        setattr(sa, key, arr)
-            # Memory
-            mp_bytes = _read_chunk_bytes("memory/memory_soa.npz")
-            if (
-                mp_bytes is not None
-                and hasattr(connectome_manager, "memory_neuron_array")
-            ):
-                with np.load(BytesIO(mp_bytes)) as npz:
-                    base_len = None
-                    for k in npz.files:
-                        if not k.endswith("__bitpacked"):
-                            arr0 = npz[k]
-                            if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
-                                base_len = arr0.shape[0]
-                                break
-                    ma = connectome_manager.memory_neuron_array
-                    for key in npz.files:
-                        if key.endswith("__bitpacked"):
-                            continue
-                        arr = npz[key]
-                        if f"{key}__bitpacked" in npz.files:
-                            arr = np.unpackbits(
-                                arr,
-                                count=(int(base_len) if base_len is not None else None),
-                            )
-                        setattr(ma, key, arr)
-            # Update stats and readiness
-            try:
-                total_neurons = 0
-                mem_neurons = 0
-                non_mem = 0
-                syn_count = 0
-                if (
-                    hasattr(connectome_manager, "neuron_array")
-                    and hasattr(connectome_manager.neuron_array, "valid_mask")
-                ):
-                    vm = connectome_manager.neuron_array.valid_mask
-                    total_neurons = int(np.count_nonzero(vm))
-                if (
-                    hasattr(connectome_manager, "memory_neuron_array")
-                    and hasattr(connectome_manager.memory_neuron_array, "is_active")
-                ):
-                    mem_neurons = int(
-                        np.count_nonzero(
-                            connectome_manager.memory_neuron_array.is_active
-                        )
+        except Exception:
+            pass
+    # Neurons
+    npz_bytes = _read_chunk_bytes("neurons/neurons_soa.npz")
+    if npz_bytes is not None and hasattr(connectome_manager, "neuron_array"):
+        with np.load(BytesIO(npz_bytes)) as npz:
+            base_len = None
+            for k in npz.files:
+                if not k.endswith("__bitpacked"):
+                    arr0 = npz[k]
+                    if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
+                        base_len = arr0.shape[0]
+                        break
+            na = connectome_manager.neuron_array
+            for key in npz.files:
+                if key.endswith("__bitpacked"):
+                    continue
+                arr = npz[key]
+                if f"{key}__bitpacked" in npz.files:
+                    arr = np.unpackbits(
+                        arr,
+                        count=(int(base_len) if base_len is not None else None),
                     )
-                non_mem = max(0, total_neurons - mem_neurons)
-                if (
-                    hasattr(connectome_manager, "synapse_array")
-                    and hasattr(connectome_manager.synapse_array, "synapse_count")
-                ):
-                    syn_count = int(connectome_manager.synapse_array.synapse_count)
-                state_manager.set_brain_stats({
-                    "neuron_count": total_neurons,
-                    "memory_neuron_count": mem_neurons,
-                    "non_memory_neuron_count": non_mem,
-                    "synapse_count": syn_count,
-                    "cortical_area_count": (
-                        len(getattr(connectome_manager, "cortical_areas", {})) or 0
-                    ),
-                })
-                state_manager.set_genome_state(2)  # LOADED
-                state_manager.set_genome_validity(True)
-                state_manager.set_burst_engine_state(2)  # READY
-                state_manager.set_brain_readiness(True)
+                setattr(na, key, arr)
+    # Synapses
+    sp_bytes = _read_chunk_bytes("synapses/synapses_soa.npz")
+    if sp_bytes is not None and hasattr(connectome_manager, "synapse_array"):
+        with np.load(BytesIO(sp_bytes)) as npz:
+            base_len = None
+            for k in npz.files:
+                if not k.endswith("__bitpacked"):
+                    arr0 = npz[k]
+                    if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
+                        base_len = arr0.shape[0]
+                        break
+            sa = connectome_manager.synapse_array
+            for key in npz.files:
+                if key.endswith("__bitpacked"):
+                    continue
+                arr = npz[key]
+                if f"{key}__bitpacked" in npz.files:
+                    arr = np.unpackbits(
+                        arr,
+                        count=(int(base_len) if base_len is not None else None),
+                    )
+                setattr(sa, key, arr)
+    # Memory
+    mp_bytes = _read_chunk_bytes("memory/memory_soa.npz")
+    if (
+        mp_bytes is not None
+        and hasattr(connectome_manager, "memory_neuron_array")
+    ):
+        with np.load(BytesIO(mp_bytes)) as npz:
+            base_len = None
+            for k in npz.files:
+                if not k.endswith("__bitpacked"):
+                    arr0 = npz[k]
+                    if hasattr(arr0, "shape") and arr0.shape and arr0.ndim == 1:
+                        base_len = arr0.shape[0]
+                        break
+            ma = connectome_manager.memory_neuron_array
+            for key in npz.files:
+                if key.endswith("__bitpacked"):
+                    continue
+                arr = npz[key]
+                if f"{key}__bitpacked" in npz.files:
+                    arr = np.unpackbits(
+                        arr,
+                        count=(int(base_len) if base_len is not None else None),
+                    )
+                setattr(ma, key, arr)
+    # Update stats and readiness
+    try:
+        total_neurons = 0
+        mem_neurons = 0
+        non_mem = 0
+        syn_count = 0
+        if (
+            hasattr(connectome_manager, "neuron_array")
+            and hasattr(connectome_manager.neuron_array, "valid_mask")
+        ):
+            vm = connectome_manager.neuron_array.valid_mask
+            total_neurons = int(np.count_nonzero(vm))
+        if (
+            hasattr(connectome_manager, "memory_neuron_array")
+            and hasattr(connectome_manager.memory_neuron_array, "is_active")
+        ):
+            mem_neurons = int(
+                np.count_nonzero(
+                    connectome_manager.memory_neuron_array.is_active
+                )
+            )
+        non_mem = max(0, total_neurons - mem_neurons)
+        if (
+            hasattr(connectome_manager, "synapse_array")
+            and hasattr(connectome_manager.synapse_array, "synapse_count")
+        ):
+            syn_count = int(connectome_manager.synapse_array.synapse_count)
+        state_manager.set_brain_stats({
+            "neuron_count": total_neurons,
+            "memory_neuron_count": mem_neurons,
+            "non_memory_neuron_count": non_mem,
+            "synapse_count": syn_count,
+            "cortical_area_count": (
+                len(getattr(connectome_manager, "cortical_areas", {})) or 0
+            ),
+        })
+        state_manager.set_genome_state(2)  # LOADED
+        state_manager.set_genome_validity(True)
+        state_manager.set_burst_engine_state(2)  # READY
+        state_manager.set_brain_readiness(True)
+    except Exception:
+        pass
+    # Post-restore: rebuild coordinate indices and id/index maps
+    try:
+        na = getattr(connectome_manager, "neuron_array", None)
+        areas = getattr(connectome_manager, "cortical_areas", {})
+        if na is not None and isinstance(areas, dict) and areas:
+            try:
+                connectome_manager._neuron_id_to_index_map.clear()
+                connectome_manager._index_to_neuron_id_map.clear()
             except Exception:
                 pass
+            idx2id_arr = None
+            try:
+                meta = next((c for c in chunks if c.get("name") == "neurons/index_to_id.npy"), None)
+                if meta:
+                    with open(fcs_path, "rb") as f:
+                        f.seek(int(meta["offset"]))
+                        raw = f.read(int(meta["length"]))
+                    import numpy as _np
+                    idx2id_arr = _np.load(BytesIO(raw))
+            except Exception:
+                idx2id_arr = None
+            for cid, area in areas.items():
+                try:
+                    if hasattr(area, "_position_map"):
+                        area._position_map.clear()
+                    if hasattr(area, "_position_to_neurons"):
+                        area._position_to_neurons.clear()
+                    cidx = getattr(area, "cortical_idx", None)
+                    if cidx is None:
+                        continue
+                    import numpy as _np
+                    idxs = []
+                    try:
+                        if hasattr(na, "cortical_idxs") and hasattr(na, "valid_mask"):
+                            mask = (
+                                _np.asarray(na.cortical_idxs) == int(cidx)
+                            ) & (
+                                _np.asarray(na.valid_mask, dtype=_np.bool_)
+                            )
+                            idxs = _np.flatnonzero(mask).tolist()
+                    except Exception:
+                        idxs = []
+                    for i in idxs:
+                        try:
+                            nid = -1
+                            if idx2id_arr is not None and int(i) < idx2id_arr.shape[0]:
+                                nid = int(idx2id_arr[int(i)])
+                            if nid < 0:
+                                nid = int(getattr(na, "index_to_id_map", {}).get(int(i), -1))
+                            if nid < 0:
+                                continue
+                            connectome_manager._neuron_id_to_index_map[nid] = int(i)
+                            connectome_manager._index_to_neuron_id_map[int(i)] = nid
+                            pos = None
+                            try:
+                                x = int(na.coordinates_x[i])
+                                y = int(na.coordinates_y[i])
+                                z = int(na.coordinates_z[i])
+                                pos = (x, y, z)
+                            except Exception:
+                                pos = None
+                            if pos is not None:
+                                if hasattr(area, "_position_map"):
+                                    area._position_map[nid] = pos
+                                if hasattr(area, "_position_to_neurons"):
+                                    lst = area._position_to_neurons.get(pos)
+                                    if lst is None:
+                                        area._position_to_neurons[pos] = [nid]
+                                    else:
+                                        lst.append(nid)
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+            fclm = getattr(connectome_manager, "fcl_manager", None)
+            if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                try:
+                    fclm.clear_all_window_caches()
+                except Exception:
+                    pass
     except Exception:
-        # Best-effort array restore; core state already applied
+        pass
+    # After restore: update cortical list and refresh caches in state manager
+    try:
+        if hasattr(state_manager, "set_cortical_list") and hasattr(connectome_manager, "cortical_areas"):
+            cortical_ids = list(connectome_manager.cortical_areas.keys())
+            state_manager.set_cortical_list(cortical_ids)
+        if hasattr(state_manager, "invalidate_cortical_areas_cache"):
+            state_manager.invalidate_cortical_areas_cache()
+        if hasattr(state_manager, "get_cortical_areas_cache"):
+            _ = state_manager.get_cortical_areas_cache(connectome_manager)
+    except Exception:
         pass
     return True
 

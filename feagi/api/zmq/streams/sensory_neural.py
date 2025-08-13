@@ -275,15 +275,15 @@ class SensoryNeuralStream:
             self._stats["bytes_received"] += nbytes
             self._stats["last_message_time"] = time.time()
 
-            # Decode feagi_data_processing format directly - NO FALLBACKS
+            # Decode feagi_data_processing format
             try:
                 import feagi_data_processing as fdp
                 
-                # Create FeagiByteStructure directly from raw bytes - CORRECT API
+                # Create FeagiByteStructure directly from raw bytes
                 raw_bytes = slot.memory_view[:nbytes].tobytes()
-                byte_structure = fdp.byte_structures.FeagiByteStructure(raw_bytes)
+                byte_structure = fdp.io_processing.bytes.FeagiByteStructure(raw_bytes)
                 
-                # Get structure type using FEAGI's API - PROPERTY NOT METHOD
+                # Get structure type using FEAGI's API
                 structure_type = byte_structure.structure_type
                 
                 if structure_type != 11:
@@ -291,14 +291,14 @@ class SensoryNeuralStream:
                     logger.debug(f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}")
                     return StreamResult.SUCCESS
                 
-                # Create CorticalMappedXYZPNeuronData from the byte structure - CORRECT METHOD
-                cortical_mapped = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(byte_structure)
+                # Create CorticalMappedXYZPNeuronData from the byte structure
+                cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(byte_structure)
                 
-                # Extract neuron data using iter_easy() - this gives us the actual neuron data
+                # Extract neuron data using iter_full()
                 cortical_areas = {}
                 neuron_count = 0
                 
-                for cortical_id, neuron_arrays in cortical_mapped.iter_easy():
+                for cortical_id, neuron_arrays in cortical_mapped.iter_full():
                     # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
                     x_coords, y_coords, z_coords, potentials = neuron_arrays
                     

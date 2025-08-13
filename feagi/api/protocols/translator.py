@@ -58,7 +58,7 @@ SUPPORTED_VERSIONS = {
 def get_structure_info(data: bytes) -> Dict[str, Any]:
     """Get structure info from byte data"""
     try:
-        byte_structure = fdp.byte_structures.FeagiByteStructure(data)
+        byte_structure = fdp.io_processing.bytes.FeagiByteStructure(data)
         return {
             "structure_type": byte_structure.try_get_structure_type(),
             "version": byte_structure.get_version(),
@@ -110,7 +110,7 @@ class ByteStructureTranslator:
         try:
             # Create a CorticalMappedXYZPNeuronData container for JSON data
             cortical_mapped = (
-                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
             byte_structure = cortical_mapped.as_new_feagi_byte_structure()
 
@@ -133,7 +133,7 @@ class ByteStructureTranslator:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             # Process cortical data format:
@@ -167,14 +167,25 @@ class ByteStructureTranslator:
                     neurons_z = np.asarray(z_vals, dtype=np.uint32)
                     neurons_p = np.asarray(p_vals, dtype=np.float32)
 
-                    # Create cortical ID
-                    cortical_id_obj = self.fdp.cortical_data.CorticalID(
-                        str(cortical_id)
-                    )
+                    # Create cortical ID using modern feagi-data-processing approach
+                    area_str = str(cortical_id)
+                    
+                    try:
+                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        cortical_id_obj = self.fdp.genome.CorticalID.try_new_from_string(area_str)
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == '_power':
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(self.fdp.genome.CoreCorticalType.Power)
+                        elif area_str == '_death':
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(self.fdp.genome.CoreCorticalType.Death)
+                        else:
+                            # For unknown areas, use custom with 'c' prefix
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{area_str}')
 
                     # Use high-performance NumPy approach to create neuron arrays
                     # (no cortical_id parameter)
-                    neurons_array = self.fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                    neurons_array = self.fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                         neurons_x, neurons_y, neurons_z, neurons_p
                     )
 
@@ -500,7 +511,7 @@ class ByteStructureTranslator:
         try:
             # Try to create a FeagiByteStructure from the data
             try:
-                byte_structure = self.fdp.byte_structures.FeagiByteStructure(
+                byte_structure = self.fdp.io_processing.bytes.FeagiByteStructure(
                     message_data
                 )
                 structure_info = get_structure_info(message_data)
@@ -508,21 +519,24 @@ class ByteStructureTranslator:
 
                 if structure_type == 11:  # NeuronCategoricalXYZP
                     # Create CorticalMappedXYZPNeuronData from the byte structure
-                    cortical_mapped = self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                    cortical_mapped = self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                     cortical_mapped.from_feagi_byte_structure(byte_structure)
 
-                    # Extract neuron data
+                    # Extract neuron data using iter_full()
                     neurons = []
-                    for neuron_obj, cortical_id in cortical_mapped.iter_easy():
-                        neurons.append(
-                            {
-                                "x": neuron_obj.x if hasattr(neuron_obj, "x") else 0,
-                                "y": neuron_obj.y if hasattr(neuron_obj, "y") else 0,
-                                "z": neuron_obj.z if hasattr(neuron_obj, "z") else 0,
-                                "p": neuron_obj.p if hasattr(neuron_obj, "p") else 0,
-                                "cortical_id": cortical_id,
-                            }
-                        )
+                    for cortical_id, neuron_arrays in cortical_mapped.iter_full():
+                        # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
+                        x_coords, y_coords, z_coords, potentials = neuron_arrays
+                        for i in range(len(x_coords)):
+                            neurons.append(
+                                {
+                                    "x": int(x_coords[i]),
+                                    "y": int(y_coords[i]),  
+                                    "z": int(z_coords[i]),
+                                    "p": float(potentials[i]),
+                                    "cortical_id": cortical_id,
+                                }
+                            )
 
                     return {
                         "message_type": "neuron_data",

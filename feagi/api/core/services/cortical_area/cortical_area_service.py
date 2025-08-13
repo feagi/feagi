@@ -28,7 +28,7 @@ class CorticalAreaService(BaseService):
     CRUD operations, activity monitoring, and cortical area management.
 
     IMPORTANT: This service maintains the critical distinction between:
-    - cortical_id: 6-character string identifier (e.g., "iv00_C", "motor1")
+    - cortical_id: 6-character string identifier (e.g., "iic400", "motor1")
     - cortical_idx: integer index used internally by connectome manager (e.g., 0, 1, 2)
     """
 

@@ -45,7 +45,7 @@ class MockConnectomeManager:
         self.cortical_areas = {
             "regular_area": MockCorticalArea("regular_area"),
             "power_area_pwr": MockCorticalArea("power_area_pwr"),
-            "___pwr": MockCorticalArea("___pwr"),
+            "_power": MockCorticalArea("_power"),
             "modulator_mod": MockCorticalArea("modulator_mod"),
             "___mod": MockCorticalArea("___mod"),
             "memory_mem": MockCorticalArea("memory_mem"),
@@ -68,7 +68,7 @@ class MockConnectomeManager:
 
         self.neuron_lists = {
             "power_area_pwr": [1, 2, 3, 4, 5],
-            "___pwr": [10, 11, 12],
+            "_power": [10, 11, 12],
             "property_power": [20, 21, 22, 23],
             "complex_power": [30, 31, 32],
         }
@@ -125,7 +125,7 @@ def test_detect_special_areas(handler):
         # Check specific power areas
         expected_power_areas = {
             "power_area_pwr",
-            "___pwr",
+            "_power",
             "property_power",
             "complex_power",
         }
@@ -185,7 +185,7 @@ def test_identify_special_type_naming_patterns(handler):
 
     # Test power area patterns
     assert handler._identify_special_type("area_pwr", mock_area) == "power"
-    assert handler._identify_special_type("___pwr", mock_area) == "power"
+    assert handler._identify_special_type("_power", mock_area) == "power"
 
     # Test modulator patterns
     assert handler._identify_special_type("area_mod", mock_area) == "modulator"
@@ -295,7 +295,7 @@ def test_get_power_areas(handler):
 
     assert isinstance(power_areas, set)
     assert "power_area_pwr" in power_areas
-    assert "___pwr" in power_areas
+    assert "_power" in power_areas
 
     # Should return a copy (modification doesn't affect original)
     power_areas.add("fake_area")
@@ -364,8 +364,8 @@ def test_get_all_power_neurons(handler):
     assert isinstance(all_neurons, dict)
     assert "power_area_pwr" in all_neurons
     assert all_neurons["power_area_pwr"] == [1, 2, 3, 4, 5]
-    assert "___pwr" in all_neurons
-    assert all_neurons["___pwr"] == [10, 11, 12]
+    assert "_power" in all_neurons
+    assert all_neurons["_power"] == [10, 11, 12]
 
 
 def test_get_all_power_neurons_empty_area(handler):
@@ -373,12 +373,12 @@ def test_get_all_power_neurons_empty_area(handler):
     handler.detect_special_areas()
 
     # Mock one area to return empty
-    handler.power_area_neurons["___pwr"] = []
+    handler.power_area_neurons["_power"] = []
 
     all_neurons = handler.get_all_power_neurons()
 
     # Should not include empty areas
-    assert "___pwr" not in all_neurons
+    assert "_power" not in all_neurons
     assert "power_area_pwr" in all_neurons
 
 
@@ -398,7 +398,7 @@ def test_is_power_area(handler):
     handler.detect_special_areas()
 
     assert handler.is_power_area("power_area_pwr")
-    assert handler.is_power_area("___pwr")
+    assert handler.is_power_area("_power")
     assert not handler.is_power_area("modulator_mod")
     assert not handler.is_power_area("regular_area")
 

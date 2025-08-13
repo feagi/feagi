@@ -635,6 +635,14 @@ def genome_validator_with_errors(genome):
         for warning in migration_result["warnings"]:
             if "Error during" in warning:
                 errors.append(f"Migration warning: {warning}")
+    
+    # MIGRATION: Convert legacy cortical IDs to new format for backward compatibility
+    cortical_id_migration_result = migrate_legacy_cortical_ids(genome)
+    if cortical_id_migration_result["warnings"]:
+        # Add migration warnings to validation errors if they indicate issues
+        for warning in cortical_id_migration_result["warnings"]:
+            if "Error during" in warning:
+                errors.append(f"Cortical ID migration warning: {warning}")
 
     # Validate morphologies
     if not morphology_validator(genome=genome):
@@ -958,6 +966,13 @@ def sanitize_invalid_morphologies(genome):
 
     # Work directly on the original genome (no copy needed)
     # This ensures that all changes persist back to the caller
+
+    # MIGRATION: Convert legacy cortical IDs first (before other validations)
+    cortical_id_migration_result = migrate_legacy_cortical_ids(genome)
+    if cortical_id_migration_result["migrated"]:
+        fixed_references.append(f"Legacy cortical ID migration: {cortical_id_migration_result['changes'][0]}")
+    # Collect warnings from cortical ID migration
+    validation_warnings.extend(cortical_id_migration_result.get("warnings", []))
 
     # ALWAYS auto-recover missing physiology section first (regardless of other issues)
     physiology_recovery_result = sanitize_missing_physiology(genome)
@@ -1540,6 +1555,171 @@ def migrate_burst_delay_to_simulation_timestep(genome):
     }
 
 
+def migrate_legacy_cortical_ids(genome):
+    """
+    Migrate legacy cortical IDs to new format for backward compatibility.
+    
+    This function detects old cortical ID formats used in customer genomes
+    and automatically converts them to the new format used by feagi_data_processing.
+    
+    Legacy ID mappings:
+    - ___pwr → _power (core power area)
+    - o__mot → co_mot (motor output)
+    - iv00_C → iic400 (central vision)  
+    - iv00BL → iic000 (bottom-left vision)
+    - iv00BM → iic100 (bottom-middle vision)
+    - iv00BR → iic200 (bottom-right vision)
+    
+    Args:
+        genome: The genome dictionary to migrate (modified in-place)
+        
+    Returns:
+        dict: {
+            "migrated": bool,  # True if migration was performed
+            "changes": List[str],  # List of changes made
+            "cortical_id_mappings": Dict[str, str],  # Old ID → New ID mappings applied
+            "warnings": List[str]  # List of warnings
+        }
+    """
+    changes = []
+    warnings = []
+    cortical_id_mappings = {}
+    migrated = False
+    
+    # Complete legacy cortical ID mappings based on feagi-data-processing sensor_types.rs
+    # Maps old cortical IDs from templates.py to new IDs from feagi-data-processing
+    legacy_id_map = {
+        # CORE areas
+        "___pwr": "_power",   # Core power area
+        "___dth": "_death",   # Core death area
+        
+        # Motor/Output areas (OPU) - confirmed in templates.py
+        "o__mot": "co_mot",   # Motor output
+        
+        # Vision areas (IPU) - peripheral camera mappings confirmed in templates.py
+        "iv00_C": "iic400",   # Central vision (ImageCameraCenter)
+        "iv00TL": "iic600",   # Top-left vision (ImageCameraTopLeft) → updated in templates.py
+        "iv00TM": "iic700",   # Top-middle vision (ImageCameraTopMiddle) → updated in templates.py
+        "iv00TR": "iic800",   # Top-right vision (ImageCameraTopRight) → updated in templates.py
+        "iv00ML": "iic300",   # Middle-left vision (ImageCameraMiddleLeft) → updated in templates.py
+        "iv00MR": "iic900",   # Middle-right vision (ImageCameraMiddleRight) → updated in templates.py
+        "iv00BL": "iic000",   # Bottom-left vision (ImageCameraBottomLeft)
+        "iv00BM": "iic100",   # Bottom-middle vision (ImageCameraBottomMiddle) 
+        "iv00BR": "iic200",   # Bottom-right vision (ImageCameraBottomRight)
+        
+        # Sensor areas (IPU) - based on sensor_types.rs and updated in templates.py
+        "i__inf": "iinf00",   # Infrared sensor → confirmed in sensor_types.rs + templates.py
+        "ii_inf": "iiif00",   # Reverse infrared sensor → confirmed in sensor_types.rs + templates.py
+        "idgpio": "idgp00",   # Digital GPIO input → confirmed in sensor_types.rs + templates.py
+        "i__pro": "ipro00",   # Proximity sensor → confirmed in sensor_types.rs + templates.py
+        "ishock": "ishk00",   # Shock sensor → confirmed in sensor_types.rs + templates.py
+        "i__bat": "ibat00",   # Battery gauge sensor → confirmed in sensor_types.rs + templates.py
+        "i_spos": "isvp00",   # Servo position sensor → confirmed in sensor_types.rs + templates.py
+        
+        # Additional sensor areas that may exist in customer genomes
+        # These are from templates.py but don't have new mappings yet in sensor_types.rs
+        # Will be updated as feagi-data-processing is extended
+    }
+    
+    try:
+        # Check if blueprint section exists
+        if "blueprint" not in genome:
+            return {
+                "migrated": False,
+                "changes": [],
+                "cortical_id_mappings": {},
+                "warnings": ["No blueprint section found - nothing to migrate"]
+            }
+        
+        blueprint = genome["blueprint"]
+        
+        # Find all legacy cortical IDs in the genome
+        legacy_ids_found = set()
+        genes_to_update = {}  # old_gene_key: new_gene_key
+        
+        for gene_key in list(blueprint.keys()):
+            if not isinstance(gene_key, str):
+                continue
+                
+            # Parse gene key format: _____10c-CORTICAL_ID-...
+            parts = gene_key.split("-")
+            if len(parts) < 2:
+                continue
+                
+            cortical_id = parts[1]
+            
+            # Check if this cortical ID needs migration
+            if cortical_id in legacy_id_map:
+                legacy_ids_found.add(cortical_id)
+                new_cortical_id = legacy_id_map[cortical_id]
+                
+                # Build the new gene key with updated cortical ID
+                new_parts = parts.copy()
+                new_parts[1] = new_cortical_id
+                new_gene_key = "-".join(new_parts)
+                
+                genes_to_update[gene_key] = new_gene_key
+                
+                # Track the cortical ID mapping
+                if cortical_id not in cortical_id_mappings:
+                    cortical_id_mappings[cortical_id] = new_cortical_id
+        
+        # Apply the migrations
+        if genes_to_update:
+            for old_gene_key, new_gene_key in genes_to_update.items():
+                # Move the gene value to the new key
+                gene_value = blueprint[old_gene_key]
+                blueprint[new_gene_key] = gene_value
+                del blueprint[old_gene_key]
+                
+                changes.append(f"Migrated gene: {old_gene_key} → {new_gene_key}")
+            
+            migrated = True
+            
+            # Log summary of cortical ID migrations
+            for old_id, new_id in cortical_id_mappings.items():
+                changes.append(f"Cortical ID migration: {old_id} → {new_id}")
+                logger.info(f"🔄 [CORTICAL ID MIGRATION] {old_id} → {new_id}")
+        
+        # Also check for legacy IDs in cortical_mappings if it exists
+        if "cortical_mappings" in genome and isinstance(genome["cortical_mappings"], list):
+            mappings_updated = 0
+            for mapping in genome["cortical_mappings"]:
+                if isinstance(mapping, dict):
+                    # Check source and destination fields
+                    for field in ["source", "destination"]:
+                        if field in mapping and mapping[field] in legacy_id_map:
+                            old_id = mapping[field]
+                            new_id = legacy_id_map[old_id]
+                            mapping[field] = new_id
+                            mappings_updated += 1
+                            if old_id not in cortical_id_mappings:
+                                cortical_id_mappings[old_id] = new_id
+            
+            if mappings_updated > 0:
+                changes.append(f"Updated {mappings_updated} cortical mapping references")
+                migrated = True
+        
+        # Log migration results
+        if migrated:
+            migration_summary = f"Migrated {len(cortical_id_mappings)} legacy cortical IDs: {', '.join([f'{old}→{new}' for old, new in cortical_id_mappings.items()])}"
+            logger.info(f"🔄 [CORTICAL ID MIGRATION] {migration_summary}")
+            changes.insert(0, migration_summary)  # Add summary at the beginning
+        else:
+            logger.debug("🔄 [CORTICAL ID MIGRATION] No legacy cortical IDs found - genome already uses new format")
+    
+    except Exception as e:
+        warnings.append(f"Error during cortical ID migration: {e}")
+        logger.error(f"❌ [CORTICAL ID MIGRATION] Error: {e}")
+    
+    return {
+        "migrated": migrated,
+        "changes": changes,
+        "cortical_id_mappings": cortical_id_mappings,
+        "warnings": warnings
+    }
+
+
 def blueprint_validator_silent(genome):
     """
     Silent version of blueprint_validator that doesn't log errors.
@@ -1633,6 +1813,13 @@ def genome_validator_with_errors_silent(genome):
     # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility (silent)
     try:
         migrate_burst_delay_to_simulation_timestep(genome)
+    except Exception:
+        # Silent mode - don't log migration errors
+        pass
+    
+    # MIGRATION: Convert legacy cortical IDs to new format for backward compatibility (silent)
+    try:
+        migrate_legacy_cortical_ids(genome)
     except Exception:
         # Silent mode - don't log migration errors
         pass

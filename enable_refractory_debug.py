@@ -96,7 +96,7 @@ def trigger_activity_for_debug():
     print(f"📊 Available areas: {areas}")
     
     # Try to stimulate some areas that likely have multiple neurons
-    test_areas = ["m__rig", "iv00_C", "iv00BR", "CIHMot"]
+    test_areas = ["m__rig", "iic400", "iic200", "CIHMot"]
     
     for area_id in test_areas:
         if area_id in areas:
@@ -115,7 +115,7 @@ def trigger_activity_for_debug():
         print("⚠️  None of the preferred test areas found")
         # Try any area that's not core
         for area_id in areas:
-            if area_id not in ["_death", "___pwr"]:
+            if area_id not in ["_death", "_power"]:
                 print(f"\n🧪 Testing available area: {area_id}")
                 stimulate_area(area_id, 0.8)
                 time.sleep(1)

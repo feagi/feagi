@@ -56,7 +56,7 @@ def find_best_test_area() -> str:
     
     # Check areas to find one with multiple neurons
     for area_id in areas:
-        if area_id in ["_death", "___pwr"]:  # Skip core areas
+        if area_id in ["_death", "_power"]:  # Skip core areas
             continue
             
         info = get_area_info(area_id)
@@ -71,7 +71,7 @@ def find_best_test_area() -> str:
     
     # Fallback to any area with more than 1 neuron
     for area_id in areas:
-        if area_id in ["_death", "___pwr"]:
+        if area_id in ["_death", "_power"]:
             continue
             
         info = get_area_info(area_id)

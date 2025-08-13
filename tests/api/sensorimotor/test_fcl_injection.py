@@ -102,7 +102,7 @@ class FCLInjectionTester:
 
         logger.info("Test environment cleaned up")
 
-    async def send_test_data(self, cortical_area="iv00_C"):
+    async def send_test_data(self, cortical_area="iic400"):
         """
         Send test data to a cortical area and return the data that was sent.
 
@@ -145,7 +145,7 @@ class FCLInjectionTester:
         )
         return test_data
 
-    async def verify_fcl_injection(self, sent_data, cortical_area="iv00_C"):
+    async def verify_fcl_injection(self, sent_data, cortical_area="iic400"):
         """
         Verify that data was properly injected into FCL by checking the neuron potentials.
 

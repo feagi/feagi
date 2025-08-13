@@ -295,6 +295,39 @@ def create_brain_snapshot(
                         checksums["neurons/index_map.npy"] = blake2b(
                             idx_path.read_bytes(), digest_size=32
                         ).hexdigest()
+                # Save index_to_id mapping to enable deterministic rehydration
+                try:
+                    idx2id_path = neurons_dir / "index_to_id.npy"
+                    # Prefer ConnectomeManager authoritative mapping
+                    idx2id_map = None
+                    if hasattr(connectome_manager, "index_to_neuron_id"):
+                        idx2id_map = getattr(connectome_manager, "index_to_neuron_id")
+                    # Build an aligned array of neuron IDs
+                    if idx2id_map is not None:
+                        if active_idx is not None and active_idx.size:
+                            id_array = _np.array(
+                                [int(idx2id_map.get(int(i), -1)) for i in active_idx],
+                                dtype=_np.int64,
+                            )
+                        else:
+                            # Use next_index to limit to used range if available
+                            used_range = int(getattr(na, "next_index", 0))
+                            if used_range <= 0:
+                                used_range = len(getattr(na, "valid_mask", []))
+                            id_array = _np.array(
+                                [int(idx2id_map.get(int(i), -1)) for i in range(used_range)],
+                                dtype=_np.int64,
+                            )
+                        _np.save(idx2id_path, id_array)
+                        files_entry.setdefault("neurons", []).append(
+                            "neurons/index_to_id.npy"
+                        )
+                        checksums["neurons/index_to_id.npy"] = blake2b(
+                            idx2id_path.read_bytes(), digest_size=32
+                        ).hexdigest()
+                except Exception:
+                    # Mapping export is best-effort; core snapshot remains valid
+                    pass
                 _np.savez_compressed(neurons_npz, **neuron_payload)
                 # Write meta
                 neurons_meta.write_text(

@@ -58,6 +58,80 @@ def restore_brain_snapshot(
     if manifest.get("schema_version") != "brain-snapshot-v1":
         raise SnapshotRestoreError("Unsupported snapshot schema_version")
 
+    # Pre-restore: perform deterministic cleanup of existing connectome state
+    try:
+        cm = connectome_manager
+        if cm is not None:
+            # Clear cortical areas and mapping state
+            if hasattr(cm, "cortical_areas") and isinstance(cm.cortical_areas, dict):
+                cm.cortical_areas.clear()
+            if hasattr(cm, "cortical_mapping") and hasattr(cm.cortical_mapping, "clear"):
+                cm.cortical_mapping.clear()
+            if hasattr(cm, "cortical_connections"):
+                cm.cortical_connections = {}
+            # Clear id/index mappings
+            if hasattr(cm, "_neuron_id_to_index_map"):
+                cm._neuron_id_to_index_map.clear()
+            if hasattr(cm, "_index_to_neuron_id_map"):
+                cm._index_to_neuron_id_map.clear()
+            # Reset spatial structures if present
+            if hasattr(cm, "_spatial_hash") and cm._spatial_hash:
+                try:
+                    cm._spatial_hash.clear()
+                except Exception:
+                    pass
+            if hasattr(cm, "_spatial_index") and cm._spatial_index:
+                try:
+                    cm._spatial_index.clear()
+                except Exception:
+                    pass
+            # Reset arrays to empty-valid state where possible
+            try:
+                na = getattr(cm, "neuron_array", None)
+                if na is not None:
+                    # Reset counters and masks
+                    if hasattr(na, "next_index"):
+                        na.next_index = 0
+                    if hasattr(na, "neuron_count"):
+                        na.neuron_count = 0
+                    if hasattr(na, "free_indices"):
+                        na.free_indices = set()
+                    if hasattr(na, "valid_mask"):
+                        na.valid_mask[:] = False
+                    if hasattr(na, "is_active"):
+                        na.is_active[:] = False
+            except Exception:
+                pass
+            try:
+                sa = getattr(cm, "synapse_array", None)
+                if sa is not None:
+                    for attr in ("next_slot",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, 0)
+                    for attr in ("free_slots",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, set())
+            except Exception:
+                pass
+            # Clear FCL caches
+            fclm = getattr(cm, "fcl_manager", None)
+            if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                try:
+                    fclm.clear_all_window_caches()
+                except Exception:
+                    pass
+            # Invalidate StateManager caches
+            try:
+                sm = state_manager
+                if hasattr(sm, "invalidate_cortical_areas_cache"):
+                    sm.invalidate_cortical_areas_cache()
+                if hasattr(sm, "set_cortical_list"):
+                    sm.set_cortical_list([])
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     files = manifest.get("files", {})
     connectome_path = snap_dir / files.get("connectome", "connectome.json")
     state_path = snap_dir / files.get("state", "state.json")
@@ -86,8 +160,53 @@ def restore_brain_snapshot(
                         _verify(p, rel)
 
     # Read summaries (connectome currently informational)
-    if connectome_path.exists():
-        _ = _read_json(connectome_path)
+    # Rehydrate cortical areas from connectome.json
+    if connectome_path.exists() and connectome_manager is not None:
+        try:
+            from feagi.bdu.models.cortical_area import CorticalArea
+            connectome_data = _read_json(connectome_path)
+            areas_data = connectome_data.get("cortical_areas", [])
+            # Rehydrate cortical areas with proper names, types, and properties
+            for idx, entry in enumerate(areas_data):
+                try:
+                    cid = entry.get("id", f"area_{idx}")
+                    dims = entry.get("dimensions", [1, 1, 1])
+                    pos = entry.get("position", [0, 0, 0])
+                    if isinstance(dims, list) and len(dims) >= 3:
+                        dims = dims[:3]
+                    else:
+                        dims = [1, 1, 1]
+                    if isinstance(pos, list) and len(pos) >= 3:
+                        pos = pos[:3]
+                    elif isinstance(pos, dict):
+                        pos = [
+                            pos.get("x", 0),
+                            pos.get("y", 0),
+                            pos.get("z", 0),
+                        ]
+                    cidx_val = entry.get("cortical_idx")
+                    cortical_idx = int(cidx_val) if isinstance(cidx_val, int) else idx
+                    area_name = entry.get("name") or cid
+                    area_type = entry.get("area_type") or entry.get("type") or "custom"
+                    area_props = entry.get("properties") or entry.get("parameters") or {}
+                    area = CorticalArea(
+                        name=area_name,
+                        dimensions=tuple(dims),
+                        position=tuple(pos),
+                        area_type=area_type,
+                        properties=area_props,
+                        cortical_id=cid,
+                        cortical_idx=cortical_idx,
+                    )
+                    if hasattr(connectome_manager, "cortical_areas"):
+                        # Store areas keyed by cortical_id (string), not index
+                        connectome_manager.cortical_areas[cid] = area
+                    if hasattr(connectome_manager, "_sync_cortical_mapping"):
+                        connectome_manager._sync_cortical_mapping(cid, cortical_idx)
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     state_data: Dict[str, Any] = {}
     if state_path.exists():
@@ -206,6 +325,8 @@ def restore_brain_snapshot(
                                     raise SnapshotRestoreError(
                                         f"Failed to restore synapse array '{key}': {e}"
                                     ) from e
+            else:
+                pass
             # Memory
             mem_entry = files.get("memory")
             if isinstance(mem_entry, list):
@@ -248,6 +369,119 @@ def restore_brain_snapshot(
                                     raise SnapshotRestoreError(
                                         f"Failed to restore memory array '{key}': {e}"
                                     ) from e
+            else:
+                pass
+
+            # Post-restore: rebuild coordinate indices and id/index mappings (best-effort)
+            try:
+                na = getattr(connectome_manager, "neuron_array", None)
+                areas = getattr(connectome_manager, "cortical_areas", {})
+                if na is not None and isinstance(areas, dict) and areas:
+                    # Clear and rebuild neuron_id/index maps
+                    try:
+                        connectome_manager._neuron_id_to_index_map.clear()
+                        connectome_manager._index_to_neuron_id_map.clear()
+                    except Exception:
+                        pass
+                    # Try to load index_to_id mapping from snapshot
+                    idx2id_arr = None
+                    try:
+                        idx2id_path = snap_dir / "neurons" / "index_to_id.npy"
+                        if idx2id_path.exists():
+                            import numpy as _np
+                            idx2id_arr = _np.load(idx2id_path)
+                    except Exception:
+                        idx2id_arr = None
+                    # Reindex per area
+                    for cortical_id, area in areas.items():
+                        try:
+                            # Reset position maps
+                            if hasattr(area, "_position_map"):
+                                area._position_map.clear()
+                            if hasattr(area, "_position_to_neurons"):
+                                area._position_to_neurons.clear()
+                            # Collect all neurons belonging to this area by cortical_idx
+                            cidx = getattr(area, "cortical_idx", None)
+                            if cidx is None:
+                                continue
+                            # neuron_array expected fields
+                            idxs = []
+                            try:
+                                # Vectorized mask by cortical_idx if available
+                                import numpy as _np
+                                if hasattr(na, "cortical_idxs") and hasattr(na, "valid_mask"):
+                                    mask = (_np.asarray(na.cortical_idxs) == int(cidx)) & (
+                                        _np.asarray(na.valid_mask, dtype=_np.bool_)
+                                    )
+                                    idxs = _np.flatnonzero(mask).tolist()
+                            except Exception:
+                                idxs = []
+                            # Populate maps for each index
+                            for i in idxs:
+                                try:
+                                    nid = -1
+                                    if idx2id_arr is not None:
+                                        # If index map was present, indices array may be sparse; fall back to direct position if size permits
+                                        if int(i) < idx2id_arr.shape[0]:
+                                            nid = int(idx2id_arr[int(i)])
+                                    if nid < 0:
+                                        # Fallback to neuron_array mapping if available
+                                        nid = int(getattr(na, "index_to_id_map", {}).get(int(i), -1))
+                                    if nid < 0:
+                                        continue
+                                    # Update global maps
+                                    connectome_manager._neuron_id_to_index_map[nid] = int(i)
+                                    connectome_manager._index_to_neuron_id_map[int(i)] = nid
+                                    # Position
+                                    pos = None
+                                    try:
+                                        x = int(na.coordinates_x[i])
+                                        y = int(na.coordinates_y[i])
+                                        z = int(na.coordinates_z[i])
+                                        pos = (x, y, z)
+                                    except Exception:
+                                        pos = None
+                                    if pos is not None:
+                                        if hasattr(area, "_position_map"):
+                                            area._position_map[nid] = pos
+                                        if hasattr(area, "_position_to_neurons"):
+                                            lst = area._position_to_neurons.get(pos)
+                                            if lst is None:
+                                                area._position_to_neurons[pos] = [nid]
+                                            else:
+                                                lst.append(nid)
+                                except Exception:
+                                    continue
+                        except Exception:
+                            # Skip area on error and continue rebuilding others
+                            continue
+                    # Refresh FCL window caches (safe conditional)
+                    fclm = getattr(connectome_manager, "fcl_manager", None)
+                    if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                        try:
+                            fclm.clear_all_window_caches()
+                        except Exception:
+                            pass
+                    # Refresh StateManager cortical areas cache to synchronize with restored areas
+                    try:
+                        sm = state_manager
+                        if sm and hasattr(sm, "set_cortical_list"):
+                            # Build cortical list from restored areas
+                            area_list = []
+                            if hasattr(connectome_manager, "cortical_areas"):
+                                for cid, area in connectome_manager.cortical_areas.items():
+                                    area_list.append(cid)
+                            sm.set_cortical_list(area_list)
+                        if sm and hasattr(sm, "invalidate_cortical_areas_cache"):
+                            sm.invalidate_cortical_areas_cache()
+                        if sm and hasattr(sm, "get_cortical_areas_cache"):
+                            # Force cache refresh
+                            _ = sm.get_cortical_areas_cache(connectome_manager)
+                    except Exception:
+                        pass
+            except Exception:
+                # Non-fatal; core restore succeeded
+                pass
     except SnapshotRestoreError:
         raise
     except Exception:

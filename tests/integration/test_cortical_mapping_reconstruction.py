@@ -28,7 +28,7 @@ class TestCorticalMappingReconstruction:
         self._ensure_genome_loaded()
         
         # Use existing areas for testing mapping reconstruction
-        self.test_areas = ["_death", "___pwr"]
+        self.test_areas = ["_death", "_power"]
         
         # Clean up any existing test mappings before and after test
         self._cleanup_test_mappings()
@@ -235,7 +235,7 @@ class TestCorticalMappingReconstruction:
         """
         # Step 1: Use existing cortical areas from the barebones genome
         # NOTE: Using existing areas due to cortical area creation API issues
-        area_a_id, area_b_id = "_death", "___pwr"
+        area_a_id, area_b_id = "_death", "_power"
         
         print(f"Using existing cortical areas for mapping test: {area_a_id} and {area_b_id}")
         

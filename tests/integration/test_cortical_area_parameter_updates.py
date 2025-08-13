@@ -199,7 +199,7 @@ class TestCorticalAreaParameterUpdates:
     @pytest.fixture(scope="class")
     def test_cortical_id(self):
         """Test cortical area ID."""
-        return "___pwr"
+        return "_power"
     
     @pytest.fixture(scope="class")
     def api_session(self):

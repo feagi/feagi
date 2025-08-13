@@ -572,7 +572,7 @@ def test_all_synapse_types_benchmark(connectome_manager):
 
 def test_large_self_mapping_vector_benchmark(connectome_manager, neuro_embryogenesis):
     """
-    Benchmark the performance issue identified in test_mode_1 with iv00_C self-mapping.
+    Benchmark the performance issue identified in test_mode_1 with iic400 self-mapping.
     
     This test reproduces the 49-second delay caused by processing a 64x64x3 area
     with test_vector_1_1_1 morphology (vector [1,1,1]).
@@ -580,12 +580,12 @@ def test_large_self_mapping_vector_benchmark(connectome_manager, neuro_embryogen
     print("\n" + "="*80)
     print("LARGE SELF-MAPPING VECTOR BENCHMARK")
     print("="*80)
-    print("Reproducing the iv00_C test_vector_1_1_1 performance issue...")
+    print("Reproducing the iic400 test_vector_1_1_1 performance issue...")
     
-    # Create a large vision-like area similar to iv00_C (64x64x3 = 12,288 neurons)
+    # Create a large vision-like area similar to iic400 (64x64x3 = 12,288 neurons)
     large_area_id = connectome_manager.add_cortical_area(
         name="test_vision_area",
-        dimensions=(64, 64, 3),  # Same as iv00_C in test_genome_1.json
+        dimensions=(64, 64, 3),  # Same as iic400 in test_genome_1.json
         position=(0, 0, 0),
         area_type="test"
     )
@@ -605,7 +605,7 @@ def test_large_self_mapping_vector_benchmark(connectome_manager, neuro_embryogen
     # Create the problematic self-mapping with vector [1,1,1]
     mapping_data = {
         large_area_id: {
-            large_area_id: [  # Self-mapping like iv00_C -> iv00_C
+            large_area_id: [  # Self-mapping like iic400 -> iic400
                 {
                     "morphology_id": "test_vector_1_1_1",
                     "morphology_scalar": [1, 1, 1],

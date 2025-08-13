@@ -64,10 +64,10 @@ def enable_debug_and_test():
         print("3. Look for '🔥 NEURON DEBUG:' messages when neurons fire")
         print("4. Look for '🚨 BUG DETECTED:' if area-wide suppression occurs")
         print("\n💡 WHAT TO STIMULATE:")
-        print("- Power area (___pwr) - but it only has 1 neuron")
+        print("- Power area (_power) - but it only has 1 neuron")
         print("- Any cortical area with multiple neurons")
         print("- Motor areas (m__rig, m__lef, m__for, m__bac)")
-        print("- Visual areas (iv00BR, iv00_C, etc.)")
+        print("- Visual areas (iic200, iic400, etc.)")
         
         print("\n⚠️  TO DISABLE DEBUG: Run this script again or restart FEAGI")
         

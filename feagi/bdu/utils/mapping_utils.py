@@ -57,7 +57,7 @@ def build_power_connections(
         mapping_dict: Dict of {entry: value} for mapping patterns.
     """
     state = FeagiStateManager.get_instance()
-    power_area = "___pwr"
+    power_area = "_power"
     cortical_template = cortical_types[cortical_type]["supported_devices"][
         target_area_id
     ].copy()

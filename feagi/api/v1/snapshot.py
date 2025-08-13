@@ -274,16 +274,9 @@ class SnapshotAPI:
             try:
                 gpath = Path(snapshot_root) / snapshot_id / "genome.json"
                 if gpath.exists():
-                    # Capture previous genome before replacing to detect changes
-                    old_genome = None
-                    try:
-                        old_genome = self.core_api_service.state_manager.genome
-                    except Exception:
-                        old_genome = None
                     genome_obj = _json.loads(gpath.read_text(encoding="utf-8"))
                     gs = self.core_api_service._genome_service
-                    # Cache and propagate genome to state/connectome; apply physiology
-                    gs._current_genome = genome_obj
+                    # Cache genome for services and state
                     try:
                         self.core_api_service.state_manager.genome = genome_obj
                     except Exception:
@@ -294,28 +287,39 @@ class SnapshotAPI:
                             cmgr.genome = genome_obj
                     except Exception:
                         pass
+                    # Apply physiology parameters backing
                     try:
                         gs._apply_genome_physiology_parameters(
                             genome_obj, self.core_api_service
                         )
                     except Exception:
                         pass
-                    # Increment genome counter if genuinely new genome loaded
+                    # Backfill cortical area display names from genome when missing
                     try:
-                        import json as _j
-                        import hashlib as _h
-                        def _hash(obj: dict) -> str:
-                            return _h.md5(_j.dumps(obj, sort_keys=True).encode()).hexdigest()
-                        is_new = False
-                        if not isinstance(old_genome, dict):
-                            is_new = True
-                        else:
-                            is_new = _hash(old_genome) != _hash(genome_obj)
-                        if is_new:
-                            sm = self.core_api_service.state_manager
-                            sm.increment_genome_counter()
-                            import time as _t
-                            sm.set_genome_timestamp(int(_t.time() * 1000))
+                        cmgr = self.core_api_service._connectome_manager
+                        blueprint = genome_obj.get("blueprint", {}) if isinstance(genome_obj, dict) else {}
+                        for cid, area in getattr(cmgr, "cortical_areas", {}).items():
+                            try:
+                                # If area.name is missing or equals id, try to use genome cortical_name
+                                if not getattr(area, "name", None) or area.name == cid:
+                                    g_def = blueprint.get(cid, {})
+                                    g_name = g_def.get("cortical_name")
+                                    if isinstance(g_name, str) and g_name:
+                                        area.name = g_name
+                            except Exception:
+                                continue
+                        # Refresh cortical areas cache to propagate updated names
+                        sm = self.core_api_service.state_manager
+                        sm.invalidate_cortical_areas_cache()
+                        _ = sm.get_cortical_areas_cache(cmgr)
+                    except Exception:
+                        pass
+                    # Always update genome counter and timestamp on successful restore
+                    try:
+                        sm = self.core_api_service.state_manager
+                        sm.increment_genome_counter()
+                        import time as _t
+                        sm.set_genome_timestamp(int(_t.time() * 1000))
                     except Exception:
                         pass
             except Exception:

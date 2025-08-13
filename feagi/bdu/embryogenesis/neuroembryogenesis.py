@@ -40,7 +40,7 @@ instructions guide brain development from the embryonic neural tube.
 
 Naming Convention:
 -----------------
-* cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C")
+* cortical_id: 6-character unique identifier from the genome (e.g., "iic400")
 * cortical_idx: Auto-incremented integer ID used internally for efficient indexing
                 Previously referred to as 'area_id' or just 'i' in various places
 
@@ -527,7 +527,7 @@ class NeuroEmbryogenesis:
         """
         Create all cortical areas in the connectome manager based on the genome.
 
-        ENHANCED: Now guarantees core areas (_death, ___pwr) are created first from templates,
+        ENHANCED: Now guarantees core areas (_death, _power) are created first from templates,
         then allows genome to override their properties, then creates remaining areas.
 
         Returns:
@@ -563,7 +563,7 @@ class NeuroEmbryogenesis:
                 "Creating genome-defined cortical areas",
             )
             remaining_areas = [
-                cid for cid in cortical_ids if cid not in ["_death", "___pwr"]
+                cid for cid in cortical_ids if cid not in ["_death", "_power"]
             ]
             total_remaining = len(remaining_areas)
 
@@ -671,12 +671,12 @@ class NeuroEmbryogenesis:
 
             # Verify core areas exist
             core_areas_found = []
-            for core_id in ["_death", "___pwr"]:
+            for core_id in ["_death", "_power"]:
                 if core_id in self.connectome_manager.cortical_areas:
                     core_areas_found.append(core_id)
 
             if len(core_areas_found) != 2:
-                self.error = f"CRITICAL: Missing core areas. Found: {core_areas_found}, Expected: ['_death', '___pwr']"
+                self.error = f"CRITICAL: Missing core areas. Found: {core_areas_found}, Expected: ['_death', '_power']"
                 self._report_progress(DevelopmentStage.FAILED, 0, self.error)
                 return False
 
@@ -695,7 +695,7 @@ class NeuroEmbryogenesis:
 
     def _create_core_areas_from_templates(self) -> bool:
         """
-        Create the guaranteed core areas (_death, ___pwr) from templates.py.
+        Create the guaranteed core areas (_death, _power) from templates.py.
 
         These areas are ALWAYS created regardless of genome content to ensure
         system reliability and proper cortical_idx reservation.
@@ -738,8 +738,8 @@ class NeuroEmbryogenesis:
                 f"Created core area _death at cortical_idx={death_area.cortical_idx}"
             )
 
-            # Create ___pwr area (cortical_idx=1)
-            pwr_template = core_devices["___pwr"]
+                        # Create _power area (cortical_idx=1)
+            pwr_template = core_devices["_power"]
             pwr_id = self.connectome_manager.add_cortical_area(
                 name=pwr_template["cortical_name"],
                 dimensions=tuple(pwr_template["resolution"]),
@@ -750,21 +750,21 @@ class NeuroEmbryogenesis:
                     "enabled": True,  # Always enable power area regardless of template default
                     "structure": pwr_template["structure"],
                 },
-                cortical_id="___pwr",
+                cortical_id="_power",
             )
 
             # Verify area was created and get from connectome_manager (single source of truth)
             if pwr_id not in self.connectome_manager.cortical_areas:
                 raise RuntimeError(
-                    "CRITICAL: ___pwr area was not created in connectome_manager"
+                    "CRITICAL: _power area was not created in connectome_manager"
                 )
 
             pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
-            self.cortical_id_map[pwr_area.cortical_idx] = "___pwr"
-            self.reverse_cortical_id_map["___pwr"] = pwr_area.cortical_idx
+            self.cortical_id_map[pwr_area.cortical_idx] = "_power"
+            self.reverse_cortical_id_map["_power"] = pwr_area.cortical_idx
 
             logger.info(
-                f"Created core area ___pwr at cortical_idx={pwr_area.cortical_idx}"
+                f"Created core area _power at cortical_idx={pwr_area.cortical_idx}"
             )
 
             # Verify correct cortical_idx assignment
@@ -775,7 +775,7 @@ class NeuroEmbryogenesis:
                 return False
             if pwr_area.cortical_idx != 1:
                 logger.error(
-                    f"CRITICAL: ___pwr area got cortical_idx={pwr_area.cortical_idx}, expected 1"
+                    f"CRITICAL: _power area got cortical_idx={pwr_area.cortical_idx}, expected 1"
                 )
                 return False
 
@@ -799,7 +799,7 @@ class NeuroEmbryogenesis:
             genome_cortical_ids: List of cortical IDs found in genome
         """
         try:
-            for core_id in ["_death", "___pwr"]:
+            for core_id in ["_death", "_power"]:
                 if core_id in genome_cortical_ids:
                     logger.info(f"Updating core area {core_id} with genome properties")
 
@@ -1555,7 +1555,7 @@ class NeuroEmbryogenesis:
                 converted_mapping = {}
 
                 # Based on test mode 2 logs, these destination areas map to specific source areas:
-                # CIHMot, CKQM2_, CKYM2_, CO4M3_, CJWM3_, CTGM4_, CLWM4_ -> o__mot
+                # CIHMot, CKQM2_, CKYM2_, CO4M3_, CJWM3_, CTGM4_, CLWM4_ -> co_mot
                 # This is a temporary fix until EVO processor is corrected
 
                 motor_areas = {
@@ -1572,7 +1572,7 @@ class NeuroEmbryogenesis:
                     if dst_area_id in motor_areas:
                         # These areas connect to motor output
                         src_area_id = dst_area_id  # Source is the same as destination for these mappings
-                        dst_area_id = "o__mot"  # They all connect to motor output
+                        dst_area_id = "co_mot"  # They all connect to motor output
 
                         if src_area_id not in converted_mapping:
                             converted_mapping[src_area_id] = {}

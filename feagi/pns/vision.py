@@ -19,16 +19,16 @@ from feagi.bdu.connectivity.mapping_utils import build_power_connections
 from feagi.bdu.connectivity.synaptogenesis import neighbor_finder
 from feagi.core.state_manager import FeagiStateManager
 
-central_vision_cortical_area = "iv00_C"
+central_vision_cortical_area = "iic400"
 peripheral_vision_cortical_areas = [
     "iv00TR",
     "iv00TL",
     "iv00TM",
     "iv00MR",
     "iv00ML",
-    "iv00BR",
-    "iv00BL",
-    "iv00BM",
+    "iic200",
+    "iic000",
+    "iic100",
 ]
 
 
@@ -218,7 +218,7 @@ def get_central_vision_dimension():
 
 
 def power_is_connected(cortical_area):
-    power_area = "___pwr"
+    power_area = "_power"
     neighbor_candidates = None
     connected_power_coordinates = None
     src_subregion = (

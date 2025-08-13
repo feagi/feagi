@@ -2227,7 +2227,7 @@ class GenomeService(BaseService):
                     if area_id in current_genome["blueprint"]:
                         area_def = current_genome["blueprint"][area_id]
                     else:
-                        # Create area definition from templates for system areas (like ___pwr)
+                        # Create area definition from templates for system areas (like _power)
                         self.logger.info(
                             f"Creating genome entry for system area '{area_id}' from templates"
                         )

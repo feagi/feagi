@@ -132,7 +132,7 @@ class FCLInjectionService:
         """
         Pre-compute injection batches for performance optimization.
 
-        SIMPLIFIED for core power area (___pwr at cortical_idx=1):
+        SIMPLIFIED for core power area (_power at cortical_idx=1):
         Creates injection batches for detected power areas.
         """
         # Clear existing batches
@@ -274,7 +274,7 @@ class FCLInjectionService:
             # FAST: Set membrane potential to PSP value from cortical area properties
             if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
                 # Get PSP value from power area properties via connectome manager
-                power_area = self.connectome_manager.get_cortical_area("___pwr")
+                power_area = self.connectome_manager.get_cortical_area("_power")
                 if power_area and power_area.properties:
                     psp_value = power_area.properties.get("postsynaptic_current", 500.0)
                 else:
@@ -291,7 +291,7 @@ class FCLInjectionService:
             # This happens EVERY BURST to provide constant power supply
             injected_count = self._inject_batch(
                 InjectionBatch(
-                    cortical_id="___pwr",
+                    cortical_id="_power",
                     neuron_ids=power_neurons,
                     timing=InjectionTiming.PRE_BURST,
                     probability=1.0,  # Always inject power neurons

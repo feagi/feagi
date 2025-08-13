@@ -56,7 +56,7 @@ class SpecialAreaHandler:
     Handler for core power area injection.
 
     Simplified for 100kHz performance: Directly accesses the core power area
-    at cortical_idx=1 (___pwr) which is guaranteed to exist in every genome.
+    at cortical_idx=1 (_power) which is guaranteed to exist in every genome.
     No detection or caching needed - direct access for maximum reliability.
     """
 
@@ -89,10 +89,10 @@ class SpecialAreaHandler:
         No lookup overhead - directly accesses guaranteed core area.
 
         Returns:
-            List of neuron IDs from the core power area (___pwr)
+            List of neuron IDs from the core power area (_power)
         """
         try:
-            # Direct access to cortical_idx=1 (core power area ___pwr)
+            # Direct access to cortical_idx=1 (core power area _power)
             power_neurons = self.connectome_manager.get_neurons_by_cortical_idx(1)
 
             # 🚨 CRITICAL DEBUG: Trace neuron corruption issue
@@ -106,7 +106,7 @@ class SpecialAreaHandler:
                 )
                 logger.error(f"   Neuron IDs: {power_neurons[:20]}...")  # Show first 20
 
-                # Check cortical area mapping - is cortical_idx=1 actually ___pwr?
+                # Check cortical area mapping - is cortical_idx=1 actually _power?
                 try:
                     if hasattr(self.connectome_manager, "cortical_areas"):
                         logger.error("🔍 MAPPING VERIFICATION:")
@@ -134,9 +134,9 @@ class SpecialAreaHandler:
                                 )
 
                                 # Check if this is really the power area
-                                if area_id != "___pwr":
+                                if area_id != "_power":
                                     logger.error(
-                                        f"🚨 CRITICAL: cortical_idx=1 maps to '{area_id}', NOT '___pwr'!"
+                                        f"🚨 CRITICAL: cortical_idx=1 maps to '{area_id}', NOT '_power'!"
                                     )
                                     logger.error(
                                         "   This indicates severe cortical mapping corruption during neurogenesis"
@@ -147,26 +147,26 @@ class SpecialAreaHandler:
                                 "🚨 CRITICAL: No area found with cortical_idx=1!"
                             )
 
-                        # Also check where ___pwr actually maps to
+                        # Also check where _power actually maps to
                         for (
                             area_id,
                             area_obj,
                         ) in self.connectome_manager.cortical_areas.items():
-                            if area_id == "___pwr":
+                            if area_id == "_power":
                                 actual_cortical_idx = getattr(
                                     area_obj, "cortical_idx", "unknown"
                                 )
                                 logger.error(
-                                    f"   '___pwr' area maps to cortical_idx={actual_cortical_idx}"
+                                    f"   '_power' area maps to cortical_idx={actual_cortical_idx}"
                                 )
                                 if actual_cortical_idx != 1:
                                     logger.error(
-                                        f"🚨 CRITICAL: '___pwr' has wrong cortical_idx! Expected 1, got {actual_cortical_idx}"
+                                        f"🚨 CRITICAL: '_power' has wrong cortical_idx! Expected 1, got {actual_cortical_idx}"
                                     )
                                 break
                         else:
                             logger.error(
-                                "🚨 CRITICAL: '___pwr' area not found in cortical_areas!"
+                                "🚨 CRITICAL: '_power' area not found in cortical_areas!"
                             )
 
                     # Check individual neuron cortical assignments
@@ -246,7 +246,7 @@ class SpecialAreaHandler:
 
             return power_neurons if power_neurons else []
         except KeyError as e:
-            # cortical_idx=1 (___pwr area) doesn't exist - likely neurogenesis failed
+            # cortical_idx=1 (_power area) doesn't exist - likely neurogenesis failed
             # Use DEBUG level to avoid log spam, only warn once per minute
             if not hasattr(self, "_last_pwr_warning_time"):
                 self._last_pwr_warning_time = 0
@@ -256,12 +256,12 @@ class SpecialAreaHandler:
                 current_time - self._last_pwr_warning_time > 60.0
             ):  # Only warn once per minute
                 logger.warning(
-                    "[POWER DETECTION] Core power area (___pwr) not found - neurogenesis may have failed"
+                    "[POWER DETECTION] Core power area (_power) not found - neurogenesis may have failed"
                 )
                 self._last_pwr_warning_time = current_time
             else:
                 logger.debug(
-                    f"[POWER DETECTION] Core power area (___pwr) not found: {e}"
+                    f"[POWER DETECTION] Core power area (_power) not found: {e}"
                 )
 
             return []
@@ -281,12 +281,12 @@ class SpecialAreaHandler:
 
         Returns:
             Dictionary mapping cortical_id to list of neuron IDs
-            For core power area: {"___pwr": [neuron_ids]}
+            For core power area: {"_power": [neuron_ids]}
         """
         try:
             power_neurons = self.get_power_area_neurons()
             if power_neurons:
-                return {"___pwr": power_neurons}
+                return {"_power": power_neurons}
             else:
                 return {}
         except Exception as e:
@@ -306,7 +306,7 @@ class SpecialAreaHandler:
         Returns:
             Configuration object for the area, or None if not a special area
         """
-        if cortical_id == "___pwr":
+        if cortical_id == "_power":
             # Return a simple config object for the core power area
             from types import SimpleNamespace
 
@@ -314,7 +314,7 @@ class SpecialAreaHandler:
                 enabled=True,
                 injection_timing="pre_burst",
                 injection_probability=1.0,
-                cortical_id="___pwr",
+                cortical_id="_power",
                 area_type="power",
             )
         else:
@@ -334,7 +334,7 @@ class SpecialAreaHandler:
         return {
             "injection_count": self.injection_count,
             "last_injection_time": self.last_injection_time,
-            "core_power_area": "cortical_idx=1 (___pwr)",
+            "core_power_area": "cortical_idx=1 (_power)",
         }
 
     def record_injection(self) -> None:

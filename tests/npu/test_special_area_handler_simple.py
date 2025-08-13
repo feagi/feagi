@@ -33,13 +33,13 @@ class MockConnectomeManager:
         # Mock cortical areas with neurons
         self.mock_neurons = {
             0: [100, 101, 102],  # _death neurons
-            1: [200, 201, 202, 203, 204],  # ___pwr neurons (cortical_idx=1)
+            1: [200, 201, 202, 203, 204],  # _power neurons (cortical_idx=1)
             2: [300, 301, 302],  # Other area neurons
         }
 
     def get_neurons_by_cortical_idx(self, cortical_idx):
         """Mock method to return neurons for a given cortical_idx."""
-        if cortical_idx == 1:  # Core power area (___pwr)
+        if cortical_idx == 1:  # Core power area (_power)
             return self.mock_neurons.get(cortical_idx, [])
         return self.mock_neurons.get(cortical_idx, [])
 
@@ -110,7 +110,7 @@ def test_get_statistics(special_handler):
     assert "injection_count" in stats
     assert "last_injection_time" in stats
     assert "core_power_area" in stats
-    assert stats["core_power_area"] == "cortical_idx=1 (___pwr)"
+    assert stats["core_power_area"] == "cortical_idx=1 (_power)"
     assert stats["injection_count"] == 1
 
 

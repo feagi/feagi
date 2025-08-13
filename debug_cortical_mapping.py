@@ -39,7 +39,7 @@ def test_cortical_info_endpoint():
     """Test the cortical info endpoint for various areas."""
     print("🔍 Testing cortical info endpoint for different areas...")
     
-    areas_to_test = ['iv00MR', 'iv00_C', 'm__rig', '___pwr']
+    areas_to_test = ['iv00MR', 'iic400', 'm__rig', '_power']
     
     for area_id in areas_to_test:
         print(f"\n📊 Testing {area_id}:")
@@ -79,7 +79,7 @@ def test_alternative_neuron_access():
     print("\n2️⃣ Testing estimated neuron IDs:")
     test_ranges = [
         ('iv00MR', [4000, 4001, 4002, 4003, 4004]),
-        ('iv00_C', [6000, 6001, 6002, 6003, 6004]),
+        ('iic400', [6000, 6001, 6002, 6003, 6004]),
         ('m__rig', [7000, 7001, 7002]),  # Might be wrong estimate
     ]
     

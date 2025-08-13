@@ -12,7 +12,7 @@ Architecture Principles:
 - Rust migration ready (HashMap<String, i32> and HashMap<i32, String>)
 - SIMD optimization ready (vectorizable batch operations)
 - Single solid execution path (no exceptions, no fallbacks)
-- Core areas pre-allocated (_death=0, ___pwr=1)
+    - Core areas pre-allocated (_death=0, _power=1)
 """
 
 # Standard imports
@@ -39,7 +39,7 @@ class BiDirectionalCorticalMap:
 
     Core Areas:
     - _death → 0 (always present, cannot be removed)
-    - ___pwr → 1 (always present, cannot be removed)
+            - _power → 1 (always present, cannot be removed)
     """
 
     def __init__(self):
@@ -51,9 +51,9 @@ class BiDirectionalCorticalMap:
         # Pre-allocate core areas - these MUST always be present
         # No fallbacks - if these aren't here, it's a system failure
         self.__id_to_idx["_death"] = 0
-        self.__id_to_idx["___pwr"] = 1
+        self.__id_to_idx["_power"] = 1
         self.__idx_to_id[0] = "_death"
-        self.__idx_to_id[1] = "___pwr"
+        self.__idx_to_id[1] = "_power"
 
     def add_mapping(self, cortical_id: str, cortical_idx: int) -> bool:
         """Add bidirectional mapping with conflict resolution.
@@ -72,7 +72,7 @@ class BiDirectionalCorticalMap:
             return False
 
         # Protect core areas (0,1) from modification
-        if cortical_idx in (0, 1) and cortical_id not in ("_death", "___pwr"):
+        if cortical_idx in (0, 1) and cortical_id not in ("_death", "_power"):
             return False
 
         # Atomic update - remove any existing conflicting mappings
@@ -129,7 +129,7 @@ class BiDirectionalCorticalMap:
             True if mapping was removed, False if not found or protected
         """
         # Protect core areas from removal
-        if cortical_id in ("_death", "___pwr"):
+        if cortical_id in ("_death", "_power"):
             return False
 
         cortical_idx = self.__id_to_idx.get(cortical_id)
@@ -198,8 +198,8 @@ class BiDirectionalCorticalMap:
         # Verify core areas are intact (critical system requirement)
         if self.__id_to_idx.get("_death") != 0 or self.__idx_to_id.get(0) != "_death":
             errors.add("Core area _death not properly mapped to index 0")
-        if self.__id_to_idx.get("___pwr") != 1 or self.__idx_to_id.get(1) != "___pwr":
-            errors.add("Core area ___pwr not properly mapped to index 1")
+        if self.__id_to_idx.get("_power") != 1 or self.__idx_to_id.get(1) != "_power":
+            errors.add("Core area _power not properly mapped to index 1")
 
         return len(errors) == 0, errors
 
@@ -224,7 +224,7 @@ class BiDirectionalCorticalMap:
         is_consistent, _ = self.validate_consistency()
         return {
             "total_mappings": len(self.__id_to_idx),
-            "core_areas": 2,  # Always _death=0, ___pwr=1
+            "core_areas": 2,  # Always _death=0, _power=1
             "custom_areas": len(self.__id_to_idx) - 2,
             "consistency_valid": is_consistent,
         }
@@ -243,9 +243,9 @@ class BiDirectionalCorticalMap:
 
         # Always restore core areas (critical system requirement)
         self.__id_to_idx["_death"] = 0
-        self.__id_to_idx["___pwr"] = 1
+        self.__id_to_idx["_power"] = 1
         self.__idx_to_id[0] = "_death"
-        self.__idx_to_id[1] = "___pwr"
+        self.__idx_to_id[1] = "_power"
 
     def __len__(self) -> int:
         """Return number of mappings."""

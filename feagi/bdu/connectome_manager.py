@@ -219,8 +219,8 @@ class ConnectomeManager(NeuronMappingProvider):
         self.connectivity_rules = {}
         self.cortical_connections = {}
 
-        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
-        self.reserved_cortical_areas = {"_death": 0, "___pwr": 1}
+        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "_power"
+        self.reserved_cortical_areas = {"_death": 0, "_power": 1}
 
         # Initialize bidirectional cortical mapping
         self.cortical_mapping = BiDirectionalCorticalMap()
@@ -677,7 +677,7 @@ class ConnectomeManager(NeuronMappingProvider):
         Dynamically find the next available cortical_idx using proper state management.
 
         This method scans existing cortical areas to find the next available index,
-        respecting reserved cortical_idx constraints (0 for _death, 1 for ___pwr).
+        respecting reserved cortical_idx constraints (0 for _death, 1 for _power).
 
         Returns:
             Next available cortical_idx starting from 2 (after reserved indices)
@@ -1375,7 +1375,7 @@ class ConnectomeManager(NeuronMappingProvider):
         """Get all neurons in a cortical area by cortical_idx (integer).
 
         Args:
-            cortical_idx: Integer cortical index (0 for _death, 1 for ___pwr, etc.)
+            cortical_idx: Integer cortical index (0 for _death, 1 for _power, etc.)
 
         Returns:
             List of neuron IDs in the area
@@ -1745,7 +1745,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 raise ValueError(f"Cortical area with name '{name}' already exists")
 
         # CRITICAL FIX: Check if an area with this cortical_id already exists
-        # This prevents duplicate creation of core areas (___pwr, _death) which would
+                    # This prevents duplicate creation of core areas (_power, _death) which would
         # cause multiple areas to share the same cortical_idx, leading to neuron corruption
         if cortical_id and cortical_id in self.cortical_areas:
             logger.info(
@@ -1755,7 +1755,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Check for reserved core areas and assign appropriate cortical_idx
         if cortical_id in self.reserved_cortical_areas:
-            # This is a core area (___pwr or _death) - use reserved cortical_idx
+            # This is a core area (_power or _death) - use reserved cortical_idx
             cortical_idx = self.reserved_cortical_areas[cortical_id]
             logger.info(
                 f"Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'"

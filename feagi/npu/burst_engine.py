@@ -59,7 +59,7 @@ Key features:
 - RTOS-Friendly: Designed for real-time operating systems with predictable timing
 - State-Driven: Uses explicit state transitions with consistent logging
 - Dependency Injected: No global state, all dependencies passed explicitly
-- Power Area Support: Handles special cortical areas like "___pwr" with automatic injection
+    - Power Area Support: Handles special cortical areas like "_power" with automatic injection
 - Singleton Pattern: Only one instance can exist at any time
 - Modular Architecture: Uses mixins for debug and performance functionality
 

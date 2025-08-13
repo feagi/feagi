@@ -453,7 +453,7 @@ class VisualizationStream:
 
                 # Create the main mapped neuron data container
                 generated_mapped_neuron_data = (
-                    fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                    fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                 )
 
                 total_neurons = 0
@@ -1050,7 +1050,7 @@ class VisualizationStream:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             # Convert cortical area data to the format expected by the new encoder
@@ -1115,12 +1115,25 @@ class VisualizationStream:
                     # DEBUG: Log NumPy array shapes
                     logger.info(f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, p.shape={neurons_p.shape}")
 
-                    # Create cortical ID
-                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    # Create cortical ID using modern feagi-data-processing approach
+                    area_str = str(area_id)
+                    
+                    try:
+                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        cortical_id_obj = fdp.genome.CorticalID.try_new_from_string(area_str)
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == '_power':
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Power)
+                        elif area_str == '_death':
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Death)
+                        else:
+                            # For unknown areas, use custom with 'c' prefix
+                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{area_str}')
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )

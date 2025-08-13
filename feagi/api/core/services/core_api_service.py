@@ -1774,7 +1774,7 @@ class CoreAPIService:
         Extract clean cortical area name from flat genome format.
         
         Converts: "_____10c-CTGM4_-cx-dstmap-d" → "CTGM4_"
-        Converts: "_____10c-iv00_C-cx-..." → "iv00_C"
+        Converts: "_____10c-iic400-cx-..." → "iic400"
         """
         if not flat_area_name:
             return flat_area_name
@@ -1815,7 +1815,7 @@ class CoreAPIService:
                 target_area = key
                 # SPECIAL HANDLING: If key is "morphology_id", extract target from context_key
                 if key == "morphology_id" and ":" in context_key:
-                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:o__mot"
+                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:co_mot"
                     parts = context_key.split(":")
                     if len(parts) >= 2:
                         target_area = parts[-1].split("[")[0]  # Remove [0] if present
@@ -1839,7 +1839,7 @@ class CoreAPIService:
                     elif isinstance(item, list) and len(item) > 0 and item[0] == morphology_id:
                         # Found in nested list (like the cortical mapping format)
                         # Original_area_id format: "_____10c-CTGM4_-cx-dstmap-d"
-                        # Key format: "o__mot"
+                        # Key format: "co_mot"
                         source_area = self._extract_area_name_from_flat_format(original_area_id)
                         target_area = key
 
@@ -2251,7 +2251,7 @@ class CoreAPIService:
         Args:
             stimulation_payload: Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates
                 Example: {
-                    "___pwr": [[1, 0, 0], [2, 4, 3]], 
+                    "_power": [[1, 0, 0], [2, 4, 3]], 
                     "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
                 }
         
@@ -4019,7 +4019,7 @@ class CoreAPIService:
                 },
                 "reserved_areas": {
                     "_death": id_to_idx.get("_death"),
-                    "___pwr": id_to_idx.get("___pwr"),
+                    "_power": id_to_idx.get("_power"),
                 },
                 "debug_info": {
                     "total_mappings": len(id_to_idx),

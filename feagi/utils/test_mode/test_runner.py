@@ -238,7 +238,7 @@ class FeagiTestRunner:
         """
         Load the appropriate test genome based on test mode.
 
-        For test mode 1: Uses test_genome_1.json with intercortical mapping iv00_C -> iv00_C
+        For test mode 1: Uses test_genome_1.json with intercortical mapping iic400 -> iic400
         For other modes: Uses essential genome
 
         Returns:

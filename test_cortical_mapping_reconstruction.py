@@ -53,19 +53,19 @@ def test_cortical_mapping_reconstruction():
         print("❌ Failed to get cortical areas")
         return False
     
-    if "_death" not in areas_list or "___pwr" not in areas_list:
-        print("❌ Core areas (_death, ___pwr) not found in loaded genome")
+    if "_death" not in areas_list or "_power" not in areas_list:
+        print("❌ Core areas (_death, _power) not found in loaded genome")
         return False
         
     print(f"✅ Using existing core area: _death")
-    print(f"✅ Using existing core area: ___pwr")
+    print(f"✅ Using existing core area: _power")
     
     # Step 2: Create mapping between areas
     print("\n🔗 Step 2: Creating cortical mapping...")
     
     mapping_data = {
         "src_cortical_area": "_death",
-        "dst_cortical_area": "___pwr",
+        "dst_cortical_area": "_power",
         "mapping_string": [
             {
                 "morphology_id": "default_excitatory",
@@ -84,14 +84,14 @@ def test_cortical_mapping_reconstruction():
         print("❌ Failed to create cortical mapping")
         return False
         
-    print("✅ Created mapping: _death → ___pwr")
+    print("✅ Created mapping: _death → _power")
     
     # Step 3: Get initial mapping count using specific mapping properties endpoint
     print("\n📊 Step 3: Getting initial mapping state...")
     
     initial_mapping_data = api_request("POST", "/cortical_mapping/mapping_properties", {
         "src_cortical_area": "_death",
-        "dst_cortical_area": "___pwr"
+        "dst_cortical_area": "_power"
     })
     
     if initial_mapping_data is None:
@@ -99,22 +99,22 @@ def test_cortical_mapping_reconstruction():
         return False
         
     initial_mapping_count = len(initial_mapping_data) if initial_mapping_data else 0
-    print(f"📊 Initial mapping count (_death → ___pwr): {initial_mapping_count}")
+    print(f"📊 Initial mapping count (_death → _power): {initial_mapping_count}")
     print(f"📊 Initial mapping data: {initial_mapping_data}")
     
     # Step 4: Change dimensions of area B (should trigger reconstruction)
-    print("\n🔧 Step 4: Changing dimensions of ___pwr...")
+    print("\n🔧 Step 4: Changing dimensions of _power...")
     
     new_dimensions = [4, 4, 1]  # Changed to 4x4x1
     dimension_update = {
         "cortical_dimensions": new_dimensions
     }
     
-    print(f"🔄 Updating ___pwr dimensions to: {new_dimensions}")
+    print(f"🔄 Updating _power dimensions to: {new_dimensions}")
     
     # Make the dimension change
     update_result = api_request("PUT", "/cortical_area/cortical_area", {
-        "cortical_id": "___pwr",
+        "cortical_id": "_power",
         "cortical_dimensions": new_dimensions
     })
     
@@ -131,7 +131,7 @@ def test_cortical_mapping_reconstruction():
     # Get final mapping state using specific mapping properties endpoint
     final_mapping_data = api_request("POST", "/cortical_mapping/mapping_properties", {
         "src_cortical_area": "_death",
-        "dst_cortical_area": "___pwr"
+        "dst_cortical_area": "_power"
     })
     
     if final_mapping_data is None:
@@ -139,7 +139,7 @@ def test_cortical_mapping_reconstruction():
         return False
         
     final_mapping_count = len(final_mapping_data) if final_mapping_data else 0
-    print(f"📊 Final mapping count (_death → ___pwr): {final_mapping_count}")
+    print(f"📊 Final mapping count (_death → _power): {final_mapping_count}")
     print(f"📊 Final mapping data: {final_mapping_data}")
     
     # Step 6: Verify reconstruction happened

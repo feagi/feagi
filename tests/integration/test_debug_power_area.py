@@ -47,15 +47,15 @@ def test_debug_power_area_detection():
     print("\n=== POWER AREA DEBUG ===")
     print(f"Total cortical areas: {len(connectome.cortical_areas)}")
 
-    # 1. Check if ___pwr area exists
-    if "___pwr" in connectome.cortical_areas:
-        pwr_area = connectome.cortical_areas["___pwr"]
-        print("✅ Power area '___pwr' found:")
+    # 1. Check if _power area exists
+    if "_power" in connectome.cortical_areas:
+        pwr_area = connectome.cortical_areas["_power"]
+        print("✅ Power area '_power' found:")
         print(f"   cortical_idx: {getattr(pwr_area, 'cortical_idx', 'MISSING')}")
         print(f"   name: {getattr(pwr_area, 'name', 'MISSING')}")
         print(f"   dimensions: {getattr(pwr_area, 'dimensions', 'MISSING')}")
     else:
-        print("❌ Power area '___pwr' NOT found")
+        print("❌ Power area '_power' NOT found")
         print(f"Available areas: {list(connectome.cortical_areas.keys())}")
 
     # 2. Check neuron array structure
@@ -147,10 +147,10 @@ def test_debug_power_area_detection():
 
     try:
         # Method 2: get_neurons_by_area
-        neurons_by_area = connectome.get_neurons_by_area("___pwr")
-        print(f"get_neurons_by_area('___pwr'): {neurons_by_area}")
+        neurons_by_area = connectome.get_neurons_by_area("_power")
+        print(f"get_neurons_by_area('_power'): {neurons_by_area}")
     except Exception as e:
-        print(f"get_neurons_by_area('___pwr') FAILED: {e}")
+        print(f"get_neurons_by_area('_power') FAILED: {e}")
 
     # NEW: Test the filtered query step by step
     print("\n=== STEP-BY-STEP QUERY DEBUG ===")

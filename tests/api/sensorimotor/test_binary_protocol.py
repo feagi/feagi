@@ -64,7 +64,7 @@ async def test_sensorimotor_binary_transmission():
         # Create sample sensory data
         sensory_data = {
             "type": "sensory_data",
-            "channel_id": "iv00_C",  # Use correct cortical ID from the essential genome
+            "channel_id": "iic400",  # Use correct cortical ID from the essential genome
             "data": [0.1, 0.2, 0.3, 0.4, 0.5],  # Sample neural activation values
         }
 

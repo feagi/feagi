@@ -224,13 +224,13 @@ def cortical_area_id_update_checker(cortical_id):
     Responsible for updating deprecated cortical names to new ones
     """
     if cortical_id == "i__v0C":
-        return "iv00_C"
+        return "iic400"
     elif cortical_id == "i_v0BL":
-        return "iv00BL"
+        return "iic000"
     elif cortical_id == "i_v0BR":
-        return "iv00BR"
+        return "iic200"
     elif cortical_id == "i_v0BM":
-        return "iv00BM"
+        return "iic100"
     elif cortical_id == "i_v0ML":
         return "iv00ML"
     elif cortical_id == "i_v0MR":

@@ -254,7 +254,7 @@ def test_setup_cortical_areas(embryo, test_genome_file):
             [
                 area_id
                 for area_id in genome_data["blueprint"]
-                if area_id not in ["_death", "___pwr"]
+                if area_id not in ["_death", "_power"]
             ]
         )
         + 2

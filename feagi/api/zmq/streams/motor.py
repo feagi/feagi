@@ -350,7 +350,7 @@ class MotorStream:
 
                     # Create the main mapped neuron data container
                     generated_mapped_neuron_data = (
-                        fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                        fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                     )
 
                     # Generate coordinates if not available
@@ -382,12 +382,25 @@ class MotorStream:
                     neurons_z = np.asarray(z_values[:max_len], dtype=np.uint32)
                     neurons_p = np.asarray(potentials[:max_len], dtype=np.float32)
 
-                    # Create cortical ID
-                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    # Create cortical ID using modern feagi-data-processing approach
+                    area_str = str(area_id)
+                    
+                    try:
+                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        cortical_id_obj = fdp.genome.CorticalID.try_new_from_string(area_str)
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == '_power':
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Power)
+                        elif area_str == '_death':
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Death)
+                        else:
+                            # For unknown areas, use custom with 'c' prefix
+                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{area_str}')
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
