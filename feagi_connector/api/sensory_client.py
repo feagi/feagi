@@ -113,11 +113,22 @@ class FeagiSensoryClient:
                 cortical_id_obj = fdp.genome.CorticalID.try_new_from_string(cortical_area_str)
                 logger.info(f"Step 3: Created cortical ID object from string: {cortical_area_str}")
             except ValueError as e:
-                # If direct creation fails, treat as custom cortical area
-                # Note: Legacy ID conversion should happen at the genome level via migration
+                # Fallback for areas that can't be parsed directly
                 logger.warning(f"Could not create cortical ID from '{cortical_area_str}': {e}")
-                logger.info(f"Treating '{cortical_area_str}' as custom cortical area")
-                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{cortical_area_str}')
+                if len(cortical_area_str) == 6:
+                    # If it's already 6 characters, it might be a custom area - try as is
+                    try:
+                        cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(cortical_area_str)
+                        logger.info(f"Step 3b: Created as 6-char custom cortical ID: {cortical_area_str}")
+                    except ValueError:
+                        # If that fails too, something's wrong with this ID
+                        logger.error(f"Could not create any cortical ID from '{cortical_area_str}' - invalid format")
+                        return None
+                else:
+                    # For non-6-character areas, add 'c' prefix but ensure total length = 6
+                    custom_name = f'c{cortical_area_str}'[:6]
+                    cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(custom_name)
+                    logger.info(f"Step 3c: Created as custom cortical ID: {custom_name}")
             
             # Use NumPy approach
             neurons_array = fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
