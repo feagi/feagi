@@ -92,111 +92,80 @@ class FireCandidateList:
                     self._mask[neuron_ids] = True
                 self._use_dense = True
             else:
-                # For large neuron counts, use a sparse representation
-                self._active_ids = np.array(neuron_ids or [], dtype=np.int32)
-                self._use_dense = False
+                # For large neuron counts, use a bitmap as well to ensure O(1) add/remove/contains
+                # This avoids per-step allocations and linear membership checks
+                self._mask = np.zeros(capacity, dtype=np.bool_)
+                if neuron_ids is not None and len(neuron_ids) > 0:
+                    ids = np.asarray(neuron_ids, dtype=np.int32)
+                    self._mask[ids] = True
+                self._use_dense = True
 
     def add(self, neuron_id: int) -> None:
         """Add a neuron to the FCL."""
         if self._use_rust:
             self._rust_fcl.add(neuron_id)
         else:
-            if self._use_dense:
-                self._mask[neuron_id] = True
-            else:
-                if neuron_id not in self._active_ids:
-                    self._active_ids = np.append(self._active_ids, neuron_id)
+            # Bitmap approach for both small and large capacities
+            self._mask[neuron_id] = True
 
     def add_multiple(self, neuron_ids: List[int]) -> None:
         """Add multiple neurons to the FCL."""
         if self._use_rust:
             self._rust_fcl.add_multiple(neuron_ids)
         else:
-            if self._use_dense:
-                # Convert to NumPy array if not already
-                ids = np.asarray(neuron_ids, dtype=np.int32)
-                self._mask[ids] = True
-            else:
-                # Use numpy's setdiff1d for efficiency
-                to_add = np.setdiff1d(
-                    np.asarray(neuron_ids, dtype=np.int32),
-                    self._active_ids,
-                    assume_unique=True,
-                )
-                if len(to_add) > 0:
-                    self._active_ids = np.concatenate([self._active_ids, to_add])
+            if not neuron_ids:
+                return
+            ids = np.asarray(neuron_ids, dtype=np.int32)
+            self._mask[ids] = True
 
     def remove(self, neuron_id: int) -> None:
         """Remove a neuron from the FCL."""
         if self._use_rust:
             self._rust_fcl.remove(neuron_id)
         else:
-            if self._use_dense:
-                self._mask[neuron_id] = False
-            else:
-                # Find and remove the neuron ID
-                mask = self._active_ids != neuron_id
-                self._active_ids = self._active_ids[mask]
+            self._mask[neuron_id] = False
 
     def clear(self) -> None:
         """Clear the FCL."""
         if self._use_rust:
             self._rust_fcl.clear()
         else:
-            if self._use_dense:
-                self._mask.fill(False)
-            else:
-                self._active_ids = np.array([], dtype=np.int32)
+            self._mask.fill(False)
 
     def contains(self, neuron_id: int) -> bool:
         """Check if a neuron is in the FCL."""
         if self._use_rust:
             return self._rust_fcl.contains(neuron_id)
         else:
-            if self._use_dense:
-                return bool(self._mask[neuron_id])
-            else:
-                return neuron_id in self._active_ids
+            return bool(self._mask[neuron_id])
 
     def __len__(self) -> int:
         """Get the number of neurons in the FCL."""
         if self._use_rust:
             return self._rust_fcl.len()
         else:
-            if self._use_dense:
-                return int(np.sum(self._mask))
-            else:
-                return len(self._active_ids)
+            return int(np.sum(self._mask))
 
     def is_empty(self) -> bool:
         """Check if the FCL is empty."""
         if self._use_rust:
             return self._rust_fcl.is_empty()
         else:
-            if self._use_dense:
-                return not np.any(self._mask)
-            else:
-                return len(self._active_ids) == 0
+            return not np.any(self._mask)
 
     def to_list(self) -> List[int]:
         """Get a list of all neurons in the FCL."""
         if self._use_rust:
             return self._rust_fcl.to_list()
         else:
-            if self._use_dense:
-                return np.where(self._mask)[0].tolist()
-            else:
-                return self._active_ids.tolist()
+            return np.where(self._mask)[0].tolist()
 
     def __iter__(self):
         """Iterate over neurons in the FCL."""
         if self._use_rust:
             return iter(self._rust_fcl.to_list())
         else:
-            if self._use_dense:
-                return iter(np.where(self._mask)[0])
-            else:
-                return iter(self._active_ids)
+            return iter(np.where(self._mask)[0])
 
 
 class Connectome:

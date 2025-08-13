@@ -183,7 +183,7 @@ class SpecialAreaHandler:
                             try:
                                 if hasattr(neuron_array, "cortical_idxs"):
                                     # CRITICAL FIX: Use proper neuron ID to array index mapping
-                                    index = connectome_manager.get_neuron_index(neuron_id)
+                                    index = self.connectome_manager.get_neuron_index(neuron_id)
                                     if index is not None and index < len(neuron_array.cortical_idxs):
                                         actual_cortical_idx = neuron_array.cortical_idxs[index]
                                     logger.error(
@@ -226,10 +226,13 @@ class SpecialAreaHandler:
                         "neuron_ids": power_neurons,
                         "issue": "Power area has wrong number of neurons - indicates neurogenesis corruption",
                     }
-                    with open("/tmp/power_neuron_corruption_report.json", "w") as f:
+                    import os
+                    import tempfile
+                    report_path = os.path.join(tempfile.gettempdir(), "power_neuron_corruption_report--temp.json")
+                    with open(report_path, "w") as f:
                         json.dump(corruption_report, f, indent=2)
                     logger.error(
-                        "🔍 Detailed corruption report written to /tmp/power_neuron_corruption_report.json"
+                        f"🔍 Detailed corruption report written to {report_path}"
                     )
                 except Exception as e:
                     logger.error(f"Failed to write corruption report: {e}")

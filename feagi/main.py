@@ -532,7 +532,16 @@ def main():
 
         def force_exit():
             """Force exit after timeout if graceful shutdown hangs."""
-            time.sleep(15.0)  # Wait 15 seconds for graceful shutdown
+            try:
+                from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+
+                cfg = load_feagi_config()
+                to = get_timeout_config(cfg)
+                timeout_seconds = float(getattr(to, "api_service_shutdown", 10.0))
+            except Exception:
+                timeout_seconds = 15.0  # @architecture:acceptable - emergency fallback
+
+            time.sleep(timeout_seconds)
             print(
                 "[WARN]  Force exiting FEAGI after timeout - some services may not have shut down cleanly",
                 file=sys.stderr,

@@ -241,24 +241,34 @@ class FCLInjectionService:
             Number of power neurons injected
         """
         try:
-            # Write proof EVERY call for debugging to see what's happening
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                f.write(
-                    f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
-                )
+            # Debug-only proof logging
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                import os
+                import tempfile
+                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_proof--temp.log")
+                with open(log_path, "a") as f:
+                    f.write(
+                        f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
+                    )
 
             # Get power area neurons from special area handler (cortical_idx=1)
             # This happens EVERY burst to provide constant power supply
             power_neurons = self.special_area_handler.get_power_area_neurons()
 
-            # Write proof EVERY call showing what neurons were found
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                if power_neurons:
-                    f.write(
-                        f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
-                    )
-                else:
-                    f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
+            # Debug-only: record found neurons
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                import os
+                import tempfile
+                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_proof--temp.log")
+                with open(log_path, "a") as f:
+                    if power_neurons:
+                        f.write(
+                            f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
+                        )
+                    else:
+                        f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
 
             if not power_neurons:
                 # Only log this occasionally to avoid spam

@@ -512,14 +512,19 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         # CRITICAL FIX: Initialize state_manager to prevent NameError
         state_manager = FeagiStateManager.instance()
         
-        # Unconditional proof that this method is being called
+        # Debug-only proof of execution
         try:
-            with open("/tmp/feagi_enhanced_burst.log", "a") as f:
+            if FeagiStateManager.instance().is_debug_npu_enabled():
                 import datetime
+                import os
+                import tempfile
 
-                f.write(
-                    f"{datetime.datetime.now()}: _process_burst_with_power_injection called, timestep={current_timestep}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n"
-                )
+                log_dir = tempfile.gettempdir()
+                log_path = os.path.join(log_dir, "feagi_enhanced_burst--temp.log")
+                with open(log_path, "a") as f:
+                    f.write(
+                        f"{datetime.datetime.now()}: _process_burst_with_power_injection called, timestep={current_timestep}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n"
+                    )
         except Exception:
             pass
         # Debug logging if --debug-npu is enabled
@@ -630,12 +635,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     # Unconditional proof that run loop is executing
                     if self.burst_count % 100 == 0:  # Every 100 bursts to avoid spam
                         try:
-                            with open("/tmp/feagi_run_loop.log", "a") as f:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
                                 import datetime
-
-                                f.write(
-                                    f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n"
-                                )
+                                import os
+                                import tempfile
+                                log_path = os.path.join(tempfile.gettempdir(), "feagi_run_loop--temp.log")
+                                with open(log_path, "a") as f:
+                                    f.write(
+                                        f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n"
+                                    )
                         except Exception:
                             pass
 
@@ -746,12 +755,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         connectome manager to refresh the engine's understanding of the neural network.
         """
         logger.info("Updating burst engine with new genome", status="[CONFIG]")
-        # Write to debug file for development tracking
+        # Debug-only file write for development tracking
         try:
-            with open("/tmp/feagi_injection_debug.log", "a") as f:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
                 import datetime
-
-                f.write(f"{datetime.datetime.now()}: update_with_genome() called\n")
+                import os
+                import tempfile
+                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                with open(log_path, "a") as f:
+                    f.write(f"{datetime.datetime.now()}: update_with_genome() called\n")
         except Exception:
             pass
 
@@ -852,14 +865,18 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 logger.info(
                     f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
                 )
-            # Write to debug file for development
+            # Debug-only file write
             try:
-                with open("/tmp/feagi_injection_debug.log", "a") as f:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
                     import datetime
-
-                    f.write(
-                        f"{datetime.datetime.now()}: Injection service after init: {service_type}\n"
-                    )
+                    import os
+                    import tempfile
+                    log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                    with open(log_path, "a") as f:
+                        f.write(
+                            f"{datetime.datetime.now()}: Injection service after init: {service_type}\n"
+                        )
             except Exception:
                 pass
 

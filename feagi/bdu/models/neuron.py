@@ -83,7 +83,7 @@ except ImportError:
 
 
 # Enhanced SIMD firing function with excitability support
-def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, excitability):
+def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, excitability, rng=None):
     """
     SIMD-optimized firing check with probabilistic excitability.
 
@@ -127,7 +127,9 @@ def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, e
     # PHASE 6: Handle probabilistic firing only for neurons that need it
     if len(probabilistic_indices) > 0:
         prob_excitability = excitability[probabilistic_indices]
-        random_values = np.random.random(len(probabilistic_indices))
+        if rng is None:
+            rng = np.random.default_rng(0)  # @architecture:acceptable - test isolation fallback
+        random_values = rng.random(len(probabilistic_indices))
         probabilistic_fire = random_values < prob_excitability
         final_fired_mask[probabilistic_indices] = probabilistic_fire
 
@@ -137,6 +139,8 @@ def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, e
 try:
     from numba import jit
     NUMBA_AVAILABLE = True
+    # Deterministic RNG for numba fallback code paths (module-level)
+    _NUMBA_FALLBACK_RNG = np.random.default_rng(0)
     
     @jit(nopython=True)
     def simd_firing_check_with_excitability_numba(potentials, thresholds, can_fire_mask, excitability):
@@ -165,7 +169,13 @@ try:
                 if excitability[i] >= 0.999:
                     fired_mask[i] = True
                 else:
-                    fired_mask[i] = np.random.random() < excitability[i]
+                    # Use a simple LCG for determinism inside numba-compiled function
+                    # Note: Numba cannot use numpy Generator; this is a deterministic stub.
+                    # Parameters from Numerical Recipes: a=1664525, c=1013904223, m=2**32
+                    # Seed derived from index for reproducibility per call
+                    state = (1664525 * (i + 1) + 1013904223) % 4294967296
+                    rand = (state / 4294967296.0)
+                    fired_mask[i] = rand < excitability[i]
 
         return fired_mask
     
@@ -237,6 +247,15 @@ class NeuronArray:
         
         # Debug flags for diagnostics
         self._debug_refractory = False  # Controls refractory period debug logging
+        
+        # Deterministic PRNG for probabilistic firing (@cursor:critical-path)
+        try:
+            from feagi.config.toml_loader import load_feagi_config
+            cfg = load_feagi_config()
+            seed = int(cfg.get("npu", {}).get("rng_seed", 0))
+        except Exception:
+            seed = 0  # @architecture:acceptable - test isolation / default
+        self._rng = np.random.default_rng(seed)
         
         # Align capacity to SIMD vector boundaries
         self.aligned_capacity = (max_neurons + VECTOR_WIDTH - 1) & ~(VECTOR_WIDTH - 1)
@@ -461,7 +480,7 @@ class NeuronArray:
                 )
             else:
                 fired_mask = simd_firing_check_with_excitability(
-                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability
+                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability, rng=self._rng
                 )
 
         # PHASE 5: Process firing consequences (CRITICAL FIX!)

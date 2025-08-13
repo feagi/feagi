@@ -76,14 +76,17 @@ class BrainService(BaseService):
 
     def start_burst_engine(self) -> bool:
         """Start the burst engine."""
-        # Unconditional debug logging
+        # Debug-only logging
         try:
-            with open("/tmp/feagi_injection_debug.log", "a") as f:
+            if self.state_manager.is_debug_npu_enabled():
                 import datetime
-
-                f.write(
-                    f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
-                )
+                import os
+                import tempfile
+                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                with open(log_path, "a") as f:
+                    f.write(
+                        f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
+                    )
         except Exception:
             pass
 
@@ -227,14 +230,17 @@ class BrainService(BaseService):
                 self.logger.debug(
                     f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}"
                 )
-                # Write to debug file
+                # Debug-only file write
                 try:
-                    with open("/tmp/feagi_injection_debug.log", "a") as f:
+                    if self.state_manager.is_debug_npu_enabled():
                         import datetime
-
-                        f.write(
-                            f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
-                        )
+                        import os
+                        import tempfile
+                        log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                        with open(log_path, "a") as f:
+                            f.write(
+                                f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
+                            )
                 except Exception:
                     pass
 
@@ -243,12 +249,15 @@ class BrainService(BaseService):
                         "BRAIN SERVICE: Genome already loaded, calling update_with_genome()"
                     )
                     try:
-                        with open("/tmp/feagi_injection_debug.log", "a") as f:
+                        if self.state_manager.is_debug_npu_enabled():
                             import datetime
-
-                            f.write(
-                                f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
-                            )
+                            import os
+                            import tempfile
+                            log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                            with open(log_path, "a") as f:
+                                f.write(
+                                    f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
+                                )
                         burst_engine.update_with_genome()
                         self.logger.info(
                             "Updated burst engine with existing genome - injection service initialized"
@@ -258,12 +267,15 @@ class BrainService(BaseService):
                             f"Failed to update burst engine with existing genome: {str(e)}"
                         )
                         try:
-                            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                            if self.state_manager.is_debug_npu_enabled():
                                 import datetime
-
-                                f.write(
-                                    f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
-                                )
+                                import os
+                                import tempfile
+                                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+                                with open(log_path, "a") as f:
+                                    f.write(
+                                        f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
+                                    )
                         except Exception:
                             pass
 
@@ -312,7 +324,14 @@ class BrainService(BaseService):
             # Wait a moment for the thread to stop
             import time
 
-            time.sleep(0.2)  # Allow thread to stop
+            try:
+                from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+                cfg = load_feagi_config()
+                to = get_timeout_config(cfg)
+                delay = max(0.01, float(getattr(to, "thread_join", 0.2)))
+            except Exception:
+                delay = 0.2  # @architecture:acceptable - emergency fallback
+            time.sleep(delay)  # Allow thread to stop
 
             # Verify it's stopped
             if not burst_engine._running:

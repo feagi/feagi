@@ -171,9 +171,8 @@ class ArrayBackend:
         if backend_type == BackendType.NUMPY:
             return True
         elif backend_type == BackendType.PYTORCH:
-            return TORCH_AVAILABLE and (
-                torch.cuda.is_available() or True
-            )  # CPU fallback
+            # PyTorch backend is available if torch is importable. CUDA usage is selected at init.
+            return TORCH_AVAILABLE
         elif backend_type == BackendType.CUPY:
             return CUPY_AVAILABLE
         elif backend_type == BackendType.WGPU:
