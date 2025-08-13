@@ -329,11 +329,11 @@ class CorticalAreaAPI:
 
             return CorticalAreaPropertiesResponse(properties=legacy_properties)
         except ValueError:
-            raise ValueError("Invalid cortical area ID length")
+            raise ValueError("Invalid cortical area ID length") from None
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
-            raise ValueError(f"Error retrieving cortical properties: {str(e)}")
+            raise ValueError(f"Error retrieving cortical properties: {str(e)}") from e
 
     @cortical_area_endpoint(
         "PUT", "/cortical_area", 
@@ -376,7 +376,7 @@ class CorticalAreaAPI:
                         "Failed to update cortical area properties - write operations may be disabled"
                     )
         except Exception as e:
-            raise ValueError(f"Error updating cortical area: {str(e)}")
+            raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
     @cortical_area_endpoint("POST", "/cortical_area", response_model=Dict[str, str])
     def add_cortical_area(
@@ -396,7 +396,7 @@ class CorticalAreaAPI:
 
             return {"cortical_id": cortical_id}
         except Exception as e:
-            raise ValueError(f"Error adding cortical area: {str(e)}")
+            raise ValueError(f"Error adding cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
         "POST", "/custom_cortical_area", request_model=CustomCorticalAreaRequest, response_model=Dict[str, str]
@@ -519,7 +519,7 @@ class CorticalAreaAPI:
 
             return {"cortical_id": cortical_id}
         except Exception as e:
-            raise ValueError(f"Error adding custom cortical area: {str(e)}")
+            raise ValueError(f"Error adding custom cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
         "DELETE",
@@ -541,7 +541,7 @@ class CorticalAreaAPI:
                 message=f"Cortical area {request.cortical_id} deleted successfully"
             )
         except Exception as e:
-            raise ValueError(f"Error deleting cortical area: {str(e)}")
+            raise ValueError(f"Error deleting cortical area: {str(e)}") from e
 
     # ===== Cortical Area Listings =====
 
@@ -554,7 +554,7 @@ class CorticalAreaAPI:
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
             return CorticalAreaIdListResponse(cortical_ids=cortical_ids)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area ID list: {str(e)}")
+            raise ValueError(f"Error getting cortical area ID list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/cortical_area_id_list")
     def get_cortical_area_id_list_legacy(self) -> List[str]:
@@ -563,7 +563,7 @@ class CorticalAreaAPI:
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
             return cortical_ids
         except Exception as e:
-            raise ValueError(f"Error getting cortical area ID list: {str(e)}")
+            raise ValueError(f"Error getting cortical area ID list: {str(e)}") from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_area_index_list", response_model=CorticalAreaIndexListResponse
@@ -574,7 +574,7 @@ class CorticalAreaAPI:
             indices = self.core_api_service.get_cortical_area_index_list()
             return CorticalAreaIndexListResponse(indices=indices)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area index list: {str(e)}")
+            raise ValueError(f"Error getting cortical area index list: {str(e)}") from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_area_name_list", response_model=CorticalAreaNameListResponse
@@ -585,7 +585,7 @@ class CorticalAreaAPI:
             names = self.core_api_service.get_cortical_area_name_list()
             return CorticalAreaNameListResponse(names=names)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area name list: {str(e)}")
+            raise ValueError(f"Error getting cortical area name list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/cortical_area_name_list")
     def get_cortical_area_name_list_legacy(self) -> List[str]:
@@ -594,7 +594,7 @@ class CorticalAreaAPI:
             names = self.core_api_service.get_cortical_area_name_list()
             return names
         except Exception as e:
-            raise ValueError(f"Error getting cortical area name list: {str(e)}")
+            raise ValueError(f"Error getting cortical area name list: {str(e)}") from e
 
     # ===== Cortical Area Location and Geometry =====
 
@@ -620,9 +620,9 @@ class CorticalAreaAPI:
         except KeyError:
             raise ValueError(
                 f"Cortical area with name '{request.cortical_name}' not found"
-            )
+            ) from None
         except Exception as e:
-            raise ValueError(f"Error retrieving cortical location: {str(e)}")
+            raise ValueError(f"Error retrieving cortical location: {str(e)}") from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_locations_2d", response_model=Dict[str, Any]
@@ -633,7 +633,7 @@ class CorticalAreaAPI:
             locations = self.core_api_service.get_cortical_2d_locations()
             return locations
         except Exception as e:
-            raise ValueError(f"Error getting 2D cortical locations: {str(e)}")
+            raise ValueError(f"Error getting 2D cortical locations: {str(e)}") from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_area/geometry", response_model=Dict[str, Any]
@@ -854,7 +854,7 @@ class CorticalAreaAPI:
 
             return geometry_data
         except Exception as e:
-            raise ValueError(f"Error getting cortical area geometry: {str(e)}")
+            raise ValueError(f"Error getting cortical area geometry: {str(e)}") from e
 
     @cortical_area_endpoint("PUT", "/coord_2d", response_model=SuccessResponse)
     def update_2d_coordinates(self, coordinates: Dict[str, Any]) -> SuccessResponse:
@@ -866,7 +866,7 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to update 2D coordinates")
         except Exception as e:
-            raise ValueError(f"Error updating 2D coordinates: {str(e)}")
+            raise ValueError(f"Error updating 2D coordinates: {str(e)}") from e
 
     @cortical_area_endpoint("PUT", "/coord_3d", response_model=SuccessResponse)
     def update_3d_coordinates(self, coordinates: Dict[str, Any]) -> SuccessResponse:
@@ -878,7 +878,7 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to update 3D coordinates")
         except Exception as e:
-            raise ValueError(f"Error updating 3D coordinates: {str(e)}")
+            raise ValueError(f"Error updating 3D coordinates: {str(e)}") from e
 
     # ===== Cortical Area Types and Options =====
 
@@ -891,7 +891,7 @@ class CorticalAreaAPI:
             types = self.core_api_service.get_cortical_area_types()
             return CorticalAreaTypesResponse(types=types)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area types: {str(e)}")
+            raise ValueError(f"Error getting cortical area types: {str(e)}") from e
 
     @cortical_area_endpoint(
         "POST", "/cortical_type_options", request_model=CorticalIdRequest
@@ -904,7 +904,7 @@ class CorticalAreaAPI:
             )
             return options
         except Exception as e:
-            raise ValueError(f"Error getting cortical type options: {str(e)}")
+            raise ValueError(f"Error getting cortical type options: {str(e)}") from e
 
     # ===== Mapping and Visualization =====
 
@@ -917,7 +917,7 @@ class CorticalAreaAPI:
             mapping = self.core_api_service.get_cortical_id_name_mapping()
             return CorticalIdNameMappingResponse(mapping=mapping)
         except Exception as e:
-            raise ValueError(f"Error getting cortical ID name mapping: {str(e)}")
+            raise ValueError(f"Error getting cortical ID name mapping: {str(e)}") from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_map_detailed", response_model=Dict[str, Any]
@@ -928,7 +928,7 @@ class CorticalAreaAPI:
             detailed_map = self.core_api_service.get_detailed_cortical_map()
             return detailed_map
         except Exception as e:
-            raise ValueError(f"Error getting detailed cortical map: {str(e)}")
+            raise ValueError(f"Error getting detailed cortical map: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/cortical_visibility", response_model=List[str])
     def get_visualized_cortical_list(self) -> List[str]:
@@ -937,7 +937,7 @@ class CorticalAreaAPI:
             visualized_list = self.core_api_service.get_visualized_cortical_list()
             return visualized_list
         except Exception as e:
-            raise ValueError(f"Error getting visualized cortical list: {str(e)}")
+            raise ValueError(f"Error getting visualized cortical list: {str(e)}") from e
 
     @cortical_area_endpoint(
         "PUT", "/suppress_cortical_visibility", response_model=SuccessResponse
@@ -959,7 +959,7 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(
                 f"Error suppressing cortical activity visualization: {str(e)}"
-            )
+            ) from e
 
     # ===== Input/Output Processing Units =====
 
@@ -969,7 +969,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_ipu_list()
         except Exception as e:
-            raise ValueError(f"Error getting IPU list: {str(e)}")
+            raise ValueError(f"Error getting IPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/ipu")
     def get_current_ipu_list_legacy(self) -> List[str]:
@@ -977,7 +977,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_ipu_list()
         except Exception as e:
-            raise ValueError(f"Error getting IPU list: {str(e)}")
+            raise ValueError(f"Error getting IPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/opu", response_model=List[str])
     def get_current_opu_list(self) -> List[str]:
@@ -985,7 +985,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_opu_list()
         except Exception as e:
-            raise ValueError(f"Error getting OPU list: {str(e)}")
+            raise ValueError(f"Error getting OPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/opu")
     def get_current_opu_list_legacy(self) -> List[str]:
@@ -993,7 +993,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_opu_list()
         except Exception as e:
-            raise ValueError(f"Error getting OPU list: {str(e)}")
+            raise ValueError(f"Error getting OPU list: {str(e)}") from e
 
     # ===== Multi-Cortical Operations =====
 
@@ -1028,7 +1028,7 @@ class CorticalAreaAPI:
 
             return results
         except Exception as e:
-            raise ValueError(f"Error getting multiple cortical properties: {str(e)}")
+            raise ValueError(f"Error getting multiple cortical properties: {str(e)}") from e
 
     @cortical_area_endpoint(
         "PUT", "/multi/cortical_area", response_model=SuccessResponse
@@ -1046,7 +1046,7 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to update multiple cortical area properties")
         except Exception as e:
-            raise ValueError(f"Error updating multiple cortical areas: {str(e)}")
+            raise ValueError(f"Error updating multiple cortical areas: {str(e)}") from e
 
     @cortical_area_endpoint(
         "DELETE",
@@ -1069,7 +1069,7 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to delete multiple cortical areas")
         except Exception as e:
-            raise ValueError(f"Error deleting multiple cortical areas: {str(e)}")
+            raise ValueError(f"Error deleting multiple cortical areas: {str(e)}") from e
 
     # ===== Neuron Operations =====
 
@@ -1080,7 +1080,7 @@ class CorticalAreaAPI:
             count = self.core_api_service.get_area_neuron_count(cortical_id)
             return NeuronCountResponse(neuron_count=count)
         except Exception as e:
-            raise ValueError(f"Error getting neuron count for area {cortical_id}: {str(e)}")
+            raise ValueError(f"Error getting neuron count for area {cortical_id}: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/{cortical_id}/memory_usage", response_model=CorticalAreaMemoryUsageResponse)
     def get_area_memory_usage(self, cortical_id: str) -> CorticalAreaMemoryUsageResponse:
@@ -1089,7 +1089,7 @@ class CorticalAreaAPI:
             memory_usage = self.core_api_service.get_cortical_area_memory_usage(cortical_id)
             return memory_usage
         except Exception as e:
-            raise ValueError(f"Error getting memory usage for area {cortical_id}: {str(e)}")
+            raise ValueError(f"Error getting memory usage for area {cortical_id}: {str(e)}") from e
 
     @cortical_area_endpoint("PUT", "/reset", response_model=SuccessResponse)
     def reset_cortical_area(self, cortical_list: List[str]) -> SuccessResponse:
@@ -1101,7 +1101,7 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to reset cortical areas")
         except Exception as e:
-            raise ValueError(f"Error resetting cortical areas: {str(e)}")
+            raise ValueError(f"Error resetting cortical areas: {str(e)}") from e
 
     # ===== Mapping Restrictions =====
 
@@ -1117,7 +1117,7 @@ class CorticalAreaAPI:
                 defaults=restrictions_data.get("defaults", []),
             )
         except Exception as e:
-            raise ValueError(f"Error getting mapping restrictions: {str(e)}")
+            raise ValueError(f"Error getting mapping restrictions: {str(e)}") from e
 
     @cortical_area_endpoint(
         "POST",
@@ -1158,7 +1158,7 @@ class CorticalAreaAPI:
                     restrictions=restrictions, defaults=defaults
                 )
         except Exception as e:
-            raise ValueError(f"Error getting filtered mapping restrictions: {str(e)}")
+            raise ValueError(f"Error getting filtered mapping restrictions: {str(e)}") from e
 
     @cortical_area_endpoint(
         "POST",
@@ -1201,7 +1201,7 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(
                 f"Error getting restrictions between cortical areas: {str(e)}"
-            )
+            ) from e
 
     # ===== DEBUG: Cortical Mapping =====
 
@@ -1214,7 +1214,7 @@ class CorticalAreaAPI:
             mapping_data = self.core_api_service.get_cortical_idx_mapping()
             return mapping_data
         except Exception as e:
-            raise ValueError(f"Error getting cortical idx mapping: {str(e)}")
+            raise ValueError(f"Error getting cortical idx mapping: {str(e)}") from e
 
 
 # ===== Factory Function =====

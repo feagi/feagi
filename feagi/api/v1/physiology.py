@@ -48,7 +48,7 @@ class PhysiologyAPI:
             return {"physiology": phys}
         except Exception as e:
             logger.error(f"Failed to get physiology: {e}")
-            raise ValueError(f"Failed to get physiology: {str(e)}")
+            raise ValueError(f"Failed to get physiology: {str(e)}") from e
 
     @physiology_endpoint("PUT", "/", request_model=PhysiologyUpdateRequest)
     async def update_physiology(self, request: PhysiologyUpdateRequest) -> Dict[str, Any]:
@@ -77,7 +77,7 @@ class PhysiologyAPI:
             return {"success": bool(success), "updated": filtered}
         except Exception as e:
             logger.error(f"Failed to update physiology: {e}")
-            raise ValueError(f"Failed to update physiology: {str(e)}")
+            raise ValueError(f"Failed to update physiology: {str(e)}") from e
 
 
 def create_physiology_api(core_api_service: CoreAPIService) -> PhysiologyAPI:

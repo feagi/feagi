@@ -3998,7 +3998,7 @@ class GenomeService(BaseService):
                 "leak_variability": area_def.get("parameters", {}).get("leak_variability", 0.0),
             }
         except KeyError as e:
-            raise ValueError(f"Missing required property in genome for area {cortical_id}: {e}")
+            raise ValueError(f"Missing required property in genome for area {cortical_id}: {e}") from e
 
     def _rebuild_neurons_for_area(self, cortical_id: str, properties: Dict[str, Any]) -> None:
         """

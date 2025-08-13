@@ -112,7 +112,7 @@ class BinarySerializer:
             protocol_id = ProtocolID(protocol_id_value)
             return protocol_id, version
         except (struct.error, ValueError) as e:
-            raise BinaryProtocolError(f"Invalid header: {e}")
+            raise BinaryProtocolError(f"Invalid header: {e}") from e
 
     @classmethod
     def encode_fcp(cls, command_type: int, payload: bytes, version: int = 1) -> bytes:

@@ -99,7 +99,7 @@ class MorphologyAPI:
             return morphologies
         except Exception as e:
             logger.error(f"Error getting morphology list: {e}")
-            raise ValueError(f"Failed to get morphology list: {str(e)}")
+            raise ValueError(f"Failed to get morphology list: {str(e)}") from e
 
     @morphology_endpoint("GET", "/morphology_types", response_model=List[str])
     async def get_morphology_types(self) -> List[str]:
@@ -109,7 +109,7 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology types: {e}")
-            raise ValueError(f"Failed to get morphology types: {str(e)}")
+            raise ValueError(f"Failed to get morphology types: {str(e)}") from e
 
     @morphology_endpoint("GET", "/list/types", response_model=List[str])
     async def get_morphology_list_types(self) -> List[str]:
@@ -119,7 +119,7 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology list types: {e}")
-            raise ValueError(f"Failed to get morphology list types: {str(e)}")
+            raise ValueError(f"Failed to get morphology list types: {str(e)}") from e
 
     @morphology_endpoint("GET", "/morphologies", response_model=Dict[str, Any])
     async def get_morphologies(self) -> Dict[str, Any]:
@@ -129,7 +129,7 @@ class MorphologyAPI:
             return morphologies
         except Exception as e:
             logger.error(f"Error getting morphologies: {e}")
-            raise ValueError(f"Failed to get morphologies: {str(e)}")
+            raise ValueError(f"Failed to get morphologies: {str(e)}") from e
 
     @morphology_endpoint("GET", "/list", response_model=MorphologyListResponse)
     async def get_morphologies_list(self) -> MorphologyListResponse:
@@ -139,7 +139,7 @@ class MorphologyAPI:
             return MorphologyListResponse(morphologies=morphologies)
         except Exception as e:
             logger.error(f"Error getting morphologies list: {e}")
-            raise ValueError(f"Failed to get morphologies list: {str(e)}")
+            raise ValueError(f"Failed to get morphologies list: {str(e)}") from e
 
     @morphology_endpoint(
         "GET", "/info/{morphology_id}", response_model=MorphologyInfoResponse
@@ -151,7 +151,7 @@ class MorphologyAPI:
             return MorphologyInfoResponse(morphology=morphology)
         except Exception as e:
             logger.error(f"Error getting morphology info: {e}")
-            raise ValueError(f"Failed to get morphology info: {str(e)}")
+            raise ValueError(f"Failed to get morphology info: {str(e)}") from e
 
     # ===== Morphology Management =====
 
@@ -244,7 +244,7 @@ class MorphologyAPI:
             return SuccessResponse(message="Morphology updated successfully")
         except Exception as e:
             logger.error(f"Error updating morphology: {e}")
-            raise ValueError(f"Failed to update morphology: {str(e)}")
+            raise ValueError(f"Failed to update morphology: {str(e)}") from e
 
     @morphology_endpoint(
         "DELETE", "/delete/{morphology_id}", response_model=SuccessResponse

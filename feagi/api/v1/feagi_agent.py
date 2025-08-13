@@ -84,7 +84,7 @@ class FeagiAgentAPI:
             return AgentListResponse(root=agent_ids)
         except Exception as e:
             self.logger.error(f"Error listing agents: {e}")
-            raise ValueError(f"Failed to list agents: {str(e)}")
+            raise ValueError(f"Failed to list agents: {str(e)}") from e
 
     @agent_endpoint("GET", "/info/{agent_id}", response_model=AgentInfoResponse)
     async def get_agent_info(self, agent_id: str) -> AgentInfoResponse:
@@ -94,7 +94,7 @@ class FeagiAgentAPI:
                 raise ValueError(f"Agent {agent_id} not found")
             return AgentInfoResponse(agent_info=agent_info)
         except Exception as e:
-            raise ValueError(f"Failed to get agent info: {str(e)}")
+            raise ValueError(f"Failed to get agent info: {str(e)}") from e
 
     @agent_endpoint(
         "POST",
@@ -111,7 +111,7 @@ class FeagiAgentAPI:
                 raise ValueError("Failed to configure agent")
             return SuccessResponse(message="Agent configured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to configure agent: {str(e)}")
+            raise ValueError(f"Failed to configure agent: {str(e)}") from e
 
     @agent_endpoint(
         "POST",
@@ -181,7 +181,7 @@ class FeagiAgentAPI:
             self.logger.error(f"Error registering agent: {e}")
             raise HTTPException(
                 status_code=500, detail=f"Error registering agent: {str(e)}"
-            )
+            ) from e
 
     @agent_endpoint(
         "DELETE",
@@ -235,7 +235,7 @@ class FeagiAgentAPI:
             self.logger.error(f"Error deregistering agent: {e}")
             raise HTTPException(
                 status_code=500, detail=f"Error deregistering agent: {str(e)}"
-            )
+            ) from e
 
     @agent_endpoint(
         "GET", "/properties/{agent_id}", response_model=AgentPropertiesResponse
@@ -288,7 +288,7 @@ class FeagiAgentAPI:
             self.logger.error(
                 f"Error getting agent properties for {agent_id}: {str(e)}"
             )
-            raise ValueError(f"Failed to get agent properties: {str(e)}")
+            raise ValueError(f"Failed to get agent properties: {str(e)}") from e
 
     # Manual query parameter version for FastAPI compatibility
     async def get_agent_properties_query(
@@ -338,7 +338,7 @@ class FeagiAgentAPI:
             import traceback
 
             self.logger.error(f"Traceback: {traceback.format_exc()}")
-            raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
+            raise ValueError(f"Failed to get FQ sampler status: {str(e)}") from e
 
     @agent_endpoint(
         "POST",

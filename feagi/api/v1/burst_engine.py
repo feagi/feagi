@@ -95,7 +95,7 @@ class BurstEngineAPI:
             return burst_timer if burst_timer is not None else 0.0
         except Exception as e:
             logger.error(f"Error getting simulation timestep: {e}")
-            raise ValueError(f"Failed to get simulation timestep: {str(e)}")
+            raise ValueError(f"Failed to get simulation timestep: {str(e)}") from e
 
     @burst_engine_endpoint(
         "POST",
@@ -129,7 +129,7 @@ class BurstEngineAPI:
             
         except Exception as e:
             logger.error(f"Error changing simulation timestep: {e}")
-            raise ValueError(f"Failed to change simulation timestep: {str(e)}")
+            raise ValueError(f"Failed to change simulation timestep: {str(e)}") from e
 
     # ===== Burst Engine Status and Info =====
 
@@ -145,7 +145,7 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error getting burst engine status: {e}")
-            raise ValueError(f"Failed to get burst engine status: {str(e)}")
+            raise ValueError(f"Failed to get burst engine status: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/start", response_model=SuccessResponse)
     async def start_burst_engine(self) -> SuccessResponse:
@@ -157,7 +157,7 @@ class BurstEngineAPI:
             return SuccessResponse(message="Burst engine started successfully")
         except Exception as e:
             logger.error(f"Error starting burst engine: {e}")
-            raise ValueError(f"Failed to start burst engine: {str(e)}")
+            raise ValueError(f"Failed to start burst engine: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/stop", response_model=SuccessResponse)
     async def stop_burst_engine(self) -> SuccessResponse:
@@ -169,7 +169,7 @@ class BurstEngineAPI:
             return SuccessResponse(message="Burst engine stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping burst engine: {e}")
-            raise ValueError(f"Failed to stop burst engine: {str(e)}")
+            raise ValueError(f"Failed to stop burst engine: {str(e)}") from e
 
     @burst_engine_endpoint("GET", "/burst_counter", response_model=int)
     async def get_burst_counter(self) -> int:
@@ -178,7 +178,7 @@ class BurstEngineAPI:
             return self.core_api_service.get_burst_counter() or 0
         except Exception as e:
             logger.error(f"Error getting burst counter: {e}")
-            raise ValueError(f"Failed to get burst counter: {str(e)}")
+            raise ValueError(f"Failed to get burst counter: {str(e)}") from e
 
     @burst_engine_endpoint("GET", "/stats", response_model=BurstEngineStatsResponse)
     async def get_burst_engine_stats(self) -> BurstEngineStatsResponse:
@@ -197,7 +197,7 @@ class BurstEngineAPI:
             return BurstEngineStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting burst engine stats: {e}")
-            raise ValueError(f"Failed to get burst engine stats: {str(e)}")
+            raise ValueError(f"Failed to get burst engine stats: {str(e)}") from e
 
     # ===== Burst Engine Configuration =====
 
@@ -208,7 +208,7 @@ class BurstEngineAPI:
             return self.core_api_service.get_burst_engine_config()
         except Exception as e:
             logger.error(f"Error getting burst engine config: {e}")
-            raise ValueError(f"Failed to get burst engine config: {str(e)}")
+            raise ValueError(f"Failed to get burst engine config: {str(e)}") from e
 
     @burst_engine_endpoint(
         "PUT",
@@ -227,7 +227,7 @@ class BurstEngineAPI:
             return request.config
         except Exception as e:
             logger.error(f"Error updating burst engine config: {e}")
-            raise ValueError(f"Failed to update burst engine config: {str(e)}")
+            raise ValueError(f"Failed to update burst engine config: {str(e)}") from e
 
     # ===== FCL Sampler Configuration =====
 
@@ -239,7 +239,7 @@ class BurstEngineAPI:
             return {"frequency": config["frequency"], "consumer": config["consumer"]}
         except Exception as e:
             logger.error(f"Error getting FCL sampler config: {e}")
-            raise ValueError(f"Failed to get FCL sampler config: {str(e)}")
+            raise ValueError(f"Failed to get FCL sampler config: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/fcl_sampler/config", response_model=Dict[str, Any])
     async def update_fcl_sampler_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -255,7 +255,7 @@ class BurstEngineAPI:
             return config
         except Exception as e:
             logger.error(f"Error updating FCL sampler config: {e}")
-            raise ValueError(f"Failed to update FCL sampler config: {str(e)}")
+            raise ValueError(f"Failed to update FCL sampler config: {str(e)}") from e
 
     # ===== FCL Sample Rate Management =====
 
@@ -268,10 +268,10 @@ class BurstEngineAPI:
             rate = self.core_api_service.get_area_fq_sample_rate(area_id)
             return {"sample_rate": rate}
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
             logger.error(f"Error getting area FCL sample rate: {e}")
-            raise ValueError(f"Failed to get area FCL sample rate: {str(e)}")
+            raise ValueError(f"Failed to get area FCL sample rate: {str(e)}") from e
 
     @burst_engine_endpoint(
         "POST", "/fcl_sampler/area/{area_id}/sample_rate", response_model=Dict[str, Any]
@@ -295,10 +295,10 @@ class BurstEngineAPI:
         except ValueError:
             raise
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
             logger.error(f"Error setting area FCL sample rate: {e}")
-            raise ValueError(f"Failed to set area FCL sample rate: {str(e)}")
+            raise ValueError(f"Failed to set area FCL sample rate: {str(e)}") from e
 
     # ===== Membrane Potentials =====
 
@@ -311,7 +311,7 @@ class BurstEngineAPI:
             return self.core_api_service.get_membrane_potentials(neuron_ids)
         except Exception as e:
             logger.error(f"Error getting membrane potentials: {e}")
-            raise ValueError(f"Failed to get membrane potentials: {str(e)}")
+            raise ValueError(f"Failed to get membrane potentials: {str(e)}") from e
 
     @burst_engine_endpoint("PUT", "/membrane_potentials", response_model=Dict[str, Any])
     async def update_membrane_potentials(
@@ -329,7 +329,7 @@ class BurstEngineAPI:
             return {"success": True, "updated_count": len(potentials)}
         except Exception as e:
             logger.error(f"Error updating membrane potentials: {e}")
-            raise ValueError(f"Failed to update membrane potentials: {str(e)}")
+            raise ValueError(f"Failed to update membrane potentials: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/hold", response_model=SuccessResponse)
     async def hold_burst_engine(self) -> SuccessResponse:
@@ -343,7 +343,7 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error putting burst engine on hold: {e}")
-            raise ValueError(f"Failed to put burst engine on hold: {str(e)}")
+            raise ValueError(f"Failed to put burst engine on hold: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/resume", response_model=SuccessResponse)
     async def resume_burst_engine(self) -> SuccessResponse:
@@ -357,7 +357,7 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error resuming burst engine: {e}")
-            raise ValueError(f"Failed to resume burst engine: {str(e)}")
+            raise ValueError(f"Failed to resume burst engine: {str(e)}") from e
 
     # ===== Frequency Measurement =====
 
@@ -394,7 +394,7 @@ class BurstEngineAPI:
 
         except Exception as e:
             logger.error(f"Error triggering frequency measurement: {e}")
-            raise ValueError(f"Failed to trigger frequency measurement: {str(e)}")
+            raise ValueError(f"Failed to trigger frequency measurement: {str(e)}") from e
 
     @burst_engine_endpoint("GET", "/frequency_history", response_model=Dict[str, Any])
     async def get_frequency_measurement_history(
@@ -423,7 +423,7 @@ class BurstEngineAPI:
 
         except Exception as e:
             logger.error(f"Error getting frequency measurement history: {e}")
-            raise ValueError(f"Failed to get frequency measurement history: {str(e)}")
+            raise ValueError(f"Failed to get frequency measurement history: {str(e)}") from e
 
     @burst_engine_endpoint("GET", "/frequency_status", response_model=Dict[str, Any])
     async def get_frequency_status(self) -> Dict[str, Any]:
@@ -439,7 +439,7 @@ class BurstEngineAPI:
 
         except Exception as e:
             logger.error(f"Error getting frequency status: {e}")
-            raise ValueError(f"Failed to get frequency status: {str(e)}")
+            raise ValueError(f"Failed to get frequency status: {str(e)}") from e
 
 
 # ===== Factory Function =====

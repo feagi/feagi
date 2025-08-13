@@ -93,7 +93,7 @@ async def check_brain_running(request: Request):
         ):
             raise HTTPException(status_code=400, detail="Brain is not running!")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Brain is not running: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Brain is not running: {str(e)}") from e
 
     # Also check the state manager
     state_manager = FeagiStateManager.instance()
@@ -113,7 +113,7 @@ async def check_active_genome(request: Request):
         if not core_api or not core_api.genome_is_loaded():
             raise HTTPException(status_code=400, detail="No genome loaded!")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Genome access error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Genome access error: {str(e)}") from e
 
 
 async def check_burst_engine(request: Request):

@@ -104,7 +104,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Fitness statistics deleted successfully")
         except Exception as e:
-            raise ValueError(f"Failed to delete fitness statistics: {str(e)}")
+            raise ValueError(f"Failed to delete fitness statistics: {str(e)}") from e
 
     @training_endpoint("GET", "/shock/options")
     def list_available_shock_scenarios(self) -> Dict[str, Any]:
@@ -116,7 +116,7 @@ class TrainingAPI:
             else:
                 return {}
         except Exception as e:
-            raise ValueError(f"Failed to get shock scenario options: {str(e)}")
+            raise ValueError(f"Failed to get shock scenario options: {str(e)}") from e
 
     @training_endpoint("GET", "/shock/status")
     def list_activated_shock_scenarios(self) -> Dict[str, Any]:
@@ -128,7 +128,7 @@ class TrainingAPI:
             else:
                 raise ValueError("No shock scenario is defined")
         except Exception as e:
-            raise ValueError(f"Failed to get shock scenarios: {str(e)}")
+            raise ValueError(f"Failed to get shock scenarios: {str(e)}") from e
 
     @training_endpoint(
         "POST", "/shock/activate", request_model=Shock, response_model=SuccessResponse
@@ -153,7 +153,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Shock scenarios activated successfully")
         except Exception as e:
-            raise ValueError(f"Failed to activate shock scenarios: {str(e)}")
+            raise ValueError(f"Failed to activate shock scenarios: {str(e)}") from e
 
     @training_endpoint(
         "POST", "/reward", request_model=Intensity, response_model=SuccessResponse
@@ -168,7 +168,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Reward feedback sent successfully")
         except Exception as e:
-            raise ValueError(f"Failed to send reward feedback: {str(e)}")
+            raise ValueError(f"Failed to send reward feedback: {str(e)}") from e
 
     @training_endpoint(
         "POST", "/punishment", request_model=Intensity, response_model=SuccessResponse
@@ -183,7 +183,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Punishment feedback sent successfully")
         except Exception as e:
-            raise ValueError(f"Failed to send punishment feedback: {str(e)}")
+            raise ValueError(f"Failed to send punishment feedback: {str(e)}") from e
 
     @training_endpoint("POST", "/gameover", response_model=SuccessResponse)
     def gameover_signal(self) -> SuccessResponse:
@@ -196,7 +196,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Gameover signal sent successfully")
         except Exception as e:
-            raise ValueError(f"Failed to send gameover signal: {str(e)}")
+            raise ValueError(f"Failed to send gameover signal: {str(e)}") from e
 
     @training_endpoint("GET", "/training_report")
     def training_report(self) -> Dict[str, Any]:
@@ -204,7 +204,7 @@ class TrainingAPI:
         try:
             return self.core_api_service.get_training_report()
         except Exception as e:
-            raise ValueError(f"Failed to get training report: {str(e)}")
+            raise ValueError(f"Failed to get training report: {str(e)}") from e
 
     @training_endpoint("GET", "/brain_fitness")
     def brain_average_fitness_value(self) -> float:
@@ -213,7 +213,7 @@ class TrainingAPI:
             fitness_score = self.core_api_service.calculate_brain_fitness()
             return fitness_score
         except Exception as e:
-            raise ValueError(f"Failed to calculate brain fitness: {str(e)}")
+            raise ValueError(f"Failed to calculate brain fitness: {str(e)}") from e
 
     @training_endpoint("GET", "/fitness_criteria")
     def fetch_fitness_criteria(self) -> Dict[str, float]:
@@ -221,7 +221,7 @@ class TrainingAPI:
         try:
             return self.core_api_service.get_fitness_criteria()
         except Exception as e:
-            raise ValueError(f"Failed to get fitness criteria: {str(e)}")
+            raise ValueError(f"Failed to get fitness criteria: {str(e)}") from e
 
     @training_endpoint("POST", "/fitness_criteria", response_model=SuccessResponse)
     def configure_fitness_criteria(
@@ -255,7 +255,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Fitness criteria configured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to configure fitness criteria: {str(e)}")
+            raise ValueError(f"Failed to configure fitness criteria: {str(e)}") from e
 
     @training_endpoint("GET", "/fitness_stats")
     def get_fitness_stats(self) -> List[Dict[str, Any]]:
@@ -263,7 +263,7 @@ class TrainingAPI:
         try:
             return self.core_api_service.get_fitness_stats()
         except Exception as e:
-            raise ValueError(f"Failed to get fitness stats: {str(e)}")
+            raise ValueError(f"Failed to get fitness stats: {str(e)}") from e
 
     @training_endpoint(
         "PUT",
@@ -310,7 +310,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Fitness stats captured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to capture fitness stats: {str(e)}")
+            raise ValueError(f"Failed to capture fitness stats: {str(e)}") from e
 
     @training_endpoint("DELETE", "/fitness_stats", response_model=SuccessResponse)
     def reset_fitness_stats(self) -> SuccessResponse:
@@ -322,7 +322,7 @@ class TrainingAPI:
 
             return SuccessResponse(message="Fitness stats reset successfully")
         except Exception as e:
-            raise ValueError(f"Failed to reset fitness stats: {str(e)}")
+            raise ValueError(f"Failed to reset fitness stats: {str(e)}") from e
 
     # ===== New API Endpoints (for future use) =====
 
@@ -337,7 +337,7 @@ class TrainingAPI:
                 config=status.get("config"),
             )
         except Exception as e:
-            raise ValueError(f"Failed to get training status: {str(e)}")
+            raise ValueError(f"Failed to get training status: {str(e)}") from e
 
     @training_endpoint(
         "POST",
@@ -355,7 +355,7 @@ class TrainingAPI:
                 raise ValueError("Failed to configure training")
             return SuccessResponse(message="Training configured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to configure training: {str(e)}")
+            raise ValueError(f"Failed to configure training: {str(e)}") from e
 
     @training_endpoint("GET", "/stats", response_model=TrainingStatsResponse)
     async def get_training_stats(self) -> TrainingStatsResponse:
@@ -364,7 +364,7 @@ class TrainingAPI:
             stats = self.core_api_service.get_training_stats()
             return TrainingStatsResponse(stats=stats)
         except Exception as e:
-            raise ValueError(f"Failed to get training stats: {str(e)}")
+            raise ValueError(f"Failed to get training stats: {str(e)}") from e
 
 
 def create_training_api(core_api_service: CoreAPIService) -> TrainingAPI:

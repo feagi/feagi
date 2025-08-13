@@ -227,9 +227,9 @@ class GenomeAPI:
                 content_str = file_content.decode("utf-8")
                 genome_data = json.loads(content_str)
             except UnicodeDecodeError:
-                raise ValueError("File must be UTF-8 encoded")
+                raise ValueError("File must be UTF-8 encoded") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON format: {str(e)}")
+                raise ValueError(f"Invalid JSON format: {str(e)}") from e
 
             # Validate genome structure (basic check)
             if not isinstance(genome_data, dict):
@@ -286,7 +286,7 @@ class GenomeAPI:
             logger.error(f"Failed to upload genome file: {str(e)}", status="[ERR]")
             raise HTTPException(
                 status_code=400, detail=f"Failed to upload genome file: {str(e)}"
-            )
+            ) from e
 
     @genome_endpoint("POST", "/upload/string", response_model=GenomeUploadResponse)
     def upload_genome_string(self, genome: dict) -> GenomeUploadResponse:
@@ -334,7 +334,7 @@ class GenomeAPI:
             return response_data
         except Exception as e:
             logger.error(f"Failed to upload genome string: {str(e)}")
-            raise ValueError(f"Failed to upload genome string: {str(e)}")
+            raise ValueError(f"Failed to upload genome string: {str(e)}") from e
 
     # ===== Genome Information Endpoints =====
 
@@ -346,7 +346,7 @@ class GenomeAPI:
             return GenomeFileNameResponse(file_name=filename)
         except Exception as e:
             logger.error(f"Error getting genome file name: {e}")
-            raise ValueError(f"Failed to get genome file name: {str(e)}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}") from e
 
     @genome_endpoint("GET", "/file_name")
     def get_genome_file_name_legacy_compatible(self) -> str:
@@ -356,7 +356,7 @@ class GenomeAPI:
             return filename or ""
         except Exception as e:
             logger.error(f"Error getting genome file name: {e}")
-            raise ValueError(f"Failed to get genome file name: {str(e)}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}") from e
 
     @genome_endpoint("GET", "/file_name")
     def get_genome_file_name_direct(self) -> str:
@@ -366,7 +366,7 @@ class GenomeAPI:
             return filename or ""
         except Exception as e:
             logger.error(f"Error getting genome file name: {e}")
-            raise ValueError(f"Failed to get genome file name: {str(e)}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}") from e
 
     @genome_endpoint("GET", "/file_name")
     def get_genome_file_name_legacy_format(self) -> str:
@@ -376,7 +376,7 @@ class GenomeAPI:
             return filename or ""
         except Exception as e:
             logger.error(f"Error getting genome file name: {e}")
-            raise ValueError(f"Failed to get genome file name: {str(e)}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}") from e
 
     @genome_endpoint("GET", "/genome_number", response_model=GenomeNumberResponse)
     def get_genome_number(self) -> GenomeNumberResponse:
@@ -386,7 +386,7 @@ class GenomeAPI:
             return GenomeNumberResponse(genome_number=number)
         except Exception as e:
             logger.error(f"Error getting genome number: {e}")
-            raise ValueError(f"Failed to get genome number: {str(e)}")
+            raise ValueError(f"Failed to get genome number: {str(e)}") from e
 
     @genome_endpoint("GET", "/download", response_model=GenomeDownloadResponse)
     def download_genome(self) -> GenomeDownloadResponse:
@@ -414,7 +414,7 @@ class GenomeAPI:
             return GenomeDownloadResponse(genome_data=genome_data, filename=filename)
         except Exception as e:
             logger.error(f"Error downloading genome: {e}")
-            raise ValueError(f"Failed to download genome: {str(e)}")
+            raise ValueError(f"Failed to download genome: {str(e)}") from e
 
     @genome_endpoint("GET", "/download_region", response_model=GenomeDownloadResponse)
     async def download_genome_from_region(
@@ -436,7 +436,7 @@ class GenomeAPI:
             return GenomeDownloadResponse(genome_data=genome_data, filename=filename)
         except Exception as e:
             logger.error(f"Error downloading genome from region: {e}")
-            raise ValueError(f"Failed to download genome from region: {str(e)}")
+            raise ValueError(f"Failed to download genome from region: {str(e)}") from e
 
     @genome_endpoint(
         "GET", "/defaults/files", response_model=GenomeDefaultFilesResponse
@@ -448,7 +448,7 @@ class GenomeAPI:
             return GenomeDefaultFilesResponse(files=files)
         except Exception as e:
             logger.error(f"Error getting default genome files: {e}")
-            raise ValueError(f"Failed to get default genome files: {str(e)}")
+            raise ValueError(f"Failed to get default genome files: {str(e)}") from e
 
     # ===== Genome Operations =====
 
@@ -463,7 +463,7 @@ class GenomeAPI:
                 raise ValueError("Failed to reset genome")
         except Exception as e:
             logger.error(f"Error resetting genome: {e}")
-            raise ValueError(f"Failed to reset genome: {str(e)}")
+            raise ValueError(f"Failed to reset genome: {str(e)}") from e
 
     # ===== Amalgamation Endpoints =====
 
@@ -488,7 +488,7 @@ class GenomeAPI:
             )
         except Exception as e:
             logger.error(f"Error in amalgamation by payload: {e}")
-            raise ValueError(f"Failed to process amalgamation: {str(e)}")
+            raise ValueError(f"Failed to process amalgamation: {str(e)}") from e
 
     @genome_endpoint(
         "POST", "/amalgamation_by_upload", response_model=AmalgamationResponse
@@ -512,9 +512,9 @@ class GenomeAPI:
                 content_str = file_content.decode("utf-8")
                 genome_data = json.loads(content_str)
             except UnicodeDecodeError:
-                raise ValueError("File must be UTF-8 encoded")
+                raise ValueError("File must be UTF-8 encoded") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON format: {str(e)}")
+                raise ValueError(f"Invalid JSON format: {str(e)}") from e
 
             result = self.core_api_service.process_amalgamation_request(
                 genome_payload=genome_data
@@ -529,7 +529,7 @@ class GenomeAPI:
             logger.error(f"Error in amalgamation by upload: {e}")
             raise HTTPException(
                 status_code=400, detail=f"Failed to process amalgamation: {str(e)}"
-            )
+            ) from e
 
     @genome_endpoint(
         "POST", "/amalgamation_by_filename", response_model=AmalgamationResponse
@@ -550,7 +550,7 @@ class GenomeAPI:
             )
         except Exception as e:
             logger.error(f"Error in amalgamation by filename: {e}")
-            raise ValueError(f"Failed to process amalgamation: {str(e)}")
+            raise ValueError(f"Failed to process amalgamation: {str(e)}") from e
 
     @genome_endpoint(
         "GET", "/amalgamation_history", response_model=AmalgamationHistoryResponse
@@ -562,7 +562,7 @@ class GenomeAPI:
             return AmalgamationHistoryResponse(history=history)
         except Exception as e:
             logger.error(f"Error getting amalgamation history: {e}")
-            raise ValueError(f"Failed to get amalgamation history: {str(e)}")
+            raise ValueError(f"Failed to get amalgamation history: {str(e)}") from e
 
     @genome_endpoint("GET", "/amalgamation")
     def get_amalgamation(self, amalgamation_id: str) -> Dict[str, Any]:
@@ -572,7 +572,7 @@ class GenomeAPI:
             return result
         except Exception as e:
             logger.error(f"Error getting amalgamation: {e}")
-            raise ValueError(f"Failed to get amalgamation: {str(e)}")
+            raise ValueError(f"Failed to get amalgamation: {str(e)}") from e
 
     @genome_endpoint(
         "DELETE", "/amalgamation_cancellation", response_model=SuccessResponse
@@ -587,7 +587,7 @@ class GenomeAPI:
                 raise ValueError("Failed to cancel amalgamation")
         except Exception as e:
             logger.error(f"Error cancelling amalgamation: {e}")
-            raise ValueError(f"Failed to cancel amalgamation: {str(e)}")
+            raise ValueError(f"Failed to cancel amalgamation: {str(e)}") from e
 
     # ===== Template and Circuit Endpoints =====
 
@@ -603,7 +603,7 @@ class GenomeAPI:
             return CorticalTemplateResponse(template=template)
         except Exception as e:
             logger.error(f"Error getting cortical template: {e}")
-            raise ValueError(f"Failed to get cortical template: {str(e)}")
+            raise ValueError(f"Failed to get cortical template: {str(e)}") from e
 
     @genome_endpoint("GET", "/circuits", response_model=CircuitLibraryResponse)
     def get_circuit_library(self) -> CircuitLibraryResponse:
@@ -613,7 +613,7 @@ class GenomeAPI:
             return CircuitLibraryResponse(circuits=circuits)
         except Exception as e:
             logger.error(f"Error getting circuit library: {e}")
-            raise ValueError(f"Failed to get circuit library: {str(e)}")
+            raise ValueError(f"Failed to get circuit library: {str(e)}") from e
 
     # ===== Missing Critical Legacy Endpoints =====
 
@@ -651,7 +651,7 @@ class GenomeAPI:
             return f'Amalgamation for "{genome_title}" is complete.'
         except Exception as e:
             logger.error(f"Error completing amalgamation destination: {e}")
-            raise ValueError(f"Failed to complete amalgamation destination: {str(e)}")
+            raise ValueError(f"Failed to complete amalgamation destination: {str(e)}") from e
 
     @genome_endpoint("POST", "/append-file", response_model=SuccessResponse)
     def append_file_to_genome(self, request: AppendFileRequest) -> SuccessResponse:
@@ -680,10 +680,10 @@ class GenomeAPI:
             )
         except json.JSONDecodeError:
             logger.error("Invalid JSON content in append file request")
-            raise ValueError("Invalid JSON content provided")
+            raise ValueError("Invalid JSON content provided") from None
         except Exception as e:
             logger.error(f"Error appending file to genome: {e}")
-            raise ValueError(f"Failed to append file to genome: {str(e)}")
+            raise ValueError(f"Failed to append file to genome: {str(e)}") from e
 
     @genome_endpoint("POST", "/upload/file/edit", response_model=GenomeEditResponse)
     async def upload_file_for_editing(self, file: UploadFile) -> GenomeEditResponse:
@@ -707,15 +707,15 @@ class GenomeAPI:
                 json.loads(content_str)  # Just for validation
                 return GenomeEditResponse(content=content_str)
             except UnicodeDecodeError:
-                raise ValueError("File must be UTF-8 encoded")
+                raise ValueError("File must be UTF-8 encoded") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON format: {str(e)}")
+                raise ValueError(f"Invalid JSON format: {str(e)}") from e
 
         except Exception as e:
             logger.error(f"Error uploading file for editing: {e}")
             raise HTTPException(
                 status_code=400, detail=f"Failed to upload file for editing: {str(e)}"
-            )
+            ) from e
 
 
 # ===== Factory Function =====

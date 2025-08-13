@@ -96,7 +96,7 @@ class ConnectomeAPI:
             return [area["id"] for area in areas]
         except Exception as e:
             logger.error(f"Error getting cortical areas summary: {e}")
-            raise ValueError(f"Failed to get cortical areas summary: {str(e)}")
+            raise ValueError(f"Failed to get cortical areas summary: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/cortical_areas/list/transforming", response_model=List[str]
@@ -107,7 +107,7 @@ class ConnectomeAPI:
             return self.core_api_service.get_transforming_areas()
         except Exception as e:
             logger.error(f"Error getting transforming cortical areas: {e}")
-            raise ValueError(f"Failed to get transforming cortical areas: {str(e)}")
+            raise ValueError(f"Failed to get transforming cortical areas: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/cortical_areas/list/detailed", response_model=CorticalAreasListResponse
@@ -121,7 +121,7 @@ class ConnectomeAPI:
             return CorticalAreasListResponse(areas=areas)
         except Exception as e:
             logger.error(f"Error getting detailed cortical areas: {e}")
-            raise ValueError(f"Failed to get detailed cortical areas: {str(e)}")
+            raise ValueError(f"Failed to get detailed cortical areas: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/cortical_info/{cortical_area}", response_model=CorticalAreaInfoResponse
@@ -135,7 +135,7 @@ class ConnectomeAPI:
             return CorticalAreaInfoResponse(area_info=area)
         except Exception as e:
             logger.error(f"Error getting cortical info: {e}")
-            raise ValueError(f"Failed to get cortical info: {str(e)}")
+            raise ValueError(f"Failed to get cortical info: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/fire_queue/{cortical_area}", response_model=FireQueueResponse
@@ -147,7 +147,7 @@ class ConnectomeAPI:
             return FireQueueResponse(fire_queue=fire_queue_data)
         except Exception as e:
             logger.error(f"Error getting fire queue for {cortical_area}: {e}")
-            raise ValueError(f"Failed to get fire queue: {str(e)}")
+            raise ValueError(f"Failed to get fire queue: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/neuron/{neuron_id}/properties", response_model=NeuronPropertiesResponse
@@ -161,7 +161,7 @@ class ConnectomeAPI:
             return NeuronPropertiesResponse(**properties)
         except Exception as e:
             logger.error(f"Error getting neuron properties for {neuron_id}: {e}")
-            raise ValueError(f"Failed to get neuron properties: {str(e)}")
+            raise ValueError(f"Failed to get neuron properties: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/cortical_area/{cortical_id}/neurons", response_model=List[Dict[str, Any]]
@@ -175,7 +175,7 @@ class ConnectomeAPI:
             return neurons
         except Exception as e:
             logger.error(f"Error getting neurons for cortical area {cortical_id}: {e}")
-            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}")
+            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/area_neurons", response_model=List[Dict[str, Any]]
@@ -191,7 +191,7 @@ class ConnectomeAPI:
             return neurons
         except Exception as e:
             logger.error(f"Error getting neurons for cortical area {cortical_id}: {e}")
-            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}")
+            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/neuron_properties", response_model=NeuronPropertiesResponse
@@ -207,7 +207,7 @@ class ConnectomeAPI:
             return NeuronPropertiesResponse(**properties)
         except Exception as e:
             logger.error(f"Error getting neuron properties for {neuron_id}: {e}")
-            raise ValueError(f"Failed to get neuron properties: {str(e)}")
+            raise ValueError(f"Failed to get neuron properties: {str(e)}") from e
 
     # ===== Plasticity and Properties =====
 
@@ -219,7 +219,7 @@ class ConnectomeAPI:
             return PlasticityInfoResponse(plasticity_info=plasticity_info)
         except Exception as e:
             logger.error(f"Error getting plasticity info: {e}")
-            raise ValueError(f"Failed to get plasticity info: {str(e)}")
+            raise ValueError(f"Failed to get plasticity info: {str(e)}") from e
 
     @connectome_endpoint("GET", "/path", response_model=ConnectomePathResponse)
     async def get_connectome_path(self) -> ConnectomePathResponse:
@@ -229,7 +229,7 @@ class ConnectomeAPI:
             return ConnectomePathResponse(path=path)
         except Exception as e:
             logger.error(f"Error getting connectome path: {e}")
-            raise ValueError(f"Failed to get connectome path: {str(e)}")
+            raise ValueError(f"Failed to get connectome path: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/properties/dimensions", response_model=ConnectomeDimensionsResponse
@@ -241,7 +241,7 @@ class ConnectomeAPI:
             return ConnectomeDimensionsResponse(dimensions=dimensions)
         except Exception as e:
             logger.error(f"Error getting connectome dimensions: {e}")
-            raise ValueError(f"Failed to get connectome dimensions: {str(e)}")
+            raise ValueError(f"Failed to get connectome dimensions: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/properties/mappings", response_model=NeuronMappingsResponse
@@ -253,7 +253,7 @@ class ConnectomeAPI:
             return NeuronMappingsResponse(mappings=mappings)
         except Exception as e:
             logger.error(f"Error getting connectome mappings: {e}")
-            raise ValueError(f"Failed to get connectome mappings: {str(e)}")
+            raise ValueError(f"Failed to get connectome mappings: {str(e)}") from e
 
     # ===== Statistics =====
 
@@ -273,7 +273,7 @@ class ConnectomeAPI:
             return CorticalStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting cortical stats: {e}")
-            raise ValueError(f"Failed to get cortical stats: {str(e)}")
+            raise ValueError(f"Failed to get cortical stats: {str(e)}") from e
 
     # ===== Download Operations =====
 
@@ -307,7 +307,7 @@ class ConnectomeAPI:
             }
         except Exception as e:
             logger.error(f"Error downloading cortical area: {e}")
-            raise ValueError(f"Failed to download cortical area: {str(e)}")
+            raise ValueError(f"Failed to download cortical area: {str(e)}") from e
 
     @connectome_endpoint("GET", "/download", response_model=Dict[str, Any])
     async def download_connectome(self) -> Dict[str, Any]:
@@ -346,7 +346,7 @@ class ConnectomeAPI:
             return SuccessResponse(message="Cortical area imported successfully")
         except Exception as e:
             logger.error(f"Error uploading cortical area: {e}")
-            raise ValueError(f"Failed to upload cortical area: {str(e)}")
+            raise ValueError(f"Failed to upload cortical area: {str(e)}") from e
 
     @connectome_endpoint("POST", "/upload", response_model=SuccessResponse)
     async def upload_connectome(self, file_data: FileUploadRequest) -> SuccessResponse:
@@ -381,7 +381,7 @@ class ConnectomeAPI:
             )
         except Exception as e:
             logger.error(f"Error in batch neuron creation: {e}")
-            raise ValueError(f"Failed to create neurons: {str(e)}")
+            raise ValueError(f"Failed to create neurons: {str(e)}") from e
 
     @connectome_endpoint(
         "POST",
@@ -400,7 +400,7 @@ class ConnectomeAPI:
             return BatchSynapseCreationResponse(created_synapses=success_count)
         except Exception as e:
             logger.error(f"Error in batch synapse creation: {e}")
-            raise ValueError(f"Failed to create synapses: {str(e)}")
+            raise ValueError(f"Failed to create synapses: {str(e)}") from e
 
 
 # ===== Factory Function =====

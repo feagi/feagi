@@ -177,8 +177,8 @@ class FixedBufferPool:
             self.free_queue.put(buffer.slot_id, block=False)
             with self._stats_lock:
                 self.stats["total_releases"] += 1
-        except Full:
-            raise BufferPoolError("Buffer pool corruption: too many releases")
+        except Full as e:
+            raise BufferPoolError("Buffer pool corruption: too many releases") from e
 
     @property
     def available(self) -> int:

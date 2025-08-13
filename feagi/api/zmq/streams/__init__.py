@@ -124,7 +124,7 @@ def initialize_all_streams(core_api=None, host="*", stream_configs=None):
         try:
             stream.start()
         except Exception as e:
-            raise RuntimeError(f"Failed to start {name} stream: {e}")
+            raise RuntimeError(f"Failed to start {name} stream: {e}") from e
 
     return streams
 

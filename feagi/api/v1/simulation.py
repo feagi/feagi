@@ -125,7 +125,7 @@ class SimulationAPI:
             return SuccessResponse(message="Stimulation script uploaded successfully")
         except Exception as e:
             logger.error(f"Error uploading stimulation script: {e}")
-            raise ValueError(f"Failed to upload stimulation script: {str(e)}")
+            raise ValueError(f"Failed to upload stimulation script: {str(e)}") from e
 
     @simulation_endpoint("POST", "/reset", response_model=SuccessResponse)
     def reset_simulation(self) -> SuccessResponse:
@@ -138,7 +138,7 @@ class SimulationAPI:
             return SuccessResponse(message="Simulation reset successfully")
         except Exception as e:
             logger.error(f"Error resetting simulation: {e}")
-            raise ValueError(f"Failed to reset simulation: {str(e)}")
+            raise ValueError(f"Failed to reset simulation: {str(e)}") from e
 
     # ===== New API Endpoints (for future use) =====
 
@@ -153,7 +153,7 @@ class SimulationAPI:
                 config=status.get("config"),
             )
         except Exception as e:
-            raise ValueError(f"Failed to get simulation status: {str(e)}")
+            raise ValueError(f"Failed to get simulation status: {str(e)}") from e
 
     @simulation_endpoint(
         "POST",
@@ -171,7 +171,7 @@ class SimulationAPI:
                 raise ValueError("Failed to configure simulation")
             return SuccessResponse(message="Simulation configured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to configure simulation: {str(e)}")
+            raise ValueError(f"Failed to configure simulation: {str(e)}") from e
 
     @simulation_endpoint("GET", "/stats", response_model=SimulationStatsResponse)
     async def get_simulation_stats(self) -> SimulationStatsResponse:
@@ -180,7 +180,7 @@ class SimulationAPI:
             stats = self.core_api_service.get_simulation_stats()
             return SimulationStatsResponse(stats=stats)
         except Exception as e:
-            raise ValueError(f"Failed to get simulation stats: {str(e)}")
+            raise ValueError(f"Failed to get simulation stats: {str(e)}") from e
 
 
 def create_simulation_api(core_api_service: CoreAPIService) -> SimulationAPI:

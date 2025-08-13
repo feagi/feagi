@@ -187,7 +187,7 @@ def check_plasticity_enabled(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to verify neuroplasticity state: {str(e)}"
-        )
+        ) from e
 
     return "OK"
 
@@ -230,7 +230,7 @@ def check_io_system_ready(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to verify I/O system readiness: {str(e)}"
-        )
+        ) from e
 
 
 # Deployment checks
@@ -332,7 +332,7 @@ def check_cortical_area_exists(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error checking cortical area: {str(e)}"
-        )
+        ) from e
 
     return "OK"
 
@@ -362,4 +362,4 @@ def check_monitoring_available(
             raise
         raise HTTPException(
             status_code=500, detail=f"Error checking monitoring availability: {str(e)}"
-        )
+        ) from e

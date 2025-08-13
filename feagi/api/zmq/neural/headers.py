@@ -141,7 +141,7 @@ class NeuralDataHeader:
                 sequence_number,
             ) = struct.unpack(cls.STRUCT_FORMAT, data[:NEURAL_HEADER_SIZE])
         except struct.error as e:
-            raise NeuralHeaderError(f"Failed to unpack header: {e}")
+            raise NeuralHeaderError(f"Failed to unpack header: {e}") from e
 
         if magic != NEURAL_MAGIC:
             raise NeuralHeaderError(

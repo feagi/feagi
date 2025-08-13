@@ -75,7 +75,7 @@ class ZMQRestClient:
             # Connect
             self.socket.connect(f"tcp://{self.host}:{self.port}")
         except zmq.ZMQError as e:
-            raise ConnectionError(f"Failed to connect to FEAGI ZMQ server: {e}")
+            raise ConnectionError(f"Failed to connect to FEAGI ZMQ server: {e}") from e
 
     def disconnect(self):
         """Disconnect from the FEAGI ZMQ server."""
@@ -141,7 +141,7 @@ class ZMQRestClient:
             # [empty_frame, payload]
             self.socket.send_multipart([b"", request_bytes])
         except zmq.ZMQError as e:
-            raise ConnectionError(f"Failed to send request: {e}")
+            raise ConnectionError(f"Failed to send request: {e}") from e
 
         # Wait for response
         try:
@@ -156,9 +156,9 @@ class ZMQRestClient:
             response = json.loads(response_parts[1].decode("utf-8"))
         except zmq.ZMQError as e:
             if e.errno == zmq.EAGAIN:
-                raise TimeoutError("Request timed out")
+                raise TimeoutError("Request timed out") from e
             else:
-                raise ConnectionError(f"Failed to receive response: {e}")
+                raise ConnectionError(f"Failed to receive response: {e}") from e
 
         # Check response format
         if not isinstance(response, dict):

@@ -116,7 +116,7 @@ async def register_visualization_client(
 
     except Exception as e:
         logger.error(f"[ERR] Error registering visualization client: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}") from e
 
 
 @router.post("/unregister_client", response_model=SuccessResponse)
@@ -168,7 +168,7 @@ async def unregister_visualization_client(
 
     except Exception as e:
         logger.error(f"[ERR] Error unregistering visualization client: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Unregistration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unregistration failed: {str(e)}") from e
 
 
 @router.post("/heartbeat", response_model=SuccessResponse)
@@ -217,7 +217,7 @@ async def visualization_client_heartbeat(
 
     except Exception as e:
         logger.error(f"[ERR] Error processing visualization heartbeat: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}") from e
 
 
 @router.get("/status", response_model=VisualizationStatusResponse)
@@ -282,4 +282,4 @@ async def get_visualization_status(
 
     except Exception as e:
         logger.error(f"[ERR] Error getting visualization status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}") from e

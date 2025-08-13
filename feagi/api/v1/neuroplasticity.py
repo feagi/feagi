@@ -74,7 +74,7 @@ class NeuroplasticityAPI:
             return plasticity_info
         except Exception as e:
             logger.error(f"Error getting plasticity status: {e}")
-            raise ValueError(f"Failed to get plasticity status: {str(e)}")
+            raise ValueError(f"Failed to get plasticity status: {str(e)}") from e
 
     @neuroplasticity_endpoint("POST", "/configure", response_model=SuccessResponse)
     async def configure_plasticity(self, config: Dict[str, Any]) -> SuccessResponse:
@@ -89,7 +89,7 @@ class NeuroplasticityAPI:
             )
         except Exception as e:
             logger.error(f"Error configuring plasticity: {e}")
-            raise ValueError(f"Failed to configure plasticity: {str(e)}")
+            raise ValueError(f"Failed to configure plasticity: {str(e)}") from e
 
     # ===== Area-Specific Plasticity Control =====
 
@@ -113,7 +113,7 @@ class NeuroplasticityAPI:
             logger.error(f"Error enabling area plasticity: {e}")
             raise ValueError(
                 f"Failed to enable plasticity for area {area_id}: {str(e)}"
-            )
+            ) from e
 
     @neuroplasticity_endpoint(
         "POST", "/disable/{area_id}", response_model=SuccessResponse
@@ -130,7 +130,7 @@ class NeuroplasticityAPI:
             logger.error(f"Error disabling area plasticity: {e}")
             raise ValueError(
                 f"Failed to disable plasticity for area {area_id}: {str(e)}"
-            )
+            ) from e
 
     # ===== Transforming Areas =====
 
@@ -141,7 +141,7 @@ class NeuroplasticityAPI:
             return self.core_api_service.get_transforming_areas()
         except Exception as e:
             logger.error(f"Error getting transforming areas: {e}")
-            raise ValueError(f"Failed to get transforming areas: {str(e)}")
+            raise ValueError(f"Failed to get transforming areas: {str(e)}") from e
 
     # ===== Queue Management =====
 
@@ -152,7 +152,7 @@ class NeuroplasticityAPI:
             return self.core_api_service.get_plasticity_queue_depth()
         except Exception as e:
             logger.error(f"Error getting plasticity queue depth: {e}")
-            raise ValueError(f"Failed to get plasticity queue depth: {str(e)}")
+            raise ValueError(f"Failed to get plasticity queue depth: {str(e)}") from e
 
     @neuroplasticity_endpoint(
         "PUT", "/plasticity_queue_depth", response_model=SuccessResponse
@@ -169,7 +169,7 @@ class NeuroplasticityAPI:
             )
         except Exception as e:
             logger.error(f"Error updating plasticity queue depth: {e}")
-            raise ValueError(f"Failed to update plasticity queue depth: {str(e)}")
+            raise ValueError(f"Failed to update plasticity queue depth: {str(e)}") from e
 
 
 # ===== Factory Function =====

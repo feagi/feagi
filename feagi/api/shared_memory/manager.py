@@ -309,8 +309,8 @@ class SharedMemoryManager:
                 region = SharedMemoryRegion(name, temp_dir=self.temp_dir, create=False)
                 self.regions[name] = region
                 return region
-            except FileNotFoundError:
-                raise KeyError(f"Shared memory region '{name}' does not exist")
+            except FileNotFoundError as e:
+                raise KeyError(f"Shared memory region '{name}' does not exist") from e
 
         return self.regions[name]
 

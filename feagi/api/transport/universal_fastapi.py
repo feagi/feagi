@@ -480,12 +480,12 @@ else:
                             result = await original_handler(api_instance, file)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_file
                 else:
@@ -497,12 +497,12 @@ else:
                             result = original_handler(api_instance, file)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_file
 
@@ -521,12 +521,12 @@ else:
                             result = await original_handler(api_instance, *args)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_both
                 else:
@@ -542,12 +542,12 @@ else:
                             result = original_handler(api_instance, *args)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_both
 
@@ -563,12 +563,12 @@ else:
                             result = await original_handler(api_instance, request_data)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_request
                 else:
@@ -581,12 +581,12 @@ else:
                             result = original_handler(api_instance, request_data)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_with_request
 
@@ -615,14 +615,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_cortical_area
                         elif param_name == "agent_id":
@@ -636,14 +636,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_agent_id
                         elif param_name == "neuron_id":
@@ -657,14 +657,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_neuron_id
                         elif param_name == "cortical_id":
@@ -678,14 +678,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_cortical_id
                         elif param_name == "snapshot_id":
@@ -699,14 +699,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_snapshot_id
                         else:
@@ -721,14 +721,14 @@ else:
                                     )
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
                     else:
                         # Handle multiple path parameters
                         if path_param_names == ["snapshot_id", "fmt"]:
@@ -741,14 +741,14 @@ else:
                                     result = await original_handler(api_instance, snapshot_id, fmt)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                         async def fastapi_handler_with_path_params(
                             api_instance=Depends(_get_api_instance), **path_params
@@ -763,14 +763,14 @@ else:
                                 result = await original_handler(api_instance, *args)
                                 return _maybe_file_response(result)
                             except ValueError as e:
-                                raise HTTPException(status_code=400, detail=str(e))
+                                raise HTTPException(status_code=400, detail=str(e)) from e
                             except Exception as e:
                                 logger.error(
                                     f"Error in {original_handler.__name__}: {e}"
                                 )
                                 raise HTTPException(
                                     status_code=500, detail="Internal server error"
-                                )
+                                ) from e
 
                     return fastapi_handler_with_path_params
                 else:
@@ -789,14 +789,14 @@ else:
                                     result = original_handler(api_instance, cortical_area)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_cortical_area
                         elif param_name == "agent_id":
@@ -808,14 +808,14 @@ else:
                                     result = original_handler(api_instance, agent_id)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_agent_id
                         elif param_name == "neuron_id":
@@ -827,14 +827,14 @@ else:
                                     result = original_handler(api_instance, neuron_id)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_neuron_id
                         elif param_name == "cortical_id":
@@ -846,14 +846,14 @@ else:
                                     result = original_handler(api_instance, cortical_id)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_cortical_id
                         elif param_name == "snapshot_id":
@@ -865,14 +865,14 @@ else:
                                     result = original_handler(api_instance, snapshot_id)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                             return fastapi_handler_with_snapshot_id
                         else:
@@ -885,14 +885,14 @@ else:
                                     result = original_handler(api_instance, value)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
                     else:
                         # Handle multiple path parameters
                         if path_param_names == ["snapshot_id", "fmt"]:
@@ -905,14 +905,14 @@ else:
                                     result = original_handler(api_instance, snapshot_id, fmt)
                                     return _maybe_file_response(result)
                                 except ValueError as e:
-                                    raise HTTPException(status_code=400, detail=str(e))
+                                    raise HTTPException(status_code=400, detail=str(e)) from e
                                 except Exception as e:
                                     logger.error(
                                         f"Error in {original_handler.__name__}: {e}"
                                     )
                                     raise HTTPException(
                                         status_code=500, detail="Internal server error"
-                                    )
+                                    ) from e
 
                         def fastapi_handler_with_path_params(
                             api_instance=Depends(_get_api_instance), **path_params
@@ -927,14 +927,14 @@ else:
                                 result = original_handler(api_instance, *args)
                                 return _maybe_file_response(result)
                             except ValueError as e:
-                                raise HTTPException(status_code=400, detail=str(e))
+                                raise HTTPException(status_code=400, detail=str(e)) from e
                             except Exception as e:
                                 logger.error(
                                     f"Error in {original_handler.__name__}: {e}"
                                 )
                                 raise HTTPException(
                                     status_code=500, detail="Internal server error"
-                                )
+                                ) from e
 
                     return fastapi_handler_with_path_params
 
@@ -949,12 +949,12 @@ else:
                             result = await original_handler(api_instance)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_simple
                 else:
@@ -964,12 +964,12 @@ else:
                             result = original_handler(api_instance)
                             return _maybe_file_response(result)
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(
                                 status_code=500, detail="Internal server error"
-                            )
+                            ) from e
 
                     return fastapi_handler_simple
 
@@ -1050,9 +1050,9 @@ else:
                 agent_api = create_feagi_agent_api(core_api_service)
                 return await agent_api.get_agent_properties_query(agent_id)
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         return router
 
@@ -1131,9 +1131,9 @@ else:
                 api = SnapshotAPI(core_api_service)
                 return await api.create_snapshot(request)
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         @router.get(
             "/{snapshot_id}/artifact/{fmt}",
@@ -1176,9 +1176,9 @@ else:
                         )
                 return result
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         @router.get("/stream")
         async def stream_snapshot(stateful: bool = False, compression: bool = True, core_api_service=Depends(get_core_api_service)):
@@ -1236,7 +1236,7 @@ else:
             except HTTPException:
                 raise
             except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+                raise HTTPException(status_code=500, detail=str(e)) from e
 
         @router.post(
             "/{snapshot_id}/restore",
@@ -1262,9 +1262,9 @@ else:
                 parsed = request or SnapshotRestoreRequest()
                 return await api.restore_snapshot(snapshot_id, parsed)
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         @router.post(
             "/upload",
@@ -1334,9 +1334,9 @@ else:
             except HTTPException:
                 raise
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+                raise HTTPException(status_code=500, detail=str(e)) from e
 
         @router.get(
             "/",
@@ -1348,9 +1348,9 @@ else:
                 api = SnapshotAPI(core_api_service)
                 return await api.list_snapshots()
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         @router.delete(
             "/{snapshot_id}",
@@ -1364,9 +1364,9 @@ else:
                 api = SnapshotAPI(core_api_service)
                 return await api.delete_snapshot(snapshot_id)
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except Exception:
-                raise HTTPException(status_code=500, detail="Internal server error")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
 
         return router
 

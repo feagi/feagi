@@ -111,7 +111,7 @@ async def get_zmq_debug_status():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting debug status: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/configure")
@@ -155,7 +155,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid debug level: '{config.debug_level}'. Valid levels: {valid_levels}",
-                )
+                ) from None
 
         if config.message_filters is not None:
             if not isinstance(config.message_filters, list):
@@ -172,7 +172,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid message type in filters: {config.message_filters}. Valid types: {valid_types}",
-                )
+                ) from None
 
         if config.endpoint_filters is not None:
             if not isinstance(config.endpoint_filters, list):
@@ -225,7 +225,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
         raise HTTPException(
             status_code=500,
             detail=f"Error configuring debug settings: {str(e)}\nTraceback: {traceback.format_exc()}",
-        )
+        ) from e
 
 
 @router.post("/zmq/enable")
@@ -248,7 +248,7 @@ async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
             "message": "ZMQ debugging enabled with summary level logging",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error enabling debug: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error enabling debug: {str(e)}") from e
 
 
 @router.post("/zmq/disable")
@@ -264,7 +264,7 @@ async def disable_zmq_debug():
 
         return {"status": "disabled", "message": "All ZMQ debugging disabled"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error disabling debug: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error disabling debug: {str(e)}") from e
 
 
 @router.get("/zmq/endpoints", response_model=EndpointStatsResponse)
@@ -281,7 +281,7 @@ async def get_zmq_endpoint_stats():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting endpoint stats: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/reset-stats")
@@ -296,7 +296,7 @@ async def reset_zmq_debug_stats():
         reset_debug_stats()
         return {"status": "reset", "message": "All ZMQ debug statistics reset"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error resetting stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error resetting stats: {str(e)}") from e
 
 
 # Advanced Debug Control
@@ -347,7 +347,7 @@ async def set_message_type_filters(message_types: List[str]):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting message filters: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/filter/endpoints")
@@ -372,7 +372,7 @@ async def set_endpoint_filters_rest(endpoints: List[str]):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting endpoint filters: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/level/{level}")
@@ -411,7 +411,7 @@ async def set_zmq_debug_level(level: str):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting debug level: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/rate-limit/{limit}")
@@ -443,7 +443,7 @@ async def set_zmq_rate_limit(limit: int):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting rate limit: {str(e)}"
-        )
+        ) from e
 
 
 # Information and Help Endpoints
@@ -542,7 +542,7 @@ async def get_debug_info():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting debug info: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/console")
@@ -566,4 +566,4 @@ async def enable_console_output(enabled: bool = True):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting console output: {str(e)}"
-        )
+        ) from e

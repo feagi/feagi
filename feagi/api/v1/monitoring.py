@@ -77,7 +77,7 @@ class MonitoringAPI:
             return SystemMetricsResponse(metrics=metrics)
         except Exception as e:
             logger.error(f"Error getting system metrics: {e}")
-            raise ValueError(f"Failed to get system metrics: {str(e)}")
+            raise ValueError(f"Failed to get system metrics: {str(e)}") from e
 
     @monitoring_endpoint("GET", "/performance", response_model=PerformanceStatsResponse)
     async def get_performance_stats(self) -> PerformanceStatsResponse:
@@ -87,7 +87,7 @@ class MonitoringAPI:
             return PerformanceStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting performance stats: {e}")
-            raise ValueError(f"Failed to get performance stats: {str(e)}")
+            raise ValueError(f"Failed to get performance stats: {str(e)}") from e
 
     @monitoring_endpoint("GET", "/data", response_model=MonitoringDataResponse)
     async def get_monitoring_data(self) -> MonitoringDataResponse:
@@ -97,7 +97,7 @@ class MonitoringAPI:
             return MonitoringDataResponse(data=data)
         except Exception as e:
             logger.error(f"Error getting monitoring data: {e}")
-            raise ValueError(f"Failed to get monitoring data: {str(e)}")
+            raise ValueError(f"Failed to get monitoring data: {str(e)}") from e
 
 
 # ===== Factory Function =====

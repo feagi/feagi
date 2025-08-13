@@ -227,7 +227,7 @@ class ZMQRestAPIAdapter:
                 raise ValueError(error_body.get("message", "Unknown error"))
         except Exception as e:
             logger.error(f"Error delegating to v1 API: {e}")
-            raise ValueError(f"v1 API delegation failed: {str(e)}")
+            raise ValueError(f"v1 API delegation failed: {str(e)}") from e
 
     # ===== Visualization Endpoint Handlers =====
 
@@ -297,7 +297,7 @@ class ZMQRestAPIAdapter:
 
         except Exception as e:
             logger.error(f"Error registering visualization client: {str(e)}")
-            raise ValueError(f"Registration failed: {str(e)}")
+            raise ValueError(f"Registration failed: {str(e)}") from e
 
     async def _handle_visualization_unregister_client(
         self, params, query, body, headers
@@ -348,7 +348,7 @@ class ZMQRestAPIAdapter:
 
         except Exception as e:
             logger.error(f"Error unregistering visualization client: {str(e)}")
-            raise ValueError(f"Unregistration failed: {str(e)}")
+            raise ValueError(f"Unregistration failed: {str(e)}") from e
 
     async def _handle_visualization_heartbeat(
         self, params, query, body, headers
@@ -424,7 +424,7 @@ class ZMQRestAPIAdapter:
                     logger.error(
                         f"[ERR] Error calling heartbeat method: {heartbeat_error}"
                     )
-                    raise ValueError(f"Heartbeat method failed: {str(heartbeat_error)}")
+                    raise ValueError(f"Heartbeat method failed: {str(heartbeat_error)}") from heartbeat_error
             else:
                 logger.error("[ERR] Visualization stream not available")
                 # Instead of failing completely, provide degraded functionality
@@ -503,7 +503,7 @@ class ZMQRestAPIAdapter:
 
         except Exception as e:
             logger.error(f"[ERR] Error getting visualization status: {str(e)}")
-            raise ValueError(f"Status check failed: {str(e)}")
+            raise ValueError(f"Status check failed: {str(e)}") from e
 
     def set_zmq_server(self, zmq_server):
         """Set the ZMQ server reference for visualization endpoints."""
