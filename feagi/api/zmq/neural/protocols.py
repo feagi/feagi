@@ -1,9 +1,8 @@
-"""
-Neural data protocol definitions for FEAGI ZMQ communication.
+"""Neural data protocol definitions for FEAGI ZMQ communication.
 
 This module defines the protocol identifiers and structures for neural data
-transmission. All structures are designed to be fixed-size and compatible
-with Rust FFI for future migration.
+transmission. All structures are designed to be fixed-size and compatible with
+Rust FFI for future migration.
 """
 
 from enum import IntEnum

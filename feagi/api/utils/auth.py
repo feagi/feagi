@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,8 +31,7 @@ _TOKENS = {}
 
 
 async def validate_token(token: str) -> bool:
-    """
-    Verify if a token is valid.
+    """Verify if a token is valid.
 
     Args:
         token: The token to verify
@@ -44,7 +41,10 @@ async def validate_token(token: str) -> bool:
     """
     # If no token is provided, allow access if authentication is disabled
     if not token:
-        return not os.environ.get("FEAGI_AUTH_REQUIRED", "false").lower() == "true"
+        return (
+            not os.environ.get("FEAGI_AUTH_REQUIRED", "false").lower()
+            == "true"
+        )
 
     # Check if token exists and is not expired
     token_data = _TOKENS.get(token)
@@ -61,8 +61,7 @@ async def validate_token(token: str) -> bool:
 
 
 async def generate_token(user_id: str, expires_in: int = 3600) -> str:
-    """
-    Create a new authentication token.
+    """Create a new authentication token.
 
     Args:
         user_id: User identifier
@@ -84,8 +83,7 @@ async def generate_token(user_id: str, expires_in: int = 3600) -> str:
 
 
 async def invalidate_token(token: str) -> bool:
-    """
-    Invalidate an authentication token.
+    """Invalidate an authentication token.
 
     Args:
         token: The token to invalidate
@@ -100,8 +98,7 @@ async def invalidate_token(token: str) -> bool:
 
 
 async def get_token_info(token: str) -> Optional[Dict[str, Any]]:
-    """
-    Get information about a token.
+    """Get information about a token.
 
     Args:
         token: The token to get information about

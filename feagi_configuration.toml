@@ -96,6 +96,12 @@ visualization_shutdown = 5.0    # Visualization-specific shutdown timeout
 api_service_shutdown = 10.0    # API service shutdown timeout
 fq_sampler_shutdown = 2.0      # FQ sampler shutdown timeout
 
+[agents]
+# Agent registration and communication configuration
+# Default host for agent IP addresses when not explicitly provided
+# Can be overridden with FEAGI_AGENT_DEFAULT_HOST environment variable
+default_host = "127.0.0.1"    # Default host for agent IP addresses, override with FEAGI_AGENT_DEFAULT_HOST
+
 [neural]
 # Neural processing configuration
 burst_engine_timestep = 0.1    # milliseconds
@@ -109,12 +115,18 @@ enable_plasticity = true       # learning mechanisms
 # regardless of genome requirements
 min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
 min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
+min_memory_neuron_space = 50000 # Minimum memory neuron slots to reserve (separate SoA)
 
 # Dynamic sizing policy:
 # - Read genome stats to determine actual neuron/synapse requirements
 # - Reserve 50% more than genome requirements OR the minimum values above (whichever is larger)
 # - This prevents memory waste while ensuring adequate space for growth
 buffer_multiplier = 1.5        # Reserve 50% more than genome requirements (1.5x = +50%)
+
+# Memory system configuration
+memory_processing_batch_size = 100    # Process N memory areas per batch operation
+memory_pattern_cache_size = 10000     # LRU cache size for pattern lookups
+memory_neuron_limit_per_area = 10000  # Maximum memory neurons per memory cortical area
 
 [resources]
 # Resource allocation settings
@@ -152,3 +164,30 @@ compress_sensory = false      # Disable compression for sensory input (typically
 # Cloud deployment example:
 # This file can be mounted as a ConfigMap in Kubernetes:
 # kubectl create configmap feagi-config --from-file=feagi_configuration.toml
+
+[memory_processing]
+# Memory processing configuration (preferred location)
+# Note: Existing [connectome] keys (memory_processing_batch_size, memory_pattern_cache_size)
+# are still supported for backward compatibility. This section is authoritative when present.
+batch_size = 100            # Process N memory areas per batch operation
+pattern_cache_size = 10000  # LRU cache size for pattern lookups
+
+[memory_processing.sleep_manager]
+# Background maintenance for memory system during sustained low FCL activity
+enabled = true                              # Disabled by default; set true to enable
+fcl_low_activity_window_bursts = 50          # Window length (bursts) to average FCL activity
+fcl_low_activity_threshold = 5               # Avg neurons per burst considered "low activity"
+monitor_interval_seconds = 2.0               # Polling interval for activity check
+gc_prune_inactive_after_bursts = 500         # Prune inactive pattern mappings older than this many bursts
+
+[snapshot]
+# Brain snapshot configuration (required for /v1/snapshot endpoints)
+# Set absolute, writable paths for your environment
+output_dir = "output/snapshots"            # default under repository output/
+temp_dir = "output/snapshots/tmp"          # default temporary staging
+zip_compression = "deflate"  # "deflate" or "store"
+# Optional defaults for the new FEAGI Container format (.fc)
+# default_format can be "zip" or "fc" (download prefers this format when present)
+default_format = "zip"
+# fc_compression can be "store" (uncompressed) or "deflate" (zlib)
+fc_compression = "store"

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,10 +34,8 @@ from .manager import SharedMemoryManager
 
 
 class SharedNeuronArray:
-    """
-    A shared memory array for storing neuron data that can be accessed
-    by multiple processes.
-    """
+    """A shared memory array for storing neuron data that can be accessed by
+    multiple processes."""
 
     # Define neuron property fields and their data types
     NEURON_DTYPE = np.dtype(
@@ -52,7 +48,10 @@ class SharedNeuronArray:
             ("firing_threshold", np.float32),  # Firing threshold
             ("refractory_period", np.float32),  # Refractory period in ms
             ("last_fired_timestamp", np.float64),  # Last time the neuron fired
-            ("cortical_id", np.int64),  # ID of the cortical area this neuron belongs to
+            (
+                "cortical_id",
+                np.int64,
+            ),  # ID of the cortical area this neuron belongs to
             ("neuron_type", np.int32),  # Type of neuron
             ("is_active", np.bool_),  # Whether the neuron is active
             ("reserved1", np.float32),  # Reserved for future use
@@ -61,10 +60,12 @@ class SharedNeuronArray:
     )
 
     def __init__(
-        self, name: str, capacity: int, manager: Optional[SharedMemoryManager] = None
+        self,
+        name: str,
+        capacity: int,
+        manager: Optional[SharedMemoryManager] = None,
     ):
-        """
-        Initialize a shared neuron array.
+        """Initialize a shared neuron array.
 
         Args:
             name: Name of the shared memory region
@@ -73,7 +74,9 @@ class SharedNeuronArray:
         """
         self.name = name
         self.capacity = capacity
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.neuron_array.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.neuron_array.{name}"
+        )
 
         # Calculate required size
         self.element_size = self.NEURON_DTYPE.itemsize
@@ -85,10 +88,14 @@ class SharedNeuronArray:
         self._manager = manager or SharedMemoryManager()
 
         # Create the shared memory region
-        self.region = self._manager.create_region(name, size=self.required_size)
+        self.region = self._manager.create_region(
+            name, size=self.required_size
+        )
 
         # Create the numpy array view
-        self.array = self.region.as_array(shape=(capacity,), dtype=self.NEURON_DTYPE)
+        self.array = self.region.as_array(
+            shape=(capacity,), dtype=self.NEURON_DTYPE
+        )
 
         # Initialize metadata
         self.count = 0
@@ -114,8 +121,7 @@ class SharedNeuronArray:
         refractory_period: float = 5.0,
         membrane_potential: float = 0.0,
     ) -> bool:
-        """
-        Add a neuron to the array.
+        """Add a neuron to the array.
 
         Args:
             neuron_id: Unique neuron ID
@@ -164,8 +170,7 @@ class SharedNeuronArray:
         return True
 
     def get_neuron(self, neuron_id: int) -> Optional[np.ndarray]:
-        """
-        Get a neuron by ID.
+        """Get a neuron by ID.
 
         Args:
             neuron_id: ID of the neuron to get
@@ -180,8 +185,7 @@ class SharedNeuronArray:
         return self.array[idx]
 
     def get_neurons_by_cortical_area(self, cortical_id: int) -> np.ndarray:
-        """
-        Get all neurons in a cortical area.
+        """Get all neurons in a cortical area.
 
         Args:
             cortical_id: ID of the cortical area
@@ -196,8 +200,7 @@ class SharedNeuronArray:
         return self.array[indices]
 
     def update_neuron(self, neuron_id: int, **kwargs) -> bool:
-        """
-        Update properties of a neuron.
+        """Update properties of a neuron.
 
         Args:
             neuron_id: ID of the neuron to update
@@ -221,8 +224,7 @@ class SharedNeuronArray:
         return True
 
     def remove_neuron(self, neuron_id: int) -> bool:
-        """
-        Remove a neuron from the array.
+        """Remove a neuron from the array.
 
         Args:
             neuron_id: ID of the neuron to remove
@@ -251,8 +253,7 @@ class SharedNeuronArray:
         return True
 
     def remove_cortical_area(self, cortical_id: int) -> int:
-        """
-        Remove all neurons in a cortical area.
+        """Remove all neurons in a cortical area.
 
         Args:
             cortical_id: ID of the cortical area to remove
@@ -283,9 +284,8 @@ class SharedNeuronArray:
 
 
 class SharedSynapseArray:
-    """
-    A shared memory array for storing synaptic connections between neurons.
-    """
+    """A shared memory array for storing synaptic connections between
+    neurons."""
 
     # Define synapse data structure
     SYNAPSE_DTYPE = np.dtype(
@@ -297,16 +297,21 @@ class SharedSynapseArray:
             ("plasticity", np.float32),  # Plasticity coefficient
             ("type", np.int32),  # Type of synapse (0=excitatory, 1=inhibitory)
             ("is_active", np.bool_),  # Whether the synapse is active
-            ("last_update_timestamp", np.float64),  # Last time the synapse was updated
+            (
+                "last_update_timestamp",
+                np.float64,
+            ),  # Last time the synapse was updated
             ("reserved1", np.float32),  # Reserved for future use
         ]
     )
 
     def __init__(
-        self, name: str, capacity: int, manager: Optional[SharedMemoryManager] = None
+        self,
+        name: str,
+        capacity: int,
+        manager: Optional[SharedMemoryManager] = None,
     ):
-        """
-        Initialize a shared synapse array.
+        """Initialize a shared synapse array.
 
         Args:
             name: Name of the shared memory region
@@ -315,7 +320,9 @@ class SharedSynapseArray:
         """
         self.name = name
         self.capacity = capacity
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.synapse_array.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.synapse_array.{name}"
+        )
 
         # Calculate required size
         self.element_size = self.SYNAPSE_DTYPE.itemsize
@@ -327,19 +334,23 @@ class SharedSynapseArray:
         self._manager = manager or SharedMemoryManager()
 
         # Create the shared memory region
-        self.region = self._manager.create_region(name, size=self.required_size)
+        self.region = self._manager.create_region(
+            name, size=self.required_size
+        )
 
         # Create the numpy array view
-        self.array = self.region.as_array(shape=(capacity,), dtype=self.SYNAPSE_DTYPE)
+        self.array = self.region.as_array(
+            shape=(capacity,), dtype=self.SYNAPSE_DTYPE
+        )
 
         # Initialize metadata
         self.count = 0
-        self._pre_to_indices: Dict[
-            int, List[int]
-        ] = {}  # Pre-neuron ID to synapse indices
-        self._post_to_indices: Dict[
-            int, List[int]
-        ] = {}  # Post-neuron ID to synapse indices
+        self._pre_to_indices: Dict[int, List[int]] = (
+            {}
+        )  # Pre-neuron ID to synapse indices
+        self._post_to_indices: Dict[int, List[int]] = (
+            {}
+        )  # Post-neuron ID to synapse indices
 
         # Initialize the array with zeros
         self.array.fill(0)
@@ -357,8 +368,7 @@ class SharedSynapseArray:
         plasticity: float = 0.01,
         synapse_type: int = 0,
     ) -> bool:
-        """
-        Add a synapse to the array.
+        """Add a synapse to the array.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -433,8 +443,7 @@ class SharedSynapseArray:
     def get_synapse(
         self, pre_neuron_id: int, post_neuron_id: int
     ) -> Optional[np.ndarray]:
-        """
-        Get a synapse by pre and post neuron IDs.
+        """Get a synapse by pre and post neuron IDs.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -450,8 +459,7 @@ class SharedSynapseArray:
         return self.array[idx]
 
     def get_efferent_synapses(self, neuron_id: int) -> np.ndarray:
-        """
-        Get all efferent (outgoing) synapses for a neuron.
+        """Get all efferent (outgoing) synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -464,15 +472,16 @@ class SharedSynapseArray:
 
         indices = self._pre_to_indices[neuron_id]
         # Filter for active synapses
-        active_indices = [idx for idx in indices if self.array[idx]["is_active"]]
+        active_indices = [
+            idx for idx in indices if self.array[idx]["is_active"]
+        ]
         if not active_indices:
             return np.empty(0, dtype=self.SYNAPSE_DTYPE)
 
         return self.array[active_indices]
 
     def get_afferent_synapses(self, neuron_id: int) -> np.ndarray:
-        """
-        Get all afferent (incoming) synapses for a neuron.
+        """Get all afferent (incoming) synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -485,15 +494,18 @@ class SharedSynapseArray:
 
         indices = self._post_to_indices[neuron_id]
         # Filter for active synapses
-        active_indices = [idx for idx in indices if self.array[idx]["is_active"]]
+        active_indices = [
+            idx for idx in indices if self.array[idx]["is_active"]
+        ]
         if not active_indices:
             return np.empty(0, dtype=self.SYNAPSE_DTYPE)
 
         return self.array[active_indices]
 
-    def update_synapse(self, pre_neuron_id: int, post_neuron_id: int, **kwargs) -> bool:
-        """
-        Update properties of a synapse.
+    def update_synapse(
+        self, pre_neuron_id: int, post_neuron_id: int, **kwargs
+    ) -> bool:
+        """Update properties of a synapse.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -517,8 +529,7 @@ class SharedSynapseArray:
         return True
 
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
-        """
-        Remove a synapse from the array.
+        """Remove a synapse from the array.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -537,8 +548,7 @@ class SharedSynapseArray:
         return True
 
     def remove_neuron_synapses(self, neuron_id: int) -> int:
-        """
-        Remove all synapses connected to a neuron.
+        """Remove all synapses connected to a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -568,10 +578,8 @@ class SharedSynapseArray:
 
 
 class SharedConfigDict:
-    """
-    A shared memory dictionary for configuration data that can be accessed
-    by multiple processes.
-    """
+    """A shared memory dictionary for configuration data that can be accessed
+    by multiple processes."""
 
     def __init__(
         self,
@@ -579,8 +587,7 @@ class SharedConfigDict:
         manager: Optional[SharedMemoryManager] = None,
         initial_data: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a shared configuration dictionary.
+        """Initialize a shared configuration dictionary.
 
         Args:
             name: Name of the shared memory region
@@ -588,7 +595,9 @@ class SharedConfigDict:
             initial_data: Initial configuration data
         """
         self.name = name
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.config_dict.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.config_dict.{name}"
+        )
 
         # Estimate initial size based on data or use default
         initial_size = 1024 * 1024  # 1MB default
@@ -646,8 +655,7 @@ class SharedConfigDict:
             return False
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get a value from the dictionary.
+        """Get a value from the dictionary.
 
         Args:
             key: Key to get
@@ -657,7 +665,9 @@ class SharedConfigDict:
             Value for the key, or default if not found
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for reading config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for reading config dictionary"
+            )
             return default
 
         try:
@@ -668,8 +678,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def set(self, key: str, value: Any) -> bool:
-        """
-        Set a value in the dictionary.
+        """Set a value in the dictionary.
 
         Args:
             key: Key to set
@@ -679,7 +688,9 @@ class SharedConfigDict:
             True if successful, False otherwise
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for writing config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for writing config dictionary"
+            )
             return False
         try:
             data = self._read_dict()
@@ -694,8 +705,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def update(self, values: Dict[str, Any]) -> bool:
-        """
-        Update multiple values in the dictionary.
+        """Update multiple values in the dictionary.
 
         Args:
             values: Dictionary of key-value pairs to update
@@ -705,7 +715,9 @@ class SharedConfigDict:
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for updating config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for updating config dictionary"
+            )
             return False
 
         try:
@@ -716,8 +728,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def delete(self, key: str) -> bool:
-        """
-        Delete a key from the dictionary.
+        """Delete a key from the dictionary.
 
         Args:
             key: Key to delete
@@ -727,7 +738,9 @@ class SharedConfigDict:
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for updating config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for updating config dictionary"
+            )
             return False
 
         try:
@@ -740,14 +753,15 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def get_all(self) -> Dict[str, Any]:
-        """
-        Get all key-value pairs in the dictionary.
+        """Get all key-value pairs in the dictionary.
 
         Returns:
             Dictionary containing all key-value pairs
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for reading config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for reading config dictionary"
+            )
             return {}
 
         try:
@@ -757,15 +771,16 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def clear(self) -> bool:
-        """
-        Clear all keys from the dictionary.
+        """Clear all keys from the dictionary.
 
         Returns:
             True if successful, False otherwise
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for clearing config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for clearing config dictionary"
+            )
             return False
 
         try:

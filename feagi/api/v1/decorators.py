@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,11 +32,10 @@ logger = setup_logger(__name__)
 
 
 class EndpointRegistry:
-    """
-    Global registry for all v1 API endpoints.
+    """Global registry for all v1 API endpoints.
 
-    This registry tracks all decorated endpoints and their metadata,
-    allowing transport adapters to automatically register routes.
+    This registry tracks all decorated endpoints and their metadata, allowing
+    transport adapters to automatically register routes.
     """
 
     def __init__(self):
@@ -68,10 +65,15 @@ class EndpointRegistry:
             "full_path": f"/v1{path}",  # Add v1 prefix
         }
 
-        logger.debug(f"Registered endpoint: {methods} {path} -> {handler.__name__}")
+        logger.debug(
+            f"Registered endpoint: {methods} {path} -> {handler.__name__}"
+        )
 
-    def get_endpoints_by_module(self, module: str) -> Dict[str, Dict[str, Any]]:
-        """Get all endpoints for a specific module (e.g., 'system', 'genome')."""
+    def get_endpoints_by_module(
+        self, module: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """Get all endpoints for a specific module (e.g., 'system',
+        'genome')."""
         return {
             endpoint_id: endpoint_data
             for endpoint_id, endpoint_data in self.endpoints.items()
@@ -95,8 +97,7 @@ def endpoint(
     description: Optional[str] = None,
     module: Optional[str] = None,
 ):
-    """
-    Multi-transport endpoint decorator.
+    """Multi-transport endpoint decorator.
 
     This decorator registers a v1 API method for ALL transport protocols.
     The method will be automatically available via FastAPI, ZMQ, gRPC, etc.
@@ -159,8 +160,7 @@ def system_endpoint(
     response_model: Optional[Type[BaseModel]] = None,
     description: Optional[str] = None,
 ):
-    """
-    Convenience decorator for system module endpoints.
+    """Convenience decorator for system module endpoints.
 
     This is equivalent to @endpoint(..., module='system')
     """
@@ -181,8 +181,7 @@ def genome_endpoint(
     response_model: Optional[Type[BaseModel]] = None,
     description: Optional[str] = None,
 ):
-    """
-    Convenience decorator for genome module endpoints.
+    """Convenience decorator for genome module endpoints.
 
     This is equivalent to @endpoint(..., module='genome')
     """
@@ -203,8 +202,7 @@ def connectome_endpoint(
     response_model: Optional[Type[BaseModel]] = None,
     description: Optional[str] = None,
 ):
-    """
-    Convenience decorator for connectome module endpoints.
+    """Convenience decorator for connectome module endpoints.
 
     This is equivalent to @endpoint(..., module='connectome')
     """

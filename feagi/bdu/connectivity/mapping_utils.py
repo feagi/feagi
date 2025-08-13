@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,8 +24,9 @@ from feagi.evo.templates import cortical_types
 
 
 def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
-    """
-    Builds a nested dictionary representing all cortical area mappings in the connectome.
+    """Builds a nested dictionary representing all cortical area mappings in
+    the connectome.
+
     Args:
         state: The FeagiStateManager or similar object with .genome["blueprint"]
     Returns:
@@ -39,7 +38,9 @@ def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
         cortical_map[cortical_area] = dict()
         for dst in blueprint[cortical_area].get("cortical_mapping_dst", {}):
             cortical_map[cortical_area][dst] = list()
-            for mapping in blueprint[cortical_area]["cortical_mapping_dst"][dst]:
+            for mapping in blueprint[cortical_area]["cortical_mapping_dst"][
+                dst
+            ]:
                 cortical_map[cortical_area][dst].append(mapping)
     return cortical_map
 
@@ -47,8 +48,9 @@ def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
 def build_power_connections(
     connectome, target_area_id: str, cortical_type: str, mapping_dict: dict
 ) -> None:
-    """
-    Create or update power connections for a target cortical area, based on mapping_dict.
+    """Create or update power connections for a target cortical area, based on
+    mapping_dict.
+
     Args:
         connectome: The ConnectomeManager instance to use.
         target_area_id: The cortical area to connect to.
@@ -56,7 +58,7 @@ def build_power_connections(
         mapping_dict: Dict of {entry: value} for mapping patterns.
     """
     state = FeagiStateManager.get_instance()
-    power_area = "___pwr"
+    power_area = "_power"
     cortical_template = cortical_types[cortical_type]["supported_devices"][
         target_area_id
     ].copy()
@@ -73,8 +75,12 @@ def build_power_connections(
             }
         )
 
-    target_area_width = state.genome["blueprint"][target_area_id]["block_boundaries"][0]
-    target_area_depth = state.genome["blueprint"][target_area_id]["block_boundaries"][2]
+    target_area_width = state.genome["blueprint"][target_area_id][
+        "block_boundaries"
+    ][0]
+    target_area_depth = state.genome["blueprint"][target_area_id][
+        "block_boundaries"
+    ][2]
 
     morphology_template = {
         "parameters": {"patterns": []},
@@ -84,14 +90,21 @@ def build_power_connections(
 
     for entry in mapping_dict:
         if mapping_dict[entry] or mapping_dict[entry] == 0:
-            if int(entry) < target_area_width and 0 <= mapping_dict[entry] <= 1:
-                target_voxel = floor((target_area_depth - 1) * mapping_dict[entry])
+            if (
+                int(entry) < target_area_width
+                and 0 <= mapping_dict[entry] <= 1
+            ):
+                target_voxel = floor(
+                    (target_area_depth - 1) * mapping_dict[entry]
+                )
                 morphology_template["parameters"]["patterns"].append(
                     [[0, 0, 0], [int(entry), 0, target_voxel]]
                 )
 
     # Remove existing mapping if present
-    power_mappings = state.genome["blueprint"][power_area].get("cortical_mapping_dst")
+    power_mappings = state.genome["blueprint"][power_area].get(
+        "cortical_mapping_dst"
+    )
     if power_mappings:
         existing_power_to_target_area = power_mappings.get(target_area_id)
         if existing_power_to_target_area:

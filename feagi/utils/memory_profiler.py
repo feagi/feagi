@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,8 +41,7 @@ class MemorySnapshot:
     """A memory snapshot that can be compared with others."""
 
     def __init__(self, snapshot=None, label: str = ""):
-        """
-        Initialize a memory snapshot.
+        """Initialize a memory snapshot.
 
         Args:
             snapshot: Optional tracemalloc snapshot
@@ -59,8 +56,7 @@ class MemorySnapshot:
         self.process_memory = self.process.memory_info().rss
 
     def compare_to(self, other: "MemorySnapshot") -> Dict[str, Any]:
-        """
-        Compare this snapshot to another snapshot.
+        """Compare this snapshot to another snapshot.
 
         Args:
             other: Another MemorySnapshot
@@ -88,14 +84,15 @@ class MemorySnapshot:
         }
 
     def print_stats(self, limit: int = 10) -> None:
-        """
-        Print statistics from this snapshot.
+        """Print statistics from this snapshot.
 
         Args:
             limit: Number of top memory blocks to display
         """
         logger.info(f"--- Memory Snapshot: {self.label} ---")
-        logger.info(f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB")
+        logger.info(
+            f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB"
+        )
         logger.info(
             f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.timestamp))}"
         )
@@ -116,8 +113,7 @@ class MemoryProfiler:
         self.baseline = self._take_snapshot("baseline")
 
     def _take_snapshot(self, label: str) -> MemorySnapshot:
-        """
-        Take a memory snapshot.
+        """Take a memory snapshot.
 
         Args:
             label: Label for the snapshot
@@ -130,8 +126,7 @@ class MemoryProfiler:
         return snapshot
 
     def snapshot(self, label: str) -> MemorySnapshot:
-        """
-        Take a labeled memory snapshot.
+        """Take a labeled memory snapshot.
 
         Args:
             label: Label for the snapshot
@@ -142,8 +137,7 @@ class MemoryProfiler:
         return self._take_snapshot(label)
 
     def compare(self, start_label: str, end_label: str) -> Dict[str, Any]:
-        """
-        Compare two snapshots.
+        """Compare two snapshots.
 
         Args:
             start_label: Label of the first snapshot
@@ -163,8 +157,7 @@ class MemoryProfiler:
         return end.compare_to(start)
 
     def compare_to_baseline(self, label: str) -> Dict[str, Any]:
-        """
-        Compare a snapshot to the baseline.
+        """Compare a snapshot to the baseline.
 
         Args:
             label: Label of the snapshot to compare
@@ -178,8 +171,7 @@ class MemoryProfiler:
         return self.snapshots[label].compare_to(self.baseline)
 
     def print_snapshot(self, label: str, limit: int = 10) -> None:
-        """
-        Print statistics for a snapshot.
+        """Print statistics for a snapshot.
 
         Args:
             label: Label of the snapshot
@@ -193,8 +185,7 @@ class MemoryProfiler:
     def print_comparison(
         self, start_label: str, end_label: str, limit: int = 10
     ) -> None:
-        """
-        Print comparison between two snapshots.
+        """Print comparison between two snapshots.
 
         Args:
             start_label: Label of the first snapshot
@@ -215,8 +206,7 @@ class MemoryProfiler:
 
 
 def profile_memory(label: Optional[str] = None) -> Callable:
-    """
-    Decorator to profile memory usage of a function.
+    """Decorator to profile memory usage of a function.
 
     Args:
         label: Optional label prefix for the snapshots
@@ -244,7 +234,9 @@ def profile_memory(label: Optional[str] = None) -> Callable:
             profiler.snapshot(f"{func_label}_end")
 
             # Print the comparison
-            profiler.print_comparison(f"{func_label}_start", f"{func_label}_end")
+            profiler.print_comparison(
+                f"{func_label}_start", f"{func_label}_end"
+            )
 
             return result
 

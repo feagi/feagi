@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,8 +30,7 @@ except ImportError:
     HAS_RUST_EXTENSION = False
 
     def add_to_array(array: List[float], value: float) -> List[float]:
-        """
-        Python fallback implementation for add_to_array.
+        """Python fallback implementation for add_to_array.
 
         Args:
             array: Input array.
@@ -47,8 +44,7 @@ except ImportError:
     def fast_matrix_vector_mul(
         matrix: List[List[float]], vector: List[float]
     ) -> List[float]:
-        """
-        Python fallback implementation for fast_matrix_vector_mul.
+        """Python fallback implementation for fast_matrix_vector_mul.
 
         Args:
             matrix: Input matrix.
@@ -69,15 +65,16 @@ except ImportError:
         result = []
         for row in matrix:
             if len(row) != n_cols:
-                raise ValueError("All rows in matrix must have the same length")
+                raise ValueError(
+                    "All rows in matrix must have the same length"
+                )
 
             result.append(sum(a * b for a, b in zip(row, vector)))
 
         return result
 
     def relu(array: List[float]) -> List[float]:
-        """
-        Python fallback implementation for relu.
+        """Python fallback implementation for relu.
 
         Args:
             array: Input array.
@@ -88,8 +85,7 @@ except ImportError:
         return [max(0.0, x) for x in array]
 
     def sigmoid(array: List[float]) -> List[float]:
-        """
-        Python fallback implementation for sigmoid.
+        """Python fallback implementation for sigmoid.
 
         Args:
             array: Input array.
@@ -103,10 +99,10 @@ except ImportError:
 
 
 def matrix_multiply(
-    matrix: Union[List[List[float]], np.ndarray], vector: Union[List[float], np.ndarray]
+    matrix: Union[List[List[float]], np.ndarray],
+    vector: Union[List[float], np.ndarray],
 ) -> np.ndarray:
-    """
-    Perform matrix-vector multiplication.
+    """Perform matrix-vector multiplication.
 
     This function will use the Rust implementation if available,
     otherwise it will fall back to the Python implementation.
@@ -139,8 +135,7 @@ def matrix_multiply(
 def apply_activation(
     array: Union[List[float], np.ndarray], activation: str = "relu"
 ) -> np.ndarray:
-    """
-    Apply an activation function to an array.
+    """Apply an activation function to an array.
 
     Args:
         array: Input array.

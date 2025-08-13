@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +46,7 @@ def create_optimized_core(
     estimated_connections: int = 1000000,
     use_optimized: bool = True,
 ) -> Union["OptimizedFeagiCore", Dict[str, Any]]:
-    """
-    Create an optimized FEAGI core or a compatible dict-based structure.
+    """Create an optimized FEAGI core or a compatible dict-based structure.
 
     Args:
         neuron_count: Number of neurons to support
@@ -64,7 +61,9 @@ def create_optimized_core(
 
     # Fallback to unified NeuronArray with enhanced optimizations
     return {
-        "gna": NeuronArray(neuron_count),  # ✅ Use unified enhanced NeuronArray
+        "gna": NeuronArray(
+            neuron_count
+        ),  # ✅ Use unified enhanced NeuronArray
         "fcl": FireCandidateList(),
         "connectome": Connectome(neuron_count, estimated_connections),
         "current_timestep": 0,
@@ -74,8 +73,7 @@ def create_optimized_core(
 def get_core_property(
     core: Union["OptimizedFeagiCore", Dict[str, Any]], property_name: str
 ) -> Any:
-    """
-    Get a property from the core, regardless of implementation.
+    """Get a property from the core, regardless of implementation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -98,10 +96,11 @@ def get_core_property(
 
 
 def set_core_property(
-    core: Union["OptimizedFeagiCore", Dict[str, Any]], property_name: str, value: Any
+    core: Union["OptimizedFeagiCore", Dict[str, Any]],
+    property_name: str,
+    value: Any,
 ) -> None:
-    """
-    Set a property on the core, regardless of implementation.
+    """Set a property on the core, regardless of implementation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -118,8 +117,7 @@ def set_core_property(
 
 
 def step_simulation(core: Union["OptimizedFeagiCore", Dict[str, Any]]) -> None:
-    """
-    Step the simulation forward by one timestep.
+    """Step the simulation forward by one timestep.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -160,8 +158,8 @@ def step_simulation_with_fire_queue(
     puf: bool = False,
     max_consecutive_fires: int = 10,
 ) -> None:
-    """
-    Step the simulation forward using the fire queue process with PSP calculation.
+    """Step the simulation forward using the fire queue process with PSP
+    calculation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -169,7 +167,11 @@ def step_simulation_with_fire_queue(
         puf: PSP Uniformity Flag - If True, don't normalize by synapse count
         max_consecutive_fires: Maximum consecutive fire count before inhibiting firing
     """
-    if RUST_AVAILABLE and not isinstance(core, dict) and hasattr(core, "_rust_core"):
+    if (
+        RUST_AVAILABLE
+        and not isinstance(core, dict)
+        and hasattr(core, "_rust_core")
+    ):
         core._rust_core.step_with_fire_queue(mpf, puf, max_consecutive_fires)
     else:
         # Fallback Python implementation
@@ -192,7 +194,8 @@ def step_simulation_with_fire_queue(
             current_fcl_array = np.array(current_fcl, dtype=np.int32)
             gna.set_membrane_potentials_vectorized(current_fcl_array, 0.0)
 
-            # Note: Consecutive fire count tracking would be added here in a full implementation
+            #  Note: Consecutive fire count tracking would be added here in a
+            #  full implementation
 
         # Process fired neurons (handles refractory period)
         if isinstance(core, dict):
@@ -217,7 +220,8 @@ def step_simulation_with_fire_queue(
             if not connections:
                 continue
 
-            # Get firing neuron membrane potential (should be 0 now, but using original logic)
+            #  Get firing neuron membrane potential (should be 0 now, but using
+            #  original logic)
             firing_neuron_mp = gna.get_membrane_potential(source_id)
 
             # Default PSP value
@@ -240,10 +244,13 @@ def step_simulation_with_fire_queue(
                     else conn.get("target_id")
                 )
                 synapse_conductance = (
-                    conn["weight"] if isinstance(conn, dict) else conn.get("weight")
+                    conn["weight"]
+                    if isinstance(conn, dict)
+                    else conn.get("weight")
                 )
 
-                # Calculate PSP: (numerator / denominator) * synapse_conductance
+                #  Calculate PSP: (numerator / denominator) *
+                #  synapse_conductance
                 psp = (numerator / denominator) * synapse_conductance
 
                 # Get current target membrane potential
@@ -256,8 +263,83 @@ def step_simulation_with_fire_queue(
                 fire_queue["neuron_ids"].append(target_id)
                 fire_queue["membrane_potentials"].append(updated_mp)
                 fire_queue["thresholds"].append(1.0)  # Default threshold
-                fire_queue["consecutive_fire_counts"].append(0)  # Placeholder value
-                fire_queue["refractory_counters"].append(0)  # Placeholder value
+                #  CRITICAL FIX: Get actual consecutive fire count, not
+                #  placeholder 0
+                actual_consecutive_fires = 0
+                if hasattr(gna, "get_consecutive_fire_count"):
+                    actual_consecutive_fires = gna.get_consecutive_fire_count(
+                        target_id
+                    )
+                elif hasattr(gna, "neuron_array") and hasattr(
+                    gna.neuron_array, "consecutive_fire_counts"
+                ):
+                    #  For optimized structures, access consecutive fire counts
+                    #  directly
+                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                    if hasattr(gna, "get_neuron_index"):
+                        index = gna.get_neuron_index(target_id)
+                        if index is not None and index < len(
+                            gna.neuron_array.consecutive_fire_counts
+                        ):
+                            actual_consecutive_fires = (
+                                gna.neuron_array.consecutive_fire_counts[index]
+                            )
+                    elif target_id < len(
+                        gna.neuron_array.consecutive_fire_counts
+                    ):
+                        #  Fallback: treat as direct index (for backwards
+                        #  compatibility)
+                        actual_consecutive_fires = (
+                            gna.neuron_array.consecutive_fire_counts[target_id]
+                        )
+                elif hasattr(gna, "_consecutive_fire_counts"):
+                    # For mock/test structures
+                    if target_id < len(gna._consecutive_fire_counts):
+                        actual_consecutive_fires = (
+                            gna._consecutive_fire_counts[target_id]
+                        )
+
+                fire_queue["consecutive_fire_counts"].append(
+                    actual_consecutive_fires
+                )
+
+                #  CRITICAL FIX: Get actual refractory counter, not placeholder
+                #  0
+                actual_refractory_counter = 0
+                if hasattr(gna, "get_refractory_counter"):
+                    actual_refractory_counter = gna.get_refractory_counter(
+                        target_id
+                    )
+                elif hasattr(gna, "neuron_array") and hasattr(
+                    gna.neuron_array, "refractory_counters"
+                ):
+                    #  For optimized structures, access refractory counters
+                    #  directly
+                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                    if hasattr(gna, "get_neuron_index"):
+                        index = gna.get_neuron_index(target_id)
+                        if index is not None and index < len(
+                            gna.neuron_array.refractory_counters
+                        ):
+                            actual_refractory_counter = (
+                                gna.neuron_array.refractory_counters[index]
+                            )
+                    elif target_id < len(gna.neuron_array.refractory_counters):
+                        #  Fallback: treat as direct index (for backwards
+                        #  compatibility)
+                        actual_refractory_counter = (
+                            gna.neuron_array.refractory_counters[target_id]
+                        )
+                elif hasattr(gna, "_refractory_counters"):
+                    # For mock/test structures
+                    if target_id < len(gna._refractory_counters):
+                        actual_refractory_counter = gna._refractory_counters[
+                            target_id
+                        ]
+
+                fire_queue["refractory_counters"].append(
+                    actual_refractory_counter
+                )
 
         # 4. Extract firing candidates from queue
         new_fire_candidates = []
@@ -271,12 +353,16 @@ def step_simulation_with_fire_queue(
             # Skip neurons exceeding consecutive fire limit
             if (
                 max_consecutive_fires > 0
-                and fire_queue["consecutive_fire_counts"][i] >= max_consecutive_fires
+                and fire_queue["consecutive_fire_counts"][i]
+                >= max_consecutive_fires
             ):
                 continue
 
             # Check if above threshold
-            if fire_queue["membrane_potentials"][i] >= fire_queue["thresholds"][i]:
+            if (
+                fire_queue["membrane_potentials"][i]
+                >= fire_queue["thresholds"][i]
+            ):
                 new_fire_candidates.append(neuron_id)
 
         # 5. Update the FCL
@@ -295,7 +381,9 @@ def step_simulation_with_fire_queue(
                 continue
 
             # Update membrane potential
-            gna.set_membrane_potential(neuron_id, fire_queue["membrane_potentials"][i])
+            gna.set_membrane_potential(
+                neuron_id, fire_queue["membrane_potentials"][i]
+            )
 
         # 7. Increment timestep
         if isinstance(core, dict):
@@ -307,8 +395,7 @@ def step_simulation_with_fire_queue(
 def propagate_activations(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
 ) -> List[float]:
-    """
-    Propagate activations through the network.
+    """Propagate activations through the network.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -341,8 +428,7 @@ def add_connection(
     target_id: int,
     weight: float,
 ) -> None:
-    """
-    Add a connection between two neurons in the optimized core.
+    """Add a connection between two neurons in the optimized core.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -362,8 +448,7 @@ def get_membrane_potential(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
     neuron_id: int,
 ) -> float:
-    """
-    Get the membrane potential of a neuron.
+    """Get the membrane potential of a neuron.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -385,8 +470,7 @@ def set_membrane_potential(
     neuron_id: int,
     value: float,
 ) -> None:
-    """
-    Set the membrane potential of a neuron.
+    """Set the membrane potential of a neuron.
 
     Args:
         core: The core object (optimized or dict-based)

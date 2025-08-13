@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +22,7 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, RootModel
+from pydantic import AliasChoices, BaseModel, Field, RootModel
 
 # ===== System Schemas =====
 
@@ -71,7 +69,9 @@ class HealthCheckResponse(BaseModel):
     # Optional fields when genome is loaded
     fitness: Optional[float] = None
     cortical_area_count: Optional[int] = None
-    neuron_count: Optional[int] = None
+    neuron_count: Optional[int] = None  # Total neurons (regular + memory)
+    memory_neuron_count: Optional[int] = None  # Memory neurons only
+    regular_neuron_count: Optional[int] = None  # Regular neurons only
     synapse_count: Optional[int] = None
     estimated_brain_size_in_MB: Optional[float] = None
     # Genome tracking fields for downstream clients (Bridge/Godot)
@@ -321,7 +321,9 @@ class CorticalNameRequest(BaseModel):
 class CorticalIdListRequest(BaseModel):
     """Request model for operations on multiple cortical areas."""
 
-    cortical_ids: List[str]
+    cortical_ids: List[str] = Field(
+        validation_alias=AliasChoices("cortical_ids", "cortical_id_list")
+    )
 
 
 class CorticalPropertiesUpdateRequest(BaseModel):
@@ -331,6 +333,31 @@ class CorticalPropertiesUpdateRequest(BaseModel):
 
     class Config:
         extra = "allow"  # Allow additional fields for dynamic properties
+
+
+class CustomCorticalAreaRequest(BaseModel):
+    """Request model for creating custom cortical areas."""
+
+    cortical_name: str
+    brain_region_id: str  # Maps to parent_region_id
+    cortical_group: str
+    cortical_sub_group: str  # Maps to sub_group_id
+    cortical_dimensions: List[int]
+    coordinates_2d: List[int]
+    coordinates_3d: List[int]
+    copy_of: Optional[str] = None
+
+    # Support for sub_group_id field (alternative to cortical_sub_group)
+    sub_group_id: Optional[str] = None
+
+    # Memory-specific properties for memory cortical areas
+    init_lifespan: Optional[int] = None
+    lifespan_growth_rate: Optional[float] = None
+    longterm_mem_threshold: Optional[int] = None
+    temporal_depth: Optional[int] = None
+
+    class Config:
+        extra = "allow"  # Allow additional fields for extensibility
 
 
 class CoordinateUpdateRequest(BaseModel):
@@ -366,6 +393,12 @@ class CorticalAreaInfoResponse(BaseModel):
     """Response model for cortical area information."""
 
     area_info: Dict[str, Any]
+
+
+class FireQueueResponse(BaseModel):
+    """Response schema for fire queue data."""
+
+    fire_queue: Optional[Dict[str, Any]]
 
 
 class PlasticityInfoResponse(BaseModel):
@@ -407,14 +440,16 @@ class MappingRestrictionsResponse(BaseModel):
 
 
 class MappingRestrictionsRequest(BaseModel):
-    """Request model for getting mapping restrictions between specific types."""
+    """Request model for getting mapping restrictions between specific
+    types."""
 
     source_type: Optional[str] = None
     destination_type: Optional[str] = None
 
 
 class CorticalAreaMappingRestrictionRequest(BaseModel):
-    """Request model for getting mapping restrictions between two cortical areas."""
+    """Request model for getting mapping restrictions between two cortical
+    areas."""
 
     source_cortical_id: str
     destination_cortical_id: str
@@ -437,6 +472,49 @@ class NeuronMappingsResponse(BaseModel):
     """Response model for neuron mappings."""
 
     mappings: Dict[str, Any]
+
+
+class OutgoingSynapse(BaseModel):
+    """Model for an outgoing synaptic connection."""
+
+    target_neuron_id: int
+    weight: float
+
+
+class IncomingSynapse(BaseModel):
+    """Model for an incoming synaptic connection."""
+
+    source_neuron_id: int
+    weight: float
+
+
+class SynapseCounts(BaseModel):
+    """Model for synapse count summary."""
+
+    outgoing: int
+    incoming: int
+    total: int
+
+
+class NeuronPropertiesResponse(BaseModel):
+    """Response model for individual neuron properties."""
+
+    neuron_id: int
+    cortical_id: str
+    cortical_idx: int
+    position: List[
+        int
+    ]  # PERFORMANCE FIX: Keep positions as integers, no conversion needed
+    threshold: float
+    membrane_potential: float
+    resting_potential: float
+    decay_rate: float
+    refractory_period: int
+    refractory_counter: int
+    properties: Dict[str, Any]
+    outgoing_synapses: List[OutgoingSynapse]
+    incoming_synapses: List[IncomingSynapse]
+    synapse_counts: SynapseCounts
 
 
 class BatchNeuronCreationResponse(BaseModel):
@@ -522,6 +600,12 @@ class CreateMorphologyRequest(BaseModel):
     """Request model for creating morphology."""
 
     morphology_data: Dict[str, Any]
+    dimension_sensitive: Optional[bool] = Field(
+        None,
+        description="Whether this morphology is sensitive to cortical area dimensions. "
+        "If not provided, will auto-detect based on morphology type: "
+        "patterns/vectors=False, functions=True",
+    )
 
 
 class UpdateMorphologyRequest(BaseModel):
@@ -537,12 +621,28 @@ class MorphologyNameRequest(BaseModel):
     morphology_name: str
 
 
+class DirectMorphologyRequest(BaseModel):
+    """Request model for direct morphology creation with client format."""
+
+    morphology_name: str
+    morphology_parameters: Dict[str, Any]
+    morphology_type: str
+    dimension_sensitive: Optional[bool] = Field(
+        None,
+        description="Whether this morphology is sensitive to cortical area dimensions. "
+        "If not provided, will auto-detect based on morphology type: "
+        "patterns/vectors=False, functions=True",
+    )
+
+
 class MorphologyPropertiesResponse(BaseModel):
     """Response model for morphology properties."""
 
     morphology_name: str
     type: str
-    class_: Optional[str] = None  # Using class_ since class is reserved keyword
+    class_: Optional[str] = (
+        None  # Using class_ since class is reserved keyword
+    )
     parameters: Dict[str, Any]
     source: Optional[str] = None
 
@@ -584,11 +684,26 @@ class CorticalMappingPropertiesResponse(BaseModel):
 
 
 class UpdateCorticalMappingPropertiesRequest(BaseModel):
-    """Request model for updating cortical mapping properties between two areas."""
+    """Request model for updating cortical mapping properties between two
+    areas."""
 
     src_cortical_area: str
     dst_cortical_area: str
     mapping_string: List[Dict[str, Any]]  # List of connection dictionaries
+
+
+class CreateCorticalMappingRequest(BaseModel):
+    """Request model for creating a new cortical mapping between two areas."""
+
+    src_cortical_area: str
+    dst_cortical_area: str
+    morphology_id: str
+    morphology_scalar: List[int] = [1, 1, 1]  # Default [x, y, z] multipliers
+    postSynapticCurrent_multiplier: float = 1.0
+    plasticity_flag: bool = False
+    plasticity_constant: float = 1.0
+    ltp_multiplier: float = 1.0
+    ltd_multiplier: float = 1.0
 
 
 # ===== Monitoring Schemas =====
@@ -666,7 +781,9 @@ class AgentRegistrationRequest(BaseModel):
     agent_version: str
     controller_version: str
     capabilities: Dict[str, Any]
-    agent_ip: Optional[str] = None  # If not provided, will be extracted from request
+    agent_ip: Optional[str] = (
+        None  # If not provided, will be extracted from request
+    )
 
 
 class AgentDeregistrationRequest(BaseModel):
@@ -825,3 +942,81 @@ class PathRequest(BaseModel):
     """Request model for path-based operations."""
 
     path: str
+
+
+# ===== Agent Stimulation Schemas =====
+
+
+class ManualStimulationRequest(BaseModel):
+    """Request model for manual neural stimulation across multiple cortical
+    areas.
+
+    Example payload:
+    {
+        "stimulation_payload": {
+            "_power": [[1, 0, 0], [2, 4, 3]],
+            "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
+        }
+    }
+    """
+
+    stimulation_payload: Dict[str, List[List[int]]] = Field(
+        description="Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates"
+    )
+
+
+# ===== Memory Usage Schemas =====
+
+
+class MemoryComponentInfo(BaseModel):
+    """Memory information for a component (neurons or synapses)."""
+
+    count: int = Field(description="Number of items")
+    size_bytes: int = Field(description="Memory size in bytes")
+    size_human: str = Field(
+        description="Human-readable memory size (e.g., '1.2 KB')"
+    )
+    avg_bytes_per_item: float = Field(
+        description="Average memory per item in bytes"
+    )
+    avg_human_per_item: str = Field(
+        description="Human-readable average memory per item (e.g., '49 B')"
+    )
+
+
+class SynapseMemoryBreakdown(BaseModel):
+    """Memory breakdown for synapses by type."""
+
+    incoming: MemoryComponentInfo = Field(
+        description="Synapses coming into this area from other areas"
+    )
+    outgoing: MemoryComponentInfo = Field(
+        description="Synapses going from this area to other areas"
+    )
+    internal: MemoryComponentInfo = Field(
+        description="Synapses within the area (recurrent connections)"
+    )
+
+
+class TotalMemoryInfo(BaseModel):
+    """Total memory usage information."""
+
+    size_bytes: int = Field(description="Total memory size in bytes")
+    size_human: str = Field(
+        description="Human-readable total memory size (e.g., '5.7 MB')"
+    )
+
+
+class CorticalAreaMemoryUsageResponse(BaseModel):
+    """Response model for cortical area memory usage breakdown."""
+
+    cortical_id: str = Field(description="The cortical area ID")
+    neurons: MemoryComponentInfo = Field(
+        description="Memory usage for all neurons in the area"
+    )
+    synapses: SynapseMemoryBreakdown = Field(
+        description="Memory usage breakdown for synapses"
+    )
+    total: TotalMemoryInfo = Field(
+        description="Total memory usage (neurons + all synapses)"
+    )

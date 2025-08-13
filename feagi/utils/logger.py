@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,7 +24,8 @@ from typing import Any, Dict, Optional
 # ASCII Status Indicators for Embedded System Compatibility
 # -----------------------------------------------------------------------------
 
-# ASCII status indicators optimized for embedded systems and universal compatibility
+#  ASCII status indicators optimized for embedded systems and universal
+#  compatibility
 ASCII_STATUS_MAP = {
     # Success/Completion indicators
     "✅": "[OK]",
@@ -96,8 +95,8 @@ ASCII_STATUS_MAP = {
 
 
 def get_ascii_status(emoji_or_text: str) -> str:
-    """
-    Convert emoji or text to ASCII equivalent for embedded system compatibility.
+    """Convert emoji or text to ASCII equivalent for embedded system
+    compatibility.
 
     Args:
         emoji_or_text: Input emoji or text string
@@ -126,8 +125,9 @@ def get_ascii_status(emoji_or_text: str) -> str:
 
 
 class StatusAdapter(logging.LoggerAdapter):
-    """
-    Logger adapter that uses ASCII status indicators for embedded system compatibility.
+    """Logger adapter that uses ASCII status indicators for embedded system
+    compatibility.
+
     Replaces emojis with performance-optimized ASCII equivalents.
     """
 
@@ -217,7 +217,9 @@ def show_deferred_setup_info():
         temp_console.setFormatter(_DEFERRED_SETUP_INFO["formatter"])
         temp_logger = logging.getLogger("temp_setup_deferred")
         temp_logger.handlers.clear()  # Clear any existing handlers
-        temp_logger.propagate = False  # Prevent propagation to avoid duplicates
+        temp_logger.propagate = (
+            False  # Prevent propagation to avoid duplicates
+        )
         temp_logger.addHandler(temp_console)
         temp_logger.setLevel(logging.INFO)
         temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
@@ -242,7 +244,8 @@ def setup_logger(
 ) -> StatusAdapter:
     global _MAIN_LOGGER_SETUP_SHOWN, _CACHED_LOG_LEVEL
 
-    # Determine log level priority: parameter > CLI env var > config > default INFO
+    #  Determine log level priority: parameter > CLI env var > config > default
+    #  INFO
     final_level = level
 
     if final_level is None:
@@ -261,12 +264,17 @@ def setup_logger(
                 from feagi.config.toml_loader import load_feagi_config
 
                 config = load_feagi_config()
-                config_log_level = config.get("system", {}).get("log_level", "INFO")
-                final_level = getattr(logging, config_log_level.upper(), logging.INFO)
+                config_log_level = config.get("system", {}).get(
+                    "log_level", "INFO"
+                )
+                final_level = getattr(
+                    logging, config_log_level.upper(), logging.INFO
+                )
                 # Cache the result to avoid repeated config loading
                 _CACHED_LOG_LEVEL = final_level
             except (ImportError, Exception):
-                # Fallback to INFO if config is not available (e.g., during early startup)
+                #  Fallback to INFO if config is not available (e.g., during
+                #  early startup)
                 final_level = logging.INFO
                 _CACHED_LOG_LEVEL = final_level
 
@@ -342,11 +350,14 @@ def setup_logger(
             # Create status block with consistent padding
             status_block = f"{status}{padding}"
 
-            # If no status indicator, show log level instead with consistent spacing
+            #  If no status indicator, show log level instead with consistent
+            #  spacing
             if not status:
                 # Format the log level with fixed width for alignment
                 level_str = LEVEL_MAP.get(record.levelname, record.levelname)
-                status_block = f"{level_str:<8}"  # Left-align with fixed 8 chars
+                status_block = (
+                    f"{level_str:<8}"  # Left-align with fixed 8 chars
+                )
 
             # Format timestamp and message
             timestamp = self.formatTime(record, self.datefmt)
@@ -357,29 +368,36 @@ def setup_logger(
             )
             message = record.getMessage()
 
-            # Build the final log line - only show status block (which is either status indicator OR level)
+            #  Build the final log line - only show status block (which is
+            #  either status indicator OR level)
             return f"{status_block}  {timestamp} {tag_str}{message}"
 
     logger = logging.getLogger(name)
 
     # CRITICAL FIX: Only configure logger if not already configured
-    # This prevents duplicate handlers when setup_logger is called multiple times
+    #  This prevents duplicate handlers when setup_logger is called multiple
+    #  times
     if not logger.handlers or len(logger.handlers) == 0:
         logger.setLevel(final_level)
         logger.propagate = False
 
         formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
-        # ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/ directory
+        #  ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/
+        #  directory
         try:
-            # Get the feagi_core directory - look for it in the current working directory or parents
+            #  Get the feagi_core directory - look for it in the current
+            #  working directory or parents
             feagi_core_dir = None
             current_path = Path.cwd()
 
             # Look for feagi_core directory up the directory tree
             for path in [current_path] + list(current_path.parents):
                 potential_feagi_core = path / "feagi_core"
-                if potential_feagi_core.exists() and potential_feagi_core.is_dir():
+                if (
+                    potential_feagi_core.exists()
+                    and potential_feagi_core.is_dir()
+                ):
                     feagi_core_dir = potential_feagi_core
                     break
 

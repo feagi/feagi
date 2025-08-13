@@ -12,11 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-
-"""
-A tool to help add custom keys to genome
+#  ==============================================================================
+"""A tool to help add custom keys to genome.
 
 Todo: Make improvements to this tool as it will have further use-cases.
 """
@@ -73,9 +70,13 @@ def save_genome(genome, file_name=""):
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
-            data["signatures"]["genome"] = generate_hash(genome_signature_payload(data))
+            data["signatures"]["genome"] = generate_hash(
+                genome_signature_payload(data)
+            )
             data["signatures"]["blueprint"] = generate_hash(data["blueprint"])
-            data["signatures"]["physiology"] = generate_hash(data["physiology"])
+            data["signatures"]["physiology"] = generate_hash(
+                data["physiology"]
+            )
 
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3, default=set_default))
@@ -85,7 +86,9 @@ def save_genome(genome, file_name=""):
             print("genome is saved")
             state.changes_saved_externally = False
     except Exception as e:
-        print(f"Warning: Genome could not be saved! {e}", traceback.print_exc())
+        print(
+            f"Warning: Genome could not be saved! {e}", traceback.print_exc()
+        )
 
 
 def clean_host_info(host_info):

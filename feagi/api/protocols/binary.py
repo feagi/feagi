@@ -12,10 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-"""
-Binary Protocol Serialization for FEAGI
+#  ==============================================================================
+"""Binary Protocol Serialization for FEAGI.
 
 This module provides binary serialization and deserialization functions for
 the FEAGI communication protocols (FCP, FVP, FSMP).
@@ -51,33 +49,34 @@ class BinaryProtocolError(Exception):
 
 
 class BinarySerializer:
-    """
-    Binary serializer for FEAGI protocols.
+    """Binary serializer for FEAGI protocols.
 
-    This class provides methods to serialize and deserialize messages
-    according to the binary protocol specifications.
+    This class provides methods to serialize and deserialize messages according
+    to the binary protocol specifications.
     """
 
     # Protocol header format: protocol_id (1 byte) + version (1 byte)
     HEADER_FORMAT = "!BB"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-    # FCP message format: header + command_type (1 byte) + message_length (4 bytes) + payload
+    #  FCP message format: header + command_type (1 byte) + message_length (4
+    #  bytes) + payload
     FCP_HEADER_FORMAT = "!BI"
     FCP_HEADER_SIZE = struct.calcsize(FCP_HEADER_FORMAT)
 
-    # FVP message format: header + frame_type (1 byte) + timestamp (8 bytes) + data_length (4 bytes) + payload
+    #  FVP message format: header + frame_type (1 byte) + timestamp (8 bytes) +
+    #  data_length (4 bytes) + payload
     FVP_HEADER_FORMAT = "!BQI"
     FVP_HEADER_SIZE = struct.calcsize(FVP_HEADER_FORMAT)
 
-    # FSMP message format: header + channel_id (2 bytes) + timestamp (8 bytes) + data_length (4 bytes) + payload
+    #  FSMP message format: header + channel_id (2 bytes) + timestamp (8 bytes)
+    #  + data_length (4 bytes) + payload
     FSMP_HEADER_FORMAT = "!HQI"
     FSMP_HEADER_SIZE = struct.calcsize(FSMP_HEADER_FORMAT)
 
     @classmethod
     def encode_header(cls, protocol_id: ProtocolID, version: int) -> bytes:
-        """
-        Encode the protocol header.
+        """Encode the protocol header.
 
         Args:
             protocol_id: Protocol identifier
@@ -90,8 +89,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_header(cls, data: bytes) -> Tuple[ProtocolID, int]:
-        """
-        Decode the protocol header.
+        """Decode the protocol header.
 
         Args:
             data: Binary data containing the header
@@ -103,7 +101,9 @@ class BinarySerializer:
             BinaryProtocolError: If the data is too short or invalid
         """
         if len(data) < cls.HEADER_SIZE:
-            raise BinaryProtocolError(f"Data too short for header: {len(data)} bytes")
+            raise BinaryProtocolError(
+                f"Data too short for header: {len(data)} bytes"
+            )
 
         try:
             protocol_id_value, version = struct.unpack(
@@ -112,12 +112,13 @@ class BinarySerializer:
             protocol_id = ProtocolID(protocol_id_value)
             return protocol_id, version
         except (struct.error, ValueError) as e:
-            raise BinaryProtocolError(f"Invalid header: {e}")
+            raise BinaryProtocolError(f"Invalid header: {e}") from e
 
     @classmethod
-    def encode_fcp(cls, command_type: int, payload: bytes, version: int = 1) -> bytes:
-        """
-        Encode an FCP message.
+    def encode_fcp(
+        cls, command_type: int, payload: bytes, version: int = 1
+    ) -> bytes:
+        """Encode an FCP message.
 
         Args:
             command_type: Command type
@@ -129,13 +130,14 @@ class BinarySerializer:
         """
         header = cls.encode_header(ProtocolID.FCP, version)
         message_length = len(payload)
-        fcp_header = struct.pack(cls.FCP_HEADER_FORMAT, command_type, message_length)
+        fcp_header = struct.pack(
+            cls.FCP_HEADER_FORMAT, command_type, message_length
+        )
         return header + fcp_header + payload
 
     @classmethod
     def decode_fcp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FCP message.
+        """Decode an FCP message.
 
         Args:
             data: Binary FCP message
@@ -188,8 +190,7 @@ class BinarySerializer:
         timestamp: Optional[int] = None,
         version: int = 1,
     ) -> bytes:
-        """
-        Encode an FVP message.
+        """Encode an FVP message.
 
         Args:
             frame_type: Frame type
@@ -214,8 +215,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_fvp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FVP message.
+        """Decode an FVP message.
 
         Args:
             data: Binary FVP message
@@ -269,8 +269,7 @@ class BinarySerializer:
         timestamp: Optional[int] = None,
         version: int = 1,
     ) -> bytes:
-        """
-        Encode an FSMP message.
+        """Encode an FSMP message.
 
         Args:
             channel_id: Channel ID (0-65535)
@@ -295,8 +294,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_fsmp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FSMP message.
+        """Decode an FSMP message.
 
         Args:
             data: Binary FSMP message
@@ -322,7 +320,8 @@ class BinarySerializer:
         # Extract FSMP header
         offset = cls.HEADER_SIZE
         channel_id, timestamp, data_length = struct.unpack(
-            cls.FSMP_HEADER_FORMAT, data[offset : offset + cls.FSMP_HEADER_SIZE]
+            cls.FSMP_HEADER_FORMAT,
+            data[offset : offset + cls.FSMP_HEADER_SIZE],
         )
         offset += cls.FSMP_HEADER_SIZE
 
@@ -346,8 +345,7 @@ class BinarySerializer:
     def encode(
         cls, protocol_id: ProtocolID, message: Dict[str, Any], version: int = 1
     ) -> bytes:
-        """
-        Encode a message for the specified protocol.
+        """Encode a message for the specified protocol.
 
         Args:
             protocol_id: Protocol identifier
@@ -382,8 +380,7 @@ class BinarySerializer:
 
     @classmethod
     def decode(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode a binary message.
+        """Decode a binary message.
 
         Args:
             data: Binary message
@@ -395,7 +392,9 @@ class BinarySerializer:
             BinaryProtocolError: If the data is invalid
         """
         if len(data) < cls.HEADER_SIZE:
-            raise BinaryProtocolError(f"Data too short for header: {len(data)} bytes")
+            raise BinaryProtocolError(
+                f"Data too short for header: {len(data)} bytes"
+            )
 
         protocol_id, _ = cls.decode_header(data)
 

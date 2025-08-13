@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -96,8 +94,7 @@ class EndpointStatsResponse(BaseModel):
 
 @router.get("/zmq/status", response_model=ZMQDebugResponse)
 async def get_zmq_debug_status():
-    """
-    Get current ZMQ debugging status and configuration.
+    """Get current ZMQ debugging status and configuration.
 
     Returns current settings including:
     - Inbound/outbound debugging state
@@ -111,13 +108,12 @@ async def get_zmq_debug_status():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting debug status: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/configure")
 async def configure_zmq_debug(config: ZMQDebugConfig):
-    """
-    Configure ZMQ debugging settings at runtime.
+    """Configure ZMQ debugging settings at runtime.
 
     Allows dynamic control of:
     - Enable/disable inbound or outbound debugging
@@ -134,11 +130,15 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
 
         if config.inbound_enabled is not None:
             enable_inbound_debug(config.inbound_enabled)
-            configured_fields.append(f"inbound_enabled={config.inbound_enabled}")
+            configured_fields.append(
+                f"inbound_enabled={config.inbound_enabled}"
+            )
 
         if config.outbound_enabled is not None:
             enable_outbound_debug(config.outbound_enabled)
-            configured_fields.append(f"outbound_enabled={config.outbound_enabled}")
+            configured_fields.append(
+                f"outbound_enabled={config.outbound_enabled}"
+            )
 
         if config.debug_level is not None:
             if not isinstance(config.debug_level, str):
@@ -155,7 +155,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid debug level: '{config.debug_level}'. Valid levels: {valid_levels}",
-                )
+                ) from None
 
         if config.message_filters is not None:
             if not isinstance(config.message_filters, list):
@@ -164,15 +164,19 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     detail=f"message_filters must be a list, got {type(config.message_filters).__name__}",
                 )
             try:
-                filters = [MessageType(f.lower()) for f in config.message_filters]
+                filters = [
+                    MessageType(f.lower()) for f in config.message_filters
+                ]
                 set_message_filters(filters)
-                configured_fields.append(f"message_filters={config.message_filters}")
+                configured_fields.append(
+                    f"message_filters={config.message_filters}"
+                )
             except ValueError:
                 valid_types = [mt.value for mt in MessageType]
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid message type in filters: {config.message_filters}. Valid types: {valid_types}",
-                )
+                ) from None
 
         if config.endpoint_filters is not None:
             if not isinstance(config.endpoint_filters, list):
@@ -181,7 +185,9 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     detail=f"endpoint_filters must be a list, got {type(config.endpoint_filters).__name__}",
                 )
             set_endpoint_filters(config.endpoint_filters)
-            configured_fields.append(f"endpoint_filters={config.endpoint_filters}")
+            configured_fields.append(
+                f"endpoint_filters={config.endpoint_filters}"
+            )
 
         if config.rate_limit_per_second is not None:
             if not isinstance(config.rate_limit_per_second, int):
@@ -189,7 +195,10 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     status_code=400,
                     detail=f"rate_limit_per_second must be an integer, got {type(config.rate_limit_per_second).__name__}",
                 )
-            if config.rate_limit_per_second < 1 or config.rate_limit_per_second > 10000:
+            if (
+                config.rate_limit_per_second < 1
+                or config.rate_limit_per_second > 10000
+            ):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Rate limit must be between 1 and 10000 messages per second, got {config.rate_limit_per_second}",
@@ -225,13 +234,12 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
         raise HTTPException(
             status_code=500,
             detail=f"Error configuring debug settings: {str(e)}\nTraceback: {traceback.format_exc()}",
-        )
+        ) from e
 
 
 @router.post("/zmq/enable")
 async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
-    """
-    Quick enable ZMQ debugging with default settings.
+    """Quick enable ZMQ debugging with default settings.
 
     Args:
         inbound: Enable inbound message debugging
@@ -248,13 +256,14 @@ async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
             "message": "ZMQ debugging enabled with summary level logging",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error enabling debug: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error enabling debug: {str(e)}"
+        ) from e
 
 
 @router.post("/zmq/disable")
 async def disable_zmq_debug():
-    """
-    Disable all ZMQ debugging.
+    """Disable all ZMQ debugging.
 
     This immediately stops all debug logging with zero overhead.
     """
@@ -264,16 +273,17 @@ async def disable_zmq_debug():
 
         return {"status": "disabled", "message": "All ZMQ debugging disabled"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error disabling debug: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error disabling debug: {str(e)}"
+        ) from e
 
 
 @router.get("/zmq/endpoints", response_model=EndpointStatsResponse)
 async def get_zmq_endpoint_stats():
-    """
-    Get per-endpoint ZMQ debugging statistics.
+    """Get per-endpoint ZMQ debugging statistics.
 
-    Returns statistics for each ZMQ endpoint that has been debugged,
-    including message counts, byte totals, and rate limiting information.
+    Returns statistics for each ZMQ endpoint that has been debugged, including
+    message counts, byte totals, and rate limiting information.
     """
     try:
         stats = get_endpoint_stats()
@@ -281,22 +291,23 @@ async def get_zmq_endpoint_stats():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting endpoint stats: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/reset-stats")
 async def reset_zmq_debug_stats():
-    """
-    Reset all ZMQ debugging statistics.
+    """Reset all ZMQ debugging statistics.
 
-    Clears all counters and statistics, useful for measuring
-    performance over a specific time period.
+    Clears all counters and statistics, useful for measuring performance over a
+    specific time period.
     """
     try:
         reset_debug_stats()
         return {"status": "reset", "message": "All ZMQ debug statistics reset"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error resetting stats: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error resetting stats: {str(e)}"
+        ) from e
 
 
 # Advanced Debug Control
@@ -304,8 +315,7 @@ async def reset_zmq_debug_stats():
 
 @router.post("/zmq/filter/messages")
 async def set_message_type_filters(message_types: List[str]):
-    """
-    Set message type filters for ZMQ debugging.
+    """Set message type filters for ZMQ debugging.
 
     Args:
         message_types: List of message types to debug.
@@ -324,7 +334,9 @@ async def set_message_type_filters(message_types: List[str]):
 
         # Validate message types
         valid_types = [mt.value for mt in MessageType]
-        invalid_types = [t for t in message_types if t.lower() not in valid_types]
+        invalid_types = [
+            t for t in message_types if t.lower() not in valid_types
+        ]
 
         if invalid_types:
             raise HTTPException(
@@ -347,13 +359,12 @@ async def set_message_type_filters(message_types: List[str]):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting message filters: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/filter/endpoints")
-async def set_endpoint_filters(endpoints: List[str]):
-    """
-    Set endpoint filters for ZMQ debugging.
+async def set_endpoint_filters_rest(endpoints: List[str]):
+    """Set endpoint filters for ZMQ debugging (REST alias).
 
     Args:
         endpoints: List of endpoints to debug (e.g., ["tcp://localhost:5562", "tcp://*:5564"])
@@ -365,20 +376,25 @@ async def set_endpoint_filters(endpoints: List[str]):
         if not endpoints:
             message = "All endpoints will be debugged"
         else:
-            message = f"Debugging enabled for endpoints: {', '.join(endpoints)}"
+            message = (
+                f"Debugging enabled for endpoints: {', '.join(endpoints)}"
+            )
 
-        return {"status": "configured", "endpoints": endpoints, "message": message}
+        return {
+            "status": "configured",
+            "endpoints": endpoints,
+            "message": message,
+        }
 
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting endpoint filters: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/level/{level}")
 async def set_zmq_debug_level(level: str):
-    """
-    Set ZMQ debug verbosity level.
+    """Set ZMQ debug verbosity level.
 
     Args:
         level: Debug level (off, minimal, headers, summary, full)
@@ -411,13 +427,12 @@ async def set_zmq_debug_level(level: str):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting debug level: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/rate-limit/{limit}")
 async def set_zmq_rate_limit(limit: int):
-    """
-    Set rate limiting for ZMQ debug messages.
+    """Set rate limiting for ZMQ debug messages.
 
     Args:
         limit: Maximum messages per second to log (1-10000)
@@ -443,7 +458,7 @@ async def set_zmq_rate_limit(limit: int):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting rate limit: {str(e)}"
-        )
+        ) from e
 
 
 # Information and Help Endpoints
@@ -451,11 +466,10 @@ async def set_zmq_rate_limit(limit: int):
 
 @router.get("/zmq/help")
 async def get_zmq_debug_help():
-    """
-    Get help information for ZMQ debugging features.
+    """Get help information for ZMQ debugging features.
 
-    Returns comprehensive documentation about available debugging
-    features, configuration options, and usage examples.
+    Returns comprehensive documentation about available debugging features,
+    configuration options, and usage examples.
     """
     return {
         "zmq_debugging": {
@@ -505,11 +519,10 @@ async def get_zmq_debug_help():
 
 @router.get("/info")
 async def get_debug_info():
-    """
-    Get general debug information about FEAGI systems.
+    """Get general debug information about FEAGI systems.
 
-    Returns information about available debugging features,
-    current system state, and debugging recommendations.
+    Returns information about available debugging features, current system
+    state, and debugging recommendations.
     """
     try:
         zmq_status = get_debug_status()
@@ -542,13 +555,12 @@ async def get_debug_info():
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting debug info: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/zmq/console")
 async def enable_console_output(enabled: bool = True):
-    """
-    Simple endpoint to enable/disable console output for ZMQ debugging.
+    """Simple endpoint to enable/disable console output for ZMQ debugging.
 
     This is easier to use from Swagger UI than the full configure endpoint.
 
@@ -566,4 +578,4 @@ async def enable_console_output(enabled: bool = True):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error setting console output: {str(e)}"
-        )
+        ) from e

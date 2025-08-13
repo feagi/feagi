@@ -35,7 +35,7 @@ import zmq
 # Add the parent directory to the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from feagi.api.core.service import CoreApiService
+from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.zmq.streams.visualization import VisualizationStream
 
 # Import FEAGI components
@@ -138,7 +138,7 @@ class MockCorticalArea:
 
 
 # Mock core API service for testing
-class MockCoreApiService(CoreApiService):
+class MockCoreApiService(CoreAPIService):
     def __init__(self):
         self.genome_loaded_flag = True
         self.genome_change_listeners = []

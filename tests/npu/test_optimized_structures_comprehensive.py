@@ -30,9 +30,9 @@ import pytest
 from feagi.npu.optimized_structures import (
     Connectome,
     FireCandidateList,
-    GlobalNeuronArray,
     OptimizedFeagiCore,
 )
+from feagi.bdu.models.neuron import NeuronArray as GlobalNeuronArray
 
 
 # Mock Rust components for testing

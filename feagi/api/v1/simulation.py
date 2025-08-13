@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -87,15 +85,14 @@ class SimulationAPI:
     def stimulation_string_upload(
         self, stimulation_script: Stimulation
     ) -> SuccessResponse:
-        """
-        Upload stimulation script.
+        """Upload stimulation script.
 
         Example stimulation_script:
         {
             "IR_pain": {
                 "repeat": 10,
                 "definition": [
-                    [{"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]}, 10],
+                    [{"i__pro": ["0-0-3"], "co_mot": ["2-0-7"]}, 10],
                     [{"i__pro": ["0-0-8"]}, 5],
                     [{"i__bat": ["0-0-7"]}, 1],
                     [{}, 50]
@@ -122,10 +119,14 @@ class SimulationAPI:
             if not success:
                 raise ValueError("Failed to upload stimulation script")
 
-            return SuccessResponse(message="Stimulation script uploaded successfully")
+            return SuccessResponse(
+                message="Stimulation script uploaded successfully"
+            )
         except Exception as e:
             logger.error(f"Error uploading stimulation script: {e}")
-            raise ValueError(f"Failed to upload stimulation script: {str(e)}")
+            raise ValueError(
+                f"Failed to upload stimulation script: {str(e)}"
+            ) from e
 
     @simulation_endpoint("POST", "/reset", response_model=SuccessResponse)
     def reset_simulation(self) -> SuccessResponse:
@@ -138,11 +139,13 @@ class SimulationAPI:
             return SuccessResponse(message="Simulation reset successfully")
         except Exception as e:
             logger.error(f"Error resetting simulation: {e}")
-            raise ValueError(f"Failed to reset simulation: {str(e)}")
+            raise ValueError(f"Failed to reset simulation: {str(e)}") from e
 
     # ===== New API Endpoints (for future use) =====
 
-    @simulation_endpoint("GET", "/status", response_model=SimulationStatusResponse)
+    @simulation_endpoint(
+        "GET", "/status", response_model=SimulationStatusResponse
+    )
     async def get_simulation_status(self) -> SimulationStatusResponse:
         """Get current simulation status."""
         try:
@@ -153,7 +156,9 @@ class SimulationAPI:
                 config=status.get("config"),
             )
         except Exception as e:
-            raise ValueError(f"Failed to get simulation status: {str(e)}")
+            raise ValueError(
+                f"Failed to get simulation status: {str(e)}"
+            ) from e
 
     @simulation_endpoint(
         "POST",
@@ -166,26 +171,35 @@ class SimulationAPI:
     ) -> SuccessResponse:
         """Configure simulation parameters."""
         try:
-            success = self.core_api_service.configure_simulation(request.config)
+            success = self.core_api_service.configure_simulation(
+                request.config
+            )
             if not success:
                 raise ValueError("Failed to configure simulation")
-            return SuccessResponse(message="Simulation configured successfully")
+            return SuccessResponse(
+                message="Simulation configured successfully"
+            )
         except Exception as e:
-            raise ValueError(f"Failed to configure simulation: {str(e)}")
+            raise ValueError(
+                f"Failed to configure simulation: {str(e)}"
+            ) from e
 
-    @simulation_endpoint("GET", "/stats", response_model=SimulationStatsResponse)
+    @simulation_endpoint(
+        "GET", "/stats", response_model=SimulationStatsResponse
+    )
     async def get_simulation_stats(self) -> SimulationStatsResponse:
         """Get simulation statistics."""
         try:
             stats = self.core_api_service.get_simulation_stats()
             return SimulationStatsResponse(stats=stats)
         except Exception as e:
-            raise ValueError(f"Failed to get simulation stats: {str(e)}")
+            raise ValueError(
+                f"Failed to get simulation stats: {str(e)}"
+            ) from e
 
 
 def create_simulation_api(core_api_service: CoreAPIService) -> SimulationAPI:
-    """
-    Factory function to create a SimulationAPI instance.
+    """Factory function to create a SimulationAPI instance.
 
     This function can be used by transport adapters to get a configured
     SimulationAPI instance with the required dependencies.

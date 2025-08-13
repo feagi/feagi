@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,23 +29,28 @@ logger = setup_logger(__name__)
 class GPUConnectomeManager(ConnectomeManager):
     """GPU-accelerated version of ConnectomeManager.
 
-    This class extends the base ConnectomeManager with GPU-specific optimizations
-    when CUDA, Metal, or WebGPU backends are available.
+    This class extends the base ConnectomeManager with GPU-specific
+    optimizations when CUDA, Metal, or WebGPU backends are available.
     """
 
     def __init__(self, *args, **kwargs):
         """Initialize GPU-accelerated ConnectomeManager."""
         # Force GPU backend selection
         if "backend" not in kwargs:
-            kwargs["backend"] = "auto"  # Will select best GPU backend available
+            kwargs["backend"] = (
+                "auto"  # Will select best GPU backend available
+            )
 
         super().__init__(*args, **kwargs)
 
-        # Verify GPU backend was selected (after parent initialization completes)
+        #  Verify GPU backend was selected (after parent initialization
+        #  completes)
         self._verify_gpu_backend()
 
         backend_info = self.get_backend_info()
-        logger.info(f"Initialized GPU ConnectomeManager with backend: {backend_info}")
+        logger.info(
+            f"Initialized GPU ConnectomeManager with backend: {backend_info}"
+        )
 
     def _verify_gpu_backend(self):
         """Verify that a GPU backend was successfully selected."""
@@ -72,7 +75,9 @@ class GPUConnectomeManager(ConnectomeManager):
         Returns:
             Dictionary containing backend information
         """
-        if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "backend"):
+        if hasattr(self, "neuron_array") and hasattr(
+            self.neuron_array, "backend"
+        ):
             if hasattr(self.neuron_array.backend, "get_device_stats"):
                 return self.neuron_array.backend.get_device_stats()
             else:

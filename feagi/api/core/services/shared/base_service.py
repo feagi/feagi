@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,15 +21,13 @@ logger = setup_logger()
 
 
 class BaseService:
-    """
-    Base class for all FEAGI domain services.
+    """Base class for all FEAGI domain services.
 
     Provides common functionality and patterns used across all services.
     """
 
     def __init__(self, connectome_manager, state_manager=None):
-        """
-        Initialize base service.
+        """Initialize base service.
 
         Args:
             connectome_manager: ConnectomeManager instance
@@ -57,8 +53,8 @@ class BaseService:
         return True
 
     def _validate_genome_loaded(self) -> bool:
-        """
-        Check if a genome is currently loaded with robust fallback validation.
+        """Check if a genome is currently loaded with robust fallback
+        validation.
 
         This method uses multiple validation approaches to handle timing issues
         between genome loading and state manager synchronization.
@@ -70,17 +66,23 @@ class BaseService:
                 if state_manager_result:
                     return True
                 else:
-                    # State manager says no genome, but let's double-check with connectome
+                    #  State manager says no genome, but let's double-check
+                    #  with connectome
                     self.logger.debug(
                         "State manager reports no genome loaded, checking connectome directly"
                     )
             except Exception as e:
-                self.logger.warning(f"Error checking state manager genome status: {e}")
+                self.logger.warning(
+                    f"Error checking state manager genome status: {e}"
+                )
 
         # REMOVED: Unapproved connectome pre-loading mechanism
-        # Previously this method would check if cortical areas exist in connectome
-        # and treat that as "genome loaded", bypassing proper neuroembryogenesis.
-        # This caused corruption by loading connectomes without BiDirectionalCorticalMap
+        #  Previously this method would check if cortical areas exist in
+        #  connectome
+        #  and treat that as "genome loaded", bypassing proper
+        #  neuroembryogenesis.
+        #  This caused corruption by loading connectomes without
+        #  BiDirectionalCorticalMap
         # synchronization. Connectome serialization/deserialization should be
         # user-controlled features, not automatic defaults.
 
@@ -89,9 +91,10 @@ class BaseService:
         )
         return False
 
-    def _safe_execute(self, operation, error_message: str, default_return=None):
-        """
-        Safely execute an operation with error handling.
+    def _safe_execute(
+        self, operation, error_message: str, default_return=None
+    ):
+        """Safely execute an operation with error handling.
 
         Args:
             operation: Function to execute
@@ -108,8 +111,7 @@ class BaseService:
             return default_return
 
     def _validate_state_consistency(self) -> bool:
-        """
-        Validate that state manager and connectome manager are in sync.
+        """Validate that state manager and connectome manager are in sync.
 
         This method ensures that both managers have consistent data and
         that all required attributes are properly set for health checks.
@@ -132,7 +134,9 @@ class BaseService:
 
             # Check if genome is loaded
             if not self.state_manager.is_genome_loaded():
-                self.logger.debug("Genome not loaded - state validation skipped")
+                self.logger.debug(
+                    "Genome not loaded - state validation skipped"
+                )
                 return True  # This is a valid state
 
             # Validate critical attributes exist for health checks
@@ -162,7 +166,11 @@ class BaseService:
                 self.logger.warning("brain_stats is not a dictionary")
                 return False
 
-            expected_stats = ["neuron_count", "synapse_count", "cortical_area_count"]
+            expected_stats = [
+                "neuron_count",
+                "synapse_count",
+                "cortical_area_count",
+            ]
             for stat in expected_stats:
                 if stat not in brain_stats:
                     self.logger.warning(f"brain_stats missing key: {stat}")
@@ -176,7 +184,9 @@ class BaseService:
 
             # Check connectome manager consistency
             if hasattr(self._connectome_manager, "cortical_areas"):
-                connectome_area_count = len(self._connectome_manager.cortical_areas)
+                connectome_area_count = len(
+                    self._connectome_manager.cortical_areas
+                )
                 state_area_count = brain_stats.get("cortical_area_count", 0)
 
                 if connectome_area_count != state_area_count:
@@ -189,12 +199,13 @@ class BaseService:
             return True
 
         except Exception as e:
-            self.logger.error(f"Error during state consistency validation: {str(e)}")
+            self.logger.error(
+                f"Error during state consistency validation: {str(e)}"
+            )
             return False
 
     def _sync_state_if_needed(self) -> bool:
-        """
-        Synchronize state between managers if they're out of sync.
+        """Synchronize state between managers if they're out of sync.
 
         This method attempts to fix any inconsistencies found during validation.
 
@@ -210,7 +221,9 @@ class BaseService:
                 return True
 
             # Re-sync brain statistics from connectome manager
-            self.logger.info("Re-synchronizing state manager with connectome manager")
+            self.logger.info(
+                "Re-synchronizing state manager with connectome manager"
+            )
 
             # Get fresh statistics from connectome manager
             cortical_area_count = len(
@@ -222,35 +235,50 @@ class BaseService:
             total_synapses = 0
 
             if hasattr(self._connectome_manager, "get_total_neuron_count"):
-                total_neurons = self._connectome_manager.get_total_neuron_count()
+                total_neurons = (
+                    self._connectome_manager.get_total_neuron_count()
+                )
             elif hasattr(self._connectome_manager, "cortical_areas"):
                 # Fallback: count neurons in all cortical areas
                 for area_idx in self._connectome_manager.cortical_areas:
                     try:
-                        if hasattr(self._connectome_manager, "get_neurons_by_area"):
-                            area_neurons = self._connectome_manager.get_neurons_by_area(
-                                area_idx
+                        if hasattr(
+                            self._connectome_manager, "get_neurons_by_area"
+                        ):
+                            area_neurons = (
+                                self._connectome_manager.get_neurons_by_area(
+                                    area_idx
+                                )
                             )
-                            total_neurons += len(area_neurons) if area_neurons else 0
+                            total_neurons += (
+                                len(area_neurons) if area_neurons else 0
+                            )
                     except Exception:
                         pass
 
             if hasattr(self._connectome_manager, "get_total_synapse_count"):
-                total_synapses = self._connectome_manager.get_total_synapse_count()
+                total_synapses = (
+                    self._connectome_manager.get_total_synapse_count()
+                )
 
             # Update brain statistics
-            result = self.state_manager.set_brain_stats({
-                "neuron_count": total_neurons,
-                "synapse_count": total_synapses,
-                "cortical_area_count": cortical_area_count,
-            })
+            result = self.state_manager.set_brain_stats(
+                {
+                    "neuron_count": total_neurons,
+                    "synapse_count": total_synapses,
+                    "cortical_area_count": cortical_area_count,
+                }
+            )
             if result.is_err:
                 self.logger.warning("Failed to set brain stats")
 
             # Update cortical list
             cortical_ids = []
             if hasattr(self._connectome_manager, "cortical_areas"):
-                for area_idx, area in self._connectome_manager.cortical_areas.items():
+                for (
+                    area_idx,
+                    area,
+                ) in self._connectome_manager.cortical_areas.items():
                     if hasattr(area, "cortical_id") and area.cortical_id:
                         cortical_ids.append(area.cortical_id)
                     else:
@@ -266,12 +294,16 @@ class BaseService:
             ):
                 result = self.state_manager.set_connected_agents({})
                 if result.is_err:
-                    self.logger.warning("Failed to initialize connected agents")
+                    self.logger.warning(
+                        "Failed to initialize connected agents"
+                    )
 
             if not hasattr(self.state_manager, "changes_saved_externally"):
                 result = self.state_manager.set_changes_saved_externally(False)
                 if result.is_err:
-                    self.logger.warning("Failed to set changes_saved_externally")
+                    self.logger.warning(
+                        "Failed to set changes_saved_externally"
+                    )
 
             if not hasattr(self.state_manager, "exit_condition"):
                 # Use proper state manager method

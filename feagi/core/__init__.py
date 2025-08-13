@@ -14,8 +14,8 @@ from typing import Any, Dict
 
 
 def create_core_api(connectome, config: Dict[str, Any] = None):
-    """
-    Create and initialize the Core API with all critical (Priority 1) processes.
+    """Create and initialize the Core API with all critical (Priority 1)
+    processes.
 
     This function initializes the core components in the correct order:
     1. Connectome Manager
@@ -40,10 +40,11 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
         config = {}
 
     # Get GPU settings
-    # use_gpu = config.get("core", {}).get("use_gpu", False)  # Unused variable removed
+    #  use_gpu = config.get("core", {}).get("use_gpu", False) # Unused variable
+    #  removed
 
     # Create the CoreAPIService wrapper around the FEAGI core
-    core_api = CoreAPIService(connectome)
+    core_api = CoreAPIService(connectome, config=config)
 
     logger.info("FEAGI core components initialized successfully")
     return core_api

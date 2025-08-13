@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +16,19 @@ limitations under the License.
 FEAGI v1 Agent API - Single Source of Truth
 """
 
+from typing import Any, Dict
 
 from fastapi import HTTPException
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
+
+try:
+    from feagi.config.toml_loader import get_agent_config, load_feagi_config
+except ImportError:
+    # Handle cases where configuration might not be available
+    load_feagi_config = None
+    get_agent_config = None
 
 from .decorators import endpoint
 from .schemas import (
@@ -32,6 +38,7 @@ from .schemas import (
     AgentListResponse,
     AgentPropertiesResponse,
     AgentRegistrationRequest,
+    ManualStimulationRequest,
     SuccessResponse,
 )
 
@@ -69,15 +76,20 @@ class FeagiAgentAPI:
 
             agents_data = registration_manager.list_agents()
 
-            # Extract just the agent IDs for the simple list format expected by AgentListResponse
-            agent_ids = [agent["agent_id"] for agent in agents_data.get("agents", [])]
+            #  Extract just the agent IDs for the simple list format expected
+            #  by AgentListResponse
+            agent_ids = [
+                agent["agent_id"] for agent in agents_data.get("agents", [])
+            ]
 
             return AgentListResponse(root=agent_ids)
         except Exception as e:
             self.logger.error(f"Error listing agents: {e}")
-            raise ValueError(f"Failed to list agents: {str(e)}")
+            raise ValueError(f"Failed to list agents: {str(e)}") from e
 
-    @agent_endpoint("GET", "/info/{agent_id}", response_model=AgentInfoResponse)
+    @agent_endpoint(
+        "GET", "/info/{agent_id}", response_model=AgentInfoResponse
+    )
     async def get_agent_info(self, agent_id: str) -> AgentInfoResponse:
         try:
             agent_info = self.core_api_service.get_agent_properties(agent_id)
@@ -85,7 +97,7 @@ class FeagiAgentAPI:
                 raise ValueError(f"Agent {agent_id} not found")
             return AgentInfoResponse(agent_info=agent_info)
         except Exception as e:
-            raise ValueError(f"Failed to get agent info: {str(e)}")
+            raise ValueError(f"Failed to get agent info: {str(e)}") from e
 
     @agent_endpoint(
         "POST",
@@ -93,7 +105,9 @@ class FeagiAgentAPI:
         request_model=AgentConfigRequest,
         response_model=SuccessResponse,
     )
-    async def configure_agent(self, request: AgentConfigRequest) -> SuccessResponse:
+    async def configure_agent(
+        self, request: AgentConfigRequest
+    ) -> SuccessResponse:
         try:
             success = self.core_api_service.configure_agent(
                 request.agent_id, request.config
@@ -102,7 +116,7 @@ class FeagiAgentAPI:
                 raise ValueError("Failed to configure agent")
             return SuccessResponse(message="Agent configured successfully")
         except Exception as e:
-            raise ValueError(f"Failed to configure agent: {str(e)}")
+            raise ValueError(f"Failed to configure agent: {str(e)}") from e
 
     @agent_endpoint(
         "POST",
@@ -114,7 +128,8 @@ class FeagiAgentAPI:
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
         try:
-            # Delegate to Registration Manager for centralized agent coordination
+            #  Delegate to Registration Manager for centralized agent
+            #  coordination
             from feagi.pns.registration_manager import (
                 AgentRegistrationRequest as RegistrationRequest,
             )
@@ -135,7 +150,7 @@ class FeagiAgentAPI:
                 agent_data_port=request.agent_data_port,
                 agent_version=request.agent_version,
                 controller_version=request.controller_version,
-                agent_ip=request.agent_ip or "127.0.0.1",
+                agent_ip=request.agent_ip,  # Let RegistrationRequest handle None with configuration
             )
 
             # Process registration through Registration Manager
@@ -149,7 +164,9 @@ class FeagiAgentAPI:
 
                 return SuccessResponse(message=response.message, success=True)
             else:
-                self.logger.error(f"❌ Registration Manager failed: {response.message}")
+                self.logger.error(
+                    f"❌ Registration Manager failed: {response.message}"
+                )
 
                 # Map Registration Manager error codes to HTTP status codes
                 status_map = {
@@ -163,7 +180,9 @@ class FeagiAgentAPI:
 
                 status_code = status_map.get(response.error_code, 500)
 
-                raise HTTPException(status_code=status_code, detail=response.message)
+                raise HTTPException(
+                    status_code=status_code, detail=response.message
+                )
 
         except HTTPException:
             # Re-raise HTTP exceptions as-is
@@ -172,7 +191,7 @@ class FeagiAgentAPI:
             self.logger.error(f"Error registering agent: {e}")
             raise HTTPException(
                 status_code=500, detail=f"Error registering agent: {str(e)}"
-            )
+            ) from e
 
     @agent_endpoint(
         "DELETE",
@@ -184,7 +203,8 @@ class FeagiAgentAPI:
         self, request: AgentDeregistrationRequest
     ) -> SuccessResponse:
         try:
-            # Delegate to Registration Manager for centralized agent coordination
+            #  Delegate to Registration Manager for centralized agent
+            #  coordination
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
@@ -217,7 +237,9 @@ class FeagiAgentAPI:
 
                 status_code = status_map.get(response.error_code, 500)
 
-                raise HTTPException(status_code=status_code, detail=response.message)
+                raise HTTPException(
+                    status_code=status_code, detail=response.message
+                )
 
         except HTTPException:
             # Re-raise HTTP exceptions as-is
@@ -226,13 +248,29 @@ class FeagiAgentAPI:
             self.logger.error(f"Error deregistering agent: {e}")
             raise HTTPException(
                 status_code=500, detail=f"Error deregistering agent: {str(e)}"
-            )
+            ) from e
 
     @agent_endpoint(
         "GET", "/properties/{agent_id}", response_model=AgentPropertiesResponse
     )
-    async def get_agent_properties(self, agent_id: str) -> AgentPropertiesResponse:
+    async def get_agent_properties(
+        self, agent_id: str
+    ) -> AgentPropertiesResponse:
         try:
+            # Get configured default agent IP
+            default_agent_ip = (
+                "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            )
+            try:
+                if load_feagi_config and get_agent_config:
+                    config = load_feagi_config()
+                    agent_config = get_agent_config(config)
+                    default_agent_ip = agent_config.default_host
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not load agent configuration, using fallback: {e}"
+                )
+
             # Delegate to Registration Manager for consistent agent information
             from feagi.pns.registration_manager import get_registration_manager
 
@@ -252,13 +290,11 @@ class FeagiAgentAPI:
                 and properties.get("agent_ip")
                 and properties.get("agent_data_port")
             ):
-                agent_router_address = (
-                    f"tcp://{properties['agent_ip']}:{properties['agent_data_port']}"
-                )
+                agent_router_address = f"tcp://{properties['agent_ip']}:{properties['agent_data_port']}"
 
             return AgentPropertiesResponse(
                 agent_type=properties.get("agent_type", ""),
-                agent_ip=properties.get("agent_ip", "127.0.0.1"),
+                agent_ip=properties.get("agent_ip", default_agent_ip),
                 agent_data_port=properties.get("agent_data_port", 0),
                 agent_router_address=agent_router_address or "",
                 agent_version=properties.get("agent_version", ""),
@@ -269,14 +305,16 @@ class FeagiAgentAPI:
             self.logger.error(
                 f"Error getting agent properties for {agent_id}: {str(e)}"
             )
-            raise ValueError(f"Failed to get agent properties: {str(e)}")
+            raise ValueError(
+                f"Failed to get agent properties: {str(e)}"
+            ) from e
 
     # Manual query parameter version for FastAPI compatibility
     async def get_agent_properties_query(
         self, agent_id: str
     ) -> AgentPropertiesResponse:
-        """
-        Get agent properties using query parameter format.
+        """Get agent properties using query parameter format.
+
         This endpoint supports the query parameter format: /v1/agent/properties?agent_id=<agent_id>
         This method is manually registered to FastAPI to support query parameters.
         """
@@ -285,14 +323,14 @@ class FeagiAgentAPI:
 
     @agent_endpoint("GET", "/fq_sampler_status")
     async def get_fq_sampler_status(self) -> dict:
-        """
-        Get comprehensive FQ sampler status with agent registry integration.
+        """Get comprehensive FQ sampler status with agent registry integration.
 
         Returns:
             Dictionary with FQ sampler status and related agent information
         """
         try:
-            # Delegate to Registration Manager for comprehensive FQ sampler coordination status
+            #  Delegate to Registration Manager for comprehensive FQ sampler
+            #  coordination status
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
@@ -319,10 +357,61 @@ class FeagiAgentAPI:
             import traceback
 
             self.logger.error(f"Traceback: {traceback.format_exc()}")
-            raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
+            raise ValueError(
+                f"Failed to get FQ sampler status: {str(e)}"
+            ) from e
+
+    @agent_endpoint(
+        "POST",
+        "/manual_stimulation",
+        request_model=ManualStimulationRequest,
+        response_model=Dict[str, Any],
+    )
+    async def manual_stimulation(
+        self, request: ManualStimulationRequest
+    ) -> Dict[str, Any]:
+        """Trigger manual neural stimulation across multiple cortical areas.
+
+        Injects neuron activations associated with the payload data into the fire candidate list.
+
+        Args:
+            request: Manual stimulation request containing stimulation payload with cortical areas
+                    mapped to coordinate lists
+
+        Returns:
+            Dictionary containing stimulation results and statistics
+
+        Example request body:
+        {
+            "stimulation_payload": {
+                "_power": [[1, 0, 0], [2, 4, 3]],
+                "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
+            }
+        }
+        """
+        try:
+            self.logger.info(
+                f"Manual stimulation request received for {len(request.stimulation_payload)} cortical areas"
+            )
+
+            # Delegate to CoreAPIService for processing
+            result = self.core_api_service.trigger_multi_area_stimulation(
+                request.stimulation_payload
+            )
+
+            self.logger.info(
+                f"Manual stimulation completed: {result.get('success', False)}"
+            )
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error processing manual stimulation: {e}")
+            return {"success": False, "error": str(e)}
 
 
-# NOTE: FQ sampler management methods removed - now handled by Registration Manager
+#  NOTE: FQ sampler management methods removed - now handled by Registration
+#  Manager
 # All agent registration, deregistration, and FQ sampler coordination is now
 # centralized in the Registration Manager (feagi.pns.registration_manager)
 # This eliminates the complexity of multiple coordination points.

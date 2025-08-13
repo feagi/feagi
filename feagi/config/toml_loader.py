@@ -13,10 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-"""
-TOML Configuration Loader for FEAGI 2.0
+#  ==============================================================================
+"""TOML Configuration Loader for FEAGI 2.0.
 
 This module provides TOML-based configuration loading with:
 - Environment variable overrides
@@ -52,7 +50,8 @@ _CONFIG_CACHE_KEY: Optional[str] = None
 
 
 def _get_cache_key(
-    config_path: Optional[Path] = None, cli_args: Optional[Dict[str, Any]] = None
+    config_path: Optional[Path] = None,
+    cli_args: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Generate a cache key based on config path and CLI arguments."""
     path_str = str(config_path) if config_path else "default"
@@ -62,11 +61,10 @@ def _get_cache_key(
 
 @dataclass
 class PortConfiguration:
-    """
-    Port configuration loaded from TOML with validation.
+    """Port configuration loaded from TOML with validation.
 
-    All port numbers are required and must be explicitly configured.
-    No default values are provided to enforce configuration-driven architecture.
+    All port numbers are required and must be explicitly configured. No default
+    values are provided to enforce configuration-driven architecture.
     """
 
     # Required port configurations
@@ -93,8 +91,7 @@ class PortConfiguration:
 
 @dataclass
 class HostConfiguration:
-    """
-    Host configuration with required validation.
+    """Host configuration with required validation.
 
     All hosts must be explicitly configured - no defaults provided.
     """
@@ -118,8 +115,7 @@ class HostConfiguration:
 
 @dataclass
 class TimeoutConfiguration:
-    """
-    System timeout configurations loaded from TOML.
+    """System timeout configurations loaded from TOML.
 
     All timeouts are configurable to support different deployment environments.
     """
@@ -145,13 +141,33 @@ class TimeoutConfiguration:
 
 @dataclass
 class GenomeConfiguration:
-    """
-    Genome loading and validation configurations loaded from TOML.
+    """Genome loading and validation configurations loaded from TOML.
 
     Controls how FEAGI handles invalid genome files.
     """
 
-    auto_recovery_on_validation_failure: bool = True  # Default: allow auto-recovery
+    auto_recovery_on_validation_failure: bool = (
+        True  # Default: allow auto-recovery
+    )
+
+
+@dataclass
+class AgentConfiguration:
+    """Agent registration and communication configuration.
+
+    Provides default values for agent registration when not explicitly
+    provided.
+    """
+
+    default_host: str
+
+    def __post_init__(self):
+        """Validate agent configuration."""
+        if not self.default_host or self.default_host == "":
+            raise ValueError(
+                "Agent default host is required. Set via FEAGI_AGENT_DEFAULT_HOST environment variable "
+                "or agents.default_host in configuration file."
+            )
 
 
 class FeagiConfigurationError(Exception):
@@ -161,8 +177,7 @@ class FeagiConfigurationError(Exception):
 
 
 def find_config_file() -> Path:
-    """
-    Find the FEAGI configuration file.
+    """Find the FEAGI configuration file.
 
     Search order:
     1. Environment variable: FEAGI_CONFIG_PATH
@@ -190,7 +205,8 @@ def find_config_file() -> Path:
     # Search in common locations
     search_paths = [
         Path.cwd() / "feagi_configuration.toml",  # Current directory
-        Path(__file__).parent.parent.parent / "feagi_configuration.toml",  # feagi_core/
+        Path(__file__).parent.parent.parent
+        / "feagi_configuration.toml",  # feagi_core/
         Path(__file__).parent.parent.parent.parent
         / "feagi_configuration.toml",  # Project root
     ]
@@ -208,8 +224,7 @@ def find_config_file() -> Path:
 
 
 def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Apply environment variable overrides to configuration.
+    """Apply environment variable overrides to configuration.
 
     Environment variable mapping:
     - FEAGI_API_HOST -> api.host
@@ -253,7 +268,9 @@ def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
                 try:
                     value = int(value)
                 except ValueError:
-                    logger.warning(f"Invalid integer value for {env_var}: {value}")
+                    logger.warning(
+                        f"Invalid integer value for {env_var}: {value}"
+                    )
                     continue
             elif key in ["reload", "debug"]:
                 value = value.lower() in ("true", "1", "yes", "on")
@@ -269,8 +286,7 @@ def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
 def apply_cli_overrides(
     config: Dict[str, Any], cli_args: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """
-    Apply command-line argument overrides to configuration.
+    """Apply command-line argument overrides to configuration.
 
     Args:
         config: Base configuration dictionary
@@ -300,8 +316,10 @@ def apply_cli_overrides(
         "embedded": ("system", "embedded"),
         "debug_api": ("debug", "api"),
         "debug_npu": ("debug", "npu"),
+        "debug_bdu": ("debug", "bdu"),
         "debug_zmq_outbound": ("debug", "zmq_outbound"),
         "debug_zmq_inbound": ("debug", "zmq_inbound"),
+        "debug_mem": ("debug", "mem_debug"),
     }
 
     for cli_arg, (section, key) in cli_mappings.items():
@@ -320,8 +338,7 @@ def load_toml_configuration(
     config_path: Optional[Union[str, Path]] = None,
     cli_args: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Load FEAGI configuration from TOML file with overrides.
+    """Load FEAGI configuration from TOML file with overrides.
 
     Loading order (later overrides earlier):
     1. TOML file defaults
@@ -361,17 +378,20 @@ def load_toml_configuration(
         return config
 
     except FileNotFoundError as e:
-        raise FeagiConfigurationError(f"Configuration file not found: {e}") from e
+        raise FeagiConfigurationError(
+            f"Configuration file not found: {e}"
+        ) from e
     except Exception as e:
         # Handle both tomllib.TOMLDecodeError and any other errors
         if "TOML" in str(type(e)):
             raise FeagiConfigurationError(f"Invalid TOML syntax: {e}") from e
-        raise FeagiConfigurationError(f"Failed to load configuration: {e}") from e
+        raise FeagiConfigurationError(
+            f"Failed to load configuration: {e}"
+        ) from e
 
 
 def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
-    """
-    Extract and validate port configuration from loaded TOML config.
+    """Extract and validate port configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -401,7 +421,9 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
 
     for port_name in required_ports:
         if port_name not in ports:
-            raise ValueError(f"Missing required port configuration: {port_name}")
+            raise ValueError(
+                f"Missing required port configuration: {port_name}"
+            )
         port_value = ports[port_name]
         if not isinstance(port_value, int) or port_value <= 0:
             raise ValueError(
@@ -420,8 +442,7 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
 
 
 def get_host_config(config: Dict[str, Any]) -> HostConfiguration:
-    """
-    Extract and validate host configuration from loaded TOML config.
+    """Extract and validate host configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -443,8 +464,7 @@ def get_host_config(config: Dict[str, Any]) -> HostConfiguration:
 
 
 def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
-    """
-    Extract timeout configuration from loaded TOML config.
+    """Extract timeout configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -462,22 +482,27 @@ def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
         thread_join=timeout_config.get("thread_join", 2.0),
         process_join=timeout_config.get("process_join", 2.0),
         service_stop=timeout_config.get("service_stop", 5.0),
-        visualization_shutdown=timeout_config.get("visualization_shutdown", 5.0),
+        visualization_shutdown=timeout_config.get(
+            "visualization_shutdown", 5.0
+        ),
         api_service_shutdown=timeout_config.get("api_service_shutdown", 10.0),
         fq_sampler_shutdown=timeout_config.get("fq_sampler_shutdown", 2.0),
         # ZMQ timeouts
         socket_connect_timeout=zmq_config.get("socket_connect_timeout", 1000),
         socket_receive_timeout=zmq_config.get("socket_receive_timeout", 5000),
         socket_send_timeout=zmq_config.get("socket_send_timeout", 5000),
-        client_heartbeat_timeout=zmq_config.get("client_heartbeat_timeout", 30000),
-        inactive_client_timeout=zmq_config.get("inactive_client_timeout", 60000),
+        client_heartbeat_timeout=zmq_config.get(
+            "client_heartbeat_timeout", 30000
+        ),
+        inactive_client_timeout=zmq_config.get(
+            "inactive_client_timeout", 60000
+        ),
         polling_timeout=zmq_config.get("polling_timeout", 100),
     )
 
 
 def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
-    """
-    Extract genome configuration from loaded TOML config.
+    """Extract genome configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -494,9 +519,29 @@ def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
     )
 
 
-def validate_configuration(config: Dict[str, Any]) -> None:
+def get_agent_config(config: Dict[str, Any]) -> AgentConfiguration:
+    """Extract and validate agent configuration from loaded TOML config.
+
+    Args:
+        config: Configuration dictionary loaded from TOML
+
+    Returns:
+        AgentConfiguration with validated agent settings
+
+    Raises:
+        ValueError: If required agent configuration is missing or empty
     """
-    Validate the complete configuration for consistency and correctness.
+    agent_config = config.get("agents", {})
+    default_host = agent_config.get("default_host", "")
+
+    # Allow environment variable override
+    default_host = os.environ.get("FEAGI_AGENT_DEFAULT_HOST", default_host)
+
+    return AgentConfiguration(default_host=default_host)
+
+
+def validate_configuration(config: Dict[str, Any]) -> None:
+    """Validate the complete configuration for consistency and correctness.
 
     Args:
         config: Configuration dictionary to validate
@@ -537,9 +582,10 @@ def validate_configuration(config: Dict[str, Any]) -> None:
 
 
 # Convenience function for common usage
-def load_feagi_config(cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """
-    Load and validate FEAGI configuration with all overrides applied.
+def load_feagi_config(
+    cli_args: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Load and validate FEAGI configuration with all overrides applied.
 
     Uses global caching to prevent repeated file loading and log spam.
 

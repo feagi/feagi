@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,8 +43,7 @@ from ..core.services.core_api_service import CoreAPIService
 
 
 class ConnectionManager:
-    """
-    Connection manager for multiple ZMQ clients using ROUTER-DEALER pattern.
+    """Connection manager for multiple ZMQ clients using ROUTER-DEALER pattern.
 
     This class handles:
     - Creation of sockets for different protocols
@@ -63,8 +60,7 @@ class ConnectionManager:
         context: Optional[zmq.asyncio.Context] = None,
         visualization_port: Optional[int] = None,
     ):
-        """
-        Initialize the connection manager.
+        """Initialize the connection manager.
 
         Args:
             control_port: Port for control messages (ROUTER pattern)
@@ -85,17 +81,23 @@ class ConnectionManager:
         self.control_socket.bind(f"tcp://*:{control_port}")
         logger.info(f"Control socket (ROUTER) bound to port {control_port}")
 
-        # Create sensory socket (PULL) for receiving sensory data only if port is provided
+        #  Create sensory socket (PULL) for receiving sensory data only if port
+        #  is provided
         self.sensory_socket = None
         if sensory_port is not None:
             self.sensory_socket = self.context.socket(zmq.PULL)
-            self.sensory_socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+            self.sensory_socket.setsockopt(
+                zmq.RCVHWM, 1
+            )  # Minimal receive queue
             self.sensory_socket.bind(f"tcp://*:{sensory_port}")
             logger.info(f"Sensory socket (PULL) bound to port {sensory_port}")
         else:
-            logger.info("Sensory socket disabled (handled by dedicated stream)")
+            logger.info(
+                "Sensory socket disabled (handled by dedicated stream)"
+            )
 
-        # Create motor socket (PUB) for broadcasting motor commands only if port is provided
+        #  Create motor socket (PUB) for broadcasting motor commands only if
+        #  port is provided
         self.motor_socket = None
         if motor_port is not None:
             self.motor_socket = self.context.socket(zmq.PUB)
@@ -108,7 +110,8 @@ class ConnectionManager:
         else:
             logger.info("Motor socket disabled (handled by dedicated stream)")
 
-        # Create visualization socket (PUB) only if visualization port is provided
+        #  Create visualization socket (PUB) only if visualization port is
+        #  provided
         self.visualization_socket = None
         if visualization_port is not None:
             self.visualization_socket = self.context.socket(zmq.PUB)
@@ -132,8 +135,7 @@ class ConnectionManager:
     def register_client(
         self, agent_id: str, zmq_id: bytes, supported_protocols: Dict[str, int]
     ) -> None:
-        """
-        Register a new client connection.
+        """Register a new client connection.
 
         Args:
             agent_id: Unique identifier for the agent
@@ -150,8 +152,7 @@ class ConnectionManager:
         logger.info(f"Registered client {agent_id} with ZMQ ID {zmq_id.hex()}")
 
     def deregister_client(self, agent_id: str) -> bool:
-        """
-        Deregister a client.
+        """Deregister a client.
 
         Args:
             agent_id: Agent identifier
@@ -166,8 +167,7 @@ class ConnectionManager:
         return False
 
     def get_client_info(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get information about a client by agent ID.
+        """Get information about a client by agent ID.
 
         Args:
             agent_id: Agent identifier
@@ -180,8 +180,7 @@ class ConnectionManager:
     def get_client_by_zmq_id(
         self, zmq_id: bytes
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        """
-        Find client by ZMQ identity.
+        """Find client by ZMQ identity.
 
         Args:
             zmq_id: ZMQ identity frame
@@ -195,8 +194,7 @@ class ConnectionManager:
         return None, None
 
     def update_client_activity(self, agent_id: str) -> None:
-        """
-        Update the last activity timestamp for a client.
+        """Update the last activity timestamp for a client.
 
         Args:
             agent_id: Agent identifier
@@ -208,8 +206,7 @@ class ConnectionManager:
     async def send_message(
         self, agent_id: str, protocol_type: str, message: bytes
     ) -> bool:
-        """
-        Send a message to a specific client.
+        """Send a message to a specific client.
 
         Args:
             agent_id: Agent identifier
@@ -229,7 +226,9 @@ class ConnectionManager:
         try:
             if protocol_type == "fcp":
                 # Control messages use ROUTER-DEALER pattern
-                await self.control_socket.send_multipart([zmq_id, b"", message])
+                await self.control_socket.send_multipart(
+                    [zmq_id, b"", message]
+                )
             elif protocol_type == "fsmp_sensory":
                 # Sensory data is received, not sent to clients
                 logger.warning(
@@ -248,7 +247,9 @@ class ConnectionManager:
                     )
                     return False
                 topic = b"activity"  # Default topic
-                await self.visualization_socket.send_multipart([topic, message])
+                await self.visualization_socket.send_multipart(
+                    [topic, message]
+                )
             else:
                 logger.error(f"Unknown protocol type: {protocol_type}")
                 return False
@@ -263,8 +264,8 @@ class ConnectionManager:
             return False
 
     def get_inactive_clients(self, timeout_seconds: int = 30) -> List[str]:
-        """
-        Get a list of clients that have been inactive for longer than the specified timeout.
+        """Get a list of clients that have been inactive for longer than the
+        specified timeout.
 
         Args:
             timeout_seconds: Number of seconds of inactivity to consider a client inactive
@@ -280,8 +281,7 @@ class ConnectionManager:
         ]
 
     def get_connection_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about current connections.
+        """Get statistics about current connections.
 
         Returns:
             Dictionary of connection statistics
@@ -323,18 +323,19 @@ class ConnectionManager:
 
 
 class ZMQConnectionManager:
-    """
-    ZeroMQ Connection Manager.
+    """ZeroMQ Connection Manager.
 
-    This singleton manages all ZeroMQ connections for FEAGI API.
-    It ensures consistent state across all streams and handles
-    lifecycle management for connections.
+    This singleton manages all ZeroMQ connections for FEAGI API. It ensures
+    consistent state across all streams and handles lifecycle management for
+    connections.
     """
 
     _instance = None
 
     @classmethod
-    def instance(cls, core_api: Optional[CoreAPIService] = None, host: str = None):
+    def instance(
+        cls, core_api: Optional[CoreAPIService] = None, host: str = None
+    ):
         """Get the singleton instance."""
         if cls._instance is None:
             if host is None:
@@ -344,9 +345,10 @@ class ZMQConnectionManager:
             cls._instance = ZMQConnectionManager(core_api, host)
         return cls._instance
 
-    def __init__(self, core_api: Optional[CoreAPIService] = None, host: str = None):
-        """
-        Initialize the connection manager.
+    def __init__(
+        self, core_api: Optional[CoreAPIService] = None, host: str = None
+    ):
+        """Initialize the connection manager.
 
         Args:
             core_api: Core API service
@@ -379,14 +381,15 @@ class ZMQConnectionManager:
 
         # Register for genome state change notifications
         if core_api and hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         # Initialize active mode
         self._update_active_mode()
 
     def create_server(self, server_type: str = "default", **kwargs) -> Any:
-        """
-        Create a ZMQ server instance.
+        """Create a ZMQ server instance.
 
         Args:
             server_type: Type of server to create
@@ -490,7 +493,9 @@ class ZMQConnectionManager:
         if new_state == GenomeState.LOADED:
             # Transition to active mode when genome is loaded
             self._active_mode = True
-            logger.info("ZMQConnectionManager: Entering ACTIVE mode (genome loaded)")
+            logger.info(
+                "ZMQConnectionManager: Entering ACTIVE mode (genome loaded)"
+            )
         else:
             # Any other state means genome not fully loaded
             self._active_mode = False

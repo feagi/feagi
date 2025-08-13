@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +46,8 @@ def generate_cortical_id(prefix="C", seed="___"):
 class CorticalArea:
     """Represents a cortical area in the connectome.
 
-    Cortical areas are three-dimensional regions that contain populations of neurons
-    and have specific functional roles in the brain.
+    Cortical areas are three-dimensional regions that contain populations of
+    neurons and have specific functional roles in the brain.
     """
 
     def __init__(
@@ -141,7 +139,11 @@ class CorticalArea:
             True if the position is within this area, False otherwise
         """
         x, y, z = position
-        return 0 <= x < self.width and 0 <= y < self.height and 0 <= z < self.depth
+        return (
+            0 <= x < self.width
+            and 0 <= y < self.height
+            and 0 <= z < self.depth
+        )
 
     def resize(self, new_dimensions: Tuple[int, int, int]) -> List[int]:
         """Resize the cortical area to new dimensions.
@@ -185,7 +187,9 @@ class CorticalArea:
 
         return removed_indices
 
-    def add_neuron(self, neuron_id: int, position: Tuple[int, int, int]) -> bool:
+    def add_neuron(
+        self, neuron_id: int, position: Tuple[int, int, int]
+    ) -> bool:
         """Add a neuron to this area.
 
         Args:
@@ -236,7 +240,9 @@ class CorticalArea:
 
         return True
 
-    def get_neuron_position(self, neuron_id: int) -> Optional[Tuple[int, int, int]]:
+    def get_neuron_position(
+        self, neuron_id: int
+    ) -> Optional[Tuple[int, int, int]]:
         """Get the position of a neuron in this area.
 
         Args:
@@ -292,7 +298,9 @@ class CorticalArea:
         """
         return list(self._neuron_indices)
 
-    def get_neurons_at_position(self, position: Tuple[int, int, int]) -> List[int]:
+    def get_neurons_at_position(
+        self, position: Tuple[int, int, int]
+    ) -> List[int]:
         """Get all neurons at a specific position.
 
         Args:
@@ -329,7 +337,13 @@ class CorticalArea:
         Raises:
             KeyError: If an invalid property is specified
         """
-        valid_properties = {"name", "position", "dimensions", "area_type", "properties"}
+        valid_properties = {
+            "name",
+            "position",
+            "dimensions",
+            "area_type",
+            "properties",
+        }
 
         for key, value in updates.items():
             if key not in valid_properties:

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,11 +34,10 @@ logger = logging.getLogger(__name__)
 
 
 class MessageHandler:
-    """
-    Base class for protocol-specific message handlers.
+    """Base class for protocol-specific message handlers.
 
-    This class handles the common logic for receiving and processing
-    messages from ZMQ ROUTER sockets with byte structure serialization.
+    This class handles the common logic for receiving and processing messages
+    from ZMQ ROUTER sockets with byte structure serialization.
     """
 
     def __init__(
@@ -49,8 +46,7 @@ class MessageHandler:
         translator: ByteStructureTranslator,
         protocol_type: str,
     ):
-        """
-        Initialize the message handler.
+        """Initialize the message handler.
 
         Args:
             connection_manager: Connection manager instance
@@ -67,7 +63,8 @@ class MessageHandler:
         if protocol_type == "fcp":
             self.socket = connection_manager.control_socket
         elif protocol_type == "fsmp":
-            # Using sensory socket for FSMP as it's primarily for receiving data
+            #  Using sensory socket for FSMP as it's primarily for receiving
+            #  data
             # But sensory socket may be None if handled by dedicated stream
             self.socket = connection_manager.sensory_socket
             if self.socket is None:
@@ -119,7 +116,9 @@ class MessageHandler:
 
         # Additional safety check for None socket
         if self.socket is None:
-            logger.warning(f"{self.protocol_type} handler started but socket is None")
+            logger.warning(
+                f"{self.protocol_type} handler started but socket is None"
+            )
             return
 
         while self.running:
@@ -128,21 +127,24 @@ class MessageHandler:
                 message_parts = await self.socket.recv_multipart()
 
                 if len(message_parts) != 3:
-                    logger.warning(f"Received malformed message: {message_parts}")
+                    logger.warning(
+                        f"Received malformed message: {message_parts}"
+                    )
                     continue
 
                 client_id, empty, message_data = message_parts
 
                 # Look up client by ZMQ identity
-                agent_id, client_info = self.connection_manager.get_client_by_zmq_id(
-                    client_id
+                agent_id, client_info = (
+                    self.connection_manager.get_client_by_zmq_id(client_id)
                 )
 
                 if not agent_id:
                     logger.warning(
                         f"Received message from unknown client: {client_id.hex()}"
                     )
-                    # We might want to handle new clients here, e.g., for initial handshake
+                    #  We might want to handle new clients here, e.g., for
+                    #  initial handshake
                     continue
 
                 # Update client activity
@@ -166,27 +168,34 @@ class MessageHandler:
                         )
 
                 except Exception as e:
-                    logger.error(f"Error processing message from {agent_id}: {e}")
+                    logger.error(
+                        f"Error processing message from {agent_id}: {e}"
+                    )
 
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     # No message available
                     await asyncio.sleep(0.01)
                 else:
-                    logger.error(f"ZMQ error in {self.protocol_type} handler: {e}")
-                    await asyncio.sleep(1)  # Avoid tight loop on persistent errors
+                    logger.error(
+                        f"ZMQ error in {self.protocol_type} handler: {e}"
+                    )
+                    await asyncio.sleep(
+                        1
+                    )  # Avoid tight loop on persistent errors
 
             except asyncio.CancelledError:
                 logger.info(f"{self.protocol_type} message handler cancelled")
                 break
 
             except Exception as e:
-                logger.error(f"Unexpected error in {self.protocol_type} handler: {e}")
+                logger.error(
+                    f"Unexpected error in {self.protocol_type} handler: {e}"
+                )
                 await asyncio.sleep(1)  # Avoid tight loop on persistent errors
 
     def _decode_message(self, message_data: bytes) -> Dict[str, Any]:
-        """
-        Decode a byte structure message.
+        """Decode a byte structure message.
 
         Args:
             message_data: Raw message data
@@ -200,8 +209,7 @@ class MessageHandler:
     async def _process_message(
         self, agent_id: str, message: Dict[str, Any]
     ) -> Optional[bytes]:
-        """
-        Process a decoded message.
+        """Process a decoded message.
 
         Args:
             agent_id: Agent identifier
@@ -221,12 +229,12 @@ class FCPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
-        """
-        Initialize the FCP message handler.
+        """Initialize the FCP message handler.
 
         Args:
             connection_manager: Connection manager instance
@@ -253,12 +261,12 @@ class FSMPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
-        """
-        Initialize the FSMP message handler.
+        """Initialize the FSMP message handler.
 
         Args:
             connection_manager: Connection manager instance
@@ -285,12 +293,12 @@ class FVPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
-        """
-        Initialize the FVP message handler.
+        """Initialize the FVP message handler.
 
         Args:
             connection_manager: Connection manager instance
@@ -317,12 +325,12 @@ class HandshakeMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
-        """
-        Initialize the Handshake message handler.
+        """Initialize the Handshake message handler.
 
         Args:
             connection_manager: Connection manager instance
@@ -337,17 +345,19 @@ class HandshakeMessageHandler(MessageHandler):
     async def _process_message(
         self, agent_id: str, message: Dict[str, Any]
     ) -> Optional[bytes]:
-        """
-        Process a Handshake message.
+        """Process a Handshake message.
 
-        For new clients (agent_id is None), we generate an agent ID from the hello message.
+        For new clients (agent_id is None), we generate an agent ID from the
+        hello message.
         """
         if message.get("message_type") == "hello":
             # For hello messages, we might not have an agent ID yet
             # The client ID is provided in the hello message
             client_id = message.get("agent_id")
             client_type = message.get("agent_type")
-            logger.info(f"Received hello from {client_type} client '{client_id}'")
+            logger.info(
+                f"Received hello from {client_type} client '{client_id}'"
+            )
 
             # Use the provided agent_id
             agent_id = client_id
@@ -362,8 +372,7 @@ async def start_message_handlers(
     schema_loaders: Optional[Dict[str, Callable]],
     message_processors: Dict[str, Callable],
 ) -> Dict[str, MessageHandler]:
-    """
-    Start all message handlers.
+    """Start all message handlers.
 
     Args:
         connection_manager: Connection manager instance
@@ -408,8 +417,7 @@ async def start_message_handlers(
 
 
 async def stop_message_handlers(handlers: Dict[str, MessageHandler]) -> None:
-    """
-    Stop all message handlers.
+    """Stop all message handlers.
 
     Args:
         handlers: Dictionary of message handlers

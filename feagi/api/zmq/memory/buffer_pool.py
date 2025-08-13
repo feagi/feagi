@@ -1,8 +1,7 @@
-"""
-Static buffer pools for zero-allocation neural data processing.
+"""Static buffer pools for zero-allocation neural data processing.
 
-Pre-allocates buffers of fixed sizes to eliminate dynamic allocation
-in the critical path of neural data processing.
+Pre-allocates buffers of fixed sizes to eliminate dynamic allocation in the
+critical path of neural data processing.
 """
 
 import mmap
@@ -44,8 +43,7 @@ class Buffer:
 
 
 class FixedBufferPool:
-    """
-    Fixed-size buffer pool with static allocation.
+    """Fixed-size buffer pool with static allocation.
 
     Features:
     - Pre-allocated buffers at initialization
@@ -63,8 +61,7 @@ class FixedBufferPool:
         numa_node: int = -1,
         name: str = "buffer_pool",
     ):
-        """
-        Initialize buffer pool.
+        """Initialize buffer pool.
 
         Args:
             count: Number of buffers to pre-allocate
@@ -129,8 +126,7 @@ class FixedBufferPool:
             self.buffers.append(view)
 
     def acquire(self, timeout: Optional[float] = None) -> Optional[Buffer]:
-        """
-        Acquire a buffer from the pool.
+        """Acquire a buffer from the pool.
 
         Args:
             timeout: Timeout in seconds (None for non-blocking)
@@ -151,7 +147,9 @@ class FixedBufferPool:
         with self._stats_lock:
             self.stats["total_acquires"] += 1
             current_usage = self.count - self.free_queue.qsize()
-            self.stats["peak_usage"] = max(self.stats["peak_usage"], current_usage)
+            self.stats["peak_usage"] = max(
+                self.stats["peak_usage"], current_usage
+            )
 
         return Buffer(
             data=self.buffers[slot_id],
@@ -161,8 +159,7 @@ class FixedBufferPool:
         )
 
     def release(self, buffer: Buffer):
-        """
-        Release a buffer back to the pool.
+        """Release a buffer back to the pool.
 
         Args:
             buffer: Buffer to release
@@ -177,8 +174,10 @@ class FixedBufferPool:
             self.free_queue.put(buffer.slot_id, block=False)
             with self._stats_lock:
                 self.stats["total_releases"] += 1
-        except Full:
-            raise BufferPoolError("Buffer pool corruption: too many releases")
+        except Full as e:
+            raise BufferPoolError(
+                "Buffer pool corruption: too many releases"
+            ) from e
 
     @property
     def available(self) -> int:
@@ -197,16 +196,14 @@ class FixedBufferPool:
 
 
 class NeuralBufferPool:
-    """
-    Specialized buffer pool system for neural data arrays.
+    """Specialized buffer pool system for neural data arrays.
 
-    Pre-allocates buffers based on cortical area configurations
-    to ensure zero allocation during neural processing.
+    Pre-allocates buffers based on cortical area configurations to ensure zero
+    allocation during neural processing.
     """
 
     def __init__(self, cortical_config: Dict[str, Dict[str, any]]):
-        """
-        Initialize neural buffer pools.
+        """Initialize neural buffer pools.
 
         Args:
             cortical_config: Configuration for each cortical area
@@ -222,12 +219,15 @@ class NeuralBufferPool:
                 continue
 
             # Calculate buffer size for neural data
-            # Each neuron needs: 4 bytes (float32) firing + 12 bytes (3 x int32) coordinates
+            #  Each neuron needs: 4 bytes (float32) firing + 12 bytes (3 x
+            #  int32) coordinates
             buffer_size = neuron_count * 16
 
             # Create pool with area-specific configuration
             pool = FixedBufferPool(
-                count=config.get("buffer_count", 32),  # Default 32 buffers per area
+                count=config.get(
+                    "buffer_count", 32
+                ),  # Default 32 buffers per area
                 size=buffer_size,
                 alignment=64,  # Cache line alignment
                 numa_node=config.get("numa_node", -1),
@@ -258,8 +258,7 @@ class NeuralBufferPool:
             self.generic_pools[size] = pool
 
     def get_buffer_for_area(self, area_id: str) -> Optional[Buffer]:
-        """
-        Get pre-sized buffer for specific cortical area.
+        """Get pre-sized buffer for specific cortical area.
 
         Args:
             area_id: Cortical area identifier
@@ -273,8 +272,7 @@ class NeuralBufferPool:
         return None
 
     def get_buffer_by_size(self, size: int) -> Optional[Buffer]:
-        """
-        Get buffer from generic pool by size.
+        """Get buffer from generic pool by size.
 
         Args:
             size: Required buffer size
@@ -289,14 +287,15 @@ class NeuralBufferPool:
         return None
 
     def release_buffer(self, buffer: Buffer):
-        """
-        Release buffer back to its pool.
+        """Release buffer back to its pool.
 
         Args:
             buffer: Buffer to release
         """
         # Find pool by ID
-        for pool in list(self.pools.values()) + list(self.generic_pools.values()):
+        for pool in list(self.pools.values()) + list(
+            self.generic_pools.values()
+        ):
             if id(pool) == buffer.pool_id:
                 pool.release(buffer)
                 return
@@ -352,7 +351,10 @@ if __name__ == "__main__":
 
     # Neural buffer pool example
     cortical_config = {
-        "visual_cortex": {"neuron_count": 10000, "buffer_count": 16},
+        "visual_cortex": {
+            "neuron_count": 100000,
+            "buffer_count": 16,
+        },  # VISUALIZATION FIX: Increased from 10,000 to 100,000
         "motor_cortex": {"neuron_count": 5000, "buffer_count": 8},
     }
 

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,17 +33,23 @@ from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 # Add the project root to the path if needed
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")
+)
 sys.path.insert(0, project_root)
 
 # Try importing our dependencies, with helpful error messages
 try:
     from feagi.bdu.connectome_manager import ConnectomeManager
-    from feagi.bdu.neuroembryogenesis import DevelopmentStage, Neuroembryogenesis
+    from feagi.bdu.neuroembryogenesis import (
+        DevelopmentStage,
+        Neuroembryogenesis,
+    )
     from feagi.utils.config import FeagiConfig
 except ImportError as e:
     print(f"Error importing dependencies: {e}")
@@ -107,7 +111,8 @@ def main():
     }
 
     try:
-        # Try different ways to initialize FeagiConfig depending on its implementation
+        #  Try different ways to initialize FeagiConfig depending on its
+        #  implementation
         try:
             config = FeagiConfig(**config_dict)
         except TypeError:

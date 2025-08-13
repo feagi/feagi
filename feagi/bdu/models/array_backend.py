@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -77,9 +75,9 @@ class PrecisionType(Enum):
 class ArrayBackend:
     """Backend-agnostic array operations.
 
-    This class provides a unified interface for array operations across different
-    backends (NumPy, PyTorch, CuPy, WebGPU), enabling transparent switching
-    between CPU and GPU acceleration.
+    This class provides a unified interface for array operations across
+    different backends (NumPy, PyTorch, CuPy, WebGPU), enabling transparent
+    switching between CPU and GPU acceleration.
     """
 
     def __init__(
@@ -101,9 +99,16 @@ class ArrayBackend:
             try:
                 backend_type = BackendType(backend_type.lower())
             except ValueError:
-                # Only raise ValueError for obviously invalid strings, allow fallback for edge cases
-                if backend_type.lower() in ['invalid_backend', 'invalid', 'bad_backend']:
-                    raise ValueError(f"Unknown backend type: {backend_type}. Valid types are: {[bt.value for bt in BackendType]}")
+                #  Only raise ValueError for obviously invalid strings, allow
+                #  fallback for edge cases
+                if backend_type.lower() in [
+                    "invalid_backend",
+                    "invalid",
+                    "bad_backend",
+                ]:
+                    raise ValueError(
+                        f"Unknown backend type: {backend_type}. Valid types are: {[bt.value for bt in BackendType]}"
+                    )
                 else:
                     logger.warning(
                         f"Unknown backend type: {backend_type}. Falling back to AUTO."
@@ -121,12 +126,15 @@ class ArrayBackend:
 
         self.backend_type = self._resolve_backend_type(backend_type)
         self.precision = precision
-        # Initialize default device (will be overridden by specific backends if needed)
+        #  Initialize default device (will be overridden by specific backends
+        #  if needed)
         self.device = "cpu"
         self._initialize_backend()
 
         # Check if backend_type is not None before trying to access value
-        backend_name = self.backend_type.value if self.backend_type else "unknown"
+        backend_name = (
+            self.backend_type.value if self.backend_type else "unknown"
+        )
         precision_name = self.precision.value if self.precision else "fp32"
         logger.info(
             f"Using array backend: {backend_name} with precision: {precision_name}"
@@ -154,8 +162,11 @@ class ArrayBackend:
             if self._is_backend_available(candidate):
                 return candidate
 
-        # If no backend is available (unlikely, as NumPy should always be), default to NumPy
-        logger.warning("No array backend could be resolved. Defaulting to NumPy.")
+        #  If no backend is available (unlikely, as NumPy should always be),
+        #  default to NumPy
+        logger.warning(
+            "No array backend could be resolved. Defaulting to NumPy."
+        )
         return BackendType.NUMPY
 
     @staticmethod
@@ -171,9 +182,9 @@ class ArrayBackend:
         if backend_type == BackendType.NUMPY:
             return True
         elif backend_type == BackendType.PYTORCH:
-            return TORCH_AVAILABLE and (
-                torch.cuda.is_available() or True
-            )  # CPU fallback
+            #  PyTorch backend is available if torch is importable. CUDA usage
+            #  is selected at init.
+            return TORCH_AVAILABLE
         elif backend_type == BackendType.CUPY:
             return CUPY_AVAILABLE
         elif backend_type == BackendType.WGPU:
@@ -229,7 +240,9 @@ class ArrayBackend:
                     from torch.cuda.amp import autocast
 
                     self.autocast = autocast
-                    logger.info("Using Automatic Mixed Precision with PyTorch CUDA")
+                    logger.info(
+                        "Using Automatic Mixed Precision with PyTorch CUDA"
+                    )
                 except ImportError:
                     logger.warning(
                         "AMP not available in this PyTorch version, falling back to FP32"
@@ -243,7 +256,7 @@ class ArrayBackend:
         if not CUPY_AVAILABLE:
             logger.error("CuPy not available but CuPy backend requested")
             raise ImportError("CuPy package not available")
-        
+
         # Use default CUDA device
         if self.precision == PrecisionType.FP16:
             try:
@@ -254,7 +267,9 @@ class ArrayBackend:
                     f"Using CuPy with device: {cp.cuda.runtime.getDeviceProperties(0)['name'].decode()} (FP16 enabled)"
                 )
             except Exception as e:
-                logger.warning(f"FP16 not supported by CuPy: {e}, falling back to FP32")
+                logger.warning(
+                    f"FP16 not supported by CuPy: {e}, falling back to FP32"
+                )
                 self.precision = PrecisionType.FP32
         else:
             logger.info(
@@ -262,7 +277,8 @@ class ArrayBackend:
             )
 
     def _initialize_wgpu(self):
-        """Initialize wgpu backend (Rust-based GPU library with Metal backend on Mac)."""
+        """Initialize wgpu backend (Rust-based GPU library with Metal backend
+        on Mac)."""
         if not WGPU_AVAILABLE:
             logger.error("wgpu not available but wgpu backend requested")
             raise RuntimeError("wgpu package not available")
@@ -352,7 +368,8 @@ class ArrayBackend:
         if self.backend_type == BackendType.NUMPY:
             return np.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
-            # For uint32, we need special handling since PyTorch doesn't support it
+            #  For uint32, we need special handling since PyTorch doesn't
+            #  support it
             if adjusted_dtype == np.uint32:
                 # Use int64 in PyTorch but preserve uint32 semantics
                 torch_dtype = torch.int64
@@ -362,7 +379,9 @@ class ArrayBackend:
             if isinstance(shape, int):
                 shape = (shape,)
             # Convert string device to torch.device
-            device = torch.device(self.device) if hasattr(self, "device") else None
+            device = (
+                torch.device(self.device) if hasattr(self, "device") else None
+            )
             tensor = torch.zeros(shape, dtype=torch_dtype, device=device)
             # Mark it as uint32 for tracking purposes
             if adjusted_dtype == np.uint32:
@@ -404,7 +423,9 @@ class ArrayBackend:
             if isinstance(shape, int):
                 shape = (shape,)
             # Convert string device to torch.device
-            device = torch.device(self.device) if hasattr(self, "device") else None
+            device = (
+                torch.device(self.device) if hasattr(self, "device") else None
+            )
             return torch.ones(shape, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.ones(shape, dtype=adjusted_dtype)
@@ -445,8 +466,12 @@ class ArrayBackend:
             if isinstance(shape, int):
                 shape = (shape,)
             # Convert string device to torch.device
-            device = torch.device(self.device) if hasattr(self, "device") else None
-            return torch.full(shape, fill_value, dtype=torch_dtype, device=device)
+            device = (
+                torch.device(self.device) if hasattr(self, "device") else None
+            )
+            return torch.full(
+                shape, fill_value, dtype=torch_dtype, device=device
+            )
         elif self.backend_type == BackendType.CUPY:
             return cp.full(shape, fill_value, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.WGPU:
@@ -469,14 +494,18 @@ class ArrayBackend:
             For explicit type conversion, always specify dtype parameter.
         """
         # Only apply precision adjustments if dtype is explicitly provided
-        adjusted_dtype = None if dtype is None else self._get_dtype_for_precision(dtype)
+        adjusted_dtype = (
+            None if dtype is None else self._get_dtype_for_precision(dtype)
+        )
 
         if self.backend_type == BackendType.NUMPY:
             # For NumPy, let it infer the type naturally if no dtype specified
             if dtype is None:
                 result = np.array(data)  # Natural type inference
             else:
-                result = np.array(data, dtype=adjusted_dtype)  # Explicit conversion
+                result = np.array(
+                    data, dtype=adjusted_dtype
+                )  # Explicit conversion
             return result
         elif self.backend_type == BackendType.PYTORCH:
             # Convert data to NumPy first if it's not already a tensor
@@ -490,13 +519,21 @@ class ArrayBackend:
                 )
 
                 # Convert string device to torch.device
-                device = torch.device(self.device) if hasattr(self, "device") else None
+                device = (
+                    torch.device(self.device)
+                    if hasattr(self, "device")
+                    else None
+                )
 
                 # Create tensor with specified dtype and device
                 return torch.tensor(data_np, dtype=torch_dtype, device=device)
             else:
                 # If already a tensor, just ensure it's on the right device
-                device = torch.device(self.device) if hasattr(self, "device") else None
+                device = (
+                    torch.device(self.device)
+                    if hasattr(self, "device")
+                    else None
+                )
                 if device is not None and data.device != device:
                     data = data.to(device)
                 return data
@@ -566,8 +603,10 @@ class ArrayBackend:
             if self.precision == PrecisionType.FP16 and np.issubdtype(
                 data_np.dtype, np.floating
             ):
-                # Note: SciPy CSR doesn't work well with float16 due to internal code,
-                # so we'll use float32 for internal storage but mark it for FP16 precision
+                #  Note: SciPy CSR doesn't work well with float16 due to
+                #  internal code,
+                #  so we'll use float32 for internal storage but mark it for
+                #  FP16 precision
                 # This is a workaround for SciPy sparse matrix limitations
                 data_np = data_np.astype(np.float32)
                 csr = scipy.sparse.csr_matrix(
@@ -602,8 +641,12 @@ class ArrayBackend:
                 data_np = data_np.astype(np.int8)
 
             # Convert to torch tensors
-            values = torch.tensor(data_np, dtype=torch_dtype, device=self.device)
-            indices = torch.tensor(indices, dtype=torch.long, device=self.device)
+            values = torch.tensor(
+                data_np, dtype=torch_dtype, device=self.device
+            )
+            indices = torch.tensor(
+                indices, dtype=torch.long, device=self.device
+            )
             indptr = torch.tensor(indptr, dtype=torch.long, device=self.device)
 
             # Create sparse tensor using torch.sparse_csr_tensor
@@ -616,12 +659,18 @@ class ArrayBackend:
                 logger.warning(
                     "torch.sparse_csr_tensor not available, falling back to COO format"
                 )
-                csr = scipy.sparse.csr_matrix((data_np, indices, indptr), shape=shape)
+                csr = scipy.sparse.csr_matrix(
+                    (data_np, indices, indptr), shape=shape
+                )
                 coo = csr.tocoo()
                 indices = torch.tensor(
-                    np.vstack((coo.row, coo.col)), dtype=torch.long, device=self.device
+                    np.vstack((coo.row, coo.col)),
+                    dtype=torch.long,
+                    device=self.device,
                 )
-                values = torch.tensor(coo.data, dtype=torch_dtype, device=self.device)
+                values = torch.tensor(
+                    coo.data, dtype=torch_dtype, device=self.device
+                )
                 return torch.sparse_coo_tensor(
                     indices, values, torch.Size(shape), device=self.device
                 )
@@ -638,10 +687,12 @@ class ArrayBackend:
                 data_np = data_np.astype(np.int8)
 
             return cp.sparse.csr_matrix(
-                (cp.array(data_np), cp.array(indices), cp.array(indptr)), shape=shape
+                (cp.array(data_np), cp.array(indices), cp.array(indptr)),
+                shape=shape,
             )
         elif self.backend_type == BackendType.WGPU:
-            # wgpu doesn't have built-in sparse matrix support, so we'll convert to dense
+            #  wgpu doesn't have built-in sparse matrix support, so we'll
+            #  convert to dense
             logger.warning(
                 "wgpu doesn't have native sparse matrix support. Converting to dense."
             )
@@ -657,7 +708,9 @@ class ArrayBackend:
             ):
                 data_np = data_np.astype(np.int8)
 
-            csr = scipy.sparse.csr_matrix((data_np, indices, indptr), shape=shape)
+            csr = scipy.sparse.csr_matrix(
+                (data_np, indices, indptr), shape=shape
+            )
             dense = csr.toarray()
             return self._numpy_to_wgpu(dense)
 
@@ -674,11 +727,17 @@ class ArrayBackend:
             # NumPy is always on CPU, nothing to do
             return array
         elif self.backend_type == BackendType.PYTORCH:
-            if isinstance(array, torch.Tensor) and array.device.type != self.device:
+            if (
+                isinstance(array, torch.Tensor)
+                and array.device.type != self.device
+            ):
                 return array.to(self.device)
             elif isinstance(array, np.ndarray):
                 # Apply precision conversion before moving to torch
-                if self.precision == PrecisionType.FP16 and array.dtype == np.float32:
+                if (
+                    self.precision == PrecisionType.FP16
+                    and array.dtype == np.float32
+                ):
                     array = array.astype(np.float16)
                 tensor = torch.from_numpy(array).to(self.device)
                 if (
@@ -692,7 +751,10 @@ class ArrayBackend:
         elif self.backend_type == BackendType.CUPY:
             if isinstance(array, np.ndarray):
                 # Apply precision conversion before moving to cupy
-                if self.precision == PrecisionType.FP16 and array.dtype == np.float32:
+                if (
+                    self.precision == PrecisionType.FP16
+                    and array.dtype == np.float32
+                ):
                     array = array.astype(np.float16)
                 return cp.array(array)
             else:
@@ -700,7 +762,10 @@ class ArrayBackend:
         elif self.backend_type == BackendType.WGPU:
             if isinstance(array, np.ndarray):
                 # Apply precision conversion before moving to wgpu
-                if self.precision == PrecisionType.FP16 and array.dtype == np.float32:
+                if (
+                    self.precision == PrecisionType.FP16
+                    and array.dtype == np.float32
+                ):
                     array = array.astype(np.float16)
                 return self._numpy_to_wgpu(array)
             else:
@@ -768,7 +833,9 @@ class ArrayBackend:
         buffer._feagi_shape = array.shape
         buffer._feagi_dtype = array.dtype
         buffer._feagi_size = array.size  # Total number of elements
-        buffer._feagi_nbytes = len(gpu_array.tobytes())  # Actual buffer size in bytes
+        buffer._feagi_nbytes = len(
+            gpu_array.tobytes()
+        )  # Actual buffer size in bytes
 
         return buffer
 
@@ -786,7 +853,9 @@ class ArrayBackend:
 
         # Copy from GPU buffer to staging buffer
         encoder = self.device.create_command_encoder()
-        encoder.copy_buffer_to_buffer(buffer, 0, staging_buffer, 0, buffer.size)
+        encoder.copy_buffer_to_buffer(
+            buffer, 0, staging_buffer, 0, buffer.size
+        )
         self.device.queue.submit([encoder.finish()])
 
         # Map the staging buffer and read its contents (synchronous)
@@ -840,12 +909,22 @@ class ArrayBackend:
                 # For mixed precision or default, we'll use float32
                 return np.matmul(a, b)
         elif self.backend_type == BackendType.PYTORCH:
-            if self.precision == PrecisionType.MIXED and hasattr(self, "autocast"):
+            if self.precision == PrecisionType.MIXED and hasattr(
+                self, "autocast"
+            ):
                 with self.autocast():
                     return torch.matmul(a, b)
             elif self.precision == PrecisionType.FP16:
-                a_torch = a.to(dtype=torch.float16) if a.dtype != torch.float16 else a
-                b_torch = b.to(dtype=torch.float16) if b.dtype != torch.float16 else b
+                a_torch = (
+                    a.to(dtype=torch.float16)
+                    if a.dtype != torch.float16
+                    else a
+                )
+                b_torch = (
+                    b.to(dtype=torch.float16)
+                    if b.dtype != torch.float16
+                    else b
+                )
                 return torch.matmul(a_torch, b_torch)
             else:
                 return torch.matmul(a, b)
@@ -865,8 +944,10 @@ class ArrayBackend:
             else:
                 return cp.matmul(a, b)
         elif self.backend_type == BackendType.WGPU:
-            # For wgpu, we can use a precompiled shader for matrix multiplication
-            # This is a simplified example; in practice, you would need to handle different shapes
+            #  For wgpu, we can use a precompiled shader for matrix
+            #  multiplication
+            #  This is a simplified example; in practice, you would need to
+            #  handle different shapes
             a_numpy = self._wgpu_to_numpy(a)
             b_numpy = self._wgpu_to_numpy(b)
 
@@ -895,17 +976,21 @@ class ArrayBackend:
                 torch.cuda.current_device()
             )
             stats["cuda_version"] = torch.version.cuda
-            stats["memory_allocated_mb"] = torch.cuda.memory_allocated() / (1024 * 1024)
-            stats["memory_cached_mb"] = torch.cuda.memory_reserved() / (1024 * 1024)
+            stats["memory_allocated_mb"] = torch.cuda.memory_allocated() / (
+                1024 * 1024
+            )
+            stats["memory_cached_mb"] = torch.cuda.memory_reserved() / (
+                1024 * 1024
+            )
             stats["max_memory_mb"] = torch.cuda.get_device_properties(
                 torch.cuda.current_device()
             ).total_memory / (1024 * 1024)
         elif self.backend_type == BackendType.CUPY:
             device_id = cp.cuda.Device().id
             stats["device"] = f"cuda:{device_id}"
-            stats["device_name"] = cp.cuda.runtime.getDeviceProperties(device_id)[
-                "name"
-            ].decode()
+            stats["device_name"] = cp.cuda.runtime.getDeviceProperties(
+                device_id
+            )["name"].decode()
             stats["memory_allocated_mb"] = cp.cuda.Device().mem_info[1] / (
                 1024 * 1024
             )  # Used memory
@@ -944,7 +1029,10 @@ class ArrayBackend:
             numpy_array = array.detach().cpu().numpy()
 
             # If this was originally uint32, convert it back
-            if hasattr(array, "_feagi_dtype") and array._feagi_dtype == np.uint32:
+            if (
+                hasattr(array, "_feagi_dtype")
+                and array._feagi_dtype == np.uint32
+            ):
                 numpy_array = numpy_array.astype(np.uint32)
 
             return numpy_array
@@ -966,7 +1054,8 @@ class ArrayBackend:
     def set_item(
         self, array: Any, index: Union[int, Tuple[int, ...]], value: Any
     ) -> None:
-        """Set item at index in array (handles GPU buffers that don't support item assignment).
+        """Set item at index in array (handles GPU buffers that don't support
+        item assignment).
 
         Args:
             array: Array to modify
@@ -980,8 +1069,10 @@ class ArrayBackend:
         elif self.backend_type == BackendType.CUPY:
             array[index] = value
         elif self.backend_type == BackendType.WGPU:
-            # For wgpu, we need to handle this differently since GPU buffers don't support item assignment
-            # Convert to numpy, modify, then upload back (inefficient but works for now)
+            #  For wgpu, we need to handle this differently since GPU buffers
+            #  don't support item assignment
+            #  Convert to numpy, modify, then upload back (inefficient but
+            #  works for now)
             numpy_array = self._wgpu_to_numpy(array)
             numpy_array[index] = value
             # Update the GPU buffer by recreating it
@@ -991,7 +1082,8 @@ class ArrayBackend:
             new_buffer._feagi_dtype = array._feagi_dtype
             new_buffer._feagi_size = array._feagi_size
             # Replace the original buffer's contents (this is a workaround)
-            # In practice, we'd need to modify the calling code to handle this better
+            #  In practice, we'd need to modify the calling code to handle this
+            #  better
             logger.warning(
                 "wgpu item assignment requires buffer recreation - consider batch operations for better performance"
             )

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +30,7 @@ from feagi.utils.logger import setup_logger
 from .decorators import endpoint
 from .schemas import (
     CreateMorphologyRequest,
+    DirectMorphologyRequest,
     MorphologyInfoResponse,
     MorphologyListResponse,
     MorphologyNameRequest,
@@ -71,6 +70,22 @@ class MorphologyAPI:
         """Initialize with core API service dependency."""
         self.core_api_service = core_api_service
 
+    def _auto_detect_dimension_sensitive(self, morphology_type: str) -> bool:
+        """Auto-detect dimension_sensitive based on morphology type.
+
+        Args:
+            morphology_type: The type of morphology (patterns, vectors, functions, etc.)
+
+        Returns:
+            bool: True if dimension-sensitive, False if dimension-agnostic
+        """
+        if morphology_type in ["patterns", "vectors"]:
+            return False  # Dimension-agnostic
+        elif morphology_type == "functions":
+            return True  # Dimension-sensitive (e.g., projectors)
+        else:
+            return False  # Conservative default for composite/unknown types
+
     # ===== Morphology Information =====
 
     @morphology_endpoint("GET", "/morphology_list", response_model=List[str])
@@ -81,7 +96,7 @@ class MorphologyAPI:
             return morphologies
         except Exception as e:
             logger.error(f"Error getting morphology list: {e}")
-            raise ValueError(f"Failed to get morphology list: {str(e)}")
+            raise ValueError(f"Failed to get morphology list: {str(e)}") from e
 
     @morphology_endpoint("GET", "/morphology_types", response_model=List[str])
     async def get_morphology_types(self) -> List[str]:
@@ -91,7 +106,9 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology types: {e}")
-            raise ValueError(f"Failed to get morphology types: {str(e)}")
+            raise ValueError(
+                f"Failed to get morphology types: {str(e)}"
+            ) from e
 
     @morphology_endpoint("GET", "/list/types", response_model=List[str])
     async def get_morphology_list_types(self) -> List[str]:
@@ -101,7 +118,9 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology list types: {e}")
-            raise ValueError(f"Failed to get morphology list types: {str(e)}")
+            raise ValueError(
+                f"Failed to get morphology list types: {str(e)}"
+            ) from e
 
     @morphology_endpoint("GET", "/morphologies", response_model=Dict[str, Any])
     async def get_morphologies(self) -> Dict[str, Any]:
@@ -111,7 +130,7 @@ class MorphologyAPI:
             return morphologies
         except Exception as e:
             logger.error(f"Error getting morphologies: {e}")
-            raise ValueError(f"Failed to get morphologies: {str(e)}")
+            raise ValueError(f"Failed to get morphologies: {str(e)}") from e
 
     @morphology_endpoint("GET", "/list", response_model=MorphologyListResponse)
     async def get_morphologies_list(self) -> MorphologyListResponse:
@@ -121,19 +140,25 @@ class MorphologyAPI:
             return MorphologyListResponse(morphologies=morphologies)
         except Exception as e:
             logger.error(f"Error getting morphologies list: {e}")
-            raise ValueError(f"Failed to get morphologies list: {str(e)}")
+            raise ValueError(
+                f"Failed to get morphologies list: {str(e)}"
+            ) from e
 
     @morphology_endpoint(
         "GET", "/info/{morphology_id}", response_model=MorphologyInfoResponse
     )
-    async def get_morphology_info(self, morphology_id: str) -> MorphologyInfoResponse:
+    async def get_morphology_info(
+        self, morphology_id: str
+    ) -> MorphologyInfoResponse:
         """Get information about a specific morphology."""
         try:
-            morphology = self.core_api_service.get_morphology_info(morphology_id)
+            morphology = self.core_api_service.get_morphology_info(
+                morphology_id
+            )
             return MorphologyInfoResponse(morphology=morphology)
         except Exception as e:
             logger.error(f"Error getting morphology info: {e}")
-            raise ValueError(f"Failed to get morphology info: {str(e)}")
+            raise ValueError(f"Failed to get morphology info: {str(e)}") from e
 
     # ===== Morphology Management =====
 
@@ -148,7 +173,68 @@ class MorphologyAPI:
     ) -> SuccessResponse:
         """Create a new morphology."""
         try:
-            success = self.core_api_service.create_morphology(request.morphology_data)
+            # Auto-detect dimension_sensitive if not provided
+            if request.dimension_sensitive is None:
+                morphology_type = request.morphology_data.get("type", "")
+                dimension_sensitive = self._auto_detect_dimension_sensitive(
+                    morphology_type
+                )
+                logger.info(
+                    f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{morphology_type}'"
+                )
+            else:
+                dimension_sensitive = request.dimension_sensitive
+                logger.info(
+                    f"Using provided dimension_sensitive={dimension_sensitive}"
+                )
+
+            # Add dimension_sensitive to morphology data
+            morphology_data = request.morphology_data.copy()
+            morphology_data["dimension_sensitive"] = dimension_sensitive
+
+            success = self.core_api_service.create_morphology(morphology_data)
+            if not success:
+                raise ValueError("Failed to create morphology")
+
+            return SuccessResponse(message="Morphology created successfully")
+        except Exception as e:
+            logger.error(f"Error creating morphology: {e}")
+            raise ValueError(f"Failed to create morphology: {str(e)}")
+
+    @morphology_endpoint(
+        "POST",
+        "/morphology",
+        request_model=DirectMorphologyRequest,
+        response_model=SuccessResponse,
+    )
+    async def create_morphology_direct(
+        self, request: DirectMorphologyRequest
+    ) -> SuccessResponse:
+        """Create a new morphology with direct client format."""
+        try:
+            # Auto-detect dimension_sensitive if not provided
+            if request.dimension_sensitive is None:
+                dimension_sensitive = self._auto_detect_dimension_sensitive(
+                    request.morphology_type
+                )
+                logger.info(
+                    f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{request.morphology_type}'"
+                )
+            else:
+                dimension_sensitive = request.dimension_sensitive
+                logger.info(
+                    f"Using provided dimension_sensitive={dimension_sensitive}"
+                )
+
+            # Convert client format to internal format
+            morphology_data = {
+                "name": request.morphology_name,
+                "type": request.morphology_type,
+                "parameters": request.morphology_parameters,
+                "dimension_sensitive": dimension_sensitive,
+            }
+
+            success = self.core_api_service.create_morphology(morphology_data)
             if not success:
                 raise ValueError("Failed to create morphology")
 
@@ -177,15 +263,37 @@ class MorphologyAPI:
             return SuccessResponse(message="Morphology updated successfully")
         except Exception as e:
             logger.error(f"Error updating morphology: {e}")
-            raise ValueError(f"Failed to update morphology: {str(e)}")
+            raise ValueError(f"Failed to update morphology: {str(e)}") from e
 
     @morphology_endpoint(
         "DELETE", "/delete/{morphology_id}", response_model=SuccessResponse
     )
     async def delete_morphology(self, morphology_id: str) -> SuccessResponse:
-        """Delete a morphology."""
+        """Delete a morphology by ID."""
         try:
             success = self.core_api_service.delete_morphology(morphology_id)
+            if not success:
+                raise ValueError("Failed to delete morphology")
+
+            return SuccessResponse(message="Morphology deleted successfully")
+        except Exception as e:
+            logger.error(f"Error deleting morphology: {e}")
+            raise ValueError(f"Failed to delete morphology: {str(e)}")
+
+    @morphology_endpoint(
+        "DELETE",
+        "/morphology",
+        request_model=MorphologyNameRequest,
+        response_model=SuccessResponse,
+    )
+    async def delete_morphology_by_name(
+        self, request: MorphologyNameRequest
+    ) -> SuccessResponse:
+        """Delete a morphology by name (client-compatible endpoint)."""
+        try:
+            success = self.core_api_service.delete_morphology(
+                request.morphology_name
+            )
             if not success:
                 raise ValueError("Failed to delete morphology")
 
@@ -224,7 +332,9 @@ class MorphologyAPI:
     ) -> List[List[str]]:
         """Get usage report for a specific morphology."""
         try:
-            usage = self.core_api_service.get_morphology_usage(request.morphology_name)
+            usage = self.core_api_service.get_morphology_usage(
+                request.morphology_name
+            )
             return usage
         except Exception as e:
             logger.error(f"Error getting morphology usage: {e}")
@@ -235,8 +345,7 @@ class MorphologyAPI:
 
 
 def create_morphology_api(core_api_service: CoreAPIService) -> MorphologyAPI:
-    """
-    Factory function to create a MorphologyAPI instance.
+    """Factory function to create a MorphologyAPI instance.
 
     This function can be used by transport adapters to get a configured
     MorphologyAPI instance with the required dependencies.

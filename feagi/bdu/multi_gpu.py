@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +20,6 @@ from typing import Dict, List, Optional, Tuple
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-
 """Multi-GPU management for the BDU.
 
 This module provides utilities for managing multiple GPU devices
@@ -130,7 +127,9 @@ class MultiGPUManager:
                     )
                     self.available_devices.append(device)
                     self.device_locks[i] = threading.Lock()
-                    logger.debug(f"Found PyTorch CUDA device {i}: {props.name}")
+                    logger.debug(
+                        f"Found PyTorch CUDA device {i}: {props.name}"
+                    )
         except ImportError:
             logger.debug("PyTorch not available for GPU discovery")
         except Exception as e:
@@ -153,7 +152,8 @@ class MultiGPUManager:
                         device_id=i,
                         name=props["name"].decode(),
                         memory_total=mem_info[0],  # Total memory
-                        memory_available=mem_info[0] - mem_info[1],  # Total - Used
+                        memory_available=mem_info[0]
+                        - mem_info[1],  # Total - Used
                         compute_capability=(props["major"], props["minor"]),
                         backend_type="cupy",
                     )
@@ -168,12 +168,14 @@ class MultiGPUManager:
         except Exception as e:
             logger.warning(f"Error discovering CuPy CUDA devices: {e}")
 
-        # Try WebGPU devices (placeholder - actual implementation would depend on wgpu-py)
+        #  Try WebGPU devices (placeholder - actual implementation would depend
+        #  on wgpu-py)
         try:
             # import wgpu  # Unused import removed
 
             # WebGPU device discovery would go here
-            # This is a placeholder since WebGPU device enumeration is more complex
+            #  This is a placeholder since WebGPU device enumeration is more
+            #  complex
             logger.debug(
                 "WebGPU backend available but device discovery not implemented"
             )
@@ -188,7 +190,9 @@ class MultiGPUManager:
         """
         return self.available_devices.copy()
 
-    def select_devices(self, device_count: Optional[int] = None) -> List[GPUDevice]:
+    def select_devices(
+        self, device_count: Optional[int] = None
+    ) -> List[GPUDevice]:
         """Select GPU devices for processing.
 
         Args:
@@ -202,7 +206,9 @@ class MultiGPUManager:
 
         # Sort devices by available memory (descending)
         sorted_devices = sorted(
-            self.available_devices, key=lambda d: d.memory_available, reverse=True
+            self.available_devices,
+            key=lambda d: d.memory_available,
+            reverse=True,
         )
 
         selected = sorted_devices[:device_count]
@@ -241,7 +247,9 @@ class MultiGPUManager:
                 "memory_ratio": memory_ratio,
             }
 
-        logger.info(f"Distributed workload across {len(self.active_devices)} devices")
+        logger.info(
+            f"Distributed workload across {len(self.active_devices)} devices"
+        )
         return distribution
 
     def synchronize_devices(self) -> None:
@@ -313,7 +321,9 @@ class MultiGPUManager:
 _multi_gpu_manager: Optional[MultiGPUManager] = None
 
 
-def get_multi_gpu_manager(backend_preference: Optional[str] = None) -> MultiGPUManager:
+def get_multi_gpu_manager(
+    backend_preference: Optional[str] = None,
+) -> MultiGPUManager:
     """Get the global MultiGPUManager instance.
 
     Args:

@@ -1,6 +1,8 @@
 """Utilities for FEAGI.
 
-This package contains various utility functions and classes used throughout FEAGI."""
+This package contains various utility functions and classes used throughout
+FEAGI.
+"""
 
 from feagi.utils.config import FeagiConfig
 from feagi.utils.logger import EmojiAdapter, StatusAdapter, setup_logger

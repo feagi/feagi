@@ -292,7 +292,7 @@ async def test_client_communication():
 
         # Generate and send an image with a recognizable pattern
         logger.info(
-            "Generating and sending test image data with recognizable pattern for cortical area iv00_C..."
+            "Generating and sending test image data with recognizable pattern for cortical area iic400..."
         )
 
         # Create a simple pattern - alternating black and white stripes
@@ -317,13 +317,13 @@ async def test_client_communication():
         logger.info(f"Image data hash: {hash(raw_image_data) % 10000}")
 
         image_result = await client.send_sensory_data(
-            channel_id="iv00_C", data=raw_image_data
+            channel_id="iic400", data=raw_image_data
         )
         logger.info(f"Image data send result: {image_result}")
 
         # Generate and send a float array with a recognizable pattern
         logger.info(
-            "Generating and sending test array with recognizable pattern for cortical area iv00_C..."
+            "Generating and sending test array with recognizable pattern for cortical area iic400..."
         )
 
         # Create a simple sine wave pattern
@@ -340,7 +340,7 @@ async def test_client_communication():
         logger.info(f"Array data hash: {hash(raw_array_data) % 10000}")
 
         array_result = await client.send_sensory_data(
-            channel_id="iv00_C", data=raw_array_data
+            channel_id="iic400", data=raw_array_data
         )
         logger.info(f"Array data send result: {array_result}")
 

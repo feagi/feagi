@@ -1,5 +1,4 @@
-"""
-FEAGI LZ4 Compression Utility
+"""FEAGI LZ4 Compression Utility.
 
 LZ4 compression service for ZMQ streams (visualization, motor, etc.)
 optimized for real-time neural data streaming with TOML configuration support.
@@ -21,11 +20,11 @@ logger = setup_logger(__name__)
 
 
 class LZ4Compressor:
-    """
-    LZ4 compression service for FEAGI ZMQ streams with TOML configuration support.
+    """LZ4 compression service for FEAGI ZMQ streams with TOML configuration
+    support.
 
-    Respects compression settings from feagi_configuration.toml and handles cases
-    where compression is disabled or LZ4 is unavailable.
+    Respects compression settings from feagi_configuration.toml and handles
+    cases where compression is disabled or LZ4 is unavailable.
     """
 
     def __init__(
@@ -35,8 +34,7 @@ class LZ4Compressor:
         enable_stats: bool = True,
         require_lz4: bool = True,
     ):
-        """
-        Initialize LZ4 compressor with configuration settings.
+        """Initialize LZ4 compressor with configuration settings.
 
         Args:
             enabled: Whether compression is enabled via TOML config
@@ -70,21 +68,26 @@ class LZ4Compressor:
 
         # Log initialization status
         if not self.config_enabled:
-            logger.info("[COMPRESSION] LZ4 compression DISABLED by configuration")
+            logger.info(
+                "[COMPRESSION] LZ4 compression DISABLED by configuration"
+            )
         elif not self._lz4_available:
             if self.require_lz4:
-                logger.error("[COMPRESSION] LZ4 compression REQUIRED but not available")
+                logger.error(
+                    "[COMPRESSION] LZ4 compression REQUIRED but not available"
+                )
                 raise ImportError(
                     "LZ4 compression is required but lz4 package is not installed"
                 )
             else:
-                logger.warning("[COMPRESSION] LZ4 not available - compression disabled")
+                logger.warning(
+                    "[COMPRESSION] LZ4 not available - compression disabled"
+                )
         else:
             logger.info("[COMPRESSION] LZ4 compression initialized and ready")
 
     def _initialize_lz4(self) -> bool:
-        """
-        Initialize LZ4 compression module.
+        """Initialize LZ4 compression module.
 
         Returns:
             True if LZ4 is available, False otherwise
@@ -103,8 +106,7 @@ class LZ4Compressor:
         return self.operational
 
     def compress(self, data: bytes) -> Tuple[bytes, Dict[str, Any]]:
-        """
-        Compress data using LZ4 based on configuration.
+        """Compress data using LZ4 based on configuration.
 
         Args:
             data: Raw bytes to compress
@@ -263,10 +265,9 @@ def create_lz4_compressor(
     enabled: bool = True,
     min_size_threshold: int = 100,
     enable_stats: bool = True,
-    require_lz4: bool = False,
+    require_lz4: bool = True,
 ) -> LZ4Compressor:
-    """
-    Create LZ4 compressor for FEAGI streams with TOML configuration support.
+    """Create LZ4 compressor for FEAGI streams with TOML configuration support.
 
     Args:
         enabled: Whether compression is enabled via configuration

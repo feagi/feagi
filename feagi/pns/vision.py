@@ -12,23 +12,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 
 
 from feagi.bdu.connectivity.mapping_utils import build_power_connections
 from feagi.bdu.connectivity.synaptogenesis import neighbor_finder
 from feagi.core.state_manager import FeagiStateManager
 
-central_vision_cortical_area = "iv00_C"
+central_vision_cortical_area = "iic400"
 peripheral_vision_cortical_areas = [
     "iv00TR",
     "iv00TL",
     "iv00TM",
     "iv00MR",
     "iv00ML",
-    "iv00BR",
-    "iv00BL",
-    "iv00BM",
+    "iic200",
+    "iic000",
+    "iic100",
 ]
 
 
@@ -85,8 +85,10 @@ def reconfigure_vision(vision_parameters, connectome):
 
     # Update Central Vision Dimensions
     if (
-        vision_parameters["central_vision_resolution"][0] != central_vision_dim[0]
-        or vision_parameters["central_vision_resolution"][1] != central_vision_dim[1]
+        vision_parameters["central_vision_resolution"][0]
+        != central_vision_dim[0]
+        or vision_parameters["central_vision_resolution"][1]
+        != central_vision_dim[1]
         or vision_depth != central_vision_dim[2]
     ):
         # update central vision dim
@@ -103,7 +105,8 @@ def reconfigure_vision(vision_parameters, connectome):
 
     # Update Peripheral Vision Dimensions
     if (
-        vision_parameters["peripheral_vision_resolution"][0] != peripheral_vision_dim[0]
+        vision_parameters["peripheral_vision_resolution"][0]
+        != peripheral_vision_dim[0]
         or vision_parameters["peripheral_vision_resolution"][1]
         != peripheral_vision_dim[1]
         or vision_depth != central_vision_dim[2]
@@ -218,7 +221,7 @@ def get_central_vision_dimension():
 
 
 def power_is_connected(cortical_area):
-    power_area = "___pwr"
+    power_area = "_power"
     neighbor_candidates = None
     connected_power_coordinates = None
     src_subregion = (
@@ -236,10 +239,12 @@ def power_is_connected(cortical_area):
             .get("cortical_mapping_dst")
         )
         if cortical_area in power_mappings:
-            for morphology in FeagiStateManager.get_instance().genome["blueprint"][
-                power_area
-            ]["cortical_mapping_dst"][cortical_area]:
-                for src_id in FeagiStateManager.get_instance().brain[power_area]:
+            for morphology in FeagiStateManager.get_instance().genome[
+                "blueprint"
+            ][power_area]["cortical_mapping_dst"][cortical_area]:
+                for src_id in FeagiStateManager.get_instance().brain[
+                    power_area
+                ]:
                     neighbor_candidates = neighbor_finder(
                         cortical_area_src=power_area,
                         cortical_area_dst=cortical_area,
@@ -256,7 +261,9 @@ def power_is_connected(cortical_area):
             candidate_coordinate = FeagiStateManager.get_instance().brain[
                 cortical_area
             ][candidate_id]["soma_location"]
-            connected_power_coordinates.add((candidate_coordinate, candidate_psp))
+            connected_power_coordinates.add(
+                (candidate_coordinate, candidate_psp)
+            )
 
     return connected_power_coordinates
 
@@ -264,7 +271,9 @@ def power_is_connected(cortical_area):
 def get_peripheral_vision_dimension():
     cortical_dimension = set()
     for area in peripheral_vision_cortical_areas:
-        area_properties = FeagiStateManager.get_instance().genome["blueprint"].get(area)
+        area_properties = (
+            FeagiStateManager.get_instance().genome["blueprint"].get(area)
+        )
         if area_properties:
             dimension = area_properties.get("block_boundaries")
             cortical_dimension.add(tuple(dimension))
@@ -295,8 +304,13 @@ def get_eccentricity_values():
     eccentricity_x = None
     eccentricity_y = None
 
-    if eccentricity_area in FeagiStateManager.get_instance().genome["blueprint"]:
-        power_connectivity = power_is_connected(cortical_area=eccentricity_area)
+    if (
+        eccentricity_area
+        in FeagiStateManager.get_instance().genome["blueprint"]
+    ):
+        power_connectivity = power_is_connected(
+            cortical_area=eccentricity_area
+        )
         area_depth = FeagiStateManager.get_instance().genome["blueprint"][
             eccentricity_area
         ]["block_boundaries"][2]
@@ -343,7 +357,9 @@ def get_lighting_enhancement_values():
         lighting_enhancement_area
         in FeagiStateManager.get_instance().genome["blueprint"]
     ):
-        power_connectivity = power_is_connected(cortical_area=lighting_enhancement_area)
+        power_connectivity = power_is_connected(
+            cortical_area=lighting_enhancement_area
+        )
         area_depth = FeagiStateManager.get_instance().genome["blueprint"][
             lighting_enhancement_area
         ]["block_boundaries"][2]
@@ -365,8 +381,13 @@ def get_lighting_threshold_values():
     lighting_threshold_area = "ovtune"
     pixel_change_limit = None
 
-    if lighting_threshold_area in FeagiStateManager.get_instance().genome["blueprint"]:
-        power_connectivity = power_is_connected(cortical_area=lighting_threshold_area)
+    if (
+        lighting_threshold_area
+        in FeagiStateManager.get_instance().genome["blueprint"]
+    ):
+        power_connectivity = power_is_connected(
+            cortical_area=lighting_threshold_area
+        )
         area_depth = FeagiStateManager.get_instance().genome["blueprint"][
             lighting_threshold_area
         ]["block_boundaries"][2]

@@ -28,11 +28,11 @@ import pytest
 
 from feagi.npu.gpu_fcl_adapter import (
     BitMap,
-    EnhancedFCLManager,
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,
 )
+from feagi.npu.fcl_manager import EnhancedFCLManager
 
 
 class TestGPUBitMapAdvanced:

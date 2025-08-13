@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +27,6 @@ import numpy as np
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-
 """
 Neuroembryogenesis Module for FEAGI 2.1
 
@@ -40,7 +37,7 @@ instructions guide brain development from the embryonic neural tube.
 
 Naming Convention:
 -----------------
-* cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C")
+* cortical_id: 6-character unique identifier from the genome (e.g., "iic400")
 * cortical_idx: Auto-incremented integer ID used internally for efficient indexing
                 Previously referred to as 'area_id' or just 'i' in various places
 
@@ -77,7 +74,6 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import genome processing from EVO (single source of truth)
 from feagi.evo.genome_processor import (
-    create_genome_processor,
     genome_morphology_updator,
     genome_physiology_updator,
     genome_stat_updator,
@@ -129,8 +125,7 @@ class DevelopmentStage(Enum):
 
 
 class NeuroEmbryogenesis:
-    """
-    Manages the development of a brain from genome instructions.
+    """Manages the development of a brain from genome instructions.
 
     This class orchestrates the process of reading genome data and constructing
     the corresponding neural architecture using the ConnectomeManager.
@@ -144,8 +139,7 @@ class NeuroEmbryogenesis:
             Callable[[DevelopmentStage, float, str], None]
         ] = None,
     ):
-        """
-        Initialize the NeuroEmbryogenesis system.
+        """Initialize the NeuroEmbryogenesis system.
 
         Args:
             connectome_manager: The connectome manager to use for brain development
@@ -169,7 +163,9 @@ class NeuroEmbryogenesis:
             )
         elif config and hasattr(config, "get"):
             # Alternative configuration access pattern
-            self.verbose_logging = config.get("embryogenesis_verbose_logging", True)
+            self.verbose_logging = config.get(
+                "embryogenesis_verbose_logging", True
+            )
             self.suppress_no_mappings_logs = config.get(
                 "embryogenesis_suppress_no_mappings_logs", False
             )
@@ -212,17 +208,22 @@ class NeuroEmbryogenesis:
         # Tracking data
         self.cortical_id_map = {}  # cortical_idx -> cortical_id
         self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
-        self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
+        self.voxel_neuron_map = (
+            {}
+        )  # Maps (area_id, position) to list of neuron IDs
 
-        # Add temporary method to ConnectomeManager to provide morphology information
+        #  Add temporary method to ConnectomeManager to provide morphology
+        #  information
         # Add this once at initialization instead of each time in
         # _perform_synaptogenesis
         def get_morphologies_registry(self):
             return self._neuroembryogenesis_morphologies_registry
 
         if not hasattr(self.connectome_manager, "get_morphologies_registry"):
-            self.connectome_manager.get_morphologies_registry = types.MethodType(
-                get_morphologies_registry, self.connectome_manager
+            self.connectome_manager.get_morphologies_registry = (
+                types.MethodType(
+                    get_morphologies_registry, self.connectome_manager
+                )
             )
             # Will set the actual registry later when we have the genome
 
@@ -250,8 +251,7 @@ class NeuroEmbryogenesis:
             self.progress_callback(DevelopmentStage.FAILED, 0, message)
 
     def _is_debug_bdu_enabled(self) -> bool:
-        """
-        Check if BDU (Brain Development Unit) debugging is enabled.
+        """Check if BDU (Brain Development Unit) debugging is enabled.
 
         Returns:
             True if BDU debugging is enabled, False otherwise
@@ -265,8 +265,7 @@ class NeuroEmbryogenesis:
             return False
 
     def load_genome(self, genome_path: Union[str, Path]) -> bool:
-        """
-        Load a genome from file.
+        """Load a genome from file.
 
         Args:
             genome_path: Path to the genome file
@@ -274,7 +273,9 @@ class NeuroEmbryogenesis:
         Returns:
             True if successful, False otherwise
         """
-        self._report_progress(DevelopmentStage.INITIALIZATION, 0, "Loading genome")
+        self._report_progress(
+            DevelopmentStage.INITIALIZATION, 0, "Loading genome"
+        )
 
         try:
             # Load genome from file
@@ -290,7 +291,9 @@ class NeuroEmbryogenesis:
 
                 config = load_feagi_config()
                 genome_config = get_genome_config(config)
-                allow_auto_recovery = genome_config.auto_recovery_on_validation_failure
+                allow_auto_recovery = (
+                    genome_config.auto_recovery_on_validation_failure
+                )
             except Exception as e:
                 logger.warning(
                     f"Could not load FEAGI configuration, "
@@ -321,16 +324,22 @@ class NeuroEmbryogenesis:
                             sanitize_invalid_morphologies,
                         )
 
-                        sanitization_result = sanitize_invalid_morphologies(self.genome)
+                        sanitization_result = sanitize_invalid_morphologies(
+                            self.genome
+                        )
 
                         # Use the sanitized genome
                         self.genome = sanitization_result["genome"]
                         removed_morphologies = sanitization_result[
                             "removed_morphologies"
                         ]
-                        recovery_summary = sanitization_result["recovery_summary"]
+                        recovery_summary = sanitization_result[
+                            "recovery_summary"
+                        ]
 
-                        logger.info(f"Auto-recovery completed: {recovery_summary}")
+                        logger.info(
+                            f"Auto-recovery completed: {recovery_summary}"
+                        )
                         if removed_morphologies:
                             logger.info(
                                 f"Removed invalid morphologies: "
@@ -360,7 +369,8 @@ class NeuroEmbryogenesis:
                     logger.warning(
                         "FEAGI will try to fix/recover from remaining gene failures during development"
                     )
-                    # Don't return False - continue with loading despite validation issues
+                    #  Don't return False - continue with loading despite
+                    #  validation issues
 
             # Update morphologies and physiology
             self.genome = merge_core_morphologies(self.genome)
@@ -379,7 +389,9 @@ class NeuroEmbryogenesis:
 
             if is_valid:
                 self._report_progress(
-                    DevelopmentStage.INITIALIZATION, 100, "Genome loaded and validated"
+                    DevelopmentStage.INITIALIZATION,
+                    100,
+                    "Genome loaded and validated",
                 )
             else:
                 self._report_progress(
@@ -391,15 +403,18 @@ class NeuroEmbryogenesis:
 
         except Exception as e:
             self._report_failure(
-                DevelopmentStage.INITIALIZATION, f"Failed to load genome: {str(e)}"
+                DevelopmentStage.INITIALIZATION,
+                f"Failed to load genome: {str(e)}",
             )
             logger.error("Error loading genome")
             logger.exception(e)
             return False
 
     def _extract_cortical_properties(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Extract cortical area properties from the genome's blueprint.
+        """Extract cortical area properties from hierarchical genome format.
+
+        ARCHITECTURE: Single source of truth - hierarchical genome format only.
+        No fallbacks, no format detection, one clean reliable path.
 
         Args:
             cortical_id: The ID of the cortical area in the genome
@@ -407,91 +422,77 @@ class NeuroEmbryogenesis:
         Returns:
             Dictionary of properties for the cortical area
         """
-        # In FEAGI 2.1, blueprint entries follow the pattern:
-        # _____10c-<cortical_id>-<gene_type>-<property>-<value_type>
-
-        properties = {}
         blueprint = self.genome["blueprint"]
 
-        # Need to collect all properties for this cortical area
-        for gene_key in blueprint:
-            if not isinstance(gene_key, str):
-                continue
+        if cortical_id not in blueprint:
+            logger.warning(
+                f"❌ Cortical area {cortical_id} not found in hierarchical blueprint"
+            )
+            return {}
 
-            parts = gene_key.split("-")
-            if len(parts) < 4:  # Need at least 4 parts to have a valid key
-                continue
+        area_definition = blueprint[cortical_id]
+        properties = {}
 
-            gene_cortical_id = parts[1]
-            if gene_cortical_id != cortical_id:
-                continue
+        # Extract all properties from hierarchical format in one clean pass
+        property_mappings = {
+            # Required properties
+            "cortical_name": "name",
+            "relative_coordinate": "position",
+            "block_boundaries": "dimensions",
+            # Optional properties - direct mapping
+            "group_id": "group",
+            "sub_group_id": "subgroup",
+            "cortical_type": "type",
+            "per_voxel_neuron_cnt": "neurons_per_voxel",
+            "cortical_mapping_dst": "mapping",
+            # Neural properties
+            "synapse_attractivity": "synapse_attractivity",
+            "refractory_period": "refractory_period",
+            "firing_threshold": "firing_threshold",
+            "leak_coefficient": "leak_coefficient",
+            "neuron_excitability": "neuron_excitability",
+            "postsynaptic_current": "postsynaptic_current",
+            "postsynaptic_current_max": "postsynaptic_current_max",
+            "degeneration": "degeneration",
+            "psp_uniform_distribution": "psp_uniform_distribution",
+            "visualization": "visualization",
+            "2d_coordinate": "2d_coordinate",
+            # Memory properties
+            "is_mem_type": "is_mem_type",
+            "longterm_mem_threshold": "longterm_mem_threshold",
+            "lifespan_growth_rate": "lifespan_growth_rate",
+            "init_lifespan": "init_lifespan",
+            "temporal_depth": "temporal_depth",
+            "consecutive_fire_cnt_max": "consecutive_fire_cnt_max",
+            "snooze_length": "snooze_length",
+        }
 
-            # Get the property key and value type
-            if len(parts) >= 5:
-                property_key = parts[3]
-                # value_type = parts[4]  # Unused variable removed
-            else:
-                property_key = parts[-2]
-                # value_type = parts[-1]  # Unused variable removed
+        # Single pass extraction - no duplicates
+        for source_key, target_key in property_mappings.items():
+            if source_key in area_definition:
+                value = area_definition[source_key]
+                properties[target_key] = value
 
-            value = blueprint[gene_key]
+                # Handle special cases
+                if source_key == "block_boundaries" and len(value) >= 3:
+                    #  Set individual dimension properties for
+                    #  ConnectomeManager compatibility
+                    properties["bbx"] = value[0]
+                    properties["bby"] = value[1]
+                    properties["bbz"] = value[2]
+                elif source_key == "per_voxel_neuron_cnt":
+                    # Set legacy alias for compatibility
+                    properties["n_cnt"] = value
 
-            # Handle special properties that need processing
-            if "___bbx" in property_key:
-                properties["bbx"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][0] = value
-            elif "___bby" in property_key:
-                properties["bby"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][1] = value
-            elif "___bbz" in property_key:
-                properties["bbz"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][2] = value
-            elif "rcordx" in property_key:
-                properties["rcordx"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][0] = value
-            elif "rcordy" in property_key:
-                properties["rcordy"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][1] = value
-            elif "rcordz" in property_key:
-                properties["rcordz"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][2] = value
-            elif "__name" in property_key:
-                properties["name"] = value
-            elif "_group" in property_key:
-                properties["group"] = value
-            elif "subgrp" in property_key:
-                properties["subgroup"] = value
-            elif "_n_cnt" in property_key:
-                properties["neurons_per_voxel"] = value
-                properties["n_cnt"] = (
-                    value  # Also store with the original name for compatibility
-                )
-            elif "dstmap" in property_key:
-                properties["mapping"] = value
-            else:
-                # Store other properties directly
-                clean_key = property_key.strip(
-                    "_"
-                )  # Remove leading/trailing underscores
-                properties[clean_key] = value
-
+        logger.debug(
+            f"✅ [HIERARCHICAL] Extracted {len(properties)} properties for {cortical_id}"
+        )
         return properties
 
-    def _calculate_subregion(self, cortical_id: str, morphology: Dict) -> BoundingBox:
-        """
-        Calculate a bounding box for a subregion of the cortical area.
+    def _calculate_subregion(
+        self, cortical_id: str, morphology: Dict
+    ) -> BoundingBox:
+        """Calculate a bounding box for a subregion of the cortical area.
 
         Args:
             cortical_id: 6-character cortical identifier
@@ -511,44 +512,47 @@ class NeuroEmbryogenesis:
             min_y = max(0, subregion.get("min_y", 0))
             min_z = max(0, subregion.get("min_z", 0))
 
-            max_x = min(dimensions[0] - 1, subregion.get("max_x", dimensions[0] - 1))
-            max_y = min(dimensions[1] - 1, subregion.get("max_y", dimensions[1] - 1))
-            max_z = min(dimensions[2] - 1, subregion.get("max_z", dimensions[2] - 1))
+            max_x = min(
+                dimensions[0] - 1, subregion.get("max_x", dimensions[0] - 1)
+            )
+            max_y = min(
+                dimensions[1] - 1, subregion.get("max_y", dimensions[1] - 1)
+            )
+            max_z = min(
+                dimensions[2] - 1, subregion.get("max_z", dimensions[2] - 1)
+            )
 
             return ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
         # Default is the entire area
-        return ((0, 0, 0), (dimensions[0] - 1, dimensions[1] - 1, dimensions[2] - 1))
+        return (
+            (0, 0, 0),
+            (dimensions[0] - 1, dimensions[1] - 1, dimensions[2] - 1),
+        )
 
     def _get_cortical_ids_from_genome(self) -> List[str]:
-        """
-        Extract the list of cortical area IDs from the genome blueprint.
+        """Extract the list of cortical area IDs from hierarchical genome
+        blueprint.
+
+        ARCHITECTURE: Single source of truth - hierarchical genome format only.
+        No fallbacks, no format detection, one clean reliable path.
 
         Returns:
             List of cortical area IDs
         """
-        cortical_ids = set()
         blueprint = self.genome["blueprint"]
+        cortical_ids = list(blueprint.keys())
 
-        for gene_key in blueprint:
-            if not isinstance(gene_key, str):
-                continue
-
-            parts = gene_key.split("-")
-            if len(parts) < 5:
-                continue
-
-            # Extract the cortical ID (part after the first hyphen)
-            cortical_id = parts[1]
-            cortical_ids.add(cortical_id)
-
-        return list(cortical_ids)
+        logger.info(
+            f"✅ [HIERARCHICAL] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}"
+        )
+        return cortical_ids
 
     def _setup_cortical_areas(self) -> bool:
-        """
-        Create all cortical areas in the connectome manager based on the genome.
+        """Create all cortical areas in the connectome manager based on the
+        genome.
 
-        ENHANCED: Now guarantees core areas (_death, ___pwr) are created first from templates,
+        ENHANCED: Now guarantees core areas (_death, _power) are created first from templates,
         then allows genome to override their properties, then creates remaining areas.
 
         Returns:
@@ -561,7 +565,9 @@ class NeuroEmbryogenesis:
         try:
             # STEP 1: Create guaranteed core areas from templates.py
             self._report_progress(
-                DevelopmentStage.CORTICOGENESIS, 10, "Creating guaranteed core areas"
+                DevelopmentStage.CORTICOGENESIS,
+                10,
+                "Creating guaranteed core areas",
             )
             if not self._create_core_areas_from_templates():
                 return False
@@ -569,7 +575,8 @@ class NeuroEmbryogenesis:
             # STEP 2: Extract genome cortical areas
             cortical_ids = self._get_cortical_ids_from_genome()
 
-            # STEP 3: Check if genome contains core areas and update their properties
+            #  STEP 3: Check if genome contains core areas and update their
+            #  properties
             self._report_progress(
                 DevelopmentStage.CORTICOGENESIS,
                 20,
@@ -584,7 +591,7 @@ class NeuroEmbryogenesis:
                 "Creating genome-defined cortical areas",
             )
             remaining_areas = [
-                cid for cid in cortical_ids if cid not in ["_death", "___pwr"]
+                cid for cid in cortical_ids if cid not in ["_death", "_power"]
             ]
             total_remaining = len(remaining_areas)
 
@@ -629,13 +636,19 @@ class NeuroEmbryogenesis:
                 )
 
                 # Verify the area was actually created in connectome_manager
-                if created_cortical_id not in self.connectome_manager.cortical_areas:
+                if (
+                    created_cortical_id
+                    not in self.connectome_manager.cortical_areas
+                ):
                     raise RuntimeError(
                         f"CRITICAL: Area {cortical_id} was not properly created in connectome_manager"
                     )
 
-                # Get the created area from connectome_manager (single source of truth)
-                area = self.connectome_manager.get_cortical_area(created_cortical_id)
+                #  Get the created area from connectome_manager (single source
+                #  of truth)
+                area = self.connectome_manager.get_cortical_area(
+                    created_cortical_id
+                )
 
                 # Get the cortical_idx assigned by ConnectomeManager
                 cortical_idx = area.cortical_idx
@@ -650,7 +663,9 @@ class NeuroEmbryogenesis:
 
                 # Verify mapping was created correctly
                 if (
-                    self.connectome_manager.cortical_mapping.get_idx(cortical_id)
+                    self.connectome_manager.cortical_mapping.get_idx(
+                        cortical_id
+                    )
                     != cortical_idx
                 ):
                     raise RuntimeError(
@@ -660,6 +675,24 @@ class NeuroEmbryogenesis:
                 logger.info(
                     f"✅ Successfully created and verified cortical area {cortical_id} → {cortical_idx}"
                 )
+
+                # CRITICAL FIX: Register memory areas with ConnectomeManager
+                if area_type == "memory":
+                    temporal_depth = properties.get("temporal_depth", 1)
+                    logger.info(
+                        f"🧠 [MEMORY-REG] Registering memory area {cortical_id} with temporal_depth={temporal_depth}"
+                    )
+                    success = self.connectome_manager.register_memory_area(
+                        cortical_id, temporal_depth
+                    )
+                    if success:
+                        logger.info(
+                            f"🧠 [MEMORY-REG] Successfully registered memory area {cortical_id}"
+                        )
+                    else:
+                        logger.error(
+                            f"🧠 [MEMORY-REG] Failed to register memory area {cortical_id}"
+                        )
 
                 # Report progress for remaining areas
                 remaining_progress = (
@@ -674,20 +707,18 @@ class NeuroEmbryogenesis:
             self.development_stats["cortical_areas"] = total_areas_created
 
             if total_areas_created == 0:
-                self.error = (
-                    "CRITICAL: No cortical areas were created in connectome_manager"
-                )
+                self.error = "CRITICAL: No cortical areas were created in connectome_manager"
                 self._report_progress(DevelopmentStage.FAILED, 0, self.error)
                 return False
 
             # Verify core areas exist
             core_areas_found = []
-            for core_id in ["_death", "___pwr"]:
+            for core_id in ["_death", "_power"]:
                 if core_id in self.connectome_manager.cortical_areas:
                     core_areas_found.append(core_id)
 
             if len(core_areas_found) != 2:
-                self.error = f"CRITICAL: Missing core areas. Found: {core_areas_found}, Expected: ['_death', '___pwr']"
+                self.error = f"CRITICAL: Missing core areas. Found: {core_areas_found}, Expected: ['_death', '_power']"
                 self._report_progress(DevelopmentStage.FAILED, 0, self.error)
                 return False
 
@@ -705,8 +736,7 @@ class NeuroEmbryogenesis:
             return False
 
     def _create_core_areas_from_templates(self) -> bool:
-        """
-        Create the guaranteed core areas (_death, ___pwr) from templates.py.
+        """Create the guaranteed core areas (_death, _power) from templates.py.
 
         These areas are ALWAYS created regardless of genome content to ensure
         system reliability and proper cortical_idx reservation.
@@ -735,7 +765,8 @@ class NeuroEmbryogenesis:
                 cortical_id="_death",
             )
 
-            # Verify area was created and get from connectome_manager (single source of truth)
+            #  Verify area was created and get from connectome_manager (single
+            #  source of truth)
             if death_id not in self.connectome_manager.cortical_areas:
                 raise RuntimeError(
                     "CRITICAL: _death area was not created in connectome_manager"
@@ -749,8 +780,8 @@ class NeuroEmbryogenesis:
                 f"Created core area _death at cortical_idx={death_area.cortical_idx}"
             )
 
-            # Create ___pwr area (cortical_idx=1)
-            pwr_template = core_devices["___pwr"]
+            # Create _power area (cortical_idx=1)
+            pwr_template = core_devices["_power"]
             pwr_id = self.connectome_manager.add_cortical_area(
                 name=pwr_template["cortical_name"],
                 dimensions=tuple(pwr_template["resolution"]),
@@ -761,21 +792,22 @@ class NeuroEmbryogenesis:
                     "enabled": True,  # Always enable power area regardless of template default
                     "structure": pwr_template["structure"],
                 },
-                cortical_id="___pwr",
+                cortical_id="_power",
             )
 
-            # Verify area was created and get from connectome_manager (single source of truth)
+            #  Verify area was created and get from connectome_manager (single
+            #  source of truth)
             if pwr_id not in self.connectome_manager.cortical_areas:
                 raise RuntimeError(
-                    "CRITICAL: ___pwr area was not created in connectome_manager"
+                    "CRITICAL: _power area was not created in connectome_manager"
                 )
 
             pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
-            self.cortical_id_map[pwr_area.cortical_idx] = "___pwr"
-            self.reverse_cortical_id_map["___pwr"] = pwr_area.cortical_idx
+            self.cortical_id_map[pwr_area.cortical_idx] = "_power"
+            self.reverse_cortical_id_map["_power"] = pwr_area.cortical_idx
 
             logger.info(
-                f"Created core area ___pwr at cortical_idx={pwr_area.cortical_idx}"
+                f"Created core area _power at cortical_idx={pwr_area.cortical_idx}"
             )
 
             # Verify correct cortical_idx assignment
@@ -786,7 +818,7 @@ class NeuroEmbryogenesis:
                 return False
             if pwr_area.cortical_idx != 1:
                 logger.error(
-                    f"CRITICAL: ___pwr area got cortical_idx={pwr_area.cortical_idx}, expected 1"
+                    f"CRITICAL: _power area got cortical_idx={pwr_area.cortical_idx}, expected 1"
                 )
                 return False
 
@@ -799,9 +831,10 @@ class NeuroEmbryogenesis:
             logger.error(f"Failed to create core areas from templates: {e}")
             return False
 
-    def _update_core_areas_from_genome(self, genome_cortical_ids: List[str]) -> None:
-        """
-        Update core area properties if they are defined in the genome.
+    def _update_core_areas_from_genome(
+        self, genome_cortical_ids: List[str]
+    ) -> None:
+        """Update core area properties if they are defined in the genome.
 
         This allows genomes to override the template defaults for core areas
         while ensuring the areas always exist.
@@ -810,14 +843,19 @@ class NeuroEmbryogenesis:
             genome_cortical_ids: List of cortical IDs found in genome
         """
         try:
-            for core_id in ["_death", "___pwr"]:
+            for core_id in ["_death", "_power"]:
                 if core_id in genome_cortical_ids:
-                    logger.info(f"Updating core area {core_id} with genome properties")
+                    logger.info(
+                        f"Updating core area {core_id} with genome properties"
+                    )
 
                     # Extract properties from genome
-                    genome_properties = self._extract_cortical_properties(core_id)
+                    genome_properties = self._extract_cortical_properties(
+                        core_id
+                    )
 
-                    # Get the existing core area from connectome_manager (single source of truth)
+                    #  Get the existing core area from connectome_manager
+                    #  (single source of truth)
                     area = None
                     for (
                         _area_id,
@@ -830,20 +868,26 @@ class NeuroEmbryogenesis:
                     if area:
                         # Update properties that are defined in genome
                         if "dimensions" in genome_properties:
-                            area.dimensions = tuple(genome_properties["dimensions"])
+                            area.dimensions = tuple(
+                                genome_properties["dimensions"]
+                            )
                             logger.debug(
                                 f"Updated {core_id} dimensions to {area.dimensions}"
                             )
 
                         if "position" in genome_properties:
-                            area.position = tuple(genome_properties["position"])
+                            area.position = tuple(
+                                genome_properties["position"]
+                            )
                             logger.debug(
                                 f"Updated {core_id} position to {area.position}"
                             )
 
                         if "name" in genome_properties:
                             area.name = genome_properties["name"]
-                            logger.debug(f"Updated {core_id} name to {area.name}")
+                            logger.debug(
+                                f"Updated {core_id} name to {area.name}"
+                            )
 
                         # Merge additional properties
                         if hasattr(area, "properties"):
@@ -855,7 +899,9 @@ class NeuroEmbryogenesis:
                             f"Core area {core_id} updated with genome properties"
                         )
                     else:
-                        logger.warning(f"Could not find core area {core_id} to update")
+                        logger.warning(
+                            f"Could not find core area {core_id} to update"
+                        )
 
         except Exception as e:
             logger.warning(f"Error updating core areas from genome: {e}")
@@ -868,19 +914,29 @@ class NeuroEmbryogenesis:
         Returns:
             True if successful, False otherwise
         """
-        self._report_progress(DevelopmentStage.NEUROGENESIS, 0, "Creating neurons (SoA-optimized)")
+        self._report_progress(
+            DevelopmentStage.NEUROGENESIS,
+            0,
+            "Creating neurons (SoA-optimized)",
+        )
 
         try:
             total_areas = len(self.connectome_manager.cortical_areas)
             total_neurons = 0
             start_time = datetime.datetime.now()
 
-            for i, (cortical_id, area) in enumerate(self.connectome_manager.cortical_areas.items()):
+            for i, (cortical_id, area) in enumerate(
+                self.connectome_manager.cortical_areas.items()
+            ):
                 properties = self._extract_cortical_properties(cortical_id)
 
                 # Skip memory areas if configured
-                if area.area_type == "memory" and self.config.get("skip_memory_neurogenesis", False):
-                    logger.info(f"Skipping neurogenesis for memory area {area.name}")
+                if area.area_type == "memory" and self.config.get(
+                    "skip_memory_neurogenesis", False
+                ):
+                    logger.info(
+                        f"Skipping neurogenesis for memory area {area.name}"
+                    )
                     continue
 
                 # Calculate neuron count for this area
@@ -888,43 +944,60 @@ class NeuroEmbryogenesis:
                 neurons_per_voxel = properties.get("neurons_per_voxel", 1)
                 area_neuron_count = width * height * depth * neurons_per_voxel
 
-                logger.debug(f"[FAST-SoA] Creating {area_neuron_count} neurons for {cortical_id}")
+                logger.debug(
+                    f"[FAST-SoA] Creating {area_neuron_count} neurons for {cortical_id}"
+                )
 
                 # FAST: Reserve array indices in bulk
                 neuron_array = self.connectome_manager.neuron_array
                 start_idx = neuron_array.next_index
                 end_idx = start_idx + area_neuron_count
-                
+
                 if end_idx > neuron_array.max_neurons:
-                    raise ValueError(f"Not enough capacity for {area_neuron_count} neurons")
+                    raise ValueError(
+                        f"Not enough capacity for {area_neuron_count} neurons"
+                    )
 
                 # FAST: Generate neuron IDs in bulk
-                neuron_ids = list(range(neuron_array._next_neuron_id, neuron_array._next_neuron_id + area_neuron_count))
+                neuron_ids = list(
+                    range(
+                        neuron_array._next_neuron_id,
+                        neuron_array._next_neuron_id + area_neuron_count,
+                    )
+                )
                 neuron_array._next_neuron_id += area_neuron_count
 
-                # FAST: Update mappings in bulk
+                #  FAST: Update mappings in bulk via ConnectomeManager (single
+                #  source of truth)
                 indices = np.arange(start_idx, end_idx, dtype=np.int32)
                 for j, neuron_id in enumerate(neuron_ids):
-                    neuron_array.id_to_index_map[neuron_id] = start_idx + j
-                    neuron_array.index_to_id_map[start_idx + j] = neuron_id
+                    self.connectome_manager.set_neuron_mapping(
+                        neuron_id, start_idx + j
+                    )
 
                 # FAST: Set uniform properties with vectorized array slicing
                 base_threshold = properties.get("fire_t", 1.0)
                 base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
                 base_refractory = properties.get("refrac", 1)
 
-                # SoA OPTIMIZATION: Set all properties with single array operations
+                #  SoA OPTIMIZATION: Set all properties with single array
+                #  operations
                 neuron_array.valid_mask[start_idx:end_idx] = True
                 neuron_array.membrane_potentials[start_idx:end_idx] = 0.0
                 neuron_array.resting_potentials[start_idx:end_idx] = 0.0
                 neuron_array.thresholds[start_idx:end_idx] = base_threshold
                 neuron_array.decay_rates[start_idx:end_idx] = base_decay_rate
-                neuron_array.refractory_periods[start_idx:end_idx] = base_refractory
+                neuron_array.refractory_periods[start_idx:end_idx] = (
+                    base_refractory
+                )
                 neuron_array.refractory_counters[start_idx:end_idx] = 0
-                neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
+                neuron_array.cortical_idxs[start_idx:end_idx] = (
+                    area.cortical_idx
+                )
                 neuron_array.is_active[start_idx:end_idx] = True
 
-                # FAST: Generate coordinates and apply position-based variations
+                #  FAST: Generate coordinates and apply position-based
+                #  variations
                 # Create coordinate arrays efficiently
                 positions = []
                 for x in range(width):
@@ -934,15 +1007,22 @@ class NeuroEmbryogenesis:
                                 positions.append((x, y, z))
 
                 # SoA OPTIMIZATION: Set coordinates with vectorized operations
-                coords_x = np.array([pos[0] for pos in positions], dtype=np.uint32)
-                coords_y = np.array([pos[1] for pos in positions], dtype=np.uint32) 
-                coords_z = np.array([pos[2] for pos in positions], dtype=np.uint32)
-                
+                coords_x = np.array(
+                    [pos[0] for pos in positions], dtype=np.uint32
+                )
+                coords_y = np.array(
+                    [pos[1] for pos in positions], dtype=np.uint32
+                )
+                coords_z = np.array(
+                    [pos[2] for pos in positions], dtype=np.uint32
+                )
+
                 neuron_array.coordinates_x[start_idx:end_idx] = coords_x
                 neuron_array.coordinates_y[start_idx:end_idx] = coords_y
                 neuron_array.coordinates_z[start_idx:end_idx] = coords_z
 
-                # FAST: Apply position-based variations with vectorized operations
+                #  FAST: Apply position-based variations with vectorized
+                #  operations
                 # 1. Firing threshold increment based on position
                 fire_increment = properties.get("fire_increment", 0.0)
                 if fire_increment != 0.0:
@@ -950,15 +1030,64 @@ class NeuroEmbryogenesis:
                     z_increments = coords_z.astype(np.float32) * fire_increment
                     neuron_array.thresholds[start_idx:end_idx] += z_increments
 
-                # 2. Leak variability based on position  
+                # 2. Leak variability based on position
                 leak_variability = properties.get("leak_variability", 0.0)
                 base_leak = properties.get("leak_c", 0.0)
                 if leak_variability != 0.0 and base_leak != 0.0:
                     # Generate random variations for each neuron
                     np.random.seed(42)  # Deterministic for reproducibility
-                    variations = np.random.uniform(-leak_variability, leak_variability, area_neuron_count) / 100.0
-                    varied_leak = np.clip(base_leak / 100.0 + variations, 0.0, 1.0)
-                    neuron_array.decay_rates[start_idx:end_idx] = 1.0 - varied_leak
+                    variations = (
+                        np.random.uniform(
+                            -leak_variability,
+                            leak_variability,
+                            area_neuron_count,
+                        )
+                        / 100.0
+                    )
+                    varied_leak = np.clip(
+                        base_leak / 100.0 + variations, 0.0, 1.0
+                    )
+                    neuron_array.decay_rates[start_idx:end_idx] = (
+                        1.0 - varied_leak
+                    )
+
+                # 3. Neuron excitability (probabilistic firing)
+                excitability_value = properties.get("neuron_excitability", 1.0)
+                # Validate and clamp excitability to [0.0, 1.0] range
+                if excitability_value > 1.0:
+                    logger.warning(
+                        f"Cortical area {cortical_id}: excitability {excitability_value} > 1.0, clamping to 1.0"
+                    )
+                    excitability_value = 1.0
+                elif excitability_value < 0.0:
+                    logger.warning(
+                        f"Cortical area {cortical_id}: excitability {excitability_value} < 0.0, clamping to 0.0"
+                    )
+                    excitability_value = 0.0
+
+                #  Set excitability for all neurons in this cortical area using
+                #  the area-aware method
+                neuron_array.set_cortical_area_excitability(
+                    cortical_idx=area.cortical_idx,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    excitability=excitability_value,
+                )
+
+                #  Track areas that use probabilistic firing for performance
+                #  optimization
+                if not hasattr(self, "_probabilistic_areas"):
+                    self._probabilistic_areas = set()
+
+                if excitability_value < 0.999:
+                    self._probabilistic_areas.add(cortical_id)
+                    logger.info(
+                        f"Cortical area {cortical_id} (idx={area.cortical_idx}): probabilistic firing enabled "
+                        f"(excitability={excitability_value:.3f}, {area_neuron_count} neurons)"
+                    )
+                else:
+                    # Ensure deterministic areas are not in the set
+                    self._probabilistic_areas.discard(cortical_id)
 
                 # FAST: Update voxel mapping efficiently
                 if cortical_id not in self.voxel_neuron_map:
@@ -972,9 +1101,34 @@ class NeuroEmbryogenesis:
                             voxel_neurons = []
                             for _ in range(neurons_per_voxel):
                                 if neuron_idx < len(neuron_ids):
-                                    voxel_neurons.append(neuron_ids[neuron_idx])
+                                    voxel_neurons.append(
+                                        neuron_ids[neuron_idx]
+                                    )
                                     neuron_idx += 1
-                            self.voxel_neuron_map[cortical_id][position] = voxel_neurons
+                            self.voxel_neuron_map[cortical_id][
+                                position
+                            ] = voxel_neurons
+
+                #  CRITICAL FIX: Sync neurons with cortical area objects using
+                #  vectorized operations
+                #  PERFORMANCE: Use bulk set operations and dict comprehensions
+                #  instead of loops
+                #  Add all created neurons to cortical area in one bulk
+                #  operation
+                area._neuron_indices.update(neuron_ids)
+
+                #  PERFORMANCE: Bulk update position mappings using zip and
+                #  dict operations
+                #  The positions list is already calculated above in vectorized
+                #  fashion
+                area._position_map.update(zip(neuron_ids, positions))
+
+                #  PERFORMANCE: Bulk update position-to-neurons mapping using
+                #  defaultdict-style logic
+                for neuron_id, position in zip(neuron_ids, positions):
+                    if position not in area._position_to_neurons:
+                        area._position_to_neurons[position] = []
+                    area._position_to_neurons[position].append(neuron_id)
 
                 # Update array state
                 neuron_array.next_index = end_idx
@@ -991,19 +1145,22 @@ class NeuroEmbryogenesis:
 
             end_time = datetime.datetime.now()
             duration = (end_time - start_time).total_seconds()
-            
+
             self.development_stats["total_neurons"] = total_neurons
             self._report_progress(
                 DevelopmentStage.NEUROGENESIS,
                 100,
-                f"Created {total_neurons} neurons in {duration:.3f}s ({total_neurons/duration:.0f} neurons/sec)",
+                f"Created {total_neurons} neurons in {duration:.3f}s ({total_neurons / duration:.0f} neurons/sec)",
             )
-            
-            logger.info(f"[FAST-SoA] Neurogenesis completed: {total_neurons} neurons in {duration:.3f}s")
+
+            logger.info(
+                f"[FAST-SoA] Neurogenesis completed: {total_neurons} neurons in {duration:.3f}s"
+            )
             return True
 
         except Exception as e:
             import traceback
+
             self.error = f"Failed to create neurons: {str(e)}"
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
             logger.exception("Error during neurogenesis")
@@ -1011,8 +1168,7 @@ class NeuroEmbryogenesis:
             return False
 
     def _perform_synaptogenesis(self) -> bool:
-        """
-        Create synaptic connections based on genome mappings.
+        """Create synaptic connections based on genome mappings.
 
         Returns:
             True if successful, False otherwise
@@ -1021,7 +1177,9 @@ class NeuroEmbryogenesis:
         debug_bdu = self._is_debug_bdu_enabled()
 
         if debug_bdu:
-            logger.info("[BDU DEBUG] ===== STARTING SYNAPTOGENESIS PHASE =====")
+            logger.info(
+                "[BDU DEBUG] ===== STARTING SYNAPTOGENESIS PHASE ====="
+            )
             logger.info(
                 f"[BDU DEBUG] Total cortical areas: {len(self.connectome_manager.cortical_areas)}"
             )
@@ -1038,35 +1196,77 @@ class NeuroEmbryogenesis:
 
             # Memory register for memory-based morphologies
 
-            # Extract cortical mappings using modern EVO genome processor
-            logger.info("Using EVO GenomeProcessor to extract cortical mappings")
+            #  Extract cortical mappings directly from hierarchical genome
+            #  format
+            logger.info(
+                "Extracting cortical mappings from hierarchical genome"
+            )
 
             try:
-                # Create genome processor instance
-                genome_processor = create_genome_processor(self.genome)
-
-                # Extract mappings using the modern processor
-                mapping_data = genome_processor.extract_cortical_mappings()
-
-                # Count total mappings for logging
+                # Extract mappings directly from hierarchical genome
+                mapping_data = {}
                 mappings_found = 0
-                for src_mappings in mapping_data.values():
-                    for dst_connections in src_mappings.values():
-                        mappings_found += len(dst_connections)
+
+                # Iterate through cortical areas in hierarchical blueprint
+                blueprint = self.genome.get("blueprint", {})
+                logger.info(
+                    f"Scanning {len(blueprint)} cortical areas for mappings"
+                )
+
+                for cortical_id, area_data in blueprint.items():
+                    if (
+                        isinstance(area_data, dict)
+                        and "cortical_mapping_dst" in area_data
+                    ):
+                        cortical_mappings = area_data["cortical_mapping_dst"]
+
+                        if (
+                            isinstance(cortical_mappings, dict)
+                            and cortical_mappings
+                        ):
+                            # Initialize source area in mapping_data
+                            if cortical_id not in mapping_data:
+                                mapping_data[cortical_id] = {}
+
+                            logger.info(
+                                f"Found {len(cortical_mappings)} mappings from {cortical_id}"
+                            )
+
+                            # Process each destination area
+                            for (
+                                dst_area_id,
+                                connection_specs,
+                            ) in cortical_mappings.items():
+                                if (
+                                    isinstance(connection_specs, list)
+                                    and connection_specs
+                                ):
+                                    #  The format is already correct - just use
+                                    #  it directly
+                                    mapping_data[cortical_id][
+                                        dst_area_id
+                                    ] = connection_specs
+                                    mappings_found += len(connection_specs)
+                                    logger.info(
+                                        f"  {cortical_id} -> {dst_area_id}: {len(connection_specs)} connections"
+                                    )
+
+                logger.info(f"Total mappings extracted: {mappings_found}")
 
                 if debug_bdu:
                     logger.info(
-                        f"[BDU DEBUG] GenomeProcessor extracted {mappings_found} mappings"
+                        f"[BDU DEBUG] Hierarchical extraction found {mappings_found} mappings"
                     )
-                    logger.info(
-                        f"[BDU DEBUG] Genome version: {genome_processor.get_version()}"
-                    )
-                    stats = genome_processor.get_statistics()
-                    logger.info(f"[BDU DEBUG] Genome stats: {stats}")
+                    for src_id, dst_mappings in mapping_data.items():
+                        logger.info(
+                            f"[BDU DEBUG]   {src_id} -> {list(dst_mappings.keys())}"
+                        )
 
             except Exception as e:
-                logger.error(f"Failed to extract mappings using GenomeProcessor: {e}")
-                logger.info("Falling back to direct genome access")
+                logger.error(
+                    f"Failed to extract mappings from hierarchical genome: {e}"
+                )
+                logger.info("No cortical mappings could be extracted")
                 mapping_data = {}
                 mappings_found = 0
 
@@ -1090,7 +1290,9 @@ class NeuroEmbryogenesis:
 
                 if success:
                     # Get synapse count from connectome manager
-                    total_synapses = self.connectome_manager.get_synapse_count()
+                    total_synapses = (
+                        self.connectome_manager.get_synapse_count()
+                    )
                     logger.info(
                         f"Successfully created synapses via cortical mappings. Total synapses: {total_synapses}"
                     )
@@ -1102,7 +1304,9 @@ class NeuroEmbryogenesis:
                             f"[BDU DEBUG] Total synapses created: {total_synapses}"
                         )
                 else:
-                    logger.warning("Failed to create synapses via cortical mappings")
+                    logger.warning(
+                        "Failed to create synapses via cortical mappings"
+                    )
             else:
                 logger.info(
                     "No cortical mappings found in genome - no synapses will be created"
@@ -1111,7 +1315,9 @@ class NeuroEmbryogenesis:
                     logger.info(
                         "[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
                     )
-                    logger.info("[BDU DEBUG] No mappings found - no synapses created")
+                    logger.info(
+                        "[BDU DEBUG] No mappings found - no synapses created"
+                    )
 
             self._report_progress(
                 DevelopmentStage.SYNAPTOGENESIS,
@@ -1131,8 +1337,7 @@ class NeuroEmbryogenesis:
             return False
 
     def get_morphology_registry(self) -> Dict[str, Dict]:
-        """
-        Create a registry of morphology functions from the genome.
+        """Create a registry of morphology functions from the genome.
 
         Returns:
             Dictionary mapping morphology_id to morphology type and parameters
@@ -1222,11 +1427,17 @@ class NeuroEmbryogenesis:
             "class": "built-in",
         }
 
-        registry["memory"] = {"type": "function", "parameters": {}, "class": "built-in"}
+        registry["memory"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
 
         # Add morphologies from the genome
         if self.genome and "neuron_morphologies" in self.genome:
-            for morphology_id, morphology in self.genome["neuron_morphologies"].items():
+            for morphology_id, morphology in self.genome[
+                "neuron_morphologies"
+            ].items():
                 morphology_type = morphology.get("type", "unknown")
 
                 if morphology_type == "vectors":
@@ -1256,8 +1467,7 @@ class NeuroEmbryogenesis:
         return registry
 
     def develop_brain(self, genome_path: Union[str, Path]) -> bool:
-        """
-        Main entry point to develop a brain from genome.
+        """Main entry point to develop a brain from genome.
 
         Args:
             genome_path: Path to the genome JSON file
@@ -1286,7 +1496,8 @@ class NeuroEmbryogenesis:
         # Finalize and report statistics
         self.development_stats["end_time"] = datetime.datetime.now()
         self.development_stats["duration"] = (
-            self.development_stats["end_time"] - self.development_stats["start_time"]
+            self.development_stats["end_time"]
+            - self.development_stats["start_time"]
         )
 
         # Final report
@@ -1305,9 +1516,10 @@ class NeuroEmbryogenesis:
         """Get statistics about the brain development process."""
         return self.development_stats
 
-    def develop_brain_from_genome_data(self, genome_data: Dict[str, Any]) -> bool:
-        """
-        Develop a brain from genome data directly (not from file).
+    def develop_brain_from_genome_data(
+        self, genome_data: Dict[str, Any]
+    ) -> bool:
+        """Develop a brain from genome data directly (not from file).
 
         This method is used when the genome data is already loaded and sanitized
         in the state manager, ensuring single source of truth architecture.
@@ -1320,18 +1532,27 @@ class NeuroEmbryogenesis:
         """
         self.development_stats["start_time"] = datetime.datetime.now()
 
-        # CRITICAL: Reset brain state before development to ensure consistent performance
+        #  CRITICAL: Reset brain state before development to ensure consistent
+        #  performance
         # This prevents neuron array accumulation between genome loads
-        logger.info("Preparing connectome for new genome (resetting brain state)")
-        if hasattr(self.connectome_manager, 'prepare_for_new_genome'):
-            reset_result = self.connectome_manager.prepare_for_new_genome(genome_data, save_current_state=False)
-            if not reset_result.get('success', False):
+        logger.info(
+            "Preparing connectome for new genome (resetting brain state)"
+        )
+        if hasattr(self.connectome_manager, "prepare_for_new_genome"):
+            reset_result = self.connectome_manager.prepare_for_new_genome(
+                genome_data, save_current_state=False
+            )
+            if not reset_result.get("success", False):
                 self.error = "Failed to reset brain state for new genome"
                 logger.error(self.error)
                 return False
-            logger.info(f"Brain reset completed: {reset_result.get('message', 'Unknown result')}")
+            logger.info(
+                f"Brain reset completed: {reset_result.get('message', 'Unknown result')}"
+            )
         else:
-            logger.warning("ConnectomeManager lacks prepare_for_new_genome method - performance may be inconsistent")
+            logger.warning(
+                "ConnectomeManager lacks prepare_for_new_genome method - performance may be inconsistent"
+            )
 
         # Validate and load genome data directly
         if not self._load_genome_data(genome_data):
@@ -1352,7 +1573,8 @@ class NeuroEmbryogenesis:
         # Finalize and report statistics
         self.development_stats["end_time"] = datetime.datetime.now()
         self.development_stats["duration"] = (
-            self.development_stats["end_time"] - self.development_stats["start_time"]
+            self.development_stats["end_time"]
+            - self.development_stats["start_time"]
         )
 
         # Final report
@@ -1368,8 +1590,7 @@ class NeuroEmbryogenesis:
         return True
 
     def _load_genome_data(self, genome_data: Dict[str, Any]) -> bool:
-        """
-        Load genome data directly from dictionary (not from file).
+        """Load genome data directly from dictionary (not from file).
 
         Args:
             genome_data: The genome dictionary
@@ -1407,7 +1628,9 @@ class NeuroEmbryogenesis:
                     )
                     if key == "physiology":
                         logger.error(
-                            "  → EXAMPLE: Add 'physiology': {'burst_delay': 0.025, 'max_age': 10000000, 'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, 'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10} to your genome"
+                            "  → EXAMPLE: Add 'physiology': {'burst_delay': 0.025, 'max_age': 10000000, "
+                            "'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, "
+                            "'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10} to your genome"
                         )
                         logger.error(
                             "  → AUTO-RECOVERY: Enable auto-recovery in configuration to automatically add missing physiology properties"
@@ -1416,17 +1639,24 @@ class NeuroEmbryogenesis:
                         logger.error(
                             "  → EXAMPLE: Add 'blueprint': {} with cortical area definitions to your genome"
                         )
-                    self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+                    self._report_progress(
+                        DevelopmentStage.FAILED, 0, self.error
+                    )
                     return False
 
             # Store genome data
             self.genome = genome_data
 
-            # Validate physiology section specifically with detailed error reporting
+            #  Validate physiology section specifically with detailed error
+            #  reporting
             try:
-                from feagi.evo.genome_validator import validate_physiology_section
+                from feagi.evo.genome_validator import (
+                    validate_physiology_section,
+                )
 
-                physiology_validation = validate_physiology_section(self.genome)
+                physiology_validation = validate_physiology_section(
+                    self.genome
+                )
                 if not physiology_validation["valid"]:
                     logger.warning("PHYSIOLOGY VALIDATION ISSUES DETECTED:")
                     for error in physiology_validation["errors"]:
@@ -1447,7 +1677,9 @@ class NeuroEmbryogenesis:
                 )
 
             self._report_progress(
-                DevelopmentStage.INITIALIZATION, 100, "Genome data loaded successfully"
+                DevelopmentStage.INITIALIZATION,
+                100,
+                "Genome data loaded successfully",
             )
             return True
 
@@ -1458,8 +1690,7 @@ class NeuroEmbryogenesis:
             return False
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
-        """
-        Update cortical mapping in the connectome based on genome changes.
+        """Update cortical mapping in the connectome based on genome changes.
 
         This method is ONLY used during connectome building/updating.
         It should not be used for runtime cortical property access.
@@ -1473,10 +1704,18 @@ class NeuroEmbryogenesis:
             bool: True if mapping was updated successfully
         """
         try:
-            logger.info("Applying cortical mapping updates to connectome")
+            logger.info(
+                "🧠 [MAPPING-DEBUG] NeuroEmbryogenesis.update_cortical_mapping started"
+            )
+            logger.info(f"🧠 [MAPPING-DEBUG] Input mapping: {mapping}")
+            logger.info(
+                "🧠 [MAPPING-DEBUG] Applying cortical mapping updates to connectome"
+            )
 
             if not self.connectome_manager:
-                logger.error("Cannot update cortical mapping: No connectome manager")
+                logger.error(
+                    "Cannot update cortical mapping: No connectome manager"
+                )
                 return False
 
             if not mapping:
@@ -1487,7 +1726,8 @@ class NeuroEmbryogenesis:
             # EVO format: {dst_area: [specs]}
             # BDU format: {src_area: {dst_area: [specs]}}
 
-            # Detect format by checking if first level values are lists (EVO format)
+            #  Detect format by checking if first level values are lists (EVO
+            #  format)
             first_key = next(iter(mapping.keys()))
             first_value = mapping[first_key]
 
@@ -1497,8 +1737,10 @@ class NeuroEmbryogenesis:
                 logger.info("Converting EVO mapping format to BDU format")
                 converted_mapping = {}
 
-                # Based on test mode 2 logs, these destination areas map to specific source areas:
-                # CIHMot, CKQM2_, CKYM2_, CO4M3_, CJWM3_, CTGM4_, CLWM4_ -> o__mot
+                #  Based on test mode 2 logs, these destination areas map to
+                #  specific source areas:
+                #  CIHMot, CKQM2_, CKYM2_, CO4M3_, CJWM3_, CTGM4_, CLWM4_ ->
+                #  co_mot
                 # This is a temporary fix until EVO processor is corrected
 
                 motor_areas = {
@@ -1515,11 +1757,15 @@ class NeuroEmbryogenesis:
                     if dst_area_id in motor_areas:
                         # These areas connect to motor output
                         src_area_id = dst_area_id  # Source is the same as destination for these mappings
-                        dst_area_id = "o__mot"  # They all connect to motor output
+                        dst_area_id = (
+                            "co_mot"  # They all connect to motor output
+                        )
 
                         if src_area_id not in converted_mapping:
                             converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][dst_area_id] = connection_specs
+                        converted_mapping[src_area_id][
+                            dst_area_id
+                        ] = connection_specs
 
                         logger.info(
                             f"Mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
@@ -1529,23 +1775,30 @@ class NeuroEmbryogenesis:
                         src_area_id = dst_area_id
                         if src_area_id not in converted_mapping:
                             converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][dst_area_id] = connection_specs
+                        converted_mapping[src_area_id][
+                            dst_area_id
+                        ] = connection_specs
 
                         logger.info(
                             f"Self-mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
                         )
 
                 mapping = converted_mapping
-                logger.info(f"Converted to BDU format with {len(mapping)} source areas")
+                logger.info(
+                    f"Converted to BDU format with {len(mapping)} source areas"
+                )
 
             elif isinstance(first_value, dict):
-                # Check if this is the correct BDU format: {src_area: {dst_area: [specs]}}
-                # or if it's still EVO format: {mapping_id: {dst_area: [specs]}}
+                #  Check if this is the correct BDU format: {src_area:
+                #  {dst_area: [specs]}}
+                #  or if it's still EVO format: {mapping_id: {dst_area:
+                #  [specs]}}
 
                 # Look at the second level to determine format
                 second_level_sample = next(iter(first_value.values()))
                 if isinstance(second_level_sample, list):
-                    # This is correct BDU format: {src_area: {dst_area: [specs]}}
+                    #  This is correct BDU format: {src_area: {dst_area:
+                    #  [specs]}}
                     logger.info("Mapping already in correct BDU format")
                 else:
                     logger.error(
@@ -1566,7 +1819,10 @@ class NeuroEmbryogenesis:
 
                 if isinstance(target_mappings, dict):
                     for dst_area_id in target_mappings.keys():
-                        if dst_area_id not in self.connectome_manager.cortical_areas:
+                        if (
+                            dst_area_id
+                            not in self.connectome_manager.cortical_areas
+                        ):
                             logger.error(
                                 f"Destination cortical area {dst_area_id} not found in connectome"
                             )
@@ -1577,37 +1833,52 @@ class NeuroEmbryogenesis:
 
             for src_area_id, target_mappings in mapping.items():
                 if not isinstance(target_mappings, dict):
-                    logger.warning(f"Invalid mapping format for area {src_area_id}")
+                    logger.warning(
+                        f"Invalid mapping format for area {src_area_id}"
+                    )
                     continue
 
                 # Get source area and neurons once
                 src_area = self.connectome_manager.cortical_areas[src_area_id]
-                src_neurons = self.connectome_manager.get_neurons_by_area(src_area_id)
+                src_neurons = self.connectome_manager.get_neurons_by_area(
+                    src_area_id
+                )
 
                 if not src_neurons:
-                    logger.warning(f"No neurons found in source area {src_area_id}")
+                    logger.warning(
+                        f"No neurons found in source area {src_area_id}"
+                    )
                     continue
 
                 # Update the source area's properties with mapping information
-                if not hasattr(src_area, "properties") or src_area.properties is None:
+                if (
+                    not hasattr(src_area, "properties")
+                    or src_area.properties is None
+                ):
                     src_area.properties = {}
 
                 # Convert the mapping data to the format expected by the API
-                # The API expects mapping in array format: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                #  The API expects mapping in array format: [morphology_id,
+                #  scalar, multiplier, plasticity_flag, constant, ltp, ltd]
                 api_mapping = {}
                 for dst_area_id, connection_data in target_mappings.items():
                     connection_arrays = []
                     for connection_spec in connection_data:
                         if isinstance(connection_spec, dict):
-                            # Convert from object format to array format for API compatibility
+                            #  Convert from object format to array format for
+                            #  API compatibility
                             connection_array = [
                                 connection_spec.get("morphology_id", ""),
-                                connection_spec.get("morphology_scalar", [1, 1, 1]),
+                                connection_spec.get(
+                                    "morphology_scalar", [1, 1, 1]
+                                ),
                                 connection_spec.get(
                                     "postSynapticCurrent_multiplier", 1.0
                                 ),
                                 connection_spec.get("plasticity_flag", False),
-                                connection_spec.get("plasticity_constant", 1.0),
+                                connection_spec.get(
+                                    "plasticity_constant", 1.0
+                                ),
                                 connection_spec.get("ltp_multiplier", 1.0),
                                 connection_spec.get("ltd_multiplier", 1.0),
                             ]
@@ -1617,27 +1888,47 @@ class NeuroEmbryogenesis:
                         api_mapping[dst_area_id] = connection_arrays
 
                 # Store the mapping in the cortical area properties
+                logger.info(
+                    f"🧠 [MAPPING-DEBUG] CRITICAL: Updating ConnectomeManager cortical area {src_area_id}"
+                )
+                logger.info(
+                    f"🧠 [MAPPING-DEBUG] Current properties: {src_area.properties}"
+                )
+                logger.info(
+                    f"🧠 [MAPPING-DEBUG] Setting mapping to: {api_mapping}"
+                )
                 src_area.properties["mapping"] = api_mapping
 
+                # Update StateManager cortical areas cache
+                try:
+                    from feagi.core.state_manager import get_state_manager
+
+                    state_manager = get_state_manager()
+                    state_manager.update_cortical_areas_cache(
+                        src_area_id, "mapping_update"
+                    )
+                    logger.info(
+                        f"🧠 [MAPPING-DEBUG] Updated cache for area {src_area_id}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"🧠 [MAPPING-DEBUG] Failed to update cortical areas cache for {src_area_id}: {e}"
+                    )
+
+                logger.info(
+                    f"🧠 [MAPPING-DEBUG] SUCCESS: ConnectomeManager area {src_area_id} properties updated"
+                )
+                logger.info(
+                    f"🧠 [MAPPING-DEBUG] New properties: {src_area.properties}"
+                )
+
                 # Process mappings to target areas
+                memory_mappings_processed = 0
                 for dst_area_id, connection_data in target_mappings.items():
                     try:
                         logger.info(
                             f"Creating synapses from {src_area_id} to {dst_area_id}"
                         )
-
-                        # Get destination area and neurons
-                        # dst_area = self.connectome_manager.cortical_areas[dst_area_id]  # Unused variable removed
-                        dst_neurons = self.connectome_manager.get_neurons_by_area(
-                            dst_area_id
-                        )
-
-                        if not dst_neurons:
-                            logger.warning(
-                                f"No neurons found in destination area {dst_area_id}"
-                            )
-                            continue
-
                         # Process each connection specification
                         for connection_spec in connection_data:
                             if not isinstance(connection_spec, dict):
@@ -1646,9 +1937,13 @@ class NeuroEmbryogenesis:
                                 )
                                 continue
 
-                            # Extract connection parameters from dictionary format
-                            # Format: {"morphology_id": "block_to_block", "morphology_scalar": [1,1,1], ...}
-                            morphology_id = connection_spec.get("morphology_id", "")
+                            #  Extract connection parameters from dictionary
+                            #  format
+                            #  Format: {"morphology_id": "block_to_block",
+                            #  "morphology_scalar": [1,1,1], ...}
+                            morphology_id = connection_spec.get(
+                                "morphology_id", ""
+                            )
                             morphology_scalar = connection_spec.get(
                                 "morphology_scalar", [1, 1, 1]
                             )
@@ -1686,6 +1981,45 @@ class NeuroEmbryogenesis:
                                 )
                                 morphology_scalar = [1, 1, 1]
 
+                            #  MEMORY MORPHOLOGY: register upstream mapping
+                            #  only, no synapses by design
+                            mapping_type = connection_spec.get(
+                                "mapping_type", ""
+                            ).lower()
+                            if (
+                                morphology_id.lower() == "memory"
+                                or mapping_type == "memory"
+                            ):
+                                try:
+                                    self.connectome_manager.add_memory_area_mapping(
+                                        src_area_id, dst_area_id
+                                    )
+                                    memory_mappings_processed += 1
+                                    logger.info(
+                                        f"[MEMORY-MAPPING] Registered upstream mapping {src_area_id} -> {dst_area_id} (no synapses by design)"
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"[MEMORY-MAPPING] Failed to register memory mapping {src_area_id} -> {dst_area_id}: {e}"
+                                    )
+                                # Skip synaptogenesis for memory morphology
+                                continue
+
+                            #  NON-MEMORY MORPHOLOGIES: proceed with
+                            #  synaptogenesis
+                            #  Get destination neurons lazily here to avoid
+                            #  false warnings for memory mappings
+                            dst_neurons = (
+                                self.connectome_manager.get_neurons_by_area(
+                                    dst_area_id
+                                )
+                            )
+                            if not dst_neurons:
+                                logger.warning(
+                                    f"No neurons found in destination area {dst_area_id}"
+                                )
+                                continue
+
                             # Apply morphology-based synaptogenesis
                             synapses_created = self._apply_morphology_mapping(
                                 src_area_id=src_area_id,
@@ -1710,20 +2044,29 @@ class NeuroEmbryogenesis:
                         logger.error(
                             f"Failed to update mapping from {src_area_id} to {dst_area_id}: {e}"
                         )
-                        # Continue processing other mappings rather than failing completely
+                        #  Continue processing other mappings rather than
+                        #  failing completely
                         continue
 
-            # Log final results
-            if total_synapses_created > 0:
-                logger.info(
-                    f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
-                )
-                return True
-            else:
-                logger.warning("No synapses were created from cortical mapping updates")
-                # Return True for graceful handling - empty mappings or invalid morphologies
-                # should not be considered failures, just no-ops
-                return True
+                # Log final results
+                if total_synapses_created > 0:
+                    logger.info(
+                        f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
+                    )
+                    return True
+                else:
+                    if memory_mappings_processed > 0:
+                        logger.info(
+                            "Memory morphology mappings processed with zero synapses (by design)"
+                        )
+                        return True
+                    logger.warning(
+                        "No synapses were created from cortical mapping updates"
+                    )
+                    #  Return True for graceful handling - empty mappings or
+                    #  invalid morphologies
+                    # should not be considered failures, just no-ops
+                    return True
 
         except Exception as e:
             logger.error(f"Error updating cortical mapping: {e}")
@@ -1743,8 +2086,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Apply morphology-based synaptogenesis between two cortical areas.
+        """Apply morphology-based synaptogenesis between two cortical areas.
 
         ARCHITECTURE: Morphology-driven approach following FEAGI 2.0 principles.
         Gets morphology definition from genome and routes to appropriate processor
@@ -1774,26 +2116,35 @@ class NeuroEmbryogenesis:
             morphology_type = None
 
             if self.genome and "neuron_morphologies" in self.genome:
-                morphology_def = self.genome["neuron_morphologies"].get(morphology_id)
+                morphology_def = self.genome["neuron_morphologies"].get(
+                    morphology_id
+                )
                 if morphology_def:
                     morphology_type = morphology_def.get("type")
 
             # If not found in genome, check if it's a core function morphology
             if not morphology_def:
                 # Import here to avoid circular imports
-                from feagi.bdu.connectivity.synaptogenesis import MorphologyFunction
+                from feagi.bdu.connectivity.synaptogenesis import (
+                    MorphologyFunction,
+                )
 
                 # Check if this is a known function morphology
-                function_morphology_values = [e.value for e in MorphologyFunction]
+                function_morphology_values = [
+                    e.value for e in MorphologyFunction
+                ]
                 if morphology_id in function_morphology_values:
-                    # This is a core function morphology - create a synthetic definition
+                    #  This is a core function morphology - create a synthetic
+                    #  definition
                     morphology_def = {
                         "type": "functions",
                         "parameters": {},
                         "class": "core",
                     }
                     morphology_type = "functions"
-                    logger.debug(f"Using core function morphology: {morphology_id}")
+                    logger.debug(
+                        f"Using core function morphology: {morphology_id}"
+                    )
                 else:
                     logger.warning(
                         f"Morphology {morphology_id} not found in genome or core functions"
@@ -1806,8 +2157,71 @@ class NeuroEmbryogenesis:
 
             # Validate morphology type
             if not morphology_type:
-                logger.warning(f"No type specified for morphology {morphology_id}")
+                logger.warning(
+                    f"No type specified for morphology {morphology_id}"
+                )
                 return 0
+
+            #  CRITICAL: Special handling for memory morphology - NO synapse
+            #  creation
+            if morphology_id == "memory":
+                logger.info(
+                    f"[MEMORY-MORPHOLOGY] Detected memory morphology from {src_area_id} to {dst_area_id}"
+                )
+                logger.info(
+                    "[MEMORY-MORPHOLOGY] Registering memory mapping without creating synapses"
+                )
+
+                #  Import and call syn_memory directly to populate memory
+                #  register
+                from feagi.bdu.connectivity.rules.functions import syn_memory
+
+                # Create memory register and populate it
+                memory_register = {}
+                syn_memory(src_area_id, dst_area_id, memory_register)
+                logger.info(
+                    f"[MEMORY-MORPHOLOGY] Memory register updated: {memory_register}"
+                )
+
+                #  Propagate memory register to ConnectomeManager (same as
+                #  _process_function_morphology)
+                if memory_register:
+                    logger.info(
+                        f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}"
+                    )
+                    for (
+                        memory_area_id,
+                        upstream_area_ids,
+                    ) in memory_register.items():
+                        logger.info(
+                            f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}"
+                        )
+                        for upstream_area_id in upstream_area_ids:
+                            try:
+                                logger.info(
+                                    f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})"
+                                )
+                                self.connectome_manager.add_memory_area_mapping(
+                                    upstream_area_id, memory_area_id
+                                )
+                                logger.info(
+                                    f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}"
+                                )
+                                logger.exception(
+                                    "[MEMORY-PROPAGATION] Full exception trace:"
+                                )
+                    logger.info(
+                        "[MEMORY-PROPAGATION] Completed processing all memory register entries"
+                    )
+
+                logger.info(
+                    "[MEMORY-MORPHOLOGY] Memory morphology processing completed - 0 synapses created as expected"
+                )
+                return 0  # No synapses created for memory morphology
 
             # Route to appropriate processor based on morphology type
             if morphology_type == "vectors":
@@ -1864,7 +2278,9 @@ class NeuroEmbryogenesis:
                 return 0
 
         except Exception as e:
-            logger.error(f"Error applying morphology mapping {morphology_id}: {e}")
+            logger.error(
+                f"Error applying morphology mapping {morphology_id}: {e}"
+            )
             return 0
 
     def _process_vector_morphology(
@@ -1881,8 +2297,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process vector-based morphology using numpy vectorized operations.
+        """Process vector-based morphology using numpy vectorized operations.
 
         PERFORMANCE: Vectorized approach for massive performance improvement.
         Instead of processing 12,288 neurons one-by-one, processes ALL at once.
@@ -1905,150 +2320,221 @@ class NeuroEmbryogenesis:
         """
         try:
             import numpy as np
-            
+
             vectors = morphology_def.get("parameters", {}).get("vectors", [])
             if not vectors:
-                logger.warning("No vectors found in morphology definition for vector type")
+                logger.warning(
+                    "No vectors found in morphology definition for vector type"
+                )
                 return 0
 
             if not src_neurons:
                 logger.debug("No source neurons to process")
                 return 0
 
-            logger.info(f"[VECTOR-NUMPY] Processing {len(src_neurons)} neurons with vectorized operations")
-            
+            logger.info(
+                f"[VECTOR-NUMPY] Processing {len(src_neurons)} neurons with vectorized operations"
+            )
+
             # Step 1: Extract ALL source neuron positions at once (vectorized)
             source_positions = []
             valid_source_neurons = []
-            
+
             for src_neuron_id in src_neurons:
                 src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
                 if src_pos:
                     source_positions.append(src_pos)
                     valid_source_neurons.append(src_neuron_id)
-            
+
             if not source_positions:
                 logger.warning("No valid source positions found")
                 return 0
-                
+
             # Convert to numpy arrays for vectorized operations
             source_neuron_ids = np.array(valid_source_neurons)  # Shape: (N,)
-            source_positions = np.array(source_positions)       # Shape: (N, 3)
-            
-            logger.debug(f"[VECTOR-NUMPY] Extracted {len(source_positions)} valid positions")
-            
+            source_positions = np.array(source_positions)  # Shape: (N, 3)
+
+            logger.debug(
+                f"[VECTOR-NUMPY] Extracted {len(source_positions)} valid positions"
+            )
+
             total_synapses = 0
-            
+
             # Process each vector in the morphology
             for vector in vectors:
                 # Get morphology scalar (default to 1.0 if not provided)
                 scalar = morphology_scalar[0] if morphology_scalar else 1.0
-                
-                # Step 2: Apply vector [m,n,t] to ALL positions at once (pure numpy)
+
+                #  Step 2: Apply vector [m,n,t] to ALL positions at once (pure
+                #  numpy)
                 vector_array = np.array(vector) * scalar  # Shape: (3,)
-                candidate_positions = source_positions + vector_array  # Broadcasting! Shape: (N, 3)
-                
-                logger.debug(f"[VECTOR-NUMPY] Applied vector {vector} * {scalar} to {len(candidate_positions)} positions")
-                
-                # Step 3: Get destination area dimensions for boundary checking
-                dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
-                if not dst_area:
-                    logger.warning(f"Cannot get destination area {dst_area_id}")
-                    continue
-                    
-                dst_dimensions = dst_area.dimensions
-                
-                # Step 4: Filter candidate positions to be within bounds (vectorized)
-                valid_mask = (
-                    (candidate_positions[:, 0] >= 0) & (candidate_positions[:, 0] < dst_dimensions[0]) &
-                    (candidate_positions[:, 1] >= 0) & (candidate_positions[:, 1] < dst_dimensions[1]) &
-                    (candidate_positions[:, 2] >= 0) & (candidate_positions[:, 2] < dst_dimensions[2])
+                candidate_positions = (
+                    source_positions + vector_array
+                )  # Broadcasting! Shape: (N, 3)
+
+                logger.debug(
+                    f"[VECTOR-NUMPY] Applied vector {vector} * {scalar} to {len(candidate_positions)} positions"
                 )
-                
+
+                # Step 3: Get destination area dimensions for boundary checking
+                dst_area = self.connectome_manager.get_cortical_area(
+                    dst_area_id
+                )
+                if not dst_area:
+                    logger.warning(
+                        f"Cannot get destination area {dst_area_id}"
+                    )
+                    continue
+
+                dst_dimensions = dst_area.dimensions
+
+                #  Step 4: Filter candidate positions to be within bounds
+                #  (vectorized)
+                valid_mask = (
+                    (candidate_positions[:, 0] >= 0)
+                    & (candidate_positions[:, 0] < dst_dimensions[0])
+                    & (candidate_positions[:, 1] >= 0)
+                    & (candidate_positions[:, 1] < dst_dimensions[1])
+                    & (candidate_positions[:, 2] >= 0)
+                    & (candidate_positions[:, 2] < dst_dimensions[2])
+                )
+
                 valid_candidate_positions = candidate_positions[valid_mask]
                 valid_source_neurons_for_vector = source_neuron_ids[valid_mask]
-                
+
                 if len(valid_candidate_positions) == 0:
-                    logger.debug("[VECTOR-NUMPY] No valid candidate positions after boundary filtering")
+                    logger.debug(
+                        "[VECTOR-NUMPY] No valid candidate positions after boundary filtering"
+                    )
                     continue
-                    
-                logger.debug(f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds")
-                
-                # Step 5: Batch lookup ALL candidate positions at once
-                candidate_positions_set = set(map(tuple, valid_candidate_positions))
-                
-                neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
-                    cortical_id=dst_area_id,
-                    candidate_positions=candidate_positions_set,
-                    post_synaptic_current=psc_multiplier,
+
+                logger.debug(
+                    f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds"
                 )
-                
+
+                # Step 5: Batch lookup ALL candidate positions at once
+                candidate_positions_set = set(
+                    map(tuple, valid_candidate_positions)
+                )
+
+                neuron_weight_pairs = (
+                    self.connectome_manager.batch_voxel_to_neuron_lookup(
+                        cortical_id=dst_area_id,
+                        candidate_positions=candidate_positions_set,
+                        post_synaptic_current=psc_multiplier,
+                    )
+                )
+
                 if not neuron_weight_pairs:
-                    logger.debug("[VECTOR-NUMPY] No neurons found at candidate positions")
+                    logger.debug(
+                        "[VECTOR-NUMPY] No neurons found at candidate positions"
+                    )
                     continue
-                
-                # Step 6: Create position-to-neurons mapping using global spatial hash
-                # ULTRA-FAST: Use pre-computed spatial hash system to eliminate all coordinate lookups
+
+                #  Step 6: Create position-to-neurons mapping using global
+                #  spatial hash
+                #  ULTRA-FAST: Use pre-computed spatial hash system to
+                #  eliminate all coordinate lookups
                 position_to_neurons = {}
-                
+
                 # Build reverse mapping using global spatial hash system
                 if neuron_weight_pairs:
                     # Import global spatial hash system
                     from feagi.bdu.spatial_hash import get_spatial_hash
+
                     spatial_hash = get_spatial_hash()
-                    
+
                     # Extract neuron IDs from the pairs
-                    found_neuron_ids = [pair[0] for pair in neuron_weight_pairs]
-                    
+                    found_neuron_ids = [
+                        pair[0] for pair in neuron_weight_pairs
+                    ]
+
                     # Get all positions at once using vectorized lookup
-                    if hasattr(self.connectome_manager.neuron_array, 'batch_get_coordinates'):
-                        neuron_positions_batch = self.connectome_manager.neuron_array.batch_get_coordinates(found_neuron_ids)
+                    if hasattr(
+                        self.connectome_manager.neuron_array,
+                        "batch_get_coordinates",
+                    ):
+                        neuron_positions_batch = self.connectome_manager.neuron_array.batch_get_coordinates(
+                            found_neuron_ids
+                        )
                     else:
                         # Fallback: vectorized coordinate extraction
                         neuron_indices = [
-                            self.connectome_manager.neuron_array.id_to_index_map[nid] 
-                            for nid in found_neuron_ids 
-                            if nid in self.connectome_manager.neuron_array.id_to_index_map
+                            self.connectome_manager.get_neuron_index(nid)
+                            for nid in found_neuron_ids
+                            if self.connectome_manager.has_neuron(nid)
                         ]
-                        
+
+                        # Filter out None values from the mapping lookups
+                        neuron_indices = [
+                            idx for idx in neuron_indices if idx is not None
+                        ]
+
                         if neuron_indices:
-                            indices_array = np.array(neuron_indices, dtype=np.int32)
-                            coords_x = self.connectome_manager.neuron_array.coordinates_x[indices_array]
-                            coords_y = self.connectome_manager.neuron_array.coordinates_y[indices_array]  
-                            coords_z = self.connectome_manager.neuron_array.coordinates_z[indices_array]
-                            neuron_positions_batch = list(zip(coords_x, coords_y, coords_z))
+                            indices_array = np.array(
+                                neuron_indices, dtype=np.int32
+                            )
+                            coords_x = self.connectome_manager.neuron_array.coordinates_x[
+                                indices_array
+                            ]
+                            coords_y = self.connectome_manager.neuron_array.coordinates_y[
+                                indices_array
+                            ]
+                            coords_z = self.connectome_manager.neuron_array.coordinates_z[
+                                indices_array
+                            ]
+                            neuron_positions_batch = list(
+                                zip(coords_x, coords_y, coords_z)
+                            )
                         else:
                             neuron_positions_batch = []
-                    
+
                     # Group neurons by position
-                    for i, (neuron_id, weight) in enumerate(neuron_weight_pairs):
+                    for i, (neuron_id, weight) in enumerate(
+                        neuron_weight_pairs
+                    ):
                         if i < len(neuron_positions_batch):
                             neuron_pos = neuron_positions_batch[i]
                             if neuron_pos not in position_to_neurons:
                                 position_to_neurons[neuron_pos] = []
-                            position_to_neurons[neuron_pos].append((neuron_id, weight))
-                
+                            position_to_neurons[neuron_pos].append(
+                                (neuron_id, weight)
+                            )
+
                 # Step 7: Create synapses (vectorized where possible)
                 synapse_connections = []
                 for i, candidate_pos in enumerate(valid_candidate_positions):
                     candidate_pos_tuple = tuple(candidate_pos)
                     if candidate_pos_tuple in position_to_neurons:
                         src_neuron_id = valid_source_neurons_for_vector[i]
-                        for dst_neuron_id, weight in position_to_neurons[candidate_pos_tuple]:
-                            synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
-                
+                        for dst_neuron_id, weight in position_to_neurons[
+                            candidate_pos_tuple
+                        ]:
+                            synapse_connections.append(
+                                (src_neuron_id, dst_neuron_id, weight)
+                            )
+
                 # Step 8: Batch create synapses
                 if synapse_connections:
-                    created = self.connectome_manager.batch_create_synapses(synapse_connections)
+                    created = self.connectome_manager.batch_create_synapses(
+                        synapse_connections
+                    )
                     total_synapses += created
-                    logger.debug(f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}")
+                    logger.debug(
+                        f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}"
+                    )
 
-            logger.info(f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations")
+            logger.info(
+                f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations"
+            )
             return total_synapses
 
         except Exception as e:
-            logger.error(f"Error in vectorized vector morphology processing: {e}")
+            logger.error(
+                f"Error in vectorized vector morphology processing: {e}"
+            )
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             return 0
 
@@ -2066,8 +2552,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process pattern-based morphology using legacy pattern logic.
+        """Process pattern-based morphology using legacy pattern logic.
 
         ARCHITECTURE: Implements legacy find_destination_coordinates in FEAGI 2.0.
         PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
@@ -2083,8 +2568,10 @@ class NeuroEmbryogenesis:
                 return 0
 
             # Get destination area dimensions
-            dst_area_props = self.connectome_manager.get_cortical_area_properties(
-                dst_area_id
+            dst_area_props = (
+                self.connectome_manager.get_cortical_area_properties(
+                    dst_area_id
+                )
             )
             if not dst_area_props:
                 logger.error(f"Cannot get properties for area {dst_area_id}")
@@ -2096,7 +2583,9 @@ class NeuroEmbryogenesis:
             for src_neuron_id in src_neurons:
                 try:
                     # Get source neuron position
-                    src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
+                    src_pos = self._get_neuron_position(
+                        src_neuron_id, src_area_id
+                    )
                     if not src_pos:
                         continue
 
@@ -2113,7 +2602,9 @@ class NeuroEmbryogenesis:
 
                             candidate_positions = list(
                                 find_destination_coordinates(
-                                    dst_cortical_boundary=tuple(dst_dimensions),
+                                    dst_cortical_boundary=tuple(
+                                        dst_dimensions
+                                    ),
                                     src_coordinate=src_pos,
                                     src_pattern=source_pattern,
                                     dst_pattern=destination_pattern,
@@ -2126,12 +2617,10 @@ class NeuroEmbryogenesis:
 
                     # Use legacy batch lookup for performance
                     if all_candidate_positions:
-                        neuron_weight_pairs = (
-                            self.connectome_manager.batch_voxel_to_neuron_lookup(
-                                cortical_id=dst_area_id,
-                                candidate_positions=all_candidate_positions,
-                                post_synaptic_current=psc_multiplier,
-                            )
+                        neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                            cortical_id=dst_area_id,
+                            candidate_positions=all_candidate_positions,
+                            post_synaptic_current=psc_multiplier,
                         )
 
                         # Convert to synapse connections
@@ -2140,10 +2629,13 @@ class NeuroEmbryogenesis:
                                 (src_neuron_id, neuron_id, weight)
                             )
 
-                    # Create synapses in batch - Now using GlobalSynapseArray for optimal performance
+                    #  Create synapses in batch - Now using GlobalSynapseArray
+                    #  for optimal performance
                     if synapse_connections:
-                        created = self.connectome_manager.batch_create_synapses(
-                            synapse_connections
+                        created = (
+                            self.connectome_manager.batch_create_synapses(
+                                synapse_connections
+                            )
                         )
                         total_synapses += created
 
@@ -2175,8 +2667,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process function-based morphology with direct implementation.
+        """Process function-based morphology with direct implementation.
 
         ARCHITECTURE: Clean FEAGI 2.0 implementation without legacy dependencies.
         Supports all function morphologies including block_to_block.
@@ -2192,7 +2683,8 @@ class NeuroEmbryogenesis:
             src_area = self.connectome_manager.get_cortical_area(src_area_id)
             src_subregion = [(0, 0, 0), src_area.dimensions]
 
-            # Create morphology dict in the correct format for find_candidate_neurons
+            #  Create morphology dict in the correct format for
+            #  find_candidate_neurons
             # Check if this is a pattern-based morphology from the genome
             if morphology_def and morphology_def.get("type") == "patterns":
                 morphology_dict = {
@@ -2239,9 +2731,14 @@ class NeuroEmbryogenesis:
                         memory_register=memory_register,
                     )
 
-                    # Apply legacy synapse attractivity filtering (critical for proper behavior)
-                    dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
-                    synapse_attractivity = dst_area.properties.get("synatt", 100)
+                    #  Apply legacy synapse attractivity filtering (critical
+                    #  for proper behavior)
+                    dst_area = self.connectome_manager.get_cortical_area(
+                        dst_area_id
+                    )
+                    synapse_attractivity = dst_area.properties.get(
+                        "synatt", 100
+                    )
 
                     if debug_bdu:
                         logger.info(
@@ -2251,10 +2748,12 @@ class NeuroEmbryogenesis:
                             f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
                         )
 
-                    # Create synapses from candidate neurons with probabilistic filtering
+                    #  Create synapses from candidate neurons with
+                    #  probabilistic filtering
                     synapse_connections = []
                     for dst_neuron_id, weight in candidate_neurons:
-                        # Legacy behavior: probabilistic synapse creation based on attractivity
+                        #  Legacy behavior: probabilistic synapse creation
+                        #  based on attractivity
                         if random.randrange(1, 100) < synapse_attractivity:
                             synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
@@ -2266,10 +2765,13 @@ class NeuroEmbryogenesis:
                         )
 
                     if synapse_connections:
-                        # PERFORMANCE DEBUG: Time the batch_create_synapses call  
+                        #  PERFORMANCE DEBUG: Time the batch_create_synapses
+                        #  call
                         start_time = time.time()
-                        created = self.connectome_manager.batch_create_synapses(
-                            synapse_connections
+                        created = (
+                            self.connectome_manager.batch_create_synapses(
+                                synapse_connections
+                            )
                         )
                         end_time = time.time()
                         elapsed_ms = (end_time - start_time) * 1000
@@ -2295,6 +2797,45 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
+            #  CRITICAL: Propagate memory register to ConnectomeManager for
+            #  memory area tracking
+            if memory_register:
+                logger.info(
+                    f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}"
+                )
+                for (
+                    memory_area_id,
+                    upstream_area_ids,
+                ) in memory_register.items():
+                    logger.info(
+                        f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}"
+                    )
+                    for upstream_area_id in upstream_area_ids:
+                        try:
+                            logger.info(
+                                f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})"
+                            )
+                            self.connectome_manager.add_memory_area_mapping(
+                                upstream_area_id, memory_area_id
+                            )
+                            logger.info(
+                                f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}"
+                            )
+                            logger.exception(
+                                "[MEMORY-PROPAGATION] Full exception trace:"
+                            )
+                logger.info(
+                    "[MEMORY-PROPAGATION] Completed processing all memory register entries"
+                )
+            else:
+                logger.info(
+                    f"[MEMORY-PROPAGATION] No memory register found for morphology {morphology_id}"
+                )
+
             return total_synapses
 
         except Exception as e:
@@ -2309,8 +2850,13 @@ class NeuroEmbryogenesis:
         """Get the 3D position of a neuron within its cortical area."""
         try:
             # Check voxel mapping first if available
-            if hasattr(self, "voxel_neuron_map") and area_id in self.voxel_neuron_map:
-                for position, neuron_list in self.voxel_neuron_map[area_id].items():
+            if (
+                hasattr(self, "voxel_neuron_map")
+                and area_id in self.voxel_neuron_map
+            ):
+                for position, neuron_list in self.voxel_neuron_map[
+                    area_id
+                ].items():
                     if neuron_id in neuron_list:
                         return position
 
@@ -2320,7 +2866,9 @@ class NeuroEmbryogenesis:
                 return position
 
             # If no position found, log debug info
-            logger.debug(f"No position found for neuron {neuron_id} in area {area_id}")
+            logger.debug(
+                f"No position found for neuron {neuron_id} in area {area_id}"
+            )
             return None
 
         except Exception as e:
@@ -2372,7 +2920,9 @@ class NeuroEmbryogenesis:
             return ((0, 0, 0), (0, 0, 0))
 
     def _get_neurons_in_region(
-        self, area_id: str, region: Tuple[Tuple[int, int, int], Tuple[int, int, int]]
+        self,
+        area_id: str,
+        region: Tuple[Tuple[int, int, int], Tuple[int, int, int]],
     ) -> List[int]:
         """Get all neurons within a specified 3D region of a cortical area."""
         try:
@@ -2380,8 +2930,13 @@ class NeuroEmbryogenesis:
             neurons_in_region = []
 
             # Try voxel mapping first if available
-            if hasattr(self, "voxel_neuron_map") and area_id in self.voxel_neuron_map:
-                for position, neuron_list in self.voxel_neuron_map[area_id].items():
+            if (
+                hasattr(self, "voxel_neuron_map")
+                and area_id in self.voxel_neuron_map
+            ):
+                for position, neuron_list in self.voxel_neuron_map[
+                    area_id
+                ].items():
                     x, y, z = position
                     if (
                         min_x <= x <= max_x
@@ -2391,9 +2946,13 @@ class NeuroEmbryogenesis:
                         neurons_in_region.extend(neuron_list)
             else:
                 # Fallback: get all neurons in area and check their positions
-                all_neurons = self.connectome_manager.get_neurons_by_area(area_id)
+                all_neurons = self.connectome_manager.get_neurons_by_area(
+                    area_id
+                )
                 for neuron_id in all_neurons:
-                    position = self.connectome_manager.get_neuron_position(neuron_id)
+                    position = self.connectome_manager.get_neuron_position(
+                        neuron_id
+                    )
                     if position:
                         x, y, z = position
                         if (
@@ -2425,10 +2984,11 @@ def develop_brain_from_genome(
     genome_path: Union[str, Path],
     connectome_manager: Optional[ConnectomeManager] = None,
     config: Optional[FeagiConfig] = None,
-    progress_callback: Optional[Callable[[DevelopmentStage, float, str], None]] = None,
+    progress_callback: Optional[
+        Callable[[DevelopmentStage, float, str], None]
+    ] = None,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """
-    Develop a brain from a genome file.
+    """Develop a brain from a genome file.
 
     Args:
         genome_path: Path to the genome JSON file

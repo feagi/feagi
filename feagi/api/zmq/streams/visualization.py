@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -85,7 +83,9 @@ class VisualizationStream:
         (Rust/RTOS compatible)."""
         # Core API integration for genome state management
         self.core_api = core_api
-        self.process_manager = process_manager  # Store process manager reference
+        self.process_manager = (
+            process_manager  # Store process manager reference
+        )
 
         # Basic connection settings
         self.host = host
@@ -120,18 +120,26 @@ class VisualizationStream:
         )
 
         # 🗜️ LZ4 COMPRESSION: Simple LZ4 compression for bandwidth reduction
-        compression_enabled = self.stream_config.get("compression_enabled", True)
+        compression_enabled = self.stream_config.get(
+            "compression_enabled", True
+        )
         min_size_threshold = self.stream_config.get("min_size_threshold", 100)
         self.compressor = (
-            create_lz4_compressor(min_size_threshold) if compression_enabled else None
+            create_lz4_compressor(min_size_threshold)
+            if compression_enabled
+            else None
         )
 
         # Genome state management
         self._active_mode = False  # True when genome is loaded and ready
 
         # Client tracking with heartbeat timeouts
-        self.client_last_heartbeat = {}  # Mapping of client_id -> last heartbeat time
-        self.client_heartbeat_timeout = 30  # Consider clients disconnected after 30s
+        self.client_last_heartbeat = (
+            {}
+        )  # Mapping of client_id -> last heartbeat time
+        self.client_heartbeat_timeout = (
+            30  # Consider clients disconnected after 30s
+        )
         self._client_lock = threading.Lock()  # Thread-safe client access
 
         # Subscriber monitoring for automatic FQ sampler control
@@ -149,7 +157,9 @@ class VisualizationStream:
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         # Initialize state based on current genome availability
         self._update_active_mode()
@@ -179,7 +189,9 @@ class VisualizationStream:
         self.socket = self.context.socket(zmq.PUB)
 
         # Optimize for real-time streaming
-        self.socket.setsockopt(zmq.SNDHWM, 1000)  # Higher send buffer to prevent drops
+        self.socket.setsockopt(
+            zmq.SNDHWM, 1000
+        )  # Higher send buffer to prevent drops
         self.socket.setsockopt(
             zmq.LINGER, 1000
         )  # Wait briefly on close to send pending messages
@@ -246,7 +258,9 @@ class VisualizationStream:
 
         # Thread 2: Client cleanup and monitoring
         cleanup_thread = threading.Thread(
-            target=self._client_cleanup_worker, name="VisualizationCleanup", daemon=True
+            target=self._client_cleanup_worker,
+            name="VisualizationCleanup",
+            daemon=True,
         )
         cleanup_thread.start()
         self.worker_threads.append(cleanup_thread)
@@ -277,7 +291,8 @@ class VisualizationStream:
         self.running = False
         self._stop_event.set()
 
-        # Wait for worker threads BEFORE closing socket to prevent race conditions
+        #  Wait for worker threads BEFORE closing socket to prevent race
+        #  conditions
         total_threads = len(self.worker_threads)
         if total_threads > 0:
             logger.debug(
@@ -286,7 +301,9 @@ class VisualizationStream:
             )
 
             MAX_TOTAL_WAIT = 3.0  # Maximum 3 seconds total wait
-            PER_THREAD_TIMEOUT = min(1.0, MAX_TOTAL_WAIT / max(total_threads, 1))
+            PER_THREAD_TIMEOUT = min(
+                1.0, MAX_TOTAL_WAIT / max(total_threads, 1)
+            )
 
             import time
 
@@ -319,7 +336,9 @@ class VisualizationStream:
                             f"{remaining_timeout:.1f}s - continuing anyway"
                         )
                     else:
-                        logger.debug(f"Thread {thread.name} stopped gracefully")
+                        logger.debug(
+                            f"Thread {thread.name} stopped gracefully"
+                        )
                 else:
                     logger.debug(
                         f"Thread {i}/{total_threads}: {thread.name} already stopped"
@@ -342,8 +361,9 @@ class VisualizationStream:
         logger.info("[OK] Visualization stream stopped")
 
     def _data_worker(self) -> None:
-        """
-        Data processing worker using UnifiedFQSampler cortical area format only.
+        """Data processing worker using UnifiedFQSampler cortical area format
+        only.
+
         RUST/RTOS COMPATIBLE: FQ sampler exists from startup, uses
         enable/disable states.
         """
@@ -360,7 +380,9 @@ class VisualizationStream:
                 if not self._active_mode:
                     self._update_active_mode()
                     if not self._active_mode:
-                        time.sleep(0.5)  # @architecture:acceptable - standby mode
+                        time.sleep(
+                            0.5
+                        )  # @architecture:acceptable - standby mode
                         continue
 
                 # RTOS/RUST COMPATIBLE: Fail fast if FQ sampler dependency not
@@ -369,7 +391,9 @@ class VisualizationStream:
                 if not self.fq_sampler:
                     if self.process_manager:
                         # Try to get FQ sampler from process manager
-                        viz_fq_sampler = self.process_manager.get_viz_fq_sampler()
+                        viz_fq_sampler = (
+                            self.process_manager.get_viz_fq_sampler()
+                        )
                         if viz_fq_sampler:
                             self.fq_sampler = viz_fq_sampler
                             logger.info(
@@ -397,26 +421,36 @@ class VisualizationStream:
                 # RUST/RTOS COMPATIBLE: FQ sampler exists but may be disabled
                 # Skip processing if no FQ sampler exists (stream disabled) OR
                 # if sampler is disabled (no clients)
-                # PROFESSIONAL FIX: Check the FQ sampler's actual state instead of our own flag
+                #  PROFESSIONAL FIX: Check the FQ sampler's actual state
+                #  instead of our own flag
                 fq_sampler_has_subscribers = (
-                    getattr(self.fq_sampler, "_has_visualization_subscribers", False)
+                    getattr(
+                        self.fq_sampler,
+                        "_has_visualization_subscribers",
+                        False,
+                    )
                     if self.fq_sampler
                     else False
                 )
 
                 if not self.fq_sampler or not fq_sampler_has_subscribers:
-                    # Brief wait to avoid busy-waiting when no clients connected
-                    time.sleep(0.1)  # @architecture:acceptable - no clients connected
+                    #  Brief wait to avoid busy-waiting when no clients
+                    #  connected
+                    time.sleep(
+                        0.1
+                    )  # @architecture:acceptable - no clients connected
                     continue
 
-                # Get data from UnifiedFQSampler ONLY when enabled (clients connected)
+                #  Get data from UnifiedFQSampler ONLY when enabled (clients
+                #  connected)
                 try:
                     sample_data = self.fq_sampler.sample()
 
                     if sample_data:
-                        # Convert UnifiedFQSampler format to visualization format
-                        for_visualization = self._convert_fq_format_to_viz_format(
-                            sample_data
+                        #  Convert UnifiedFQSampler format to visualization
+                        #  format
+                        for_visualization = (
+                            self._convert_fq_format_to_viz_format(sample_data)
                         )
 
                         # Only broadcast if we have visualization clients
@@ -441,10 +475,14 @@ class VisualizationStream:
 
         logger.debug("Visualization data worker stopped")
 
-    def _process_cortical_area_data(self, cortical_data: Dict[str, Any]) -> None:
+    def _process_cortical_area_data(
+        self, cortical_data: Dict[str, Any]
+    ) -> None:
         """Process data in the cortical area format from UnifiedFQSampler."""
         try:
-            logger.debug(f"Processing cortical area format: {len(cortical_data)} areas")
+            logger.debug(
+                f"Processing cortical area format: {len(cortical_data)} areas"
+            )
 
             # Encode using feagi_data_processing binary format - USE TYPE 11
             # (NEURON_CATEGORIES)
@@ -453,7 +491,7 @@ class VisualizationStream:
 
                 # Create the main mapped neuron data container
                 generated_mapped_neuron_data = (
-                    fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                    fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                 )
 
                 total_neurons = 0
@@ -463,7 +501,9 @@ class VisualizationStream:
 
                     neuron_ids = area_data["neuron_ids"]
                     coordinates = area_data.get("coordinates", [])
-                    membrane_potentials = area_data.get("membrane_potentials", [])
+                    membrane_potentials = area_data.get(
+                        "membrane_potentials", []
+                    )
 
                     # Validate coordinates exist
                     if not coordinates or len(coordinates) != len(neuron_ids):
@@ -473,18 +513,76 @@ class VisualizationStream:
                             f"neurons in area {area_id}"
                         )
 
-                    # Use high-performance coordinate extraction - real data only
-                    coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
+                    #  Use high-performance coordinate extraction - real data
+                    #  only
+                    coords_result = self.core_api.get_neuron_coordinates(
+                        neuron_ids
+                    )
                     if coords_result and "coordinates_x" in coords_result:
                         x_coords = coords_result["coordinates_x"]
                         y_coords = coords_result["coordinates_y"]
                         z_coords = coords_result["coordinates_z"]
-                    else:
-                        # ❌ NO FALLBACKS - Coordinates must exist
-                        raise ValueError(
-                            f"Failed to get coordinates for {len(neuron_ids)} "
-                            f"neurons in area {area_id}"
+                        valid_indices = coords_result.get(
+                            "valid_indices", [True] * len(neuron_ids)
                         )
+
+                        #  ROBUSTNESS: Filter out invalid neurons instead of
+                        #  failing completely
+                        #  This prevents bridge freeze when some neurons become
+                        #  invalid during reconstruction
+                        if not all(valid_indices):
+                            valid_count = sum(valid_indices)
+                            logger.warning(
+                                f"[VIZ-ROBUST] Area {area_id}: {len(neuron_ids) - valid_count} of {len(neuron_ids)} "
+                                f"neurons have invalid coordinates (likely due to reconstruction). Filtering them out."
+                            )
+                            # Filter to only valid neurons
+                            valid_neuron_ids = [
+                                neuron_ids[i]
+                                for i, valid in enumerate(valid_indices)
+                                if valid
+                            ]
+                            valid_x_coords = [
+                                x_coords[i]
+                                for i, valid in enumerate(valid_indices)
+                                if valid
+                            ]
+                            valid_y_coords = [
+                                y_coords[i]
+                                for i, valid in enumerate(valid_indices)
+                                if valid
+                            ]
+                            valid_z_coords = [
+                                z_coords[i]
+                                for i, valid in enumerate(valid_indices)
+                                if valid
+                            ]
+                            valid_potentials = [
+                                membrane_potentials[i]
+                                for i, valid in enumerate(valid_indices)
+                                if i < len(membrane_potentials) and valid
+                            ]
+
+                            # Update variables to use only valid data
+                            neuron_ids = valid_neuron_ids
+                            x_coords = valid_x_coords
+                            y_coords = valid_y_coords
+                            z_coords = valid_z_coords
+                            membrane_potentials = valid_potentials
+
+                            if len(neuron_ids) == 0:
+                                logger.info(
+                                    f"[VIZ-ROBUST] Area {area_id}: No valid neurons remaining, skipping area"
+                                )
+                                continue
+                    else:
+                        #  ❌ Complete failure - no coordinate data available at
+                        #  all
+                        logger.warning(
+                            f"[VIZ-ROBUST] Failed to get any coordinates for area {area_id} "
+                            f"({len(neuron_ids)} neurons). Skipping area instead of crashing."
+                        )
+                        continue
 
                     # Add neurons to the cortical mapping
                     for i in range(len(neuron_ids)):
@@ -501,9 +599,13 @@ class VisualizationStream:
                             x=x, y=y, z=z, p=p
                         )
                         cortical_id = (
-                            int(area_id) if area_id.isdigit() else hash(area_id) % 1000
+                            int(area_id)
+                            if area_id.isdigit()
+                            else hash(area_id) % 1000
                         )
-                        generated_mapped_neuron_data.insert(neuron_obj, cortical_id)
+                        generated_mapped_neuron_data.insert(
+                            neuron_obj, cortical_id
+                        )
                         total_neurons += 1
 
                 if total_neurons > 0:
@@ -530,9 +632,13 @@ class VisualizationStream:
                     )
 
                     if structure_type == 11:
-                        logger.debug("   ✅ Generated Type 11 (NEURON_CATEGORIES)")
+                        logger.debug(
+                            "   ✅ Generated Type 11 (NEURON_CATEGORIES)"
+                        )
                     else:
-                        logger.debug(f"   ❓ Unknown structure type: {structure_type}")
+                        logger.debug(
+                            f"   ❓ Unknown structure type: {structure_type}"
+                        )
 
                 # Publish the binary data
                 self._publish_data(binary_data)
@@ -553,13 +659,16 @@ class VisualizationStream:
             logger.error(f"Error processing cortical area data: {e}")
 
     def _publish_data(self, data: bytes) -> None:
-        """
-        Publish data on the 'activity' topic with comprehensive error handling.
+        """Publish data on the 'activity' topic with comprehensive error
+        handling.
+
         Includes optional LZ4/Zstandard compression for reduced network usage.
         """
         # Defensive null check to prevent race condition
         if not self.socket:
-            logger.debug("Cannot publish data: socket is None (likely during shutdown)")
+            logger.debug(
+                "Cannot publish data: socket is None (likely during shutdown)"
+            )
             return
 
         # Additional running state check
@@ -597,11 +706,20 @@ class VisualizationStream:
                             f"{compression_time_ms:.1f}ms"
                         )
                 else:
-                    # Compression didn't help, use original data
-                    logger.debug(f"[LZ4] Skipped - {compression_info['reason']}")
+                    #  Compression didn't help, use original data - gate with
+                    #  debug flag
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_zmq_outbound_enabled():
+                        logger.info(
+                            f"[ZMQ-OUT-DEBUG] LZ4 Skipped - {compression_info['reason']}"
+                        )
 
             except Exception as e:
-                logger.warning(f"[LZ4] Compression failed: {e}, sending uncompressed")
+                logger.warning(
+                    f"[LZ4] Compression failed: {e}, sending uncompressed"
+                )
                 final_data = data
                 compression_ratio = 1.0
 
@@ -671,7 +789,9 @@ class VisualizationStream:
         except zmq.ZMQError as e:
             # Enhanced ZMQ-specific error handling
             if e.errno == zmq.ETERM:
-                logger.debug("ZMQ context terminated - stopping publish operations")
+                logger.debug(
+                    "ZMQ context terminated - stopping publish operations"
+                )
                 return
             elif e.errno == zmq.EAGAIN:
                 logger.warning(
@@ -679,7 +799,9 @@ class VisualizationStream:
                 )
                 return
             elif "Operation cannot be accomplished in current state" in str(e):
-                logger.warning("ZMQ socket corrupted, attempting recreation...")
+                logger.warning(
+                    "ZMQ socket corrupted, attempting recreation..."
+                )
                 try:
                     self._recreate_socket()
                     # Retry once with null check
@@ -695,7 +817,9 @@ class VisualizationStream:
                 except Exception as retry_error:
                     logger.error(f"Socket recreation failed: {retry_error}")
             else:
-                logger.error(f"ZMQ error in publish_data: {e} (errno: {e.errno})")
+                logger.error(
+                    f"ZMQ error in publish_data: {e} (errno: {e.errno})"
+                )
 
         except Exception as e:
             # Generic exception handling with detailed logging
@@ -737,7 +861,9 @@ class VisualizationStream:
             logger.info(f"Socket recreated and bound to {bind_addr}")
 
         except zmq.ZMQError as e:
-            logger.error(f"ZMQ error recreating socket: {e} (errno: {e.errno})")
+            logger.error(
+                f"ZMQ error recreating socket: {e} (errno: {e.errno})"
+            )
             self.socket = None
             raise
         except Exception as e:
@@ -746,9 +872,11 @@ class VisualizationStream:
             raise
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get visualization stream statistics including compression performance."""
+        """Get visualization stream statistics including compression
+        performance."""
         runtime = time.time() - self.stats["start_time"]
-        # total_messages = max(self.stats["data_sent"], 1)  # Unused variable removed
+        #  total_messages = max(self.stats["data_sent"], 1) # Unused variable
+        #  removed
 
         base_stats = {
             "running": self.running,
@@ -765,13 +893,19 @@ class VisualizationStream:
                 "compression_enabled": True,
                 "compression_type": "lz4",
                 "bytes_saved_compression": compressor_stats["bytes_saved"],
-                "avg_compression_time_ms": compressor_stats["avg_compression_time_ms"],
-                "overall_compression_ratio": compressor_stats["compression_ratio"],
+                "avg_compression_time_ms": compressor_stats[
+                    "avg_compression_time_ms"
+                ],
+                "overall_compression_ratio": compressor_stats[
+                    "compression_ratio"
+                ],
                 "bandwidth_savings_percent": compressor_stats[
                     "bandwidth_savings_percent"
                 ],
                 "failed_compressions": compressor_stats["failed_compressions"],
-                "skipped_compressions": compressor_stats["skipped_compressions"],
+                "skipped_compressions": compressor_stats[
+                    "skipped_compressions"
+                ],
                 "compression_success_rate": compressor_stats["success_rate"],
             }
             return {**base_stats, **compression_stats}
@@ -783,8 +917,7 @@ class VisualizationStream:
             return {**base_stats, **compression_stats}
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
-        """
-        Process heartbeat from a visualization client.
+        """Process heartbeat from a visualization client.
 
         Args:
             client_id: Unique identifier of the visualization client (bridge instance)
@@ -802,7 +935,9 @@ class VisualizationStream:
                     "REST API - no automatic registration"
                 )
             else:
-                logger.debug(f"Heartbeat from visualization client: {client_id}")
+                logger.debug(
+                    f"Heartbeat from visualization client: {client_id}"
+                )
 
     def get_connected_client_count(self) -> int:
         """Get the number of connected visualization clients."""
@@ -810,9 +945,11 @@ class VisualizationStream:
             return len(self.client_last_heartbeat)
 
     def _get_registered_visualization_agents(self) -> int:
-        """
-        Get the number of registered visualization agents from the agent registry.
-        This bridges the old heartbeat system with the new agent registration system.
+        """Get the number of registered visualization agents from the agent
+        registry.
+
+        This bridges the old heartbeat system with the new agent registration
+        system.
         """
         try:
             if not self.core_api:
@@ -853,13 +990,16 @@ class VisualizationStream:
                     f"🔍 AGENT REGISTRY: Found {viz_agent_count} registered "
                     f"visualization agents: {connected_viz_agents}"
                 )
-            # Note: Removed spam debug log for "no agents found" - this is normal
+            #  Note: Removed spam debug log for "no agents found" - this is
+            #  normal
             # when no agents are connected
 
             return viz_agent_count
 
         except Exception as e:
-            logger.error(f"Error checking agent registry for visualization agents: {e}")
+            logger.error(
+                f"Error checking agent registry for visualization agents: {e}"
+            )
             # Add more detailed error information
             if logger.isEnabledFor(10):  # DEBUG level
                 import traceback
@@ -883,8 +1023,8 @@ class VisualizationStream:
         return
 
     def _client_cleanup_worker(self) -> None:
-        """
-        Client cleanup worker thread.
+        """Client cleanup worker thread.
+
         Manages client heartbeat timeouts and automatic cleanup.
         """
         cleanup_interval = 5.0  # Check every 5 seconds
@@ -900,7 +1040,10 @@ class VisualizationStream:
                 clients_to_remove = []
 
                 with self._client_lock:  # Thread-safe client access
-                    for client_id, last_heartbeat in self.client_last_heartbeat.items():
+                    for (
+                        client_id,
+                        last_heartbeat,
+                    ) in self.client_last_heartbeat.items():
                         if (
                             current_time - last_heartbeat
                             > self.client_heartbeat_timeout
@@ -910,7 +1053,9 @@ class VisualizationStream:
                     # Remove timed out clients
                     for client_id in clients_to_remove:
                         del self.client_last_heartbeat[client_id]
-                        logger.info(f"💔 Client {client_id} disconnected (timeout)")
+                        logger.info(
+                            f"💔 Client {client_id} disconnected (timeout)"
+                        )
                         logger.info(
                             "ℹ️ Note: Agent deregistration must be done explicitly "
                             "via REST API - no automatic deregistration"
@@ -919,7 +1064,9 @@ class VisualizationStream:
                     # Log final client count
                     total_clients = len(self.client_last_heartbeat)
                     if len(clients_to_remove) > 0:
-                        logger.info(f"💡 Remaining heartbeat clients: {total_clients}")
+                        logger.info(
+                            f"💡 Remaining heartbeat clients: {total_clients}"
+                        )
 
             except Exception as e:
                 logger.error(f"Error cleaning up clients: {e}")
@@ -927,14 +1074,15 @@ class VisualizationStream:
             # Use responsive wait with frequent stop event checks
             for _ in range(int(cleanup_interval * 4)):  # Check every 250ms
                 if self._stop_event.wait(timeout=0.25):
-                    logger.debug("Client cleanup worker stopping due to stop event")
+                    logger.debug(
+                        "Client cleanup worker stopping due to stop event"
+                    )
                     return
 
         logger.debug("Client cleanup worker stopped")
 
     def _subscriber_monitor_worker(self) -> None:
-        """
-        Subscriber monitoring worker thread.
+        """Subscriber monitoring worker thread.
 
         DEPRECATED: FQ sampler management is now handled by the Agent API
         (feagi_agent.py) based on agent registration/deregistration with
@@ -962,7 +1110,9 @@ class VisualizationStream:
 
                 # STATISTICS ONLY: Track client connections for internal use
                 heartbeat_count = self.get_connected_client_count()
-                registered_viz_agents = self._get_registered_visualization_agents()
+                registered_viz_agents = (
+                    self._get_registered_visualization_agents()
+                )
                 total_subscribers = heartbeat_count + registered_viz_agents
 
                 # Update internal statistics (no FQ sampler control)
@@ -975,7 +1125,8 @@ class VisualizationStream:
                     )
                     self._last_subscriber_count = total_subscribers
 
-                # LONGER INTERVAL: Since we're not controlling FQ sampler, check
+                #  LONGER INTERVAL: Since we're not controlling FQ sampler,
+                #  check
                 # less frequently
                 wait_time = max(
                     self.subscriber_check_interval, 10.0
@@ -984,13 +1135,17 @@ class VisualizationStream:
                 # Check every 2 seconds for faster shutdown response
                 for _ in range(int(wait_time / 2)):
                     if self._stop_event.wait(timeout=2.0):
-                        logger.debug("Subscriber monitor stopping due to stop event")
+                        logger.debug(
+                            "Subscriber monitor stopping due to stop event"
+                        )
                         return
 
             except Exception as e:
                 logger.error(f"Error in subscriber monitoring: {e}")
                 # Use responsive wait on error
-                for _ in range(5):  # Check every 2 seconds for 10 seconds total
+                for _ in range(
+                    5
+                ):  # Check every 2 seconds for 10 seconds total
                     if self._stop_event.wait(timeout=2.0):
                         return
 
@@ -999,18 +1154,20 @@ class VisualizationStream:
     def _convert_fq_format_to_viz_format(
         self, sample_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Convert UnifiedFQSampler format to visualization format.
+        """Convert UnifiedFQSampler format to visualization format.
+
         This is a pass-through since UnifiedFQSampler already provides the
         correct format.
         """
         return sample_data
 
-    def _prepare_broadcast_data(self, for_visualization: Dict[str, Any]) -> bytes:
-        """
-        Prepare data for broadcasting to visualization clients.
-        Convert to binary format using feagi_data_processing with
-        high-performance NumPy arrays.
+    def _prepare_broadcast_data(
+        self, for_visualization: Dict[str, Any]
+    ) -> bytes:
+        """Prepare data for broadcasting to visualization clients.
+
+        Convert to binary format using feagi_data_processing with high-
+        performance NumPy arrays.
         """
         try:
             # Encode using feagi_data_processing binary format - USE
@@ -1019,32 +1176,61 @@ class VisualizationStream:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
 
-            # Convert cortical area data to the format expected by the new encoder
+            #  Convert cortical area data to the format expected by the new
+            #  encoder
             for area_id, area_data in for_visualization.items():
                 if area_data and area_data.get("neuron_ids"):
                     neuron_ids = area_data.get("neuron_ids", [])
-                    membrane_potentials = area_data.get("membrane_potentials", [])
+                    membrane_potentials = area_data.get(
+                        "membrane_potentials", []
+                    )
 
-                    # Use high-performance coordinate extraction - real data only
-                    coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
-                    if coords_result and "coordinates_x" in coords_result:
-                        x_coords = coords_result["coordinates_x"]
-                        y_coords = coords_result["coordinates_y"]
-                        z_coords = coords_result["coordinates_z"]
-                    else:
-                        # ❌ NO FALLBACKS - Coordinates must exist
-                        raise ValueError(
-                            f"Failed to get coordinates for {len(neuron_ids)} "
-                            f"neurons in area {area_id}"
+                    #  MEMORY AREA FIX: Check if coordinates are already
+                    #  provided (for memory areas)
+                    provided_coordinates = area_data.get("coordinates", [])
+
+                    if provided_coordinates:
+                        # Use pre-provided coordinates (memory areas)
+                        # Convert from list of tuples to separate x,y,z lists
+                        x_coords = [coord[0] for coord in provided_coordinates]
+                        y_coords = [coord[1] for coord in provided_coordinates]
+                        z_coords = [coord[2] for coord in provided_coordinates]
+                        logger.info(
+                            f"[VIZ-DEBUG] Using provided coordinates for {area_id}: {provided_coordinates}"
                         )
+                    else:
+                        #  Use high-performance coordinate extraction - real
+                        #  data only (regular areas)
+                        coords_result = self.core_api.get_neuron_coordinates(
+                            neuron_ids
+                        )
+                        if coords_result and "coordinates_x" in coords_result:
+                            x_coords = coords_result["coordinates_x"]
+                            y_coords = coords_result["coordinates_y"]
+                            z_coords = coords_result["coordinates_z"]
+                            logger.info(
+                                f"[VIZ-DEBUG] Looked up coordinates for {area_id}: {len(x_coords)} coords"
+                            )
+                        else:
+                            # ❌ NO FALLBACKS - Coordinates must exist
+                            raise ValueError(
+                                f"Failed to get coordinates for {len(neuron_ids)} "
+                                f"neurons in area {area_id}"
+                            )
 
                     # Ensure all arrays are the same length
                     max_len = len(neuron_ids)
                     if max_len == 0:
                         continue
+
+                    # DEBUG: Log array lengths before processing
+                    logger.info(
+                        f"[VIZ-DEBUG] {area_id}: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, "
+                        f"x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}"
+                    )
 
                     # Pad membrane potentials if needed
                     if len(membrane_potentials) < max_len:
@@ -1053,6 +1239,12 @@ class VisualizationStream:
                         )
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
+
+                    # DEBUG: Log final array lengths
+                    logger.info(
+                        f"[VIZ-DEBUG] {area_id} FINAL: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, "
+                        f"x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}"
+                    )
 
                     # Create NumPy arrays with proper dtypes for performance
                     # (following neuron_c example)
@@ -1063,27 +1255,65 @@ class VisualizationStream:
                         membrane_potentials[:max_len], dtype=np.float32
                     )
 
-                    # Create cortical ID
-                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    # DEBUG: Log NumPy array shapes
+                    logger.info(
+                        f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, p.shape={neurons_p.shape}"
+                    )
+
+                    #  Create cortical ID using modern feagi-data-processing
+                    #  approach
+                    area_str = str(area_id)
+
+                    try:
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
+                        cortical_id_obj = (
+                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                        )
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == "_power":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Power
+                            )
+                        elif area_str == "_death":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Death
+                            )
+                        else:
+                            # For unknown areas, use custom with 'c' prefix
+                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                f"c{area_str}"
+                            )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
-                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
+                    generated_mapped_neuron_data.insert(
+                        cortical_id_obj, neurons_array
+                    )
 
             # Create the final byte structure from the mapped data
-            byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            byte_structure = (
+                generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            )
             binary_data = byte_structure.copy_out_as_byte_vector()
 
-            logger.debug(
-                f"Encoded {len(for_visualization)} areas into {len(binary_data)} "
-                f"bytes using high-performance NumPy approach (neuron_c pattern)"
-            )
+            # Gate encoding logs with debug flag
+            from feagi.core.state_manager import FeagiStateManager
+
+            state_manager = FeagiStateManager.instance()
+            if state_manager.is_debug_zmq_outbound_enabled():
+                logger.info(
+                    f"[ZMQ-OUT-DEBUG] Encoded {len(for_visualization)} areas into {len(binary_data)} "
+                    f"bytes using high-performance NumPy approach (neuron_c pattern)"
+                )
             return binary_data
 
         except ImportError:
@@ -1097,9 +1327,7 @@ class VisualizationStream:
             return b""
 
     def _broadcast_to_clients(self, broadcast_data: bytes) -> None:
-        """
-        Broadcast data to all connected visualization clients.
-        """
+        """Broadcast data to all connected visualization clients."""
         if broadcast_data:
             self._publish_data(broadcast_data)
         else:

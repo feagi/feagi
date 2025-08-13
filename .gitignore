@@ -84,3 +84,7 @@ website/docs/yarn-debug.log*
 website/docs/yarn-error.log*
 /backup/
 /tmp/
+
+# Snapshots
+output/snapshots/
+output/snapshots/tmp/

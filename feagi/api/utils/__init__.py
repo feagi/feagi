@@ -1,5 +1,4 @@
-"""
-Utility modules for FEAGI API.
+"""Utility modules for FEAGI API.
 
 This package contains various utility modules for the FEAGI API.
 """

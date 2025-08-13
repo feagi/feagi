@@ -1,7 +1,7 @@
-"""
-FEAGI API Module
+"""FEAGI API Module.
 
-This module provides the main API interface for FEAGI, including both REST and ZMQ endpoints.
+This module provides the main API interface for FEAGI, including both REST and
+ZMQ endpoints.
 """
 
 import os

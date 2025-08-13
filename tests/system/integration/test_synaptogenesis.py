@@ -188,10 +188,10 @@ def test_blueprint_structure(genome):
     # The blueprint in the essential genome contains cortical area definitions
     # in the format: _____10c-{cortical_id}-{gene_type}-{property}-{value_type}
 
-    # Check for iv00BM entries
-    iv00BM_entries = [k for k in genome["blueprint"].keys() if "iv00BM" in k]
-    assert len(iv00BM_entries) > 0, (
-        "Genome should contain entries for iv00BM cortical area"
+    # Check for iic100 entries
+    iic100_entries = [k for k in genome["blueprint"].keys() if "iic100" in k]
+    assert len(iic100_entries) > 0, (
+        "Genome should contain entries for iic100 cortical area"
     )
 
     # Check for m__bac entries
@@ -202,25 +202,25 @@ def test_blueprint_structure(genome):
 
 
 def test_mapping_in_blueprint(genome):
-    """Test that the genome's blueprint contains mapping information between iv00BM and m__bac."""
+    """Test that the genome's blueprint contains mapping information between iic100 and m__bac."""
     # In the genome 2.0 format, mappings are defined in the blueprint under the "dstmap" property
     dstmap_entries = [k for k in genome["blueprint"].keys() if "-dstmap-" in k]
 
-    # Find the iv00BM mapping entry
-    iv00BM_mapping = None
+    # Find the iic100 mapping entry
+    iic100_mapping = None
     for entry in dstmap_entries:
-        if "iv00BM" in entry:
-            iv00BM_mapping = entry
+        if "iic100" in entry:
+            iic100_mapping = entry
             break
 
-    assert iv00BM_mapping is not None, "Should have a dstmap entry for iv00BM"
+    assert iic100_mapping is not None, "Should have a dstmap entry for iic100"
 
     # Check if the mapping points to m__bac
-    mapping_data = genome["blueprint"][iv00BM_mapping]
+    mapping_data = genome["blueprint"][iic100_mapping]
     assert isinstance(mapping_data, dict), "Mapping data should be a dictionary"
 
     # Check if m__bac is a destination
-    assert "m__bac" in mapping_data, "iv00BM should have a mapping to m__bac"
+    assert "m__bac" in mapping_data, "iic100 should have a mapping to m__bac"
 
     # Check the morphology type
     morphology_entries = mapping_data["m__bac"]

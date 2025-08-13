@@ -12,10 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-"""
-Protocol Translator Module for FEAGI
+#  ==============================================================================
+"""Protocol Translator Module for FEAGI.
 
 This module provides the translators for converting between FEAGI's
 internal data structures and the binary wire formats used for communication
@@ -40,7 +38,11 @@ from typing import Any, Dict, List, Optional, Union
 # Import from the feagi-data-processing package
 import feagi_data_processing as fdp
 
-from feagi.api.protocols.constants import ByteStructureID, FCPCommandType, ProtocolID
+from feagi.api.protocols.constants import (
+    ByteStructureID,
+    FCPCommandType,
+    ProtocolID,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -56,9 +58,9 @@ SUPPORTED_VERSIONS = {
 
 
 def get_structure_info(data: bytes) -> Dict[str, Any]:
-    """Get structure info from byte data"""
+    """Get structure info from byte data."""
     try:
-        byte_structure = fdp.byte_structures.FeagiByteStructure(data)
+        byte_structure = fdp.io_processing.bytes.FeagiByteStructure(data)
         return {
             "structure_type": byte_structure.try_get_structure_type(),
             "version": byte_structure.get_version(),
@@ -75,16 +77,15 @@ def is_compressed(data: bytes) -> bool:
 
 
 class ByteStructureTranslator:
-    """
-    Translator for FEAGI byte structure protocols using feagi_data_processing.
+    """Translator for FEAGI byte structure protocols using
+    feagi_data_processing.
 
     This class provides methods for creating and parsing protocol-specific
     messages using the new high-performance byte structure format.
     """
 
     def __init__(self):
-        """
-        Initialize the protocol translator.
+        """Initialize the protocol translator.
 
         Creates encoder and decoder instances and initializes the client
         capability registry.
@@ -106,11 +107,11 @@ class ByteStructureTranslator:
         self.client_capabilities: Dict[str, Dict[str, Any]] = {}
 
     def _encode_json_message(self, data: dict) -> bytes:
-        """Encode JSON data using feagi_data_processing"""
+        """Encode JSON data using feagi_data_processing."""
         try:
             # Create a CorticalMappedXYZPNeuronData container for JSON data
             cortical_mapped = (
-                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
             byte_structure = cortical_mapped.as_new_feagi_byte_structure()
 
@@ -119,21 +120,23 @@ class ByteStructureTranslator:
             # sophisticated mapping
             return byte_structure.copy_out_as_byte_vector()
         except Exception as e:
-            logger.error(f"Failed to encode JSON with feagi_data_processing: {e}")
+            logger.error(
+                f"Failed to encode JSON with feagi_data_processing: {e}"
+            )
             # Fallback to simple JSON encoding
             return json.dumps(data).encode("utf-8")
 
     def _encode_neuron_data(
         self, cortical_data: Dict[str, Dict[str, Any]], version: int = 1
     ) -> bytes:
-        """Encode neuron data using feagi_data_processing with
-        high-performance NumPy arrays"""
+        """Encode neuron data using feagi_data_processing with high-performance
+        NumPy arrays."""
         try:
             import numpy as np
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             # Process cortical data format:
@@ -143,14 +146,18 @@ class ByteStructureTranslator:
                     x_vals = neuron_arrays.get("x", [])
                     y_vals = neuron_arrays.get("y", [])
                     z_vals = neuron_arrays.get("z", [])
-                    p_vals = neuron_arrays.get("potentials", neuron_arrays.get("p", []))
+                    p_vals = neuron_arrays.get(
+                        "potentials", neuron_arrays.get("p", [])
+                    )
 
                     # Skip empty areas
                     if not x_vals and not y_vals and not z_vals:
                         continue
 
                     # Ensure all arrays are the same length
-                    max_len = max(len(x_vals), len(y_vals), len(z_vals), len(p_vals))
+                    max_len = max(
+                        len(x_vals), len(y_vals), len(z_vals), len(p_vals)
+                    )
                     if max_len == 0:
                         continue
 
@@ -167,22 +174,51 @@ class ByteStructureTranslator:
                     neurons_z = np.asarray(z_vals, dtype=np.uint32)
                     neurons_p = np.asarray(p_vals, dtype=np.float32)
 
-                    # Create cortical ID
-                    cortical_id_obj = self.fdp.cortical_data.CorticalID(
-                        str(cortical_id)
-                    )
+                    #  Create cortical ID using modern feagi-data-processing
+                    #  approach
+                    area_str = str(cortical_id)
 
-                    # Use high-performance NumPy approach to create neuron arrays
+                    try:
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
+                        cortical_id_obj = (
+                            self.fdp.genome.CorticalID.try_new_from_string(
+                                area_str
+                            )
+                        )
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == "_power":
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(
+                                self.fdp.genome.CoreCorticalType.Power
+                            )
+                        elif area_str == "_death":
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(
+                                self.fdp.genome.CoreCorticalType.Death
+                            )
+                        else:
+                            # For unknown areas, use custom with 'c' prefix
+                            cortical_id_obj = self.fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                f"c{area_str}"
+                            )
+
+                    #  Use high-performance NumPy approach to create neuron
+                    #  arrays
                     # (no cortical_id parameter)
-                    neurons_array = self.fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                    neurons_array = self.fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                         neurons_x, neurons_y, neurons_z, neurons_p
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
-                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
+                    generated_mapped_neuron_data.insert(
+                        cortical_id_obj, neurons_array
+                    )
 
             # Create the final byte structure from the mapped data
-            byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            byte_structure = (
+                generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            )
             return byte_structure.copy_out_as_byte_vector()
 
         except Exception as e:
@@ -195,8 +231,7 @@ class ByteStructureTranslator:
     def register_client_capabilities(
         self, client_id: str, capabilities: Dict[str, Any]
     ) -> None:
-        """
-        Register client capabilities for version negotiation.
+        """Register client capabilities for version negotiation.
 
         Args:
             client_id: Client identifier
@@ -204,11 +239,13 @@ class ByteStructureTranslator:
                          supported structure versions
         """
         self.client_capabilities[client_id] = capabilities
-        logger.debug(f"Registered capabilities for client {client_id}: {capabilities}")
+        logger.debug(
+            f"Registered capabilities for client {client_id}: {capabilities}"
+        )
 
     def get_supported_version(self, client_id: str, structure_id: int) -> int:
-        """
-        Get the highest structure version supported by both server and client.
+        """Get the highest structure version supported by both server and
+        client.
 
         Args:
             client_id: Client identifier
@@ -232,7 +269,9 @@ class ByteStructureTranslator:
             server_supported = SUPPORTED_VERSIONS.get(structure_id, [1])
 
             # Find common versions
-            common_versions = set(server_supported).intersection(set(client_supported))
+            common_versions = set(server_supported).intersection(
+                set(client_supported)
+            )
             if not common_versions:
                 # No common versions, use default
                 return self.default_versions.get(structure_id, 1)
@@ -250,8 +289,7 @@ class ByteStructureTranslator:
         return self.default_versions.get(structure_id, 1)
 
     def create_timestamp(self) -> Dict[str, int]:
-        """
-        Create a timestamp object.
+        """Create a timestamp object.
 
         Returns:
             Dictionary with timestamp in milliseconds
@@ -259,8 +297,7 @@ class ByteStructureTranslator:
         return {"time_ms": int(time.time() * 1000)}
 
     def create_handshake_hello(self, agent_id: str, agent_type: str) -> bytes:
-        """
-        Create a handshake hello message.
+        """Create a handshake hello message.
 
         Args:
             agent_id: Agent identifier
@@ -282,8 +319,7 @@ class ByteStructureTranslator:
     def create_handshake_welcome(
         self, server_id: str, message: str = "Welcome to FEAGI"
     ) -> bytes:
-        """
-        Create a handshake welcome message.
+        """Create a handshake welcome message.
 
         Args:
             server_id: Server identifier
@@ -308,8 +344,7 @@ class ByteStructureTranslator:
         supported_motor: List[str],
         protocol_versions: Dict[str, int],
     ) -> bytes:
-        """
-        Create a handshake capabilities message.
+        """Create a handshake capabilities message.
 
         Args:
             supported_sensory: List of supported sensory channel IDs
@@ -334,9 +369,10 @@ class ByteStructureTranslator:
 
         return self._encode_json_message(capabilities)
 
-    def create_handshake_configuration(self, server_config: Dict[str, Any]) -> bytes:
-        """
-        Create a handshake configuration message.
+    def create_handshake_configuration(
+        self, server_config: Dict[str, Any]
+    ) -> bytes:
+        """Create a handshake configuration message.
 
         Args:
             server_config: Server configuration dictionary
@@ -356,8 +392,7 @@ class ByteStructureTranslator:
     def create_fcp_message(
         self, command_type: FCPCommandType, payload: Dict[str, Any]
     ) -> bytes:
-        """
-        Create an FCP message.
+        """Create an FCP message.
 
         Args:
             command_type: Command type
@@ -378,8 +413,7 @@ class ByteStructureTranslator:
     def create_fsmp_sensory_data(
         self, channel_id: str, data: Union[bytes, List[float]]
     ) -> bytes:
-        """
-        Create an FSMP sensory data message.
+        """Create an FSMP sensory data message.
 
         Args:
             channel_id: Sensory channel ID
@@ -390,7 +424,9 @@ class ByteStructureTranslator:
         """
         # For efficiency, if data is a numpy array of neuron activations,
         # use the specialized neuron potential format
-        if isinstance(data, (list, tuple)) and all(isinstance(x, float) for x in data):
+        if isinstance(data, (list, tuple)) and all(
+            isinstance(x, float) for x in data
+        ):
             # This is a simple case - just encode as JSON for now
             # In a real implementation, this would use a more efficient format
             message = {
@@ -403,7 +439,8 @@ class ByteStructureTranslator:
             return self._encode_json_message(message)
         else:
             # For raw binary data, use JSON header with base64 encoded data
-            # In a real implementation, you might use a specialized binary format
+            #  In a real implementation, you might use a specialized binary
+            #  format
             import base64
 
             if isinstance(data, bytes):
@@ -421,9 +458,10 @@ class ByteStructureTranslator:
             }
             return self._encode_json_message(message)
 
-    def create_fsmp_motor_data(self, channel_id: str, data: List[float]) -> bytes:
-        """
-        Create an FSMP motor data message.
+    def create_fsmp_motor_data(
+        self, channel_id: str, data: List[float]
+    ) -> bytes:
+        """Create an FSMP motor data message.
 
         Args:
             channel_id: Motor channel ID
@@ -443,10 +481,11 @@ class ByteStructureTranslator:
         return self._encode_json_message(message)
 
     def create_neuron_data_message(
-        self, cortical_data: Dict[str, Dict[str, Any]], client_id: Optional[str] = None
+        self,
+        cortical_data: Dict[str, Dict[str, Any]],
+        client_id: Optional[str] = None,
     ) -> bytes:
-        """
-        Create a neuron data message using the optimized format.
+        """Create a neuron data message using the optimized format.
 
         Args:
             cortical_data: Dictionary mapping cortical area IDs to neuron data:
@@ -485,8 +524,7 @@ class ByteStructureTranslator:
         return self._encode_neuron_data(cortical_data, version)
 
     def decode_message(self, message_data: bytes) -> Dict[str, Any]:
-        """
-        Decode a byte structure message.
+        """Decode a byte structure message.
 
         Args:
             message_data: Raw message data
@@ -500,29 +538,43 @@ class ByteStructureTranslator:
         try:
             # Try to create a FeagiByteStructure from the data
             try:
-                byte_structure = self.fdp.byte_structures.FeagiByteStructure(
-                    message_data
+                byte_structure = (
+                    self.fdp.io_processing.bytes.FeagiByteStructure(
+                        message_data
+                    )
                 )
                 structure_info = get_structure_info(message_data)
                 structure_type = structure_info.get("structure_type", 0)
 
                 if structure_type == 11:  # NeuronCategoricalXYZP
-                    # Create CorticalMappedXYZPNeuronData from the byte structure
-                    cortical_mapped = self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                    #  Create CorticalMappedXYZPNeuronData from the byte
+                    #  structure
+                    cortical_mapped = (
+                        self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                    )
                     cortical_mapped.from_feagi_byte_structure(byte_structure)
 
-                    # Extract neuron data
+                    # Extract neuron data using iter_full()
                     neurons = []
-                    for neuron_obj, cortical_id in cortical_mapped.iter_easy():
-                        neurons.append(
-                            {
-                                "x": neuron_obj.x if hasattr(neuron_obj, "x") else 0,
-                                "y": neuron_obj.y if hasattr(neuron_obj, "y") else 0,
-                                "z": neuron_obj.z if hasattr(neuron_obj, "z") else 0,
-                                "p": neuron_obj.p if hasattr(neuron_obj, "p") else 0,
-                                "cortical_id": cortical_id,
-                            }
+                    for (
+                        cortical_id,
+                        neuron_arrays,
+                    ) in cortical_mapped.iter_full():
+                        #  neuron_arrays is a tuple: (x_coords, y_coords,
+                        #  z_coords, potentials)
+                        x_coords, y_coords, z_coords, potentials = (
+                            neuron_arrays
                         )
+                        for i in range(len(x_coords)):
+                            neurons.append(
+                                {
+                                    "x": int(x_coords[i]),
+                                    "y": int(y_coords[i]),
+                                    "z": int(z_coords[i]),
+                                    "p": float(potentials[i]),
+                                    "cortical_id": cortical_id,
+                                }
+                            )
 
                     return {
                         "message_type": "neuron_data",
@@ -565,8 +617,7 @@ class ByteStructureTranslator:
             raise ValueError(f"Failed to decode message: {e}") from e
 
     def extract_capabilities(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Extract capabilities from a decoded message.
+        """Extract capabilities from a decoded message.
 
         Args:
             message: Decoded message dictionary
@@ -579,7 +630,9 @@ class ByteStructureTranslator:
                 "supported_sensory_channels": message.get(
                     "supported_sensory_channels", []
                 ),
-                "supported_motor_channels": message.get("supported_motor_channels", []),
+                "supported_motor_channels": message.get(
+                    "supported_motor_channels", []
+                ),
                 "protocol_versions": message.get("protocol_versions", {}),
                 "structure_versions": message.get("structure_versions", {}),
             }
@@ -587,8 +640,7 @@ class ByteStructureTranslator:
             return {}
 
     def compress_message(self, message_data: bytes) -> bytes:
-        """
-        Compress message data using zlib.
+        """Compress message data using zlib.
 
         Args:
             message_data: Original message data

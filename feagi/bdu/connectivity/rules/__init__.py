@@ -1,5 +1,4 @@
-"""
-Rules package for BDU connectivity.
+"""Rules package for BDU connectivity.
 
 This package contains the different types of connectivity rules:
 - functions: Function-based morphology rules (syn_* functions)

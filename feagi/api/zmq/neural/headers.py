@@ -1,5 +1,4 @@
-"""
-Fixed-size header structures for neural data transmission.
+"""Fixed-size header structures for neural data transmission.
 
 All headers are designed to be exactly 32 bytes for consistency and alignment.
 These structures are compatible with C/Rust FFI for future migration.
@@ -33,8 +32,7 @@ class NeuralHeaderError(Exception):
 
 @dataclass
 class NeuralDataHeader:
-    """
-    Fixed-size 32-byte header for neural data packets.
+    """Fixed-size 32-byte header for neural data packets.
 
     Layout (32 bytes total):
     - magic: 4 bytes (b'FEAG')
@@ -76,9 +74,13 @@ class NeuralDataHeader:
         if not (0 <= self.flags <= 65535):
             raise ValueError(f"Flags must be 0-65535, got {self.flags}")
         if self.neuron_count < 0:
-            raise ValueError(f"Neuron count must be >= 0, got {self.neuron_count}")
+            raise ValueError(
+                f"Neuron count must be >= 0, got {self.neuron_count}"
+            )
         if self.payload_size < 0:
-            raise ValueError(f"Payload size must be >= 0, got {self.payload_size}")
+            raise ValueError(
+                f"Payload size must be >= 0, got {self.payload_size}"
+            )
 
     @property
     def compression(self) -> CompressionType:
@@ -141,7 +143,7 @@ class NeuralDataHeader:
                 sequence_number,
             ) = struct.unpack(cls.STRUCT_FORMAT, data[:NEURAL_HEADER_SIZE])
         except struct.error as e:
-            raise NeuralHeaderError(f"Failed to unpack header: {e}")
+            raise NeuralHeaderError(f"Failed to unpack header: {e}") from e
 
         if magic != NEURAL_MAGIC:
             raise NeuralHeaderError(
@@ -175,8 +177,7 @@ def create_header(
     has_coordinates: bool = True,
     version: int = 1,
 ) -> NeuralDataHeader:
-    """
-    Create a neural data header with sensible defaults.
+    """Create a neural data header with sensible defaults.
 
     Args:
         protocol_id: Protocol type for the neural data
@@ -221,8 +222,7 @@ def create_header(
 
 
 def parse_header(data: bytes) -> tuple[NeuralDataHeader, memoryview]:
-    """
-    Parse header and return header object plus payload view.
+    """Parse header and return header object plus payload view.
 
     Args:
         data: Raw bytes containing header and payload

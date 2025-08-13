@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,7 +67,9 @@ class MonitoringAPI:
 
     # ===== System Monitoring =====
 
-    @monitoring_endpoint("GET", "/metrics", response_model=SystemMetricsResponse)
+    @monitoring_endpoint(
+        "GET", "/metrics", response_model=SystemMetricsResponse
+    )
     async def get_system_metrics(self) -> SystemMetricsResponse:
         """Get current system metrics."""
         try:
@@ -77,9 +77,11 @@ class MonitoringAPI:
             return SystemMetricsResponse(metrics=metrics)
         except Exception as e:
             logger.error(f"Error getting system metrics: {e}")
-            raise ValueError(f"Failed to get system metrics: {str(e)}")
+            raise ValueError(f"Failed to get system metrics: {str(e)}") from e
 
-    @monitoring_endpoint("GET", "/performance", response_model=PerformanceStatsResponse)
+    @monitoring_endpoint(
+        "GET", "/performance", response_model=PerformanceStatsResponse
+    )
     async def get_performance_stats(self) -> PerformanceStatsResponse:
         """Get performance statistics."""
         try:
@@ -87,7 +89,9 @@ class MonitoringAPI:
             return PerformanceStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting performance stats: {e}")
-            raise ValueError(f"Failed to get performance stats: {str(e)}")
+            raise ValueError(
+                f"Failed to get performance stats: {str(e)}"
+            ) from e
 
     @monitoring_endpoint("GET", "/data", response_model=MonitoringDataResponse)
     async def get_monitoring_data(self) -> MonitoringDataResponse:
@@ -97,15 +101,14 @@ class MonitoringAPI:
             return MonitoringDataResponse(data=data)
         except Exception as e:
             logger.error(f"Error getting monitoring data: {e}")
-            raise ValueError(f"Failed to get monitoring data: {str(e)}")
+            raise ValueError(f"Failed to get monitoring data: {str(e)}") from e
 
 
 # ===== Factory Function =====
 
 
 def create_monitoring_api(core_api_service: CoreAPIService) -> MonitoringAPI:
-    """
-    Factory function to create a MonitoringAPI instance.
+    """Factory function to create a MonitoringAPI instance.
 
     This function can be used by transport adapters to get a configured
     MonitoringAPI instance with the required dependencies.

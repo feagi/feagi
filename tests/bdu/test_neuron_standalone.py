@@ -137,16 +137,20 @@ class NeuronArray:
         self.valid_mask = np.zeros(max_neurons, dtype=bool)
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.thresholds = np.ones(max_neurons, dtype=np.float32)
-        self.cortical_idxs = np.zeros(max_neurons, dtype=np.int32)
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
         self.coordinates_x = np.zeros(
-            max_neurons, dtype=np.int32
-        )  # ✅ FIXED: Use coordinates_x
+            max_neurons, dtype=np.uint16
+        )  # ✅ OPTIMIZED: Use uint16 coordinates
         self.coordinates_y = np.zeros(
-            max_neurons, dtype=np.int32
-        )  # ✅ FIXED: Use coordinates_y
+            max_neurons, dtype=np.uint16
+        )  # ✅ OPTIMIZED: Use uint16 coordinates
         self.coordinates_z = np.zeros(
-            max_neurons, dtype=np.int32
-        )  # ✅ FIXED: Use coordinates_z
+            max_neurons, dtype=np.uint16
+        )  # ✅ OPTIMIZED: Use uint16 coordinates
+
+        # Area mapping and activation  
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
+        self.is_active = np.zeros(max_neurons, dtype=np.bool_)
 
         # Core neuron properties (numeric)
         self.decay_rates = np.ones(max_neurons, dtype=np.float32) * 0.5
@@ -359,13 +363,13 @@ class NeuronArray:
                 self.refractory_counters, device="cuda", dtype=torch.int32
             )
             self.coordinates_x = torch.tensor(
-                self.coordinates_x, device="cuda", dtype=torch.int32
+                self.coordinates_x, device="cuda", dtype=torch.uint16
             )
             self.coordinates_y = torch.tensor(
-                self.coordinates_y, device="cuda", dtype=torch.int32
+                self.coordinates_y, device="cuda", dtype=torch.uint16
             )
             self.coordinates_z = torch.tensor(
-                self.coordinates_z, device="cuda", dtype=torch.int32
+                self.coordinates_z, device="cuda", dtype=torch.uint16
             )
             self.valid_mask = torch.tensor(
                 self.valid_mask, device="cuda", dtype=torch.bool

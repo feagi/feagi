@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,8 +60,7 @@ class InjectionBatch:
 
 
 class FCLInjectionService:
-    """
-    Unified FCL injection service for all special area types.
+    """Unified FCL injection service for all special area types.
 
     This service handles injection of neurons from special cortical areas (power, modulator, etc.)
     into the Fire Candidate List (FCL) during burst processing. It uses a unified injection model
@@ -78,8 +75,7 @@ class FCLInjectionService:
     """
 
     def __init__(self, fcl_manager: Any, special_area_handler: Any):
-        """
-        Initialize the FCL injection service.
+        """Initialize the FCL injection service.
 
         Args:
             fcl_manager: Manager for the Fire Candidate List
@@ -89,7 +85,8 @@ class FCLInjectionService:
         self.special_area_handler = special_area_handler
 
         # Store reference to connectome manager for membrane potential access
-        # This is needed to set power neuron membrane potentials above threshold
+        #  This is needed to set power neuron membrane potentials above
+        #  threshold
         self.connectome_manager = None
         if hasattr(special_area_handler, "connectome_manager"):
             self.connectome_manager = special_area_handler.connectome_manager
@@ -103,7 +100,9 @@ class FCLInjectionService:
 
         # Configuration attributes expected by other components
         self.batch_size = 1000  # Default batch size for processing neurons
-        self.enable_probabilistic = True  # Enable probabilistic injection by default
+        self.enable_probabilistic = (
+            True  # Enable probabilistic injection by default
+        )
         self.last_injection_duration = 0.0
 
         # Statistics tracking
@@ -115,7 +114,9 @@ class FCLInjectionService:
         }
 
         # Pre-computed injection batches for efficiency
-        self._injection_batches: Dict[InjectionTiming, List[InjectionBatch]] = {
+        self._injection_batches: Dict[
+            InjectionTiming, List[InjectionBatch]
+        ] = {
             InjectionTiming.PRE_BURST: [],
             InjectionTiming.DURING_BURST: [],
             InjectionTiming.POST_BURST: [],
@@ -129,18 +130,18 @@ class FCLInjectionService:
         )
 
     def _prepare_injection_batches(self) -> None:
-        """
-        Pre-compute injection batches for performance optimization.
+        """Pre-compute injection batches for performance optimization.
 
-        SIMPLIFIED for core power area (___pwr at cortical_idx=1):
-        Creates injection batches for detected power areas.
+        SIMPLIFIED for core power area (_power at cortical_idx=1): Creates
+        injection batches for detected power areas.
         """
         # Clear existing batches
         for timing in InjectionTiming:
             self._injection_batches[timing].clear()
 
         try:
-            # Get all power areas (simplified approach returns only core power area)
+            #  Get all power areas (simplified approach returns only core power
+            #  area)
             power_neurons = self.special_area_handler.get_all_power_neurons()
 
             if not power_neurons:
@@ -161,7 +162,9 @@ class FCLInjectionService:
                     self.special_area_handler.get_special_config(cid)
                     for cid in cortical_ids
                 ]
-                enabled_mask = [config and config.enabled for config in configs]
+                enabled_mask = [
+                    config and config.enabled for config in configs
+                ]
 
                 # Filter to enabled power areas only
                 enabled_indices = np.where(enabled_mask)[0]
@@ -171,24 +174,32 @@ class FCLInjectionService:
                     neuron_ids = power_neurons[cortical_id]
                     config = configs[idx]
 
-                    logger.debug(
-                        f"Processing power area {cortical_id} with {len(neuron_ids)} neurons"
-                    )
+                    #  Check if NPU debug is enabled for detailed injection
+                    #  logging
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(
+                            f"[NPU-DEBUG] Processing power area {cortical_id} with {len(neuron_ids)} neurons"
+                        )
 
                     # Determine timing
                     timing_str = config.injection_timing
                     try:
                         timing = InjectionTiming(timing_str)
-                        logger.debug(
-                            f"Power area {cortical_id} uses {timing_str} timing"
-                        )
+                        if state_manager.is_debug_npu_enabled():
+                            logger.info(
+                                f"[NPU-DEBUG] Power area {cortical_id} uses {timing_str} timing"
+                            )
                     except ValueError:
                         logger.warning(
                             f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST"
                         )
                         timing = InjectionTiming.PRE_BURST
 
-                    # Create single batch (simplified - no batch splitting needed for core power area)
+                    #  Create single batch (simplified - no batch splitting
+                    #  needed for core power area)
                     batch = InjectionBatch(
                         cortical_id=cortical_id,
                         neuron_ids=neuron_ids.copy(),
@@ -215,11 +226,11 @@ class FCLInjectionService:
 
         except Exception as e:
             logger.error(f"Error preparing injection batches: {e}")
-            # Continue with empty batches - injection will still work via direct method
+            #  Continue with empty batches - injection will still work via
+            #  direct method
 
     def inject_pre_burst(self, current_timestep: int) -> int:
-        """
-        Inject power area neurons into FCL with proper membrane potential.
+        """Inject power area neurons into FCL with proper membrane potential.
 
         Direct injection from the core power area (cortical_idx=1).
 
@@ -236,54 +247,88 @@ class FCLInjectionService:
             Number of power neurons injected
         """
         try:
-            # Write proof EVERY call for debugging to see what's happening
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                f.write(
-                    f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
+            # Debug-only proof logging
+            from feagi.core.state_manager import FeagiStateManager
+
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                import os
+                import tempfile
+
+                log_path = os.path.join(
+                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
                 )
+                with open(log_path, "a") as f:
+                    f.write(
+                        f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
+                    )
 
             # Get power area neurons from special area handler (cortical_idx=1)
             # This happens EVERY burst to provide constant power supply
             power_neurons = self.special_area_handler.get_power_area_neurons()
 
-            # Write proof EVERY call showing what neurons were found
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                if power_neurons:
-                    f.write(
-                        f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
-                    )
-                else:
-                    f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
+            # Debug-only: record found neurons
+            from feagi.core.state_manager import FeagiStateManager
+
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                import os
+                import tempfile
+
+                log_path = os.path.join(
+                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
+                )
+                with open(log_path, "a") as f:
+                    if power_neurons:
+                        f.write(
+                            f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
+                        )
+                    else:
+                        f.write(
+                            f"[{current_timestep}] NO POWER NEURONS FOUND\n"
+                        )
 
             if not power_neurons:
                 # Only log this occasionally to avoid spam
                 if current_timestep % 100 == 0:
-                    logger.debug(
-                        f"No power area neurons found for injection at timestep {current_timestep}"
-                    )
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(
+                            f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
+                        )
                 return 0
 
-            # FAST: Set membrane potential to PSP value from cortical area properties
-            if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
-                # Get PSP value from power area properties via connectome manager
-                power_area = self.connectome_manager.get_cortical_area("___pwr")
+            #  FAST: Set membrane potential to PSP value from cortical area
+            #  properties
+            if self.connectome_manager and hasattr(
+                self.connectome_manager, "neuron_array"
+            ):
+                #  Get PSP value from power area properties via connectome
+                #  manager
+                power_area = self.connectome_manager.get_cortical_area(
+                    "_power"
+                )
                 if power_area and power_area.properties:
-                    psp_value = power_area.properties.get("postsynaptic_current", 500.0)
+                    psp_value = power_area.properties.get(
+                        "postsynaptic_current", 500.0
+                    )
                 else:
                     psp_value = 500.0  # Fallback to essential genome default
-                
+
                 neuron_array = self.connectome_manager.neuron_array
                 for neuron_id in power_neurons:
-                    # For power neurons, set membrane potential to PSP value (use correct attribute name)
-                    if neuron_id in neuron_array.id_to_index_map:
-                        idx = neuron_array.id_to_index_map[neuron_id]
+                    #  For power neurons, set membrane potential to PSP value
+                    #  (use correct attribute name)
+                    idx = self.connectome_manager.get_neuron_index(neuron_id)
+                    if idx is not None:
                         neuron_array.membrane_potentials[idx] = psp_value
 
-            # Now inject power neurons into FCL (with proper membrane potentials set)
+            #  Now inject power neurons into FCL (with proper membrane
+            #  potentials set)
             # This happens EVERY BURST to provide constant power supply
             injected_count = self._inject_batch(
                 InjectionBatch(
-                    cortical_id="___pwr",
+                    cortical_id="_power",
                     neuron_ids=power_neurons,
                     timing=InjectionTiming.PRE_BURST,
                     probability=1.0,  # Always inject power neurons
@@ -291,7 +336,9 @@ class FCLInjectionService:
                 current_timestep,
             )
 
-            if injected_count > 0 and current_timestep % 50 == 0:  # Log occasionally
+            if (
+                injected_count > 0 and current_timestep % 50 == 0
+            ):  # Log occasionally
                 logger.debug(
                     f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
                 )
@@ -326,8 +373,7 @@ class FCLInjectionService:
     def _execute_injection_phase(
         self, timing: InjectionTiming, current_timestep: int
     ) -> int:
-        """
-        Execute injection for a specific timing phase.
+        """Execute injection for a specific timing phase.
 
         Args:
             timing: The injection timing phase
@@ -336,13 +382,21 @@ class FCLInjectionService:
         Returns:
             Number of neurons injected
         """
+        from feagi.core.state_manager import FeagiStateManager
+
+        state_manager = FeagiStateManager.instance()
+
         if not self._injection_batches[timing]:
-            logger.debug(f"No injection batches for {timing.value} phase")
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] No injection batches for {timing.value} phase"
+                )
             return 0
 
-        logger.debug(
-            f"Starting {timing.value} injection phase with {len(self._injection_batches[timing])} batches"
-        )
+        if state_manager.is_debug_npu_enabled():
+            logger.info(
+                f"[NPU-DEBUG] Starting {timing.value} injection phase with {len(self._injection_batches[timing])} batches"
+            )
 
         start_time = time.perf_counter()
         total_injected = 0
@@ -370,13 +424,17 @@ class FCLInjectionService:
                 f"FCL INJECTION: Added {total_injected} candidates to FCL in {timing.value} phase ({self.last_injection_duration:.4f}s)"
             )
         else:
-            logger.debug(f"No candidates added to FCL in {timing.value} phase")
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] No candidates added to FCL in {timing.value} phase"
+                )
 
         return total_injected
 
-    def _inject_batch(self, batch: InjectionBatch, current_timestep: int) -> int:
-        """
-        Add a batch of neuron candidates to the FCL.
+    def _inject_batch(
+        self, batch: InjectionBatch, current_timestep: int
+    ) -> int:
+        """Add a batch of neuron candidates to the FCL.
 
         This method handles the actual addition of candidates from special areas
         to the Fire Candidate List. The candidates will be processed along with
@@ -400,13 +458,15 @@ class FCLInjectionService:
                 return 0
 
         try:
-            # Determine which neurons to inject (could be subset based on targeting)
+            #  Determine which neurons to inject (could be subset based on
+            #  targeting)
             neurons_to_inject = batch.neuron_ids
 
             # Extract cortical_id (remove batch suffix if present)
             cortical_id = batch.cortical_id.split("_batch_")[0]
 
-            # REQUIREMENT: FCL manager MUST have update_fcl method - no fallbacks allowed
+            #  REQUIREMENT: FCL manager MUST have update_fcl method - no
+            #  fallbacks allowed
             if not hasattr(self.fcl_manager, "update_fcl"):
                 raise RuntimeError(
                     "FCL manager does not have required update_fcl method. "
@@ -433,7 +493,8 @@ class FCLInjectionService:
                     f"FCL injection requires valid cortical area mapping."
                 )
 
-            # Use proper cortical area mapping so FQ sampler can filter correctly
+            #  Use proper cortical area mapping so FQ sampler can filter
+            #  correctly
             neurons_by_cortical = {cortical_idx: neurons_to_inject}
             self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
             logger.debug(
@@ -450,18 +511,16 @@ class FCLInjectionService:
             return 0
 
     def refresh_injection_batches(self) -> None:
-        """
-        Refresh injection batches when special areas change.
+        """Refresh injection batches when special areas change.
 
-        This should be called when the connectome structure changes or
-        when special areas are added/removed.
+        This should be called when the connectome structure changes or when
+        special areas are added/removed.
         """
         logger.info("Refreshing injection batches", status="[PROC]")
         self._prepare_injection_batches()
 
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about injection performance.
+        """Get statistics about injection performance.
 
         Returns:
             Dictionary with injection statistics and performance metrics
@@ -469,7 +528,9 @@ class FCLInjectionService:
         return {
             "total_injections": self.injection_stats["total_injections"],
             "total_neurons_injected": self.total_neurons_injected,
-            "successful_injections": self.injection_stats["successful_injections"],
+            "successful_injections": self.injection_stats[
+                "successful_injections"
+            ],
             "failed_injections": self.injection_stats["failed_injections"],
             "last_injection_duration": self.last_injection_duration,
             "prepared_batches": {
@@ -480,9 +541,10 @@ class FCLInjectionService:
             "enable_probabilistic": self.enable_probabilistic,
         }
 
-    def set_injection_enabled(self, cortical_id: CorticalId, enabled: bool) -> bool:
-        """
-        Enable or disable injection for a specific cortical area.
+    def set_injection_enabled(
+        self, cortical_id: CorticalId, enabled: bool
+    ) -> bool:
+        """Enable or disable injection for a specific cortical area.
 
         Args:
             cortical_id: The cortical area ID
@@ -504,8 +566,7 @@ class FCLInjectionService:
         return False
 
     def get_power_injection_preview(self) -> Dict[str, Any]:
-        """
-        Get a preview of what would be injected in the next burst.
+        """Get a preview of what would be injected in the next burst.
 
         Returns:
             Dictionary with preview information for debugging/monitoring
@@ -542,8 +603,8 @@ class FCLInjectionService:
         current_timestep: int,
         source: str = "external",
     ) -> int:
-        """
-        Inject neuron activations from external sources (test mode, manual stimulation, etc.).
+        """Inject neuron activations from external sources (test mode, manual
+        stimulation, etc.).
 
         This method provides a clean interface for external systems to submit neuron
         activations without needing to know FCL manager internals. The service handles
@@ -572,28 +633,39 @@ class FCLInjectionService:
 
             total_injected = 0
 
+            from feagi.core.state_manager import FeagiStateManager
+
+            state_manager = FeagiStateManager.instance()
+
             if not activations:
-                logger.debug(f"No activations provided by {source}")
+                if state_manager.is_debug_npu_enabled():
+                    logger.info(
+                        f"[NPU-DEBUG] No activations provided by {source}"
+                    )
                 return 0
 
-            logger.debug(
-                f"Processing external activations from {source}: {len(activations)} cortical areas"
-            )
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] Processing external activations from {source}: {len(activations)} cortical areas"
+                )
 
             for cortical_id, neuron_ids in activations.items():
                 if not neuron_ids:
                     continue
 
                 try:
-                    # CRITICAL FIX: Set membrane potential above threshold for external neurons
-                    # This ensures they can actually fire, just like power injection does
+                    #  CRITICAL FIX: Set membrane potential above threshold for
+                    #  external neurons
+                    #  This ensures they can actually fire, just like power
+                    #  injection does
                     membrane_potential_set_count = 0
                     if self.connectome_manager and hasattr(
                         self.connectome_manager, "neuron_array"
                     ):
                         neuron_array = self.connectome_manager.neuron_array
                         if hasattr(neuron_array, "set_neuron_property"):
-                            # Set membrane potential to 1.5 (above threshold of 1.0) for all external neurons
+                            #  Set membrane potential to 1.5 (above threshold
+                            #  of 1.0) for all external neurons
                             for neuron_id in neuron_ids:
                                 try:
                                     neuron_array.set_neuron_property(
@@ -622,7 +694,9 @@ class FCLInjectionService:
                     )
 
                     # Inject the batch into FCL
-                    injected_count = self._inject_batch(batch, current_timestep)
+                    injected_count = self._inject_batch(
+                        batch, current_timestep
+                    )
                     total_injected += injected_count
 
                     if injected_count > 0:
@@ -651,20 +725,23 @@ class FCLInjectionService:
                     f"✅ FIXED: Set membrane potentials above threshold for external neurons from {source}"
                 )
             else:
-                logger.warning(f"No external candidates were injected from {source}")
+                logger.warning(
+                    f"No external candidates were injected from {source}"
+                )
 
             return total_injected
 
         except Exception as e:
-            logger.error(f"Error in external activations injection from {source}: {e}")
+            logger.error(
+                f"Error in external activations injection from {source}: {e}"
+            )
             import traceback
 
             logger.error(traceback.format_exc())
             return 0
 
     def _check_burst_engine_ready(self) -> bool:
-        """
-        Check if the burst engine is ready to accept new injections.
+        """Check if the burst engine is ready to accept new injections.
 
         PERFORMANCE: Optimized for RTOS/SIMD/GPU environments with minimal overhead.
         Uses cached state checks to avoid expensive API calls during high-frequency operation.
@@ -672,7 +749,8 @@ class FCLInjectionService:
         Returns:
             True if ready to accept injections, False otherwise
         """
-        # PERFORMANCE: Cache the state manager reference to avoid repeated lookups
+        #  PERFORMANCE: Cache the state manager reference to avoid repeated
+        #  lookups
         if not hasattr(self, "_cached_state_manager"):
             try:
                 from feagi.core.state_manager import FeagiStateManager
@@ -681,7 +759,8 @@ class FCLInjectionService:
             except Exception:
                 self._cached_state_manager = None
 
-        # PERFORMANCE: Fast path - if no state manager, allow injection (fail-open for performance)
+        #  PERFORMANCE: Fast path - if no state manager, allow injection
+        #  (fail-open for performance)
         if not self._cached_state_manager:
             return True
 

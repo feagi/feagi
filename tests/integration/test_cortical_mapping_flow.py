@@ -1,7 +1,7 @@
 """
 Integration test for cortical mapping flow from API to connectome validation.
 Tests the complete flow: PUT mapping -> synapse creation -> GET validation
-Reproduces the exact scenario from debug logs: ___pwr -> iv00_C using block_to_block
+Reproduces the exact scenario from debug logs: _power -> iic400 using block_to_block
 """
 
 
@@ -61,15 +61,15 @@ class TestCorticalMappingFlow:
 
         # Check if areas exist
         cortical_areas = core_api_service.get_cortical_id_list()
-        power_area_exists = "___pwr" in cortical_areas
-        vision_area_exists = "iv00_C" in cortical_areas
+        power_area_exists = "_power" in cortical_areas
+        vision_area_exists = "iic400" in cortical_areas
         print(f"Power area exists: {power_area_exists}")
         print(f"Vision area exists: {vision_area_exists}")
 
         # Check neuron counts
         connectome_manager = core_api_service.get_connectome_manager()
-        power_neurons = connectome_manager.get_neurons_by_area("___pwr")
-        vision_neurons = connectome_manager.get_neurons_by_area("iv00_C")
+        power_neurons = connectome_manager.get_neurons_by_area("_power")
+        vision_neurons = connectome_manager.get_neurons_by_area("iic400")
         print(f"Power neurons: {len(power_neurons)}")
         print(f"Vision neurons: {len(vision_neurons)}")
 
@@ -96,8 +96,8 @@ class TestCorticalMappingFlow:
 
         # Apply the mapping (this was failing before the fix)
         success = core_api_service.update_cortical_mapping_properties(
-            src_cortical_area="___pwr",
-            dst_cortical_area="iv00_C",
+            src_cortical_area="_power",
+            dst_cortical_area="iic400",
             mapping_string=mapping_data,
         )
         print(f"Mapping update success: {success}")
