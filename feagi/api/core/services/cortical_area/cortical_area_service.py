@@ -647,7 +647,7 @@ class CorticalAreaService(BaseService):
             self.logger.error(
                 f"Error retrieving connectivity for cortical area with cortical_id '{cortical_id}': {str(e)}"
             )
-            raise ValueError(f"Failed to retrieve connectivity: {str(e)}")
+            raise ValueError(f"Failed to retrieve connectivity: {str(e)}") from e
 
     # REMOVED: stimulate_area method - consolidated into unified stimulate_neurons method
     # in core API service. All stimulation now goes through the coordinate-based 
@@ -687,7 +687,7 @@ class CorticalAreaService(BaseService):
 
         except Exception as e:
             self.logger.error(f"Error getting cortical area index list: {str(e)}")
-            raise ValueError(f"Failed to retrieve cortical area indices: {str(e)}")
+            raise ValueError(f"Failed to retrieve cortical area indices: {str(e)}") from e
 
     def get_name_list(self) -> List[str]:
         """Get a list of all cortical area names."""
@@ -697,7 +697,7 @@ class CorticalAreaService(BaseService):
             return sorted(names)
         except Exception as e:
             self.logger.error(f"Error getting cortical area name list: {str(e)}")
-            raise ValueError(f"Failed to retrieve cortical area names: {str(e)}")
+            raise ValueError(f"Failed to retrieve cortical area names: {str(e)}") from e
 
     def get_id_name_mapping(self) -> Dict[str, str]:
         """Get mapping of cortical area IDs to names."""
@@ -792,7 +792,7 @@ class CorticalAreaService(BaseService):
             return locations
         except Exception as e:
             self.logger.error(f"Error getting cortical 2D locations: {str(e)}")
-            raise ValueError(f"Failed to retrieve cortical area 2D locations: {str(e)}")
+            raise ValueError(f"Failed to retrieve cortical area 2D locations: {str(e)}") from e
 
     def refresh_cache(self):
         """Refresh cached data when state changes occur."""

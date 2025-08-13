@@ -381,10 +381,10 @@ class SystemService(BaseService):
             self.logger.error(f"Failed to import cortical area types: {str(e)}")
             raise ValueError(
                 "Cortical area types not available - FEAGI templates module not found"
-            )
+            ) from e
         except Exception as e:
             self.logger.error(f"Error getting cortical area types: {str(e)}")
-            raise ValueError(f"Failed to retrieve cortical area types: {str(e)}")
+            raise ValueError(f"Failed to retrieve cortical area types: {str(e)}") from e
 
     def reset_fcl(self) -> bool:
         """Reset the Fire Candidate List."""
