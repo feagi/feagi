@@ -150,7 +150,9 @@ class ZmqClient:
 
         logger.info("Disconnected from ZMQ server")
 
-    async def request(self, action: str, data: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def request(
+        self, action: str, data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """
         Send a request to the server and wait for a response.
 
@@ -167,7 +169,11 @@ class ZmqClient:
         if self._req_socket is None:
             await self.connect()
 
-        request_data = {"action": action, "data": data or {}, "timestamp": time.time()}
+        request_data = {
+            "action": action,
+            "data": data or {},
+            "timestamp": time.time(),
+        }
 
         await self._req_socket.send_json(request_data)
 
@@ -179,9 +185,13 @@ class ZmqClient:
             response = await self._req_socket.recv_json()
             return response
         else:
-            raise TimeoutError(f"Request timed out after {self.timeout / 1000} seconds")
+            raise TimeoutError(
+                f"Request timed out after {self.timeout / 1000} seconds"
+            )
 
-    async def subscribe(self, topic: str, callback: Callable[[Dict[str, Any]], None]):
+    async def subscribe(
+        self, topic: str, callback: Callable[[Dict[str, Any]], None]
+    ):
         """
         Subscribe to a topic and register a callback for events.
 
@@ -199,7 +209,9 @@ class ZmqClient:
 
         self._event_callbacks[topic].append(callback)
 
-    async def unsubscribe(self, topic: str, callback: Optional[Callable] = None):
+    async def unsubscribe(
+        self, topic: str, callback: Optional[Callable] = None
+    ):
         """
         Unsubscribe from a topic.
 

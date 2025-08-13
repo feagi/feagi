@@ -90,7 +90,9 @@ class RequestReplyServer:
         self._event_loop = asyncio.get_event_loop()
 
         # Start the request handler in the current loop
-        self._handler_task = self._event_loop.create_task(self._request_handler())
+        self._handler_task = self._event_loop.create_task(
+            self._request_handler()
+        )
 
     async def stop(self) -> None:
         """Stop the request-reply server."""
@@ -120,7 +122,9 @@ class RequestReplyServer:
                             and simple_request["type"] == "status_request"
                         ):
                             # Handle status_request specially
-                            result = await self._handle_get_status({"params": {}})
+                            result = await self._handle_get_status(
+                                {"params": {}}
+                            )
                             await self._send_response(result)
                             continue
                         elif "command" in simple_request:
@@ -133,7 +137,9 @@ class RequestReplyServer:
                                 await self._send_response(result)
                                 continue
                             else:
-                                await self._send_error(f"Unknown command: {command}")
+                                await self._send_error(
+                                    f"Unknown command: {command}"
+                                )
                                 continue
                     except json.JSONDecodeError:
                         # Not JSON - continue with normal processing
@@ -156,7 +162,9 @@ class RequestReplyServer:
 
                 # Validate authentication if token is provided
                 if auth_token and not await validate_token(auth_token):
-                    logger.warning(f"Invalid authentication token: {auth_token}")
+                    logger.warning(
+                        f"Invalid authentication token: {auth_token}"
+                    )
                     await self._send_error("Authentication failed")
                     continue
 
@@ -173,7 +181,9 @@ class RequestReplyServer:
                         await self._send_response(result)
                     except Exception as e:
                         logger.error(f"Error handling command {command}: {e}")
-                        await self._send_error(f"Error handling command: {str(e)}")
+                        await self._send_error(
+                            f"Error handling command: {str(e)}"
+                        )
                 else:
                     logger.warning(f"Unknown command: {command}")
                     await self._send_error(f"Unknown command: {command}")
@@ -195,7 +205,9 @@ class RequestReplyServer:
         """Send a response to the client."""
         try:
             serialized_data = serialize_message(data, content_type)
-            await self.socket.send_multipart([content_type.encode(), serialized_data])
+            await self.socket.send_multipart(
+                [content_type.encode(), serialized_data]
+            )
         except Exception as e:
             logger.error(f"Error sending response: {e}")
 

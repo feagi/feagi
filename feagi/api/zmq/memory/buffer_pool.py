@@ -151,7 +151,9 @@ class FixedBufferPool:
         with self._stats_lock:
             self.stats["total_acquires"] += 1
             current_usage = self.count - self.free_queue.qsize()
-            self.stats["peak_usage"] = max(self.stats["peak_usage"], current_usage)
+            self.stats["peak_usage"] = max(
+                self.stats["peak_usage"], current_usage
+            )
 
         return Buffer(
             data=self.buffers[slot_id],
@@ -178,7 +180,9 @@ class FixedBufferPool:
             with self._stats_lock:
                 self.stats["total_releases"] += 1
         except Full as e:
-            raise BufferPoolError("Buffer pool corruption: too many releases") from e
+            raise BufferPoolError(
+                "Buffer pool corruption: too many releases"
+            ) from e
 
     @property
     def available(self) -> int:
@@ -227,7 +231,9 @@ class NeuralBufferPool:
 
             # Create pool with area-specific configuration
             pool = FixedBufferPool(
-                count=config.get("buffer_count", 32),  # Default 32 buffers per area
+                count=config.get(
+                    "buffer_count", 32
+                ),  # Default 32 buffers per area
                 size=buffer_size,
                 alignment=64,  # Cache line alignment
                 numa_node=config.get("numa_node", -1),
@@ -296,7 +302,9 @@ class NeuralBufferPool:
             buffer: Buffer to release
         """
         # Find pool by ID
-        for pool in list(self.pools.values()) + list(self.generic_pools.values()):
+        for pool in list(self.pools.values()) + list(
+            self.generic_pools.values()
+        ):
             if id(pool) == buffer.pool_id:
                 pool.release(buffer)
                 return
@@ -352,7 +360,10 @@ if __name__ == "__main__":
 
     # Neural buffer pool example
     cortical_config = {
-                    "visual_cortex": {"neuron_count": 100000, "buffer_count": 16},  # VISUALIZATION FIX: Increased from 10,000 to 100,000
+        "visual_cortex": {
+            "neuron_count": 100000,
+            "buffer_count": 16,
+        },  # VISUALIZATION FIX: Increased from 10,000 to 100,000
         "motor_cortex": {"neuron_count": 5000, "buffer_count": 8},
     }
 

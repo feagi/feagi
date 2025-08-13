@@ -72,7 +72,9 @@ class MappingRestriction:
         self.allow_psp_change = allow_psp_change
         self.allow_inhibitory_change = allow_inhibitory_change
         self.allow_plasticity_change = allow_plasticity_change
-        self.allow_plasticity_constant_change = allow_plasticity_constant_change
+        self.allow_plasticity_constant_change = (
+            allow_plasticity_constant_change
+        )
         self.allow_ltp_change = allow_ltp_change
         self.allow_ltd_change = allow_ltd_change
 
@@ -282,7 +284,8 @@ class CorticalMappingRestrictionsRegistry:
 
             # Wildcard match (UNKNOWN means any type)
             if (
-                default.source_type == "UNKNOWN" or default.source_type == source_type
+                default.source_type == "UNKNOWN"
+                or default.source_type == source_type
             ) and (
                 default.destination_type == "UNKNOWN"
                 or default.destination_type == destination_type
@@ -373,7 +376,9 @@ class CorticalMapping:
         Returns:
             Transformed position in target space (x, y, z)
         """
-        raise NotImplementedError("Subclasses must implement transform_coordinates()")
+        raise NotImplementedError(
+            "Subclasses must implement transform_coordinates()"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert mapping to dictionary for serialization.
@@ -670,7 +675,9 @@ class ProjectionMapping(CorticalMapping):
             idx = 0
             for i in range(3):
                 if i != axis:
-                    result[idx] = int(norm_pos[i] * (target_dimensions[idx] - 1) + 0.5)
+                    result[idx] = int(
+                        norm_pos[i] * (target_dimensions[idx] - 1) + 0.5
+                    )
                     idx += 1
 
             # Handle the remaining dimension (center the projection)
@@ -701,7 +708,10 @@ class ProjectionMapping(CorticalMapping):
 
 
 # Registry of available mapping types
-MAPPING_TYPES = {"topological": TopologicalMapping, "projection": ProjectionMapping}
+MAPPING_TYPES = {
+    "topological": TopologicalMapping,
+    "projection": ProjectionMapping,
+}
 
 
 def create_cortical_mapping(

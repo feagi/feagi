@@ -3,6 +3,7 @@ Snapshot packaging utilities (ZIP) - consolidated under feagi.core.snapshot.
 
 Packages a snapshot directory into a ZIP archive based on manifest.json.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,9 @@ def _flatten_manifest_files(files_entry: Dict[str, object]) -> List[str]:
                 if isinstance(item, str):
                     flat.append(item)
                 else:
-                    raise ValueError("Manifest 'files' entries must be strings or lists of strings")
+                    raise ValueError(
+                        "Manifest 'files' entries must be strings or lists of strings"
+                    )
         else:
             raise ValueError("Manifest 'files' section has invalid entry type")
     return sorted(set(flat))
@@ -47,7 +50,9 @@ def _safe_relative_path(root: Path, target: Path) -> str:
     return str(target_resolved.relative_to(root_resolved)).replace(os.sep, "/")
 
 
-def package_snapshot(snapshot_root: Path, snapshot_id: str, temp_dir: Path, compression: str) -> Path:
+def package_snapshot(
+    snapshot_root: Path, snapshot_id: str, temp_dir: Path, compression: str
+) -> Path:
     if not isinstance(snapshot_root, Path):
         snapshot_root = Path(snapshot_root)
     if not isinstance(temp_dir, Path):
@@ -57,9 +62,13 @@ def package_snapshot(snapshot_root: Path, snapshot_id: str, temp_dir: Path, comp
     manifest_path = snapshot_dir / "manifest.json"
 
     if not snapshot_dir.exists() or not snapshot_dir.is_dir():
-        raise FileNotFoundError(f"Snapshot directory not found: {snapshot_dir}")
+        raise FileNotFoundError(
+            f"Snapshot directory not found: {snapshot_dir}"
+        )
     if not manifest_path.exists():
-        raise FileNotFoundError(f"Snapshot manifest.json not found: {manifest_path}")
+        raise FileNotFoundError(
+            f"Snapshot manifest.json not found: {manifest_path}"
+        )
 
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
@@ -93,9 +102,11 @@ def package_snapshot(snapshot_root: Path, snapshot_id: str, temp_dir: Path, comp
         zip_path = temp_dir / f"{snapshot_id}--temp{counter}.snapshot.zip"
         counter += 1
 
-    with zipfile.ZipFile(zip_path, mode="w", compression=zip_mode, allowZip64=True) as zf:
+    with zipfile.ZipFile(
+        zip_path, mode="w", compression=zip_mode, allowZip64=True
+    ) as zf:
         for abs_path, arcname in files_to_add:
             zf.write(abs_path, arcname)
         zf.write(manifest_path, "manifest.json")
 
-    return zip_path.resolve() 
+    return zip_path.resolve()

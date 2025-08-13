@@ -75,17 +75,17 @@ class MorphologyAPI:
     def _auto_detect_dimension_sensitive(self, morphology_type: str) -> bool:
         """
         Auto-detect dimension_sensitive based on morphology type.
-        
+
         Args:
             morphology_type: The type of morphology (patterns, vectors, functions, etc.)
-            
+
         Returns:
             bool: True if dimension-sensitive, False if dimension-agnostic
         """
         if morphology_type in ["patterns", "vectors"]:
             return False  # Dimension-agnostic
         elif morphology_type == "functions":
-            return True   # Dimension-sensitive (e.g., projectors)
+            return True  # Dimension-sensitive (e.g., projectors)
         else:
             return False  # Conservative default for composite/unknown types
 
@@ -109,7 +109,9 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology types: {e}")
-            raise ValueError(f"Failed to get morphology types: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get morphology types: {str(e)}"
+            ) from e
 
     @morphology_endpoint("GET", "/list/types", response_model=List[str])
     async def get_morphology_list_types(self) -> List[str]:
@@ -119,7 +121,9 @@ class MorphologyAPI:
             return types
         except Exception as e:
             logger.error(f"Error getting morphology list types: {e}")
-            raise ValueError(f"Failed to get morphology list types: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get morphology list types: {str(e)}"
+            ) from e
 
     @morphology_endpoint("GET", "/morphologies", response_model=Dict[str, Any])
     async def get_morphologies(self) -> Dict[str, Any]:
@@ -139,15 +143,21 @@ class MorphologyAPI:
             return MorphologyListResponse(morphologies=morphologies)
         except Exception as e:
             logger.error(f"Error getting morphologies list: {e}")
-            raise ValueError(f"Failed to get morphologies list: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get morphologies list: {str(e)}"
+            ) from e
 
     @morphology_endpoint(
         "GET", "/info/{morphology_id}", response_model=MorphologyInfoResponse
     )
-    async def get_morphology_info(self, morphology_id: str) -> MorphologyInfoResponse:
+    async def get_morphology_info(
+        self, morphology_id: str
+    ) -> MorphologyInfoResponse:
         """Get information about a specific morphology."""
         try:
-            morphology = self.core_api_service.get_morphology_info(morphology_id)
+            morphology = self.core_api_service.get_morphology_info(
+                morphology_id
+            )
             return MorphologyInfoResponse(morphology=morphology)
         except Exception as e:
             logger.error(f"Error getting morphology info: {e}")
@@ -169,11 +179,17 @@ class MorphologyAPI:
             # Auto-detect dimension_sensitive if not provided
             if request.dimension_sensitive is None:
                 morphology_type = request.morphology_data.get("type", "")
-                dimension_sensitive = self._auto_detect_dimension_sensitive(morphology_type)
-                logger.info(f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{morphology_type}'")
+                dimension_sensitive = self._auto_detect_dimension_sensitive(
+                    morphology_type
+                )
+                logger.info(
+                    f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{morphology_type}'"
+                )
             else:
                 dimension_sensitive = request.dimension_sensitive
-                logger.info(f"Using provided dimension_sensitive={dimension_sensitive}")
+                logger.info(
+                    f"Using provided dimension_sensitive={dimension_sensitive}"
+                )
 
             # Add dimension_sensitive to morphology data
             morphology_data = request.morphology_data.copy()
@@ -201,11 +217,17 @@ class MorphologyAPI:
         try:
             # Auto-detect dimension_sensitive if not provided
             if request.dimension_sensitive is None:
-                dimension_sensitive = self._auto_detect_dimension_sensitive(request.morphology_type)
-                logger.info(f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{request.morphology_type}'")
+                dimension_sensitive = self._auto_detect_dimension_sensitive(
+                    request.morphology_type
+                )
+                logger.info(
+                    f"Auto-detected dimension_sensitive={dimension_sensitive} for type '{request.morphology_type}'"
+                )
             else:
                 dimension_sensitive = request.dimension_sensitive
-                logger.info(f"Using provided dimension_sensitive={dimension_sensitive}")
+                logger.info(
+                    f"Using provided dimension_sensitive={dimension_sensitive}"
+                )
 
             # Convert client format to internal format
             morphology_data = {
@@ -272,7 +294,9 @@ class MorphologyAPI:
     ) -> SuccessResponse:
         """Delete a morphology by name (client-compatible endpoint)."""
         try:
-            success = self.core_api_service.delete_morphology(request.morphology_name)
+            success = self.core_api_service.delete_morphology(
+                request.morphology_name
+            )
             if not success:
                 raise ValueError("Failed to delete morphology")
 
@@ -311,7 +335,9 @@ class MorphologyAPI:
     ) -> List[List[str]]:
         """Get usage report for a specific morphology."""
         try:
-            usage = self.core_api_service.get_morphology_usage(request.morphology_name)
+            usage = self.core_api_service.get_morphology_usage(
+                request.morphology_name
+            )
             return usage
         except Exception as e:
             logger.error(f"Error getting morphology usage: {e}")

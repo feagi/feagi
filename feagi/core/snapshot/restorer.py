@@ -8,6 +8,7 @@ Restores minimal snapshot content from a folder:
 
 Future phases will restore neuron/synapse/memory SoA arrays and rebuild indexes.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,12 +27,16 @@ def _read_json(path: Path) -> Dict[str, Any]:
 
 def _blake2b_hex(path: Path) -> str:
     from hashlib import blake2b
+
     data = path.read_bytes()
     return blake2b(data, digest_size=32).hexdigest()
 
 
 def restore_brain_snapshot(
-    snapshot_root: Path, snapshot_id: str, state_manager, connectome_manager=None
+    snapshot_root: Path,
+    snapshot_id: str,
+    state_manager,
+    connectome_manager=None,
 ) -> bool:
     """
     Restore a minimal brain snapshot (phase 1) from snapshot_root/snapshot_id.
@@ -63,9 +68,13 @@ def restore_brain_snapshot(
         cm = connectome_manager
         if cm is not None:
             # Clear cortical areas and mapping state
-            if hasattr(cm, "cortical_areas") and isinstance(cm.cortical_areas, dict):
+            if hasattr(cm, "cortical_areas") and isinstance(
+                cm.cortical_areas, dict
+            ):
                 cm.cortical_areas.clear()
-            if hasattr(cm, "cortical_mapping") and hasattr(cm.cortical_mapping, "clear"):
+            if hasattr(cm, "cortical_mapping") and hasattr(
+                cm.cortical_mapping, "clear"
+            ):
                 cm.cortical_mapping.clear()
             if hasattr(cm, "cortical_connections"):
                 cm.cortical_connections = {}
@@ -146,6 +155,7 @@ def restore_brain_snapshot(
                 actual = _blake2b_hex(path)
                 if actual != expected:
                     raise SnapshotRestoreError(f"Checksum mismatch for {key}")
+
         if connectome_path.exists():
             _verify(connectome_path, "connectome.json")
         if state_path.exists():
@@ -164,6 +174,7 @@ def restore_brain_snapshot(
     if connectome_path.exists() and connectome_manager is not None:
         try:
             from feagi.bdu.models.cortical_area import CorticalArea
+
             connectome_data = _read_json(connectome_path)
             areas_data = connectome_data.get("cortical_areas", [])
             # Rehydrate cortical areas with proper names, types, and properties
@@ -185,10 +196,18 @@ def restore_brain_snapshot(
                             pos.get("z", 0),
                         ]
                     cidx_val = entry.get("cortical_idx")
-                    cortical_idx = int(cidx_val) if isinstance(cidx_val, int) else idx
+                    cortical_idx = (
+                        int(cidx_val) if isinstance(cidx_val, int) else idx
+                    )
                     area_name = entry.get("name") or cid
-                    area_type = entry.get("area_type") or entry.get("type") or "custom"
-                    area_props = entry.get("properties") or entry.get("parameters") or {}
+                    area_type = (
+                        entry.get("area_type") or entry.get("type") or "custom"
+                    )
+                    area_props = (
+                        entry.get("properties")
+                        or entry.get("parameters")
+                        or {}
+                    )
                     area = CorticalArea(
                         name=area_name,
                         dimensions=tuple(dims),
@@ -202,7 +221,9 @@ def restore_brain_snapshot(
                         # Store areas keyed by cortical_id (string), not index
                         connectome_manager.cortical_areas[cid] = area
                     if hasattr(connectome_manager, "_sync_cortical_mapping"):
-                        connectome_manager._sync_cortical_mapping(cid, cortical_idx)
+                        connectome_manager._sync_cortical_mapping(
+                            cid, cortical_idx
+                        )
                 except Exception:
                     continue
         except Exception:
@@ -218,7 +239,11 @@ def restore_brain_snapshot(
         if isinstance(stats, dict) and state_manager:
             current = state_manager.get_brain_stats() or {}
             merged = dict(current)
-            for k in ("neuron_count", "memory_neuron_count", "non_memory_neuron_count"):
+            for k in (
+                "neuron_count",
+                "memory_neuron_count",
+                "non_memory_neuron_count",
+            ):
                 if k in stats and isinstance(stats[k], int):
                     merged[k] = stats[k]
             state_manager.set_brain_stats(merged)
@@ -227,7 +252,9 @@ def restore_brain_snapshot(
 
     # Reset cumulative activity counters on restore for safety
     try:
-        if state_manager and hasattr(state_manager, "reset_cumulative_activity"):
+        if state_manager and hasattr(
+            state_manager, "reset_cumulative_activity"
+        ):
             state_manager.reset_cumulative_activity()
     except Exception:
         pass
@@ -235,6 +262,7 @@ def restore_brain_snapshot(
     # Restore SoA arrays from NPZ if present and a connectome manager is provided
     try:
         import numpy as np  # noqa: F401
+
         if connectome_manager is not None:
             # Neurons
             neurons_entry = files.get("neurons")
@@ -269,14 +297,19 @@ def restore_brain_snapshot(
                                         if target is None:
                                             setattr(na, key, arr)
                                         else:
-                                            if index_map.size > target.shape[0]:
+                                            if (
+                                                index_map.size
+                                                > target.shape[0]
+                                            ):
                                                 raise SnapshotRestoreError(
                                                     (
                                                         f"Neuron target '{key}' smaller "
                                                         "than index map"
                                                     )
                                                 )
-                                            target[index_map] = arr[: index_map.size]
+                                            target[index_map] = arr[
+                                                : index_map.size
+                                            ]
                                     else:
                                         setattr(na, key, arr)
                                 except Exception as e:
@@ -311,14 +344,19 @@ def restore_brain_snapshot(
                                         if target is None:
                                             setattr(sa, key, arr)
                                         else:
-                                            if index_map.size > target.shape[0]:
+                                            if (
+                                                index_map.size
+                                                > target.shape[0]
+                                            ):
                                                 raise SnapshotRestoreError(
                                                     (
                                                         f"Synapse target '{key}' smaller "
                                                         "than index map"
                                                     )
                                                 )
-                                            target[index_map] = arr[: index_map.size]
+                                            target[index_map] = arr[
+                                                : index_map.size
+                                            ]
                                     else:
                                         setattr(sa, key, arr)
                                 except Exception as e:
@@ -355,14 +393,19 @@ def restore_brain_snapshot(
                                         if target is None:
                                             setattr(ma, key, arr)
                                         else:
-                                            if index_map.size > target.shape[0]:
+                                            if (
+                                                index_map.size
+                                                > target.shape[0]
+                                            ):
                                                 raise SnapshotRestoreError(
                                                     (
                                                         f"Memory target '{key}' smaller "
                                                         "than index map"
                                                     )
                                                 )
-                                            target[index_map] = arr[: index_map.size]
+                                            target[index_map] = arr[
+                                                : index_map.size
+                                            ]
                                     else:
                                         setattr(ma, key, arr)
                                 except Exception as e:
@@ -389,6 +432,7 @@ def restore_brain_snapshot(
                         idx2id_path = snap_dir / "neurons" / "index_to_id.npy"
                         if idx2id_path.exists():
                             import numpy as _np
+
                             idx2id_arr = _np.load(idx2id_path)
                     except Exception:
                         idx2id_arr = None
@@ -409,9 +453,17 @@ def restore_brain_snapshot(
                             try:
                                 # Vectorized mask by cortical_idx if available
                                 import numpy as _np
-                                if hasattr(na, "cortical_idxs") and hasattr(na, "valid_mask"):
-                                    mask = (_np.asarray(na.cortical_idxs) == int(cidx)) & (
-                                        _np.asarray(na.valid_mask, dtype=_np.bool_)
+
+                                if hasattr(na, "cortical_idxs") and hasattr(
+                                    na, "valid_mask"
+                                ):
+                                    mask = (
+                                        _np.asarray(na.cortical_idxs)
+                                        == int(cidx)
+                                    ) & (
+                                        _np.asarray(
+                                            na.valid_mask, dtype=_np.bool_
+                                        )
                                     )
                                     idxs = _np.flatnonzero(mask).tolist()
                             except Exception:
@@ -426,12 +478,20 @@ def restore_brain_snapshot(
                                             nid = int(idx2id_arr[int(i)])
                                     if nid < 0:
                                         # Fallback to neuron_array mapping if available
-                                        nid = int(getattr(na, "index_to_id_map", {}).get(int(i), -1))
+                                        nid = int(
+                                            getattr(
+                                                na, "index_to_id_map", {}
+                                            ).get(int(i), -1)
+                                        )
                                     if nid < 0:
                                         continue
                                     # Update global maps
-                                    connectome_manager._neuron_id_to_index_map[nid] = int(i)
-                                    connectome_manager._index_to_neuron_id_map[int(i)] = nid
+                                    connectome_manager._neuron_id_to_index_map[
+                                        nid
+                                    ] = int(i)
+                                    connectome_manager._index_to_neuron_id_map[
+                                        int(i)
+                                    ] = nid
                                     # Position
                                     pos = None
                                     try:
@@ -444,10 +504,18 @@ def restore_brain_snapshot(
                                     if pos is not None:
                                         if hasattr(area, "_position_map"):
                                             area._position_map[nid] = pos
-                                        if hasattr(area, "_position_to_neurons"):
-                                            lst = area._position_to_neurons.get(pos)
+                                        if hasattr(
+                                            area, "_position_to_neurons"
+                                        ):
+                                            lst = (
+                                                area._position_to_neurons.get(
+                                                    pos
+                                                )
+                                            )
                                             if lst is None:
-                                                area._position_to_neurons[pos] = [nid]
+                                                area._position_to_neurons[
+                                                    pos
+                                                ] = [nid]
                                             else:
                                                 lst.append(nid)
                                 except Exception:
@@ -457,7 +525,9 @@ def restore_brain_snapshot(
                             continue
                     # Refresh FCL window caches (safe conditional)
                     fclm = getattr(connectome_manager, "fcl_manager", None)
-                    if fclm is not None and hasattr(fclm, "clear_all_window_caches"):
+                    if fclm is not None and hasattr(
+                        fclm, "clear_all_window_caches"
+                    ):
                         try:
                             fclm.clear_all_window_caches()
                         except Exception:
@@ -469,10 +539,15 @@ def restore_brain_snapshot(
                             # Build cortical list from restored areas
                             area_list = []
                             if hasattr(connectome_manager, "cortical_areas"):
-                                for cid, area in connectome_manager.cortical_areas.items():
+                                for (
+                                    cid,
+                                    area,
+                                ) in connectome_manager.cortical_areas.items():
                                     area_list.append(cid)
                             sm.set_cortical_list(area_list)
-                        if sm and hasattr(sm, "invalidate_cortical_areas_cache"):
+                        if sm and hasattr(
+                            sm, "invalidate_cortical_areas_cache"
+                        ):
                             sm.invalidate_cortical_areas_cache()
                         if sm and hasattr(sm, "get_cortical_areas_cache"):
                             # Force cache refresh
@@ -488,4 +563,4 @@ def restore_brain_snapshot(
         # Best-effort for SoA restore to avoid breaking minimal snapshot restores
         pass
 
-    return True 
+    return True

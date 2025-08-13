@@ -61,7 +61,9 @@ class SystemAPI:
 
     # ===== User Preferences =====
 
-    @system_endpoint("GET", "/user_preferences", response_model=UserPreferencesResponse)
+    @system_endpoint(
+        "GET", "/user_preferences", response_model=UserPreferencesResponse
+    )
     def get_user_preferences(self) -> UserPreferencesResponse:
         """Get current user preferences."""
         try:
@@ -69,7 +71,9 @@ class SystemAPI:
             return UserPreferencesResponse(
                 adv_mode=prefs.get("adv_mode", False),
                 ui_magnification=prefs.get("ui_magnification", 1.0),
-                auto_pns_area_creation=prefs.get("auto_pns_area_creation", True),
+                auto_pns_area_creation=prefs.get(
+                    "auto_pns_area_creation", True
+                ),
             )
         except Exception as e:
             logger.error(f"Error getting user preferences: {e}")
@@ -91,9 +95,13 @@ class SystemAPI:
                 "ui_magnification": request.ui_magnification,
                 "auto_pns_area_creation": request.auto_pns_area_creation,
             }
-            success = self.core_api_service.update_user_preferences(preferences)
+            success = self.core_api_service.update_user_preferences(
+                preferences
+            )
             if success:
-                return SuccessResponse(message="User preferences updated successfully")
+                return SuccessResponse(
+                    message="User preferences updated successfully"
+                )
             else:
                 raise ValueError("Failed to update user preferences")
         except Exception as e:
@@ -118,7 +126,9 @@ class SystemAPI:
             logger.error(f"Error getting versions: {e}")
             raise ValueError(f"Failed to get versions: {str(e)}")
 
-    @system_endpoint("GET", "/health_check", response_model=HealthCheckResponse)
+    @system_endpoint(
+        "GET", "/health_check", response_model=HealthCheckResponse
+    )
     async def get_health_check(self) -> HealthCheckResponse:
         """Get comprehensive system health information."""
         try:
@@ -126,7 +136,9 @@ class SystemAPI:
             return HealthCheckResponse(
                 burst_engine=health.get("burst_engine", False),
                 connected_agents=health.get("connected_agents"),
-                influxdb_availability=health.get("influxdb_availability", False),
+                influxdb_availability=health.get(
+                    "influxdb_availability", False
+                ),
                 neuron_count_max=health.get("neuron_count_max", 0),
                 synapse_count_max=health.get("synapse_count_max", 0),
                 latest_changes_saved_externally=health.get(
@@ -137,11 +149,19 @@ class SystemAPI:
                 brain_readiness=health.get("brain_readiness", False),
                 fitness=health.get("fitness"),
                 cortical_area_count=health.get("cortical_area_count"),
-                neuron_count=health.get("neuron_count"),  # Total neurons (regular + memory)
-                memory_neuron_count=health.get("memory_neuron_count"),  # Memory neurons only
-                regular_neuron_count=health.get("regular_neuron_count"),  # Regular neurons only  
+                neuron_count=health.get(
+                    "neuron_count"
+                ),  # Total neurons (regular + memory)
+                memory_neuron_count=health.get(
+                    "memory_neuron_count"
+                ),  # Memory neurons only
+                regular_neuron_count=health.get(
+                    "regular_neuron_count"
+                ),  # Regular neurons only
                 synapse_count=health.get("synapse_count"),
-                estimated_brain_size_in_MB=health.get("estimated_brain_size_in_MB"),
+                estimated_brain_size_in_MB=health.get(
+                    "estimated_brain_size_in_MB"
+                ),
                 genome_num=health.get("genome_num"),
                 genome_timestamp=health.get("genome_timestamp"),
             )
@@ -149,7 +169,9 @@ class SystemAPI:
             logger.error(f"Error getting system health: {e}")
             raise ValueError(f"Failed to get system health: {str(e)}")
 
-    @system_endpoint("GET", "/configuration", response_model=ConfigurationResponse)
+    @system_endpoint(
+        "GET", "/configuration", response_model=ConfigurationResponse
+    )
     def get_configuration(self) -> ConfigurationResponse:
         """Get system configuration."""
         try:
@@ -161,7 +183,9 @@ class SystemAPI:
 
     # ===== External Services =====
 
-    @system_endpoint("GET", "/db/influxdb/test", response_model=InfluxDBTestResponse)
+    @system_endpoint(
+        "GET", "/db/influxdb/test", response_model=InfluxDBTestResponse
+    )
     def test_influxdb(self) -> InfluxDBTestResponse:
         """Test InfluxDB connection."""
         try:
@@ -181,7 +205,9 @@ class SystemAPI:
 
     # ===== System Configuration =====
 
-    @system_endpoint("POST", "/circuit_library_path", response_model=SuccessResponse)
+    @system_endpoint(
+        "POST", "/circuit_library_path", response_model=SuccessResponse
+    )
     def set_circuit_library_path(self, path: str) -> SuccessResponse:
         """Set the circuit library path."""
         try:
@@ -216,7 +242,9 @@ class SystemAPI:
         try:
             success = self.core_api_service.reset_fcl()
             if success:
-                return SuccessResponse(message="Fire Candidate List reset successfully")
+                return SuccessResponse(
+                    message="Fire Candidate List reset successfully"
+                )
             else:
                 raise ValueError("Failed to reset FCL")
         except Exception as e:
@@ -233,16 +261,24 @@ class SystemAPI:
             return skip_rate
         except Exception as e:
             logger.error(f"Error getting visualization skip rate: {e}")
-            raise ValueError(f"Failed to get visualization skip rate: {str(e)}")
+            raise ValueError(
+                f"Failed to get visualization skip rate: {str(e)}"
+            )
 
-    @system_endpoint("GET", "/cortical_area_visualization_suppression_threshold")
+    @system_endpoint(
+        "GET", "/cortical_area_visualization_suppression_threshold"
+    )
     def get_cortical_area_visualization_suppression_threshold(self) -> int:
         """Get cortical area visualization suppression threshold (returns int directly for legacy compatibility)."""
         try:
-            threshold = self.core_api_service.get_visualization_suppression_threshold()
+            threshold = (
+                self.core_api_service.get_visualization_suppression_threshold()
+            )
             return threshold
         except Exception as e:
-            logger.error(f"Error getting visualization suppression threshold: {e}")
+            logger.error(
+                f"Error getting visualization suppression threshold: {e}"
+            )
             raise ValueError(
                 f"Failed to get visualization suppression threshold: {str(e)}"
             )
@@ -251,11 +287,15 @@ class SystemAPI:
     def get_global_activity_visualization_info(self) -> Dict[str, Any]:
         """Get global activity visualization settings."""
         try:
-            settings = self.core_api_service.get_global_activity_visualization()
+            settings = (
+                self.core_api_service.get_global_activity_visualization()
+            )
             return settings
         except Exception as e:
             logger.error(f"Error getting global activity visualization: {e}")
-            raise ValueError(f"Failed to get global activity visualization: {str(e)}")
+            raise ValueError(
+                f"Failed to get global activity visualization: {str(e)}"
+            )
 
     @system_endpoint("GET", "/global_activity_visualization")
     def get_global_activity_visualization_status(self) -> bool:
@@ -265,7 +305,9 @@ class SystemAPI:
             return enabled
         except Exception as e:
             logger.error(f"Error getting global activity visualization: {e}")
-            raise ValueError(f"Failed to get global activity visualization: {str(e)}")
+            raise ValueError(
+                f"Failed to get global activity visualization: {str(e)}"
+            )
 
     @system_endpoint(
         "PUT",
@@ -289,7 +331,9 @@ class SystemAPI:
             )
         except Exception as e:
             logger.error(f"Error setting global activity visualization: {e}")
-            raise ValueError(f"Failed to set global activity visualization: {str(e)}")
+            raise ValueError(
+                f"Failed to set global activity visualization: {str(e)}"
+            )
 
     @system_endpoint("GET", "/unique_logs")
     def get_unique_logs_list(self) -> List[str]:
@@ -325,7 +369,9 @@ class SystemAPI:
     # ===== Legacy/Placeholder Endpoints =====
 
     @system_endpoint("POST", "/register", response_model=SuccessResponse)
-    def register_system(self, registration_data: Dict[str, Any]) -> SuccessResponse:
+    def register_system(
+        self, registration_data: Dict[str, Any]
+    ) -> SuccessResponse:
         """System registration (placeholder implementation)."""
         logger.warning("System registration endpoint is not implemented")
         return SuccessResponse(
@@ -363,7 +409,9 @@ class SystemAPI:
             logger.error(f"Error getting beacon subscribers: {e}")
             raise ValueError(f"Failed to get beacon subscribers: {str(e)}")
 
-    @system_endpoint("POST", "/beacon/subscribe", response_model=SuccessResponse)
+    @system_endpoint(
+        "POST", "/beacon/subscribe", response_model=SuccessResponse
+    )
     def subscribe_to_beacon(self, subscriber_address: str) -> SuccessResponse:
         """Subscribe to beacon notifications."""
         try:
@@ -376,13 +424,19 @@ class SystemAPI:
             self.core_api_service._connectome_manager.api_message_queue.put(
                 item=message_dict
             )
-            return SuccessResponse(message="Subscribed to beacon notifications")
+            return SuccessResponse(
+                message="Subscribed to beacon notifications"
+            )
         except Exception as e:
             logger.error(f"Error subscribing to beacon: {e}")
             raise ValueError(f"Failed to subscribe to beacon: {str(e)}")
 
-    @system_endpoint("DELETE", "/beacon/unsubscribe", response_model=SuccessResponse)
-    def unsubscribe_from_beacon(self, subscriber_address: str) -> SuccessResponse:
+    @system_endpoint(
+        "DELETE", "/beacon/unsubscribe", response_model=SuccessResponse
+    )
+    def unsubscribe_from_beacon(
+        self, subscriber_address: str
+    ) -> SuccessResponse:
         """Unsubscribe from beacon notifications."""
         try:
             if not hasattr(
@@ -394,7 +448,9 @@ class SystemAPI:
             self.core_api_service._connectome_manager.api_message_queue.put(
                 item=message_dict
             )
-            return SuccessResponse(message="Unsubscribed from beacon notifications")
+            return SuccessResponse(
+                message="Unsubscribed from beacon notifications"
+            )
         except Exception as e:
             logger.error(f"Error unsubscribing from beacon: {e}")
             raise ValueError(f"Failed to unsubscribe from beacon: {str(e)}")
@@ -414,7 +470,9 @@ class SystemAPI:
     # ===== FQ Sampler Control =====
 
     @system_endpoint(
-        "POST", "/enable_visualization_fq_sampler", response_model=SuccessResponse
+        "POST",
+        "/enable_visualization_fq_sampler",
+        response_model=SuccessResponse,
     )
     def enable_visualization_fq_sampler(self) -> SuccessResponse:
         """Enable the visualization FQ sampler for brain visualizer connectivity."""
@@ -428,10 +486,14 @@ class SystemAPI:
                 raise ValueError("Failed to enable visualization FQ sampler")
         except Exception as e:
             logger.error(f"Error enabling visualization FQ sampler: {e}")
-            raise ValueError(f"Failed to enable visualization FQ sampler: {str(e)}")
+            raise ValueError(
+                f"Failed to enable visualization FQ sampler: {str(e)}"
+            )
 
     @system_endpoint(
-        "POST", "/disable_visualization_fq_sampler", response_model=SuccessResponse
+        "POST",
+        "/disable_visualization_fq_sampler",
+        response_model=SuccessResponse,
     )
     def disable_visualization_fq_sampler(self) -> SuccessResponse:
         """Disable the visualization FQ sampler."""
@@ -445,7 +507,9 @@ class SystemAPI:
                 raise ValueError("Failed to disable visualization FQ sampler")
         except Exception as e:
             logger.error(f"Error disabling visualization FQ sampler: {e}")
-            raise ValueError(f"Failed to disable visualization FQ sampler: {str(e)}")
+            raise ValueError(
+                f"Failed to disable visualization FQ sampler: {str(e)}"
+            )
 
     @system_endpoint("GET", "/fq_sampler_status")
     def get_fq_sampler_status(self) -> Dict[str, Any]:
@@ -464,7 +528,10 @@ class SystemAPI:
         try:
             fclm = self.core_api_service.get_fcl_manager()
             if not fclm:
-                return {"available": False, "error": "FCL manager not available"}
+                return {
+                    "available": False,
+                    "error": "FCL manager not available",
+                }
 
             # Basic stats
             status: Dict[str, Any] = {
@@ -506,7 +573,9 @@ class SystemAPI:
 
             # Memory corticals
             try:
-                mem_idxs = list(getattr(fclm, "memory_cortical_indices", set()))
+                mem_idxs = list(
+                    getattr(fclm, "memory_cortical_indices", set())
+                )
                 mem_ids = []
                 for midx in mem_idxs:
                     try:
@@ -560,7 +629,9 @@ class SystemAPI:
                         cur = 0
                     # Resolve id
                     try:
-                        cid = cm.get_cortical_id_for_idx(int(cidx)) or str(cidx)
+                        cid = cm.get_cortical_id_for_idx(int(cidx)) or str(
+                            cidx
+                        )
                     except Exception:
                         cid = str(cidx)
                     current_counts.append((str(cid), cur))
@@ -603,7 +674,10 @@ class SystemAPI:
 
             pm = get_process_manager()
             if not pm:
-                return {"available": False, "error": "Process manager not available"}
+                return {
+                    "available": False,
+                    "error": "Process manager not available",
+                }
 
             procs: Dict[str, Any] = {}
             processes = getattr(pm, "_processes", {})
@@ -651,6 +725,7 @@ class SystemAPI:
                 mot = getattr(pm, "_motor_fq_sampler", None)
                 summary["viz_sampler_present"] = bool(viz)
                 summary["motor_sampler_present"] = bool(mot)
+
                 # Lightweight stats if method exists
                 def _safe_stats(obj):
                     try:
@@ -674,7 +749,10 @@ class SystemAPI:
                     "is_running": be.get("is_running", False),
                 }
             except Exception:
-                summary["burst_engine"] = {"status": "unknown", "is_running": False}
+                summary["burst_engine"] = {
+                    "status": "unknown",
+                    "is_running": False,
+                }
 
             return {"available": True, "processes": procs, "summary": summary}
         except Exception as e:

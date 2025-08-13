@@ -130,7 +130,9 @@ class PushServer:
         """
         await self.work_queue.put((priority, work_type, item, content_type))
         self.stats["queued_items"] = self.work_queue.qsize()
-        logger.debug(f"Queued work item of type {work_type}, priority {priority}")
+        logger.debug(
+            f"Queued work item of type {work_type}, priority {priority}"
+        )
 
     async def _process_queue(self) -> None:
         """Process queued work items and push them to workers with RTOS-friendly error handling."""
@@ -139,7 +141,12 @@ class PushServer:
                 # Get the next work item (blocks until one is available)
                 # Use a timeout to allow for clean cancellation
                 try:
-                    priority, work_type, item, content_type = await asyncio.wait_for(
+                    (
+                        priority,
+                        work_type,
+                        item,
+                        content_type,
+                    ) = await asyncio.wait_for(
                         self.work_queue.get(), timeout=0.5
                     )
                 except asyncio.TimeoutError:
@@ -150,7 +157,11 @@ class PushServer:
 
                 # Prepare the message
                 serialized_data = serialize_message(item, content_type)
-                message = [work_type.encode(), content_type.encode(), serialized_data]
+                message = [
+                    work_type.encode(),
+                    content_type.encode(),
+                    serialized_data,
+                ]
 
                 # Send the message
                 await self.socket.send_multipart(message)
@@ -180,11 +191,15 @@ class PushServer:
                     )  # @architecture:acceptable - error recovery
                 except asyncio.CancelledError:
                     # Handle cancellation during error recovery
-                    logger.debug("Process queue cancelled during error recovery")
+                    logger.debug(
+                        "Process queue cancelled during error recovery"
+                    )
                     break
 
     async def push_batch(
-        self, items: List[Tuple[Any, str, int]], content_type: str = "application/json"
+        self,
+        items: List[Tuple[Any, str, int]],
+        content_type: str = "application/json",
     ) -> None:
         """
         Queue multiple work items for processing.
@@ -318,7 +333,9 @@ class PullClient:
                         await self.handlers[work_type](data)
                         self.stats["processed_items"] += 1
                     except Exception as e:
-                        logger.error(f"Error in handler for work type {work_type}: {e}")
+                        logger.error(
+                            f"Error in handler for work type {work_type}: {e}"
+                        )
                         self.stats["errors"] += 1
                 elif self.default_handler:
                     try:
@@ -348,7 +365,9 @@ class PullClient:
                     )  # @architecture:acceptable - error recovery
                 except asyncio.CancelledError:
                     # Handle cancellation during error recovery
-                    logger.debug("Receive loop cancelled during error recovery")
+                    logger.debug(
+                        "Receive loop cancelled during error recovery"
+                    )
                     break
 
 
@@ -378,7 +397,9 @@ class PushPullManager:
         """
         self.context = context or zmq.asyncio.Context.instance()
         self._port = port
-        self.push_server = PushServer(core_api, host, port, context=self.context)
+        self.push_server = PushServer(
+            core_api, host, port, context=self.context
+        )
 
     @property
     def port(self) -> int:
@@ -402,7 +423,10 @@ class PushPullManager:
                 # No running loop, try to stop gracefully without await
                 if hasattr(self.push_server, "running"):
                     self.push_server.running = False
-                if hasattr(self.push_server, "socket") and self.push_server.socket:
+                if (
+                    hasattr(self.push_server, "socket")
+                    and self.push_server.socket
+                ):
                     try:
                         self.push_server.socket.close()
                     except Exception as e:
@@ -412,7 +436,9 @@ class PushPullManager:
         except Exception as e:
             logger.warning(f"Error stopping PushPull manager: {e}")
 
-    async def queue_work(self, work_type: str, data: Any, priority: int = 0) -> None:
+    async def queue_work(
+        self, work_type: str, data: Any, priority: int = 0
+    ) -> None:
         """
         Queue a work item for processing.
 

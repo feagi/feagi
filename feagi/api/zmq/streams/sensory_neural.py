@@ -80,7 +80,9 @@ class SensoryNeuralStream:
 
         # Zero-copy ring buffer for incoming data
         self.ring_buffer = ZeroCopyRingBuffer(
-            slots=ring_buffer_slots, slot_size=slot_size, use_shared_memory=True
+            slots=ring_buffer_slots,
+            slot_size=slot_size,
+            use_shared_memory=True,
         )
 
         # Neural-specific buffer pools
@@ -130,7 +132,9 @@ class SensoryNeuralStream:
         if self.running:
             return
 
-        logger.info(f"Starting neural sensory stream on {self.host}:{self.port}")
+        logger.info(
+            f"Starting neural sensory stream on {self.host}:{self.port}"
+        )
         self.running = True
 
         # Start processing task
@@ -224,9 +228,11 @@ class SensoryNeuralStream:
                 elif result == StreamResult.BUFFER_FULL:
                     # Ring buffer full, apply backpressure
                     self._stats["buffer_overruns"] += 1
-                    logger.warning(f"Ring buffer full, applying backpressure. Buffer stats: "
-                                 f"used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                                 f"full_count={self.ring_buffer.stats.buffer_full_count}")
+                    logger.warning(
+                        f"Ring buffer full, applying backpressure. Buffer stats: "
+                        f"used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
+                        f"full_count={self.ring_buffer.stats.buffer_full_count}"
+                    )
                     await asyncio.sleep(0.01)  # 10ms backpressure
 
             except asyncio.CancelledError:
@@ -239,32 +245,36 @@ class SensoryNeuralStream:
         """Process incoming neural data - feagi_data_processing format only."""
         slot = None
         data_processed = False
-        
+
         try:
             # Get write slot from ring buffer
             slot = self.ring_buffer.get_write_slot()
             if not slot:
                 self._stats["buffer_full"] += 1
                 # DIAGNOSTIC: Log buffer state when full
-                logger.warning(f"Ring buffer full! Used slots: {self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                             f"Write index: {self.ring_buffer.write_index.value}, "
-                             f"Read index: {self.ring_buffer.read_index.value}")
+                logger.warning(
+                    f"Ring buffer full! Used slots: {self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
+                    f"Write index: {self.ring_buffer.write_index.value}, "
+                    f"Read index: {self.ring_buffer.read_index.value}"
+                )
                 return StreamResult.BUFFER_FULL
 
             # ZMQ receive - async sockets use recv() not recv_into()
             try:
                 data = await self.socket.recv(flags=zmq.NOBLOCK)
                 nbytes = len(data)
-                
+
                 # Check if data fits in the slot
                 if nbytes > len(slot.memory_view):
-                    logger.error(f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size")
+                    logger.error(
+                        f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size"
+                    )
                     return StreamResult.BUFFER_FULL
-                
+
                 # Copy data into the memory slot
                 slot.memory_view[:nbytes] = data
                 data_processed = True
-                
+
             except zmq.Again:
                 # No data available
                 return StreamResult.NO_DATA
@@ -276,89 +286,132 @@ class SensoryNeuralStream:
             # Decode feagi_data_processing format
             try:
                 import feagi_data_processing as fdp
-                
+
                 # Create FeagiByteStructure directly from raw bytes
                 raw_bytes = slot.memory_view[:nbytes].tobytes()
-                byte_structure = fdp.io_processing.bytes.FeagiByteStructure(raw_bytes)
-                
+                byte_structure = fdp.io_processing.bytes.FeagiByteStructure(
+                    raw_bytes
+                )
+
                 # Get structure type using FEAGI's API
                 structure_type = byte_structure.structure_type
-                
+
                 if structure_type != 11:
-                    logger.warning(f"Unexpected structure type: {structure_type}, expected 11 (NEURON_CATEGORIES)")
-                    logger.debug(f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}")
+                    logger.warning(
+                        f"Unexpected structure type: {structure_type}, expected 11 (NEURON_CATEGORIES)"
+                    )
+                    logger.debug(
+                        f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}"
+                    )
                     return StreamResult.SUCCESS
-                
+
                 # Create CorticalMappedXYZPNeuronData from the byte structure
-                cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(byte_structure)
-                
+                cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                    byte_structure
+                )
+
                 # Extract neuron data using iter_full()
                 cortical_areas = {}
                 neuron_count = 0
-                
-                for cortical_id_obj, neuron_arrays in cortical_mapped.iter_full():
+
+                for (
+                    cortical_id_obj,
+                    neuron_arrays,
+                ) in cortical_mapped.iter_full():
                     # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
                     x_coords, y_coords, z_coords, potentials = neuron_arrays
-                    
+
                     # CRITICAL FIX: Handle both CorticalID objects and strings
-                    if hasattr(cortical_id_obj, 'as_ascii_string'):
+                    if hasattr(cortical_id_obj, "as_ascii_string"):
                         # It's a CorticalID object - convert to string
                         cortical_id = cortical_id_obj.as_ascii_string()
                     else:
                         # It's already a string, but might be 'CorticalID(iic000)' format
                         cortical_id_str = str(cortical_id_obj)
-                        if cortical_id_str.startswith('CorticalID(') and cortical_id_str.endswith(')'):
+                        if cortical_id_str.startswith(
+                            "CorticalID("
+                        ) and cortical_id_str.endswith(")"):
                             # Extract the actual cortical ID from 'CorticalID(iic000)' format
-                            cortical_id = cortical_id_str[11:-1]  # Remove 'CorticalID(' and ')'
+                            cortical_id = cortical_id_str[
+                                11:-1
+                            ]  # Remove 'CorticalID(' and ')'
                         else:
                             # Use as is
                             cortical_id = cortical_id_str
-                    
+
                     if cortical_id not in cortical_areas:
                         cortical_areas[cortical_id] = {
-                            'coordinates_x': [],
-                            'coordinates_y': [],
-                            'coordinates_z': [],
-                            'membrane_potentials': []
+                            "coordinates_x": [],
+                            "coordinates_y": [],
+                            "coordinates_z": [],
+                            "membrane_potentials": [],
                         }
-                    
+
                     # Convert numpy arrays to lists and extend
-                    cortical_areas[cortical_id]['coordinates_x'].extend(x_coords.tolist())
-                    cortical_areas[cortical_id]['coordinates_y'].extend(y_coords.tolist())
-                    cortical_areas[cortical_id]['coordinates_z'].extend(z_coords.tolist())
-                    cortical_areas[cortical_id]['membrane_potentials'].extend(potentials.tolist())
-                    
+                    cortical_areas[cortical_id]["coordinates_x"].extend(
+                        x_coords.tolist()
+                    )
+                    cortical_areas[cortical_id]["coordinates_y"].extend(
+                        y_coords.tolist()
+                    )
+                    cortical_areas[cortical_id]["coordinates_z"].extend(
+                        z_coords.tolist()
+                    )
+                    cortical_areas[cortical_id]["membrane_potentials"].extend(
+                        potentials.tolist()
+                    )
+
                     neuron_count += len(x_coords)
-                
-                logger.info(f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding")
-                
+
+                logger.info(
+                    f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding"
+                )
+
                 # Convert back to numpy arrays for SIMD performance
                 import numpy as np
+
                 neural_data = {}
-                
+
                 for cortical_id, data in cortical_areas.items():
                     neural_data[cortical_id] = {
-                        'coordinates_x': np.array(data['coordinates_x'], dtype=np.uint16),
-                        'coordinates_y': np.array(data['coordinates_y'], dtype=np.uint16),
-                        'coordinates_z': np.array(data['coordinates_z'], dtype=np.uint16),
-                        'membrane_potentials': np.array(data['membrane_potentials'], dtype=np.float32)
+                        "coordinates_x": np.array(
+                            data["coordinates_x"], dtype=np.uint16
+                        ),
+                        "coordinates_y": np.array(
+                            data["coordinates_y"], dtype=np.uint16
+                        ),
+                        "coordinates_z": np.array(
+                            data["coordinates_z"], dtype=np.uint16
+                        ),
+                        "membrane_potentials": np.array(
+                            data["membrane_potentials"], dtype=np.float32
+                        ),
                     }
-                    logger.info(f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons")
-                
+                    logger.info(
+                        f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons"
+                    )
+
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
-                
+
                 if result.get("success", False):
-                    logger.info(f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data)} cortical areas (VECTORIZED)")
+                    logger.info(
+                        f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data)} cortical areas (VECTORIZED)"
+                    )
                     return StreamResult.SUCCESS
                 else:
-                    logger.error(f"❌ FCL injection failed: {result.get('error', 'Unknown error')}")
+                    logger.error(
+                        f"❌ FCL injection failed: {result.get('error', 'Unknown error')}"
+                    )
                     self._stats["api_errors"] += 1
                     return StreamResult.API_ERROR
-                    
+
             except Exception as e:
-                logger.error(f"❌ Failed to decode feagi_data_processing format: {e}")
+                logger.error(
+                    f"❌ Failed to decode feagi_data_processing format: {e}"
+                )
                 import traceback
+
                 logger.error(f"🔍 Decode traceback: {traceback.format_exc()}")
                 self._stats["decode_errors"] += 1
                 return StreamResult.DECODE_ERROR
@@ -367,8 +420,10 @@ class SensoryNeuralStream:
             self._stats["decode_errors"] += 1
             # Provide more context for buffer-related errors
             if "buffer" in str(e).lower():
-                logger.error(f"Failed to process neural data (buffer issue): {e}. "
-                           f"Ring buffer state: used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}")
+                logger.error(
+                    f"Failed to process neural data (buffer issue): {e}. "
+                    f"Ring buffer state: used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}"
+                )
             else:
                 logger.error(f"Failed to process neural data: {e}")
             return StreamResult.DECODE_ERROR
@@ -377,14 +432,14 @@ class SensoryNeuralStream:
             # Only commit the write slot if we actually processed data - CORRECT METHOD
             if data_processed and slot:
                 self.ring_buffer.commit_write(slot)
-                
+
                 # CRITICAL FIX: Auto-drain ring buffer after successful processing
-                # Since we process data immediately (not in separate consumer), 
+                # Since we process data immediately (not in separate consumer),
                 # we need to advance read index to prevent buffer_full errors
                 read_slot = self.ring_buffer.get_read_slot()
                 if read_slot and read_slot.index == slot.index:
                     self.ring_buffer.commit_read(read_slot)
-                    
+
             # Clear the slot reference to help with memory cleanup
             slot = None
 
@@ -441,37 +496,51 @@ class SensoryNeuralStream:
                 if x_coords is not None:
                     max_x = x_coords.max() if len(x_coords) > 0 else 0
                     if max_x > 65535:
-                        logger.error(f"Coordinate X values exceed uint16 range! Max: {max_x}, limit: 65535")
+                        logger.error(
+                            f"Coordinate X values exceed uint16 range! Max: {max_x}, limit: 65535"
+                        )
                         return StreamResult.DECODE_ERROR
-                        
+
                 if y_coords is not None:
                     max_y = y_coords.max() if len(y_coords) > 0 else 0
                     if max_y > 65535:
-                        logger.error(f"Coordinate Y values exceed uint16 range! Max: {max_y}, limit: 65535")
+                        logger.error(
+                            f"Coordinate Y values exceed uint16 range! Max: {max_y}, limit: 65535"
+                        )
                         return StreamResult.DECODE_ERROR
-                        
+
                 if z_coords is not None:
                     max_z = z_coords.max() if len(z_coords) > 0 else 0
                     if max_z > 65535:
-                        logger.error(f"Coordinate Z values exceed uint16 range! Max: {max_z}, limit: 65535")
+                        logger.error(
+                            f"Coordinate Z values exceed uint16 range! Max: {max_z}, limit: 65535"
+                        )
                         return StreamResult.DECODE_ERROR
 
                 # Build neural data with SAFE uint16 conversion (after validation)
                 neural_data = {
                     str(header.cortical_area_id): {
-                        'coordinates_x': x_coords.astype(np.uint16) if x_coords is not None else np.array([], dtype=np.uint16),
-                        'coordinates_y': y_coords.astype(np.uint16) if y_coords is not None else np.array([], dtype=np.uint16),
-                        'coordinates_z': z_coords.astype(np.uint16) if z_coords is not None else np.array([], dtype=np.uint16),
-                        'membrane_potentials': firing_rates.astype(np.float32)
+                        "coordinates_x": x_coords.astype(np.uint16)
+                        if x_coords is not None
+                        else np.array([], dtype=np.uint16),
+                        "coordinates_y": y_coords.astype(np.uint16)
+                        if y_coords is not None
+                        else np.array([], dtype=np.uint16),
+                        "coordinates_z": z_coords.astype(np.uint16)
+                        if z_coords is not None
+                        else np.array([], dtype=np.uint16),
+                        "membrane_potentials": firing_rates.astype(np.float32),
                     }
                 }
-                
+
                 # Use unified stimulation method
                 result = self.core_api.stimulate_neurons(neural_data)
 
                 if not result.get("success", False):
                     self._stats["api_errors"] += 1
-                    logger.error(f"Unified stimulation failed: {result.get('error', 'Unknown error')}")
+                    logger.error(
+                        f"Unified stimulation failed: {result.get('error', 'Unknown error')}"
+                    )
                     return StreamResult.API_ERROR
 
             except Exception as e:

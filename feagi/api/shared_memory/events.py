@@ -196,17 +196,23 @@ class EventNotificationSystem:
 
         self.running = True
         self.event_thread = threading.Thread(
-            target=self._event_loop, daemon=True, name=f"EventLoop-{self.process_name}"
+            target=self._event_loop,
+            daemon=True,
+            name=f"EventLoop-{self.process_name}",
         )
         self.event_thread.start()
-        self.logger.info(f"Started event notification system for {self.process_name}")
+        self.logger.info(
+            f"Started event notification system for {self.process_name}"
+        )
 
     def stop(self):
         """Stop the event notification system."""
         self.running = False
         if self.event_thread and self.event_thread.is_alive():
             self.event_thread.join(timeout=1.0)
-        self.logger.info(f"Stopped event notification system for {self.process_name}")
+        self.logger.info(
+            f"Stopped event notification system for {self.process_name}"
+        )
 
     def _event_loop(self):
         """Main event processing loop."""
@@ -219,12 +225,16 @@ class EventNotificationSystem:
         try:
             while self.running:
                 # Check for incoming events
-                ready, _, _ = select.select([pipe_fd], [], [], 0.1)  # 100ms timeout
+                ready, _, _ = select.select(
+                    [pipe_fd], [], [], 0.1
+                )  # 100ms timeout
 
                 if ready:
                     # Read event data
                     try:
-                        data = os.read(pipe_fd, 4096)  # Read up to 4KB at a time
+                        data = os.read(
+                            pipe_fd, 4096
+                        )  # Read up to 4KB at a time
                         if data:
                             # Parse and process events
                             self._process_event_data(data)
@@ -364,9 +374,13 @@ class EventNotificationSystem:
         """
         if event_type in self.subscriptions:
             self.subscriptions.remove(event_type)
-            self.logger.debug(f"Unsubscribed from event type: {event_type.value}")
+            self.logger.debug(
+                f"Unsubscribed from event type: {event_type.value}"
+            )
 
-    def register_handler(self, event_type: EventType, handler: Callable[[Event], None]):
+    def register_handler(
+        self, event_type: EventType, handler: Callable[[Event], None]
+    ):
         """
         Register a handler for a specific event type.
 
@@ -381,7 +395,9 @@ class EventNotificationSystem:
         if event_type not in self.handlers:
             self.handlers[event_type] = []
         self.handlers[event_type].append(handler)
-        self.logger.debug(f"Registered handler for event type: {event_type.value}")
+        self.logger.debug(
+            f"Registered handler for event type: {event_type.value}"
+        )
 
     def unregister_handler(
         self, event_type: EventType, handler: Callable[[Event], None]
@@ -393,7 +409,10 @@ class EventNotificationSystem:
             event_type: The event type
             handler: The handler function to remove
         """
-        if event_type in self.handlers and handler in self.handlers[event_type]:
+        if (
+            event_type in self.handlers
+            and handler in self.handlers[event_type]
+        ):
             self.handlers[event_type].remove(handler)
             self.logger.debug(
                 f"Unregistered handler for event type: {event_type.value}"
@@ -412,7 +431,9 @@ class EventNotificationSystem:
         try:
             if os.path.exists(self.event_file_path):
                 os.unlink(self.event_file_path)
-                self.logger.info(f"Removed event pipe at {self.event_file_path}")
+                self.logger.info(
+                    f"Removed event pipe at {self.event_file_path}"
+                )
         except Exception as e:
             self.logger.error(f"Error removing event pipe: {e}")
 

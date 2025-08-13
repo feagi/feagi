@@ -130,7 +130,9 @@ class MultiGPUManager:
                     )
                     self.available_devices.append(device)
                     self.device_locks[i] = threading.Lock()
-                    logger.debug(f"Found PyTorch CUDA device {i}: {props.name}")
+                    logger.debug(
+                        f"Found PyTorch CUDA device {i}: {props.name}"
+                    )
         except ImportError:
             logger.debug("PyTorch not available for GPU discovery")
         except Exception as e:
@@ -153,7 +155,8 @@ class MultiGPUManager:
                         device_id=i,
                         name=props["name"].decode(),
                         memory_total=mem_info[0],  # Total memory
-                        memory_available=mem_info[0] - mem_info[1],  # Total - Used
+                        memory_available=mem_info[0]
+                        - mem_info[1],  # Total - Used
                         compute_capability=(props["major"], props["minor"]),
                         backend_type="cupy",
                     )
@@ -188,7 +191,9 @@ class MultiGPUManager:
         """
         return self.available_devices.copy()
 
-    def select_devices(self, device_count: Optional[int] = None) -> List[GPUDevice]:
+    def select_devices(
+        self, device_count: Optional[int] = None
+    ) -> List[GPUDevice]:
         """Select GPU devices for processing.
 
         Args:
@@ -202,7 +207,9 @@ class MultiGPUManager:
 
         # Sort devices by available memory (descending)
         sorted_devices = sorted(
-            self.available_devices, key=lambda d: d.memory_available, reverse=True
+            self.available_devices,
+            key=lambda d: d.memory_available,
+            reverse=True,
         )
 
         selected = sorted_devices[:device_count]
@@ -241,7 +248,9 @@ class MultiGPUManager:
                 "memory_ratio": memory_ratio,
             }
 
-        logger.info(f"Distributed workload across {len(self.active_devices)} devices")
+        logger.info(
+            f"Distributed workload across {len(self.active_devices)} devices"
+        )
         return distribution
 
     def synchronize_devices(self) -> None:
@@ -313,7 +322,9 @@ class MultiGPUManager:
 _multi_gpu_manager: Optional[MultiGPUManager] = None
 
 
-def get_multi_gpu_manager(backend_preference: Optional[str] = None) -> MultiGPUManager:
+def get_multi_gpu_manager(
+    backend_preference: Optional[str] = None,
+) -> MultiGPUManager:
     """Get the global MultiGPUManager instance.
 
     Args:

@@ -207,8 +207,12 @@ class SIMDDetector:
             capabilities.ssse3 = "ssse3" in sysctl_output
             capabilities.sse4_1 = "sse4.1" in sysctl_output
             capabilities.sse4_2 = "sse4.2" in sysctl_output
-            capabilities.avx = "avx1.0" in sysctl_output or "avx" in sysctl_output
-            capabilities.avx2 = "avx2.0" in sysctl_output or "avx2" in sysctl_output
+            capabilities.avx = (
+                "avx1.0" in sysctl_output or "avx" in sysctl_output
+            )
+            capabilities.avx2 = (
+                "avx2.0" in sysctl_output or "avx2" in sysctl_output
+            )
             capabilities.avx512f = "avx512f" in sysctl_output
             capabilities.fma = "fma" in sysctl_output
 
@@ -287,7 +291,8 @@ class SIMDDetector:
         if capabilities.platform == "Linux":
             try:
                 with open(
-                    "/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size", "r"
+                    "/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size",
+                    "r",
                 ) as f:
                     capabilities.cache_line_size = int(f.read().strip())
             except Exception:
@@ -306,7 +311,9 @@ class SIMDDetector:
             and os.environ.get("SSH_CONNECTION") is not None
         )
 
-    def get_optimal_backend(self, operation_type: str = "general") -> SIMDBackend:
+    def get_optimal_backend(
+        self, operation_type: str = "general"
+    ) -> SIMDBackend:
         """Select optimal SIMD backend for given operation type."""
         caps = self.capabilities
 

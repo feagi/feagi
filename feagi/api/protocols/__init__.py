@@ -88,19 +88,33 @@ class ByteStructureEncoder:
 
             # Create cortical ID using modern feagi-data-processing approach
             area_str = str(cortical_id)
-            
+
             try:
                 # Try to create cortical ID directly from string - handles all modern format IDs
-                cortical_id_obj = self.fdp.genome.CorticalID.try_new_from_string(area_str)
+                cortical_id_obj = (
+                    self.fdp.genome.CorticalID.try_new_from_string(area_str)
+                )
             except ValueError:
                 # Fallback for areas that can't be parsed directly
-                if area_str == '_power':
-                    cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(self.fdp.genome.CoreCorticalType.Power)
-                elif area_str == '_death':
-                    cortical_id_obj = self.fdp.genome.CorticalID.new_core_cortical_area_id(self.fdp.genome.CoreCorticalType.Death)
+                if area_str == "_power":
+                    cortical_id_obj = (
+                        self.fdp.genome.CorticalID.new_core_cortical_area_id(
+                            self.fdp.genome.CoreCorticalType.Power
+                        )
+                    )
+                elif area_str == "_death":
+                    cortical_id_obj = (
+                        self.fdp.genome.CorticalID.new_core_cortical_area_id(
+                            self.fdp.genome.CoreCorticalType.Death
+                        )
+                    )
                 else:
                     # For unknown areas, use custom with 'c' prefix
-                    cortical_id_obj = self.fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{area_str}')
+                    cortical_id_obj = (
+                        self.fdp.genome.CorticalID.new_custom_cortical_area_id(
+                            f"c{area_str}"
+                        )
+                    )
 
             # Use high-performance NumPy approach
             neurons_array = (
@@ -113,7 +127,9 @@ class ByteStructureEncoder:
             generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
 
         # Create the final byte structure from the mapped data
-        byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+        byte_structure = (
+            generated_mapped_neuron_data.as_new_feagi_byte_structure()
+        )
         return byte_structure.copy_out_as_byte_vector()
 
 

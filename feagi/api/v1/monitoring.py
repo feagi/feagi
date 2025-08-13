@@ -69,7 +69,9 @@ class MonitoringAPI:
 
     # ===== System Monitoring =====
 
-    @monitoring_endpoint("GET", "/metrics", response_model=SystemMetricsResponse)
+    @monitoring_endpoint(
+        "GET", "/metrics", response_model=SystemMetricsResponse
+    )
     async def get_system_metrics(self) -> SystemMetricsResponse:
         """Get current system metrics."""
         try:
@@ -79,7 +81,9 @@ class MonitoringAPI:
             logger.error(f"Error getting system metrics: {e}")
             raise ValueError(f"Failed to get system metrics: {str(e)}") from e
 
-    @monitoring_endpoint("GET", "/performance", response_model=PerformanceStatsResponse)
+    @monitoring_endpoint(
+        "GET", "/performance", response_model=PerformanceStatsResponse
+    )
     async def get_performance_stats(self) -> PerformanceStatsResponse:
         """Get performance statistics."""
         try:
@@ -87,7 +91,9 @@ class MonitoringAPI:
             return PerformanceStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting performance stats: {e}")
-            raise ValueError(f"Failed to get performance stats: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get performance stats: {str(e)}"
+            ) from e
 
     @monitoring_endpoint("GET", "/data", response_model=MonitoringDataResponse)
     async def get_monitoring_data(self) -> MonitoringDataResponse:

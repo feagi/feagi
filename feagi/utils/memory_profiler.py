@@ -95,7 +95,9 @@ class MemorySnapshot:
             limit: Number of top memory blocks to display
         """
         logger.info(f"--- Memory Snapshot: {self.label} ---")
-        logger.info(f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB")
+        logger.info(
+            f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB"
+        )
         logger.info(
             f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.timestamp))}"
         )
@@ -244,7 +246,9 @@ def profile_memory(label: Optional[str] = None) -> Callable:
             profiler.snapshot(f"{func_label}_end")
 
             # Print the comparison
-            profiler.print_comparison(f"{func_label}_start", f"{func_label}_end")
+            profiler.print_comparison(
+                f"{func_label}_start", f"{func_label}_end"
+            )
 
             return result
 

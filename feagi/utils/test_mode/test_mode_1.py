@@ -2,9 +2,9 @@
 Test Mode 1: JSON-based Deterministic Neuron Activations
 
 This module handles the deterministic JSON-based test mode that REQUIRES
-test_mode_activations.json for predictable neuron injection. 
+test_mode_activations.json for predictable neuron injection.
 
-CRITICAL: Test Mode 1 will fail if the JSON file is not found - there are 
+CRITICAL: Test Mode 1 will fail if the JSON file is not found - there are
 no fallbacks to ensure testing remains deterministic and repeatable.
 """
 
@@ -23,7 +23,7 @@ class TestMode1Handler:
     This mode REQUIRES a JSON file (test_mode_activations.json) to specify exactly
     which neurons should be activated at specific coordinates, providing
     deterministic and repeatable testing.
-    
+
     FAILS FAST: If the JSON file is missing or invalid, this mode will exit with
     an error rather than fall back to random injection to maintain test integrity.
     """
@@ -133,14 +133,18 @@ class TestMode1Handler:
                 self.use_predictable_activations = False
                 return False  # This is a critical error for Test Mode 1
 
-            logger.info(f"Loading predictable neuron activations from: {json_path}")
+            logger.info(
+                f"Loading predictable neuron activations from: {json_path}"
+            )
 
             with json_path.open("r") as f:
                 self.test_activations_data = json.load(f)
 
             # Validate the JSON structure
             if not isinstance(self.test_activations_data, dict):
-                logger.error("Invalid JSON format: root should be a dictionary")
+                logger.error(
+                    "Invalid JSON format: root should be a dictionary"
+                )
                 self.use_predictable_activations = False
                 return False
 
@@ -161,7 +165,9 @@ class TestMode1Handler:
                         # Validate that coordinates are numbers
                         try:
                             x, y, z = coord
-                            if all(isinstance(c, (int, float)) for c in [x, y, z]):
+                            if all(
+                                isinstance(c, (int, float)) for c in [x, y, z]
+                            ):
                                 valid_coords += 1
                             else:
                                 logger.warning(
@@ -230,7 +236,10 @@ class TestMode1Handler:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            if not self.use_predictable_activations or not self.test_activations_data:
+            if (
+                not self.use_predictable_activations
+                or not self.test_activations_data
+            ):
                 logger.error(
                     "CRITICAL: Test Mode 1 cannot inject data - predictable activations not available"
                 )
@@ -238,9 +247,9 @@ class TestMode1Handler:
                     "Ensure test_mode_activations.json is loaded and contains valid data"
                 )
                 return False
-                
+
             return self._inject_predictable_activations()
-            
+
         except Exception as e:
             logger.error(f"Error injecting Test Mode 1 data: {e}")
             import traceback
@@ -265,7 +274,10 @@ class TestMode1Handler:
                 f"Generating predictable coordinate activations for {len(self.test_activations_data)} cortical areas"
             )
 
-            for cortical_id, coordinates_list in self.test_activations_data.items():
+            for (
+                cortical_id,
+                coordinates_list,
+            ) in self.test_activations_data.items():
                 try:
                     # Check if this cortical area exists in the connectome
                     if cortical_id not in self.connectome.cortical_areas:
@@ -280,7 +292,11 @@ class TestMode1Handler:
                     for coord in coordinates_list:
                         if isinstance(coord, list) and len(coord) == 3:
                             try:
-                                x, y, z = int(coord[0]), int(coord[1]), int(coord[2])
+                                x, y, z = (
+                                    int(coord[0]),
+                                    int(coord[1]),
+                                    int(coord[2]),
+                                )
                                 valid_coordinates.append((x, y, z))
                                 logger.debug(
                                     f"Added coordinate ({x},{y},{z}) for stimulation in {cortical_id}"
@@ -315,13 +331,17 @@ class TestMode1Handler:
 
             # Submit coordinate activations via test runner (proper architecture)
             if coordinate_activations:
-                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
+                total_coordinates = sum(
+                    len(coords) for coords in coordinate_activations.values()
+                )
                 logger.debug(
                     f"🎯 Submitting {total_coordinates} PREDICTABLE coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                injected_count = self.test_runner.submit_coordinate_activations(
-                    coordinate_activations, "test_mode_1_predictable"
+                injected_count = (
+                    self.test_runner.submit_coordinate_activations(
+                        coordinate_activations, "test_mode_1_predictable"
+                    )
                 )
 
                 if injected_count > 0:
@@ -333,7 +353,9 @@ class TestMode1Handler:
                     logger.warning("Failed to inject predictable coordinates")
                     return False
             else:
-                logger.warning("No predictable coordinate activations generated")
+                logger.warning(
+                    "No predictable coordinate activations generated"
+                )
                 return False
 
         except Exception as e:
@@ -342,5 +364,6 @@ class TestMode1Handler:
 
             logger.error(traceback.format_exc())
             return False
+
 
 # Random activation fallback method removed - Test Mode 1 is deterministic only

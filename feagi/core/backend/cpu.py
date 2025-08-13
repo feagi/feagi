@@ -83,7 +83,9 @@ class CPUBackend(BackendInterface):
             if has_blas:
                 logger.info("NumPy is using BLAS/LAPACK for linear algebra")
             else:
-                logger.warning("NumPy may not be using optimized BLAS/LAPACK libraries")
+                logger.warning(
+                    "NumPy may not be using optimized BLAS/LAPACK libraries"
+                )
 
             self._initialized = True
             return True

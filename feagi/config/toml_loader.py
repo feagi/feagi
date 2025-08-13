@@ -52,7 +52,8 @@ _CONFIG_CACHE_KEY: Optional[str] = None
 
 
 def _get_cache_key(
-    config_path: Optional[Path] = None, cli_args: Optional[Dict[str, Any]] = None
+    config_path: Optional[Path] = None,
+    cli_args: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Generate a cache key based on config path and CLI arguments."""
     path_str = str(config_path) if config_path else "default"
@@ -151,19 +152,21 @@ class GenomeConfiguration:
     Controls how FEAGI handles invalid genome files.
     """
 
-    auto_recovery_on_validation_failure: bool = True  # Default: allow auto-recovery
+    auto_recovery_on_validation_failure: bool = (
+        True  # Default: allow auto-recovery
+    )
 
 
 @dataclass
 class AgentConfiguration:
     """
     Agent registration and communication configuration.
-    
+
     Provides default values for agent registration when not explicitly provided.
     """
-    
+
     default_host: str
-    
+
     def __post_init__(self):
         """Validate agent configuration."""
         if not self.default_host or self.default_host == "":
@@ -209,7 +212,8 @@ def find_config_file() -> Path:
     # Search in common locations
     search_paths = [
         Path.cwd() / "feagi_configuration.toml",  # Current directory
-        Path(__file__).parent.parent.parent / "feagi_configuration.toml",  # feagi_core/
+        Path(__file__).parent.parent.parent
+        / "feagi_configuration.toml",  # feagi_core/
         Path(__file__).parent.parent.parent.parent
         / "feagi_configuration.toml",  # Project root
     ]
@@ -272,7 +276,9 @@ def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
                 try:
                     value = int(value)
                 except ValueError:
-                    logger.warning(f"Invalid integer value for {env_var}: {value}")
+                    logger.warning(
+                        f"Invalid integer value for {env_var}: {value}"
+                    )
                     continue
             elif key in ["reload", "debug"]:
                 value = value.lower() in ("true", "1", "yes", "on")
@@ -382,12 +388,16 @@ def load_toml_configuration(
         return config
 
     except FileNotFoundError as e:
-        raise FeagiConfigurationError(f"Configuration file not found: {e}") from e
+        raise FeagiConfigurationError(
+            f"Configuration file not found: {e}"
+        ) from e
     except Exception as e:
         # Handle both tomllib.TOMLDecodeError and any other errors
         if "TOML" in str(type(e)):
             raise FeagiConfigurationError(f"Invalid TOML syntax: {e}") from e
-        raise FeagiConfigurationError(f"Failed to load configuration: {e}") from e
+        raise FeagiConfigurationError(
+            f"Failed to load configuration: {e}"
+        ) from e
 
 
 def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
@@ -422,7 +432,9 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
 
     for port_name in required_ports:
         if port_name not in ports:
-            raise ValueError(f"Missing required port configuration: {port_name}")
+            raise ValueError(
+                f"Missing required port configuration: {port_name}"
+            )
         port_value = ports[port_name]
         if not isinstance(port_value, int) or port_value <= 0:
             raise ValueError(
@@ -483,15 +495,21 @@ def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
         thread_join=timeout_config.get("thread_join", 2.0),
         process_join=timeout_config.get("process_join", 2.0),
         service_stop=timeout_config.get("service_stop", 5.0),
-        visualization_shutdown=timeout_config.get("visualization_shutdown", 5.0),
+        visualization_shutdown=timeout_config.get(
+            "visualization_shutdown", 5.0
+        ),
         api_service_shutdown=timeout_config.get("api_service_shutdown", 10.0),
         fq_sampler_shutdown=timeout_config.get("fq_sampler_shutdown", 2.0),
         # ZMQ timeouts
         socket_connect_timeout=zmq_config.get("socket_connect_timeout", 1000),
         socket_receive_timeout=zmq_config.get("socket_receive_timeout", 5000),
         socket_send_timeout=zmq_config.get("socket_send_timeout", 5000),
-        client_heartbeat_timeout=zmq_config.get("client_heartbeat_timeout", 30000),
-        inactive_client_timeout=zmq_config.get("inactive_client_timeout", 60000),
+        client_heartbeat_timeout=zmq_config.get(
+            "client_heartbeat_timeout", 30000
+        ),
+        inactive_client_timeout=zmq_config.get(
+            "inactive_client_timeout", 60000
+        ),
         polling_timeout=zmq_config.get("polling_timeout", 100),
     )
 
@@ -580,7 +598,9 @@ def validate_configuration(config: Dict[str, Any]) -> None:
 
 
 # Convenience function for common usage
-def load_feagi_config(cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def load_feagi_config(
+    cli_args: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Load and validate FEAGI configuration with all overrides applied.
 

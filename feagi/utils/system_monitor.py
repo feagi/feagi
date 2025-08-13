@@ -167,7 +167,9 @@ class SystemResourceMonitor:
         self._stop_event.clear()
 
         self.monitor_thread = threading.Thread(
-            target=self._monitoring_loop, name="SystemResourceMonitor", daemon=True
+            target=self._monitoring_loop,
+            name="SystemResourceMonitor",
+            daemon=True,
         )
         self.monitor_thread.start()
 
@@ -229,7 +231,9 @@ class SystemResourceMonitor:
 
         # System-wide CPU and memory
         cpu_percent = psutil.cpu_percent(interval=None)
-        cpu_core_count = psutil.cpu_count(logical=True)  # Get logical CPU count
+        cpu_core_count = psutil.cpu_count(
+            logical=True
+        )  # Get logical CPU count
         cpu_cores_used = (
             cpu_percent / 100.0
         ) * cpu_core_count  # Convert percentage to cores
@@ -320,7 +324,9 @@ class SystemResourceMonitor:
         # Peak values
         peak_cpu = max(entry.cpu_cores_used for entry in recent_entries)
         peak_memory_mb = max(entry.memory_mb for entry in recent_entries)
-        peak_process_cpu = max(entry.process_cpu_cores_used for entry in recent_entries)
+        peak_process_cpu = max(
+            entry.process_cpu_cores_used for entry in recent_entries
+        )
         peak_process_memory_mb = max(
             entry.process_memory_mb for entry in recent_entries
         )
@@ -380,13 +386,17 @@ class SystemResourceMonitor:
         print("=" * 80)
 
         if current:
-            print(f"Current Time: {current.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(
+                f"Current Time: {current.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+            )
             print(f"System CPU: {current.cpu_cores_used:.2f} cores")
             print(f"[BRAIN] System Memory: {current.memory_mb:.1f} MB")
             print(
                 f"[FAST] FEAGI Process CPU: {current.process_cpu_cores_used:.2f} cores"
             )
-            print(f"[SAVE] FEAGI Process Memory: {current.process_memory_mb:.1f} MB")
+            print(
+                f"[SAVE] FEAGI Process Memory: {current.process_memory_mb:.1f} MB"
+            )
 
             if current.gpu_usage:
                 print("[CTRL] GPU Usage:")

@@ -103,7 +103,9 @@ class BinarySerializer:
             BinaryProtocolError: If the data is too short or invalid
         """
         if len(data) < cls.HEADER_SIZE:
-            raise BinaryProtocolError(f"Data too short for header: {len(data)} bytes")
+            raise BinaryProtocolError(
+                f"Data too short for header: {len(data)} bytes"
+            )
 
         try:
             protocol_id_value, version = struct.unpack(
@@ -115,7 +117,9 @@ class BinarySerializer:
             raise BinaryProtocolError(f"Invalid header: {e}") from e
 
     @classmethod
-    def encode_fcp(cls, command_type: int, payload: bytes, version: int = 1) -> bytes:
+    def encode_fcp(
+        cls, command_type: int, payload: bytes, version: int = 1
+    ) -> bytes:
         """
         Encode an FCP message.
 
@@ -129,7 +133,9 @@ class BinarySerializer:
         """
         header = cls.encode_header(ProtocolID.FCP, version)
         message_length = len(payload)
-        fcp_header = struct.pack(cls.FCP_HEADER_FORMAT, command_type, message_length)
+        fcp_header = struct.pack(
+            cls.FCP_HEADER_FORMAT, command_type, message_length
+        )
         return header + fcp_header + payload
 
     @classmethod
@@ -322,7 +328,8 @@ class BinarySerializer:
         # Extract FSMP header
         offset = cls.HEADER_SIZE
         channel_id, timestamp, data_length = struct.unpack(
-            cls.FSMP_HEADER_FORMAT, data[offset : offset + cls.FSMP_HEADER_SIZE]
+            cls.FSMP_HEADER_FORMAT,
+            data[offset : offset + cls.FSMP_HEADER_SIZE],
         )
         offset += cls.FSMP_HEADER_SIZE
 
@@ -395,7 +402,9 @@ class BinarySerializer:
             BinaryProtocolError: If the data is invalid
         """
         if len(data) < cls.HEADER_SIZE:
-            raise BinaryProtocolError(f"Data too short for header: {len(data)} bytes")
+            raise BinaryProtocolError(
+                f"Data too short for header: {len(data)} bytes"
+            )
 
         protocol_id, _ = cls.decode_header(data)
 

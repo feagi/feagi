@@ -98,7 +98,9 @@ class ProcessHealth:
         if self.last_restart_time == 0.0:
             return True
 
-        backoff_time = self.initial_backoff * (self.backoff_factor**self.restart_count)
+        backoff_time = self.initial_backoff * (
+            self.backoff_factor**self.restart_count
+        )
         time_since_restart = time.time() - self.last_restart_time
 
         return time_since_restart >= backoff_time
@@ -194,7 +196,9 @@ class HealthMonitor:
                 < health.heartbeat_warning_threshold * health.heartbeat_timeout
             ):
                 health.state = ProcessState.RUNNING
-                logger.info(f"Process {process_name} recovered from heartbeat warning")
+                logger.info(
+                    f"Process {process_name} recovered from heartbeat warning"
+                )
 
             return True
 
@@ -263,7 +267,9 @@ class HealthMonitor:
         # If CPU usage is normal but was previously in WARNING, restore to RUNNING
         elif current_state == ProcessState.WARNING:
             health.state = ProcessState.RUNNING
-            logger.info(f"Process {process_name} recovered from resource warning")
+            logger.info(
+                f"Process {process_name} recovered from resource warning"
+            )
 
     def start_monitoring(self, check_interval: float = 1.0) -> None:
         """
@@ -338,7 +344,8 @@ class HealthMonitor:
 
                 elif (
                     time_since_heartbeat
-                    >= health.heartbeat_warning_threshold * health.heartbeat_timeout
+                    >= health.heartbeat_warning_threshold
+                    * health.heartbeat_timeout
                 ):
                     # Mark as warning due to delayed heartbeat
                     if health.state == ProcessState.RUNNING:
@@ -350,7 +357,9 @@ class HealthMonitor:
 
                 # Check process is still alive via OS
                 if self.resource_manager:
-                    alive = self.resource_manager.is_process_alive(process_name)
+                    alive = self.resource_manager.is_process_alive(
+                        process_name
+                    )
                     if not alive and health.state != ProcessState.FAILED:
                         health.state = ProcessState.FAILED
                         logger.error(

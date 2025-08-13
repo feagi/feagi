@@ -135,7 +135,9 @@ def _evaluate_requirement_condition(condition: str) -> bool:
             operators = [">=", "<=", "==", "!=", ">", "<"]
             for op in operators:
                 if condition.startswith(op):
-                    version_str = condition[len(op) :].strip().strip('"').strip("'")
+                    version_str = (
+                        condition[len(op) :].strip().strip('"').strip("'")
+                    )
                     target_version = version.Version(version_str)
 
                     if op == ">=":
@@ -183,7 +185,9 @@ def get_installed_version(package_name: str) -> Optional[str]:
         return None
 
 
-def check_version_compatibility(constraint: str, installed_version: str) -> bool:
+def check_version_compatibility(
+    constraint: str, installed_version: str
+) -> bool:
     """
     Check if an installed version satisfies a version constraint.
 
@@ -245,7 +249,9 @@ def check_zmq_installation() -> Tuple[bool, Optional[str]]:
             # Check for key attributes without assuming they exist
             for attr in ["__version__", "__file__"]:
                 if hasattr(zmq_module, attr):
-                    debug_info.append(f"ZMQ {attr}: {getattr(zmq_module, attr)}")
+                    debug_info.append(
+                        f"ZMQ {attr}: {getattr(zmq_module, attr)}"
+                    )
 
         # Try importing zmq directly - but don't store the reference directly
         # to avoid potential conflicts with later imports
@@ -268,7 +274,9 @@ def check_zmq_installation() -> Tuple[bool, Optional[str]]:
         # broken zmq install but we're actually going to run with the virtual
         # environment
         if not in_virtual_env and not venv_path:
-            logger.warning("Running from system Python - skipping ZMQ Context check")
+            logger.warning(
+                "Running from system Python - skipping ZMQ Context check"
+            )
             logger.debug(f"ZMQ debug info: {', '.join(debug_info)}")
             return True, None
 
@@ -344,7 +352,9 @@ def check_dependencies(
             )
             continue
 
-        if not check_version_compatibility(version_constraint, installed_version):
+        if not check_version_compatibility(
+            version_constraint, installed_version
+        ):
             is_compatible = False
             error_messages.append(
                 f"Package '{package_name}' version mismatch: "
@@ -399,7 +409,9 @@ def verify_dependencies(
     else:
         # Log a summary of the check
         packages_checked = (
-            len(check_dependencies(requirements_path)[1]) if not is_compatible else 0
+            len(check_dependencies(requirements_path)[1])
+            if not is_compatible
+            else 0
         )
         if (
             packages_checked == 0

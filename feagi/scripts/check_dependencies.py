@@ -31,7 +31,8 @@ from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("feagi.dependency_checker")
 
@@ -63,10 +64,14 @@ def main():
         from feagi.utils.version_checker import verify_dependencies
 
         # Check dependencies
-        is_compatible = verify_dependencies(requirements_path, raise_exception=False)
+        is_compatible = verify_dependencies(
+            requirements_path, raise_exception=False
+        )
 
         if is_compatible:
-            logger.info("[OK]", "All dependencies are compatible with requirements")
+            logger.info(
+                "[OK]", "All dependencies are compatible with requirements"
+            )
             return 0
         else:
             if args.strict:

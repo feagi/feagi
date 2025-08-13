@@ -34,12 +34,14 @@ logger = logging.getLogger(__name__)
 # Try to import optional optimizations
 try:
     import torch
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
 
 try:
     import cupy
+
     CUPY_AVAILABLE = True
 except ImportError:
     CUPY_AVAILABLE = False
@@ -53,6 +55,7 @@ INVALID_CORTICAL_IDX = 65535  # Max value for uint16, used instead of -1
 # Rust extension availability check
 try:
     from feagi.rust.neuron_array import create_gna
+
     RUST_AVAILABLE = True
 except (ImportError, ModuleNotFoundError):
     RUST_AVAILABLE = False
@@ -64,6 +67,7 @@ try:
         simd_membrane_decay,
         simd_refractory_update,
     )
+
     SIMD_AVAILABLE = True
 except ImportError:
     # Fallback implementations
@@ -81,7 +85,9 @@ except ImportError:
 
 
 # Enhanced SIMD firing function with excitability support
-def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, excitability, rng=None):
+def simd_firing_check_with_excitability(
+    potentials, thresholds, can_fire_mask, excitability, rng=None
+):
     """
     SIMD-optimized firing check with probabilistic excitability.
 
@@ -102,7 +108,7 @@ def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, e
     # PERFORMANCE: Fast path - if ALL excitability values are >= 0.999, use original function
     if np.all(excitability >= 0.999):
         return simd_firing_check(potentials, thresholds, can_fire_mask)
-    
+
     # PHASE 1: Standard threshold check
     threshold_met = (potentials >= thresholds) & can_fire_mask
 
@@ -126,22 +132,28 @@ def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, e
     if len(probabilistic_indices) > 0:
         prob_excitability = excitability[probabilistic_indices]
         if rng is None:
-            rng = np.random.default_rng(0)  # @architecture:acceptable - test isolation fallback
+            rng = np.random.default_rng(
+                0
+            )  # @architecture:acceptable - test isolation fallback
         random_values = rng.random(len(probabilistic_indices))
         probabilistic_fire = random_values < prob_excitability
         final_fired_mask[probabilistic_indices] = probabilistic_fire
 
     return final_fired_mask
 
+
 # Fallback SIMD functions for when numba/specialized SIMD isn't available
 try:
     from numba import jit
+
     NUMBA_AVAILABLE = True
     # Deterministic RNG for numba fallback code paths (module-level)
     _NUMBA_FALLBACK_RNG = np.random.default_rng(0)
-    
+
     @jit(nopython=True)
-    def simd_firing_check_with_excitability_numba(potentials, thresholds, can_fire_mask, excitability):
+    def simd_firing_check_with_excitability_numba(
+        potentials, thresholds, can_fire_mask, excitability
+    ):
         """Numba-optimized version of excitability firing check."""
         # PERFORMANCE: Fast path - if ALL excitability values are >= 0.999
         all_deterministic = True
@@ -149,10 +161,10 @@ try:
             if excitability[i] < 0.999:
                 all_deterministic = False
                 break
-        
+
         if all_deterministic:
             return simd_firing_check(potentials, thresholds, can_fire_mask)
-        
+
         threshold_met = (potentials >= thresholds) & can_fire_mask
 
         # Fast path for all excitability >= 0.999
@@ -172,47 +184,47 @@ try:
                     # Parameters from Numerical Recipes: a=1664525, c=1013904223, m=2**32
                     # Seed derived from index for reproducibility per call
                     state = (1664525 * (i + 1) + 1013904223) % 4294967296
-                    rand = (state / 4294967296.0)
+                    rand = state / 4294967296.0
                     fired_mask[i] = rand < excitability[i]
 
         return fired_mask
-    
+
 except ImportError:
     NUMBA_AVAILABLE = False
 
 
 class NeuronMappingProvider(ABC):
     """Interface for providing neuron ID-to-index mappings.
-    
+
     This allows NeuronArray to work with external mapping systems
     (like ConnectomeManager) instead of maintaining its own redundant mappings.
     """
-    
+
     @abstractmethod
     def get_neuron_index(self, neuron_id: int) -> Optional[int]:
         """Get the array index for a neuron ID."""
         pass
-    
+
     @abstractmethod
     def get_neuron_id(self, index: int) -> Optional[int]:
         """Get the neuron ID for an array index."""
         pass
-    
+
     @abstractmethod
     def set_neuron_mapping(self, neuron_id: int, index: int) -> None:
         """Set a neuron ID to index mapping."""
         pass
-    
+
     @abstractmethod
     def remove_neuron_mapping(self, neuron_id: int) -> None:
         """Remove a neuron mapping."""
         pass
-    
+
     @abstractmethod
     def has_neuron(self, neuron_id: int) -> bool:
         """Check if a neuron ID exists."""
         pass
-    
+
     @abstractmethod
     def get_all_neuron_ids(self) -> List[int]:
         """Get all neuron IDs."""
@@ -232,9 +244,14 @@ class NeuronArray:
     Performance target: 10M neuron operations at 15Hz on single-core embedded systems.
     """
 
-    def __init__(self, max_neurons: int = 10_000_000, backend: Optional[str] = None, mapping_provider: Optional[NeuronMappingProvider] = None):
+    def __init__(
+        self,
+        max_neurons: int = 10_000_000,
+        backend: Optional[str] = None,
+        mapping_provider: Optional[NeuronMappingProvider] = None,
+    ):
         """Initialize ultra-high-performance NeuronArray.
-        
+
         Args:
             max_neurons: Maximum number of neurons to support
             backend: Backend type to use (numpy, pytorch, cupy, webgpu, rust, or auto)
@@ -242,21 +259,26 @@ class NeuronArray:
         """
         self.max_neurons = max_neurons
         self.mapping_provider = mapping_provider
-        
+
         # Debug flags for diagnostics
-        self._debug_refractory = False  # Controls refractory period debug logging
-        
+        self._debug_refractory = (
+            False  # Controls refractory period debug logging
+        )
+
         # Deterministic PRNG for probabilistic firing (@cursor:critical-path)
         try:
             from feagi.config.toml_loader import load_feagi_config
+
             cfg = load_feagi_config()
             seed = int(cfg.get("npu", {}).get("rng_seed", 0))
         except Exception:
             seed = 0  # @architecture:acceptable - test isolation / default
         self._rng = np.random.default_rng(seed)
-        
+
         # Align capacity to SIMD vector boundaries
-        self.aligned_capacity = (max_neurons + VECTOR_WIDTH - 1) & ~(VECTOR_WIDTH - 1)
+        self.aligned_capacity = (max_neurons + VECTOR_WIDTH - 1) & ~(
+            VECTOR_WIDTH - 1
+        )
 
         # Initialize Rust backend if available and requested
         if backend == "rust" or (backend is None and RUST_AVAILABLE):
@@ -291,63 +313,75 @@ class NeuronArray:
         # Performance tracking
         self.operation_count = 0
         self.total_operation_time = 0.0
-        
+
         # Backward compatibility properties - delegate to mapping provider
         if mapping_provider:
             # Create property accessors that delegate to the mapping provider
             pass
-            
+
     def _get_neuron_index(self, neuron_id: int) -> Optional[int]:
         """Get the array index for a neuron ID."""
         if self.mapping_provider:
             return self.mapping_provider.get_neuron_index(neuron_id)
         else:
             # Fallback for backward compatibility - should not be used in new code
-            logger.warning("NeuronArray: No mapping provider, using internal fallback")
-            return getattr(self, '_fallback_id_to_index', {}).get(neuron_id)
-    
+            logger.warning(
+                "NeuronArray: No mapping provider, using internal fallback"
+            )
+            return getattr(self, "_fallback_id_to_index", {}).get(neuron_id)
+
     def _get_neuron_id(self, index: int) -> Optional[int]:
         """Get the neuron ID for an array index."""
         if self.mapping_provider:
             return self.mapping_provider.get_neuron_id(index)
         else:
             # Fallback for backward compatibility - should not be used in new code
-            logger.warning("NeuronArray: No mapping provider, using internal fallback")
-            return getattr(self, '_fallback_index_to_id', {}).get(index)
-    
+            logger.warning(
+                "NeuronArray: No mapping provider, using internal fallback"
+            )
+            return getattr(self, "_fallback_index_to_id", {}).get(index)
+
     def _set_neuron_mapping(self, neuron_id: int, index: int) -> None:
         """Set a neuron ID to index mapping."""
         if self.mapping_provider:
             self.mapping_provider.set_neuron_mapping(neuron_id, index)
         else:
             # Fallback for backward compatibility - should not be used in new code
-            logger.warning("NeuronArray: No mapping provider, using internal fallback")
-            if not hasattr(self, '_fallback_id_to_index'):
+            logger.warning(
+                "NeuronArray: No mapping provider, using internal fallback"
+            )
+            if not hasattr(self, "_fallback_id_to_index"):
                 self._fallback_id_to_index = {}
                 self._fallback_index_to_id = {}
             self._fallback_id_to_index[neuron_id] = index
             self._fallback_index_to_id[index] = neuron_id
-    
+
     def _remove_neuron_mapping(self, neuron_id: int) -> None:
         """Remove a neuron mapping."""
         if self.mapping_provider:
             self.mapping_provider.remove_neuron_mapping(neuron_id)
         else:
             # Fallback for backward compatibility - should not be used in new code
-            logger.warning("NeuronArray: No mapping provider, using internal fallback")
-            if hasattr(self, '_fallback_id_to_index'):
+            logger.warning(
+                "NeuronArray: No mapping provider, using internal fallback"
+            )
+            if hasattr(self, "_fallback_id_to_index"):
                 index = self._fallback_id_to_index.pop(neuron_id, None)
-                if index is not None and hasattr(self, '_fallback_index_to_id'):
+                if index is not None and hasattr(
+                    self, "_fallback_index_to_id"
+                ):
                     self._fallback_index_to_id.pop(index, None)
-    
+
     def _has_neuron(self, neuron_id: int) -> bool:
         """Check if a neuron ID exists."""
         if self.mapping_provider:
             return self.mapping_provider.has_neuron(neuron_id)
         else:
             # Fallback for backward compatibility - should not be used in new code
-            logger.warning("NeuronArray: No mapping provider, using internal fallback")
-            return neuron_id in getattr(self, '_fallback_id_to_index', {})
+            logger.warning(
+                "NeuronArray: No mapping provider, using internal fallback"
+            )
+            return neuron_id in getattr(self, "_fallback_id_to_index", {})
 
     def _init_optimized_backend(self, backend: Optional[str]):
         """Initialize optimized backend with cache-aligned arrays."""
@@ -356,27 +390,41 @@ class NeuronArray:
         self.backend_type = self.backend.backend_type
 
         # Create basic numpy arrays for now - simplified implementation
-        self.membrane_potentials = np.zeros(self.aligned_capacity, dtype=np.float32)
-        self.resting_potentials = np.zeros(self.aligned_capacity, dtype=np.float32)
-        
+        self.membrane_potentials = np.zeros(
+            self.aligned_capacity, dtype=np.float32
+        )
+        self.resting_potentials = np.zeros(
+            self.aligned_capacity, dtype=np.float32
+        )
+
         # Firing-related arrays (grouped for cache locality)
-        self.thresholds = np.ones(self.aligned_capacity, dtype=np.float32)  # Default threshold = 1.0
-        self.excitability = np.ones(self.aligned_capacity, dtype=np.float32)  # Default excitability = 1.0 (100%)
-        self.decay_rates = np.full(self.aligned_capacity, 0.95, dtype=np.float32)
-        
-        self.refractory_periods = np.ones(self.aligned_capacity, dtype=np.int32)
-        self.refractory_counters = np.zeros(self.aligned_capacity, dtype=np.int32)
-        
+        self.thresholds = np.ones(
+            self.aligned_capacity, dtype=np.float32
+        )  # Default threshold = 1.0
+        self.excitability = np.ones(
+            self.aligned_capacity, dtype=np.float32
+        )  # Default excitability = 1.0 (100%)
+        self.decay_rates = np.full(
+            self.aligned_capacity, 0.95, dtype=np.float32
+        )
+
+        self.refractory_periods = np.ones(
+            self.aligned_capacity, dtype=np.int32
+        )
+        self.refractory_counters = np.zeros(
+            self.aligned_capacity, dtype=np.int32
+        )
+
         # MEMORY OPTIMIZATION: Coordinate arrays using uint16 (supports 0-65,535 per dimension)
         self.coordinates_x = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.coordinates_y = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.coordinates_z = np.zeros(self.aligned_capacity, dtype=np.uint16)
-        
+
         # Area mapping and activation
         self.cortical_idxs = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.is_active = np.zeros(self.aligned_capacity, dtype=np.bool_)
         self.valid_mask = np.zeros(self.aligned_capacity, dtype=np.bool_)
-        
+
         # Additional arrays
         self.last_fired = np.zeros(self.aligned_capacity, dtype=np.int32)
         self.neuron_types = np.zeros(self.aligned_capacity, dtype=np.int32)
@@ -386,12 +434,20 @@ class NeuronArray:
         # Maps cortical_idx -> bool (True if area needs probabilistic firing)
         self._area_probabilistic_firing = {}
 
-        logger.info(f"Initialized NeuronArray: {self.backend_type} backend, capacity: {self.aligned_capacity}")
+        logger.info(
+            f"Initialized NeuronArray: {self.backend_type} backend, capacity: {self.aligned_capacity}"
+        )
 
-    def set_cortical_area_excitability(self, cortical_idx: int, start_idx: int, end_idx: int, excitability: float) -> None:
+    def set_cortical_area_excitability(
+        self,
+        cortical_idx: int,
+        start_idx: int,
+        end_idx: int,
+        excitability: float,
+    ) -> None:
         """
         Set excitability for a cortical area and update performance tracking.
-        
+
         Args:
             cortical_idx: Cortical area index
             start_idx: Start neuron index
@@ -400,28 +456,34 @@ class NeuronArray:
         """
         # Clamp excitability to valid range
         excitability = max(0.0, min(1.0, excitability))
-        
+
         # Set excitability values for the cortical area
         self.excitability[start_idx:end_idx] = excitability
-        
+
         # Update per-area probabilistic firing tracking
         self._area_probabilistic_firing[cortical_idx] = excitability < 0.999
 
-    def set_excitability_range(self, start_idx: int, end_idx: int, excitability: float) -> None:
+    def set_excitability_range(
+        self, start_idx: int, end_idx: int, excitability: float
+    ) -> None:
         """
         DEPRECATED: Use set_cortical_area_excitability instead for proper area tracking.
-        
+
         This method is kept for backward compatibility but doesn't update area tracking.
         """
         # Clamp excitability to valid range
         excitability = max(0.0, min(1.0, excitability))
-        
+
         # Set excitability values
         self.excitability[start_idx:end_idx] = excitability
 
     def get_probabilistic_areas(self) -> set:
         """Get set of cortical area indices that use probabilistic firing."""
-        return {idx for idx, needs_prob in self._area_probabilistic_firing.items() if needs_prob}
+        return {
+            idx
+            for idx, needs_prob in self._area_probabilistic_firing.items()
+            if needs_prob
+        }
 
     def allocate_neuron(self, neuron_id: int) -> int:
         """Allocate space for a neuron and return its array index."""
@@ -434,7 +496,9 @@ class NeuronArray:
             index = self.free_indices.pop()
         else:
             if self.next_index >= self.aligned_capacity:
-                raise ValueError(f"Maximum neuron capacity ({self.aligned_capacity}) reached")
+                raise ValueError(
+                    f"Maximum neuron capacity ({self.aligned_capacity}) reached"
+                )
             index = self.next_index
             self.next_index += 1
 
@@ -447,17 +511,23 @@ class NeuronArray:
 
         return index
 
-    def embedded_optimized_neural_update(self, timestep: int, connectivity_matrix=None) -> List[int]:
+    def embedded_optimized_neural_update(
+        self, timestep: int, connectivity_matrix=None
+    ) -> List[int]:
         """Ultra-optimized neural update for embedded single-core operation."""
         if self._use_rust:
-            return self._rust_backend.embedded_neural_update(timestep, connectivity_matrix)
+            return self._rust_backend.embedded_neural_update(
+                timestep, connectivity_matrix
+            )
 
         # PHASE 1: Create properly filtered mask
         valid_neurons = self.valid_mask
         can_update_mask = valid_neurons & (self.refractory_counters == 0)
 
         # PHASE 2: Membrane potential decay (SIMD-optimized)
-        simd_membrane_decay(self.membrane_potentials, self.decay_rates, can_update_mask)
+        simd_membrane_decay(
+            self.membrane_potentials, self.decay_rates, can_update_mask
+        )
 
         # PHASE 3: Refractory period updates (SIMD-optimized)
         simd_refractory_update(self.refractory_counters, valid_neurons)
@@ -465,20 +535,29 @@ class NeuronArray:
         # PHASE 4: Enhanced threshold checking and probabilistic firing (SIMD-optimized)
         # PERFORMANCE OPTIMIZATION: Check if any cortical areas need probabilistic firing
         probabilistic_areas = self.get_probabilistic_areas()
-        
+
         if not probabilistic_areas:
             # Fast path: No areas use probabilistic firing - use original deterministic function
-            fired_mask = simd_firing_check(self.membrane_potentials, self.thresholds, can_update_mask)
+            fired_mask = simd_firing_check(
+                self.membrane_potentials, self.thresholds, can_update_mask
+            )
         else:
             # Mixed path: Some areas need probabilistic firing, some don't
             # Use enhanced function but it will automatically handle deterministic neurons efficiently
             if NUMBA_AVAILABLE:
                 fired_mask = simd_firing_check_with_excitability_numba(
-                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability
+                    self.membrane_potentials,
+                    self.thresholds,
+                    can_update_mask,
+                    self.excitability,
                 )
             else:
                 fired_mask = simd_firing_check_with_excitability(
-                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability, rng=self._rng
+                    self.membrane_potentials,
+                    self.thresholds,
+                    can_update_mask,
+                    self.excitability,
+                    rng=self._rng,
                 )
 
         # PHASE 5: Process firing consequences (CRITICAL FIX!)
@@ -488,61 +567,111 @@ class NeuronArray:
             # Check cortical areas of fired neurons (needed for debug analysis)
             cortical_areas = {}
             for idx in fired_indices:
-                cortical_idx = self.cortical_idxs[idx] if idx < len(self.cortical_idxs) else "N/A"
+                cortical_idx = (
+                    self.cortical_idxs[idx]
+                    if idx < len(self.cortical_idxs)
+                    else "N/A"
+                )
                 if cortical_idx not in cortical_areas:
                     cortical_areas[cortical_idx] = []
                 cortical_areas[cortical_idx].append(idx)
-            
+
             if self._debug_refractory:
-                print(f"\n🔥 NEURON DEBUG: Timestep {timestep} - {len(fired_indices)} neurons firing")
+                print(
+                    f"\n🔥 NEURON DEBUG: Timestep {timestep} - {len(fired_indices)} neurons firing"
+                )
                 print(f"   Fired indices: {fired_indices}")
                 print(f"   Fired by cortical area: {cortical_areas}")
-                
+
                 # Show refractory counters BEFORE setting
-                print(f"   Refractory counters BEFORE: {self.refractory_counters[fired_indices]}")
-                print(f"   Refractory periods to set: {self.refractory_periods[fired_indices]}")
-            
+                print(
+                    f"   Refractory counters BEFORE: {self.refractory_counters[fired_indices]}"
+                )
+                print(
+                    f"   Refractory periods to set: {self.refractory_periods[fired_indices]}"
+                )
+
             # Reset membrane potentials of fired neurons to resting potential
-            self.membrane_potentials[fired_indices] = self.resting_potentials[fired_indices]
-            
+            self.membrane_potentials[fired_indices] = self.resting_potentials[
+                fired_indices
+            ]
+
             # Set refractory counters to refractory periods (CRITICAL FOR REFRACTORY PERIOD ENFORCEMENT!)
-            self.refractory_counters[fired_indices] = self.refractory_periods[fired_indices]
-            
+            self.refractory_counters[fired_indices] = self.refractory_periods[
+                fired_indices
+            ]
+
             if self._debug_refractory:
                 # Show refractory counters AFTER setting
-                print(f"   Refractory counters AFTER: {self.refractory_counters[fired_indices]}")
-                
+                print(
+                    f"   Refractory counters AFTER: {self.refractory_counters[fired_indices]}"
+                )
+
                 # CRITICAL DEBUG: Check if OTHER neurons in same cortical areas are affected
                 for cortical_idx, fired_in_area in cortical_areas.items():
                     if cortical_idx == "N/A":
                         continue
-                        
+
                     # Find ALL neurons in this cortical area
-                    all_in_area = np.where(self.cortical_idxs == cortical_idx)[0]
-                    non_fired_in_area = [idx for idx in all_in_area if idx not in fired_indices]
-                    
+                    all_in_area = np.where(self.cortical_idxs == cortical_idx)[
+                        0
+                    ]
+                    non_fired_in_area = [
+                        idx for idx in all_in_area if idx not in fired_indices
+                    ]
+
                     if len(non_fired_in_area) > 0:
-                        print(f"   🧪 Area {cortical_idx}: {len(fired_in_area)} fired, {len(non_fired_in_area)} didn't fire")
-                        print(f"      Non-fired indices: {non_fired_in_area[:5]}...")  # Show first 5
-                        print(f"      Non-fired refractory counters: {self.refractory_counters[non_fired_in_area[:5]]}")
-                        
+                        print(
+                            f"   🧪 Area {cortical_idx}: {len(fired_in_area)} fired, {len(non_fired_in_area)} didn't fire"
+                        )
+                        print(
+                            f"      Non-fired indices: {non_fired_in_area[:5]}..."
+                        )  # Show first 5
+                        print(
+                            f"      Non-fired refractory counters: {self.refractory_counters[non_fired_in_area[:5]]}"
+                        )
+
                         # BUG DETECTION: Check if non-fired neurons incorrectly became refractory
-                        incorrect_refractory = self.refractory_counters[non_fired_in_area] > 0
+                        incorrect_refractory = (
+                            self.refractory_counters[non_fired_in_area] > 0
+                        )
                         if np.any(incorrect_refractory):
-                            buggy_indices = np.array(non_fired_in_area)[incorrect_refractory]
-                            print(f"   🚨 BUG DETECTED: Non-fired neurons became refractory: {buggy_indices}")
-                            print(f"      Their refractory counters: {self.refractory_counters[buggy_indices]}")
-                            print("      This confirms AREA-WIDE REFRACTORY SUPPRESSION!")
-                            
+                            buggy_indices = np.array(non_fired_in_area)[
+                                incorrect_refractory
+                            ]
+                            print(
+                                f"   🚨 BUG DETECTED: Non-fired neurons became refractory: {buggy_indices}"
+                            )
+                            print(
+                                f"      Their refractory counters: {self.refractory_counters[buggy_indices]}"
+                            )
+                            print(
+                                "      This confirms AREA-WIDE REFRACTORY SUPPRESSION!"
+                            )
+
                             # Check memory addresses to see if they're sharing memory
-                            fired_addr = id(self.refractory_counters[fired_indices[0]] if fired_indices else None)
-                            buggy_addr = id(self.refractory_counters[buggy_indices[0]] if len(buggy_indices) > 0 else None)
-                            print(f"      Memory check - Fired neuron addr: {fired_addr}, Buggy neuron addr: {buggy_addr}")
-                            
+                            fired_addr = id(
+                                self.refractory_counters[fired_indices[0]]
+                                if fired_indices
+                                else None
+                            )
+                            buggy_addr = id(
+                                self.refractory_counters[buggy_indices[0]]
+                                if len(buggy_indices) > 0
+                                else None
+                            )
+                            print(
+                                f"      Memory check - Fired neuron addr: {fired_addr}, Buggy neuron addr: {buggy_addr}"
+                            )
+
                             if fired_addr == buggy_addr:
-                                print("      🎯 ROOT CAUSE: SHARED MEMORY - neurons sharing same refractory counter!")
+                                print(
+                                    "      🎯 ROOT CAUSE: SHARED MEMORY - neurons sharing same refractory counter!"
+                                )
                             else:
-                                print("      🎯 ROOT CAUSE: INDEXING BUG - incorrect array slicing/indexing!")
+                                print(
+                                    "      🎯 ROOT CAUSE: INDEXING BUG - incorrect array slicing/indexing!"
+                                )
 
         # PHASE 6: Extract fired neuron IDs
         fired_neurons = []
@@ -563,12 +692,26 @@ class NeuronArray:
         self._debug_refractory = False
         print("🔇 Refractory period debug logging DISABLED")
 
-    def update_membrane_potentials(self, synapse_indices=None, synapse_data=None, timestep: Optional[int] = None, decay_factor: Optional[float] = None):
+    def update_membrane_potentials(
+        self,
+        synapse_indices=None,
+        synapse_data=None,
+        timestep: Optional[int] = None,
+        decay_factor: Optional[float] = None,
+    ):
         """High-performance membrane potential update with embedded optimization."""
         # If called with old-style parameters, provide backward compatibility
-        if decay_factor is not None and synapse_indices is None and synapse_data is None:
+        if (
+            decay_factor is not None
+            and synapse_indices is None
+            and synapse_data is None
+        ):
             # Legacy mode: just apply decay and return empty list
-            simd_membrane_decay(self.membrane_potentials, np.full_like(self.decay_rates, decay_factor), self.valid_mask)
+            simd_membrane_decay(
+                self.membrane_potentials,
+                np.full_like(self.decay_rates, decay_factor),
+                self.valid_mask,
+            )
             return []
 
         # Use embedded optimization for full neural update
@@ -578,12 +721,16 @@ class NeuronArray:
         # Perform complete optimized neural update
         return self.embedded_optimized_neural_update(timestep, synapse_data)
 
-    def batch_create_neurons(self, cortical_idx: Optional[int], positions: List[Tuple[int, int, int]], 
-                           thresholds: Union[float, List[float]] = 1.0,
-                           membrane_potentials: Union[float, List[float]] = 0.0,
-                           resting_potentials: Union[float, List[float]] = 0.0,
-                           decay_rates: Union[float, List[float]] = 0.5,
-                           refractory_periods: Union[int, List[int]] = 1) -> List[int]:
+    def batch_create_neurons(
+        self,
+        cortical_idx: Optional[int],
+        positions: List[Tuple[int, int, int]],
+        thresholds: Union[float, List[float]] = 1.0,
+        membrane_potentials: Union[float, List[float]] = 0.0,
+        resting_potentials: Union[float, List[float]] = 0.0,
+        decay_rates: Union[float, List[float]] = 0.5,
+        refractory_periods: Union[int, List[int]] = 1,
+    ) -> List[int]:
         """Create multiple neurons with the same or different properties in batch."""
         if cortical_idx is None:
             cortical_idx = 0
@@ -594,16 +741,28 @@ class NeuronArray:
 
         # Find indices for all neurons
         if len(self.free_indices) >= num_neurons:
-            indices = np.array(list(self.free_indices)[:num_neurons], dtype=np.int32)
+            indices = np.array(
+                list(self.free_indices)[:num_neurons], dtype=np.int32
+            )
             self.free_indices = self.free_indices - set(indices)
         else:
             # Use free indices + new indices
             num_new_indices = num_neurons - len(self.free_indices)
             if self.next_index + num_new_indices > self.max_neurons:
-                raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
+                raise ValueError(
+                    f"Maximum number of neurons ({self.max_neurons}) exceeded"
+                )
 
-            free_indices = np.array(list(self.free_indices), dtype=np.int32) if self.free_indices else np.array([], dtype=np.int32)
-            new_indices = np.arange(self.next_index, self.next_index + num_new_indices, dtype=np.int32)
+            free_indices = (
+                np.array(list(self.free_indices), dtype=np.int32)
+                if self.free_indices
+                else np.array([], dtype=np.int32)
+            )
+            new_indices = np.arange(
+                self.next_index,
+                self.next_index + num_new_indices,
+                dtype=np.int32,
+            )
             indices = np.concatenate([free_indices, new_indices])
 
             self.free_indices = set()
@@ -612,7 +771,9 @@ class NeuronArray:
         # Generate unique neuron IDs
         if not hasattr(self, "_next_neuron_id"):
             self._next_neuron_id = 1
-        neuron_ids = list(range(self._next_neuron_id, self._next_neuron_id + num_neurons))
+        neuron_ids = list(
+            range(self._next_neuron_id, self._next_neuron_id + num_neurons)
+        )
         self._next_neuron_id += num_neurons
 
         # Set properties
@@ -686,7 +847,9 @@ class NeuronArray:
 
         # Make sure we have capacity
         if self.next_index >= self.max_neurons:
-            raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
+            raise ValueError(
+                f"Maximum number of neurons ({self.max_neurons}) exceeded"
+            )
 
         # Generate unique neuron ID
         if not hasattr(self, "_next_neuron_id"):
@@ -741,7 +904,9 @@ class NeuronArray:
 
             # Reset neuron properties to defaults
             self.membrane_potentials[index] = 0.0
-            self.cortical_idxs[index] = INVALID_CORTICAL_IDX  # Invalid cortical area
+            self.cortical_idxs[index] = (
+                INVALID_CORTICAL_IDX  # Invalid cortical area
+            )
 
         # Add to free indices for reuse
         self.free_indices.add(index)
@@ -762,55 +927,63 @@ class NeuronArray:
         else:
             return int(np.sum(self.valid_mask))
 
-    def vectorized_indices_to_neuron_ids(self, indices: np.ndarray, filter_invalid: bool = True) -> np.ndarray:
+    def vectorized_indices_to_neuron_ids(
+        self, indices: np.ndarray, filter_invalid: bool = True
+    ) -> np.ndarray:
         """Convert array indices to neuron IDs using vectorized operations.
-        
+
         Args:
             indices: Array of neuron indices
             filter_invalid: If True, filter out invalid/missing mappings
-            
+
         Returns:
             Array of neuron IDs corresponding to the indices
         """
         if not self.mapping_provider:
             # Fallback: return indices as IDs if no mapping provider
-            logger.warning("No mapping provider available - returning indices as IDs")
+            logger.warning(
+                "No mapping provider available - returning indices as IDs"
+            )
             return indices.astype(np.int64)
-            
+
         # Convert indices to list for individual lookups
         indices_list = indices.astype(int).tolist()
         neuron_ids = []
-        
+
         for idx in indices_list:
             neuron_id = self.mapping_provider.get_neuron_id(idx)
             if neuron_id is not None:
                 neuron_ids.append(neuron_id)
             elif not filter_invalid:
                 neuron_ids.append(-1)  # Use -1 for invalid mappings
-                
+
         return np.array(neuron_ids, dtype=np.int64)
 
-    def set_neuron_property(self, neuron_id: int, property_name: str, value: Any) -> bool:
+    def set_neuron_property(
+        self, neuron_id: int, property_name: str, value: Any
+    ) -> bool:
         """Set a neuron property directly in the array.
-        
+
         Args:
             neuron_id: ID of the neuron
             property_name: Name of the property to set
             value: Value to set
-            
+
         Returns:
             True if successful, False otherwise
         """
         # Get the neuron index from the mapping provider
         if not self.mapping_provider:
-            logger.warning("No mapping provider available - cannot get neuron index")
+            logger.warning(
+                "No mapping provider available - cannot get neuron index"
+            )
             return False
-            
+
         neuron_index = self.mapping_provider.get_neuron_index(neuron_id)
         if neuron_index is None:
             logger.warning(f"Neuron {neuron_id} not found in mapping")
             return False
-            
+
         # Set the property directly in the array based on property name
         try:
             if property_name == "membrane_potential":
@@ -830,74 +1003,92 @@ class NeuronArray:
             elif property_name == "position":
                 if isinstance(value, (tuple, list)) and len(value) >= 3:
                     # MEMORY OPTIMIZATION: Use uint16 with range clamping (0-65535)
-                    self.coordinates_x[neuron_index] = np.uint16(max(0, min(65535, value[0])))
-                    self.coordinates_y[neuron_index] = np.uint16(max(0, min(65535, value[1])))
-                    self.coordinates_z[neuron_index] = np.uint16(max(0, min(65535, value[2])))
+                    self.coordinates_x[neuron_index] = np.uint16(
+                        max(0, min(65535, value[0]))
+                    )
+                    self.coordinates_y[neuron_index] = np.uint16(
+                        max(0, min(65535, value[1]))
+                    )
+                    self.coordinates_z[neuron_index] = np.uint16(
+                        max(0, min(65535, value[2]))
+                    )
                 else:
-                    logger.error(f"Invalid position value for neuron {neuron_id}: {value}")
+                    logger.error(
+                        f"Invalid position value for neuron {neuron_id}: {value}"
+                    )
                     return False
             else:
-                logger.warning(f"Unknown property '{property_name}' for neuron {neuron_id}")
+                logger.warning(
+                    f"Unknown property '{property_name}' for neuron {neuron_id}"
+                )
                 return False
-                
+
             return True
-            
+
         except Exception as e:
-            logger.error(f"Failed to set property {property_name} for neuron {neuron_id}: {e}")
+            logger.error(
+                f"Failed to set property {property_name} for neuron {neuron_id}: {e}"
+            )
             return False
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """Get performance summary for monitoring and optimization.
-        
+
         Returns:
             Dictionary containing performance metrics and backend information
         """
         try:
             summary = {
-                'backend': self.backend.name if hasattr(self.backend, 'name') else str(self.backend),
-                'simd_enabled': getattr(self.backend, 'simd_enabled', False),
-                'alignment': getattr(self.backend, 'alignment', 64),
-                'neuron_count': self.neuron_count,
-                'max_neurons': self.max_neurons,
-                'memory_usage_mb': self._estimate_memory_usage(),
-                'use_rust': self._use_rust,
-                'precision': getattr(self.backend, 'precision', 'fp32'),
-                'device': getattr(self.backend, 'device', 'cpu'),
+                "backend": self.backend.name
+                if hasattr(self.backend, "name")
+                else str(self.backend),
+                "simd_enabled": getattr(self.backend, "simd_enabled", False),
+                "alignment": getattr(self.backend, "alignment", 64),
+                "neuron_count": self.neuron_count,
+                "max_neurons": self.max_neurons,
+                "memory_usage_mb": self._estimate_memory_usage(),
+                "use_rust": self._use_rust,
+                "precision": getattr(self.backend, "precision", "fp32"),
+                "device": getattr(self.backend, "device", "cpu"),
             }
-            
+
             # Add backend-specific metrics if available
-            if hasattr(self.backend, 'get_performance_metrics'):
+            if hasattr(self.backend, "get_performance_metrics"):
                 backend_metrics = self.backend.get_performance_metrics()
                 summary.update(backend_metrics)
-                
+
             return summary
-            
+
         except Exception as e:
             logger.error(f"Failed to get performance summary: {e}")
             return {
-                'backend': 'unknown',
-                'simd_enabled': False,
-                'alignment': 64,
-                'neuron_count': 0,
-                'max_neurons': self.max_neurons,
-                'memory_usage_mb': 0.0,
-                'use_rust': self._use_rust,
-                'precision': 'fp32',
-                'device': 'cpu',
+                "backend": "unknown",
+                "simd_enabled": False,
+                "alignment": 64,
+                "neuron_count": 0,
+                "max_neurons": self.max_neurons,
+                "memory_usage_mb": 0.0,
+                "use_rust": self._use_rust,
+                "precision": "fp32",
+                "device": "cpu",
             }
 
     def _estimate_memory_usage(self) -> float:
         """Estimate memory usage in megabytes."""
         try:
-            if self._use_rust and hasattr(self._rust_backend, 'get_memory_usage'):
+            if self._use_rust and hasattr(
+                self._rust_backend, "get_memory_usage"
+            ):
                 return self._rust_backend.get_memory_usage() / (1024 * 1024)
             else:
                 # Estimate based on array sizes
                 bytes_per_neuron = (
-                    4 * 8 +  # 8 float32 arrays (membrane_potentials, thresholds, etc.)
-                    4 * 3 +  # 3 uint32 coordinate arrays  
-                    4 * 2 +  # 2 int32 arrays (cortical_idxs, refractory_periods)
-                    1 * 2    # 2 bool arrays (valid_mask, is_active)
+                    4
+                    * 8  # 8 float32 arrays (membrane_potentials, thresholds, etc.)
+                    + 4 * 3  # 3 uint32 coordinate arrays
+                    + 4
+                    * 2  # 2 int32 arrays (cortical_idxs, refractory_periods)
+                    + 1 * 2  # 2 bool arrays (valid_mask, is_active)
                 )
                 total_bytes = bytes_per_neuron * self.max_neurons
                 return total_bytes / (1024 * 1024)

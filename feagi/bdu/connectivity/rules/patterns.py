@@ -133,7 +133,9 @@ def apply_pattern_to_coordinates(
         Coordinates that match the pattern
     """
     if len(pattern) != 3:
-        logger.warning(f"Pattern must have 3 elements for x,y,z, got {len(pattern)}")
+        logger.warning(
+            f"Pattern must have 3 elements for x,y,z, got {len(pattern)}"
+        )
         return
 
     for x, y, z in coordinates:
@@ -161,13 +163,19 @@ def find_source_coordinates(
     """
     # Generate ranges based on pattern and boundary
     x_range = (
-        range(src_cortical_boundary[0]) if src_pattern[0] == "*" else [src_pattern[0]]
+        range(src_cortical_boundary[0])
+        if src_pattern[0] == "*"
+        else [src_pattern[0]]
     )
     y_range = (
-        range(src_cortical_boundary[1]) if src_pattern[1] == "*" else [src_pattern[1]]
+        range(src_cortical_boundary[1])
+        if src_pattern[1] == "*"
+        else [src_pattern[1]]
     )
     z_range = (
-        range(src_cortical_boundary[2]) if src_pattern[2] == "*" else [src_pattern[2]]
+        range(src_cortical_boundary[2])
+        if src_pattern[2] == "*"
+        else [src_pattern[2]]
     )
 
     # Use a generator expression to yield each matching coordinate
@@ -205,11 +213,16 @@ def find_destination_coordinates(
                 dst_pattern[0] == "?"
                 and src_coordinate[0] < dst_cortical_boundary[0]
                 and (
-                    src_coordinate[0] == src_pattern[0] or src_pattern[0] in ["*", "?"]
+                    src_coordinate[0] == src_pattern[0]
+                    or src_pattern[0] in ["*", "?"]
                 )
             )
             else (
-                [i for i in range(dst_cortical_boundary[0]) if i != src_coordinate[0]]
+                [
+                    i
+                    for i in range(dst_cortical_boundary[0])
+                    if i != src_coordinate[0]
+                ]
                 if dst_pattern[0] == "!"
                 else (
                     [dst_pattern[0]]
@@ -239,11 +252,16 @@ def find_destination_coordinates(
                 dst_pattern[1] == "?"
                 and src_coordinate[1] < dst_cortical_boundary[1]
                 and (
-                    src_coordinate[1] == src_pattern[1] or src_pattern[1] in ["*", "?"]
+                    src_coordinate[1] == src_pattern[1]
+                    or src_pattern[1] in ["*", "?"]
                 )
             )
             else (
-                [i for i in range(dst_cortical_boundary[1]) if i != src_coordinate[1]]
+                [
+                    i
+                    for i in range(dst_cortical_boundary[1])
+                    if i != src_coordinate[1]
+                ]
                 if dst_pattern[1] == "!"
                 else (
                     [dst_pattern[1]]
@@ -273,11 +291,16 @@ def find_destination_coordinates(
                 dst_pattern[2] == "?"
                 and src_coordinate[2] < dst_cortical_boundary[2]
                 and (
-                    src_coordinate[2] == src_pattern[2] or src_pattern[2] in ["*", "?"]
+                    src_coordinate[2] == src_pattern[2]
+                    or src_pattern[2] in ["*", "?"]
                 )
             )
             else (
-                [i for i in range(dst_cortical_boundary[2]) if i != src_coordinate[2]]
+                [
+                    i
+                    for i in range(dst_cortical_boundary[2])
+                    if i != src_coordinate[2]
+                ]
                 if dst_pattern[2] == "!"
                 else (
                     [dst_pattern[2]]
@@ -327,7 +350,10 @@ def generate_pattern_coordinates(
 
     # Generate all possible coordinates in destination area
     all_coords = [
-        (x, y, z) for x in range(width) for y in range(height) for z in range(depth)
+        (x, y, z)
+        for x in range(width)
+        for y in range(height)
+        for z in range(depth)
     ]
 
     # Apply destination pattern to filter coordinates
@@ -353,17 +379,29 @@ def calculate_pattern_offset(
     offset_x = (
         0
         if dst_pattern[0] == "*"
-        else (int(dst_pattern[0]) if dst_pattern[0].isdigit() else src_coordinate[0])
+        else (
+            int(dst_pattern[0])
+            if dst_pattern[0].isdigit()
+            else src_coordinate[0]
+        )
     )
     offset_y = (
         0
         if dst_pattern[1] == "*"
-        else (int(dst_pattern[1]) if dst_pattern[1].isdigit() else src_coordinate[1])
+        else (
+            int(dst_pattern[1])
+            if dst_pattern[1].isdigit()
+            else src_coordinate[1]
+        )
     )
     offset_z = (
         0
         if dst_pattern[2] == "*"
-        else (int(dst_pattern[2]) if dst_pattern[2].isdigit() else src_coordinate[2])
+        else (
+            int(dst_pattern[2])
+            if dst_pattern[2].isdigit()
+            else src_coordinate[2]
+        )
     )
 
     return (offset_x, offset_y, offset_z)

@@ -59,10 +59,14 @@ class OperationProfile:
             self.total_time / self.call_count if self.call_count > 0 else 0.0
         )
         self.throughput = (
-            self.element_count / self.total_time if self.total_time > 0 else 0.0
+            self.element_count / self.total_time
+            if self.total_time > 0
+            else 0.0
         )
         self.bandwidth = (
-            self.bytes_processed / self.total_time if self.total_time > 0 else 0.0
+            self.bytes_processed / self.total_time
+            if self.total_time > 0
+            else 0.0
         )
 
 
@@ -86,7 +90,9 @@ class SIMDSession:
     @property
     def overall_throughput(self) -> float:
         """Get overall elements processed per second."""
-        return self.total_elements / self.duration if self.duration > 0 else 0.0
+        return (
+            self.total_elements / self.duration if self.duration > 0 else 0.0
+        )
 
 
 class SIMDProfiler:
@@ -192,7 +198,10 @@ class SIMDProfiler:
             )
 
     def _calculate_simd_efficiency(
-        self, profile: OperationProfile, operation_time: float, element_count: int
+        self,
+        profile: OperationProfile,
+        operation_time: float,
+        element_count: int,
     ) -> float:
         """Calculate SIMD efficiency as ratio of theoretical to actual performance."""
         if operation_time <= 0 or element_count <= 0:
@@ -208,7 +217,9 @@ class SIMDProfiler:
         # Efficiency is theoretical time / actual time
         # Values > 1.0 indicate better than expected performance (cache effects, etc.)
         # Values < 1.0 indicate suboptimal SIMD usage
-        efficiency = theoretical_time / operation_time if operation_time > 0 else 0.0
+        efficiency = (
+            theoretical_time / operation_time if operation_time > 0 else 0.0
+        )
 
         return min(efficiency, 2.0)  # Cap at 2.0 for realistic values
 
@@ -225,7 +236,8 @@ class SIMDProfiler:
         with self.profile_session(f"benchmark_{operation_name}") as session:
             for _i in range(iterations):
                 with self.measure(
-                    operation_name, element_count=kwargs.get("element_count", 0)
+                    operation_name,
+                    element_count=kwargs.get("element_count", 0),
                 ):
                     operation_func(*args, **kwargs)
 
@@ -246,7 +258,9 @@ class SIMDProfiler:
             # This would require backend-specific operation implementations
             # For now, just measure with current backend
             with self.profile_session(f"compare_{backend.value}") as session:
-                with self.measure(f"{operation_name}_{backend.value}", backend=backend):
+                with self.measure(
+                    f"{operation_name}_{backend.value}", backend=backend
+                ):
                     operation_func(*args, **kwargs)
 
                 if operation_name in session.operations:
@@ -267,7 +281,9 @@ class SIMDProfiler:
             "summary": {
                 "total_sessions": len(sessions),
                 "overall_duration": sum(s.duration for s in sessions.values()),
-                "total_elements": sum(s.total_elements for s in sessions.values()),
+                "total_elements": sum(
+                    s.total_elements for s in sessions.values()
+                ),
                 "total_bytes": sum(s.total_bytes for s in sessions.values()),
             },
             "sessions": {},
@@ -447,12 +463,17 @@ def profile_simd_operation(
 ) -> ContextManager[None]:
     """Convenience context manager for profiling SIMD operations."""
     profiler = get_profiler()
-    with profiler.measure(operation_name, element_count=element_count, dtype=dtype):
+    with profiler.measure(
+        operation_name, element_count=element_count, dtype=dtype
+    ):
         yield
 
 
 def benchmark_numpy_operation(
-    operation_name: str, operation_func, data_size: int = 10000, iterations: int = 100
+    operation_name: str,
+    operation_func,
+    data_size: int = 10000,
+    iterations: int = 100,
 ):
     """Benchmark a NumPy operation for SIMD performance."""
     profiler = get_profiler()

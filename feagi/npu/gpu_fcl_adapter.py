@@ -54,7 +54,9 @@ class GPUBitMap:
                 elements_array = elements
 
             # Convert to bitmap representation (each bit represents a neuron)
-            max_neuron_id = elements_array.max() if elements_array.size > 0 else 0
+            max_neuron_id = (
+                elements_array.max() if elements_array.size > 0 else 0
+            )
             chunk_count = (max_neuron_id // 32) + 1
             bitmap_array = np.zeros(chunk_count, dtype=np.uint32)
 
@@ -159,7 +161,9 @@ class GPUBitMap:
 
         # Update cache if both caches are valid
         if self._cache_valid and other._cache_valid:
-            result._elements_cache = self._elements_cache | other._elements_cache
+            result._elements_cache = (
+                self._elements_cache | other._elements_cache
+            )
             result._cache_valid = True
         else:
             result._cache_valid = False
@@ -202,7 +206,9 @@ class GPUBitMap:
 
         # Update cache if both caches are valid
         if self._cache_valid and other._cache_valid:
-            result._elements_cache = self._elements_cache & other._elements_cache
+            result._elements_cache = (
+                self._elements_cache & other._elements_cache
+            )
             result._cache_valid = True
         else:
             result._cache_valid = False
@@ -237,7 +243,9 @@ class GPUBitMap:
         # Perform subtraction operation on GPU
         result = GPUBitMap()
         if hasattr(self.backend, "bitmap_subtract"):
-            result.gpu_bitmap = self.backend.bitmap_subtract(gpu_left, gpu_right)
+            result.gpu_bitmap = self.backend.bitmap_subtract(
+                gpu_left, gpu_right
+            )
         else:
             # Fallback to CPU if operation not available
             result_bitmap = left_bitmap & ~right_bitmap
@@ -245,7 +253,9 @@ class GPUBitMap:
 
         # Update cache if both caches are valid
         if self._cache_valid and other._cache_valid:
-            result._elements_cache = self._elements_cache - other._elements_cache
+            result._elements_cache = (
+                self._elements_cache - other._elements_cache
+            )
             result._cache_valid = True
         else:
             result._cache_valid = False
@@ -288,7 +298,9 @@ class GPUBitMap:
 
         # Update cache if both caches are valid
         if self._cache_valid and other._cache_valid:
-            result._elements_cache = self._elements_cache ^ other._elements_cache
+            result._elements_cache = (
+                self._elements_cache ^ other._elements_cache
+            )
             result._cache_valid = True
         else:
             result._cache_valid = False
@@ -408,7 +420,9 @@ class GPUAcceleratedFCL:
     """
 
     def __init__(
-        self, backend: Optional[BackendInterface], default_window_size: int = 20
+        self,
+        backend: Optional[BackendInterface],
+        default_window_size: int = 20,
     ):
         """
         Initialize the GPU-accelerated FCL manager.
@@ -450,7 +464,9 @@ class GPUAcceleratedFCL:
     def update_fcl(
         self,
         current_timestep: int,
-        neurons_by_cortical: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]],
+        neurons_by_cortical: Dict[
+            CorticalIdx, Union[BitMap, List[int], Set[int]]
+        ],
     ) -> None:
         """
         Update the FCL with new firing neurons, accelerated with GPU.
@@ -488,8 +504,12 @@ class GPUAcceleratedFCL:
         # Convert to numpy arrays
         if cortical_indices:
             # Filter by cortical areas
-            fcl1 = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, start_time)
-            fcl2 = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, end_time)
+            fcl1 = self.cpu_fcl.get_neurons_by_corticals(
+                cortical_indices, start_time
+            )
+            fcl2 = self.cpu_fcl.get_neurons_by_corticals(
+                cortical_indices, end_time
+            )
 
         # Convert to GPU bitmaps
         gpu_fcl1 = GPUBitMap(fcl1)
@@ -502,7 +522,9 @@ class GPUAcceleratedFCL:
         return result.to_cpu_bitmap()
 
     def get_consistently_active_neurons(
-        self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None
+        self,
+        n_steps: int,
+        cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
         """
         Get neurons that have been consistently active over the last n steps, accelerated with GPU.
@@ -538,7 +560,9 @@ class GPUAcceleratedFCL:
             # Get FCL for this timestep
             fcl = self.cpu_fcl.get_global_fcl(timestep)
             if cortical_indices:
-                fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, timestep)
+                fcl = self.cpu_fcl.get_neurons_by_corticals(
+                    cortical_indices, timestep
+                )
 
             # Convert to GPU bitmap and intersect
             gpu_fcl = GPUBitMap(fcl)
@@ -552,7 +576,9 @@ class GPUAcceleratedFCL:
         return result.to_cpu_bitmap()
 
     def get_neurons_fired_in_last_n_steps(
-        self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None
+        self,
+        n_steps: int,
+        cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
         """
         Get neurons that fired in any of the last n steps, accelerated with GPU.
@@ -588,7 +614,9 @@ class GPUAcceleratedFCL:
             # Get FCL for this timestep
             fcl = self.cpu_fcl.get_global_fcl(timestep)
             if cortical_indices:
-                fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, timestep)
+                fcl = self.cpu_fcl.get_neurons_by_corticals(
+                    cortical_indices, timestep
+                )
 
             # Convert to GPU bitmap and union
             gpu_fcl = GPUBitMap(fcl)

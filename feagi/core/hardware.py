@@ -83,7 +83,9 @@ def get_cpu_info() -> Dict[str, Any]:
                 if physical_ids:
                     info["physical_count"] = len(physical_ids)
             except Exception as e:
-                logger.warning(f"Error getting detailed CPU info on Linux: {e}")
+                logger.warning(
+                    f"Error getting detailed CPU info on Linux: {e}"
+                )
 
         elif system == "darwin":
             try:
@@ -116,7 +118,9 @@ def get_cpu_info() -> Dict[str, Any]:
                 )
                 info["physical_count"] = int(result.stdout.strip())
             except Exception as e:
-                logger.warning(f"Error getting detailed CPU info on macOS: {e}")
+                logger.warning(
+                    f"Error getting detailed CPU info on macOS: {e}"
+                )
 
         elif system == "windows":
             try:
@@ -147,7 +151,9 @@ def get_cpu_info() -> Dict[str, Any]:
                 )
                 info["physical_count"] = int(result.stdout.strip())
             except Exception as e:
-                logger.warning(f"Error getting detailed CPU info on Windows: {e}")
+                logger.warning(
+                    f"Error getting detailed CPU info on Windows: {e}"
+                )
 
     except Exception as e:
         logger.warning(f"Error getting detailed CPU info: {e}")
@@ -195,7 +201,9 @@ def get_memory_info() -> Dict[str, int]:
                     elif "MemAvailable" in line:
                         memory_info["available"] = int(line.split()[1]) * 1024
 
-                memory_info["used"] = memory_info["total"] - memory_info["available"]
+                memory_info["used"] = (
+                    memory_info["total"] - memory_info["available"]
+                )
         except Exception as e:
             logger.warning(f"Error getting memory info: {e}")
 
@@ -319,7 +327,9 @@ def get_specialized_accelerators() -> Dict[str, Any]:
             import subprocess
 
             result = subprocess.run(
-                ["sysctl", "-n", "hw.optional.arm64"], capture_output=True, text=True
+                ["sysctl", "-n", "hw.optional.arm64"],
+                capture_output=True,
+                text=True,
             )
 
             # If running on Apple Silicon

@@ -93,7 +93,9 @@ class BaseZMQStream(abc.ABC):
 
         # Register for genome state changes if available
         if hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         self._update_active_mode()
 
@@ -123,7 +125,9 @@ class BaseZMQStream(abc.ABC):
 
             if self.running:
                 mode_str = "ACTIVE" if self._active_mode else "STANDBY"
-                logger.info(f"{self.__class__.__name__} entering {mode_str} mode")
+                logger.info(
+                    f"{self.__class__.__name__} entering {mode_str} mode"
+                )
         except Exception as e:
             logger.error(f"Error handling genome state change: {e}")
             self._active_mode = False
@@ -141,7 +145,9 @@ class BaseZMQStream(abc.ABC):
     def get_health_status(self) -> Dict[str, Any]:
         """Get basic health status."""
         runtime = (
-            time.time() - self.stats["start_time"] if self.stats["start_time"] else 0
+            time.time() - self.stats["start_time"]
+            if self.stats["start_time"]
+            else 0
         )
 
         return {
@@ -152,8 +158,10 @@ class BaseZMQStream(abc.ABC):
             "runtime_seconds": runtime,
             "stats": {
                 **self.stats,
-                "data_per_second": self.stats["data_processed"] / max(runtime, 1),
-                "bytes_per_second": self.stats["bytes_processed"] / max(runtime, 1),
+                "data_per_second": self.stats["data_processed"]
+                / max(runtime, 1),
+                "bytes_per_second": self.stats["bytes_processed"]
+                / max(runtime, 1),
             },
         }
 
@@ -193,7 +201,9 @@ class UnidirectionalStream(BaseZMQStream):
         # Worker management
         self.worker_threads: List[threading.Thread] = []
         self.async_tasks: List[asyncio.Task] = []
-        self._stop_event = threading.Event() if mode == StreamMode.SYNC else None
+        self._stop_event = (
+            threading.Event() if mode == StreamMode.SYNC else None
+        )
 
         # Initialize
         self._initialize_context()
@@ -223,18 +233,24 @@ class UnidirectionalStream(BaseZMQStream):
             if self.direction == DataDirection.INBOUND:
                 # FEAGI receives data - bind to accept connections
                 socket.bind(address)
-                logger.info(f"{self.socket_type.name} socket bound to {address}")
+                logger.info(
+                    f"{self.socket_type.name} socket bound to {address}"
+                )
             else:
                 # FEAGI sends data - bind for subscribers to connect
                 socket.bind(address)
-                logger.info(f"{self.socket_type.name} socket bound to {address}")
+                logger.info(
+                    f"{self.socket_type.name} socket bound to {address}"
+                )
 
             # Store socket safely
             with self._socket_lock:
                 self.socket = socket
 
         except Exception as e:
-            logger.error(f"Failed to create {self.direction.value} socket: {e}")
+            logger.error(
+                f"Failed to create {self.direction.value} socket: {e}"
+            )
             raise
 
     def _configure_socket(self, socket) -> None:
@@ -252,7 +268,9 @@ class UnidirectionalStream(BaseZMQStream):
             if self.socket_type == SocketType.PULL:
                 socket.setsockopt(zmq.RCVHWM, 100)  # Receive buffer
 
-    def _safe_socket_operation(self, operation: Callable, *args, **kwargs) -> Any:
+    def _safe_socket_operation(
+        self, operation: Callable, *args, **kwargs
+    ) -> Any:
         """
         Perform socket operation with comprehensive error handling.
 
@@ -268,7 +286,9 @@ class UnidirectionalStream(BaseZMQStream):
             socket = self.socket
 
         if not socket:
-            logger.debug(f"Cannot perform {operation.__name__}: socket is None")
+            logger.debug(
+                f"Cannot perform {operation.__name__}: socket is None"
+            )
             return None
 
         try:
@@ -293,15 +313,21 @@ class UnidirectionalStream(BaseZMQStream):
                 )
                 return None
             else:
-                logger.error(f"Unexpected AttributeError in {operation.__name__}: {e}")
+                logger.error(
+                    f"Unexpected AttributeError in {operation.__name__}: {e}"
+                )
                 self.stats["errors"] += 1
 
         except zmq.ZMQError as e:
             if e.errno == zmq.ETERM:
-                logger.debug(f"ZMQ context terminated - stopping {operation.__name__}")
+                logger.debug(
+                    f"ZMQ context terminated - stopping {operation.__name__}"
+                )
                 return None
             elif e.errno == zmq.EAGAIN:
-                logger.warning(f"Socket not ready for {operation.__name__} (EAGAIN)")
+                logger.warning(
+                    f"Socket not ready for {operation.__name__} (EAGAIN)"
+                )
                 return None
             else:
                 logger.error(
@@ -320,7 +346,9 @@ class UnidirectionalStream(BaseZMQStream):
         if self.running:
             return
 
-        logger.info(f"Starting {self.__class__.__name__} ({self.direction.value})")
+        logger.info(
+            f"Starting {self.__class__.__name__} ({self.direction.value})"
+        )
         self.running = True
         self.stats["start_time"] = time.time()
 
@@ -374,7 +402,9 @@ class UnidirectionalStream(BaseZMQStream):
         logger.debug(f"Stopping {len(self.worker_threads)} worker threads...")
 
         MAX_WAIT = 3.0
-        per_thread_timeout = min(1.0, MAX_WAIT / max(len(self.worker_threads), 1))
+        per_thread_timeout = min(
+            1.0, MAX_WAIT / max(len(self.worker_threads), 1)
+        )
 
         for i, thread in enumerate(self.worker_threads, 1):
             if thread.is_alive():
@@ -469,7 +499,9 @@ class UnidirectionalStream(BaseZMQStream):
             if not socket:
                 return None
 
-            frames = await asyncio.wait_for(socket.recv_multipart(), timeout=timeout)
+            frames = await asyncio.wait_for(
+                socket.recv_multipart(), timeout=timeout
+            )
 
             if frames:
                 data = frames[-1]  # Last frame is the data
@@ -549,7 +581,9 @@ class BidirectionalStream(BaseZMQStream):
         """Handle a request from a client."""
         pass
 
-    def register_message_handler(self, message_type: str, handler: Callable) -> None:
+    def register_message_handler(
+        self, message_type: str, handler: Callable
+    ) -> None:
         """Register a handler for a specific message type."""
         self.message_handlers[message_type] = handler
         logger.debug(f"Registered handler for message type: {message_type}")
@@ -655,7 +689,9 @@ class BidirectionalStream(BaseZMQStream):
                         socket_status[name] = {
                             "type": socket.socket_type,
                             "closed": (
-                                socket.closed if hasattr(socket, "closed") else False
+                                socket.closed
+                                if hasattr(socket, "closed")
+                                else False
                             ),
                         }
                     except Exception as e:

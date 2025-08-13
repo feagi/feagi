@@ -19,7 +19,11 @@ limitations under the License.
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 from .decorators import endpoint
-from .schemas import NetworkConfigRequest, NetworkStatusResponse, SuccessResponse
+from .schemas import (
+    NetworkConfigRequest,
+    NetworkStatusResponse,
+    SuccessResponse,
+)
 
 
 def network_endpoint(
@@ -50,7 +54,9 @@ class NetworkAPI:
         request_model=NetworkConfigRequest,
         response_model=SuccessResponse,
     )
-    async def configure_network(self, request: NetworkConfigRequest) -> SuccessResponse:
+    async def configure_network(
+        self, request: NetworkConfigRequest
+    ) -> SuccessResponse:
         success = self.core_api_service.configure_network(request.config)
         if not success:
             raise ValueError("Failed to configure network")

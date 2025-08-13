@@ -145,7 +145,9 @@ class RestStream:
 
             # Start worker threads
             self.tasks.append(asyncio.create_task(self._router_dealer_proxy()))
-            self.tasks.append(asyncio.create_task(self._process_rest_messages()))
+            self.tasks.append(
+                asyncio.create_task(self._process_rest_messages())
+            )
 
             # Start statistics tracking
             self.stats["start_time"] = time.time()
@@ -250,7 +252,10 @@ class RestStream:
 
                     state_manager = get_state_manager()
 
-                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                    if (
+                        state_manager
+                        and state_manager.is_debug_zmq_inbound_enabled()
+                    ):
                         # [CONFIG] DETAILED REQUEST LOGGING FOR DEBUGGING
                         logger.info(
                             f"[CONFIG] DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts"
@@ -303,7 +308,9 @@ class RestStream:
                             state_manager
                             and state_manager.is_debug_zmq_inbound_enabled()
                         ):
-                            logger.error(f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}")
+                            logger.error(
+                                f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}"
+                            )
                             logger.error(
                                 f"[CONFIG] DEBUG: Raw message data: {message_data}"
                             )
@@ -321,7 +328,11 @@ class RestStream:
                         }
 
                         await worker_socket.send_multipart(
-                            [client_id, b"", json.dumps(error_response).encode("utf-8")]
+                            [
+                                client_id,
+                                b"",
+                                json.dumps(error_response).encode("utf-8"),
+                            ]
                         )
 
                         self.stats["requests_error"] += 1
@@ -352,7 +363,11 @@ class RestStream:
                         }
 
                         await worker_socket.send_multipart(
-                            [client_id, b"", json.dumps(error_response).encode("utf-8")]
+                            [
+                                client_id,
+                                b"",
+                                json.dumps(error_response).encode("utf-8"),
+                            ]
                         )
 
                         self.stats["requests_error"] += 1
@@ -362,7 +377,10 @@ class RestStream:
                     method = message.get("method", "UNKNOWN")
                     route = message.get("route", "unknown")
 
-                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                    if (
+                        state_manager
+                        and state_manager.is_debug_zmq_inbound_enabled()
+                    ):
                         logger.info(
                             f"[CONFIG] DEBUG: Processing REST API request: {method} {route}"
                         )
@@ -372,8 +390,10 @@ class RestStream:
 
                     try:
                         start_time = time.time()
-                        response_data = await self.rest_adapter.process_message(
-                            message_data
+                        response_data = (
+                            await self.rest_adapter.process_message(
+                                message_data
+                            )
                         )
                         processing_time = time.time() - start_time
 
@@ -417,7 +437,9 @@ class RestStream:
                         )
 
                         self.stats["requests_success"] += 1
-                        logger.debug(f"[OK] REST request completed: {method} {route}")
+                        logger.debug(
+                            f"[OK] REST request completed: {method} {route}"
+                        )
 
                     except Exception as e:
                         logger.error(
@@ -437,7 +459,11 @@ class RestStream:
                         }
 
                         await worker_socket.send_multipart(
-                            [client_id, b"", json.dumps(error_response).encode("utf-8")]
+                            [
+                                client_id,
+                                b"",
+                                json.dumps(error_response).encode("utf-8"),
+                            ]
                         )
 
                         self.stats["requests_error"] += 1
@@ -503,7 +529,9 @@ class RestStream:
     def get_statistics(self) -> Dict[str, Any]:
         """Get current REST stream statistics."""
         uptime = (
-            time.time() - self.stats["start_time"] if self.stats["start_time"] else 0
+            time.time() - self.stats["start_time"]
+            if self.stats["start_time"]
+            else 0
         )
         total_requests = self.stats["requests_processed"]
 
@@ -517,6 +545,8 @@ class RestStream:
                 if total_requests > 0
                 else 100
             ),
-            "requests_per_second": total_requests / uptime if uptime > 0 else 0,
+            "requests_per_second": total_requests / uptime
+            if uptime > 0
+            else 0,
             "running": self.running,
         }

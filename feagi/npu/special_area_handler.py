@@ -93,7 +93,9 @@ class SpecialAreaHandler:
         """
         try:
             # Direct access to cortical_idx=1 (core power area _power)
-            power_neurons = self.connectome_manager.get_neurons_by_cortical_idx(1)
+            power_neurons = (
+                self.connectome_manager.get_neurons_by_cortical_idx(1)
+            )
 
             # 🚨 CRITICAL DEBUG: Trace neuron corruption issue
             if power_neurons and len(power_neurons) != 1:
@@ -104,7 +106,9 @@ class SpecialAreaHandler:
                 logger.error(
                     f"   Found: {len(power_neurons)} neurons in cortical_idx=1"
                 )
-                logger.error(f"   Neuron IDs: {power_neurons[:20]}...")  # Show first 20
+                logger.error(
+                    f"   Neuron IDs: {power_neurons[:20]}..."
+                )  # Show first 20
 
                 # Check cortical area mapping - is cortical_idx=1 actually _power?
                 try:
@@ -183,9 +187,15 @@ class SpecialAreaHandler:
                             try:
                                 if hasattr(neuron_array, "cortical_idxs"):
                                     # CRITICAL FIX: Use proper neuron ID to array index mapping
-                                    index = self.connectome_manager.get_neuron_index(neuron_id)
-                                    if index is not None and index < len(neuron_array.cortical_idxs):
-                                        actual_cortical_idx = neuron_array.cortical_idxs[index]
+                                    index = self.connectome_manager.get_neuron_index(
+                                        neuron_id
+                                    )
+                                    if index is not None and index < len(
+                                        neuron_array.cortical_idxs
+                                    ):
+                                        actual_cortical_idx = (
+                                            neuron_array.cortical_idxs[index]
+                                        )
                                     logger.error(
                                         f"   Neuron {neuron_id}: cortical_idx={actual_cortical_idx}"
                                     )
@@ -201,7 +211,9 @@ class SpecialAreaHandler:
                         # Check for duplicate cortical_idx assignments
                         if hasattr(neuron_array, "cortical_idxs"):
                             idx_1_count = sum(
-                                1 for idx in neuron_array.cortical_idxs if idx == 1
+                                1
+                                for idx in neuron_array.cortical_idxs
+                                if idx == 1
                             )
                             logger.error(
                                 f"   Total neurons with cortical_idx=1: {idx_1_count}"
@@ -212,7 +224,9 @@ class SpecialAreaHandler:
                                 )
 
                 except Exception as debug_error:
-                    logger.error(f"Error during corruption debug: {debug_error}")
+                    logger.error(
+                        f"Error during corruption debug: {debug_error}"
+                    )
 
                 # Write corruption report to file for detailed analysis
                 try:
@@ -228,7 +242,11 @@ class SpecialAreaHandler:
                     }
                     import os
                     import tempfile
-                    report_path = os.path.join(tempfile.gettempdir(), "power_neuron_corruption_report--temp.json")
+
+                    report_path = os.path.join(
+                        tempfile.gettempdir(),
+                        "power_neuron_corruption_report--temp.json",
+                    )
                     with open(report_path, "w") as f:
                         json.dump(corruption_report, f, indent=2)
                     logger.error(

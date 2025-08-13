@@ -59,10 +59,14 @@ class SharedMemoryFEAGIGateway:
 
         # Initialize shared memory components
         self.memory_manager = SharedMemoryManager(temp_dir=temp_dir)
-        self.event_system = EventNotificationSystem(process_name, temp_dir=temp_dir)
+        self.event_system = EventNotificationSystem(
+            process_name, temp_dir=temp_dir
+        )
 
         # Create shared configuration dictionary
-        self.config_dict = SharedConfigDict("feagi_config", manager=self.memory_manager)
+        self.config_dict = SharedConfigDict(
+            "feagi_config", manager=self.memory_manager
+        )
 
         # Cache for frequently accessed data
         self._cache = {}

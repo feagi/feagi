@@ -217,7 +217,9 @@ def show_deferred_setup_info():
         temp_console.setFormatter(_DEFERRED_SETUP_INFO["formatter"])
         temp_logger = logging.getLogger("temp_setup_deferred")
         temp_logger.handlers.clear()  # Clear any existing handlers
-        temp_logger.propagate = False  # Prevent propagation to avoid duplicates
+        temp_logger.propagate = (
+            False  # Prevent propagation to avoid duplicates
+        )
         temp_logger.addHandler(temp_console)
         temp_logger.setLevel(logging.INFO)
         temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
@@ -261,8 +263,12 @@ def setup_logger(
                 from feagi.config.toml_loader import load_feagi_config
 
                 config = load_feagi_config()
-                config_log_level = config.get("system", {}).get("log_level", "INFO")
-                final_level = getattr(logging, config_log_level.upper(), logging.INFO)
+                config_log_level = config.get("system", {}).get(
+                    "log_level", "INFO"
+                )
+                final_level = getattr(
+                    logging, config_log_level.upper(), logging.INFO
+                )
                 # Cache the result to avoid repeated config loading
                 _CACHED_LOG_LEVEL = final_level
             except (ImportError, Exception):
@@ -346,7 +352,9 @@ def setup_logger(
             if not status:
                 # Format the log level with fixed width for alignment
                 level_str = LEVEL_MAP.get(record.levelname, record.levelname)
-                status_block = f"{level_str:<8}"  # Left-align with fixed 8 chars
+                status_block = (
+                    f"{level_str:<8}"  # Left-align with fixed 8 chars
+                )
 
             # Format timestamp and message
             timestamp = self.formatTime(record, self.datefmt)
@@ -379,7 +387,10 @@ def setup_logger(
             # Look for feagi_core directory up the directory tree
             for path in [current_path] + list(current_path.parents):
                 potential_feagi_core = path / "feagi_core"
-                if potential_feagi_core.exists() and potential_feagi_core.is_dir():
+                if (
+                    potential_feagi_core.exists()
+                    and potential_feagi_core.is_dir()
+                ):
                     feagi_core_dir = potential_feagi_core
                     break
 

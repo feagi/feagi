@@ -39,7 +39,9 @@ class GPUConnectomeManager(ConnectomeManager):
         """Initialize GPU-accelerated ConnectomeManager."""
         # Force GPU backend selection
         if "backend" not in kwargs:
-            kwargs["backend"] = "auto"  # Will select best GPU backend available
+            kwargs["backend"] = (
+                "auto"  # Will select best GPU backend available
+            )
 
         super().__init__(*args, **kwargs)
 
@@ -47,7 +49,9 @@ class GPUConnectomeManager(ConnectomeManager):
         self._verify_gpu_backend()
 
         backend_info = self.get_backend_info()
-        logger.info(f"Initialized GPU ConnectomeManager with backend: {backend_info}")
+        logger.info(
+            f"Initialized GPU ConnectomeManager with backend: {backend_info}"
+        )
 
     def _verify_gpu_backend(self):
         """Verify that a GPU backend was successfully selected."""
@@ -72,7 +76,9 @@ class GPUConnectomeManager(ConnectomeManager):
         Returns:
             Dictionary containing backend information
         """
-        if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "backend"):
+        if hasattr(self, "neuron_array") and hasattr(
+            self.neuron_array, "backend"
+        ):
             if hasattr(self.neuron_array.backend, "get_device_stats"):
                 return self.neuron_array.backend.get_device_stats()
             else:

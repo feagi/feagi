@@ -55,4 +55,6 @@ class APIError(Exception):
         Returns:
             ErrorResponse instance.
         """
-        return ErrorResponse(code=self.code, message=self.message, details=self.details)
+        return ErrorResponse(
+            code=self.code, message=self.message, details=self.details
+        )

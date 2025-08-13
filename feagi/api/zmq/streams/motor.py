@@ -137,7 +137,9 @@ class MotorStream:
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         # Initialize state based on current genome availability
         self._update_active_mode()
@@ -183,7 +185,9 @@ class MotorStream:
             if self._active_mode:
                 logger.info("MotorStream entering ACTIVE mode (genome loaded)")
             else:
-                logger.info("MotorStream entering STANDBY mode (no genome loaded)")
+                logger.info(
+                    "MotorStream entering STANDBY mode (no genome loaded)"
+                )
 
     def _on_genome_state_change(self, old_state, new_state):
         """Handle genome state changes.
@@ -192,7 +196,9 @@ class MotorStream:
             old_state: Previous genome state
             new_state: New genome state
         """
-        logger.debug(f"Received genome state change: {old_state} → {new_state}")
+        logger.debug(
+            f"Received genome state change: {old_state} → {new_state}"
+        )
 
         try:
             # Only care about LOADED vs other states
@@ -200,12 +206,16 @@ class MotorStream:
                 # Transition to active mode when genome is loaded
                 self._active_mode = True
                 if self.running:
-                    logger.info("MotorStream entering ACTIVE mode (genome loaded)")
+                    logger.info(
+                        "MotorStream entering ACTIVE mode (genome loaded)"
+                    )
             else:
                 # Any other state means genome not fully loaded
                 self._active_mode = False
                 if self.running:
-                    logger.info("MotorStream entering STANDBY mode (no genome loaded)")
+                    logger.info(
+                        "MotorStream entering STANDBY mode (no genome loaded)"
+                    )
         except Exception as e:
             logger.error(f"Error handling genome state change: {e}")
             # Default to standby mode on error
@@ -221,10 +231,14 @@ class MotorStream:
 
         # Start motor data processing if FQ sampler queue is available
         if self.fq_sampler:
-            self._motor_data_task = asyncio.create_task(self._process_motor_data())
+            self._motor_data_task = asyncio.create_task(
+                self._process_motor_data()
+            )
 
         # Start subscriber monitoring
-        self._subscriber_monitor_task = asyncio.create_task(self._monitor_subscribers())
+        self._subscriber_monitor_task = asyncio.create_task(
+            self._monitor_subscribers()
+        )
 
         logger.info("Motor Stream server started")
 
@@ -319,7 +333,9 @@ class MotorStream:
             client_count = self.get_connected_client_count()
 
             if client_count == 0:
-                logger.debug("No motor clients connected, skipping cortical area data")
+                logger.debug(
+                    "No motor clients connected, skipping cortical area data"
+                )
                 return
 
             logger.debug(
@@ -338,7 +354,9 @@ class MotorStream:
                 coordinates = area_data.get("coordinates", [])
 
                 # Use membrane potentials if available, otherwise default to 1.0
-                if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                if membrane_potentials and len(membrane_potentials) == len(
+                    neuron_ids
+                ):
                     potentials = membrane_potentials
                 else:
                     potentials = [1.0] * len(neuron_ids)
@@ -380,23 +398,33 @@ class MotorStream:
                     neurons_x = np.asarray(x_values[:max_len], dtype=np.uint32)
                     neurons_y = np.asarray(y_values[:max_len], dtype=np.uint32)
                     neurons_z = np.asarray(z_values[:max_len], dtype=np.uint32)
-                    neurons_p = np.asarray(potentials[:max_len], dtype=np.float32)
+                    neurons_p = np.asarray(
+                        potentials[:max_len], dtype=np.float32
+                    )
 
                     # Create cortical ID using modern feagi-data-processing approach
                     area_str = str(area_id)
-                    
+
                     try:
                         # Try to create cortical ID directly from string - handles all modern format IDs
-                        cortical_id_obj = fdp.genome.CorticalID.try_new_from_string(area_str)
+                        cortical_id_obj = (
+                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                        )
                     except ValueError:
                         # Fallback for areas that can't be parsed directly
-                        if area_str == '_power':
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Power)
-                        elif area_str == '_death':
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(fdp.genome.CoreCorticalType.Death)
+                        if area_str == "_power":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Power
+                            )
+                        elif area_str == "_death":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Death
+                            )
                         else:
                             # For unknown areas, use custom with 'c' prefix
-                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{area_str}')
+                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                f"c{area_str}"
+                            )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
@@ -406,12 +434,12 @@ class MotorStream:
                     )
 
                     # Insert the neuron array into the mapped data with its cortical ID
-                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+                    generated_mapped_neuron_data.insert(
+                        cortical_id_obj, neurons_array
+                    )
 
                     # Create the final byte structure from the mapped data
-                    byte_structure = (
-                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
-                    )
+                    byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
                     binary_data = byte_structure.copy_out_as_byte_vector()
 
                     # DEBUG: Log the structure ID being generated
@@ -424,26 +452,36 @@ class MotorStream:
                             f"   Structure ID (bytes[0]): {binary_data[0]} "
                             f"(0x{binary_data[0]:02X})"
                         )
-                        logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
+                        logger.debug(
+                            f"   First 8 bytes: {list(binary_data[:8])}"
+                        )
                         logger.debug(
                             "   Generated Type 11 (NEURON_CATEGORIES) - "
                             "optimized motor path!"
                         )
 
-                    await self._send_motor_binary_data(binary_data, channel=area_id)
+                    await self._send_motor_binary_data(
+                        binary_data, channel=area_id
+                    )
 
                 except Exception as e:
-                    logger.error(f"Error encoding motor data for area {area_id}: {e}")
+                    logger.error(
+                        f"Error encoding motor data for area {area_id}: {e}"
+                    )
 
         except Exception as e:
             logger.error(f"Error processing cortical area motor data: {e}")
 
-    async def _send_motor_binary_data(self, binary_data: bytes, channel: str = "motor"):
+    async def _send_motor_binary_data(
+        self, binary_data: bytes, channel: str = "motor"
+    ):
         """Send binary motor data to motor clients."""
         try:
             # Skip if in standby mode
             if not self._active_mode:
-                logger.debug("Motor stream in STANDBY mode, skipping data send")
+                logger.debug(
+                    "Motor stream in STANDBY mode, skipping data send"
+                )
                 return
 
             # Debug logging for outbound motor data (zero-overhead when disabled)
@@ -457,7 +495,9 @@ class MotorStream:
             )
 
             # Send data on specified motor channel
-            await self.socket.send_multipart([channel.encode("utf-8"), binary_data])
+            await self.socket.send_multipart(
+                [channel.encode("utf-8"), binary_data]
+            )
 
             logger.debug(
                 f"Sent {len(binary_data)} bytes of motor data on channel {channel}"
@@ -490,7 +530,9 @@ class MotorStream:
             if not self.rate_limiter.check_rate(
                 f"motor_{channel_id}", 0.01
             ):  # Max 100Hz per channel
-                logger.debug(f"Rate limiting motor data on channel {channel_id}")
+                logger.debug(
+                    f"Rate limiting motor data on channel {channel_id}"
+                )
                 return
 
             # Debug logging for outbound motor data (zero-overhead when disabled)
@@ -516,7 +558,9 @@ class MotorStream:
             )
 
         except Exception as e:
-            logger.error(f"Error sending motor data on channel {channel_id}: {e}")
+            logger.error(
+                f"Error sending motor data on channel {channel_id}: {e}"
+            )
 
     async def broadcast_system_message(self, message: str) -> None:
         """
@@ -545,7 +589,10 @@ class MotorStream:
             now = time.time()
             active_clients = 0
 
-            for _client_id, last_heartbeat in self.client_last_heartbeat.items():
+            for (
+                _client_id,
+                last_heartbeat,
+            ) in self.client_last_heartbeat.items():
                 if now - last_heartbeat < self.client_heartbeat_timeout:
                     active_clients += 1
 
@@ -562,7 +609,9 @@ class MotorStream:
     async def _monitor_subscribers(self) -> None:
         """Monitor ZMQ motor subscribers - removed FQ sampler control
         (handled by Registration Manager)."""
-        logger.info("Starting motor subscriber monitoring for logging/statistics only")
+        logger.info(
+            "Starting motor subscriber monitoring for logging/statistics only"
+        )
 
         # RTOS-friendly: Simple loop with small, bounded sleep intervals
         while self.running:
@@ -584,13 +633,17 @@ class MotorStream:
                 # Check running flag more frequently for deterministic cancellation
                 remaining_sleep = self.subscriber_check_interval
                 while remaining_sleep > 0 and self.running:
-                    sleep_chunk = min(0.1, remaining_sleep)  # 100ms chunks maximum
+                    sleep_chunk = min(
+                        0.1, remaining_sleep
+                    )  # 100ms chunks maximum
                     await asyncio.sleep(sleep_chunk)
                     remaining_sleep -= sleep_chunk
 
             except asyncio.CancelledError:
                 # RTOS-friendly: Simple, deterministic cancellation
-                logger.debug("Motor subscriber monitoring cancelled during shutdown")
+                logger.debug(
+                    "Motor subscriber monitoring cancelled during shutdown"
+                )
                 break
             except Exception as e:
                 logger.error(f"Error in motor subscriber monitoring: {e}")
@@ -631,7 +684,9 @@ class MotorStream:
         # Don't log every heartbeat to avoid spam, just update the timestamp
 
 
-def _process_tuple_data(cortical_id: str, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _process_tuple_data(
+    cortical_id: str, data_dict: Dict[str, Any]
+) -> Dict[str, Any]:
     """Process tuple-format FQ data into encoder format."""
     try:
         # Extract neuron data from the data dictionary
@@ -695,7 +750,9 @@ def _process_dict_data(fq_data: Dict[str, Any]) -> Dict[str, Any]:
         return {}
 
 
-def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
+def handle_motor_stream(
+    burst_engine, subscriber_count: int
+) -> Optional[bytes]:
     """
     Handle motor stream with optimized performance path.
 
@@ -722,16 +779,16 @@ def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
                             "OPU" in area_type
                             or "OUTPUT" in area_type
                             or "MOTOR" in area_type
-                            or area_id.startswith(("opu_", "motor_", "output_"))
+                            or area_id.startswith(
+                                ("opu_", "motor_", "output_")
+                            )
                         ):
                             opu_areas.append(area_id)
 
             # Direct binary output from optimized sampler
             if opu_areas:
-                binary_data = (
-                    burst_engine.optimized_fq_sampler.sample_motor_areas_direct(
-                        opu_areas
-                    )
+                binary_data = burst_engine.optimized_fq_sampler.sample_motor_areas_direct(
+                    opu_areas
                 )
                 if binary_data:
                     logger.debug(
@@ -797,7 +854,9 @@ def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
             f"   Structure ID (bytes[0]): {binary_data[0]} (0x{binary_data[0]:02X})"
         )
         logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
-        logger.debug("   Generated Type 11 (NEURON_CATEGORIES) - legacy motor path!")
+        logger.debug(
+            "   Generated Type 11 (NEURON_CATEGORIES) - legacy motor path!"
+        )
 
         return binary_data
 

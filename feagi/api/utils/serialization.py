@@ -55,7 +55,9 @@ def serialize_data(
             if isinstance(data, bytes):
                 binary_data = data
             else:
-                raise TypeError(f"Expected bytes for binary format, got {type(data)}")
+                raise TypeError(
+                    f"Expected bytes for binary format, got {type(data)}"
+                )
         elif format_type == "numpy":
             if isinstance(data, np.ndarray):
                 # Encode numpy array with shape and dtype
@@ -118,7 +120,9 @@ def deserialize_data(binary_data: bytes) -> Tuple[Any, str]:
         data = binary_data[2:]
 
         # Map format byte to format type
-        format_type = {0: "json", 1: "binary", 2: "numpy"}.get(format_byte, "json")
+        format_type = {0: "json", 1: "binary", 2: "numpy"}.get(
+            format_byte, "json"
+        )
 
         # Decompress if needed
         if compression_level > 0:
@@ -148,7 +152,9 @@ def deserialize_data(binary_data: bytes) -> Tuple[Any, str]:
 
             # Reconstruct numpy array
             array_data = data[offset:]
-            return np.frombuffer(array_data, dtype=dtype).reshape(shape), format_type
+            return np.frombuffer(array_data, dtype=dtype).reshape(
+                shape
+            ), format_type
         else:
             raise ValueError(f"Unsupported format type: {format_type}")
     except Exception as e:

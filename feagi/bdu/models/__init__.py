@@ -9,4 +9,10 @@ from feagi.bdu.models.cortical_area import CorticalArea
 from feagi.bdu.models.neuron import Neuron, NeuronArray
 from feagi.bdu.models.synapse import SynapseManager
 
-__all__ = ["BrainRegion", "CorticalArea", "Neuron", "NeuronArray", "SynapseManager"]
+__all__ = [
+    "BrainRegion",
+    "CorticalArea",
+    "Neuron",
+    "NeuronArray",
+    "SynapseManager",
+]

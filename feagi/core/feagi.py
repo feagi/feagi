@@ -28,7 +28,9 @@ class FEAGI:
     This class serves as the primary entry point for creating and managing AI models.
     """
 
-    def __init__(self, config_path: Optional[str] = None, use_gpu: bool = False):
+    def __init__(
+        self, config_path: Optional[str] = None, use_gpu: bool = False
+    ):
         """
         Initialize a new FEAGI instance.
 

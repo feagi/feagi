@@ -70,15 +70,21 @@ class LZ4Compressor:
 
         # Log initialization status
         if not self.config_enabled:
-            logger.info("[COMPRESSION] LZ4 compression DISABLED by configuration")
+            logger.info(
+                "[COMPRESSION] LZ4 compression DISABLED by configuration"
+            )
         elif not self._lz4_available:
             if self.require_lz4:
-                logger.error("[COMPRESSION] LZ4 compression REQUIRED but not available")
+                logger.error(
+                    "[COMPRESSION] LZ4 compression REQUIRED but not available"
+                )
                 raise ImportError(
                     "LZ4 compression is required but lz4 package is not installed"
                 )
             else:
-                logger.warning("[COMPRESSION] LZ4 not available - compression disabled")
+                logger.warning(
+                    "[COMPRESSION] LZ4 not available - compression disabled"
+                )
         else:
             logger.info("[COMPRESSION] LZ4 compression initialized and ready")
 

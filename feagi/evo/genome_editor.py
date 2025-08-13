@@ -73,9 +73,13 @@ def save_genome(genome, file_name=""):
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
-            data["signatures"]["genome"] = generate_hash(genome_signature_payload(data))
+            data["signatures"]["genome"] = generate_hash(
+                genome_signature_payload(data)
+            )
             data["signatures"]["blueprint"] = generate_hash(data["blueprint"])
-            data["signatures"]["physiology"] = generate_hash(data["physiology"])
+            data["signatures"]["physiology"] = generate_hash(
+                data["physiology"]
+            )
 
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3, default=set_default))
@@ -85,7 +89,9 @@ def save_genome(genome, file_name=""):
             print("genome is saved")
             state.changes_saved_externally = False
     except Exception as e:
-        print(f"Warning: Genome could not be saved! {e}", traceback.print_exc())
+        print(
+            f"Warning: Genome could not be saved! {e}", traceback.print_exc()
+        )
 
 
 def clean_host_info(host_info):

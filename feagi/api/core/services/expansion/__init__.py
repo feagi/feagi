@@ -8,7 +8,4 @@ implementing dimension-sensitive morphology handling and pattern extension.
 from .connection_analyzer import ConnectionAnalyzer
 from .pattern_extender import PatternExtender
 
-__all__ = [
-    "PatternExtender",
-    "ConnectionAnalyzer"
-] 
+__all__ = ["PatternExtender", "ConnectionAnalyzer"]

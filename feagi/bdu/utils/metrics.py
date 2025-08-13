@@ -43,7 +43,8 @@ def calculate_neuron_density(positions, dimensions, bin_size=1):
     """
     # Create a 3D array to hold the counts
     binned_dimensions = tuple(
-        dim // bin_size + (1 if dim % bin_size > 0 else 0) for dim in dimensions
+        dim // bin_size + (1 if dim % bin_size > 0 else 0)
+        for dim in dimensions
     )
     density_map = np.zeros(dimensions, dtype=np.int32)
 
@@ -79,7 +80,9 @@ def calculate_neuron_density(positions, dimensions, bin_size=1):
                     bin_sum = np.sum(density_map[x:x_end, y:y_end, z:z_end])
 
                     # Store in binned map
-                    binned_map[x // bin_size, y // bin_size, z // bin_size] = bin_sum
+                    binned_map[x // bin_size, y // bin_size, z // bin_size] = (
+                        bin_sum
+                    )
 
         return binned_map
 

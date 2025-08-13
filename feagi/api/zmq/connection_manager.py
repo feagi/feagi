@@ -89,11 +89,15 @@ class ConnectionManager:
         self.sensory_socket = None
         if sensory_port is not None:
             self.sensory_socket = self.context.socket(zmq.PULL)
-            self.sensory_socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+            self.sensory_socket.setsockopt(
+                zmq.RCVHWM, 1
+            )  # Minimal receive queue
             self.sensory_socket.bind(f"tcp://*:{sensory_port}")
             logger.info(f"Sensory socket (PULL) bound to port {sensory_port}")
         else:
-            logger.info("Sensory socket disabled (handled by dedicated stream)")
+            logger.info(
+                "Sensory socket disabled (handled by dedicated stream)"
+            )
 
         # Create motor socket (PUB) for broadcasting motor commands only if port is provided
         self.motor_socket = None
@@ -229,7 +233,9 @@ class ConnectionManager:
         try:
             if protocol_type == "fcp":
                 # Control messages use ROUTER-DEALER pattern
-                await self.control_socket.send_multipart([zmq_id, b"", message])
+                await self.control_socket.send_multipart(
+                    [zmq_id, b"", message]
+                )
             elif protocol_type == "fsmp_sensory":
                 # Sensory data is received, not sent to clients
                 logger.warning(
@@ -248,7 +254,9 @@ class ConnectionManager:
                     )
                     return False
                 topic = b"activity"  # Default topic
-                await self.visualization_socket.send_multipart([topic, message])
+                await self.visualization_socket.send_multipart(
+                    [topic, message]
+                )
             else:
                 logger.error(f"Unknown protocol type: {protocol_type}")
                 return False
@@ -334,7 +342,9 @@ class ZMQConnectionManager:
     _instance = None
 
     @classmethod
-    def instance(cls, core_api: Optional[CoreAPIService] = None, host: str = None):
+    def instance(
+        cls, core_api: Optional[CoreAPIService] = None, host: str = None
+    ):
         """Get the singleton instance."""
         if cls._instance is None:
             if host is None:
@@ -344,7 +354,9 @@ class ZMQConnectionManager:
             cls._instance = ZMQConnectionManager(core_api, host)
         return cls._instance
 
-    def __init__(self, core_api: Optional[CoreAPIService] = None, host: str = None):
+    def __init__(
+        self, core_api: Optional[CoreAPIService] = None, host: str = None
+    ):
         """
         Initialize the connection manager.
 
@@ -379,7 +391,9 @@ class ZMQConnectionManager:
 
         # Register for genome state change notifications
         if core_api and hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         # Initialize active mode
         self._update_active_mode()
@@ -490,7 +504,9 @@ class ZMQConnectionManager:
         if new_state == GenomeState.LOADED:
             # Transition to active mode when genome is loaded
             self._active_mode = True
-            logger.info("ZMQConnectionManager: Entering ACTIVE mode (genome loaded)")
+            logger.info(
+                "ZMQConnectionManager: Entering ACTIVE mode (genome loaded)"
+            )
         else:
             # Any other state means genome not fully loaded
             self._active_mode = False

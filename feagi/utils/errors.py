@@ -95,7 +95,9 @@ class FeagiError(Exception):
     def __str__(self) -> str:
         """Get string representation of the error."""
         if self.details:
-            details_str = ", ".join(f"{k}={v}" for k, v in self.details.items())
+            details_str = ", ".join(
+                f"{k}={v}" for k, v in self.details.items()
+            )
             return f"{self.code.name}: {self.message} ({details_str})"
         return f"{self.code.name}: {self.message}"
 

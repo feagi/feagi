@@ -32,7 +32,12 @@ from .patterns import (
     SubscriberClient,
 )
 from .server import ZmqServer
-from .streams import MotorStream, RestStream, SensoryStream, VisualizationStream
+from .streams import (
+    MotorStream,
+    RestStream,
+    SensoryStream,
+    VisualizationStream,
+)
 
 # Export top-level classes
 __all__ = [
@@ -154,7 +159,10 @@ def create_zmq_client(
         # Create the client
         # Use configuration system instead of hardcoded fallback
         if host is None:
-            from feagi.config.toml_loader import get_host_config, load_feagi_config
+            from feagi.config.toml_loader import (
+                get_host_config,
+                load_feagi_config,
+            )
 
             config = load_feagi_config()
             host_config = get_host_config(config)
@@ -163,8 +171,10 @@ def create_zmq_client(
         client = ZmqClient(
             host=host,
             req_port=5555,  # Default req_port
-            pub_port=pub_port or int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556")),
-            push_port=sub_port or int(os.environ.get("FEAGI_ZMQ_SUB_PORT", "5557")),
+            pub_port=pub_port
+            or int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556")),
+            push_port=sub_port
+            or int(os.environ.get("FEAGI_ZMQ_SUB_PORT", "5557")),
             stream_port=5558,
             topics=topics,
         )

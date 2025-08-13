@@ -31,7 +31,11 @@ import weakref
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
 
-from feagi.utils.data_structures import OwnershipType, RustCompatible, rust_field
+from feagi.utils.data_structures import (
+    OwnershipType,
+    RustCompatible,
+    rust_field,
+)
 
 # Thread safety lock for resource management
 _resource_lock = threading.RLock()
@@ -162,24 +166,33 @@ class ResourceManager:
 
                 resources["gpu_available"] = torch.cuda.is_available()
                 resources["gpu_count"] = (
-                    torch.cuda.device_count() if resources["gpu_available"] else 0
+                    torch.cuda.device_count()
+                    if resources["gpu_available"]
+                    else 0
                 )
                 if resources["gpu_available"]:
                     resources["gpu_info"] = [
                         {
                             "id": i,
                             "name": torch.cuda.get_device_name(i),
-                            "memory": torch.cuda.get_device_properties(i).total_memory,
+                            "memory": torch.cuda.get_device_properties(
+                                i
+                            ).total_memory,
                         }
                         for i in range(resources["gpu_count"])
                     ]
 
                 # Check for Apple Metal support
-                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                if (
+                    hasattr(torch.backends, "mps")
+                    and torch.backends.mps.is_available()
+                ):
                     resources["metal_available"] = True
                     self.logger.info("Apple Metal (MPS) backend is available")
             except ImportError:
-                self.logger.warning("PyTorch not available. GPU detection skipped.")
+                self.logger.warning(
+                    "PyTorch not available. GPU detection skipped."
+                )
 
             # Check for WebGPU support
             try:
@@ -201,7 +214,9 @@ class ResourceManager:
                                 "driver": "Unknown",
                                 "adapter_type": "Unknown",
                             }
-                            self.logger.info("WebGPU adapter detected successfully")
+                            self.logger.info(
+                                "WebGPU adapter detected successfully"
+                            )
                 except Exception as e:
                     self.logger.warning(f"WebGPU adapter detection error: {e}")
             except ImportError:
@@ -259,7 +274,9 @@ class ResourceManager:
             # Allocate resources
             allocation = self._allocate_resources(name, cpu_allocation)
             if not allocation:
-                self.logger.error(f"Failed to allocate resources for process {name}")
+                self.logger.error(
+                    f"Failed to allocate resources for process {name}"
+                )
                 return False
 
             self.logger.info(f"Starting process: {name}")
@@ -305,7 +322,9 @@ class ResourceManager:
             ResourceAllocation if successful, None otherwise
         """
         with self._lock:
-            available_cpus = set(self.resources["cpu_cores"]) - self.allocated_cpu_cores
+            available_cpus = (
+                set(self.resources["cpu_cores"]) - self.allocated_cpu_cores
+            )
 
             if len(available_cpus) < cpu_count:
                 self.logger.warning(
@@ -335,7 +354,11 @@ class ResourceManager:
             return allocation
 
     def start_thread(
-        self, name: str, target: Callable, args: tuple = (), kwargs: Dict = None
+        self,
+        name: str,
+        target: Callable,
+        args: tuple = (),
+        kwargs: Dict = None,
     ) -> bool:
         """
         Start a new thread with the given parameters.
@@ -435,7 +458,10 @@ class ResourceManager:
                 self.allocated_cpu_cores -= set(process_info.cpu_allocation)
 
                 # Release GPU if allocated
-                if hasattr(process_info, "gpu_id") and process_info.gpu_id is not None:
+                if (
+                    hasattr(process_info, "gpu_id")
+                    and process_info.gpu_id is not None
+                ):
                     self.allocated_gpu_ids.discard(process_info.gpu_id)
 
             # Remove process reference
@@ -460,7 +486,9 @@ class ResourceManager:
                             process = proc_ref()
                             # Check if process is alive
                             if not process.is_alive():
-                                self.logger.error(f"Process {name} died unexpectedly.")
+                                self.logger.error(
+                                    f"Process {name} died unexpectedly."
+                                )
                                 self._cleanup_process_resources(name)
                         else:
                             # Process reference is dead
@@ -534,7 +562,9 @@ class ResourceManager:
                 # This will be implemented as the specific data structures are defined
                 return True
             except Exception as e:
-                self.logger.error(f"Failed to initialize critical data structures: {e}")
+                self.logger.error(
+                    f"Failed to initialize critical data structures: {e}"
+                )
                 return False
 
     def shutdown(self) -> None:

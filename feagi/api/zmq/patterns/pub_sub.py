@@ -95,11 +95,11 @@ class PublisherServer:
         self._event_loop = asyncio.get_event_loop()
 
         # Start periodic broadcasting tasks in the current loop
-        self.periodic_tasks["simulation_status"] = self._event_loop.create_task(
-            self._broadcast_simulation_status()
+        self.periodic_tasks["simulation_status"] = (
+            self._event_loop.create_task(self._broadcast_simulation_status())
         )
-        self.periodic_tasks["performance_stats"] = self._event_loop.create_task(
-            self._broadcast_performance_stats()
+        self.periodic_tasks["performance_stats"] = (
+            self._event_loop.create_task(self._broadcast_performance_stats())
         )
 
     async def stop(self) -> None:
@@ -150,7 +150,9 @@ class PublisherServer:
             try:
                 await asyncio.sleep(1.0)  # Update every second
             except asyncio.CancelledError:
-                logger.debug("Simulation status broadcast cancelled during sleep")
+                logger.debug(
+                    "Simulation status broadcast cancelled during sleep"
+                )
                 break
 
     async def _broadcast_performance_stats(self) -> None:
@@ -169,7 +171,9 @@ class PublisherServer:
             try:
                 await asyncio.sleep(5.0)  # Update every 5 seconds
             except asyncio.CancelledError:
-                logger.debug("Performance stats broadcast cancelled during sleep")
+                logger.debug(
+                    "Performance stats broadcast cancelled during sleep"
+                )
                 break
 
     async def _handle_brain_activity(self) -> Dict:
@@ -204,7 +208,11 @@ class PublisherServer:
             event_type: Type of the event (e.g., "cortical_area.created")
             event_data: Event data payload
         """
-        message = {"type": event_type, "timestamp": time.time(), "data": event_data}
+        message = {
+            "type": event_type,
+            "timestamp": time.time(),
+            "data": event_data,
+        }
         await self.publish("system.events", message)
 
 
@@ -308,7 +316,9 @@ class SubscriberClient:
                     try:
                         await self.callbacks[topic](data)
                     except Exception as e:
-                        logger.error(f"Error in callback for topic {topic}: {e}")
+                        logger.error(
+                            f"Error in callback for topic {topic}: {e}"
+                        )
 
             except asyncio.CancelledError:
                 logger.debug("Receive loop cancelled")
@@ -319,7 +329,9 @@ class SubscriberClient:
                 try:
                     await asyncio.sleep(1)  # Avoid tight loop on errors
                 except asyncio.CancelledError:
-                    logger.debug("Receive loop cancelled during error recovery")
+                    logger.debug(
+                        "Receive loop cancelled during error recovery"
+                    )
                     break
 
 

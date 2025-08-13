@@ -64,7 +64,9 @@ class GenomeTransaction:
         """Commit all changes and synchronize with connectome"""
         if self._has_committed:
             try:
-                logger.warning("Transaction already committed", status="[WARN]")
+                logger.warning(
+                    "Transaction already committed", status="[WARN]"
+                )
             except TypeError:
                 logger.warning("[WARN] Transaction already committed")
             return False
@@ -106,7 +108,9 @@ class GenomeTransaction:
         genome = self._get_core_api_service().get_genome()
         if not genome:
             try:
-                logger.error("Cannot rollback - no genome loaded", status="[WARN]")
+                logger.error(
+                    "Cannot rollback - no genome loaded", status="[WARN]"
+                )
             except TypeError:
                 logger.error("[WARN] Cannot rollback - no genome loaded")
             return
@@ -118,18 +122,26 @@ class GenomeTransaction:
                 if change["operation"] == "add":
                     self._delete_at_path(genome, change["path"])
                 elif change["operation"] == "delete":
-                    self._set_at_path(genome, change["path"], change["old_value"])
+                    self._set_at_path(
+                        genome, change["path"], change["old_value"]
+                    )
                 elif change["operation"] == "modify":
-                    self._set_at_path(genome, change["path"], change["old_value"])
+                    self._set_at_path(
+                        genome, change["path"], change["old_value"]
+                    )
                 # Add support for update_cortical_area used in tests
                 elif change["operation"] == "update_cortical_area":
                     self._set_at_path(
-                        genome, f"cortical_areas.{change['path']}", change["old_value"]
+                        genome,
+                        f"cortical_areas.{change['path']}",
+                        change["old_value"],
                     )
 
             except Exception as e:
                 try:
-                    logger.error(f"Error during rollback: {e}", status="[WARN]")
+                    logger.error(
+                        f"Error during rollback: {e}", status="[WARN]"
+                    )
                 except TypeError:
                     logger.error(f"[WARN] Error during rollback: {e}")
 
@@ -197,7 +209,9 @@ class GenomeTransaction:
             genome: Optional genome data. If not provided, will get from core_api_service
         """
         try:
-            logger.info("Synchronizing changes with connectome", status="[PROC]")
+            logger.info(
+                "Synchronizing changes with connectome", status="[PROC]"
+            )
         except TypeError:
             logger.info("[PROC] Synchronizing changes with connectome")
 

@@ -34,7 +34,9 @@ class GenomeService(BaseService):
     and genome-related operations.
     """
 
-    def __init__(self, connectome_manager, state_manager=None, core_api_service=None):
+    def __init__(
+        self, connectome_manager, state_manager=None, core_api_service=None
+    ):
         """Initialize genome service."""
         super().__init__(connectome_manager, state_manager)
         self._current_genome = None
@@ -52,11 +54,15 @@ class GenomeService(BaseService):
         """Load a genome and prepare it for use."""
         try:
             # ARCHITECTURE: Only import NeuroEmbryogenesis - no old develop_brain_from_genome
-            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+            from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                NeuroEmbryogenesis,
+            )
 
             try:
                 # Try to import these from the new location
-                from feagi.evo.genome_validator import genome_validator_with_errors
+                from feagi.evo.genome_validator import (
+                    genome_validator_with_errors,
+                )
             except ImportError:
                 # Fallback to the old location
                 from feagi.core.genome.genome_validator import genome_validator
@@ -67,7 +73,10 @@ class GenomeService(BaseService):
             self._current_genome = copy.deepcopy(genome_data)
 
             if not self._connectome_manager:
-                return {"success": False, "error": "Connectome manager not available"}
+                return {
+                    "success": False,
+                    "error": "Connectome manager not available",
+                }
 
             # CRITICAL: Start timing for performance monitoring
             start_time = time.time()
@@ -85,12 +94,14 @@ class GenomeService(BaseService):
                     result = self.state_manager.set_brain_stats({})
                     if result.is_err:
                         self.logger.warning("Failed to clear brain stats")
-                    
+
                     result = self.state_manager.set_cortical_list([])
                     if result.is_err:
                         self.logger.warning("Failed to clear cortical list")
-                    
-                    result = self.state_manager.set_genome_validity(False)  # None -> False
+
+                    result = self.state_manager.set_genome_validity(
+                        False
+                    )  # None -> False
                     if result.is_err:
                         self.logger.warning("Failed to set genome validity")
 
@@ -123,11 +134,15 @@ class GenomeService(BaseService):
 
                 # Validate the genome with detailed error reporting
                 try:
-                    from feagi.evo.genome_validator import genome_validator_with_errors
+                    from feagi.evo.genome_validator import (
+                        genome_validator_with_errors,
+                    )
                 except ImportError:
                     # Fallback to basic validator if detailed validator not available
                     try:
-                        from feagi.core.genome.genome_validator import genome_validator
+                        from feagi.core.genome.genome_validator import (
+                            genome_validator,
+                        )
 
                         validation_result = {
                             "valid": genome_validator(genome_data),
@@ -152,12 +167,14 @@ class GenomeService(BaseService):
                             genome_validator_with_errors_silent,
                         )
 
-                        validation_result = genome_validator_with_errors_silent(
-                            genome_data
+                        validation_result = (
+                            genome_validator_with_errors_silent(genome_data)
                         )
                     else:
                         # Auto-recovery disabled - use regular validation (log all errors)
-                        validation_result = genome_validator_with_errors(genome_data)
+                        validation_result = genome_validator_with_errors(
+                            genome_data
+                        )
 
                 # Initialize auto_recovery_details at the start
                 auto_recovery_details = {
@@ -178,7 +195,9 @@ class GenomeService(BaseService):
                     # Check if auto-recovery is allowed
                     if not allow_auto_recovery:
                         # Only log errors when auto-recovery is disabled (they won't be fixed)
-                        self.logger.error(f"Genome validation failed: {error_msg}")
+                        self.logger.error(
+                            f"Genome validation failed: {error_msg}"
+                        )
                         if specific_errors:
                             self.logger.error("Specific validation errors:")
                             for error in specific_errors:
@@ -209,8 +228,8 @@ class GenomeService(BaseService):
                                 sanitize_invalid_morphologies,
                             )
 
-                            sanitization_result = sanitize_invalid_morphologies(
-                                genome_data
+                            sanitization_result = (
+                                sanitize_invalid_morphologies(genome_data)
                             )
 
                             # Use the sanitized genome
@@ -218,8 +237,12 @@ class GenomeService(BaseService):
                             removed_morphologies = sanitization_result[
                                 "removed_morphologies"
                             ]
-                            fixed_references = sanitization_result["fixed_references"]
-                            recovery_summary = sanitization_result["recovery_summary"]
+                            fixed_references = sanitization_result[
+                                "fixed_references"
+                            ]
+                            recovery_summary = sanitization_result[
+                                "recovery_summary"
+                            ]
 
                             self.logger.info(
                                 f"Auto-recovery completed: {recovery_summary}"
@@ -235,8 +258,8 @@ class GenomeService(BaseService):
 
                             # Re-validate after sanitization
                             try:
-                                post_sanitization_result = genome_validator_with_errors(
-                                    genome_data
+                                post_sanitization_result = (
+                                    genome_validator_with_errors(genome_data)
                                 )
                                 if post_sanitization_result["valid"]:
                                     self.logger.info(
@@ -244,16 +267,25 @@ class GenomeService(BaseService):
                                     )
                                     validation_result = post_sanitization_result  # Update validation result
                                     if self.state_manager:
-                                        result = self.state_manager.set_genome_validity(True)
+                                        result = self.state_manager.set_genome_validity(
+                                            True
+                                        )
                                         if result.is_err:
-                                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                                            self.logger.warning(
+                                                f"Failed to set genome validity: {result.unwrap_err()}"
+                                            )
                                 else:
                                     # NOW log the errors since auto-recovery couldn't fix them
-                                    remaining_error_msg = post_sanitization_result.get(
-                                        "error_summary", "Unknown validation issues"
+                                    remaining_error_msg = (
+                                        post_sanitization_result.get(
+                                            "error_summary",
+                                            "Unknown validation issues",
+                                        )
                                     )
-                                    remaining_errors = post_sanitization_result.get(
-                                        "errors", []
+                                    remaining_errors = (
+                                        post_sanitization_result.get(
+                                            "errors", []
+                                        )
                                     )
 
                                     self.logger.error(
@@ -268,18 +300,28 @@ class GenomeService(BaseService):
 
                                     validation_result = post_sanitization_result  # Update with new validation result
                                     if self.state_manager:
-                                        result = self.state_manager.set_genome_validity(False)
+                                        result = self.state_manager.set_genome_validity(
+                                            False
+                                        )
                                         if result.is_err:
-                                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                                            self.logger.warning(
+                                                f"Failed to set genome validity: {result.unwrap_err()}"
+                                            )
                             except Exception as revalidation_error:
                                 self.logger.warning(
                                     f"Could not re-validate after sanitization: {revalidation_error}"
                                 )
                                 # Assume it's still invalid but continue
                                 if self.state_manager:
-                                    result = self.state_manager.set_genome_validity(False)
+                                    result = (
+                                        self.state_manager.set_genome_validity(
+                                            False
+                                        )
+                                    )
                                     if result.is_err:
-                                        self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                                        self.logger.warning(
+                                            f"Failed to set genome validity: {result.unwrap_err()}"
+                                        )
 
                             # Store auto-recovery details for inclusion in response (CRITICAL - don't overwrite later!)
                             auto_recovery_details = {
@@ -302,15 +344,23 @@ class GenomeService(BaseService):
                                 f"Original genome validation failed: {error_msg}"
                             )
                             if specific_errors:
-                                self.logger.error("Original validation errors:")
+                                self.logger.error(
+                                    "Original validation errors:"
+                                )
                                 for error in specific_errors:
                                     self.logger.error(f"  - {error}")
 
                             # Fall back to original approach - mark as invalid but continue
                             if self.state_manager:
-                                result = self.state_manager.set_genome_validity(False)
+                                result = (
+                                    self.state_manager.set_genome_validity(
+                                        False
+                                    )
+                                )
                                 if result.is_err:
-                                    self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                                    self.logger.warning(
+                                        f"Failed to set genome validity: {result.unwrap_err()}"
+                                    )
                             auto_recovery_details = {
                                 "recovery_performed": False,
                                 "recovery_error": str(sanitization_error),
@@ -321,31 +371,49 @@ class GenomeService(BaseService):
                     if self.state_manager:
                         result = self.state_manager.set_genome_validity(True)
                         if result.is_err:
-                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                            self.logger.warning(
+                                f"Failed to set genome validity: {result.unwrap_err()}"
+                            )
 
                 # Store the current genome - CONVERT TO HIERARCHICAL FORMAT
                 # ARCHITECTURE: Only store hierarchical format for working operations
-                # Flat format is used only for save/export operations  
-                if "blueprint" in genome_data and isinstance(genome_data["blueprint"], dict):
+                # Flat format is used only for save/export operations
+                if "blueprint" in genome_data and isinstance(
+                    genome_data["blueprint"], dict
+                ):
                     # Check if this is flat format (contains flattened keys like _____10c-area_id-cx-property-type)
                     # ARCHITECTURE: Robust detection - parse for dash pattern, not hardcoded underscores
                     blueprint_keys = list(genome_data["blueprint"].keys())
+
                     def is_flat_genome_key(key):
                         """Detect flat genome format: *10c-area_id-{cx|nx}-property-type"""
                         import re
+
                         # Pattern: any prefix ending with 10c-, then area_id, then -cx- or -nx-, then more components
-                        return bool(re.match(r'.*10c-[^-]+-[cn]x-.*', key))
-                    
-                    if blueprint_keys and any(is_flat_genome_key(key) for key in blueprint_keys[:5]):
-                        self.logger.info("Converting flat genome to hierarchical format for working operations")
+                        return bool(re.match(r".*10c-[^-]+-[cn]x-.*", key))
+
+                    if blueprint_keys and any(
+                        is_flat_genome_key(key) for key in blueprint_keys[:5]
+                    ):
+                        self.logger.info(
+                            "Converting flat genome to hierarchical format for working operations"
+                        )
                         # Convert flat blueprint to hierarchical structure
                         hierarchical_genome = copy.deepcopy(genome_data)
-                        hierarchical_genome["blueprint"] = genome_2_1_convertor(genome_data["blueprint"])["blueprint"]
+                        hierarchical_genome["blueprint"] = (
+                            genome_2_1_convertor(genome_data["blueprint"])[
+                                "blueprint"
+                            ]
+                        )
                         self._current_genome = hierarchical_genome
-                        self.logger.info(f"Converted {len(blueprint_keys)} flat entries to hierarchical structure")
+                        self.logger.info(
+                            f"Converted {len(blueprint_keys)} flat entries to hierarchical structure"
+                        )
                     else:
                         # Already hierarchical format
-                        self.logger.info("Genome already in hierarchical format")
+                        self.logger.info(
+                            "Genome already in hierarchical format"
+                        )
                         self._current_genome = genome_data
                 else:
                     # No blueprint section or not dict - store as-is
@@ -361,7 +429,9 @@ class GenomeService(BaseService):
                         True if validation_result.get("valid") else False
                     )
                     if validity_result.is_err:
-                        self.logger.warning(f"Failed to set genome validity: {validity_result.unwrap_err()}")
+                        self.logger.warning(
+                            f"Failed to set genome validity: {validity_result.unwrap_err()}"
+                        )
                     # Set to STAGING state while brain development is in progress
                     from feagi.core.state_manager import GenomeState
 
@@ -372,13 +442,19 @@ class GenomeService(BaseService):
                     )
 
                 # CRITICAL: Prepare connectome for new genome loading (clear existing brain data)
-                self.logger.info("Preparing connectome for new genome loading...")
+                self.logger.info(
+                    "Preparing connectome for new genome loading..."
+                )
                 # ARCHITECTURE FIX: Use converted hierarchical genome, not original flat format
-                preparation_result = self._connectome_manager.prepare_for_new_genome(
-                    self._current_genome, save_current_state=True
+                preparation_result = (
+                    self._connectome_manager.prepare_for_new_genome(
+                        self._current_genome, save_current_state=True
+                    )
                 )
                 if not preparation_result.get("success", False):
-                    self.logger.error("Failed to prepare connectome for new genome")
+                    self.logger.error(
+                        "Failed to prepare connectome for new genome"
+                    )
                     if self.state_manager:
                         from feagi.core.state_manager import GenomeState
 
@@ -386,7 +462,9 @@ class GenomeService(BaseService):
                         self.state_manager.set_brain_readiness(False)
                         result = self.state_manager.set_genome_validity(False)
                         if result.is_err:
-                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                            self.logger.warning(
+                                f"Failed to set genome validity: {result.unwrap_err()}"
+                            )
                     return {
                         "success": False,
                         "error": "Failed to prepare connectome for new genome",
@@ -397,44 +475,94 @@ class GenomeService(BaseService):
                 )
 
                 # GENOME-FIRST ARCHITECTURE: Analyze requirements BEFORE brain development
-                self.logger.info("Analyzing genome requirements for optimal ConnectomeManager sizing...")
+                self.logger.info(
+                    "Analyzing genome requirements for optimal ConnectomeManager sizing..."
+                )
                 requirements = self._analyze_genome_requirements(genome_data)
-                
+
                 # Ensure ConnectomeManager has adequate capacity
                 if self._connectome_manager:
-                    current_capacity = getattr(self._connectome_manager, 'max_neurons', 0)
-                    required_capacity = requirements['recommended_neuron_capacity']
-                    
+                    current_capacity = getattr(
+                        self._connectome_manager, "max_neurons", 0
+                    )
+                    required_capacity = requirements[
+                        "recommended_neuron_capacity"
+                    ]
+
                     if current_capacity < required_capacity:
-                        self.logger.error(f"[GENOME] INSUFFICIENT CAPACITY: {current_capacity:,} < {required_capacity:,}")
-                        
+                        self.logger.error(
+                            f"[GENOME] INSUFFICIENT CAPACITY: {current_capacity:,} < {required_capacity:,}"
+                        )
+
                         # Try dynamic resize if available
-                        if hasattr(self._connectome_manager, 'resize_for_genome'):
+                        if hasattr(
+                            self._connectome_manager, "resize_for_genome"
+                        ):
                             try:
-                                self.logger.info(f"[GENOME] Attempting dynamic resize to {required_capacity:,} neurons...")
-                                resize_result = self._connectome_manager.resize_for_genome(genome_data)
-                                if resize_result.get('success'):
-                                    self.logger.info(f"[GENOME] ✅ Connectome resized: {resize_result.get('message', 'Success')}")
+                                self.logger.info(
+                                    f"[GENOME] Attempting dynamic resize to {required_capacity:,} neurons..."
+                                )
+                                resize_result = (
+                                    self._connectome_manager.resize_for_genome(
+                                        genome_data
+                                    )
+                                )
+                                if resize_result.get("success"):
+                                    self.logger.info(
+                                        f"[GENOME] ✅ Connectome resized: {resize_result.get('message', 'Success')}"
+                                    )
                                 else:
-                                    self.logger.error(f"[GENOME] ❌ Connectome resize failed: {resize_result.get('message', 'Unknown')}")
+                                    self.logger.error(
+                                        f"[GENOME] ❌ Connectome resize failed: {resize_result.get('message', 'Unknown')}"
+                                    )
                                     if self.state_manager:
-                                        from feagi.core.state_manager import GenomeState
-                                        self.state_manager.set_genome_state(GenomeState.ERROR)
-                                    return {"success": False, "message": f"Insufficient capacity: need {required_capacity:,} neurons"}
+                                        from feagi.core.state_manager import (
+                                            GenomeState,
+                                        )
+
+                                        self.state_manager.set_genome_state(
+                                            GenomeState.ERROR
+                                        )
+                                    return {
+                                        "success": False,
+                                        "message": f"Insufficient capacity: need {required_capacity:,} neurons",
+                                    }
                             except Exception as e:
-                                self.logger.error(f"[GENOME] ❌ Connectome resize exception: {e}")
+                                self.logger.error(
+                                    f"[GENOME] ❌ Connectome resize exception: {e}"
+                                )
                                 if self.state_manager:
-                                    from feagi.core.state_manager import GenomeState
-                                    self.state_manager.set_genome_state(GenomeState.ERROR)
-                                return {"success": False, "message": f"Resize failed: {e}"}
+                                    from feagi.core.state_manager import (
+                                        GenomeState,
+                                    )
+
+                                    self.state_manager.set_genome_state(
+                                        GenomeState.ERROR
+                                    )
+                                return {
+                                    "success": False,
+                                    "message": f"Resize failed: {e}",
+                                }
                         else:
-                            self.logger.error("[GENOME] ❌ ConnectomeManager doesn't support dynamic resizing")
+                            self.logger.error(
+                                "[GENOME] ❌ ConnectomeManager doesn't support dynamic resizing"
+                            )
                             if self.state_manager:
-                                from feagi.core.state_manager import GenomeState
-                                self.state_manager.set_genome_state(GenomeState.ERROR)
-                            return {"success": False, "message": f"Insufficient capacity: need {required_capacity:,} neurons, have {current_capacity:,}"}
+                                from feagi.core.state_manager import (
+                                    GenomeState,
+                                )
+
+                                self.state_manager.set_genome_state(
+                                    GenomeState.ERROR
+                                )
+                            return {
+                                "success": False,
+                                "message": f"Insufficient capacity: need {required_capacity:,} neurons, have {current_capacity:,}",
+                            }
                     else:
-                        self.logger.info(f"[GENOME] ✅ Adequate capacity: {current_capacity:,} >= {required_capacity:,}")
+                        self.logger.info(
+                            f"[GENOME] ✅ Adequate capacity: {current_capacity:,} >= {required_capacity:,}"
+                        )
 
                 # ARCHITECTURE IMPROVEMENT: Build brain from state manager's genome (not temp file)
                 # This ensures connectome manager always uses the sanitized genome from state manager
@@ -459,11 +587,14 @@ class GenomeService(BaseService):
                         "Starting COMPLETE brain development from genome (including synaptogenesis)..."
                     )
                     # ARCHITECTURE: Use hierarchical genome from single source of truth
-                    success = embry.develop_brain_from_genome_data(self._current_genome)
+                    success = embry.develop_brain_from_genome_data(
+                        self._current_genome
+                    )
 
                     if not success:
                         error_msg = (
-                            embry.error or "Unknown error during brain development"
+                            embry.error
+                            or "Unknown error during brain development"
                         )
                         self.logger.error(
                             f"Failed to develop brain from genome: {error_msg}"
@@ -473,11 +604,17 @@ class GenomeService(BaseService):
                         if self.state_manager:
                             from feagi.core.state_manager import GenomeState
 
-                            self.state_manager.set_genome_state(GenomeState.ERROR)
+                            self.state_manager.set_genome_state(
+                                GenomeState.ERROR
+                            )
                             self.state_manager.set_brain_readiness(False)
-                            result = self.state_manager.set_genome_validity(False)
+                            result = self.state_manager.set_genome_validity(
+                                False
+                            )
                             if result.is_err:
-                                self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                                self.logger.warning(
+                                    f"Failed to set genome validity: {result.unwrap_err()}"
+                                )
                         return {
                             "success": False,
                             "error": f"Failed to develop brain from genome: {error_msg}",
@@ -490,7 +627,9 @@ class GenomeService(BaseService):
                     )
 
                     # CRITICAL: Apply genome's simulation_timestep to system configuration
-                    self._apply_genome_physiology_parameters(self._current_genome, self._core_api_service)
+                    self._apply_genome_physiology_parameters(
+                        self._current_genome, self._core_api_service
+                    )
 
                     # CRITICAL: Set genome state to LOADED only after complete brain development
                     # This ensures genome is marked as loaded ONLY when everything is truly complete
@@ -502,25 +641,32 @@ class GenomeService(BaseService):
                     )
 
                     # STEP 3: After complete brain development, set final states
-                    self.logger.info("Setting final genome and brain states...")
+                    self.logger.info(
+                        "Setting final genome and brain states..."
+                    )
 
                     # Set brain readiness to true - genome loading is complete
                     self.state_manager.set_brain_readiness(True)
                     self.logger.info(
                         "✅ Brain readiness set to True - complete genome loaded"
                     )
-                    
+
                     # CRITICAL FIX: Set connectome state to READY after successful brain development
                     # This ensures API endpoints work correctly without requiring ProcessManager
                     from feagi.core.state_manager import ConnectomeState
-                    self.state_manager.set_connectome_state(ConnectomeState.READY)
+
+                    self.state_manager.set_connectome_state(
+                        ConnectomeState.READY
+                    )
                     self.logger.info(
                         "✅ Connectome state set to READY - API endpoints now functional"
                     )
 
                     # Log current burst engine state for monitoring
 
-                    current_burst_state = self.state_manager.get_burst_engine_state()
+                    current_burst_state = (
+                        self.state_manager.get_burst_engine_state()
+                    )
                     self.logger.info(
                         f"📊 Current burst engine state: {current_burst_state}"
                     )
@@ -529,20 +675,27 @@ class GenomeService(BaseService):
                     self.logger.info(
                         "🎯 Genome loading complete - process manager will handle service coordination"
                     )
-                    
+
                     # CRITICAL: Update burst engine with new genome directly since event system is not available
                     try:
                         from feagi.npu.burst_engine import BurstEngine
+
                         burst_engine = BurstEngine.get_instance()
                         if burst_engine:
                             burst_engine.update_with_genome()
-                            self.logger.info("✅ Burst engine updated with new genome successfully")
+                            self.logger.info(
+                                "✅ Burst engine updated with new genome successfully"
+                            )
                         else:
-                            self.logger.warning("⚠️ Burst engine instance not available for genome update")
+                            self.logger.warning(
+                                "⚠️ Burst engine instance not available for genome update"
+                            )
                     except Exception as burst_error:
-                        self.logger.warning(f"Failed to update burst engine with genome: {burst_error}")
+                        self.logger.warning(
+                            f"Failed to update burst engine with genome: {burst_error}"
+                        )
                         # Don't fail genome loading for burst engine update issues
-                    
+
                     # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup (fallback)
                     try:
                         from feagi.utils.event_system import (
@@ -550,21 +703,33 @@ class GenomeService(BaseService):
                             EventType,
                             emit_event,
                         )
+
                         # Get cortical area count for event data
                         current_cortical_area_count = len(
-                            getattr(self._connectome_manager, "cortical_areas", {})
+                            getattr(
+                                self._connectome_manager, "cortical_areas", {}
+                            )
                         )
                         success = emit_event(
-                            EventType.GENOME_LOADED, 
-                            data={"filename": filename, "cortical_areas": current_cortical_area_count},
-                            priority=EventPriority.HIGH
+                            EventType.GENOME_LOADED,
+                            data={
+                                "filename": filename,
+                                "cortical_areas": current_cortical_area_count,
+                            },
+                            priority=EventPriority.HIGH,
                         )
                         if success:
-                            self.logger.info(f"📡 GENOME_LOADED event emitted for '{filename}'")
+                            self.logger.info(
+                                f"📡 GENOME_LOADED event emitted for '{filename}'"
+                            )
                         else:
-                            self.logger.warning("Failed to emit GENOME_LOADED event - using direct burst engine update instead")
+                            self.logger.warning(
+                                "Failed to emit GENOME_LOADED event - using direct burst engine update instead"
+                            )
                     except Exception as event_error:
-                        self.logger.warning(f"Failed to emit GENOME_LOADED event: {event_error}")
+                        self.logger.warning(
+                            f"Failed to emit GENOME_LOADED event: {event_error}"
+                        )
                         # Don't fail genome loading for event emission issues
 
                 except Exception as dev_error:
@@ -578,7 +743,9 @@ class GenomeService(BaseService):
                         self.state_manager.set_brain_readiness(False)
                         result = self.state_manager.set_genome_validity(False)
                         if result.is_err:
-                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                            self.logger.warning(
+                                f"Failed to set genome validity: {result.unwrap_err()}"
+                            )
                     return {
                         "success": False,
                         "error": f"Exception during brain development: {str(dev_error)}",
@@ -590,46 +757,59 @@ class GenomeService(BaseService):
                     try:
                         # Get statistics from connectome manager
                         cortical_area_count = len(
-                            getattr(self._connectome_manager, "cortical_areas", {})
+                            getattr(
+                                self._connectome_manager, "cortical_areas", {}
+                            )
                         )
 
                         # Calculate neuron and synapse counts if methods exist
                         total_neurons = 0
                         total_synapses = 0
 
-                        if hasattr(self._connectome_manager, "get_total_neuron_count"):
-                            total_neurons = (
-                                self._connectome_manager.get_total_neuron_count()
-                            )
-                        elif hasattr(self._connectome_manager, "cortical_areas"):
+                        if hasattr(
+                            self._connectome_manager, "get_total_neuron_count"
+                        ):
+                            total_neurons = self._connectome_manager.get_total_neuron_count()
+                        elif hasattr(
+                            self._connectome_manager, "cortical_areas"
+                        ):
                             # Fallback: count neurons in all cortical areas
-                            for area_idx in self._connectome_manager.cortical_areas:
+                            for (
+                                area_idx
+                            ) in self._connectome_manager.cortical_areas:
                                 try:
                                     if hasattr(
-                                        self._connectome_manager, "get_neurons_by_area"
+                                        self._connectome_manager,
+                                        "get_neurons_by_area",
                                     ):
                                         area_neurons = self._connectome_manager.get_neurons_by_area(
                                             area_idx
                                         )
                                         total_neurons += (
-                                            len(area_neurons) if area_neurons else 0
+                                            len(area_neurons)
+                                            if area_neurons
+                                            else 0
                                         )
                                 except Exception:
                                     pass
 
-                        if hasattr(self._connectome_manager, "get_total_synapse_count"):
-                            total_synapses = (
-                                self._connectome_manager.get_total_synapse_count()
-                            )
+                        if hasattr(
+                            self._connectome_manager, "get_total_synapse_count"
+                        ):
+                            total_synapses = self._connectome_manager.get_total_synapse_count()
 
                         # Update state manager with brain statistics (CRITICAL for health check)
-                        stats_result = self.state_manager.set_brain_stats({
-                            "neuron_count": total_neurons,
-                            "synapse_count": total_synapses,
-                            "cortical_area_count": cortical_area_count,
-                        })
+                        stats_result = self.state_manager.set_brain_stats(
+                            {
+                                "neuron_count": total_neurons,
+                                "synapse_count": total_synapses,
+                                "cortical_area_count": cortical_area_count,
+                            }
+                        )
                         if stats_result.is_err:
-                            self.logger.warning(f"Failed to set brain stats: {stats_result.unwrap_err()}")
+                            self.logger.warning(
+                                f"Failed to set brain stats: {stats_result.unwrap_err()}"
+                            )
 
                         # Create cortical list for health check compatibility (CRITICAL)
                         cortical_ids = []
@@ -637,24 +817,37 @@ class GenomeService(BaseService):
                             for (
                                 area_idx,
                                 area,
-                            ) in self._connectome_manager.cortical_areas.items():
+                            ) in (
+                                self._connectome_manager.cortical_areas.items()
+                            ):
                                 # Try to get cortical_id from area object, fallback to string representation
-                                if hasattr(area, "cortical_id") and area.cortical_id:
+                                if (
+                                    hasattr(area, "cortical_id")
+                                    and area.cortical_id
+                                ):
                                     cortical_ids.append(area.cortical_id)
                                 else:
                                     cortical_ids.append(f"CID{area_idx:03d}")
-                        cortical_result = self.state_manager.set_cortical_list(cortical_ids)
+                        cortical_result = self.state_manager.set_cortical_list(
+                            cortical_ids
+                        )
                         if cortical_result.is_err:
-                            self.logger.warning(f"Failed to set cortical list: {cortical_result.unwrap_err()}")
+                            self.logger.warning(
+                                f"Failed to set cortical list: {cortical_result.unwrap_err()}"
+                            )
 
                         # Set genome validity based on earlier validation results
                         if (
                             not hasattr(self.state_manager, "genome_validity")
                             or self.state_manager.genome_validity is None
                         ):
-                            validity_result = self.state_manager.set_genome_validity(True)
+                            validity_result = (
+                                self.state_manager.set_genome_validity(True)
+                            )
                             if validity_result.is_err:
-                                self.logger.warning(f"Failed to set genome validity: {validity_result.unwrap_err()}")
+                                self.logger.warning(
+                                    f"Failed to set genome validity: {validity_result.unwrap_err()}"
+                                )
 
                         # Ensure other state manager attributes are initialized
                         if (
@@ -663,15 +856,21 @@ class GenomeService(BaseService):
                         ):
                             self.state_manager.set_agent_count(0)
 
-                        if not hasattr(self.state_manager, "changes_saved_externally"):
+                        if not hasattr(
+                            self.state_manager, "changes_saved_externally"
+                        ):
                             self.state_manager.changes_saved_externally = False
 
                         if not hasattr(self.state_manager, "exit_condition"):
                             # NOTE: exit_condition doesn't have a proper setter method yet
                             # This should be handled through proper state management
-                            result = self.state_manager.set_exit_condition(False)
+                            result = self.state_manager.set_exit_condition(
+                                False
+                            )
                             if result.is_err:
-                                self.logger.warning("Failed to set exit condition")
+                                self.logger.warning(
+                                    "Failed to set exit condition"
+                                )
                                 # Continue anyway - this is not critical
 
                         self.logger.info(
@@ -697,7 +896,9 @@ class GenomeService(BaseService):
 
                 # CRITICAL: Only increment genome counter for ACTUALLY NEW genomes
                 if self.state_manager:
-                    old_genome_counter = self.state_manager.get_genome_counter()
+                    old_genome_counter = (
+                        self.state_manager.get_genome_counter()
+                    )
 
                     # Check if this is genuinely a NEW genome (different from what we had before)
                     is_new_genome = False
@@ -707,8 +908,12 @@ class GenomeService(BaseService):
                         or old_genome_filename != filename
                     ):
                         # Update timestamp to signal change to downstream clients
-                        new_genome_timestamp = int(time.time() * 1000)  # milliseconds
-                        self.state_manager.set_genome_timestamp(new_genome_timestamp)
+                        new_genome_timestamp = int(
+                            time.time() * 1000
+                        )  # milliseconds
+                        self.state_manager.set_genome_timestamp(
+                            new_genome_timestamp
+                        )
                         self.logger.info(
                             f"[OK] Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)"
                         )
@@ -720,7 +925,9 @@ class GenomeService(BaseService):
                             json.dumps(genome_data, sort_keys=True).encode()
                         ).hexdigest()
                         old_hash = hashlib.md5(
-                            json.dumps(old_genome_data, sort_keys=True).encode()
+                            json.dumps(
+                                old_genome_data, sort_keys=True
+                            ).encode()
                         ).hexdigest()
                         if new_hash != old_hash:
                             is_new_genome = True
@@ -735,13 +942,19 @@ class GenomeService(BaseService):
                     # Only increment counter and update timestamp for genuinely new genomes
                     if is_new_genome:
                         self.state_manager.increment_genome_counter()
-                        current_genome_number = self.state_manager.get_genome_counter()
+                        current_genome_number = (
+                            self.state_manager.get_genome_counter()
+                        )
                         self.logger.info(
                             f"[OK] Genome counter incremented to {current_genome_number}"
                         )
 
-                        new_genome_timestamp = int(time.time() * 1000)  # milliseconds
-                        self.state_manager.set_genome_timestamp(new_genome_timestamp)
+                        new_genome_timestamp = int(
+                            time.time() * 1000
+                        )  # milliseconds
+                        self.state_manager.set_genome_timestamp(
+                            new_genome_timestamp
+                        )
                         self.logger.info(
                             f"[OK] Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)"
                         )
@@ -755,15 +968,27 @@ class GenomeService(BaseService):
                         )
 
                 # DYNAMIC SIZING: Resize connectome based on genome requirements
-                if self._connectome_manager and hasattr(self._connectome_manager, 'resize_for_genome'):
+                if self._connectome_manager and hasattr(
+                    self._connectome_manager, "resize_for_genome"
+                ):
                     try:
-                        resize_success = self._connectome_manager.resize_for_genome(genome_data)
+                        resize_success = (
+                            self._connectome_manager.resize_for_genome(
+                                genome_data
+                            )
+                        )
                         if resize_success:
-                            self.logger.info("✅ [DYNAMIC SIZING] Connectome resized successfully based on genome requirements")
+                            self.logger.info(
+                                "✅ [DYNAMIC SIZING] Connectome resized successfully based on genome requirements"
+                            )
                         else:
-                            self.logger.info("ℹ️  [DYNAMIC SIZING] Connectome resize not needed - current size is optimal")
+                            self.logger.info(
+                                "ℹ️  [DYNAMIC SIZING] Connectome resize not needed - current size is optimal"
+                            )
                     except Exception as resize_error:
-                        self.logger.warning(f"⚠️  [DYNAMIC SIZING] Error during connectome resize: {resize_error}")
+                        self.logger.warning(
+                            f"⚠️  [DYNAMIC SIZING] Error during connectome resize: {resize_error}"
+                        )
                         # Don't fail genome loading for resize issues - it's an optimization, not critical
 
                 # Log success
@@ -789,7 +1014,9 @@ class GenomeService(BaseService):
 
                 # Include validation errors in response if validation failed but loading succeeded
                 if not validation_result["valid"]:
-                    result["validation_errors"] = validation_result.get("errors", [])
+                    result["validation_errors"] = validation_result.get(
+                        "errors", []
+                    )
                     result["genome_validity"] = False
 
                     # Check if auto-recovery was performed
@@ -798,15 +1025,19 @@ class GenomeService(BaseService):
                             f"Genome loaded with auto-recovery: {auto_recovery_details.get('recovery_summary', 'Auto-recovery performed')}"
                         )
                         result["auto_recovery_performed"] = True
-                        result["removed_morphologies"] = auto_recovery_details.get(
-                            "removed_morphologies", []
+                        result["removed_morphologies"] = (
+                            auto_recovery_details.get(
+                                "removed_morphologies", []
+                            )
                         )
                         result["fixed_references"] = auto_recovery_details.get(
                             "fixed_references", []
                         )
                         # Include validation warnings from auto-recovery
-                        result["validation_warnings"] = auto_recovery_details.get(
-                            "validation_warnings", []
+                        result["validation_warnings"] = (
+                            auto_recovery_details.get(
+                                "validation_warnings", []
+                            )
                         )
                     else:
                         result["message"] = (
@@ -819,8 +1050,10 @@ class GenomeService(BaseService):
                     result["auto_recovery_performed"] = False
                     # Even if validation passed, include warnings from auto-recovery if any corrections were made
                     if auto_recovery_details.get("recovery_performed", False):
-                        result["validation_warnings"] = auto_recovery_details.get(
-                            "validation_warnings", []
+                        result["validation_warnings"] = (
+                            auto_recovery_details.get(
+                                "validation_warnings", []
+                            )
                         )
                     else:
                         result["validation_warnings"] = []
@@ -844,7 +1077,9 @@ class GenomeService(BaseService):
                     self.state_manager.set_brain_readiness(False)
                     result = self.state_manager.set_genome_validity(False)
                     if result.is_err:
-                        self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                        self.logger.warning(
+                            f"Failed to set genome validity: {result.unwrap_err()}"
+                        )
 
                 return {"success": False, "error": str(e)}
 
@@ -862,18 +1097,24 @@ class GenomeService(BaseService):
                 self.state_manager.set_brain_readiness(False)
                 result = self.state_manager.set_genome_validity(False)
                 if result.is_err:
-                    self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                    self.logger.warning(
+                        f"Failed to set genome validity: {result.unwrap_err()}"
+                    )
 
             return {"success": False, "error": str(e)}
 
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
-        self.logger.info(f"{stage} {percentage:.1f}% - {message}", status="[PROC]")
-        
+        self.logger.info(
+            f"{stage} {percentage:.1f}% - {message}", status="[PROC]"
+        )
+
         # Update state manager with development stage
         if self.state_manager:
-            from feagi.bdu.embryogenesis.neuroembryogenesis import DevelopmentStage
-            
+            from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                DevelopmentStage,
+            )
+
             # Map DevelopmentStage enum to integer values for state manager
             stage_mapping = {
                 DevelopmentStage.INITIALIZATION: 0,
@@ -884,13 +1125,17 @@ class GenomeService(BaseService):
                 DevelopmentStage.COMPLETED: 5,
                 DevelopmentStage.FAILED: 6,
             }
-            
+
             stage_value = stage_mapping.get(stage, 0)
-            
+
             # Update neuroembryogenesis stage in state manager
-            if hasattr(self.state_manager._state, 'neuroembryogenesis_stage'):
-                self.state_manager._state.neuroembryogenesis_stage = stage_value
-                self.state_manager._state.neuroembryogenesis_progress = int(percentage)
+            if hasattr(self.state_manager._state, "neuroembryogenesis_stage"):
+                self.state_manager._state.neuroembryogenesis_stage = (
+                    stage_value
+                )
+                self.state_manager._state.neuroembryogenesis_progress = int(
+                    percentage
+                )
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -932,7 +1177,10 @@ class GenomeService(BaseService):
             }
 
             # Populate cortical areas from connectome
-            for cortical_id, area in self._connectome_manager.cortical_areas.items():
+            for (
+                cortical_id,
+                area,
+            ) in self._connectome_manager.cortical_areas.items():
                 minimal_genome["cortical_areas"][cortical_id] = {
                     "cortical_name": getattr(area, "name", cortical_id),
                     "coordinates": {
@@ -988,8 +1236,12 @@ class GenomeService(BaseService):
 
                         # Store basic metadata about the genome
                         default_genomes[file_path.name] = {
-                            "title": genome_data.get("genome_title", "Untitled Genome"),
-                            "description": genome_data.get("genome_description", ""),
+                            "title": genome_data.get(
+                                "genome_title", "Untitled Genome"
+                            ),
+                            "description": genome_data.get(
+                                "genome_description", ""
+                            ),
                             "file_path": str(file_path),
                         }
                 except Exception as e:
@@ -1068,13 +1320,17 @@ class GenomeService(BaseService):
             else:
                 return {}
         except Exception as e:
-            self.logger.error(f"Error retrieving evolution change register: {str(e)}")
+            self.logger.error(
+                f"Error retrieving evolution change register: {str(e)}"
+            )
             return {}
 
     def deploy_genome(self, genome_filepath: str) -> bool:
         """Deploy a genome from a file path."""
         try:
-            self.logger.info(f"Deploying genome from {genome_filepath}", status="[DNA]")
+            self.logger.info(
+                f"Deploying genome from {genome_filepath}", status="[DNA]"
+            )
 
             # Ensure the file exists
             genome_path = Path(genome_filepath)
@@ -1130,7 +1386,8 @@ class GenomeService(BaseService):
 
         except json.JSONDecodeError:
             self.logger.error(
-                f"Invalid JSON in genome file: {genome_filepath}", status="[ERR]"
+                f"Invalid JSON in genome file: {genome_filepath}",
+                status="[ERR]",
             )
 
             # Update state to ERROR
@@ -1142,7 +1399,9 @@ class GenomeService(BaseService):
 
             return False
         except Exception as e:
-            self.logger.error(f"Error deploying genome: {str(e)}", status="[ERR]")
+            self.logger.error(
+                f"Error deploying genome: {str(e)}", status="[ERR]"
+            )
 
             # Update state to ERROR
             if self.state_manager:
@@ -1209,8 +1468,12 @@ class GenomeService(BaseService):
                     "error": f"Default genome '{genome_name}' not found",
                 }
 
-            self.logger.debug(f"GENOME SERVICE: Found genome file at: {genome_path}")
-            self.logger.info(f"Loading {genome_name} genome from {genome_path}")
+            self.logger.debug(
+                f"GENOME SERVICE: Found genome file at: {genome_path}"
+            )
+            self.logger.info(
+                f"Loading {genome_name} genome from {genome_path}"
+            )
 
             # Load and process genome
             with genome_path.open("r") as f:
@@ -1246,7 +1509,8 @@ class GenomeService(BaseService):
 
         # Search paths in order of preference
         search_paths = [
-            current_dir / "../../../../evo/defaults/genome",  # Relative to this file
+            current_dir
+            / "../../../../evo/defaults/genome",  # Relative to this file
             cwd / "feagi/evo/defaults/genome",  # From working directory
             cwd / "feagi_core/feagi/evo/defaults/genome",  # From project root
         ]
@@ -1295,7 +1559,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot create cortical area: No genome loaded")
+                self.logger.error(
+                    "Cannot create cortical area: No genome loaded"
+                )
                 return None
 
             # Begin genome transaction for atomic modification
@@ -1321,7 +1587,11 @@ class GenomeService(BaseService):
                 if parameters and "cortical_id" in parameters:
                     cortical_id = parameters["cortical_id"]
                     # Remove cortical_id from parameters to avoid duplication
-                    parameters = {k: v for k, v in parameters.items() if k != "cortical_id"}
+                    parameters = {
+                        k: v
+                        for k, v in parameters.items()
+                        if k != "cortical_id"
+                    }
                 else:
                     # Fallback: generate a unique cortical area ID using FEAGI's standard format
                     import random
@@ -1333,19 +1603,27 @@ class GenomeService(BaseService):
                         # Fallback if utils module not available
                         def generate_cortical_id(prefix="C", seed="ABC"):
                             return f"{prefix}{seed}"
-                    
+
                     existing_ids = set(current_genome["blueprint"].keys())
                     attempts = 0
                     while attempts < 100:  # Prevent infinite loop
                         # Generate a random 3-character seed for the ID
-                        seed = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-                        cortical_id = generate_cortical_id(prefix="C", seed=seed)
+                        seed = "".join(
+                            random.choices(
+                                string.ascii_uppercase + string.digits, k=3
+                            )
+                        )
+                        cortical_id = generate_cortical_id(
+                            prefix="C", seed=seed
+                        )
                         if cortical_id not in existing_ids:
                             break
                         attempts += 1
-                    
+
                     if attempts >= 100:
-                        raise ValueError("Failed to generate unique cortical area ID after 100 attempts")
+                        raise ValueError(
+                            "Failed to generate unique cortical area ID after 100 attempts"
+                        )
 
                 # Import cortical template for proper defaults
                 from feagi.evo.templates import (
@@ -1354,12 +1632,16 @@ class GenomeService(BaseService):
                 )
 
                 # Check if this is a memory cortical area
-                is_memory_area = (parameters and parameters.get("sub_group_id") == "MEMORY")
-                
+                is_memory_area = (
+                    parameters and parameters.get("sub_group_id") == "MEMORY"
+                )
+
                 # Choose appropriate template
                 if is_memory_area:
                     template = cortical_template_memory
-                    self.logger.info(f"Creating memory cortical area {cortical_id} with memory template")
+                    self.logger.info(
+                        f"Creating memory cortical area {cortical_id} with memory template"
+                    )
                 else:
                     template = cortical_template
 
@@ -1386,10 +1668,14 @@ class GenomeService(BaseService):
                 if is_memory_area:
                     memory_defaults = {
                         "init_lifespan": new_area.get("init_lifespan", 9),
-                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1.0),
-                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                        "lifespan_growth_rate": new_area.get(
+                            "lifespan_growth_rate", 1.0
+                        ),
+                        "longterm_mem_threshold": new_area.get(
+                            "longterm_mem_threshold", 100
+                        ),
                         "temporal_depth": new_area.get("temporal_depth", 1),
-                        "sub_group_id": "MEMORY"
+                        "sub_group_id": "MEMORY",
                     }
                     # Add memory properties to both top level and parameters
                     new_area.update(memory_defaults)
@@ -1400,7 +1686,7 @@ class GenomeService(BaseService):
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
-                
+
                 # Update genome in state manager (single source of truth)
                 if self.state_manager:
                     self.state_manager.genome = current_genome
@@ -1410,22 +1696,38 @@ class GenomeService(BaseService):
                 try:
                     # Use the enhanced parameters that include memory template properties
                     enhanced_properties = new_area.get("parameters", {})
-                    
-                    created_cortical_id = self._connectome_manager.add_cortical_area(
-                        name=name,
-                        dimensions=tuple([dimensions["width"], dimensions["height"], dimensions["depth"]]),
-                        position=tuple([coordinates["x"], coordinates["y"], coordinates["z"]]),
-                        area_type=area_type,
-                        properties=enhanced_properties,
-                        cortical_id=cortical_id
+
+                    created_cortical_id = (
+                        self._connectome_manager.add_cortical_area(
+                            name=name,
+                            dimensions=tuple(
+                                [
+                                    dimensions["width"],
+                                    dimensions["height"],
+                                    dimensions["depth"],
+                                ]
+                            ),
+                            position=tuple(
+                                [
+                                    coordinates["x"],
+                                    coordinates["y"],
+                                    coordinates["z"],
+                                ]
+                            ),
+                            area_type=area_type,
+                            properties=enhanced_properties,
+                            cortical_id=cortical_id,
+                        )
                     )
-                    
+
                     # Extract proper neuron properties from the cortical area template
                     area = self._connectome_manager.cortical_areas[cortical_id]
                     width, height, depth = area.dimensions
                     neurons_per_voxel = new_area.get("per_voxel_neuron_cnt", 1)
-                    area_neuron_count = width * height * depth * neurons_per_voxel
-                    
+                    area_neuron_count = (
+                        width * height * depth * neurons_per_voxel
+                    )
+
                     # Generate positions for all neurons in the cortical area
                     positions = []
                     for z in range(depth):
@@ -1433,15 +1735,19 @@ class GenomeService(BaseService):
                             for x in range(width):
                                 for _ in range(neurons_per_voxel):
                                     positions.append((x, y, z))
-                    
+
                     # Extract neuron properties from template (following NeuroEmbryogenesis pattern)
                     base_threshold = new_area.get("firing_threshold", 1.0)
-                    base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
+                    base_decay_rate = 1.0 - (
+                        new_area.get("leak_coefficient", 0) / 100.0
+                    )
                     base_refractory = new_area.get("refractory_period", 1)
                     excitability = new_area.get("neuron_excitability", 1.0)
-                    
-                    self.logger.info(f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}")
-                    
+
+                    self.logger.info(
+                        f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}"
+                    )
+
                     # Create neurons using ConnectomeManager's batch creation (which handles position mapping)
                     neuron_ids = self._connectome_manager.batch_create_neurons(
                         cortical_id=cortical_id,
@@ -1450,67 +1756,102 @@ class GenomeService(BaseService):
                         membrane_potential=0.0,
                         resting_potential=0.0,
                         decay_rate=base_decay_rate,
-                        refractory_period=base_refractory
+                        refractory_period=base_refractory,
                     )
-                    
+
                     # CRITICAL FIX: Set excitability for all created neurons
                     # Since batch_create_neurons doesn't support excitability parameter,
                     # we need to set it manually on the neuron array
                     neuron_array = self._connectome_manager.neuron_array
                     for neuron_id in neuron_ids:
                         try:
-                            neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                            neuron_idx = (
+                                self._connectome_manager.get_neuron_index(
+                                    neuron_id
+                                )
+                            )
                             if neuron_idx is not None:
-                                neuron_array.excitability[neuron_idx] = excitability
+                                neuron_array.excitability[neuron_idx] = (
+                                    excitability
+                                )
                         except Exception as e:
-                            self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
-                    
-                    self.logger.info(f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}")
-                    
+                            self.logger.warning(
+                                f"Could not set excitability for neuron {neuron_id}: {e}"
+                            )
+
+                    self.logger.info(
+                        f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}"
+                    )
+
                     # Register as memory area if needed
                     if is_memory_area:
                         temporal_depth = new_area.get("temporal_depth", 1)
-                        memory_registered = self._connectome_manager.register_memory_area(
-                            cortical_id=cortical_id,
-                            temporal_depth=temporal_depth
+                        memory_registered = (
+                            self._connectome_manager.register_memory_area(
+                                cortical_id=cortical_id,
+                                temporal_depth=temporal_depth,
+                            )
                         )
                         if memory_registered:
-                            self.logger.info(f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
-                            
+                            self.logger.info(
+                                f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}"
+                            )
+
                             # CRITICAL: Also register with BurstEngine MemoryProcessor
                             try:
                                 from feagi.npu.burst_engine import BurstEngine
+
                                 burst_engine = BurstEngine.get_instance()
                                 if burst_engine:
                                     # Prepare memory area properties for BurstEngine registration
                                     memory_properties = {
                                         "temporal_depth": temporal_depth,
-                                        "init_lifespan": new_area.get("init_lifespan", 9),
-                                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1.0),
-                                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                                        "init_lifespan": new_area.get(
+                                            "init_lifespan", 9
+                                        ),
+                                        "lifespan_growth_rate": new_area.get(
+                                            "lifespan_growth_rate", 1.0
+                                        ),
+                                        "longterm_mem_threshold": new_area.get(
+                                            "longterm_mem_threshold", 100
+                                        ),
                                     }
-                                    
+
                                     processor_registered = burst_engine.register_memory_area_with_processor(
                                         cortical_id, memory_properties
                                     )
                                     if processor_registered:
-                                        self.logger.info(f"✅ Registered memory area {cortical_id} with MemoryProcessor")
+                                        self.logger.info(
+                                            f"✅ Registered memory area {cortical_id} with MemoryProcessor"
+                                        )
                                     else:
-                                        self.logger.warning(f"⚠️  Failed to register memory area {cortical_id} with MemoryProcessor")
+                                        self.logger.warning(
+                                            f"⚠️  Failed to register memory area {cortical_id} with MemoryProcessor"
+                                        )
                                 else:
-                                    self.logger.warning("⚠️  BurstEngine instance not available for memory area registration")
+                                    self.logger.warning(
+                                        "⚠️  BurstEngine instance not available for memory area registration"
+                                    )
                             except Exception as burst_error:
-                                self.logger.warning(f"Failed to register memory area with BurstEngine: {burst_error}")
+                                self.logger.warning(
+                                    f"Failed to register memory area with BurstEngine: {burst_error}"
+                                )
                         else:
-                            self.logger.warning(f"⚠️  Failed to register memory area {cortical_id}")
-                    
+                            self.logger.warning(
+                                f"⚠️  Failed to register memory area {cortical_id}"
+                            )
+
                     success = True
-                    
+
                 except Exception as create_error:
-                    self.logger.error(f"Error creating cortical area {cortical_id}: {str(create_error)}")
+                    self.logger.error(
+                        f"Error creating cortical area {cortical_id}: {str(create_error)}"
+                    )
                     # Clean up on failure
                     if cortical_id in self._connectome_manager.cortical_areas:
-                        del self._connectome_manager.cortical_areas[cortical_id]
+                        del self._connectome_manager.cortical_areas[
+                            cortical_id
+                        ]
                     success = False
 
                 if success and transaction:
@@ -1520,7 +1861,9 @@ class GenomeService(BaseService):
                     return None
 
                 if success:
-                    self.logger.info(f"Created cortical area: {cortical_id} ({name}) with template properties")
+                    self.logger.info(
+                        f"Created cortical area: {cortical_id} ({name}) with template properties"
+                    )
                     return {
                         "cortical_id": cortical_id,
                         "name": name,
@@ -1558,7 +1901,7 @@ class GenomeService(BaseService):
         PERFORMANCE OPTIMIZATION: This method now intelligently routes updates based on
         change type to avoid unnecessary full brain rebuilds:
         - Parameter changes: Direct neuron updates (~2-5ms, 160-400x faster)
-        - Metadata changes: Simple property updates (~1ms, 800x faster)  
+        - Metadata changes: Simple property updates (~1ms, 800x faster)
         - Structural changes: Full rebuild (~800ms, existing behavior)
         - Hybrid changes: Optimized combination of above strategies
 
@@ -1577,17 +1920,20 @@ class GenomeService(BaseService):
             Updated area information or None if not found
         """
         import time
-        start_time = time.time()
-        
 
-        
+        start_time = time.time()
+
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot update cortical area: No genome loaded")
+                self.logger.error(
+                    "Cannot update cortical area: No genome loaded"
+                )
                 return None
 
             if cortical_id not in self._current_genome["blueprint"]:
-                self.logger.error(f"Cannot update cortical area: {cortical_id} not found in genome")
+                self.logger.error(
+                    f"Cannot update cortical area: {cortical_id} not found in genome"
+                )
                 return None
 
             # Start transaction if state manager is available
@@ -1611,7 +1957,9 @@ class GenomeService(BaseService):
                     changes.update(parameters)
 
                 if not changes:
-                    self.logger.warning(f"No changes provided for cortical area {cortical_id}")
+                    self.logger.warning(
+                        f"No changes provided for cortical area {cortical_id}"
+                    )
                     if transaction:
                         transaction.rollback()
                     return self._current_genome["blueprint"][cortical_id]
@@ -1621,39 +1969,55 @@ class GenomeService(BaseService):
                     ChangeType,
                     CorticalChangeClassifier,
                 )
-                
-                change_type = CorticalChangeClassifier.classify_changes(changes)
-                CorticalChangeClassifier.log_classification_result(changes, change_type)
-                
+
+                change_type = CorticalChangeClassifier.classify_changes(
+                    changes
+                )
+                CorticalChangeClassifier.log_classification_result(
+                    changes, change_type
+                )
+
                 # ROUTE BASED ON CHANGE TYPE for optimal performance
                 if change_type == ChangeType.PARAMETER:
                     # FAST PATH: Direct parameter updates only (~2-5ms)
-                    result = self._update_parameters_only(cortical_id, changes, transaction)
-                    
+                    result = self._update_parameters_only(
+                        cortical_id, changes, transaction
+                    )
+
                 elif change_type == ChangeType.METADATA:
                     # FASTEST PATH: Metadata updates only (~1ms)
-                    result = self._update_metadata_only(cortical_id, changes, transaction)
-                    
+                    result = self._update_metadata_only(
+                        cortical_id, changes, transaction
+                    )
+
                 elif change_type == ChangeType.STRUCTURAL:
                     # LOCALIZED REBUILD PATH: Structural changes (~100-200ms)
-                    result = self._update_with_localized_rebuild(cortical_id, changes, transaction)
-                    
+                    result = self._update_with_localized_rebuild(
+                        cortical_id, changes, transaction
+                    )
+
                 elif change_type == ChangeType.HYBRID:
                     # HYBRID PATH: Optimized combination (uses localized rebuild for structural parts)
-                    result = self._update_hybrid(cortical_id, changes, transaction)
-                    
+                    result = self._update_hybrid(
+                        cortical_id, changes, transaction
+                    )
+
                 else:
                     # Fallback to safe localized rebuild (avoid global rebuild)
-                    self.logger.warning(f"Unknown change type {change_type}, using localized rebuild")
-                    result = self._update_with_localized_rebuild(cortical_id, changes, transaction)
-                    
+                    self.logger.warning(
+                        f"Unknown change type {change_type}, using localized rebuild"
+                    )
+                    result = self._update_with_localized_rebuild(
+                        cortical_id, changes, transaction
+                    )
+
                 # Log performance metrics
                 duration = time.time() - start_time
                 self.logger.info(
                     f"[CORTICAL-UPDATE] {cortical_id} updated via {change_type.value} "
-                    f"path in {duration*1000:.1f}ms"
+                    f"path in {duration * 1000:.1f}ms"
                 )
-                
+
                 return result
 
             except Exception as e:
@@ -1680,7 +2044,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot delete cortical area: No genome loaded")
+                self.logger.error(
+                    "Cannot delete cortical area: No genome loaded"
+                )
                 return False
 
             # Begin genome transaction for atomic modification
@@ -1726,7 +2092,9 @@ class GenomeService(BaseService):
                 # Apply the cortical area deletion by triggering brain development
                 # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
                 # NeuroEmbryogenesis now supports hierarchical format natively
-                success = embryogenesis.develop_brain_from_genome_data(current_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    current_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -1817,23 +2185,27 @@ class GenomeService(BaseService):
                     "type": morphology_data["type"],
                     "parameters": morphology_data["parameters"],
                     "class": "custom",
-                    "dimension_sensitive": morphology_data.get("dimension_sensitive", False),  # Include dimension_sensitive field
+                    "dimension_sensitive": morphology_data.get(
+                        "dimension_sensitive", False
+                    ),  # Include dimension_sensitive field
                 }
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
-                
+
                 # Update genome in state manager (single source of truth)
                 if self.state_manager:
                     self.state_manager.genome = current_genome
 
                 # Morphology is now available in genome - NeuroEmbryogenesis will automatically
                 # pick it up through get_morphology_registry() when needed for synaptogenesis
-                
+
                 if transaction:
                     transaction.commit()
 
-                self.logger.info(f"Successfully created morphology '{name}' of type '{morphology_data['type']}'")
+                self.logger.info(
+                    f"Successfully created morphology '{name}' of type '{morphology_data['type']}'"
+                )
                 return True
 
             except Exception as e:
@@ -1845,7 +2217,9 @@ class GenomeService(BaseService):
             self.logger.error(f"Error creating morphology: {str(e)}")
             return False
 
-    def update_morphology(self, morphology_id: str, updates: Dict[str, Any]) -> bool:
+    def update_morphology(
+        self, morphology_id: str, updates: Dict[str, Any]
+    ) -> bool:
         """
         Update an existing morphology through proper genome modification pipeline.
 
@@ -1882,14 +2256,17 @@ class GenomeService(BaseService):
                 # Check if morphology exists
                 if (
                     "neuron_morphologies" not in current_genome
-                    or morphology_id not in current_genome["neuron_morphologies"]
+                    or morphology_id
+                    not in current_genome["neuron_morphologies"]
                 ):
                     self.logger.warning(
                         f"Morphology '{morphology_id}' not found in genome"
                     )
                     return False
 
-                morphology = current_genome["neuron_morphologies"][morphology_id]
+                morphology = current_genome["neuron_morphologies"][
+                    morphology_id
+                ]
 
                 # Don't allow updating core morphologies
                 if morphology.get("source") == "core":
@@ -1914,7 +2291,9 @@ class GenomeService(BaseService):
 
                 # Apply the morphology update by triggering brain development
                 # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
-                success = embryogenesis.develop_brain_from_genome_data(current_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    current_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -1936,17 +2315,19 @@ class GenomeService(BaseService):
             self.logger.error(f"Error updating morphology: {str(e)}")
             return False
 
-    def _check_morphology_usage(self, genome: Dict[str, Any], morphology_id: str) -> Dict[str, List[str]]:
+    def _check_morphology_usage(
+        self, genome: Dict[str, Any], morphology_id: str
+    ) -> Dict[str, List[str]]:
         """
         Check if a morphology is being used anywhere in the genome.
-        
+
         COMPREHENSIVE SAFETY CHECK: Scans all genome sections for morphology references
         to prevent deletion of morphologies that are still in use.
-        
+
         Args:
             genome: The genome dictionary to scan
             morphology_id: The morphology ID to search for
-            
+
         Returns:
             Dictionary with usage locations:
             {
@@ -1958,9 +2339,9 @@ class GenomeService(BaseService):
         usage_locations = {
             "cortical_areas": [],
             "cortical_mappings": [],
-            "blueprints": []
+            "blueprints": [],
         }
-        
+
         try:
             # Check cortical areas for morphology usage
             if "blueprint" in genome:
@@ -1969,16 +2350,24 @@ class GenomeService(BaseService):
                         # Check direct neuron_morphology reference
                         if area_data.get("neuron_morphology") == morphology_id:
                             usage_locations["cortical_areas"].append(area_id)
-                        
+
                         # Check in cortical parameters if they exist
                         if "cortical_parameters" in area_data:
                             params = area_data["cortical_parameters"]
-                            if isinstance(params, dict) and params.get("neuron_morphology") == morphology_id:
-                                usage_locations["cortical_areas"].append(area_id)
-            
+                            if (
+                                isinstance(params, dict)
+                                and params.get("neuron_morphology")
+                                == morphology_id
+                            ):
+                                usage_locations["cortical_areas"].append(
+                                    area_id
+                                )
+
             # Check cortical mappings for morphology usage
             if "cortical_mappings" in genome:
-                for mapping_id, mapping_data in genome["cortical_mappings"].items():
+                for mapping_id, mapping_data in genome[
+                    "cortical_mappings"
+                ].items():
                     if isinstance(mapping_data, dict):
                         # Check mapping parameters for morphology references
                         if "parameters" in mapping_data:
@@ -1987,8 +2376,10 @@ class GenomeService(BaseService):
                                 # Check various parameter fields that might reference morphologies
                                 for param_key, param_value in params.items():
                                     if param_value == morphology_id:
-                                        usage_locations["cortical_mappings"].append(f"{mapping_id}:{param_key}")
-            
+                                        usage_locations[
+                                            "cortical_mappings"
+                                        ].append(f"{mapping_id}:{param_key}")
+
             # Check any other blueprint sections
             if "blueprint" in genome:
                 blueprint = genome["blueprint"]
@@ -1997,30 +2388,40 @@ class GenomeService(BaseService):
                         if isinstance(blueprint_data, dict):
                             # Deep scan for morphology references in blueprint data
                             self._scan_dict_for_morphology(
-                                blueprint_data, morphology_id, blueprint_key, usage_locations["blueprints"]
+                                blueprint_data,
+                                morphology_id,
+                                blueprint_key,
+                                usage_locations["blueprints"],
                             )
-            
-            self.logger.debug(f"Morphology usage check for '{morphology_id}': {usage_locations}")
-            
+
+            self.logger.debug(
+                f"Morphology usage check for '{morphology_id}': {usage_locations}"
+            )
+
         except Exception as e:
             self.logger.error(f"Error checking morphology usage: {e}")
             # Return empty dict on error to be safe (prevents deletion if we can't verify safety)
             return {"error": [f"Could not verify morphology safety: {str(e)}"]}
-        
+
         # Remove duplicates and return only non-empty categories
         filtered_usage = {}
         for category, items in usage_locations.items():
             unique_items = list(set(items))
             if unique_items:
                 filtered_usage[category] = unique_items
-        
+
         return filtered_usage
-    
-    def _scan_dict_for_morphology(self, data: Dict[str, Any], morphology_id: str, 
-                                 context_key: str, usage_list: List[str]) -> None:
+
+    def _scan_dict_for_morphology(
+        self,
+        data: Dict[str, Any],
+        morphology_id: str,
+        context_key: str,
+        usage_list: List[str],
+    ) -> None:
         """
         Recursively scan a dictionary for morphology references.
-        
+
         Args:
             data: Dictionary to scan
             morphology_id: Morphology ID to search for
@@ -2029,18 +2430,25 @@ class GenomeService(BaseService):
         """
         if not isinstance(data, dict):
             return
-            
+
         for key, value in data.items():
             if value == morphology_id:
                 usage_list.append(f"{context_key}:{key}")
             elif isinstance(value, dict):
-                self._scan_dict_for_morphology(value, morphology_id, f"{context_key}:{key}", usage_list)
+                self._scan_dict_for_morphology(
+                    value, morphology_id, f"{context_key}:{key}", usage_list
+                )
             elif isinstance(value, list):
                 for i, item in enumerate(value):
                     if item == morphology_id:
                         usage_list.append(f"{context_key}:{key}[{i}]")
                     elif isinstance(item, dict):
-                        self._scan_dict_for_morphology(item, morphology_id, f"{context_key}:{key}[{i}]", usage_list)
+                        self._scan_dict_for_morphology(
+                            item,
+                            morphology_id,
+                            f"{context_key}:{key}[{i}]",
+                            usage_list,
+                        )
 
     def delete_morphology(self, morphology_id: str) -> bool:
         """
@@ -2078,14 +2486,17 @@ class GenomeService(BaseService):
                 # Check if morphology exists
                 if (
                     "neuron_morphologies" not in current_genome
-                    or morphology_id not in current_genome["neuron_morphologies"]
+                    or morphology_id
+                    not in current_genome["neuron_morphologies"]
                 ):
                     self.logger.warning(
                         f"Morphology '{morphology_id}' not found in genome"
                     )
                     return False
 
-                morphology = current_genome["neuron_morphologies"][morphology_id]
+                morphology = current_genome["neuron_morphologies"][
+                    morphology_id
+                ]
 
                 # Don't allow deleting core morphologies
                 if morphology.get("source") == "core":
@@ -2099,14 +2510,18 @@ class GenomeService(BaseService):
                     )
 
                 # CRITICAL SAFETY CHECK: Verify morphology is not in use before deletion
-                usage_locations = self._check_morphology_usage(current_genome, morphology_id)
+                usage_locations = self._check_morphology_usage(
+                    current_genome, morphology_id
+                )
                 if usage_locations:
                     # Build detailed error message listing all usage locations
                     usage_details = []
                     for location_type, items in usage_locations.items():
                         if items:
-                            usage_details.append(f"{location_type}: {', '.join(items)}")
-                    
+                            usage_details.append(
+                                f"{location_type}: {', '.join(items)}"
+                            )
+
                     usage_summary = "; ".join(usage_details)
                     raise ValueError(
                         f"Cannot delete morphology '{morphology_id}' - it is currently in use. "
@@ -2173,7 +2588,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot update cortical mapping: No genome loaded")
+                self.logger.error(
+                    "Cannot update cortical mapping: No genome loaded"
+                )
                 return False
 
             # Begin genome transaction for atomic modification
@@ -2209,8 +2626,12 @@ class GenomeService(BaseService):
                                 # Expected array: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
                                 connection_array = [
                                     connection.get("morphology_id", ""),
-                                    connection.get("morphology_scalar", [1, 1, 1]),
-                                    connection.get("postSynapticCurrent_multiplier", 1),
+                                    connection.get(
+                                        "morphology_scalar", [1, 1, 1]
+                                    ),
+                                    connection.get(
+                                        "postSynapticCurrent_multiplier", 1
+                                    ),
                                     connection.get("plasticity_flag", False),
                                     connection.get("plasticity_constant", 1),
                                     connection.get("ltp_multiplier", 1),
@@ -2244,7 +2665,10 @@ class GenomeService(BaseService):
                             "CORE" in cortical_types
                             and "supported_devices" in cortical_types["CORE"]
                         ):
-                            if area_id in cortical_types["CORE"]["supported_devices"]:
+                            if (
+                                area_id
+                                in cortical_types["CORE"]["supported_devices"]
+                            ):
                                 area_template = cortical_types["CORE"][
                                     "supported_devices"
                                 ][area_id]
@@ -2256,20 +2680,26 @@ class GenomeService(BaseService):
                                     "cortical_name", area_id
                                 ),
                                 "coordinates": {
-                                    "x": area_template.get("coordinate_3d", [0, 0, 0])[
-                                        0
-                                    ],
-                                    "y": area_template.get("coordinate_3d", [0, 0, 0])[
-                                        1
-                                    ],
-                                    "z": area_template.get("coordinate_3d", [0, 0, 0])[
-                                        2
-                                    ],
+                                    "x": area_template.get(
+                                        "coordinate_3d", [0, 0, 0]
+                                    )[0],
+                                    "y": area_template.get(
+                                        "coordinate_3d", [0, 0, 0]
+                                    )[1],
+                                    "z": area_template.get(
+                                        "coordinate_3d", [0, 0, 0]
+                                    )[2],
                                 },
                                 "dimensions": {
-                                    "x": area_template.get("resolution", [1, 1, 1])[0],
-                                    "y": area_template.get("resolution", [1, 1, 1])[1],
-                                    "z": area_template.get("resolution", [1, 1, 1])[2],
+                                    "x": area_template.get(
+                                        "resolution", [1, 1, 1]
+                                    )[0],
+                                    "y": area_template.get(
+                                        "resolution", [1, 1, 1]
+                                    )[1],
+                                    "z": area_template.get(
+                                        "resolution", [1, 1, 1]
+                                    )[2],
                                 },
                                 "parameters": {},
                             }
@@ -2297,27 +2727,37 @@ class GenomeService(BaseService):
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
-                
+
                 # CRITICAL FIX: Persist genome changes to StateManager
                 # This ensures other parts of the system see the updated genome
-                self.logger.info("🧠 [MAPPING-DEBUG] Saving updated genome to StateManager...")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Saving updated genome to StateManager..."
+                )
                 self.state_manager.genome = current_genome
-                self.logger.info("🧠 [MAPPING-DEBUG] Genome saved to StateManager successfully")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Genome saved to StateManager successfully"
+                )
 
                 # Trigger NeuroEmbryogenesis to update ConnectomeManager
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
                     NeuroEmbryogenesis,
                 )
 
-                self.logger.info("🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance...")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance..."
+                )
                 embryogenesis = NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
-                self.logger.info("🧠 [MAPPING-DEBUG] NeuroEmbryogenesis created successfully")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] NeuroEmbryogenesis created successfully"
+                )
 
                 # CRITICAL FIX: Load the genome data into the NeuroEmbryogenesis instance
                 # This ensures the morphology definitions are available for cortical mapping
-                self.logger.info("🧠 [MAPPING-DEBUG] Loading genome data into NeuroEmbryogenesis...")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Loading genome data into NeuroEmbryogenesis..."
+                )
                 if not embryogenesis._load_genome_data(current_genome):
                     self.logger.error(
                         "🧠 [MAPPING-DEBUG] ERROR: Failed to load genome data into NeuroEmbryogenesis"
@@ -2325,12 +2765,18 @@ class GenomeService(BaseService):
                     if transaction:
                         transaction.rollback()
                     return False
-                self.logger.info("🧠 [MAPPING-DEBUG] Genome data loaded successfully")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Genome data loaded successfully"
+                )
 
                 # Apply the cortical mapping update
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Calling embryogenesis.update_cortical_mapping with: {mapping}")
+                self.logger.info(
+                    f"🧠 [MAPPING-DEBUG] Calling embryogenesis.update_cortical_mapping with: {mapping}"
+                )
                 success = embryogenesis.update_cortical_mapping(mapping)
-                self.logger.info(f"🧠 [MAPPING-DEBUG] embryogenesis.update_cortical_mapping result: {success}")
+                self.logger.info(
+                    f"🧠 [MAPPING-DEBUG] embryogenesis.update_cortical_mapping result: {success}"
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -2340,16 +2786,22 @@ class GenomeService(BaseService):
 
                 if success:
                     self.logger.info("Updated cortical mapping")
-                    
+
                     # ARCHITECTURE COMPLIANCE: Invalidate StateManager cache after mapping updates
                     # This ensures /v1/cortical_mapping/mapping shows fresh data immediately
-                    self.logger.info("🧠 [MAPPING-DEBUG] Invalidating cortical areas cache via StateManager...")
+                    self.logger.info(
+                        "🧠 [MAPPING-DEBUG] Invalidating cortical areas cache via StateManager..."
+                    )
                     try:
                         self.state_manager.invalidate_cortical_areas_cache()
-                        self.logger.info("🧠 [MAPPING-DEBUG] Cache invalidated successfully - fresh data will be served")
-                        
+                        self.logger.info(
+                            "🧠 [MAPPING-DEBUG] Cache invalidated successfully - fresh data will be served"
+                        )
+
                     except Exception as cache_clear_error:
-                        self.logger.warning(f"🧠 [MAPPING-DEBUG] Cache invalidation failed: {cache_clear_error}")
+                        self.logger.warning(
+                            f"🧠 [MAPPING-DEBUG] Cache invalidation failed: {cache_clear_error}"
+                        )
 
                 return success
 
@@ -2362,7 +2814,9 @@ class GenomeService(BaseService):
             self.logger.error(f"Error updating cortical mapping: {str(e)}")
             return False
 
-    def update_cortical_mapping_properties(self, update_data: Dict[str, Any]) -> bool:
+    def update_cortical_mapping_properties(
+        self, update_data: Dict[str, Any]
+    ) -> bool:
         """
         Update cortical mapping properties between two specific cortical areas.
 
@@ -2380,10 +2834,14 @@ class GenomeService(BaseService):
             dst_area = update_data.get("dst_cortical_area")
             mapping_data = update_data.get("mapping_data", [])
 
-            self.logger.info("🧠 [MAPPING-DEBUG] update_cortical_mapping_properties called")
+            self.logger.info(
+                "🧠 [MAPPING-DEBUG] update_cortical_mapping_properties called"
+            )
             self.logger.info(f"🧠 [MAPPING-DEBUG] src_area: {src_area}")
             self.logger.info(f"🧠 [MAPPING-DEBUG] dst_area: {dst_area}")
-            self.logger.info(f"🧠 [MAPPING-DEBUG] mapping_data: {mapping_data}")
+            self.logger.info(
+                f"🧠 [MAPPING-DEBUG] mapping_data: {mapping_data}"
+            )
 
             if not src_area or not dst_area:
                 self.logger.error(
@@ -2404,10 +2862,14 @@ class GenomeService(BaseService):
             # Begin genome transaction for atomic modification
             if self.state_manager:
                 transaction = self.state_manager.begin_genome_transaction()
-                self.logger.info("🧠 [MAPPING-DEBUG] Started genome transaction")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Started genome transaction"
+                )
             else:
                 transaction = None
-                self.logger.warning("🧠 [MAPPING-DEBUG] No StateManager - no transaction protection")
+                self.logger.warning(
+                    "🧠 [MAPPING-DEBUG] No StateManager - no transaction protection"
+                )
 
             try:
                 # Get current genome for modification
@@ -2418,7 +2880,9 @@ class GenomeService(BaseService):
                     )
                     return False
 
-                self.logger.info("🧠 [MAPPING-DEBUG] Current genome loaded successfully")
+                self.logger.info(
+                    "🧠 [MAPPING-DEBUG] Current genome loaded successfully"
+                )
 
                 # CRITICAL FIX: Handle empty mapping_data as deletion request
                 if not mapping_data or len(mapping_data) == 0:
@@ -2427,44 +2891,72 @@ class GenomeService(BaseService):
                     )
                     # Use the delete_cortical_mapping method for proper synapse removal
                     success = self.delete_cortical_mapping(src_area, dst_area)
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] Deletion result: {success}")
+                    self.logger.info(
+                        f"🧠 [MAPPING-DEBUG] Deletion result: {success}"
+                    )
                 else:
                     # Convert mapping_data to the expected format for normal updates
                     formatted_mapping = {src_area: {dst_area: mapping_data}}
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] Formatted mapping: {formatted_mapping}")
-                    
+                    self.logger.info(
+                        f"🧠 [MAPPING-DEBUG] Formatted mapping: {formatted_mapping}"
+                    )
+
                     # Use the existing update_cortical_mapping method
-                    self.logger.info("🧠 [MAPPING-DEBUG] Calling update_cortical_mapping...")
+                    self.logger.info(
+                        "🧠 [MAPPING-DEBUG] Calling update_cortical_mapping..."
+                    )
                     success = self.update_cortical_mapping(formatted_mapping)
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] update_cortical_mapping result: {success}")
+                    self.logger.info(
+                        f"🧠 [MAPPING-DEBUG] update_cortical_mapping result: {success}"
+                    )
 
                 if success and transaction:
-                    self.logger.info("🧠 [MAPPING-DEBUG] Committing transaction...")
+                    self.logger.info(
+                        "🧠 [MAPPING-DEBUG] Committing transaction..."
+                    )
                     transaction.commit()
-                    self.logger.info("🧠 [MAPPING-DEBUG] Transaction committed successfully")
+                    self.logger.info(
+                        "🧠 [MAPPING-DEBUG] Transaction committed successfully"
+                    )
                 elif transaction:
-                    self.logger.error("🧠 [MAPPING-DEBUG] Rolling back transaction due to failure")
+                    self.logger.error(
+                        "🧠 [MAPPING-DEBUG] Rolling back transaction due to failure"
+                    )
                     transaction.rollback()
                     return False
 
                 if success:
-                    self.logger.info("🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully")
+                    self.logger.info(
+                        "🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully"
+                    )
                 else:
-                    self.logger.error("🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed")
+                    self.logger.error(
+                        "🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed"
+                    )
 
                 return success
 
             except Exception as e:
-                self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in inner try block: {e}")
-                self.logger.exception("🧠 [MAPPING-DEBUG] Exception traceback:")
+                self.logger.error(
+                    f"🧠 [MAPPING-DEBUG] EXCEPTION in inner try block: {e}"
+                )
+                self.logger.exception(
+                    "🧠 [MAPPING-DEBUG] Exception traceback:"
+                )
                 if transaction:
-                    self.logger.error("🧠 [MAPPING-DEBUG] Rolling back transaction due to exception")
+                    self.logger.error(
+                        "🧠 [MAPPING-DEBUG] Rolling back transaction due to exception"
+                    )
                     transaction.rollback()
                 raise e
 
         except Exception as e:
-            self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in outer try block: {e}")
-            self.logger.exception("🧠 [MAPPING-DEBUG] Outer exception traceback:")
+            self.logger.error(
+                f"🧠 [MAPPING-DEBUG] EXCEPTION in outer try block: {e}"
+            )
+            self.logger.exception(
+                "🧠 [MAPPING-DEBUG] Outer exception traceback:"
+            )
             return False
 
     def delete_cortical_mapping(
@@ -2491,7 +2983,9 @@ class GenomeService(BaseService):
                 return False
 
             if not self.is_genome_loaded():
-                self.logger.error("Cannot delete cortical mapping: No genome loaded")
+                self.logger.error(
+                    "Cannot delete cortical mapping: No genome loaded"
+                )
                 return False
 
             self.logger.info(
@@ -2529,57 +3023,86 @@ class GenomeService(BaseService):
 
                 # SAFETY: We're only modifying mapping properties, NOT deleting the cortical area
                 src_area_def = blueprint[src_cortical_area]
-                
+
                 # Remove from cortical_mapping_dst if it exists
                 mapping_dst = src_area_def.get("cortical_mapping_dst", {})
                 if dst_cortical_area in mapping_dst:
                     del mapping_dst[dst_cortical_area]
-                    self.logger.info(f"Removed {dst_cortical_area} from {src_cortical_area} mapping destinations")
-                
+                    self.logger.info(
+                        f"Removed {dst_cortical_area} from {src_cortical_area} mapping destinations"
+                    )
+
                 # Remove from parameters.mapping if it exists
                 parameters = src_area_def.get("parameters", {})
                 if "mapping" in parameters:
                     mapping_params = parameters["mapping"]
-                    if isinstance(mapping_params, dict) and dst_cortical_area in mapping_params:
+                    if (
+                        isinstance(mapping_params, dict)
+                        and dst_cortical_area in mapping_params
+                    ):
                         del mapping_params[dst_cortical_area]
-                        self.logger.info(f"Removed {dst_cortical_area} from {src_cortical_area} mapping parameters")
+                        self.logger.info(
+                            f"Removed {dst_cortical_area} from {src_cortical_area} mapping parameters"
+                        )
 
                 # Step 2: Update genome in state manager
                 self._current_genome = current_genome
                 if self.state_manager:
                     self.state_manager.genome = current_genome
 
-                # Step 3: Remove existing synapses between cortical areas 
+                # Step 3: Remove existing synapses between cortical areas
                 # Use direct synapse deletion approach (following delete_cortical_connection pattern)
                 connectome_manager = self._connectome_manager
                 if connectome_manager:
                     try:
                         # Get all neurons in source and target areas
-                        source_neurons = connectome_manager.get_neurons_by_cortical_area(src_cortical_area)
-                        target_neurons = connectome_manager.get_neurons_by_cortical_area(dst_cortical_area)
-                        
+                        source_neurons = (
+                            connectome_manager.get_neurons_by_cortical_area(
+                                src_cortical_area
+                            )
+                        )
+                        target_neurons = (
+                            connectome_manager.get_neurons_by_cortical_area(
+                                dst_cortical_area
+                            )
+                        )
+
                         deleted_count = 0
-                        self.logger.info(f"Deleting synapses from {len(source_neurons)} source neurons to {len(target_neurons)} target neurons")
-                        
+                        self.logger.info(
+                            f"Deleting synapses from {len(source_neurons)} source neurons to {len(target_neurons)} target neurons"
+                        )
+
                         # Delete all synapses between source and target areas
                         for source_id in source_neurons:
                             for target_id in target_neurons:
-                                if connectome_manager.has_synapse(source_id, target_id):
-                                    success_remove = connectome_manager.remove_synapse(source_id, target_id)
+                                if connectome_manager.has_synapse(
+                                    source_id, target_id
+                                ):
+                                    success_remove = (
+                                        connectome_manager.remove_synapse(
+                                            source_id, target_id
+                                        )
+                                    )
                                     if success_remove:
                                         deleted_count += 1
-                        
-                        self.logger.info(f"Successfully deleted {deleted_count} synapses between {src_cortical_area} and {dst_cortical_area}")
+
+                        self.logger.info(
+                            f"Successfully deleted {deleted_count} synapses between {src_cortical_area} and {dst_cortical_area}"
+                        )
                         success = True
-                        
+
                     except Exception as e:
-                        self.logger.error(f"Failed to delete synapses between areas: {e}")
+                        self.logger.error(
+                            f"Failed to delete synapses between areas: {e}"
+                        )
                         success = False
                         if transaction:
                             transaction.rollback()
                         return False
                 else:
-                    self.logger.error("ConnectomeManager not available for synapse deletion")
+                    self.logger.error(
+                        "ConnectomeManager not available for synapse deletion"
+                    )
                     success = False
                     if transaction:
                         transaction.rollback()
@@ -2611,8 +3134,6 @@ class GenomeService(BaseService):
     # These methods handle genome loading and management through proper data flow:
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
-
-
     def reset_genome(self) -> bool:
         """
         Reset genome through proper genome modification pipeline.
@@ -2636,9 +3157,9 @@ class GenomeService(BaseService):
                     "blueprint": {},
                     "neuron_morphologies": {},
                     "cortical_mappings": {},
-                    "version": "2.1"
+                    "version": "2.1",
                 }
-                
+
                 # Clear the current genome and update state manager
                 self._current_genome = empty_genome
                 if self.state_manager:
@@ -2655,7 +3176,9 @@ class GenomeService(BaseService):
 
                 # Apply the genome reset by developing brain from empty genome
                 # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
-                success = embryogenesis.develop_brain_from_genome_data(empty_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    empty_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -2677,7 +3200,9 @@ class GenomeService(BaseService):
             self.logger.error(f"Error resetting genome: {str(e)}")
             return False
 
-    def amalgamate_genome(self, amalgamation_data: Dict[str, Any]) -> Dict[str, Any]:
+    def amalgamate_genome(
+        self, amalgamation_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Perform genome amalgamation through proper genome modification pipeline.
 
@@ -2715,8 +3240,13 @@ class GenomeService(BaseService):
                 # Apply the amalgamation
                 # TODO: Implement genome amalgamation - merge the amalgamation_data into current_genome
                 # then call embryogenesis.develop_brain_from_genome_data(updated_genome)
-                self.logger.error("Genome amalgamation not yet implemented - needs proper genome merging logic")
-                result = {"success": False, "error": "Amalgamation not implemented"}
+                self.logger.error(
+                    "Genome amalgamation not yet implemented - needs proper genome merging logic"
+                )
+                result = {
+                    "success": False,
+                    "error": "Amalgamation not implemented",
+                }
 
                 if result.get("success") and transaction:
                     transaction.commit()
@@ -2725,7 +3255,9 @@ class GenomeService(BaseService):
                     return {"success": False, "error": "Amalgamation failed"}
 
                 if result.get("success"):
-                    self.logger.info("Genome amalgamation completed successfully")
+                    self.logger.info(
+                        "Genome amalgamation completed successfully"
+                    )
 
                 return result
 
@@ -2771,7 +3303,9 @@ class GenomeService(BaseService):
                 # Apply the amalgamation cancellation
                 # TODO: Implement amalgamation cancellation - restore previous genome state
                 # then call embryogenesis.develop_brain_from_genome_data(restored_genome)
-                self.logger.error("Amalgamation cancellation not yet implemented")
+                self.logger.error(
+                    "Amalgamation cancellation not yet implemented"
+                )
                 success = False
 
                 if success and transaction:
@@ -2834,7 +3368,9 @@ class GenomeService(BaseService):
                 # Apply the file appending
                 # TODO: Implement file appending to genome - merge file_data into current_genome
                 # then call embryogenesis.develop_brain_from_genome_data(updated_genome)
-                self.logger.error("File appending to genome not yet implemented")
+                self.logger.error(
+                    "File appending to genome not yet implemented"
+                )
                 success = False
 
                 if success and transaction:
@@ -2889,7 +3425,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot create brain region: No genome loaded")
+                self.logger.error(
+                    "Cannot create brain region: No genome loaded"
+                )
                 return False
 
             # Begin genome transaction for atomic modification
@@ -2913,7 +3451,9 @@ class GenomeService(BaseService):
 
                 # Check if region already exists
                 if region_id in current_genome["brain_regions"]:
-                    raise ValueError(f"Brain region '{region_id}' already exists")
+                    raise ValueError(
+                        f"Brain region '{region_id}' already exists"
+                    )
 
                 # Create new brain region definition
                 new_region = {
@@ -2921,7 +3461,8 @@ class GenomeService(BaseService):
                     "region_name": region_name,
                     "parent_region_id": parent_region_id,
                     "coordinates": coordinates or {"x": 0, "y": 0, "z": 0},
-                    "dimensions": dimensions or {"width": 1, "height": 1, "depth": 1},
+                    "dimensions": dimensions
+                    or {"width": 1, "height": 1, "depth": 1},
                     "parameters": parameters or {},
                     "child_regions": [],
                     "cortical_areas": [],
@@ -2935,7 +3476,9 @@ class GenomeService(BaseService):
                     parent_region_id != "root"
                     and parent_region_id in current_genome["brain_regions"]
                 ):
-                    parent_region = current_genome["brain_regions"][parent_region_id]
+                    parent_region = current_genome["brain_regions"][
+                        parent_region_id
+                    ]
                     if "child_regions" not in parent_region:
                         parent_region["child_regions"] = []
                     parent_region["child_regions"].append(region_id)
@@ -2954,7 +3497,9 @@ class GenomeService(BaseService):
 
                 # Apply the brain region creation by triggering brain development
                 # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
-                success = embryogenesis.develop_brain_from_genome_data(current_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    current_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -3006,7 +3551,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot update brain region: No genome loaded")
+                self.logger.error(
+                    "Cannot update brain region: No genome loaded"
+                )
                 return False
 
             # Begin genome transaction for atomic modification
@@ -3029,7 +3576,9 @@ class GenomeService(BaseService):
                     "brain_regions" not in current_genome
                     or region_id not in current_genome["brain_regions"]
                 ):
-                    self.logger.warning(f"Brain region {region_id} not found in genome")
+                    self.logger.warning(
+                        f"Brain region {region_id} not found in genome"
+                    )
                     return False
 
                 # Get existing region definition
@@ -3046,8 +3595,9 @@ class GenomeService(BaseService):
                     region_def["parameters"].update(parameters)
 
                 # Handle parent region change
-                if parent_region_id is not None and parent_region_id != region_def.get(
-                    "parent_region_id"
+                if (
+                    parent_region_id is not None
+                    and parent_region_id != region_def.get("parent_region_id")
                 ):
                     old_parent_id = region_def.get("parent_region_id")
 
@@ -3056,7 +3606,9 @@ class GenomeService(BaseService):
                         old_parent_id
                         and old_parent_id in current_genome["brain_regions"]
                     ):
-                        old_parent = current_genome["brain_regions"][old_parent_id]
+                        old_parent = current_genome["brain_regions"][
+                            old_parent_id
+                        ]
                         if (
                             "child_regions" in old_parent
                             and region_id in old_parent["child_regions"]
@@ -3068,7 +3620,9 @@ class GenomeService(BaseService):
                         parent_region_id != "root"
                         and parent_region_id in current_genome["brain_regions"]
                     ):
-                        new_parent = current_genome["brain_regions"][parent_region_id]
+                        new_parent = current_genome["brain_regions"][
+                            parent_region_id
+                        ]
                         if "child_regions" not in new_parent:
                             new_parent["child_regions"] = []
                         if region_id not in new_parent["child_regions"]:
@@ -3089,7 +3643,9 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the brain region update
-                success = embryogenesis.develop_brain_from_genome_data(current_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    current_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -3111,7 +3667,9 @@ class GenomeService(BaseService):
             self.logger.error(f"Error updating brain region: {str(e)}")
             return False
 
-    def delete_brain_region(self, region_id: str, delete_members: bool = False) -> bool:
+    def delete_brain_region(
+        self, region_id: str, delete_members: bool = False
+    ) -> bool:
         """
         Delete a brain region through proper genome modification pipeline.
 
@@ -3127,7 +3685,9 @@ class GenomeService(BaseService):
         """
         try:
             if not self.is_genome_loaded():
-                self.logger.error("Cannot delete brain region: No genome loaded")
+                self.logger.error(
+                    "Cannot delete brain region: No genome loaded"
+                )
                 return False
 
             # Begin genome transaction for atomic modification
@@ -3150,7 +3710,9 @@ class GenomeService(BaseService):
                     "brain_regions" not in current_genome
                     or region_id not in current_genome["brain_regions"]
                 ):
-                    self.logger.warning(f"Brain region {region_id} not found in genome")
+                    self.logger.warning(
+                        f"Brain region {region_id} not found in genome"
+                    )
                     return False
 
                 # Cannot delete root region
@@ -3167,7 +3729,9 @@ class GenomeService(BaseService):
                 if delete_members:
                     # Delete all child regions recursively
                     for child_region_id in child_regions:
-                        self.delete_brain_region(child_region_id, delete_members=True)
+                        self.delete_brain_region(
+                            child_region_id, delete_members=True
+                        )
 
                     # Delete all cortical areas in this region
                     for cortical_area_id in cortical_areas:
@@ -3184,13 +3748,21 @@ class GenomeService(BaseService):
                         if "child_regions" not in parent_region:
                             parent_region["child_regions"] = []
                         for child_region_id in child_regions:
-                            if child_region_id not in parent_region["child_regions"]:
-                                parent_region["child_regions"].append(child_region_id)
+                            if (
+                                child_region_id
+                                not in parent_region["child_regions"]
+                            ):
+                                parent_region["child_regions"].append(
+                                    child_region_id
+                                )
                             # Update child's parent reference
-                            if child_region_id in current_genome["brain_regions"]:
-                                current_genome["brain_regions"][child_region_id][
-                                    "parent_region_id"
-                                ] = parent_region_id
+                            if (
+                                child_region_id
+                                in current_genome["brain_regions"]
+                            ):
+                                current_genome["brain_regions"][
+                                    child_region_id
+                                ]["parent_region_id"] = parent_region_id
 
                     # Move cortical areas to parent region (using hierarchical blueprint)
                     for cortical_area_id in cortical_areas:
@@ -3207,7 +3779,9 @@ class GenomeService(BaseService):
                     parent_region_id
                     and parent_region_id in current_genome["brain_regions"]
                 ):
-                    parent_region = current_genome["brain_regions"][parent_region_id]
+                    parent_region = current_genome["brain_regions"][
+                        parent_region_id
+                    ]
                     if (
                         "child_regions" in parent_region
                         and region_id in parent_region["child_regions"]
@@ -3230,7 +3804,9 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the brain region deletion
-                success = embryogenesis.develop_brain_from_genome_data(current_genome)
+                success = embryogenesis.develop_brain_from_genome_data(
+                    current_genome
+                )
 
                 if success and transaction:
                     transaction.commit()
@@ -3252,16 +3828,18 @@ class GenomeService(BaseService):
             self.logger.error(f"Error deleting brain region: {str(e)}")
             return False
 
-    def _analyze_genome_requirements(self, genome_data: Dict[str, Any]) -> Dict[str, int]:
+    def _analyze_genome_requirements(
+        self, genome_data: Dict[str, Any]
+    ) -> Dict[str, int]:
         """
         Analyze genome to calculate required neuron and synapse capacity.
-        
+
         This method must be called BEFORE ConnectomeManager initialization
         to ensure adequate capacity for the genome.
-        
+
         Args:
             genome_data: The genome dictionary to analyze
-            
+
         Returns:
             Dictionary with required capacities:
             {
@@ -3274,66 +3852,93 @@ class GenomeService(BaseService):
         try:
             # Use existing GenomeProcessor to parse genome properly
             from feagi.evo.genome_processor import GenomeProcessor
-            
+
             processor = GenomeProcessor(genome_data)
             cortical_areas = processor.extract_cortical_areas()
             cortical_mappings = processor.extract_cortical_mappings()
-            
+
             total_neurons = 0
             total_synapses = 0
-            
+
             # Calculate neurons from cortical areas
             for cortical_id, area_props in cortical_areas.items():
                 if "dimensions" in area_props:
                     dims = area_props["dimensions"]
                     if len(dims) >= 3:
                         # CRITICAL: Account for neuron density (neurons per voxel)
-                        neurons_per_voxel = area_props.get("neurons_per_voxel", 1)
-                        area_neurons = dims[0] * dims[1] * dims[2] * neurons_per_voxel
+                        neurons_per_voxel = area_props.get(
+                            "neurons_per_voxel", 1
+                        )
+                        area_neurons = (
+                            dims[0] * dims[1] * dims[2] * neurons_per_voxel
+                        )
                         total_neurons += area_neurons
-                        
-                        self.logger.debug(f"[GENOME ANALYSIS] {cortical_id}: {area_neurons:,} neurons ({dims[0]}x{dims[1]}x{dims[2]} * {neurons_per_voxel} neurons/voxel)")
-           
+
+                        self.logger.debug(
+                            f"[GENOME ANALYSIS] {cortical_id}: {area_neurons:,} neurons ({dims[0]}x{dims[1]}x{dims[2]} * {neurons_per_voxel} neurons/voxel)"
+                        )
+
             # Estimate synapses from cortical mappings
             for src_id, dst_mappings in cortical_mappings.items():
                 for dst_id, connections in dst_mappings.items():
                     # Rough estimate: each connection creates synapses proportional to area sizes
                     src_area = cortical_areas.get(src_id)
                     dst_area = cortical_areas.get(dst_id)
-                    
-                    if src_area and dst_area and "dimensions" in src_area and "dimensions" in dst_area:
-                        src_neurons = src_area["dimensions"][0] * src_area["dimensions"][1] * src_area["dimensions"][2]
-                        dst_neurons = dst_area["dimensions"][0] * dst_area["dimensions"][1] * dst_area["dimensions"][2]
-                        
+
+                    if (
+                        src_area
+                        and dst_area
+                        and "dimensions" in src_area
+                        and "dimensions" in dst_area
+                    ):
+                        src_neurons = (
+                            src_area["dimensions"][0]
+                            * src_area["dimensions"][1]
+                            * src_area["dimensions"][2]
+                        )
+                        dst_neurons = (
+                            dst_area["dimensions"][0]
+                            * dst_area["dimensions"][1]
+                            * dst_area["dimensions"][2]
+                        )
+
                         # Estimate synapses per connection (conservative estimate)
-                        synapses_per_connection = min(src_neurons, dst_neurons) // 10
-                        total_synapses += synapses_per_connection * len(connections)
-           
+                        synapses_per_connection = (
+                            min(src_neurons, dst_neurons) // 10
+                        )
+                        total_synapses += synapses_per_connection * len(
+                            connections
+                        )
+
             # Apply buffer multiplier for safety (50% extra capacity)
             buffer_multiplier = 1.5
             min_neuron_capacity = 100_000
             min_synapse_capacity = 1_000_000
-            
+
             recommended_neurons = max(
-                int(total_neurons * buffer_multiplier),
-                min_neuron_capacity
+                int(total_neurons * buffer_multiplier), min_neuron_capacity
             )
             recommended_synapses = max(
-                int(total_synapses * buffer_multiplier), 
-                min_synapse_capacity
+                int(total_synapses * buffer_multiplier), min_synapse_capacity
             )
-            
-            self.logger.info(f"[GENOME ANALYSIS] Required neurons: {total_neurons:,}")
-            self.logger.info(f"[GENOME ANALYSIS] Required synapses: {total_synapses:,}")
-            self.logger.info(f"[GENOME ANALYSIS] Recommended capacity: {recommended_neurons:,} neurons, {recommended_synapses:,} synapses")
-            
+
+            self.logger.info(
+                f"[GENOME ANALYSIS] Required neurons: {total_neurons:,}"
+            )
+            self.logger.info(
+                f"[GENOME ANALYSIS] Required synapses: {total_synapses:,}"
+            )
+            self.logger.info(
+                f"[GENOME ANALYSIS] Recommended capacity: {recommended_neurons:,} neurons, {recommended_synapses:,} synapses"
+            )
+
             return {
                 "neurons_required": total_neurons,
                 "synapses_required": total_synapses,
                 "recommended_neuron_capacity": recommended_neurons,
-                "recommended_synapse_capacity": recommended_synapses
+                "recommended_synapse_capacity": recommended_synapses,
             }
-            
+
         except Exception as e:
             self.logger.error(f"Error analyzing genome requirements: {e}")
             # Return safe defaults if analysis fails
@@ -3341,457 +3946,602 @@ class GenomeService(BaseService):
                 "neurons_required": 0,
                 "synapses_required": 0,
                 "recommended_neuron_capacity": 100_000,
-                "recommended_synapse_capacity": 1_000_000
+                "recommended_synapse_capacity": 1_000_000,
             }
 
     def _update_parameters_only(
-        self, 
-        cortical_id: str, 
-        changes: Dict[str, Any], 
-        transaction
+        self, cortical_id: str, changes: Dict[str, Any], transaction
     ) -> Optional[Dict[str, Any]]:
         """
         Fast path: Update only neuron parameters without full brain rebuild.
-        
+
         Performance: ~2-5ms vs ~800ms for full rebuild (160-400x faster)
         """
         import time
+
         start_time = time.time()
-        
+
         try:
             # Update genome (hierarchical format)
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
-            
-            # Filter to parameter changes only  
+
+            # Filter to parameter changes only
             from feagi.api.core.services.genome.change_classifier import (
                 CorticalChangeClassifier,
             )
+
             parameter_changes = {
-                k: v for k, v in changes.items() 
+                k: v
+                for k, v in changes.items()
                 if k in CorticalChangeClassifier.PARAMETER_TO_NEURON_PROPERTY
             }
-            
+
             if not parameter_changes:
-                self.logger.warning(f"No parameter changes found in {list(changes.keys())}")
+                self.logger.warning(
+                    f"No parameter changes found in {list(changes.keys())}"
+                )
                 return area_def
-            
+
             # Update genome parameters section
             if "parameters" not in area_def:
                 area_def["parameters"] = {}
             area_def["parameters"].update(parameter_changes)
-            
+
             # Commit genome changes to both internal cache and state manager
             self._current_genome = current_genome
-            
+
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.debug("[PARAMETER-UPDATE] Synchronized genome with StateManager")
-            
+                self.logger.debug(
+                    "[PARAMETER-UPDATE] Synchronized genome with StateManager"
+                )
+
             # Direct neuron updates (NO REBUILD!)
             from feagi.api.core.services.genome.parameter_updater import (
                 CorticalParameterUpdater,
             )
+
             updater = CorticalParameterUpdater(self._connectome_manager)
-            
+
             # Update neurons in arrays
-            neuron_update_success = updater.update_neuron_parameters(cortical_id, parameter_changes)
-            
-            # Update ConnectomeManager cortical area properties for consistency
-            connectome_update_success = self._connectome_manager.update_cortical_area_properties(
+            neuron_update_success = updater.update_neuron_parameters(
                 cortical_id, parameter_changes
             )
-            
+
+            # Update ConnectomeManager cortical area properties for consistency
+            connectome_update_success = (
+                self._connectome_manager.update_cortical_area_properties(
+                    cortical_id, parameter_changes
+                )
+            )
+
             success = neuron_update_success and connectome_update_success
-            
+
             if success and transaction:
                 transaction.commit()
             elif transaction:
                 transaction.rollback()
                 return None
-                
+
             duration = time.time() - start_time
             if success:
                 self.logger.info(
                     f"[FAST-UPDATE] Parameter update completed for {cortical_id} "
-                    f"in {duration*1000:.1f}ms"
+                    f"in {duration * 1000:.1f}ms"
                 )
                 return current_genome["blueprint"][cortical_id]
             else:
                 self.logger.error(f"Parameter update failed for {cortical_id}")
                 return None
-                
+
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(f"Fast parameter update failed after {duration*1000:.1f}ms: {e}")
+            self.logger.error(
+                f"Fast parameter update failed after {duration * 1000:.1f}ms: {e}"
+            )
             if transaction:
                 transaction.rollback()
             return None
-    
+
     def _update_metadata_only(
-        self, 
-        cortical_id: str, 
-        changes: Dict[str, Any], 
-        transaction
+        self, cortical_id: str, changes: Dict[str, Any], transaction
     ) -> Optional[Dict[str, Any]]:
         """
         Fastest path: Update only metadata without affecting neurons.
-        
+
         Performance: ~1ms (metadata changes only)
         """
         import time
+
         start_time = time.time()
-        
+
         try:
             # Update genome (hierarchical format)
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
-            
+
             # Filter to metadata changes only
             from feagi.api.core.services.genome.change_classifier import (
                 CorticalChangeClassifier,
             )
+
             metadata_changes = {
-                k: v for k, v in changes.items() 
+                k: v
+                for k, v in changes.items()
                 if k in CorticalChangeClassifier.METADATA_CHANGES
             }
-            
+
             # Update genome metadata
             for key, value in metadata_changes.items():
                 area_def[key] = value
-                
+
             # Commit genome changes
             self._current_genome = current_genome
-            
+
             # Update ConnectomeManager cortical area properties for consistency
             success = self._connectome_manager.update_cortical_area_properties(
                 cortical_id, metadata_changes
             )
-            
+
             if success and transaction:
                 transaction.commit()
             elif transaction:
                 transaction.rollback()
                 return None
-                
+
             duration = time.time() - start_time
             if success:
                 self.logger.info(
                     f"[METADATA-UPDATE] Metadata update completed for {cortical_id} "
-                    f"in {duration*1000:.1f}ms"
+                    f"in {duration * 1000:.1f}ms"
                 )
                 return current_genome["blueprint"][cortical_id]
             else:
                 self.logger.error(f"Metadata update failed for {cortical_id}")
                 return None
-                
+
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(f"Metadata update failed after {duration*1000:.1f}ms: {e}")
+            self.logger.error(
+                f"Metadata update failed after {duration * 1000:.1f}ms: {e}"
+            )
             if transaction:
                 transaction.rollback()
             return None
-    
+
     def _update_with_full_rebuild(
-        self, 
-        cortical_id: str, 
-        changes: Dict[str, Any], 
-        transaction
+        self, cortical_id: str, changes: Dict[str, Any], transaction
     ) -> Optional[Dict[str, Any]]:
         """
         Full rebuild path: For structural changes requiring complete brain reconstruction.
-        
+
         Performance: ~800ms (existing behavior)
         """
         import time
+
         start_time = time.time()
-        
+
         try:
-            # Update genome (hierarchical format) 
+            # Update genome (hierarchical format)
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
-            
+
             # Apply all changes to area definition
             for key, value in changes.items():
-                if key in ["cortical_name", "coordinates_3d", "cortical_dimensions", "cortical_type"]:
+                if key in [
+                    "cortical_name",
+                    "coordinates_3d",
+                    "cortical_dimensions",
+                    "cortical_type",
+                ]:
                     area_def[key] = value
                 else:
                     # Parameter changes
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
                     area_def["parameters"][key] = value
-                    
+
             # Commit genome changes to both internal cache and state manager
             self._current_genome = current_genome
-            
+
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.debug("[FULL-REBUILD] Synchronized genome with StateManager")
-            
+                self.logger.debug(
+                    "[FULL-REBUILD] Synchronized genome with StateManager"
+                )
+
             # Full brain rebuild (existing logic)
-            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
-            embryogenesis = NeuroEmbryogenesis(self._connectome_manager, self.state_manager)
-            
+            from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                NeuroEmbryogenesis,
+            )
+
+            embryogenesis = NeuroEmbryogenesis(
+                self._connectome_manager, self.state_manager
+            )
+
             # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
             # NeuroEmbryogenesis now supports hierarchical format natively
-            success = embryogenesis.develop_brain_from_genome_data(current_genome)
-            
+            success = embryogenesis.develop_brain_from_genome_data(
+                current_genome
+            )
+
             if success and transaction:
                 transaction.commit()
             elif transaction:
                 transaction.rollback()
                 return None
-                
+
             duration = time.time() - start_time
             if success:
                 self.logger.info(
                     f"[FULL-REBUILD] Structural update completed for {cortical_id} "
-                    f"in {duration*1000:.1f}ms"
+                    f"in {duration * 1000:.1f}ms"
                 )
                 return current_genome["blueprint"][cortical_id]
             else:
                 self.logger.error(f"Full rebuild failed for {cortical_id}")
                 return None
-                
+
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(f"Full rebuild failed after {duration*1000:.1f}ms: {e}")
+            self.logger.error(
+                f"Full rebuild failed after {duration * 1000:.1f}ms: {e}"
+            )
             if transaction:
                 transaction.rollback()
             return None
-    
+
     def _update_hybrid(
-        self, 
-        cortical_id: str, 
-        changes: Dict[str, Any], 
-        transaction
+        self, cortical_id: str, changes: Dict[str, Any], transaction
     ) -> Optional[Dict[str, Any]]:
         """
         Hybrid path: Optimize mixed structural + parameter + metadata changes.
-        
+
         Strategy: Apply fast updates first, then structural rebuild if needed.
         """
         import time
+
         start_time = time.time()
-        
+
         try:
             # Separate changes by type
             from feagi.api.core.services.genome.change_classifier import (
                 ChangeType,
                 CorticalChangeClassifier,
             )
-            
-            separated = CorticalChangeClassifier.separate_changes_by_type(changes)
-            
+
+            separated = CorticalChangeClassifier.separate_changes_by_type(
+                changes
+            )
+
             self.logger.info(
                 f"[HYBRID-UPDATE] Processing {len(separated[ChangeType.STRUCTURAL])} structural, "
                 f"{len(separated[ChangeType.PARAMETER])} parameter, "
                 f"{len(separated[ChangeType.METADATA])} metadata changes"
             )
-            
+
             # Apply metadata changes first (fastest)
             if separated[ChangeType.METADATA]:
-                result = self._update_metadata_only(cortical_id, separated[ChangeType.METADATA], None)
+                result = self._update_metadata_only(
+                    cortical_id, separated[ChangeType.METADATA], None
+                )
                 if not result:
                     return None
-                    
+
             # If we have structural changes, do localized rebuild (includes parameters)
             if separated[ChangeType.STRUCTURAL]:
                 # Combine structural + parameter changes for single localized rebuild
-                combined_changes = {**separated[ChangeType.STRUCTURAL], **separated[ChangeType.PARAMETER]}
-                result = self._update_with_localized_rebuild(cortical_id, combined_changes, transaction)
+                combined_changes = {
+                    **separated[ChangeType.STRUCTURAL],
+                    **separated[ChangeType.PARAMETER],
+                }
+                result = self._update_with_localized_rebuild(
+                    cortical_id, combined_changes, transaction
+                )
             else:
                 # Only parameter changes remain - use fast path
                 if separated[ChangeType.PARAMETER]:
-                    result = self._update_parameters_only(cortical_id, separated[ChangeType.PARAMETER], transaction)
+                    result = self._update_parameters_only(
+                        cortical_id,
+                        separated[ChangeType.PARAMETER],
+                        transaction,
+                    )
                 else:
                     # Only metadata was updated
                     if transaction:
                         transaction.commit()
                     result = self._current_genome["blueprint"][cortical_id]
-                    
+
             duration = time.time() - start_time
             self.logger.info(
                 f"[HYBRID-UPDATE] Completed hybrid update for {cortical_id} "
-                f"in {duration*1000:.1f}ms"
+                f"in {duration * 1000:.1f}ms"
             )
-            
+
             return result
-            
+
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(f"Hybrid update failed after {duration*1000:.1f}ms: {e}")
+            self.logger.error(
+                f"Hybrid update failed after {duration * 1000:.1f}ms: {e}"
+            )
             if transaction:
                 transaction.rollback()
             return None
 
     def _update_with_localized_rebuild(
-        self, 
-        cortical_id: str, 
-        changes: Dict[str, Any], 
-        transaction
+        self, cortical_id: str, changes: Dict[str, Any], transaction
     ) -> Optional[Dict[str, Any]]:
         """
         Localized rebuild path: For structural changes requiring only the specific area to be rebuilt.
-        
+
         This method rebuilds ONLY the specific cortical area that changed, preserving
         all other areas and their neuron IDs. This fixes the neuron ID instability bug
         where changing one area would reset the entire brain.
-        
+
         Performance: ~100-200ms (vs ~800ms for full rebuild)
         """
         import time
+
         start_time = time.time()
-        
+
         # 🔍 CHECKPOINT 0: Initial state before expansion
         initial_synapse_count = self._connectome_manager.get_synapse_count()
-        initial_neuron_count = self._connectome_manager.neuron_array.get_neuron_count()
-        
+        initial_neuron_count = (
+            self._connectome_manager.neuron_array.get_neuron_count()
+        )
+
         self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 0 - Initial State:")
-        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Cortical area: {cortical_id}")
-        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Initial synapses: {initial_synapse_count}")
-        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Initial neurons: {initial_neuron_count}")
-        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Changes requested: {changes}")
-        
+        self.logger.info(
+            f"🔍 [EXPANSION-DEBUG]   - Cortical area: {cortical_id}"
+        )
+        self.logger.info(
+            f"🔍 [EXPANSION-DEBUG]   - Initial synapses: {initial_synapse_count}"
+        )
+        self.logger.info(
+            f"🔍 [EXPANSION-DEBUG]   - Initial neurons: {initial_neuron_count}"
+        )
+        self.logger.info(
+            f"🔍 [EXPANSION-DEBUG]   - Changes requested: {changes}"
+        )
+
         try:
             # 1. Update genome (hierarchical format) first
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
-            
+
             # Apply all changes to area definition
             for key, value in changes.items():
-                if key in ["cortical_name", "coordinates_3d", "cortical_dimensions", "cortical_type"]:
+                if key in [
+                    "cortical_name",
+                    "coordinates_3d",
+                    "cortical_dimensions",
+                    "cortical_type",
+                ]:
                     area_def[key] = value
                 else:
                     # Parameter changes
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
                     area_def["parameters"][key] = value
-                    
+
             # Commit genome changes to both internal cache and state manager
             self._current_genome = current_genome
-            
+
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.info("[LOCALIZED-REBUILD] Synchronized genome with StateManager")
-            
+                self.logger.info(
+                    "[LOCALIZED-REBUILD] Synchronized genome with StateManager"
+                )
+
             # 2. Extract properties for area recreation
-            properties = self._extract_area_properties_from_genome(cortical_id, current_genome)
-            
+            properties = self._extract_area_properties_from_genome(
+                cortical_id, current_genome
+            )
+
             # 3. PROPER REAL-TIME APPROACH: Resize cortical area without deleting neurons
             # This preserves memory locations for GPU compatibility and avoids lag
-            self.logger.info(f"[LOCALIZED-REBUILD] Resizing cortical area {cortical_id} dimensions: {changes.get('cortical_dimensions')}")
-            old_area_existed = cortical_id in self._connectome_manager.cortical_areas
-            new_dimensions = tuple(changes.get('cortical_dimensions', [1, 1, 1]))
-            
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Resizing cortical area {cortical_id} dimensions: {changes.get('cortical_dimensions')}"
+            )
+            old_area_existed = (
+                cortical_id in self._connectome_manager.cortical_areas
+            )
+            new_dimensions = tuple(
+                changes.get("cortical_dimensions", [1, 1, 1])
+            )
+
             if old_area_existed:
                 area = self._connectome_manager.cortical_areas[cortical_id]
                 old_dimensions = area.dimensions
-                new_dimensions = tuple(changes.get('cortical_dimensions', old_dimensions))
-                
+                new_dimensions = tuple(
+                    changes.get("cortical_dimensions", old_dimensions)
+                )
+
                 if new_dimensions != old_dimensions:
-                    self.logger.info(f"[LOCALIZED-REBUILD] Changing dimensions from {old_dimensions} to {new_dimensions}")
-                    
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Changing dimensions from {old_dimensions} to {new_dimensions}"
+                    )
+
                     # Use the proper cortical area resize method - NO NEURON DELETION
                     removed_neuron_indices = area.resize(new_dimensions)
-                    
+
                     if removed_neuron_indices:
                         # Use proper FEAGI neuron deletion method with free pool management
-                        self.logger.info(f"[LOCALIZED-REBUILD] Properly deleting {len(removed_neuron_indices)} neurons (FEAGI-compliant)")
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Properly deleting {len(removed_neuron_indices)} neurons (FEAGI-compliant)"
+                        )
                         for neuron_idx in removed_neuron_indices:
-                            neuron_id = self._connectome_manager.index_to_neuron_id.get(neuron_idx)
+                            neuron_id = self._connectome_manager.index_to_neuron_id.get(
+                                neuron_idx
+                            )
                             if neuron_id:
                                 # Use FEAGI's proper deletion method - handles all cleanup and free pool management
-                                self._connectome_manager.neuron_array.delete_neuron(neuron_id)
-                    
+                                self._connectome_manager.neuron_array.delete_neuron(
+                                    neuron_id
+                                )
+
                     # Calculate if we need more neurons
-                    old_volume = old_dimensions[0] * old_dimensions[1] * old_dimensions[2]
-                    new_volume = new_dimensions[0] * new_dimensions[1] * new_dimensions[2]
+                    old_volume = (
+                        old_dimensions[0]
+                        * old_dimensions[1]
+                        * old_dimensions[2]
+                    )
+                    new_volume = (
+                        new_dimensions[0]
+                        * new_dimensions[1]
+                        * new_dimensions[2]
+                    )
                     neurons_per_voxel = properties.get("neurons_per_voxel", 1)
-                    
+
                     if new_volume > old_volume:
-                        additional_neurons_needed = (new_volume - old_volume) * neurons_per_voxel
-                        self.logger.info(f"[LOCALIZED-REBUILD] Need {additional_neurons_needed} additional neurons - reusing from free pool")
-                        
+                        additional_neurons_needed = (
+                            new_volume - old_volume
+                        ) * neurons_per_voxel
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Need {additional_neurons_needed} additional neurons - reusing from free pool"
+                        )
+
                         # Reuse neurons from free pool - NO MEMORY ALLOCATION
-                        new_neurons = self._reuse_neurons_for_area_expansion(cortical_id, additional_neurons_needed, properties)
-                        
+                        new_neurons = self._reuse_neurons_for_area_expansion(
+                            cortical_id, additional_neurons_needed, properties
+                        )
+
                         # 🔍 CHECKPOINT 3: INTELLIGENT PATTERN EXTENSION - Extend existing synaptic patterns to new neurons
-                        self.logger.info(f"🔍 [EXPANSION-DEBUG] CHECKPOINT 3 - Starting pattern extension for {cortical_id}")
+                        self.logger.info(
+                            f"🔍 [EXPANSION-DEBUG] CHECKPOINT 3 - Starting pattern extension for {cortical_id}"
+                        )
                         try:
                             from feagi.api.core.services.expansion import (
                                 ConnectionAnalyzer,
                                 PatternExtender,
                             )
-                            
+
                             # 🔍 CHECKPOINT 4: Analyze existing connectivity patterns
-                            self.logger.info(f"🔍 [EXPANSION-DEBUG] CHECKPOINT 4 - Analyzing connectivity for {cortical_id}")
-                            analyzer = ConnectionAnalyzer(self._connectome_manager, self.state_manager)
-                            analysis = analyzer.analyze_area_connectivity(cortical_id)
-                            
-                            self.logger.info("🔍 [EXPANSION-DEBUG] Connectivity analysis results:")
-                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Internal mappings: {analysis.get('internal_count', 0)}")
-                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Incoming mappings: {analysis.get('incoming_count', 0)}")
-                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Outgoing mappings: {analysis.get('outgoing_count', 0)}")
-                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Total mappings: {analysis.get('total_mappings', 0)}")
-                            
+                            self.logger.info(
+                                f"🔍 [EXPANSION-DEBUG] CHECKPOINT 4 - Analyzing connectivity for {cortical_id}"
+                            )
+                            analyzer = ConnectionAnalyzer(
+                                self._connectome_manager, self.state_manager
+                            )
+                            analysis = analyzer.analyze_area_connectivity(
+                                cortical_id
+                            )
+
+                            self.logger.info(
+                                "🔍 [EXPANSION-DEBUG] Connectivity analysis results:"
+                            )
+                            self.logger.info(
+                                f"🔍 [EXPANSION-DEBUG]   - Internal mappings: {analysis.get('internal_count', 0)}"
+                            )
+                            self.logger.info(
+                                f"🔍 [EXPANSION-DEBUG]   - Incoming mappings: {analysis.get('incoming_count', 0)}"
+                            )
+                            self.logger.info(
+                                f"🔍 [EXPANSION-DEBUG]   - Outgoing mappings: {analysis.get('outgoing_count', 0)}"
+                            )
+                            self.logger.info(
+                                f"🔍 [EXPANSION-DEBUG]   - Total mappings: {analysis.get('total_mappings', 0)}"
+                            )
+
                             if analysis.get("total_mappings", 0) > 0:
                                 # 🔍 CHECKPOINT 5: Use the exact newly created neurons from expansion
-                                self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - Using newly created neurons")
-                                
-                                self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New neurons created: {len(new_neurons)}")
-                                self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New neuron IDs: {sorted(list(new_neurons))[:10]}{'...' if len(new_neurons) > 10 else ''}")
-                                
+                                self.logger.info(
+                                    "🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - Using newly created neurons"
+                                )
+
+                                self.logger.info(
+                                    f"🔍 [EXPANSION-DEBUG]   - New neurons created: {len(new_neurons)}"
+                                )
+                                self.logger.info(
+                                    f"🔍 [EXPANSION-DEBUG]   - New neuron IDs: {sorted(list(new_neurons))[:10]}{'...' if len(new_neurons) > 10 else ''}"
+                                )
+
                                 if new_neurons:
-                                    # 🔍 CHECKPOINT 6: Extend existing patterns to new neurons  
-                                    self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - Starting pattern extension")
-                                    extender = PatternExtender(self._connectome_manager, self.state_manager)
-                                    synapses_created = extender.extend_patterns_for_expansion(
-                                        cortical_id=cortical_id,
-                                        old_dimensions=old_dimensions,
-                                        new_dimensions=new_dimensions,
-                                        new_neurons=set(new_neurons)
+                                    # 🔍 CHECKPOINT 6: Extend existing patterns to new neurons
+                                    self.logger.info(
+                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - Starting pattern extension"
                                     )
-                                    
-                                    self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 7 - Pattern extension completed")
-                                    self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New synapses created: {synapses_created}")
-                                    self.logger.info(f"[LOCALIZED-REBUILD] Extended connectivity patterns: {synapses_created} new synapses created for {cortical_id}")
+                                    extender = PatternExtender(
+                                        self._connectome_manager,
+                                        self.state_manager,
+                                    )
+                                    synapses_created = (
+                                        extender.extend_patterns_for_expansion(
+                                            cortical_id=cortical_id,
+                                            old_dimensions=old_dimensions,
+                                            new_dimensions=new_dimensions,
+                                            new_neurons=set(new_neurons),
+                                        )
+                                    )
+
+                                    self.logger.info(
+                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 7 - Pattern extension completed"
+                                    )
+                                    self.logger.info(
+                                        f"🔍 [EXPANSION-DEBUG]   - New synapses created: {synapses_created}"
+                                    )
+                                    self.logger.info(
+                                        f"[LOCALIZED-REBUILD] Extended connectivity patterns: {synapses_created} new synapses created for {cortical_id}"
+                                    )
                                 else:
-                                    self.logger.warning("🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - No new neurons identified for pattern extension")
-                                    self.logger.warning("[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension")
+                                    self.logger.warning(
+                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - No new neurons identified for pattern extension"
+                                    )
+                                    self.logger.warning(
+                                        "[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension"
+                                    )
                             else:
-                                self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - No cortical mappings found")
-                                self.logger.info(f"[LOCALIZED-REBUILD] No cortical mappings found for {cortical_id} - skipping pattern extension")
-                                
+                                self.logger.info(
+                                    "🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - No cortical mappings found"
+                                )
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] No cortical mappings found for {cortical_id} - skipping pattern extension"
+                                )
+
                         except ImportError as e:
-                            self.logger.warning(f"[LOCALIZED-REBUILD] Pattern extension unavailable: {e}")
+                            self.logger.warning(
+                                f"[LOCALIZED-REBUILD] Pattern extension unavailable: {e}"
+                            )
                         except Exception as e:
-                            self.logger.error(f"[LOCALIZED-REBUILD] Error during pattern extension: {e}")
+                            self.logger.error(
+                                f"[LOCALIZED-REBUILD] Error during pattern extension: {e}"
+                            )
                             import traceback
-                            self.logger.error(f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}")
-                    
-                    self.logger.info(f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized - {len(self._connectome_manager.neuron_array.free_indices)} neurons in free pool")
+
+                            self.logger.error(
+                                f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}"
+                            )
+
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized - {len(self._connectome_manager.neuron_array.free_indices)} neurons in free pool"
+                    )
                 else:
-                    self.logger.info(f"[LOCALIZED-REBUILD] No dimension change needed for {cortical_id}")
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] No dimension change needed for {cortical_id}"
+                    )
             else:
                 # Area doesn't exist - create it properly using existing methods
-                self.logger.info(f"[LOCALIZED-REBUILD] Creating new cortical area {cortical_id}")
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] Creating new cortical area {cortical_id}"
+                )
                 self._connectome_manager.add_cortical_area(
                     name=properties["name"],
                     dimensions=tuple(properties["dimensions"]),
                     position=tuple(properties["position"]),
                     area_type=properties.get("area_type", "custom"),
                     properties=properties,
-                    cortical_id=cortical_id
+                    cortical_id=cortical_id,
                 )
-            
+
             # 4. Update area properties without disrupting neuron structure
             if old_area_existed:
                 area = self._connectome_manager.cortical_areas[cortical_id]
-                
+
                 # Update properties in-place - preserves neuron assignments
                 if "name" in properties:
                     area.name = properties["name"]
@@ -3799,92 +4549,138 @@ class GenomeService(BaseService):
                     area.position = tuple(properties["position"])
                 if "area_type" in properties:
                     area.area_type = properties["area_type"]
-                
+
                 # Update additional properties
                 for key, value in properties.items():
-                    if key not in ["name", "position", "area_type", "dimensions"]:
+                    if key not in [
+                        "name",
+                        "position",
+                        "area_type",
+                        "dimensions",
+                    ]:
                         area.properties[key] = value
-                
-                self.logger.info(f"[LOCALIZED-REBUILD] Updated properties for existing area {cortical_id}")
-            
+
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] Updated properties for existing area {cortical_id}"
+                )
+
             # 5. Update connections if needed (preserve existing structure)
             # Only rebuild connections that specifically involve dimension changes AND have existing mappings
             if old_area_existed and new_dimensions != old_dimensions:
-                self.logger.info(f"[LOCALIZED-REBUILD] Checking for existing connections to rebuild for area {cortical_id}")
-                
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] Checking for existing connections to rebuild for area {cortical_id}"
+                )
+
                 # Check if this area has any existing cortical mappings to rebuild
                 has_outgoing_mappings = False
                 has_incoming_mappings = False
-                
+
                 # Check for outgoing mappings (this area -> others)
                 for gene_key in current_genome["blueprint"].keys():
-                    if (isinstance(gene_key, str) and 
-                        gene_key.startswith(f"_____10c-{cortical_id}-cx-dstmap-d")):
+                    if isinstance(gene_key, str) and gene_key.startswith(
+                        f"_____10c-{cortical_id}-cx-dstmap-d"
+                    ):
                         has_outgoing_mappings = True
                         break
-                
+
                 # Check for incoming mappings (others -> this area)
-                if not has_outgoing_mappings:  # Only check if we haven't found outgoing yet
-                    for gene_key, gene_value in current_genome["blueprint"].items():
-                        if (isinstance(gene_key, str) and 
-                            gene_key.startswith("_____10c-") and 
-                            gene_key.endswith("-cx-dstmap-d") and
-                            not gene_key.startswith(f"_____10c-{cortical_id}-") and
-                            isinstance(gene_value, dict) and cortical_id in gene_value):
+                if (
+                    not has_outgoing_mappings
+                ):  # Only check if we haven't found outgoing yet
+                    for gene_key, gene_value in current_genome[
+                        "blueprint"
+                    ].items():
+                        if (
+                            isinstance(gene_key, str)
+                            and gene_key.startswith("_____10c-")
+                            and gene_key.endswith("-cx-dstmap-d")
+                            and not gene_key.startswith(
+                                f"_____10c-{cortical_id}-"
+                            )
+                            and isinstance(gene_value, dict)
+                            and cortical_id in gene_value
+                        ):
                             has_incoming_mappings = True
                             break
-                
+
                 if has_outgoing_mappings or has_incoming_mappings:
-                    self.logger.info(f"[LOCALIZED-REBUILD] Found existing mappings for {cortical_id} - rebuilding synaptic connections")
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Found existing mappings for {cortical_id} - rebuilding synaptic connections"
+                    )
                     # CRITICAL: Rebuild synaptic connections to include new neurons in expanded area
                     # This ensures cortical mappings extend to all neurons in the resized area
-                    self._rebuild_connections_for_area(cortical_id, current_genome)
-                    self.logger.info(f"[LOCALIZED-REBUILD] Rebuilt synaptic connections for expanded area {cortical_id}")
+                    self._rebuild_connections_for_area(
+                        cortical_id, current_genome
+                    )
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Rebuilt synaptic connections for expanded area {cortical_id}"
+                    )
                 else:
-                    self.logger.info(f"[LOCALIZED-REBUILD] No existing cortical mappings found for {cortical_id} - skipping connection rebuild")
-                    self.logger.info(f"[LOCALIZED-REBUILD] Area {cortical_id} was likely created via API and has no predefined mappings")
-            
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] No existing cortical mappings found for {cortical_id} - skipping connection rebuild"
+                    )
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Area {cortical_id} was likely created via API and has no predefined mappings"
+                    )
+
             # NO VISUALIZATION INTERRUPTION NEEDED
             # Since we're not deleting/recreating neurons, neuron IDs remain stable
             # and the visualization stream can continue uninterrupted
-            
+
             if transaction:
                 transaction.commit()
-                
+
             # 🔍 CHECKPOINT 8: Final results
             final_synapse_count = self._connectome_manager.get_synapse_count()
-            final_neuron_count = self._connectome_manager.neuron_array.get_neuron_count()
+            final_neuron_count = (
+                self._connectome_manager.neuron_array.get_neuron_count()
+            )
             synapses_added = final_synapse_count - initial_synapse_count
             neurons_added = final_neuron_count - initial_neuron_count
-            
+
             duration = time.time() - start_time
-            
-            self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 8 - Final Results:")
-            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Final synapses: {final_synapse_count} (+{synapses_added})")
-            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Final neurons: {final_neuron_count} (+{neurons_added})")
-            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Duration: {duration*1000:.1f}ms")
-            
+
+            self.logger.info(
+                "🔍 [EXPANSION-DEBUG] CHECKPOINT 8 - Final Results:"
+            )
+            self.logger.info(
+                f"🔍 [EXPANSION-DEBUG]   - Final synapses: {final_synapse_count} (+{synapses_added})"
+            )
+            self.logger.info(
+                f"🔍 [EXPANSION-DEBUG]   - Final neurons: {final_neuron_count} (+{neurons_added})"
+            )
+            self.logger.info(
+                f"🔍 [EXPANSION-DEBUG]   - Duration: {duration * 1000:.1f}ms"
+            )
+
             self.logger.info(
                 f"[LOCALIZED-REBUILD] Real-time cortical area resize completed for {cortical_id} "
-                f"in {duration*1000:.1f}ms (no neuron deletion, GPU-friendly)"
+                f"in {duration * 1000:.1f}ms (no neuron deletion, GPU-friendly)"
             )
             return current_genome["blueprint"][cortical_id]
-                
+
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(f"Real-time cortical area resize failed after {duration*1000:.1f}ms: {e}")
-            
+            self.logger.error(
+                f"Real-time cortical area resize failed after {duration * 1000:.1f}ms: {e}"
+            )
+
             if transaction:
                 transaction.rollback()
             raise e
 
-    def _reuse_neurons_for_area_expansion(self, cortical_id: str, additional_neurons_needed: int, properties: Dict[str, Any]) -> List[int]:
+    def _reuse_neurons_for_area_expansion(
+        self,
+        cortical_id: str,
+        additional_neurons_needed: int,
+        properties: Dict[str, Any],
+    ) -> List[int]:
         """
         Create additional neurons for cortical area expansion using FEAGI's proper allocation.
-        
+
         ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
         instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
-        
+
         Args:
             cortical_id: The cortical area being expanded
             additional_neurons_needed: Number of additional neurons required
@@ -3892,15 +4688,19 @@ class GenomeService(BaseService):
         """
         if additional_neurons_needed <= 0:
             return
-            
-        self.logger.info(f"[EXPANSION] Creating {additional_neurons_needed} additional neurons for {cortical_id} (FEAGI-compliant)")
-        
+
+        self.logger.info(
+            f"[EXPANSION] Creating {additional_neurons_needed} additional neurons for {cortical_id} (FEAGI-compliant)"
+        )
+
         try:
             area = self._connectome_manager.cortical_areas[cortical_id]
-            
+
             # Generate positions for additional neurons distributed across expanded area
-            positions = self._generate_positions_for_expansion(cortical_id, additional_neurons_needed, properties)
-            
+            positions = self._generate_positions_for_expansion(
+                cortical_id, additional_neurons_needed, properties
+            )
+
             # Use ConnectomeManager's batch creation method (handles position mapping automatically)
             neuron_ids = self._connectome_manager.batch_create_neurons(
                 cortical_id=cortical_id,
@@ -3909,51 +4709,65 @@ class GenomeService(BaseService):
                 membrane_potential=0.0,
                 resting_potential=0.0,
                 decay_rate=1.0 - (properties.get("leak_c", 0) / 100.0),
-                refractory_period=properties.get("refrac", 1)
+                refractory_period=properties.get("refrac", 1),
             )
-            
+
             # CRITICAL FIX: Set excitability for all created neurons
             excitability = properties.get("neuron_excitability", 1.0)
             neuron_array = self._connectome_manager.neuron_array
             for neuron_id in neuron_ids:
                 try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                    neuron_idx = self._connectome_manager.get_neuron_index(
+                        neuron_id
+                    )
                     if neuron_idx is not None:
                         neuron_array.excitability[neuron_idx] = excitability
                 except Exception as e:
-                    self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
-            
-            self.logger.info(f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}")
-            
-            free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
-            self.logger.info(f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id} "
-                           f"(free pool size: {free_pool_size})")
-            
+                    self.logger.warning(
+                        f"Could not set excitability for neuron {neuron_id}: {e}"
+                    )
+
+            self.logger.info(
+                f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}"
+            )
+
+            free_pool_size = len(
+                self._connectome_manager.neuron_array.free_indices
+            )
+            self.logger.info(
+                f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id} "
+                f"(free pool size: {free_pool_size})"
+            )
+
             return neuron_ids
-            
+
         except Exception as e:
-            self.logger.error(f"[EXPANSION] Error creating additional neurons for {cortical_id}: {e}")
+            self.logger.error(
+                f"[EXPANSION] Error creating additional neurons for {cortical_id}: {e}"
+            )
             raise
-    
-    def _generate_positions_for_expansion(self, cortical_id: str, neuron_count: int, properties: Dict[str, Any]) -> List[Tuple[int, int, int]]:
+
+    def _generate_positions_for_expansion(
+        self, cortical_id: str, neuron_count: int, properties: Dict[str, Any]
+    ) -> List[Tuple[int, int, int]]:
         """
         Generate neuron positions for area expansion.
-        
+
         CRITICAL FIX: Only place neurons in voxels that don't already have neurons.
         This ensures expansion neurons go to the NEW expanded regions, not existing ones.
-        
+
         Args:
             cortical_id: The cortical area being expanded
             neuron_count: Number of neurons to place
             properties: Area properties containing density information
-            
+
         Returns:
             List of (x, y, z) position tuples for NEW/EMPTY voxels only
         """
         area = self._connectome_manager.cortical_areas[cortical_id]
         width, height, depth = area.dimensions
         positions = []
-        
+
         # Find all voxels that DON'T have neurons yet (the expanded regions)
         empty_voxels = []
         for x in range(width):
@@ -3962,12 +4776,18 @@ class GenomeService(BaseService):
                     position = (x, y, z)
                     # Check if this voxel already has neurons
                     existing_neurons = area.get_neurons_at_position(position)
-                    if not existing_neurons:  # This is an empty voxel in the expanded area
+                    if (
+                        not existing_neurons
+                    ):  # This is an empty voxel in the expanded area
                         empty_voxels.append(position)
-        
-        self.logger.info(f"[EXPANSION] Found {len(empty_voxels)} empty voxels in expanded area {cortical_id}")
-        self.logger.info(f"[EXPANSION] Empty voxels: {empty_voxels[:10]}...")  # Log first 10 for debugging
-        
+
+        self.logger.info(
+            f"[EXPANSION] Found {len(empty_voxels)} empty voxels in expanded area {cortical_id}"
+        )
+        self.logger.info(
+            f"[EXPANSION] Empty voxels: {empty_voxels[:10]}..."
+        )  # Log first 10 for debugging
+
         # Distribute neurons across the empty voxels (the newly expanded regions)
         for i in range(neuron_count):
             if i < len(empty_voxels):
@@ -3976,47 +4796,69 @@ class GenomeService(BaseService):
                 # If we have more neurons than empty voxels, cycle through them
                 voxel_idx = i % len(empty_voxels)
                 positions.append(empty_voxels[voxel_idx])
-        
-        self.logger.info(f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}")
+
+        self.logger.info(
+            f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}"
+        )
         return positions
 
-    def _extract_area_properties_from_genome(self, cortical_id: str, genome: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_area_properties_from_genome(
+        self, cortical_id: str, genome: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Extract cortical area properties from hierarchical genome format."""
         try:
             area_def = genome["blueprint"][cortical_id]
-            
+
             return {
                 "name": area_def.get("cortical_name", cortical_id),
                 "dimensions": area_def.get("cortical_dimensions", [1, 1, 1]),
                 "position": area_def.get("coordinates_3d", [0, 0, 0]),
                 "area_type": area_def.get("cortical_type", "custom"),
-                "neurons_per_voxel": area_def.get("parameters", {}).get("per_voxel_neuron_cnt", 1),
-                "fire_t": area_def.get("parameters", {}).get("firing_threshold", 1.0),
-                "leak_c": area_def.get("parameters", {}).get("leak_coefficient", 0.0),
-                "refrac": area_def.get("parameters", {}).get("refractory_period", 1),
-                "fire_increment": area_def.get("parameters", {}).get("fire_increment", 0.0),
-                "leak_variability": area_def.get("parameters", {}).get("leak_variability", 0.0),
+                "neurons_per_voxel": area_def.get("parameters", {}).get(
+                    "per_voxel_neuron_cnt", 1
+                ),
+                "fire_t": area_def.get("parameters", {}).get(
+                    "firing_threshold", 1.0
+                ),
+                "leak_c": area_def.get("parameters", {}).get(
+                    "leak_coefficient", 0.0
+                ),
+                "refrac": area_def.get("parameters", {}).get(
+                    "refractory_period", 1
+                ),
+                "fire_increment": area_def.get("parameters", {}).get(
+                    "fire_increment", 0.0
+                ),
+                "leak_variability": area_def.get("parameters", {}).get(
+                    "leak_variability", 0.0
+                ),
             }
         except KeyError as e:
-            raise ValueError(f"Missing required property in genome for area {cortical_id}: {e}") from e
+            raise ValueError(
+                f"Missing required property in genome for area {cortical_id}: {e}"
+            ) from e
 
-    def _rebuild_neurons_for_area(self, cortical_id: str, properties: Dict[str, Any]) -> None:
+    def _rebuild_neurons_for_area(
+        self, cortical_id: str, properties: Dict[str, Any]
+    ) -> None:
         """
         Rebuild neurons for a specific cortical area using FEAGI-compliant allocation.
-        
+
         ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
         instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
         """
         try:
             area = self._connectome_manager.cortical_areas[cortical_id]
-            
+
             # Calculate neuron count for this area
             width, height, depth = area.dimensions
             neurons_per_voxel = properties.get("neurons_per_voxel", 1)
             area_neuron_count = width * height * depth * neurons_per_voxel
-            
-            self.logger.info(f"[LOCALIZED-REBUILD] Creating {area_neuron_count} neurons for {cortical_id} (FEAGI-compliant)")
-            
+
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Creating {area_neuron_count} neurons for {cortical_id} (FEAGI-compliant)"
+            )
+
             # Generate all positions for the cortical area
             positions = []
             for x in range(width):
@@ -4024,31 +4866,39 @@ class GenomeService(BaseService):
                     for z in range(depth):
                         for _ in range(neurons_per_voxel):
                             positions.append((x, y, z))
-            
+
             # Calculate base properties
             base_threshold = properties.get("fire_t", 1.0)
             base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
             base_refractory = properties.get("refrac", 1)
-            
+
             # Handle position-based variations for thresholds
             thresholds = [base_threshold] * area_neuron_count
             fire_increment = properties.get("fire_increment", 0.0)
             if fire_increment != 0.0:
                 for i, (x, y, z) in enumerate(positions):
                     thresholds[i] = base_threshold + (z * fire_increment)
-            
+
             # Handle leak variability for decay rates
             decay_rates = [base_decay_rate] * area_neuron_count
             leak_variability = properties.get("leak_variability", 0.0)
             base_leak = properties.get("leak_c", 0.0)
             if leak_variability != 0.0 and base_leak != 0.0:
                 import numpy as np
+
                 np.random.seed(42)  # Deterministic for reproducibility
-                variations = np.random.uniform(-leak_variability, leak_variability, area_neuron_count) / 100.0
+                variations = (
+                    np.random.uniform(
+                        -leak_variability, leak_variability, area_neuron_count
+                    )
+                    / 100.0
+                )
                 for i in range(area_neuron_count):
-                    varied_leak = np.clip(base_leak / 100.0 + variations[i], 0.0, 1.0)
+                    varied_leak = np.clip(
+                        base_leak / 100.0 + variations[i], 0.0, 1.0
+                    )
                     decay_rates[i] = 1.0 - varied_leak
-            
+
             # Use ConnectomeManager's batch creation method (handles position mapping automatically)
             neuron_ids = self._connectome_manager.batch_create_neurons(
                 cortical_id=cortical_id,
@@ -4057,102 +4907,147 @@ class GenomeService(BaseService):
                 membrane_potential=0.0,
                 resting_potential=0.0,
                 decay_rate=decay_rates,
-                refractory_period=base_refractory
+                refractory_period=base_refractory,
             )
-            
+
             # CRITICAL FIX: Set excitability for all created neurons
             excitability = properties.get("neuron_excitability", 1.0)
             neuron_array = self._connectome_manager.neuron_array
             for neuron_id in neuron_ids:
                 try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                    neuron_idx = self._connectome_manager.get_neuron_index(
+                        neuron_id
+                    )
                     if neuron_idx is not None:
                         neuron_array.excitability[neuron_idx] = excitability
                 except Exception as e:
-                    self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
-            
-            self.logger.info(f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}")
-            
-            free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
-            self.logger.info(f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id} "
-                           f"(free pool size after allocation: {free_pool_size})")
-            
+                    self.logger.warning(
+                        f"Could not set excitability for neuron {neuron_id}: {e}"
+                    )
+
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}"
+            )
+
+            free_pool_size = len(
+                self._connectome_manager.neuron_array.free_indices
+            )
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id} "
+                f"(free pool size after allocation: {free_pool_size})"
+            )
+
         except Exception as e:
-            self.logger.error(f"Failed to rebuild neurons for area {cortical_id}: {e}")
+            self.logger.error(
+                f"Failed to rebuild neurons for area {cortical_id}: {e}"
+            )
             raise
 
-    def _rebuild_connections_for_area(self, cortical_id: str, genome: Dict[str, Any]) -> None:
+    def _rebuild_connections_for_area(
+        self, cortical_id: str, genome: Dict[str, Any]
+    ) -> None:
         """
         Rebuild synaptic connections involving the specified cortical area.
-        
+
         ARCHITECTURE COMPLIANCE: Uses ConnectomeManager directly to avoid circular dependencies.
         GenomeService should not access CoreAPIService (which creates GenomeService).
         """
         try:
             # Import NeuroEmbryogenesis for connection building
-            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
-            
+            from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                NeuroEmbryogenesis,
+            )
+
             # Create temporary embryogenesis instance for connection building
-            embryogenesis = NeuroEmbryogenesis(self._connectome_manager, self.state_manager)
+            embryogenesis = NeuroEmbryogenesis(
+                self._connectome_manager, self.state_manager
+            )
             embryogenesis.genome = genome
-            
+
             # 1. Remove all existing connections involving this area
             self._remove_area_connections(cortical_id)
-            
+
             # 2. Rebuild outgoing connections (this area -> others) from genome
             # Look for cortical mappings in the FLAT genome format (_____10c-{area}-cx-dstmap-d)
-            self.logger.info(f"[LOCALIZED-REBUILD] Scanning genome for outgoing connections from {cortical_id}")
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Scanning genome for outgoing connections from {cortical_id}"
+            )
             outgoing_mappings = {}
             for gene_key, gene_value in genome["blueprint"].items():
-                if (isinstance(gene_key, str) and 
-                    gene_key.startswith(f"_____10c-{cortical_id}-cx-dstmap-d")):
-                    
-                    self.logger.info(f"[LOCALIZED-REBUILD] Found outgoing mapping: {gene_key}")
+                if isinstance(gene_key, str) and gene_key.startswith(
+                    f"_____10c-{cortical_id}-cx-dstmap-d"
+                ):
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Found outgoing mapping: {gene_key}"
+                    )
                     if isinstance(gene_value, dict) and gene_value:
                         outgoing_mappings.update(gene_value)
 
             if outgoing_mappings:
-                self.logger.info(f"[LOCALIZED-REBUILD] Rebuilding {len(outgoing_mappings)} outgoing connections from {cortical_id}")
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] Rebuilding {len(outgoing_mappings)} outgoing connections from {cortical_id}"
+                )
                 api_mapping = {cortical_id: outgoing_mappings}
                 embryogenesis.update_cortical_mapping(api_mapping)
             else:
-                self.logger.info(f"[LOCALIZED-REBUILD] No outgoing mappings found for {cortical_id}")
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] No outgoing mappings found for {cortical_id}"
+                )
 
-            # 3. Rebuild incoming connections (others -> this area) 
+            # 3. Rebuild incoming connections (others -> this area)
             # Look for any mappings that target this cortical area
-            self.logger.info(f"[LOCALIZED-REBUILD] Scanning genome for incoming connections to {cortical_id}")
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Scanning genome for incoming connections to {cortical_id}"
+            )
             incoming_mappings = {}
             for gene_key, gene_value in genome["blueprint"].items():
-                if (isinstance(gene_key, str) and 
-                    gene_key.startswith("_____10c-") and 
-                    gene_key.endswith("-cx-dstmap-d") and
-                    not gene_key.startswith(f"_____10c-{cortical_id}-")):
-                    
+                if (
+                    isinstance(gene_key, str)
+                    and gene_key.startswith("_____10c-")
+                    and gene_key.endswith("-cx-dstmap-d")
+                    and not gene_key.startswith(f"_____10c-{cortical_id}-")
+                ):
                     # Extract source area from gene key
                     parts = gene_key.split("-")
                     if len(parts) >= 3:
                         source_area_id = parts[1]
-                        
+
                         # Check if this mapping targets our cortical area
-                        if isinstance(gene_value, dict) and cortical_id in gene_value:
+                        if (
+                            isinstance(gene_value, dict)
+                            and cortical_id in gene_value
+                        ):
                             if source_area_id not in incoming_mappings:
                                 incoming_mappings[source_area_id] = {}
-                            incoming_mappings[source_area_id][cortical_id] = gene_value[cortical_id]
-                            self.logger.info(f"[LOCALIZED-REBUILD] Found incoming mapping: {source_area_id} -> {cortical_id}")
+                            incoming_mappings[source_area_id][cortical_id] = (
+                                gene_value[cortical_id]
+                            )
+                            self.logger.info(
+                                f"[LOCALIZED-REBUILD] Found incoming mapping: {source_area_id} -> {cortical_id}"
+                            )
 
             # Rebuild each incoming mapping
             for source_area_id, mapping_data in incoming_mappings.items():
-                self.logger.info(f"[LOCALIZED-REBUILD] Rebuilding incoming connection: {source_area_id} -> {cortical_id}")
+                self.logger.info(
+                    f"[LOCALIZED-REBUILD] Rebuilding incoming connection: {source_area_id} -> {cortical_id}"
+                )
                 api_mapping = {source_area_id: mapping_data}
                 embryogenesis.update_cortical_mapping(api_mapping)
 
             total_rebuilt = len(outgoing_mappings) + len(incoming_mappings)
-            self.logger.info(f"[LOCALIZED-REBUILD] Completed rebuilding {total_rebuilt} connection types for {cortical_id}")
-            
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Completed rebuilding {total_rebuilt} connection types for {cortical_id}"
+            )
+
         except Exception as e:
-            self.logger.error(f"Failed to rebuild connections for area {cortical_id}: {e}")
+            self.logger.error(
+                f"Failed to rebuild connections for area {cortical_id}: {e}"
+            )
             import traceback
-            self.logger.error(f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}")
+
+            self.logger.error(
+                f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}"
+            )
             raise
 
     def _remove_area_connections(self, cortical_id: str) -> None:
@@ -4160,41 +5055,55 @@ class GenomeService(BaseService):
         try:
             # Get all neurons in the area (before deletion, these would be the old neurons)
             # After area deletion and recreation, we need to remove connections to the old neurons
-            
+
             # For now, we rely on ConnectomeManager.delete_cortical_area() to handle
             # connection cleanup. This method is called as a safety net for any remaining connections.
-            
+
             # Get all existing connections and remove those involving this area
             connection_ids_to_remove = []
-            for connection_id, connection in self._connectome_manager.cortical_connections.items():
-                if (connection["source_area_id"] == cortical_id or 
-                    connection["target_area_id"] == cortical_id):
+            for (
+                connection_id,
+                connection,
+            ) in self._connectome_manager.cortical_connections.items():
+                if (
+                    connection["source_area_id"] == cortical_id
+                    or connection["target_area_id"] == cortical_id
+                ):
                     connection_ids_to_remove.append(connection_id)
-            
+
             for connection_id in connection_ids_to_remove:
-                self._connectome_manager.delete_cortical_connection(connection_id, delete_synapses=True)
-                
-            self.logger.info(f"[LOCALIZED-REBUILD] Removed {len(connection_ids_to_remove)} connection definitions for {cortical_id}")
-            
+                self._connectome_manager.delete_cortical_connection(
+                    connection_id, delete_synapses=True
+                )
+
+            self.logger.info(
+                f"[LOCALIZED-REBUILD] Removed {len(connection_ids_to_remove)} connection definitions for {cortical_id}"
+            )
+
         except Exception as e:
-            self.logger.warning(f"Error removing connections for area {cortical_id}: {e}")
+            self.logger.warning(
+                f"Error removing connections for area {cortical_id}: {e}"
+            )
 
     def _initialize_state_manager(self):
         """Initialize state manager reference and ensure consistency."""
         try:
             from feagi.core.state_manager import get_state_manager
+
             self.state_manager = get_state_manager()
         except Exception as e:
             self.logger.error(f"Failed to get state manager: {e}")
             self.state_manager = None
 
-    def _apply_genome_physiology_parameters(self, genome_data: Dict[str, Any], core_api_service=None) -> None:
+    def _apply_genome_physiology_parameters(
+        self, genome_data: Dict[str, Any], core_api_service=None
+    ) -> None:
         """
         Apply genome physiology parameters (like simulation_timestep) to system configuration.
-        
+
         This ensures the genome's simulation_timestep overwrites the current stimulation period.
         Also maintains backward compatibility with old genomes using burst_delay.
-        
+
         Args:
             genome_data: The loaded genome data containing physiology parameters
         """
@@ -4202,66 +5111,99 @@ class GenomeService(BaseService):
             # Extract simulation_timestep from genome physiology section
             physiology = genome_data.get("physiology", {})
             timestep = physiology.get("simulation_timestep")
-            
+
             if timestep is None:
                 # Backward compatibility: Check for burst_delay in physiology
-                timestep = physiology.get("burst_delay") 
-            
+                timestep = physiology.get("burst_delay")
+
             if timestep is None:
                 # Backward compatibility: Check for old top-level burst_delay
                 timestep = genome_data.get("burst_delay")
-            
+
             if timestep is not None:
-                self.logger.info(f"📊 [GENOME] Found simulation timestep in genome: {timestep}s")
-                
+                self.logger.info(
+                    f"📊 [GENOME] Found simulation timestep in genome: {timestep}s"
+                )
+
                 # Validate simulation timestep
                 if not isinstance(timestep, (int, float)) or timestep <= 0:
-                    self.logger.warning(f"Invalid simulation_timestep in genome: {timestep} (must be positive number)")
+                    self.logger.warning(
+                        f"Invalid simulation_timestep in genome: {timestep} (must be positive number)"
+                    )
                     return
-                
+
                 # Convert timestep (stimulation period) to frequency
                 burst_frequency_hz = 1.0 / float(timestep)
-                
+
                 # Apply same validation as API endpoint
                 if burst_frequency_hz <= 0.0 or burst_frequency_hz > 10000.0:
-                    self.logger.warning(f"Invalid frequency {burst_frequency_hz}Hz from timestep {timestep}s (must be 0 < freq <= 10000)")
+                    self.logger.warning(
+                        f"Invalid frequency {burst_frequency_hz}Hz from timestep {timestep}s (must be 0 < freq <= 10000)"
+                    )
                     return
-                
+
                 # Get state manager
                 if not self.state_manager:
-                    self.logger.warning("No state manager available - cannot apply genome simulation_timestep")
+                    self.logger.warning(
+                        "No state manager available - cannot apply genome simulation_timestep"
+                    )
                     return
-                
+
                 # Use CoreAPIService's proven burst engine update mechanism
                 if core_api_service:
                     try:
                         # Use the same method that manual API endpoints use
-                        config_update = {"burst_frequency_hz": burst_frequency_hz}
-                        success = core_api_service.update_burst_engine_config(config_update)
-                        
+                        config_update = {
+                            "burst_frequency_hz": burst_frequency_hz
+                        }
+                        success = core_api_service.update_burst_engine_config(
+                            config_update
+                        )
+
                         if success:
-                            self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep: {timestep}s → {burst_frequency_hz}Hz")
+                            self.logger.info(
+                                f"✅ [GENOME] Applied genome simulation_timestep: {timestep}s → {burst_frequency_hz}Hz"
+                            )
                         else:
-                            self.logger.warning(f"Failed to apply genome frequency {burst_frequency_hz}Hz to burst engine")
-                            
+                            self.logger.warning(
+                                f"Failed to apply genome frequency {burst_frequency_hz}Hz to burst engine"
+                            )
+
                     except Exception as e:
-                        self.logger.warning(f"Error updating burst engine with genome frequency: {e}")
+                        self.logger.warning(
+                            f"Error updating burst engine with genome frequency: {e}"
+                        )
                         # Fallback to state manager only
-                        self.state_manager.set_burst_frequency(burst_frequency_hz)
-                        self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz")
+                        self.state_manager.set_burst_frequency(
+                            burst_frequency_hz
+                        )
+                        self.logger.info(
+                            f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz"
+                        )
                 else:
                     # Fallback: Update state manager only
                     self.state_manager.set_burst_frequency(burst_frequency_hz)
-                    self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz")
-                    self.logger.warning("CoreAPIService not available - frequency will apply on next restart")
-                    
+                    self.logger.info(
+                        f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz"
+                    )
+                    self.logger.warning(
+                        "CoreAPIService not available - frequency will apply on next restart"
+                    )
+
             else:
-                self.logger.debug("No simulation_timestep or burst_delay found in genome physiology - keeping current stimulation period")
-                
+                self.logger.debug(
+                    "No simulation_timestep or burst_delay found in genome physiology - keeping current stimulation period"
+                )
+
         except Exception as e:
-            self.logger.error(f"Error applying genome physiology parameters: {e}")
+            self.logger.error(
+                f"Error applying genome physiology parameters: {e}"
+            )
             import traceback
-            self.logger.debug(f"Genome physiology error traceback: {traceback.format_exc()}")
+
+            self.logger.debug(
+                f"Genome physiology error traceback: {traceback.format_exc()}"
+            )
 
     def get_current_genome(self) -> Dict[str, Any]:
         """Get the current genome copy (internal helper)."""
@@ -4281,7 +5223,9 @@ class GenomeService(BaseService):
                 self.logger.error("No genome loaded; cannot update physiology")
                 return False
             genome = self._current_genome
-            if "physiology" not in genome or not isinstance(genome["physiology"], dict):
+            if "physiology" not in genome or not isinstance(
+                genome["physiology"], dict
+            ):
                 genome["physiology"] = {}
             physiology = genome["physiology"]
 
@@ -4295,13 +5239,18 @@ class GenomeService(BaseService):
                     sanitize_missing_physiology,
                     validate_physiology_section,
                 )
+
                 sanitize_missing_physiology(genome)
                 result = validate_physiology_section(genome)
                 if not result.get("valid", False):
-                    self.logger.warning(f"Physiology validation warnings: {result.get('errors', [])}")
+                    self.logger.warning(
+                        f"Physiology validation warnings: {result.get('errors', [])}"
+                    )
             except Exception as e:
                 # Do not fail the update due to validation logging only
-                self.logger.debug(f"Physiology validation skipped due to error: {e}")
+                self.logger.debug(
+                    f"Physiology validation skipped due to error: {e}"
+                )
 
             # Update connectome manager reference if it keeps a genome copy
             try:

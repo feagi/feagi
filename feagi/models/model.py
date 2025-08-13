@@ -99,7 +99,10 @@ class Model:
             Path where the model was saved.
         """
         # This is a placeholder for actual model saving
-        path = path or f"{self.name}_{self.updated_at.strftime('%Y%m%d_%H%M%S')}.model"
+        path = (
+            path
+            or f"{self.name}_{self.updated_at.strftime('%Y%m%d_%H%M%S')}.model"
+        )
         print(f"Saving model {self.name} to {path}")
         return path
 

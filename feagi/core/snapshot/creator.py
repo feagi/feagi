@@ -9,6 +9,7 @@ sufficient for packaging and transport. It currently writes:
 
 Note: This is phase 1. Full neuron/synapse/memory SoA serialization to be added.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,9 @@ def _build_connectome_summary(connectome_manager) -> Dict[str, Any]:
                     "index": int(getattr(area_obj, "cortical_idx", idx)),
                     "name": getattr(area_obj, "name", None),
                     "type": getattr(area_obj, "area_type", None),
-                    "dimensions": list(getattr(area_obj, "dimensions", (1, 1, 1))),
+                    "dimensions": list(
+                        getattr(area_obj, "dimensions", (1, 1, 1))
+                    ),
                     "position": list(getattr(area_obj, "position", (0, 0, 0))),
                     "properties": getattr(area_obj, "properties", {}) or {},
                 }
@@ -65,6 +68,7 @@ def _build_connectome_summary(connectome_manager) -> Dict[str, Any]:
         physiology = {}
         try:
             from feagi.core.state_manager import get_state_manager
+
             sm = get_state_manager()
             if hasattr(sm, "get_physiology"):
                 physiology = sm.get_physiology() or {}
@@ -88,7 +92,9 @@ def _build_state_summary(state_manager) -> Dict[str, Any]:
     if not isinstance(stats, dict):
         stats = {}
     try:
-        counters = state_manager.get_cumulative_activity() if state_manager else {}
+        counters = (
+            state_manager.get_cumulative_activity() if state_manager else {}
+        )
     except Exception:
         counters = {}
     if not isinstance(counters, dict):
@@ -143,6 +149,7 @@ def create_brain_snapshot(
     genome_json = {}
     try:
         from feagi.api.core.services.core_api_service import CoreAPIService
+
         # connectome_manager is available; construct a minimal facade to fetch genome
         cas = CoreAPIService(connectome_manager, state_manager)
         g = cas.get_current_genome() or cas.get_genome()
@@ -164,11 +171,13 @@ def create_brain_snapshot(
         )
     if physiology_json:
         (snap_dir / "physiology.json").write_text(
-            json.dumps(physiology_json, separators=(",", ":")), encoding="utf-8"
+            json.dumps(physiology_json, separators=(",", ":")),
+            encoding="utf-8",
         )
 
     # Compute checksums for integrity verification
     from hashlib import blake2b
+
     c_bytes = (snap_dir / "connectome.json").read_bytes()
     s_bytes = (snap_dir / "state.json").read_bytes()
     checksums = {
@@ -197,6 +206,7 @@ def create_brain_snapshot(
         import json as _json
 
         import numpy as np  # noqa: F401
+
         # Neurons
         if hasattr(connectome_manager, "neuron_array"):
             na = connectome_manager.neuron_array
@@ -211,10 +221,12 @@ def create_brain_snapshot(
             try:
                 if hasattr(na, "valid_mask") and na.valid_mask is not None:
                     import numpy as _np
+
                     mask = _np.asarray(na.valid_mask, dtype=_np.bool_)
                     active_idx = _np.flatnonzero(mask)
                 elif hasattr(na, "neuron_count") and hasattr(na, "next_index"):
                     import numpy as _np
+
                     used = int(na.neuron_count)
                     next_idx = int(na.next_index)
                     # Assume dense prefix if no deletions were made
@@ -244,10 +256,13 @@ def create_brain_snapshot(
                     arr = getattr(na, name)
                     try:
                         import numpy as _np
+
                         if arr.dtype == _np.bool_:
                             # Bit-pack booleans; optionally slice first
                             if active_idx is not None and active_idx.size:
-                                arr = _np.asarray(arr, dtype=_np.bool_)[active_idx]
+                                arr = _np.asarray(arr, dtype=_np.bool_)[
+                                    active_idx
+                                ]
                             neuron_payload[name] = _np.packbits(arr)
                             neuron_payload[f"{name}__bitpacked"] = _np.array(
                                 [1], dtype=_np.uint8
@@ -278,13 +293,14 @@ def create_brain_snapshot(
                         neuron_payload[name] = arr
             if neuron_payload:
                 import numpy as _np
+
                 # Persist optional index map if not prefix-dense
                 if active_idx is not None:
                     # Check prefix-dense condition
                     is_prefix_dense = (
-                        active_idx.size > 0 and (active_idx[0] == 0) and (
-                            active_idx[-1] == active_idx.size - 1
-                        )
+                        active_idx.size > 0
+                        and (active_idx[0] == 0)
+                        and (active_idx[-1] == active_idx.size - 1)
                     )
                     if not is_prefix_dense:
                         idx_path = neurons_dir / "index_map.npy"
@@ -306,7 +322,10 @@ def create_brain_snapshot(
                     if idx2id_map is not None:
                         if active_idx is not None and active_idx.size:
                             id_array = _np.array(
-                                [int(idx2id_map.get(int(i), -1)) for i in active_idx],
+                                [
+                                    int(idx2id_map.get(int(i), -1))
+                                    for i in active_idx
+                                ],
                                 dtype=_np.int64,
                             )
                         else:
@@ -315,7 +334,10 @@ def create_brain_snapshot(
                             if used_range <= 0:
                                 used_range = len(getattr(na, "valid_mask", []))
                             id_array = _np.array(
-                                [int(idx2id_map.get(int(i), -1)) for i in range(used_range)],
+                                [
+                                    int(idx2id_map.get(int(i), -1))
+                                    for i in range(used_range)
+                                ],
                                 dtype=_np.int64,
                             )
                         _np.save(idx2id_path, id_array)
@@ -334,8 +356,12 @@ def create_brain_snapshot(
                     _json.dumps(neuron_meta, separators=(",", ":")),
                     encoding="utf-8",
                 )
-                files_entry.setdefault("neurons", []).append("neurons/neurons_soa.npz")
-                files_entry.setdefault("neurons", []).append("neurons/neurons_meta.json")
+                files_entry.setdefault("neurons", []).append(
+                    "neurons/neurons_soa.npz"
+                )
+                files_entry.setdefault("neurons", []).append(
+                    "neurons/neurons_meta.json"
+                )
                 checksums["neurons/neurons_soa.npz"] = blake2b(
                     neurons_npz.read_bytes(), digest_size=32
                 ).hexdigest()
@@ -355,6 +381,7 @@ def create_brain_snapshot(
             syn_active_idx = None
             try:
                 import numpy as _np
+
                 next_slot = int(getattr(sa, "next_slot", 0))
                 free_slots = set(getattr(sa, "free_slots", []))
                 if next_slot > 0:
@@ -378,9 +405,15 @@ def create_brain_snapshot(
                     arr = getattr(sa, name)
                     try:
                         import numpy as _np
+
                         if arr.dtype == _np.bool_:
-                            if syn_active_idx is not None and syn_active_idx.size:
-                                arr = _np.asarray(arr, dtype=_np.bool_)[syn_active_idx]
+                            if (
+                                syn_active_idx is not None
+                                and syn_active_idx.size
+                            ):
+                                arr = _np.asarray(arr, dtype=_np.bool_)[
+                                    syn_active_idx
+                                ]
                             syn_payload[name] = _np.packbits(arr)
                             syn_payload[f"{name}__bitpacked"] = _np.array(
                                 [1], dtype=_np.uint8
@@ -391,7 +424,10 @@ def create_brain_snapshot(
                                 "bitpacked": True,
                             }
                         else:
-                            if syn_active_idx is not None and syn_active_idx.size:
+                            if (
+                                syn_active_idx is not None
+                                and syn_active_idx.size
+                            ):
                                 sliced = _np.asarray(arr)[syn_active_idx]
                                 syn_payload[name] = sliced
                                 syn_meta_obj[name] = {
@@ -411,11 +447,12 @@ def create_brain_snapshot(
                         syn_payload[name] = arr
             if syn_payload:
                 import numpy as _np
+
                 if syn_active_idx is not None:
                     is_prefix_dense = (
-                        syn_active_idx.size > 0 and (syn_active_idx[0] == 0) and (
-                            syn_active_idx[-1] == syn_active_idx.size - 1
-                        )
+                        syn_active_idx.size > 0
+                        and (syn_active_idx[0] == 0)
+                        and (syn_active_idx[-1] == syn_active_idx.size - 1)
                     )
                     if not is_prefix_dense:
                         idx_path = syn_dir / "index_map.npy"
@@ -456,6 +493,7 @@ def create_brain_snapshot(
             mem_active_idx = None
             try:
                 import numpy as _np
+
                 if hasattr(ma, "is_active"):
                     mem_active_idx = _np.flatnonzero(
                         _np.asarray(ma.is_active, dtype=_np.bool_)
@@ -476,9 +514,15 @@ def create_brain_snapshot(
                     arr = getattr(ma, name)
                     try:
                         import numpy as _np
+
                         if arr.dtype == _np.bool_:
-                            if mem_active_idx is not None and mem_active_idx.size:
-                                arr = _np.asarray(arr, dtype=_np.bool_)[mem_active_idx]
+                            if (
+                                mem_active_idx is not None
+                                and mem_active_idx.size
+                            ):
+                                arr = _np.asarray(arr, dtype=_np.bool_)[
+                                    mem_active_idx
+                                ]
                             mem_payload[name] = _np.packbits(arr)
                             mem_payload[f"{name}__bitpacked"] = _np.array(
                                 [1], dtype=_np.uint8
@@ -489,7 +533,10 @@ def create_brain_snapshot(
                                 "bitpacked": True,
                             }
                         else:
-                            if mem_active_idx is not None and mem_active_idx.size:
+                            if (
+                                mem_active_idx is not None
+                                and mem_active_idx.size
+                            ):
                                 sliced = _np.asarray(arr)[mem_active_idx]
                                 mem_payload[name] = sliced
                                 mem_meta_obj[name] = {
@@ -509,11 +556,12 @@ def create_brain_snapshot(
                         mem_payload[name] = arr
             if mem_payload:
                 import numpy as _np
+
                 if mem_active_idx is not None:
                     is_prefix_dense = (
-                        mem_active_idx.size > 0 and (mem_active_idx[0] == 0) and (
-                            mem_active_idx[-1] == mem_active_idx.size - 1
-                        )
+                        mem_active_idx.size > 0
+                        and (mem_active_idx[0] == 0)
+                        and (mem_active_idx[-1] == mem_active_idx.size - 1)
                     )
                     if not is_prefix_dense:
                         idx_path = mem_dir / "index_map.npy"
@@ -529,8 +577,12 @@ def create_brain_snapshot(
                     _json.dumps(mem_meta_obj, separators=(",", ":")),
                     encoding="utf-8",
                 )
-                files_entry.setdefault("memory", []).append("memory/memory_soa.npz")
-                files_entry.setdefault("memory", []).append("memory/memory_meta.json")
+                files_entry.setdefault("memory", []).append(
+                    "memory/memory_soa.npz"
+                )
+                files_entry.setdefault("memory", []).append(
+                    "memory/memory_meta.json"
+                )
                 checksums["memory/memory_soa.npz"] = blake2b(
                     mem_npz.read_bytes(), digest_size=32
                 ).hexdigest()
@@ -551,4 +603,4 @@ def create_brain_snapshot(
         json.dumps(manifest, separators=(",", ":")), encoding="utf-8"
     )
 
-    return snap_dir 
+    return snap_dir

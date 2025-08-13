@@ -29,7 +29,9 @@ logger = setup_logger(__name__)
 from typing import Any
 
 
-def serialize_message(data: Any, content_type: str = "application/json") -> bytes:
+def serialize_message(
+    data: Any, content_type: str = "application/json"
+) -> bytes:
     """
     Serialize a message according to the specified content type.
 
@@ -61,7 +63,9 @@ def serialize_message(data: Any, content_type: str = "application/json") -> byte
         raise ValueError(f"Unsupported content type: {content_type}")
 
 
-def deserialize_message(data: bytes, content_type: str = "application/json") -> Any:
+def deserialize_message(
+    data: bytes, content_type: str = "application/json"
+) -> Any:
     """
     Deserialize a message according to the specified content type.
 

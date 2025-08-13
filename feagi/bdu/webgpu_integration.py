@@ -55,7 +55,9 @@ class ConnectomeManagerWebGPU:
             ImportError: If wgpu is not available
         """
         if not WGPU_AVAILABLE:
-            raise ImportError("wgpu is not available. Install with: pip install wgpu")
+            raise ImportError(
+                "wgpu is not available. Install with: pip install wgpu"
+            )
 
         self.connectome = connectome_manager_gpu
         self.device = None
@@ -121,11 +123,11 @@ class ConnectomeManagerWebGPU:
         """
 
         # Create shader modules
-        self._shader_modules["neuron_operations"] = self.device.create_shader_module(
-            code=neuron_shader
+        self._shader_modules["neuron_operations"] = (
+            self.device.create_shader_module(code=neuron_shader)
         )
-        self._shader_modules["synapse_operations"] = self.device.create_shader_module(
-            code=synapse_shader
+        self._shader_modules["synapse_operations"] = (
+            self.device.create_shader_module(code=synapse_shader)
         )
 
     def _allocate_buffers(self):
@@ -163,10 +165,16 @@ class ConnectomeManagerWebGPU:
         membrane_potentials = np.ascontiguousarray(
             membrane_potentials, dtype=np.float32
         )
-        resting_potentials = np.ascontiguousarray(resting_potentials, dtype=np.float32)
+        resting_potentials = np.ascontiguousarray(
+            resting_potentials, dtype=np.float32
+        )
         thresholds = np.ascontiguousarray(thresholds, dtype=np.float32)
-        refractory_periods = np.ascontiguousarray(refractory_periods, dtype=np.int32)
-        refractory_counters = np.ascontiguousarray(refractory_counters, dtype=np.int32)
+        refractory_periods = np.ascontiguousarray(
+            refractory_periods, dtype=np.int32
+        )
+        refractory_counters = np.ascontiguousarray(
+            refractory_counters, dtype=np.int32
+        )
         is_active = np.ascontiguousarray(is_active, dtype=np.uint32)
         valid_mask = np.ascontiguousarray(valid_mask, dtype=np.uint32)
 
@@ -174,49 +182,57 @@ class ConnectomeManagerWebGPU:
         # First map the staging buffers
         staging_membrane = self.staging_buffers["membrane_potentials"]
         staging_membrane.map_write()
-        staging_membrane.write_mapped_view().reshape(membrane_potentials.shape)[:] = (
-            membrane_potentials
-        )
+        staging_membrane.write_mapped_view().reshape(
+            membrane_potentials.shape
+        )[:] = membrane_potentials
         staging_membrane.unmap()
 
         staging_resting = self.staging_buffers["resting_potentials"]
         staging_resting.map_write()
-        staging_resting.write_mapped_view().reshape(resting_potentials.shape)[:] = (
-            resting_potentials
-        )
+        staging_resting.write_mapped_view().reshape(resting_potentials.shape)[
+            :
+        ] = resting_potentials
         staging_resting.unmap()
 
         staging_thresholds = self.staging_buffers["thresholds"]
         staging_thresholds.map_write()
-        staging_thresholds.write_mapped_view().reshape(thresholds.shape)[:] = thresholds
+        staging_thresholds.write_mapped_view().reshape(thresholds.shape)[:] = (
+            thresholds
+        )
         staging_thresholds.unmap()
 
         staging_ref_periods = self.staging_buffers["refractory_periods"]
         staging_ref_periods.map_write()
-        staging_ref_periods.write_mapped_view().reshape(refractory_periods.shape)[:] = (
-            refractory_periods
-        )
+        staging_ref_periods.write_mapped_view().reshape(
+            refractory_periods.shape
+        )[:] = refractory_periods
         staging_ref_periods.unmap()
 
         staging_ref_counters = self.staging_buffers["refractory_counters"]
         staging_ref_counters.map_write()
-        staging_ref_counters.write_mapped_view().reshape(refractory_counters.shape)[
-            :
-        ] = refractory_counters
+        staging_ref_counters.write_mapped_view().reshape(
+            refractory_counters.shape
+        )[:] = refractory_counters
         staging_ref_counters.unmap()
 
         staging_active = self.staging_buffers["is_active"]
         staging_active.map_write()
-        staging_active.write_mapped_view().reshape(is_active.shape)[:] = is_active
+        staging_active.write_mapped_view().reshape(is_active.shape)[:] = (
+            is_active
+        )
         staging_active.unmap()
 
         staging_valid = self.staging_buffers["valid_mask"]
         staging_valid.map_write()
-        staging_valid.write_mapped_view().reshape(valid_mask.shape)[:] = valid_mask
+        staging_valid.write_mapped_view().reshape(valid_mask.shape)[:] = (
+            valid_mask
+        )
         staging_valid.unmap()
 
         # Create command encoder to copy from staging buffers to device buffers
-        encoder = self.device.create_command_encoder(label="Neuron Data Upload Encoder")
+        encoder = self.device.create_command_encoder(
+            label="Neuron Data Upload Encoder"
+        )
 
         # Copy all buffer data
         encoder.copy_buffer_to_buffer(
@@ -314,9 +330,14 @@ class ConnectomeManagerWebGPU:
                 {"binding": 0, "resource": {"buffer": self.buffers["params"]}},
                 {
                     "binding": 1,
-                    "resource": {"buffer": self.buffers["membrane_potentials"]},
+                    "resource": {
+                        "buffer": self.buffers["membrane_potentials"]
+                    },
                 },
-                {"binding": 2, "resource": {"buffer": self.buffers["fire_list"]}},
+                {
+                    "binding": 2,
+                    "resource": {"buffer": self.buffers["fire_list"]},
+                },
             ],
             label="Neuron Operations Bind Group",
         )
@@ -356,15 +377,23 @@ class ConnectomeManagerWebGPU:
         self.bind_groups["synapse_operations"] = self.device.create_bind_group(
             layout=synapse_bind_group_layout,
             entries=[
-                {"binding": 0, "resource": {"buffer": self.buffers["batch_size"]}},
-                {"binding": 1, "resource": {"buffer": self.buffers["fire_list"]}},
+                {
+                    "binding": 0,
+                    "resource": {"buffer": self.buffers["batch_size"]},
+                },
+                {
+                    "binding": 1,
+                    "resource": {"buffer": self.buffers["fire_list"]},
+                },
                 {
                     "binding": 2,
                     "resource": {"buffer": self.buffers["row_indices"]},
                 },  # CSR indptr
                 {
                     "binding": 3,
-                    "resource": {"buffer": self.buffers["membrane_potentials"]},
+                    "resource": {
+                        "buffer": self.buffers["membrane_potentials"]
+                    },
                 },
             ],
             label="Synapse Operations Bind Group",
@@ -378,7 +407,10 @@ class ConnectomeManagerWebGPU:
             self.buffers["params"],
             0,
             np.array(
-                [self.connectome.max_neurons, self.connectome.current_timestep],
+                [
+                    self.connectome.max_neurons,
+                    self.connectome.current_timestep,
+                ],
                 dtype=np.uint32,
             ),
         )
@@ -393,7 +425,9 @@ class ConnectomeManagerWebGPU:
         self.update_synapse_data()
 
         # Create command encoder
-        encoder = self.device.create_command_encoder(label="Neuron Update Encoder")
+        encoder = self.device.create_command_encoder(
+            label="Neuron Update Encoder"
+        )
 
         # Update neurons compute pass
         neuron_pass = encoder.begin_compute_pass()
@@ -440,7 +474,9 @@ class ConnectomeManagerWebGPU:
         if fired_count > 0:
             # Update batch size for synapse propagation
             self.device.queue.write_buffer(
-                self.buffers["batch_size"], 0, np.array([fired_count], dtype=np.uint32)
+                self.buffers["batch_size"],
+                0,
+                np.array([fired_count], dtype=np.uint32),
             )
 
             # Create command encoder for synapse propagation
@@ -450,8 +486,12 @@ class ConnectomeManagerWebGPU:
 
             # Signal propagation compute pass
             propagation_pass = encoder.begin_compute_pass()
-            propagation_pass.set_pipeline(self.pipelines["synapse_propagation"])
-            propagation_pass.set_bind_group(0, self.bind_groups["synapse_operations"])
+            propagation_pass.set_pipeline(
+                self.pipelines["synapse_propagation"]
+            )
+            propagation_pass.set_bind_group(
+                0, self.bind_groups["synapse_operations"]
+            )
 
             # Dispatch compute shader with appropriate workgroup count
             # Each workgroup handles a batch of synapses

@@ -45,7 +45,9 @@ class RateLimiter:
         # Store of window start times by key
         self.window_starts = {}
 
-    def check_rate(self, key: str, max_rate: float, window: float = 1.0) -> bool:
+    def check_rate(
+        self, key: str, max_rate: float, window: float = 1.0
+    ) -> bool:
         """
         Check if an operation is allowed under the rate limit.
 

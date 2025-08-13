@@ -95,8 +95,16 @@ if EMBEDDED_MODE:
                     return self._create_success_response(
                         {
                             "mode": "embedded",
-                            "features": ["zmq_control", "zmq_sensory", "zmq_motor"],
-                            "disabled": ["rest_api", "visualization", "web_interface"],
+                            "features": [
+                                "zmq_control",
+                                "zmq_sensory",
+                                "zmq_motor",
+                            ],
+                            "disabled": [
+                                "rest_api",
+                                "visualization",
+                                "web_interface",
+                            ],
                         }
                     )
                 else:
@@ -244,7 +252,9 @@ else:
                 # Parse the message
                 request = self._parse_message(message_data)
                 if request is None:
-                    return self._create_error_response(400, "Invalid request format")
+                    return self._create_error_response(
+                        400, "Invalid request format"
+                    )
 
                 # Process the request
                 response = await self._process_request(request)
@@ -259,13 +269,17 @@ else:
                     500, f"Internal server error: {str(e)}"
                 )
 
-        def _parse_message(self, message_data: bytes) -> Optional[Dict[str, Any]]:
+        def _parse_message(
+            self, message_data: bytes
+        ) -> Optional[Dict[str, Any]]:
             """Parse ZMQ message data into a structured request."""
             try:
                 request = json.loads(message_data.decode("utf-8"))
 
                 if not isinstance(request, dict):
-                    logger.error(f"Request is not a dictionary: {type(request)}")
+                    logger.error(
+                        f"Request is not a dictionary: {type(request)}"
+                    )
                     return None
 
                 # Required fields
@@ -293,7 +307,9 @@ else:
                 logger.error(f"Error parsing message: {str(e)}")
                 return None
 
-        async def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        async def _process_request(
+            self, request: Dict[str, Any]
+        ) -> Dict[str, Any]:
             """Process a parsed REST API request using v1 business logic."""
             route = request["route"]
             method = request["method"]
@@ -310,8 +326,13 @@ else:
 
             # If no exact match, try to match parameterized routes
             if not handler:
-                for potential_route, potential_handler in self.route_handlers.items():
-                    potential_method, potential_path = potential_route.split(":", 1)
+                for (
+                    potential_route,
+                    potential_handler,
+                ) in self.route_handlers.items():
+                    potential_method, potential_path = potential_route.split(
+                        ":", 1
+                    )
 
                     # Skip if methods don't match
                     if method != potential_method:
@@ -355,15 +376,21 @@ else:
                     result = await handler(params, query, body, headers)
                     return self._create_success_response(result)
                 except ValueError as e:
-                    logger.error(f"Business logic error for {route_key}: {str(e)}")
+                    logger.error(
+                        f"Business logic error for {route_key}: {str(e)}"
+                    )
                     return self._create_error_response(400, str(e))
                 except Exception as e:
                     logger.error(f"Error in handler for {route_key}: {str(e)}")
                     logger.error(traceback.format_exc())
-                    return self._create_error_response(500, f"Handler error: {str(e)}")
+                    return self._create_error_response(
+                        500, f"Handler error: {str(e)}"
+                    )
             else:
                 logger.error(f"No handler found for route: {route_key}")
-                return self._create_error_response(404, f"Endpoint not found: {route}")
+                return self._create_error_response(
+                    404, f"Endpoint not found: {route}"
+                )
 
         def _create_success_response(self, body: Any) -> Dict[str, Any]:
             """Create a success response."""
@@ -378,7 +405,9 @@ else:
                 "timestamp": int(time.time() * 1000),
             }
 
-        def _create_error_response(self, status: int, message: str) -> Dict[str, Any]:
+        def _create_error_response(
+            self, status: int, message: str
+        ) -> Dict[str, Any]:
             """Create an error response."""
             return {
                 "status": status,
@@ -393,11 +422,15 @@ else:
 
         # ===== System Handler Implementations (using v1 API) =====
 
-        async def _handle_get_user_preferences(self, params, query, body, headers):
+        async def _handle_get_user_preferences(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/system/user_preferences"""
             return self.system_api.get_user_preferences()
 
-        async def _handle_update_user_preferences(self, params, query, body, headers):
+        async def _handle_update_user_preferences(
+            self, params, query, body, headers
+        ):
             """Handler for PUT /v1/system/user_preferences"""
             request = UserPreferencesRequest(**body)
             return self.system_api.update_user_preferences(request)
@@ -410,7 +443,9 @@ else:
             """Handler for GET /v1/system/health_check"""
             return await self.system_api.get_health_check()
 
-        async def _handle_get_configuration(self, params, query, body, headers):
+        async def _handle_get_configuration(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/system/configuration"""
             return self.system_api.get_configuration()
 
@@ -418,14 +453,18 @@ else:
             """Handler for GET /v1/system/db/influxdb/test"""
             return self.system_api.test_influxdb()
 
-        async def _handle_set_circuit_library_path(self, params, query, body, headers):
+        async def _handle_set_circuit_library_path(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/system/circuit_library_path"""
             path = body.get("path") if body else query.get("path")
             if not path:
                 raise ValueError("Missing required parameter: path")
             return self.system_api.set_circuit_library_path(path)
 
-        async def _handle_get_cortical_area_types(self, params, query, body, headers):
+        async def _handle_get_cortical_area_types(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/system/cortical_area_types"""
             return self.system_api.get_cortical_area_types()
 
@@ -441,11 +480,15 @@ else:
             """Handler for POST /v1/system/logs"""
             return self.system_api.manage_logs(body or {})
 
-        async def _handle_get_beacon_subscribers(self, params, query, body, headers):
+        async def _handle_get_beacon_subscribers(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/system/beacon/subscribers"""
             return self.system_api.get_beacon_subscribers()
 
-        async def _handle_subscribe_to_beacon(self, params, query, body, headers):
+        async def _handle_subscribe_to_beacon(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/system/beacon/subscribe"""
             subscriber_address = (
                 body.get("subscriber_address")
@@ -453,10 +496,14 @@ else:
                 else query.get("subscriber_address")
             )
             if not subscriber_address:
-                raise ValueError("Missing required parameter: subscriber_address")
+                raise ValueError(
+                    "Missing required parameter: subscriber_address"
+                )
             return self.system_api.subscribe_to_beacon(subscriber_address)
 
-        async def _handle_unsubscribe_from_beacon(self, params, query, body, headers):
+        async def _handle_unsubscribe_from_beacon(
+            self, params, query, body, headers
+        ):
             """Handler for DELETE /v1/system/beacon/unsubscribe"""
             subscriber_address = (
                 body.get("subscriber_address")
@@ -464,7 +511,9 @@ else:
                 else query.get("subscriber_address")
             )
             if not subscriber_address:
-                raise ValueError("Missing required parameter: subscriber_address")
+                raise ValueError(
+                    "Missing required parameter: subscriber_address"
+                )
             return self.system_api.unsubscribe_from_beacon(subscriber_address)
 
         async def _handle_get_version(self, params, query, body, headers):
@@ -473,7 +522,9 @@ else:
 
         # ===== Cortical Area Handler Implementations (using v1 API) =====
 
-        async def _handle_get_cortical_area_id_list(self, params, query, body, headers):
+        async def _handle_get_cortical_area_id_list(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/cortical_area/cortical_area_id_list"""
             return self.cortical_area_api.get_cortical_area_id_list_legacy()
 
@@ -512,7 +563,9 @@ else:
 
             # Use the correct field name 'cortical_ids' for the schema
             request = CorticalIdListRequest(cortical_ids=cortical_id_list)
-            return self.cortical_area_api.get_multiple_cortical_properties(request)
+            return self.cortical_area_api.get_multiple_cortical_properties(
+                request
+            )
 
         # ===== Genome Handler Implementations (using v1 API) =====
 
@@ -521,17 +574,23 @@ else:
             # This endpoint doesn't exist in v1 API yet, delegate to core service
             return self.core_api_service.get_genome()
 
-        async def _handle_get_genome_blueprint(self, params, query, body, headers):
+        async def _handle_get_genome_blueprint(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/blueprint"""
             # This endpoint doesn't exist in v1 API yet, delegate to core service
             genome = self.core_api_service.get_genome()
             return genome.get("cortical_areas", {}) if genome else {}
 
-        async def _handle_get_genome_file_name(self, params, query, body, headers):
+        async def _handle_get_genome_file_name(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/file_name"""
             return self.genome_api.get_genome_file_name_direct()
 
-        async def _handle_get_genome_defaults(self, params, query, body, headers):
+        async def _handle_get_genome_defaults(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/defaults/files"""
             return self.genome_api.get_default_genome_files()
 
@@ -539,11 +598,15 @@ else:
             """Handler for GET /v1/genome/download"""
             return self.genome_api.download_genome()
 
-        async def _handle_get_genome_number(self, params, query, body, headers):
+        async def _handle_get_genome_number(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/genome_number"""
             return self.genome_api.get_genome_number()
 
-        async def _handle_get_cortical_template(self, params, query, body, headers):
+        async def _handle_get_cortical_template(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/cortical_template"""
             return self.genome_api.get_cortical_template()
 
@@ -551,32 +614,44 @@ else:
             """Handler for GET /v1/genome/circuits"""
             return self.genome_api.get_circuit_library()
 
-        async def _handle_get_amalgamation_history(self, params, query, body, headers):
+        async def _handle_get_amalgamation_history(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/amalgamation_history"""
             return self.genome_api.get_amalgamation_history()
 
-        async def _handle_download_genome_region(self, params, query, body, headers):
+        async def _handle_download_genome_region(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/genome/download_region"""
             region_id = query.get("region_id")
             if not region_id:
                 raise ValueError("Missing required query parameter: region_id")
             return await self.genome_api.download_genome_from_region(region_id)
 
-        async def _handle_upload_barebones_genome(self, params, query, body, headers):
+        async def _handle_upload_barebones_genome(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/genome/upload/barebones"""
             return await self.genome_api.upload_barebones_genome()
 
-        async def _handle_upload_essential_genome(self, params, query, body, headers):
+        async def _handle_upload_essential_genome(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/genome/upload/essential"""
             return await self.genome_api.upload_essential_genome()
 
-        async def _handle_upload_genome_file(self, params, query, body, headers):
+        async def _handle_upload_genome_file(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/genome/upload/file"""
             if not body:
                 raise ValueError("Missing genome data in request body")
             return await self.genome_api.upload_genome_file(body)
 
-        async def _handle_upload_genome_string(self, params, query, body, headers):
+        async def _handle_upload_genome_string(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/genome/upload/string"""
             if not body:
                 raise ValueError("Missing genome data in request body")
@@ -608,12 +683,17 @@ else:
 
                     request = CorticalIdRequest(cortical_id=area_id)
                     area_properties = (
-                        self.cortical_area_api.get_cortical_area_properties(request)
+                        self.cortical_area_api.get_cortical_area_properties(
+                            request
+                        )
                     )
                     cortical_areas[area_id] = area_properties
                 except Exception as e:
                     # If properties fail, include basic info
-                    cortical_areas[area_id] = {"cortical_id": area_id, "error": str(e)}
+                    cortical_areas[area_id] = {
+                        "cortical_id": area_id,
+                        "error": str(e),
+                    }
 
             return {"cortical_areas": cortical_areas}
 
@@ -637,20 +717,26 @@ else:
 
         # ===== Burst Engine Handler Implementations (using v1 API) =====
 
-        async def _handle_get_simulation_timestep(self, params, query, body, headers):
+        async def _handle_get_simulation_timestep(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/burst_engine/simulation_timestep"""
             return self.burst_engine_api.get_simulation_timestep()
 
-        async def _handle_change_simulation_timestep(self, params, query, body, headers):
+        async def _handle_change_simulation_timestep(
+            self, params, query, body, headers
+        ):
             """Handler for POST /v1/burst_engine/simulation_timestep"""
             # Create SimulationTimestepRequest from the body using the new simplified format
             from feagi.api.v1.burst_engine import SimulationTimestepRequest
-            
+
             # Create the request object by unpacking the body (expects {"simulation_timestep": 0.1})
             request = SimulationTimestepRequest(**body)
             return self.burst_engine_api.change_simulation_timestep(request)
 
-        async def _handle_get_burst_engine_status(self, params, query, body, headers):
+        async def _handle_get_burst_engine_status(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/burst_engine/status"""
             return await self.burst_engine_api.get_burst_engine_status()
 
@@ -669,24 +755,32 @@ else:
 
         async def _handle_configure_agent(self, params, query, body, headers):
             """Handler for POST /v1/agent/configure"""
-            request = AgentConfigRequest(**body) if body else AgentConfigRequest()
+            request = (
+                AgentConfigRequest(**body) if body else AgentConfigRequest()
+            )
             return await self.agent_api.configure_agent(request)
 
         async def _handle_register_agent(self, params, query, body, headers):
             """Handler for POST /v1/agent/register"""
             if not body:
-                raise ValueError("Missing agent registration data in request body")
+                raise ValueError(
+                    "Missing agent registration data in request body"
+                )
             request = AgentRegistrationRequest(**body)
             return await self.agent_api.register_agent(request)
 
         async def _handle_deregister_agent(self, params, query, body, headers):
             """Handler for DELETE /v1/agent/deregister"""
             if not body:
-                raise ValueError("Missing agent deregistration data in request body")
+                raise ValueError(
+                    "Missing agent deregistration data in request body"
+                )
             request = AgentDeregistrationRequest(**body)
             return await self.agent_api.deregister_agent(request)
 
-        async def _handle_get_agent_properties(self, params, query, body, headers):
+        async def _handle_get_agent_properties(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/agent/properties/{agent_id}"""
             agent_id = params.get("agent_id")
             if not agent_id:
@@ -702,6 +796,8 @@ else:
                 raise ValueError("Missing required query parameter: agent_id")
             return await self.agent_api.get_agent_properties(agent_id)
 
-        async def _handle_get_fq_sampler_status(self, params, query, body, headers):
+        async def _handle_get_fq_sampler_status(
+            self, params, query, body, headers
+        ):
             """Handler for GET /v1/agent/fq_sampler_status"""
             return await self.agent_api.get_fq_sampler_status()

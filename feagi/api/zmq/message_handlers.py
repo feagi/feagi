@@ -119,7 +119,9 @@ class MessageHandler:
 
         # Additional safety check for None socket
         if self.socket is None:
-            logger.warning(f"{self.protocol_type} handler started but socket is None")
+            logger.warning(
+                f"{self.protocol_type} handler started but socket is None"
+            )
             return
 
         while self.running:
@@ -128,14 +130,16 @@ class MessageHandler:
                 message_parts = await self.socket.recv_multipart()
 
                 if len(message_parts) != 3:
-                    logger.warning(f"Received malformed message: {message_parts}")
+                    logger.warning(
+                        f"Received malformed message: {message_parts}"
+                    )
                     continue
 
                 client_id, empty, message_data = message_parts
 
                 # Look up client by ZMQ identity
-                agent_id, client_info = self.connection_manager.get_client_by_zmq_id(
-                    client_id
+                agent_id, client_info = (
+                    self.connection_manager.get_client_by_zmq_id(client_id)
                 )
 
                 if not agent_id:
@@ -166,22 +170,30 @@ class MessageHandler:
                         )
 
                 except Exception as e:
-                    logger.error(f"Error processing message from {agent_id}: {e}")
+                    logger.error(
+                        f"Error processing message from {agent_id}: {e}"
+                    )
 
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     # No message available
                     await asyncio.sleep(0.01)
                 else:
-                    logger.error(f"ZMQ error in {self.protocol_type} handler: {e}")
-                    await asyncio.sleep(1)  # Avoid tight loop on persistent errors
+                    logger.error(
+                        f"ZMQ error in {self.protocol_type} handler: {e}"
+                    )
+                    await asyncio.sleep(
+                        1
+                    )  # Avoid tight loop on persistent errors
 
             except asyncio.CancelledError:
                 logger.info(f"{self.protocol_type} message handler cancelled")
                 break
 
             except Exception as e:
-                logger.error(f"Unexpected error in {self.protocol_type} handler: {e}")
+                logger.error(
+                    f"Unexpected error in {self.protocol_type} handler: {e}"
+                )
                 await asyncio.sleep(1)  # Avoid tight loop on persistent errors
 
     def _decode_message(self, message_data: bytes) -> Dict[str, Any]:
@@ -221,7 +233,8 @@ class FCPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
@@ -253,7 +266,8 @@ class FSMPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
@@ -285,7 +299,8 @@ class FVPMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
@@ -317,7 +332,8 @@ class HandshakeMessageHandler(MessageHandler):
         self,
         connection_manager: ConnectionManager,
         process_message_callback: Callable[
-            [str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]
+            [str, Dict[str, Any]],
+            Coroutine[Any, Any, Optional[Dict[str, Any]]],
         ],
         translator: ByteStructureTranslator,
     ):
@@ -347,7 +363,9 @@ class HandshakeMessageHandler(MessageHandler):
             # The client ID is provided in the hello message
             client_id = message.get("agent_id")
             client_type = message.get("agent_type")
-            logger.info(f"Received hello from {client_type} client '{client_id}'")
+            logger.info(
+                f"Received hello from {client_type} client '{client_id}'"
+            )
 
             # Use the provided agent_id
             agent_id = client_id

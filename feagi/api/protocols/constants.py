@@ -44,7 +44,9 @@ class ByteStructureID(IntEnum):
     RAW_IMAGE = 8  # Single raw image (BGR format)
     MULTI_HOLDER = 9  # Container for multiple byte structures
     NEURON_FLAT = 10  # Neuron potential data (flat format)
-    NEURON_CATEGORIES = 11  # Neuron potential data (categorized by cortical area)
+    NEURON_CATEGORIES = (
+        11  # Neuron potential data (categorized by cortical area)
+    )
 
 
 class FCPCommandType(IntEnum):

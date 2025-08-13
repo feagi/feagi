@@ -86,7 +86,9 @@ class ProcessManager:
         self._sleep_manager = None
 
         # Add startup phase tracking
-        self._startup_phase = True  # True during initial startup, False during runtime
+        self._startup_phase = (
+            True  # True during initial startup, False during runtime
+        )
 
         logger.info("[SINGLETON] ProcessManager initialized")
 
@@ -111,7 +113,9 @@ class ProcessManager:
         self._setup_genome_load_event_handling()
 
     def load_and_validate_ports(
-        self, cli_args: Optional[Dict[str, Any]] = None, explicit_config: Optional[Dict[str, Any]] = None
+        self,
+        cli_args: Optional[Dict[str, Any]] = None,
+        explicit_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Load and validate port configuration from TOML configuration.
@@ -162,7 +166,9 @@ class ProcessManager:
             # Also validate API port
             api_port = config.get("api", {}).get("port", 0)
             if api_port <= 0:
-                raise ValueError("API port must be configured and greater than 0")
+                raise ValueError(
+                    "API port must be configured and greater than 0"
+                )
 
             try:
                 check_port_availability(host_config.api_host, api_port)
@@ -181,7 +187,9 @@ class ProcessManager:
             return config
 
         except Exception as e:
-            logger.error(f"Failed to load and validate port configuration: {e}")
+            logger.error(
+                f"Failed to load and validate port configuration: {e}"
+            )
             raise
 
     def find_available_port(
@@ -244,7 +252,10 @@ class ProcessManager:
             logger.info(f"Using backend: {backend_name}")
 
             # --- Initialize State Manager Early ---
-            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            from feagi.core.state_manager import (
+                FeagiStateManager,
+                ServiceState,
+            )
 
             state_manager = FeagiStateManager.instance()
             logger.info("State Manager initialized")
@@ -278,7 +289,9 @@ class ProcessManager:
             # Get references to individual critical components
             if self._core_api:
                 self._burst_engine = self._core_api.get_burst_engine()
-                self._connectome_manager = self._core_api.get_connectome_manager()
+                self._connectome_manager = (
+                    self._core_api.get_connectome_manager()
+                )
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
 
@@ -287,7 +300,9 @@ class ProcessManager:
                 if burst_engine:
                     # CORRECT: Set burst engine state to UNAVAILABLE since no genome is loaded
                     # It will transition to READY when a genome is loaded and auto-start is triggered
-                    state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
+                    state_manager.set_burst_engine_state(
+                        ServiceState.UNAVAILABLE
+                    )
 
                     logger.info(
                         "🔥 BURST ENGINE: UNAVAILABLE state initialized - will start when genome loads"
@@ -299,7 +314,8 @@ class ProcessManager:
                     return False
 
             logger.info(
-                "[OK] Critical processes initialized successfully", status="[OK] "
+                "[OK] Critical processes initialized successfully",
+                status="[OK] ",
             )
 
             # ===== CRITICAL SERVICE READINESS GATE =====
@@ -351,7 +367,9 @@ class ProcessManager:
                         logger.info(f"[OK]   {service}: {state.value}")
 
             except Exception as e:
-                logger.error(f"[ERR] Failed to check critical service readiness: {e}")
+                logger.error(
+                    f"[ERR] Failed to check critical service readiness: {e}"
+                )
                 return False
             # ===== END CRITICAL SERVICE READINESS GATE =====
 
@@ -382,7 +400,10 @@ class ProcessManager:
         # BLOCK ZMQ server (and agent connections) until ALL core critical services are ready
         # Note: We don't check zmq_server and api_server since those are what we're starting here
         try:
-            from feagi.core.state_manager import ServiceState, get_state_manager
+            from feagi.core.state_manager import (
+                ServiceState,
+                get_state_manager,
+            )
 
             state_manager = get_state_manager()
 
@@ -397,7 +418,9 @@ class ProcessManager:
 
             # Filter to only check core services
             core_status = {
-                k: v for k, v in critical_status.items() if k in core_critical_services
+                k: v
+                for k, v in critical_status.items()
+                if k in core_critical_services
             }
 
             # Only block on actual ERROR states, not on correct initial states
@@ -423,7 +446,9 @@ class ProcessManager:
                 logger.info(f"[OK]   {service}: {state.value}")
 
         except Exception as e:
-            logger.error(f"[ERR] Failed to check critical service readiness: {e}")
+            logger.error(
+                f"[ERR] Failed to check critical service readiness: {e}"
+            )
             return False
         # ===== END CRITICAL SERVICE READINESS GATE =====
 
@@ -444,14 +469,18 @@ class ProcessManager:
                 stream_config.get("visualization", {}).get("enabled", True)
                 and not embedded_mode
             )
-            sensory_enabled = stream_config.get("sensory", {}).get("enabled", True)
+            sensory_enabled = stream_config.get("sensory", {}).get(
+                "enabled", True
+            )
             motor_enabled = stream_config.get("motor", {}).get("enabled", True)
             rest_enabled = stream_config.get("rest", {}).get(
                 "enabled", True
             )  # REST API always enabled by default
 
             if embedded_mode:
-                logger.info("[CONFIG] Embedded mode: Visualization stream disabled")
+                logger.info(
+                    "[CONFIG] Embedded mode: Visualization stream disabled"
+                )
 
             logger.info(
                 f"Stream configuration: visualization={visualization_enabled}, "
@@ -481,7 +510,9 @@ class ProcessManager:
             # --- Registration Manager Setup (Central Agent Coordination) ---
             try:
                 from feagi.core.state_manager import FeagiStateManager
-                from feagi.pns.registration_manager import create_registration_manager
+                from feagi.pns.registration_manager import (
+                    create_registration_manager,
+                )
 
                 # Get State Manager instance
                 state_manager = FeagiStateManager.instance()
@@ -497,7 +528,9 @@ class ProcessManager:
                         "🏛️ Registration Manager initialized - central agent coordination ready"
                     )
                 else:
-                    logger.error("❌ Failed to initialize Registration Manager")
+                    logger.error(
+                        "❌ Failed to initialize Registration Manager"
+                    )
 
             except Exception as e:
                 logger.error(f"Failed to initialize Registration Manager: {e}")
@@ -506,7 +539,10 @@ class ProcessManager:
             # --- ZMQ Message Broker Setup ---
             try:
                 from feagi.api.zmq.server import ZmqServer
-                from feagi.core.state_manager import FeagiStateManager, ServiceState
+                from feagi.core.state_manager import (
+                    FeagiStateManager,
+                    ServiceState,
+                )
 
                 state_manager = FeagiStateManager.instance()
 
@@ -522,10 +558,14 @@ class ProcessManager:
                 # Use "*" (all interfaces) for binding when host is loopback on Windows
                 import platform
 
-                if platform.system() == "Windows" and zmq_host in [
-                    "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
-                    "localhost",  # @architecture:acceptable - Windows compatibility fix
-                ]:
+                if (
+                    platform.system() == "Windows"
+                    and zmq_host
+                    in [
+                        "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
+                        "localhost",  # @architecture:acceptable - Windows compatibility fix
+                    ]
+                ):
                     logger.info(
                         f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding"
                     )
@@ -545,15 +585,21 @@ class ProcessManager:
                     "pub_sub": port_config.zmq_pub_sub_port,
                     "push_pull": port_config.zmq_push_pull_port,
                     "sensory": (
-                        port_config.zmq_sensory_port if sensory_enabled else None
+                        port_config.zmq_sensory_port
+                        if sensory_enabled
+                        else None
                     ),
-                    "motor": port_config.zmq_motor_port if motor_enabled else None,
+                    "motor": port_config.zmq_motor_port
+                    if motor_enabled
+                    else None,
                     "visualization": (
                         port_config.zmq_visualization_port
                         if visualization_enabled
                         else None
                     ),
-                    "rest": port_config.zmq_rest_port if rest_enabled else None,
+                    "rest": port_config.zmq_rest_port
+                    if rest_enabled
+                    else None,
                 }
 
                 logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
@@ -566,10 +612,16 @@ class ProcessManager:
                     pub_sub_port=port_config.zmq_pub_sub_port,
                     push_pull_port=port_config.zmq_push_pull_port,
                     sensory_port=(
-                        port_config.zmq_sensory_port if sensory_enabled else None
+                        port_config.zmq_sensory_port
+                        if sensory_enabled
+                        else None
                     ),
-                    motor_port=port_config.zmq_motor_port if motor_enabled else None,
-                    rest_port=port_config.zmq_rest_port if rest_enabled else None,
+                    motor_port=port_config.zmq_motor_port
+                    if motor_enabled
+                    else None,
+                    rest_port=port_config.zmq_rest_port
+                    if rest_enabled
+                    else None,
                     vis_port=(
                         port_config.zmq_visualization_port
                         if visualization_enabled
@@ -624,7 +676,9 @@ class ProcessManager:
                     if resource_manager.initialize_critical_structures():
                         self._processes["resource_manager"] = resource_manager
                         # Resource manager doesn't have a specific state in FeagiStateManager
-                        logger.info("Resource Manager initialized successfully")
+                        logger.info(
+                            "Resource Manager initialized successfully"
+                        )
                     else:
                         logger.error("Failed to initialize Resource Manager")
                         return False
@@ -655,17 +709,23 @@ class ProcessManager:
             # --- System Resource Monitor (Profile Mode) ---
             try:
                 # Check if profiling mode is enabled via --profile flag
-                profile_enabled = config.get("system", {}).get("profile", False)
+                profile_enabled = config.get("system", {}).get(
+                    "profile", False
+                )
 
                 # In embedded mode, only enable profiling if explicitly requested
                 if profile_enabled and (not embedded_mode or profile_enabled):
-                    from feagi.utils.system_monitor import start_system_monitoring
+                    from feagi.utils.system_monitor import (
+                        start_system_monitoring,
+                    )
 
                     # Configure monitoring based on profile settings
                     monitoring_interval = config.get("profile", {}).get(
                         "resource_monitor_interval", 5.0
                     )
-                    enable_gpu = config.get("profile", {}).get("monitor_gpu", True)
+                    enable_gpu = config.get("profile", {}).get(
+                        "monitor_gpu", True
+                    )
                     enable_logging = config.get("profile", {}).get(
                         "monitor_logging", True
                     )
@@ -692,14 +752,18 @@ class ProcessManager:
                             f"[STATS] System resource monitor started (profile mode) - interval: {monitoring_interval}s"
                         )
                     else:
-                        logger.warning("Failed to start system resource monitor")
+                        logger.warning(
+                            "Failed to start system resource monitor"
+                        )
                 elif embedded_mode:
                     logger.info(
                         "[CONFIG] Embedded mode: System resource monitoring disabled (use --profile to enable minimal monitoring)"
                     )
 
             except Exception as e:
-                logger.warning(f"System resource monitor initialization failed: {e}")
+                logger.warning(
+                    f"System resource monitor initialization failed: {e}"
+                )
                 # Non-critical - continue without resource monitoring
 
             logger.info("Important processes initialization completed")
@@ -711,7 +775,9 @@ class ProcessManager:
                     "memory_processing" in config
                     and isinstance(config["memory_processing"], dict)
                     and "sleep_manager" in config["memory_processing"]
-                    and isinstance(config["memory_processing"]["sleep_manager"], dict)
+                    and isinstance(
+                        config["memory_processing"]["sleep_manager"], dict
+                    )
                 ):
                     sm_cfg = config["memory_processing"]["sleep_manager"]
                     enabled = sm_cfg.get("enabled", False)
@@ -728,21 +794,41 @@ class ProcessManager:
                             self._sleep_manager = SleepManager(
                                 fcl_manager=self._fcl_manager,
                                 connectome_manager=self._connectome_manager,
-                                memory_processor=self._burst_engine.memory_processor if self._burst_engine else None,
-                                window_bursts=int(sm_cfg["fcl_low_activity_window_bursts"]),
-                                activity_threshold=int(sm_cfg["fcl_low_activity_threshold"]),
-                                monitor_interval=float(sm_cfg["monitor_interval_seconds"]),
-                                gc_prune_after_bursts=int(sm_cfg["gc_prune_inactive_after_bursts"]),
+                                memory_processor=self._burst_engine.memory_processor
+                                if self._burst_engine
+                                else None,
+                                window_bursts=int(
+                                    sm_cfg["fcl_low_activity_window_bursts"]
+                                ),
+                                activity_threshold=int(
+                                    sm_cfg["fcl_low_activity_threshold"]
+                                ),
+                                monitor_interval=float(
+                                    sm_cfg["monitor_interval_seconds"]
+                                ),
+                                gc_prune_after_bursts=int(
+                                    sm_cfg["gc_prune_inactive_after_bursts"]
+                                ),
                             )
                             self._sleep_manager.start()
-                            self._processes["sleep_manager"] = self._sleep_manager
-                            logger.info("Sleep Manager initialized and monitoring FCL activity")
+                            self._processes["sleep_manager"] = (
+                                self._sleep_manager
+                            )
+                            logger.info(
+                                "Sleep Manager initialized and monitoring FCL activity"
+                            )
                         except Exception as sm_err:
-                            logger.error(f"Failed to initialize Sleep Manager: {sm_err}")
+                            logger.error(
+                                f"Failed to initialize Sleep Manager: {sm_err}"
+                            )
                     else:
-                        logger.info("Sleep Manager disabled or missing required config; skipping initialization")
+                        logger.info(
+                            "Sleep Manager disabled or missing required config; skipping initialization"
+                        )
                 else:
-                    logger.info("Sleep Manager config section not found; skipping initialization")
+                    logger.info(
+                        "Sleep Manager config section not found; skipping initialization"
+                    )
             except Exception as e:
                 logger.error(f"Error during Sleep Manager setup: {e}")
             return True
@@ -793,8 +879,12 @@ class ProcessManager:
                     api_config = {
                         "host": api_host,
                         "port": api_port,
-                        "reload": config.get("development", {}).get("reload", False),
-                        "access_log": config.get("api", {}).get("access_log", True),
+                        "reload": config.get("development", {}).get(
+                            "reload", False
+                        ),
+                        "access_log": config.get("api", {}).get(
+                            "access_log", True
+                        ),
                     }
 
                     # Create event loop if not already running
@@ -823,7 +913,9 @@ class ProcessManager:
                             )
                         except Exception as e:
                             logger.error(f"Failed to start uvicorn: {e}")
-                            logger.error(f"Full traceback: {traceback.format_exc()}")
+                            logger.error(
+                                f"Full traceback: {traceback.format_exc()}"
+                            )
                             # Also log the exception type and context for debugging
                             logger.error(f"Exception type: {type(e).__name__}")
                             logger.error(
@@ -833,7 +925,9 @@ class ProcessManager:
                             raise
 
                     # Start uvicorn in background thread
-                    api_thread = threading.Thread(target=run_uvicorn, daemon=True)
+                    api_thread = threading.Thread(
+                        target=run_uvicorn, daemon=True
+                    )
                     api_thread.start()
 
                     # Store the thread reference for shutdown
@@ -859,25 +953,33 @@ class ProcessManager:
 
             # --- WebSocket Server (Optional) ---
             try:
-                websocket_enabled = config.get("websocket", {}).get("enabled", False)
+                websocket_enabled = config.get("websocket", {}).get(
+                    "enabled", False
+                )
                 if websocket_enabled and not embedded_mode:
                     from feagi.api.websocket.server import WebSocketServer
 
                     ws_port = config.get("websocket", {}).get("port", 8080)
                     # Use validated host configuration (no hardcoded fallbacks)
-                    ws_host = host_config.api_host  # WebSocket uses same host as API
+                    ws_host = (
+                        host_config.api_host
+                    )  # WebSocket uses same host as API
 
                     ws_server = WebSocketServer(host=ws_host, port=ws_port)
 
                     if ws_server.start():
                         self._processes["websocket"] = ws_server
-                        logger.info(f"WebSocket server started on {ws_host}:{ws_port}")
+                        logger.info(
+                            f"WebSocket server started on {ws_host}:{ws_port}"
+                        )
                     else:
                         logger.warning(
                             "Failed to start WebSocket server - continuing without it"
                         )
                 elif embedded_mode:
-                    logger.info("[CONFIG] Embedded mode: WebSocket server disabled")
+                    logger.info(
+                        "[CONFIG] Embedded mode: WebSocket server disabled"
+                    )
 
             except Exception as e:
                 logger.warning(f"WebSocket server initialization failed: {e}")
@@ -886,7 +988,9 @@ class ProcessManager:
             # --- Health Check Service (skip in embedded mode) ---
             try:
                 health_enabled = (
-                    config.get("resources", {}).get("enable_health_check", True)
+                    config.get("resources", {}).get(
+                        "enable_health_check", True
+                    )
                     and not embedded_mode
                 )
                 if health_enabled:
@@ -897,7 +1001,9 @@ class ProcessManager:
                     self._processes["health_monitor"] = health_monitor
                     logger.info("Health monitor started")
                 elif embedded_mode:
-                    logger.info("[CONFIG] Embedded mode: Health monitor disabled")
+                    logger.info(
+                        "[CONFIG] Embedded mode: Health monitor disabled"
+                    )
 
             except Exception as e:
                 logger.warning(f"Health monitor initialization failed: {e}")
@@ -952,7 +1058,10 @@ class ProcessManager:
                     import uvicorn
 
                     uvicorn.run(
-                        app, host=config["host"], port=config["port"], loop="asyncio"
+                        app,
+                        host=config["host"],
+                        port=config["port"],
+                        loop="asyncio",
                     )
                 except Exception as e:
                     logger.error(f"API service task failed: {e}")
@@ -963,7 +1072,9 @@ class ProcessManager:
             api_thread = threading.Thread(target=run_api_service, daemon=True)
             api_thread.start()
 
-            logger.info("[OK] API service task started successfully", status="[OK] ")
+            logger.info(
+                "[OK] API service task started successfully", status="[OK] "
+            )
             return api_thread
 
         except Exception as e:
@@ -986,19 +1097,25 @@ class ProcessManager:
         # Start processes in priority order
         # 1. Critical processes (Priority 1)
         if not self.init_critical_processes(config):
-            logger.error("Failed to initialize critical processes, aborting startup")
+            logger.error(
+                "Failed to initialize critical processes, aborting startup"
+            )
             self.shutdown()
             return False
 
         # 2. Important processes (Priority 2)
         if not self.init_important_processes(config):
-            logger.error("Failed to initialize important processes, aborting startup")
+            logger.error(
+                "Failed to initialize important processes, aborting startup"
+            )
             self.shutdown()
             return False
 
         # 3. Background processes (Priority 3)
         if not self.init_background_processes(config):
-            logger.error("Failed to initialize background processes, aborting startup")
+            logger.error(
+                "Failed to initialize background processes, aborting startup"
+            )
             self.shutdown()
             return False
 
@@ -1008,7 +1125,9 @@ class ProcessManager:
         # Transition from startup phase to runtime phase
         # This allows FQ samplers to be created without critical service checks during runtime
         self._startup_phase = False
-        logger.info("🚀 FEAGI startup phase completed - transitioning to runtime phase")
+        logger.info(
+            "🚀 FEAGI startup phase completed - transitioning to runtime phase"
+        )
         logger.info(
             "🔄 FQ samplers can now be created on-demand during agent registration"
         )
@@ -1039,7 +1158,9 @@ class ProcessManager:
 
                 time.sleep(monitor_interval)  # Use configurable interval
 
-        self._monitor_thread = threading.Thread(target=monitor_processes, daemon=True)
+        self._monitor_thread = threading.Thread(
+            target=monitor_processes, daemon=True
+        )
         self._monitor_thread.start()
 
     def _check_processes(self):
@@ -1052,11 +1173,15 @@ class ProcessManager:
         for name, service in self._processes.items():
             try:
                 # Determine service type based on the actual object type/attributes
-                if hasattr(service, "is_running") and callable(service.is_running):
+                if hasattr(service, "is_running") and callable(
+                    service.is_running
+                ):
                     # Service with is_running() method (like ZmqServer)
                     if not service.is_running():
                         logger.error(f"Service {name} is not running")
-                elif hasattr(service, "is_alive") and callable(service.is_alive):
+                elif hasattr(service, "is_alive") and callable(
+                    service.is_alive
+                ):
                     # Thread-like objects
                     if not service.is_alive():
                         logger.error(f"Thread {name} has stopped unexpectedly")
@@ -1064,10 +1189,18 @@ class ProcessManager:
                             logger.error(
                                 "REST API thread failure - this usually indicates:"
                             )
-                            logger.error("  1. Unicode/encoding issues in log messages")
-                            logger.error("  2. Import errors or missing dependencies")
-                            logger.error("  3. Port conflicts or network issues")
-                            logger.error("  4. FastAPI/uvicorn startup failures")
+                            logger.error(
+                                "  1. Unicode/encoding issues in log messages"
+                            )
+                            logger.error(
+                                "  2. Import errors or missing dependencies"
+                            )
+                            logger.error(
+                                "  3. Port conflicts or network issues"
+                            )
+                            logger.error(
+                                "  4. FastAPI/uvicorn startup failures"
+                            )
                             logger.error(
                                 "Check the detailed traceback above for the root cause"
                             )
@@ -1075,7 +1208,9 @@ class ProcessManager:
                     # Legacy subprocess
                     if service.poll() is not None:
                         exit_code = service.poll()
-                        logger.error(f"Process {name} exited with code {exit_code}")
+                        logger.error(
+                            f"Process {name} exited with code {exit_code}"
+                        )
                 else:
                     # Service type we can't monitor - silently skip
                     # (Expected for HealthMonitor, ZmqServer, ResourceManager etc.)
@@ -1100,7 +1235,9 @@ class ProcessManager:
         """
         # @cursor:critical-path - Signal-safe shutdown should minimize logging
         try:
-            print("Shutting down FEAGI services...", file=sys.stderr, flush=True)
+            print(
+                "Shutting down FEAGI services...", file=sys.stderr, flush=True
+            )
 
             # Stop running flag to signal all services to stop
             self._running = False
@@ -1139,25 +1276,39 @@ class ProcessManager:
             # Shutdown each service properly based on its type with configurable timeouts
             for name, service in self._processes.items():
                 try:
-                    print(f"Stopping service: {name}...", file=sys.stderr, flush=True)
+                    print(
+                        f"Stopping service: {name}...",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
                     # Create a shutdown function that can be run with timeout
                     def shutdown_service():
                         try:
                             # Handle different service types
-                            if name == "zmq_server" and hasattr(service, "shutdown"):
+                            if name == "zmq_server" and hasattr(
+                                service, "shutdown"
+                            ):
                                 # ZMQ server has a shutdown method
                                 service.shutdown()
-                            elif name == "rest_api" and hasattr(service, "stop"):
+                            elif name == "rest_api" and hasattr(
+                                service, "stop"
+                            ):
                                 # REST API server has a stop method
                                 service.stop()
-                            elif name == "websocket" and hasattr(service, "stop"):
+                            elif name == "websocket" and hasattr(
+                                service, "stop"
+                            ):
                                 # WebSocket server has a stop method
                                 service.stop()
-                            elif name == "health_monitor" and hasattr(service, "stop"):
+                            elif name == "health_monitor" and hasattr(
+                                service, "stop"
+                            ):
                                 # Health monitor has a stop method
                                 service.stop()
-                            elif name == "system_monitor" and hasattr(service, "stop"):
+                            elif name == "system_monitor" and hasattr(
+                                service, "stop"
+                            ):
                                 # System resource monitor has a stop method
                                 service.stop()
                             elif name == "resource_manager" and hasattr(
@@ -1214,7 +1365,9 @@ class ProcessManager:
 
             # Stop Motor FQSampler if running
             if hasattr(self, "_motor_fq_sampler") and self._motor_fq_sampler:
-                print("Stopping Motor FQSampler...", file=sys.stderr, flush=True)
+                print(
+                    "Stopping Motor FQSampler...", file=sys.stderr, flush=True
+                )
                 try:
                     self._motor_fq_sampler.stop()
                     # Wait for thread to finish
@@ -1242,7 +1395,9 @@ class ProcessManager:
             # Stop Visualization FQSampler if running
             if hasattr(self, "_viz_fq_sampler") and self._viz_fq_sampler:
                 print(
-                    "Stopping Visualization FQSampler...", file=sys.stderr, flush=True
+                    "Stopping Visualization FQSampler...",
+                    file=sys.stderr,
+                    flush=True,
                 )
                 try:
                     self._viz_fq_sampler.stop()
@@ -1271,16 +1426,28 @@ class ProcessManager:
             # Stop Sleep Manager if running
             try:
                 if hasattr(self, "_sleep_manager") and self._sleep_manager:
-                    print("Stopping Sleep Manager...", file=sys.stderr, flush=True)
+                    print(
+                        "Stopping Sleep Manager...",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                     self._sleep_manager.stop()
             except Exception as e:
-                print(f"Error stopping Sleep Manager: {e}", file=sys.stderr, flush=True)
+                print(
+                    f"Error stopping Sleep Manager: {e}",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
             print("FEAGI services shut down", file=sys.stderr, flush=True)
 
         except Exception as e:
             # Last resort error handling - print to stderr and continue
-            print(f"Critical error during shutdown: {e}", file=sys.stderr, flush=True)
+            print(
+                f"Critical error during shutdown: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     def signal_handler(self, sig, frame):
         """Handle termination signals."""
@@ -1347,30 +1514,37 @@ class ProcessManager:
             stats["motor"] = self._motor_fq_sampler.get_performance_stats()
 
         if hasattr(self, "_viz_fq_sampler") and self._viz_fq_sampler:
-            stats["visualization"] = self._viz_fq_sampler.get_performance_stats()
+            stats["visualization"] = (
+                self._viz_fq_sampler.get_performance_stats()
+            )
 
         return stats
 
-    def update_visualization_stream_frequency(self, new_frequency: float) -> int:
+    def update_visualization_stream_frequency(
+        self, new_frequency: float
+    ) -> int:
         """
         Update visualization stream frequency to sync with FQ sampler frequency.
-        
+
         CRITICAL FIX: Visualization streams use their own timing (sample_rate),
         independent of FQ sampler frequency. This method updates both.
-        
+
         Args:
             new_frequency: New frequency in Hz
-            
+
         Returns:
             Number of streams updated
         """
         updated_count = 0
-        
+
         try:
             # Update via ZMQ server reference if available
             if hasattr(self, "_zmq_server") and self._zmq_server:
                 zmq_server = self._zmq_server
-                if hasattr(zmq_server, "_visualization") and zmq_server._visualization:
+                if (
+                    hasattr(zmq_server, "_visualization")
+                    and zmq_server._visualization
+                ):
                     viz_stream = zmq_server._visualization
                     if hasattr(viz_stream, "sample_rate"):
                         old_rate = viz_stream.sample_rate
@@ -1380,18 +1554,26 @@ class ProcessManager:
                         )
                         updated_count += 1
                     else:
-                        logger.warning("🎬 [FREQ-SYNC] Visualization stream found but no sample_rate attribute")
+                        logger.warning(
+                            "🎬 [FREQ-SYNC] Visualization stream found but no sample_rate attribute"
+                        )
                 else:
-                    logger.debug("🎬 [FREQ-SYNC] No visualization stream found in ZMQ server")
+                    logger.debug(
+                        "🎬 [FREQ-SYNC] No visualization stream found in ZMQ server"
+                    )
             else:
-                logger.debug("🎬 [FREQ-SYNC] No ZMQ server reference available")
-                
+                logger.debug(
+                    "🎬 [FREQ-SYNC] No ZMQ server reference available"
+                )
+
             # TODO: Add support for other visualization stream instances if needed
             # (e.g., standalone streams, additional servers, etc.)
-            
+
         except Exception as e:
-            logger.error(f"🎬 [FREQ-SYNC] Error updating visualization stream frequency: {e}")
-            
+            logger.error(
+                f"🎬 [FREQ-SYNC] Error updating visualization stream frequency: {e}"
+            )
+
         return updated_count
 
     def create_fq_sampler(self, mode: str, frequency: float) -> bool:
@@ -1405,7 +1587,9 @@ class ProcessManager:
         Returns:
             True if sampler was created and registered successfully, False otherwise
         """
-        logger.info(f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz")
+        logger.info(
+            f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz"
+        )
 
         # ===== EVENT-DRIVEN CRITICAL SERVICE READINESS =====
         # FEAGI operates on EVENTS and CONDITIONS, not timeouts!
@@ -1421,7 +1605,7 @@ class ProcessManager:
 
                 # EVENT-DRIVEN: Check actual service states, don't wait with timeouts
                 critical_status = state_manager.get_critical_services_status()
-                
+
                 # Check for actual ERROR states that would prevent FQ sampler creation
                 error_states = []
                 for service, state in critical_status.items():
@@ -1480,10 +1664,14 @@ class ProcessManager:
                 sample_frequency_hz=frequency,
                 sampling_mode=mode,
                 connectome_manager=(
-                    self._core_api.get_connectome_manager() if self._core_api else None
+                    self._core_api.get_connectome_manager()
+                    if self._core_api
+                    else None
                 ),
                 state_manager=(
-                    self._core_api.get_state_manager() if self._core_api else None
+                    self._core_api.get_state_manager()
+                    if self._core_api
+                    else None
                 ),
             )
 
@@ -1495,7 +1683,9 @@ class ProcessManager:
                 )
             elif mode == "opu":
                 self._motor_fq_sampler = fq_sampler
-                logger.info(f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}")
+                logger.info(
+                    f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}"
+                )
             else:
                 logger.warning(f"Unknown FQ sampler mode: {mode}")
                 return False
@@ -1552,7 +1742,9 @@ class ProcessManager:
                 logger.error(
                     f"🔥 [DEBUG] Process manager state: _burst_engine={self._burst_engine}"
                 )
-                logger.error(f"🔥 [DEBUG] Core API state: {self._core_api is not None}")
+                logger.error(
+                    f"🔥 [DEBUG] Core API state: {self._core_api is not None}"
+                )
                 if self._core_api:
                     try:
                         be_from_api = self._core_api.get_burst_engine()
@@ -1581,7 +1773,9 @@ class ProcessManager:
             # Store reference without thread for streams to use
             if mode == "visualization":
                 self._viz_fq_thread = None  # No thread needed
-                logger.info("[RENDER] Visualization FQ Sampler ready for stream usage")
+                logger.info(
+                    "[RENDER] Visualization FQ Sampler ready for stream usage"
+                )
             elif mode == "opu":
                 self._motor_fq_thread = None  # No thread needed
                 logger.info("[MOTOR] Motor FQ Sampler ready for stream usage")
@@ -1611,15 +1805,21 @@ class ProcessManager:
             timeout_config = get_timeout_config(config)
             thread_join_timeout = timeout_config.thread_join
         except Exception as e:
-            logger.warning(f"Could not load timeout config, using fallback: {e}")
-            thread_join_timeout = 2.0  # @architecture:acceptable - emergency fallback
+            logger.warning(
+                f"Could not load timeout config, using fallback: {e}"
+            )
+            thread_join_timeout = (
+                2.0  # @architecture:acceptable - emergency fallback
+            )
 
         try:
             if mode == "visualization":
                 if self._viz_fq_sampler is not None:
                     # Unregister from burst engine first
                     if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(self._viz_fq_sampler)
+                        self._burst_engine.unregister_fq_sampler(
+                            self._viz_fq_sampler
+                        )
                         logger.info(
                             f"🔥 Visualization FQ sampler [{getattr(self._viz_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
                         )
@@ -1632,13 +1832,17 @@ class ProcessManager:
 
                     self._viz_fq_sampler = None
                     self._viz_fq_thread = None
-                    logger.info("🎨 Visualization FQ sampler disabled and destroyed")
+                    logger.info(
+                        "🎨 Visualization FQ sampler disabled and destroyed"
+                    )
 
             elif mode == "opu" or mode == "motor":
                 if self._motor_fq_sampler is not None:
                     # Unregister from burst engine first
                     if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(self._motor_fq_sampler)
+                        self._burst_engine.unregister_fq_sampler(
+                            self._motor_fq_sampler
+                        )
                         logger.info(
                             f"🔥 Motor FQ sampler [{getattr(self._motor_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
                         )
@@ -1646,7 +1850,10 @@ class ProcessManager:
                     if hasattr(self._motor_fq_sampler, "stop"):
                         self._motor_fq_sampler.stop()
 
-                    if self._motor_fq_thread and self._motor_fq_thread.is_alive():
+                    if (
+                        self._motor_fq_thread
+                        and self._motor_fq_thread.is_alive()
+                    ):
                         self._motor_fq_thread.join(timeout=thread_join_timeout)
 
                     self._motor_fq_sampler = None
@@ -1688,7 +1895,9 @@ class ProcessManager:
             )
 
         except Exception as e:
-            logger.warning(f"Failed to initialize genome load event handling: {e}")
+            logger.warning(
+                f"Failed to initialize genome load event handling: {e}"
+            )
             logger.warning(
                 "Process manager will need to monitor state changes manually"
             )
@@ -1707,14 +1916,19 @@ class ProcessManager:
             )
 
             # Check if burst engine is available and not already running
-            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            from feagi.core.state_manager import (
+                FeagiStateManager,
+                ServiceState,
+            )
 
             state_manager = FeagiStateManager.instance()
 
             current_state = state_manager.get_burst_engine_state()
 
             if current_state == ServiceState.READY:
-                logger.info("⚡ Burst engine already running - no action needed")
+                logger.info(
+                    "⚡ Burst engine already running - no action needed"
+                )
                 return
 
             # Start burst engine through the SAME exact method as the REST API
@@ -1737,7 +1951,9 @@ class ProcessManager:
                         "✅ Burst engine started successfully after genome load"
                     )
                 else:
-                    logger.error("❌ Failed to start burst engine after genome load")
+                    logger.error(
+                        "❌ Failed to start burst engine after genome load"
+                    )
 
             except Exception as start_error:
                 logger.error(
@@ -1775,7 +1991,9 @@ def reset_process_manager() -> None:
             pass
         _process_manager = None
     else:
-        logger.debug("[SINGLETON] ProcessManager already None - no reset needed")
+        logger.debug(
+            "[SINGLETON] ProcessManager already None - no reset needed"
+        )
 
 
 def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
@@ -1795,7 +2013,10 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
 
         if profile_enabled:
             # Import and start detailed profiling
-            from feagi.utils.resource_profiler import profile_component, start_profiling
+            from feagi.utils.resource_profiler import (
+                profile_component,
+                start_profiling,
+            )
 
             start_profiling()
             logger.info("[SEARCH] Detailed resource profiling enabled")
@@ -1891,7 +2112,9 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
 
         # Start system resource monitor if profile enabled
         if profile_enabled:
-            logger.info("[STATS] System resource profiling enabled via --profile flag")
+            logger.info(
+                "[STATS] System resource profiling enabled via --profile flag"
+            )
             from feagi.utils.system_monitor import SystemMonitor
 
             monitor = SystemMonitor()
@@ -1965,7 +2188,9 @@ class SleepManager:
     def stop(self) -> None:
         self._running = False
         if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=2.0)  # @architecture:acceptable - shutdown cleanup
+            self._thread.join(
+                timeout=2.0
+            )  # @architecture:acceptable - shutdown cleanup
 
     def is_running(self) -> bool:
         return self._running and self._thread and self._thread.is_alive()
@@ -1974,7 +2199,9 @@ class SleepManager:
         try:
             while self._running:
                 try:
-                    if not self._fcl or not hasattr(self._fcl, "current_timestep"):
+                    if not self._fcl or not hasattr(
+                        self._fcl, "current_timestep"
+                    ):
                         time.sleep(self._interval)
                         continue
                     current_ts = int(self._fcl.current_timestep)
@@ -1984,14 +2211,26 @@ class SleepManager:
                     activity_max = self._threshold
                     try:
                         physiology = None
-                        if hasattr(self._cm, "genome") and isinstance(self._cm.genome, dict):
+                        if hasattr(self._cm, "genome") and isinstance(
+                            self._cm.genome, dict
+                        ):
                             physiology = self._cm.genome.get("physiology", {})
                         if not physiology:
                             # Attempt to get via state manager genome cache if available in future
                             pass
                         if physiology:
-                            window_bursts = int(physiology.get("sleep_trigger_inactivity_window", window_bursts))
-                            activity_max = int(physiology.get("sleep_trigger_neural_activity_max", activity_max))
+                            window_bursts = int(
+                                physiology.get(
+                                    "sleep_trigger_inactivity_window",
+                                    window_bursts,
+                                )
+                            )
+                            activity_max = int(
+                                physiology.get(
+                                    "sleep_trigger_neural_activity_max",
+                                    activity_max,
+                                )
+                            )
                     except Exception:
                         # Use configured defaults
                         pass
@@ -1999,6 +2238,7 @@ class SleepManager:
                     # Use cumulative counters from StateManager
                     try:
                         from feagi.core.state_manager import FeagiStateManager
+
                         sm = FeagiStateManager.instance()
                         counters = sm.get_cumulative_activity()
                         bursts = int(counters.get("bursts", 0))
@@ -2009,10 +2249,16 @@ class SleepManager:
                             sm.reset_cumulative_activity()
                         else:
                             # Optional debug log to understand gating
-                            if bursts > 0 and (bursts % max(1, window_bursts // 4) == 0):
-                                logger.debug(f"[SLEEP] Not triggering: bursts={bursts}/{window_bursts}, neurons={neurons} (max {activity_max})")
+                            if bursts > 0 and (
+                                bursts % max(1, window_bursts // 4) == 0
+                            ):
+                                logger.debug(
+                                    f"[SLEEP] Not triggering: bursts={bursts}/{window_bursts}, neurons={neurons} (max {activity_max})"
+                                )
                     except Exception as counter_err:
-                        logger.debug(f"Sleep Manager counter read error: {counter_err}")
+                        logger.debug(
+                            f"Sleep Manager counter read error: {counter_err}"
+                        )
                 except Exception as loop_err:
                     logger.debug(f"Sleep Manager loop error: {loop_err}")
                 time.sleep(self._interval)
@@ -2028,24 +2274,38 @@ class SleepManager:
             try:
                 if not hasattr(self, "_last_aging_burst"):
                     self._last_aging_burst = current_ts
-                delta = int(current_ts - getattr(self, "_last_aging_burst", current_ts))
+                delta = int(
+                    current_ts - getattr(self, "_last_aging_burst", current_ts)
+                )
                 if delta > 0:
                     died = []
                     # Prefer vectorized aging if available
-                    if hasattr(mna, "age_by_bursts") and callable(mna.age_by_bursts):
+                    if hasattr(mna, "age_by_bursts") and callable(
+                        mna.age_by_bursts
+                    ):
                         died = mna.age_by_bursts(delta)
                     else:
                         # Fallback to per-burst aging loop (should be rare)
                         for _ in range(delta):
-                            died.extend(mna.age_memory_neurons(current_burst=current_ts))
+                            died.extend(
+                                mna.age_memory_neurons(
+                                    current_burst=current_ts
+                                )
+                            )
                     if died:
                         # Update global counts via MemoryProcessor helper if available
                         try:
-                            if self._mp and hasattr(self._mp, "_update_state_manager_neuron_count"):
-                                self._mp._update_state_manager_neuron_count(increment=-len(died))
+                            if self._mp and hasattr(
+                                self._mp, "_update_state_manager_neuron_count"
+                            ):
+                                self._mp._update_state_manager_neuron_count(
+                                    increment=-len(died)
+                                )
                         except Exception:
                             pass
-                        logger.info(f"[MEMORY-DEATH] aged_by={delta} died={len(died)} sample={died[:10]}")
+                        logger.info(
+                            f"[MEMORY-DEATH] aged_by={delta} died={len(died)} sample={died[:10]}"
+                        )
                     self._last_aging_burst = current_ts
             except Exception as age_err:
                 logger.debug(f"Sleep Manager aging error: {age_err}")
@@ -2056,30 +2316,51 @@ class SleepManager:
                     thresholds = set()
                     for props in self._mp.memory_area_properties.values():
                         try:
-                            thresholds.add(int(props.get("longterm_threshold", 100)))
+                            thresholds.add(
+                                int(props.get("longterm_threshold", 100))
+                            )
                         except Exception:
                             pass
                     converted_total = 0
                     converted_sample = []
                     for t in thresholds:
-                        converted = mna.check_longterm_conversion(longterm_threshold=t)
+                        converted = mna.check_longterm_conversion(
+                            longterm_threshold=t
+                        )
                         if converted:
                             converted_total += len(converted)
                             if len(converted_sample) < 10:
-                                converted_sample.extend(converted[: max(0, 10 - len(converted_sample))])
+                                converted_sample.extend(
+                                    converted[
+                                        : max(0, 10 - len(converted_sample))
+                                    ]
+                                )
                     if converted_total:
-                        logger.info(f"[MEMORY-LTM] converted={converted_total} sample={converted_sample}")
+                        logger.info(
+                            f"[MEMORY-LTM] converted={converted_total} sample={converted_sample}"
+                        )
             except Exception as conv_err:
-                logger.debug(f"Sleep Manager conversion pass error: {conv_err}")
+                logger.debug(
+                    f"Sleep Manager conversion pass error: {conv_err}"
+                )
             # GC: prune stale inactive pattern mappings
             try:
-                pruned = mna.collect_garbage(current_burst=current_ts, prune_inactive_after_bursts=self._gc_prune_after)
-                if pruned and self._mp and hasattr(self._mp, "_remove_neuron_from_cache"):
+                pruned = mna.collect_garbage(
+                    current_burst=current_ts,
+                    prune_inactive_after_bursts=self._gc_prune_after,
+                )
+                if (
+                    pruned
+                    and self._mp
+                    and hasattr(self._mp, "_remove_neuron_from_cache")
+                ):
                     # Best effort: ensure caches drop any pruned indices
                     # Note: indexes removed from mappings may still be present in cache if inactive; flush conservatively
                     pass  # Cache uses pattern keys; pruning mappings already reduces memory footprint
                 if pruned:
-                    logger.info(f"[SLEEP] Memory GC completed: pruned {pruned} mappings (ts={current_ts})")
+                    logger.info(
+                        f"[SLEEP] Memory GC completed: pruned {pruned} mappings (ts={current_ts})"
+                    )
             except Exception as gc_err:
                 logger.debug(f"Sleep Manager GC error: {gc_err}")
         except Exception as e:

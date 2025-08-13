@@ -76,7 +76,9 @@ class SharedMemoryRegion:
 
         # Initialize lock
         self._lock = threading.RLock()  # For thread safety within a process
-        self._file_lock = None  # Will be created when needed for cross-process locking
+        self._file_lock = (
+            None  # Will be created when needed for cross-process locking
+        )
 
     def _create_memory_region(self):
         """Create a new shared memory region."""
@@ -177,7 +179,9 @@ class SharedMemoryRegion:
         """
         with self._lock:
             self.mmap.seek(offset)
-            return self.mmap.read(size if size is not None else (self.size - offset))
+            return self.mmap.read(
+                size if size is not None else (self.size - offset)
+            )
 
     def write(self, data: bytes, offset: int = 0) -> int:
         """
@@ -306,11 +310,15 @@ class SharedMemoryManager:
         if name not in self.regions:
             # Try to open an existing region
             try:
-                region = SharedMemoryRegion(name, temp_dir=self.temp_dir, create=False)
+                region = SharedMemoryRegion(
+                    name, temp_dir=self.temp_dir, create=False
+                )
                 self.regions[name] = region
                 return region
             except FileNotFoundError as e:
-                raise KeyError(f"Shared memory region '{name}' does not exist") from e
+                raise KeyError(
+                    f"Shared memory region '{name}' does not exist"
+                ) from e
 
         return self.regions[name]
 

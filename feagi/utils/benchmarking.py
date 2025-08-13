@@ -234,7 +234,9 @@ benchmark_runner = Benchmark()
 # Examples of critical sections to benchmark
 
 
-def python_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def python_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """Pure Python implementation of matrix multiplication."""
     rows_a, cols_a = matrix_a.shape
     rows_b, cols_b = matrix_b.shape
@@ -254,7 +256,9 @@ def python_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.nda
     return result
 
 
-def numpy_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def numpy_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """NumPy implementation of matrix multiplication."""
     return np.matmul(matrix_a, matrix_b)
 
@@ -276,7 +280,11 @@ def benchmark_comparison_example():
     )
 
     result2 = benchmark_runner.run(
-        numpy_matrix_multiply, args=(a, b), iterations=10, warmup=2, name="numpy_matmul"
+        numpy_matrix_multiply,
+        args=(a, b),
+        iterations=10,
+        warmup=2,
+        name="numpy_matmul",
     )
 
     # Print results
@@ -289,6 +297,8 @@ def benchmark_comparison_example():
 
 # Example of using the benchmark decorator
 @benchmark(iterations=10, warmup=2, name="decorated_matmul")
-def decorated_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def decorated_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """Matrix multiplication with benchmark decorator."""
     return np.matmul(matrix_a, matrix_b)

@@ -79,14 +79,18 @@ class FeagiAgentAPI:
             agents_data = registration_manager.list_agents()
 
             # Extract just the agent IDs for the simple list format expected by AgentListResponse
-            agent_ids = [agent["agent_id"] for agent in agents_data.get("agents", [])]
+            agent_ids = [
+                agent["agent_id"] for agent in agents_data.get("agents", [])
+            ]
 
             return AgentListResponse(root=agent_ids)
         except Exception as e:
             self.logger.error(f"Error listing agents: {e}")
             raise ValueError(f"Failed to list agents: {str(e)}") from e
 
-    @agent_endpoint("GET", "/info/{agent_id}", response_model=AgentInfoResponse)
+    @agent_endpoint(
+        "GET", "/info/{agent_id}", response_model=AgentInfoResponse
+    )
     async def get_agent_info(self, agent_id: str) -> AgentInfoResponse:
         try:
             agent_info = self.core_api_service.get_agent_properties(agent_id)
@@ -102,7 +106,9 @@ class FeagiAgentAPI:
         request_model=AgentConfigRequest,
         response_model=SuccessResponse,
     )
-    async def configure_agent(self, request: AgentConfigRequest) -> SuccessResponse:
+    async def configure_agent(
+        self, request: AgentConfigRequest
+    ) -> SuccessResponse:
         try:
             success = self.core_api_service.configure_agent(
                 request.agent_id, request.config
@@ -158,7 +164,9 @@ class FeagiAgentAPI:
 
                 return SuccessResponse(message=response.message, success=True)
             else:
-                self.logger.error(f"❌ Registration Manager failed: {response.message}")
+                self.logger.error(
+                    f"❌ Registration Manager failed: {response.message}"
+                )
 
                 # Map Registration Manager error codes to HTTP status codes
                 status_map = {
@@ -172,7 +180,9 @@ class FeagiAgentAPI:
 
                 status_code = status_map.get(response.error_code, 500)
 
-                raise HTTPException(status_code=status_code, detail=response.message)
+                raise HTTPException(
+                    status_code=status_code, detail=response.message
+                )
 
         except HTTPException:
             # Re-raise HTTP exceptions as-is
@@ -226,7 +236,9 @@ class FeagiAgentAPI:
 
                 status_code = status_map.get(response.error_code, 500)
 
-                raise HTTPException(status_code=status_code, detail=response.message)
+                raise HTTPException(
+                    status_code=status_code, detail=response.message
+                )
 
         except HTTPException:
             # Re-raise HTTP exceptions as-is
@@ -240,18 +252,24 @@ class FeagiAgentAPI:
     @agent_endpoint(
         "GET", "/properties/{agent_id}", response_model=AgentPropertiesResponse
     )
-    async def get_agent_properties(self, agent_id: str) -> AgentPropertiesResponse:
+    async def get_agent_properties(
+        self, agent_id: str
+    ) -> AgentPropertiesResponse:
         try:
             # Get configured default agent IP
-            default_agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            default_agent_ip = (
+                "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            )
             try:
                 if load_feagi_config and get_agent_config:
                     config = load_feagi_config()
                     agent_config = get_agent_config(config)
                     default_agent_ip = agent_config.default_host
             except Exception as e:
-                self.logger.warning(f"Could not load agent configuration, using fallback: {e}")
-            
+                self.logger.warning(
+                    f"Could not load agent configuration, using fallback: {e}"
+                )
+
             # Delegate to Registration Manager for consistent agent information
             from feagi.pns.registration_manager import get_registration_manager
 
@@ -271,9 +289,7 @@ class FeagiAgentAPI:
                 and properties.get("agent_ip")
                 and properties.get("agent_data_port")
             ):
-                agent_router_address = (
-                    f"tcp://{properties['agent_ip']}:{properties['agent_data_port']}"
-                )
+                agent_router_address = f"tcp://{properties['agent_ip']}:{properties['agent_data_port']}"
 
             return AgentPropertiesResponse(
                 agent_type=properties.get("agent_type", ""),
@@ -288,7 +304,9 @@ class FeagiAgentAPI:
             self.logger.error(
                 f"Error getting agent properties for {agent_id}: {str(e)}"
             )
-            raise ValueError(f"Failed to get agent properties: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get agent properties: {str(e)}"
+            ) from e
 
     # Manual query parameter version for FastAPI compatibility
     async def get_agent_properties_query(
@@ -338,45 +356,55 @@ class FeagiAgentAPI:
             import traceback
 
             self.logger.error(f"Traceback: {traceback.format_exc()}")
-            raise ValueError(f"Failed to get FQ sampler status: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get FQ sampler status: {str(e)}"
+            ) from e
 
     @agent_endpoint(
         "POST",
         "/manual_stimulation",
         request_model=ManualStimulationRequest,
-        response_model=Dict[str, Any]
+        response_model=Dict[str, Any],
     )
-    async def manual_stimulation(self, request: ManualStimulationRequest) -> Dict[str, Any]:
+    async def manual_stimulation(
+        self, request: ManualStimulationRequest
+    ) -> Dict[str, Any]:
         """
         Trigger manual neural stimulation across multiple cortical areas.
-        
+
         Injects neuron activations associated with the payload data into the fire candidate list.
-        
+
         Args:
-            request: Manual stimulation request containing stimulation payload with cortical areas 
+            request: Manual stimulation request containing stimulation payload with cortical areas
                     mapped to coordinate lists
-                    
+
         Returns:
             Dictionary containing stimulation results and statistics
-            
+
         Example request body:
         {
             "stimulation_payload": {
-                "_power": [[1, 0, 0], [2, 4, 3]], 
+                "_power": [[1, 0, 0], [2, 4, 3]],
                 "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
             }
         }
         """
         try:
-            self.logger.info(f"Manual stimulation request received for {len(request.stimulation_payload)} cortical areas")
-            
+            self.logger.info(
+                f"Manual stimulation request received for {len(request.stimulation_payload)} cortical areas"
+            )
+
             # Delegate to CoreAPIService for processing
-            result = self.core_api_service.trigger_multi_area_stimulation(request.stimulation_payload)
-            
-            self.logger.info(f"Manual stimulation completed: {result.get('success', False)}")
-            
+            result = self.core_api_service.trigger_multi_area_stimulation(
+                request.stimulation_payload
+            )
+
+            self.logger.info(
+                f"Manual stimulation completed: {result.get('success', False)}"
+            )
+
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Error processing manual stimulation: {e}")
             return {"success": False, "error": str(e)}

@@ -194,7 +194,9 @@ class RustCompatible:
 
 
 def rust_field(
-    *, ownership: OwnershipType = OwnershipType.OWNED, thread_safe: bool = False
+    *,
+    ownership: OwnershipType = OwnershipType.OWNED,
+    thread_safe: bool = False,
 ):
     """Create a field with Rust-specific metadata."""
     return field(metadata={"ownership": ownership, "thread_safe": thread_safe})

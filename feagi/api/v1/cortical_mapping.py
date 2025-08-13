@@ -47,16 +47,18 @@ class CorticalMappingAPI:
     def __init__(self, core_api_service: CoreAPIService):
         self.core_api_service = core_api_service
 
-    @cortical_mapping_endpoint("GET", "/mapping", response_model=Dict[str, Any])
+    @cortical_mapping_endpoint(
+        "GET", "/mapping", response_model=Dict[str, Any]
+    )
     async def get_cortical_mapping(self) -> Dict[str, Any]:
         mapping = self.core_api_service.get_cortical_mapping()
         return mapping
 
     @cortical_mapping_endpoint(
-        "POST", 
-        "/mapping", 
-        request_model=CreateCorticalMappingRequest, 
-        response_model=SuccessResponse
+        "POST",
+        "/mapping",
+        request_model=CreateCorticalMappingRequest,
+        response_model=SuccessResponse,
     )
     async def create_cortical_mapping(
         self, request: CreateCorticalMappingRequest
@@ -82,13 +84,15 @@ class CorticalMappingAPI:
                 }
             }
 
-            # Route through CoreAPIService to ensure proper hierarchical 
+            # Route through CoreAPIService to ensure proper hierarchical
             # genome -> connectome flow
-            success = self.core_api_service.update_cortical_mapping(mapping_data)
-            
+            success = self.core_api_service.update_cortical_mapping(
+                mapping_data
+            )
+
             if not success:
                 raise ValueError("Failed to create cortical mapping")
-            
+
             return SuccessResponse(
                 message=(
                     f"Cortical mapping created successfully from "
@@ -97,17 +101,21 @@ class CorticalMappingAPI:
                 )
             )
         except Exception as e:
-            raise ValueError(f"Failed to create cortical mapping: {str(e)}") from e
+            raise ValueError(
+                f"Failed to create cortical mapping: {str(e)}"
+            ) from e
 
-    @cortical_mapping_endpoint("PUT", "/mapping", response_model=SuccessResponse)
-    async def update_cortical_mapping(self, mapping: Dict[str, Any]) -> SuccessResponse:
-        """Update cortical mapping with new data.""" 
+    @cortical_mapping_endpoint(
+        "PUT", "/mapping", response_model=SuccessResponse
+    )
+    async def update_cortical_mapping(
+        self, mapping: Dict[str, Any]
+    ) -> SuccessResponse:
+        """Update cortical mapping with new data."""
         success = self.core_api_service.update_cortical_mapping(mapping)
         if not success:
             raise ValueError("Failed to update cortical mapping") from None
-        return SuccessResponse(
-            message="Cortical mapping updated successfully"
-        )
+        return SuccessResponse(message="Cortical mapping updated successfully")
 
     @cortical_mapping_endpoint(
         "POST",
@@ -142,7 +150,9 @@ class CorticalMappingAPI:
 
             return connections
         except Exception as e:
-            raise ValueError(f"Failed to get mapping properties: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get mapping properties: {str(e)}"
+            ) from e
 
     @cortical_mapping_endpoint(
         "PUT",
@@ -162,7 +172,9 @@ class CorticalMappingAPI:
             )
 
             if not success:
-                raise ValueError("Failed to update cortical mapping properties")
+                raise ValueError(
+                    "Failed to update cortical mapping properties"
+                )
 
             return SuccessResponse(
                 message=(
@@ -186,7 +198,7 @@ class CorticalMappingAPI:
     async def delete_cortical_mapping(
         self, request: CorticalMappingPropertiesRequest
     ) -> SuccessResponse:
-        """Delete cortical mapping and all associated synapses between 
+        """Delete cortical mapping and all associated synapses between
         two cortical areas."""
         try:
             success = self.core_api_service.delete_cortical_mapping(
@@ -211,5 +223,7 @@ class CorticalMappingAPI:
             ) from e
 
 
-def create_cortical_mapping_api(core_api_service: CoreAPIService) -> CorticalMappingAPI:
+def create_cortical_mapping_api(
+    core_api_service: CoreAPIService,
+) -> CorticalMappingAPI:
     return CorticalMappingAPI(core_api_service)

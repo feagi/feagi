@@ -86,7 +86,9 @@ def create_app() -> FastAPI:
         return feagi.list_models()
 
     @app.post("/models", response_model=ModelResponse)
-    async def create_model(request: ModelRequest, feagi: FEAGI = Depends(get_feagi)):
+    async def create_model(
+        request: ModelRequest, feagi: FEAGI = Depends(get_feagi)
+    ):
         """Create a new model."""
         model = feagi.create_model(request.name, request.model_type)
         return {
@@ -100,7 +102,9 @@ def create_app() -> FastAPI:
         """Get model by name."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         return {
             "name": model.name,
@@ -116,19 +120,28 @@ def create_app() -> FastAPI:
         """Train a model."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         metrics = model.train(request.data, request.epochs)
-        return {"message": f"Model {name} trained successfully", "metrics": metrics}
+        return {
+            "message": f"Model {name} trained successfully",
+            "metrics": metrics,
+        }
 
     @app.post("/models/{name}/predict")
     async def predict(
-        name: str, request: PredictionRequest, feagi: FEAGI = Depends(get_feagi)
+        name: str,
+        request: PredictionRequest,
+        feagi: FEAGI = Depends(get_feagi),
     ):
         """Make predictions using a model."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         predictions = model.predict(request.data)
         return {"predictions": predictions.tolist()}
@@ -138,7 +151,9 @@ def create_app() -> FastAPI:
         """Delete a model."""
         success = feagi.remove_model(name)
         if not success:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         return {"message": f"Model {name} deleted successfully"}
 

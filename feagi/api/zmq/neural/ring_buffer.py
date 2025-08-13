@@ -58,7 +58,9 @@ class ZeroCopyRingBuffer:
     # Cache line size (typical for x86_64)
     CACHE_LINE_SIZE = 64
 
-    def __init__(self, slots: int, slot_size: int, use_shared_memory: bool = True):
+    def __init__(
+        self, slots: int, slot_size: int, use_shared_memory: bool = True
+    ):
         """
         Initialize ring buffer.
 
@@ -152,8 +154,12 @@ class ZeroCopyRingBuffer:
         self.read_index = multiprocessing.Value("Q", 0)  # uint64
 
         # Padding to prevent false sharing
-        self._write_padding = multiprocessing.Array("c", self.CACHE_LINE_SIZE - 8)
-        self._read_padding = multiprocessing.Array("c", self.CACHE_LINE_SIZE - 8)
+        self._write_padding = multiprocessing.Array(
+            "c", self.CACHE_LINE_SIZE - 8
+        )
+        self._read_padding = multiprocessing.Array(
+            "c", self.CACHE_LINE_SIZE - 8
+        )
 
     def get_write_slot(self) -> Optional[BufferSlot]:
         """
@@ -183,7 +189,9 @@ class ZeroCopyRingBuffer:
         # Return memory view of slot
         return BufferSlot(
             index=write_idx,
-            memory_view=memoryview(self.buffer)[offset : offset + self.slot_size],
+            memory_view=memoryview(self.buffer)[
+                offset : offset + self.slot_size
+            ],
             offset=offset,
             size=self.slot_size,
         )
@@ -230,7 +238,9 @@ class ZeroCopyRingBuffer:
         # Return memory view of slot
         return BufferSlot(
             index=read_idx,
-            memory_view=memoryview(self.buffer)[offset : offset + self.slot_size],
+            memory_view=memoryview(self.buffer)[
+                offset : offset + self.slot_size
+            ],
             offset=offset,
             size=self.slot_size,
         )
@@ -262,7 +272,9 @@ class ZeroCopyRingBuffer:
             used = (write_idx + (1 << 64)) - read_idx
 
         usage_percent = (used / self.slots) * 100
-        self.stats.max_usage_percent = max(self.stats.max_usage_percent, usage_percent)
+        self.stats.max_usage_percent = max(
+            self.stats.max_usage_percent, usage_percent
+        )
 
     @property
     def available_slots(self) -> int:

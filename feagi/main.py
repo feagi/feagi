@@ -91,7 +91,9 @@ def check_dependencies():
     logger.info("Checking dependency versions...", status="[CHECK]")
     try:
         # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
-        skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in (
+        skip_check = os.environ.get(
+            "FEAGI_SKIP_VERSION_CHECK", ""
+        ).lower() in (
             "1",
             "true",
             "yes",
@@ -108,7 +110,9 @@ def check_dependencies():
             from feagi.utils.version_checker import verify_dependencies
 
             # Get the path to requirements.txt
-            requirements_path = Path(__file__).parent.parent / "requirements.txt"
+            requirements_path = (
+                Path(__file__).parent.parent / "requirements.txt"
+            )
 
             # Verify dependencies, don't raise an exception but return False if there's a mismatch
             is_compatible = verify_dependencies(
@@ -117,7 +121,8 @@ def check_dependencies():
 
             if is_compatible:
                 logger.info(
-                    "All dependencies are compatible with requirements", status="[OK]"
+                    "All dependencies are compatible with requirements",
+                    status="[OK]",
                 )
             else:
                 logger.warning(
@@ -161,8 +166,12 @@ def main():
 
         try:
             # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-            print("Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy()
+            )
+            print(
+                "Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility"
+            )
         except AttributeError:
             # Fallback for older Python versions
             print(
@@ -176,10 +185,14 @@ def main():
 
     # API server arguments (maintained for backwards compatibility)
     parser.add_argument(
-        "--api-host", type=str, help="Host for the API server (overrides config)"
+        "--api-host",
+        type=str,
+        help="Host for the API server (overrides config)",
     )
     parser.add_argument(
-        "--api-port", type=int, help="Port for the API server (overrides config)"
+        "--api-port",
+        type=int,
+        help="Port for the API server (overrides config)",
     )
     parser.add_argument(
         "--api-reload",
@@ -189,7 +202,9 @@ def main():
 
     # ZMQ server arguments (maintained for backwards compatibility)
     parser.add_argument(
-        "--zmq-host", type=str, help="Host for the ZMQ server (overrides config)"
+        "--zmq-host",
+        type=str,
+        help="Host for the ZMQ server (overrides config)",
     )
     parser.add_argument(
         "--zmq-req-port",
@@ -217,7 +232,9 @@ def main():
         help="Port for motor ZMQ stream (overrides config)",
     )
     parser.add_argument(
-        "--zmq-rest-port", type=int, help="Port for REST ZMQ stream (overrides config)"
+        "--zmq-rest-port",
+        type=int,
+        help="Port for REST ZMQ stream (overrides config)",
     )
     parser.add_argument(
         "--zmq-visualization-port",
@@ -279,7 +296,10 @@ def main():
         help="Run FEAGI in test mode 2 (numpy-based scalable random generation)",
     )
     parser.add_argument(
-        "--test-duration", type=int, default=10, help="Duration of the test in seconds"
+        "--test-duration",
+        type=int,
+        default=10,
+        help="Duration of the test in seconds",
     )
     parser.add_argument(
         "--test-frequency",
@@ -289,7 +309,9 @@ def main():
     )
 
     # Debug arguments
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug mode"
+    )
     parser.add_argument(
         "--log-level",
         type=str,
@@ -358,7 +380,10 @@ def main():
 
     try:
         # Load TOML configuration with command-line overrides
-        from feagi.config.toml_loader import FeagiConfigurationError, load_feagi_config
+        from feagi.config.toml_loader import (
+            FeagiConfigurationError,
+            load_feagi_config,
+        )
         from feagi.utils.port_checker import PortConflictError
 
         # Convert argparse Namespace to dict for CLI overrides
@@ -387,7 +412,9 @@ def main():
         if args.zmq_rest_port is not None:
             cli_overrides["zmq_rest_port"] = args.zmq_rest_port
         if args.zmq_visualization_port is not None:
-            cli_overrides["zmq_visualization_port"] = args.zmq_visualization_port
+            cli_overrides["zmq_visualization_port"] = (
+                args.zmq_visualization_port
+            )
 
         if args.debug:
             cli_overrides["debug"] = True
@@ -401,7 +428,9 @@ def main():
 
         if args.debug_npu:
             cli_overrides["debug_npu"] = True
-            logger.info("[DEBUG] NPU fire queue debugging enabled via --debug-npu flag")
+            logger.info(
+                "[DEBUG] NPU fire queue debugging enabled via --debug-npu flag"
+            )
 
         if args.debug_zmq_outbound:
             cli_overrides["debug_zmq_outbound"] = True
@@ -425,11 +454,15 @@ def main():
 
         if args.profile:
             cli_overrides["profile"] = True
-            logger.info("[STATS] System resource profiling enabled via --profile flag")
+            logger.info(
+                "[STATS] System resource profiling enabled via --profile flag"
+            )
 
         if args.embedded:
             cli_overrides["embedded"] = True
-            logger.info("[CONFIG] Embedded device mode enabled via --embedded flag")
+            logger.info(
+                "[CONFIG] Embedded device mode enabled via --embedded flag"
+            )
 
         # Handle genome path (support both --genome and --genome-path)
         genome_path = args.genome or args.genome_path
@@ -447,7 +480,9 @@ def main():
         api_config = config.get("api", {})
         port_config = config.get("ports", {})
         logger.info("Configuration loaded successfully:")
-        logger.info(f"  API: {api_config.get('host')}:{api_config.get('port')}")
+        logger.info(
+            f"  API: {api_config.get('host')}:{api_config.get('port')}"
+        )
         logger.info(
             f"  ZMQ Ports: REQ/REP={port_config.get('zmq_req_rep_port')}, "
             f"PUB/SUB={port_config.get('zmq_pub_sub_port')}, "
@@ -459,11 +494,15 @@ def main():
         logger.error("[ERR] CONFIGURATION ERROR [ERR]")
         logger.error(str(e))
         logger.error("\nTo fix this:")
-        logger.error("1. Check that feagi_configuration.toml exists and is valid")
+        logger.error(
+            "1. Check that feagi_configuration.toml exists and is valid"
+        )
         logger.error(
             "2. Verify all port numbers are unique and within range 1024-65535"
         )
-        logger.error("3. Ensure no other processes are using the configured ports")
+        logger.error(
+            "3. Ensure no other processes are using the configured ports"
+        )
         return 1
 
     except PortConflictError as e:
@@ -484,7 +523,9 @@ def main():
 
     # Check dependencies
     if not check_dependencies():
-        logger.error("Dependency check failed. Please install required dependencies.")
+        logger.error(
+            "Dependency check failed. Please install required dependencies."
+        )
         return 1
 
     # Initialize state manager and set debug configuration
@@ -540,9 +581,13 @@ def main():
 
                 cfg = load_feagi_config()
                 to = get_timeout_config(cfg)
-                timeout_seconds = float(getattr(to, "api_service_shutdown", 10.0))
+                timeout_seconds = float(
+                    getattr(to, "api_service_shutdown", 10.0)
+                )
             except Exception:
-                timeout_seconds = 15.0  # @architecture:acceptable - emergency fallback
+                timeout_seconds = (
+                    15.0  # @architecture:acceptable - emergency fallback
+                )
 
             time.sleep(timeout_seconds)
             print(
@@ -658,18 +703,24 @@ def main():
                         return 1
 
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ Invalid JSON in genome file {genome_path}: {e}")
+                    logger.error(
+                        f"❌ Invalid JSON in genome file {genome_path}: {e}"
+                    )
                     process_manager.shutdown()
                     FeagiStateManager.instance().cleanup()
                     return 1
                 except Exception as e:
-                    logger.error(f"❌ Error reading genome file {genome_path}: {e}")
+                    logger.error(
+                        f"❌ Error reading genome file {genome_path}: {e}"
+                    )
                     process_manager.shutdown()
                     FeagiStateManager.instance().cleanup()
                     return 1
 
             else:
-                logger.error("❌ Core API not available for CLI genome loading")
+                logger.error(
+                    "❌ Core API not available for CLI genome loading"
+                )
                 process_manager.shutdown()
                 FeagiStateManager.instance().cleanup()
                 return 1
@@ -678,7 +729,9 @@ def main():
             logger.error(f"❌ Error during CLI genome loading: {e}")
             import traceback
 
-            logger.debug(f"CLI genome loading error details: {traceback.format_exc()}")
+            logger.debug(
+                f"CLI genome loading error details: {traceback.format_exc()}"
+            )
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
@@ -686,7 +739,7 @@ def main():
     # If in test mode, run tests AFTER processes are started
     if args.test or args.test_mode_1 or args.test_mode_2:
         logger.info("Starting FEAGI in test mode")
-        
+
         # Determine test mode
         if args.test_mode_1:
             test_mode = "mode_1"

@@ -40,7 +40,9 @@ def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
         cortical_map[cortical_area] = dict()
         for dst in blueprint[cortical_area].get("cortical_mapping_dst", {}):
             cortical_map[cortical_area][dst] = list()
-            for mapping in blueprint[cortical_area]["cortical_mapping_dst"][dst]:
+            for mapping in blueprint[cortical_area]["cortical_mapping_dst"][
+                dst
+            ]:
                 cortical_map[cortical_area][dst].append(mapping)
     return cortical_map
 
@@ -74,8 +76,12 @@ def build_power_connections(
             }
         )
 
-    target_area_width = state.genome["blueprint"][target_area_id]["block_boundaries"][0]
-    target_area_depth = state.genome["blueprint"][target_area_id]["block_boundaries"][2]
+    target_area_width = state.genome["blueprint"][target_area_id][
+        "block_boundaries"
+    ][0]
+    target_area_depth = state.genome["blueprint"][target_area_id][
+        "block_boundaries"
+    ][2]
 
     morphology_template = {
         "parameters": {"patterns": []},
@@ -85,14 +91,21 @@ def build_power_connections(
 
     for entry in mapping_dict:
         if mapping_dict[entry] or mapping_dict[entry] == 0:
-            if int(entry) < target_area_width and 0 <= mapping_dict[entry] <= 1:
-                target_voxel = floor((target_area_depth - 1) * mapping_dict[entry])
+            if (
+                int(entry) < target_area_width
+                and 0 <= mapping_dict[entry] <= 1
+            ):
+                target_voxel = floor(
+                    (target_area_depth - 1) * mapping_dict[entry]
+                )
                 morphology_template["parameters"]["patterns"].append(
                     [[0, 0, 0], [int(entry), 0, target_voxel]]
                 )
 
     # Remove existing mapping if present
-    power_mappings = state.genome["blueprint"][power_area].get("cortical_mapping_dst")
+    power_mappings = state.genome["blueprint"][power_area].get(
+        "cortical_mapping_dst"
+    )
     if power_mappings:
         existing_power_to_target_area = power_mappings.get(target_area_id)
         if existing_power_to_target_area:

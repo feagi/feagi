@@ -40,12 +40,12 @@ _global_event_system: Optional[EventNotificationSystem] = None
 def get_event_system() -> Optional[EventNotificationSystem]:
     """
     Get the global event system instance.
-    
+
     Returns:
         EventNotificationSystem instance or None if not initialized
     """
     global _global_event_system
-    
+
     if _global_event_system is None:
         try:
             # Initialize with a default process name
@@ -55,23 +55,23 @@ def get_event_system() -> Optional[EventNotificationSystem]:
         except Exception as e:
             logger.warning(f"Failed to initialize global event system: {e}")
             return None
-    
+
     return _global_event_system
 
 
 def emit_event(
     event_type: EventType,
     data: Optional[Dict[str, Any]] = None,
-    priority: EventPriority = EventPriority.HIGH
+    priority: EventPriority = EventPriority.HIGH,
 ) -> bool:
     """
     Emit an event through the global event system.
-    
+
     Args:
         event_type: Type of event to emit
         data: Event data dictionary
         priority: Event priority level
-        
+
     Returns:
         bool: True if event was sent successfully, False otherwise
     """
@@ -79,7 +79,7 @@ def emit_event(
     if event_system is None:
         logger.warning("Event system not available - cannot emit event")
         return False
-    
+
     try:
         return event_system.send_event(event_type, data, priority)
     except Exception as e:
@@ -90,19 +90,19 @@ def emit_event(
 def initialize_event_system(process_name: str = "feagi_core") -> bool:
     """
     Initialize the global event system with a specific process name.
-    
+
     Args:
         process_name: Name for this process in the event system
-        
+
     Returns:
         bool: True if initialization successful, False otherwise
     """
     global _global_event_system
-    
+
     try:
         if _global_event_system is not None:
             _global_event_system.stop()
-        
+
         _global_event_system = EventNotificationSystem(process_name)
         _global_event_system.start()
         logger.info(f"Event system initialized for process: {process_name}")
@@ -115,7 +115,7 @@ def initialize_event_system(process_name: str = "feagi_core") -> bool:
 def shutdown_event_system():
     """Shutdown the global event system."""
     global _global_event_system
-    
+
     if _global_event_system is not None:
         try:
             _global_event_system.stop()
@@ -129,10 +129,10 @@ def shutdown_event_system():
 
 # Export the EventType and EventPriority for compatibility
 __all__ = [
-    'EventType',
-    'EventPriority', 
-    'get_event_system',
-    'emit_event',
-    'initialize_event_system',
-    'shutdown_event_system'
-] 
+    "EventType",
+    "EventPriority",
+    "get_event_system",
+    "emit_event",
+    "initialize_event_system",
+    "shutdown_event_system",
+]

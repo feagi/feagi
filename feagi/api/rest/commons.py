@@ -91,9 +91,13 @@ async def check_brain_running(request: Request):
             or not hasattr(connectome, "is_initialized")
             or not connectome.is_initialized
         ):
-            raise HTTPException(status_code=400, detail="Brain is not running!")
+            raise HTTPException(
+                status_code=400, detail="Brain is not running!"
+            )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Brain is not running: {str(e)}") from e
+        raise HTTPException(
+            status_code=400, detail=f"Brain is not running: {str(e)}"
+        ) from e
 
     # Also check the state manager
     state_manager = FeagiStateManager.instance()
@@ -113,7 +117,9 @@ async def check_active_genome(request: Request):
         if not core_api or not core_api.genome_is_loaded():
             raise HTTPException(status_code=400, detail="No genome loaded!")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Genome access error: {str(e)}") from e
+        raise HTTPException(
+            status_code=400, detail=f"Genome access error: {str(e)}"
+        ) from e
 
 
 async def check_burst_engine(request: Request):
@@ -125,7 +131,9 @@ async def check_burst_engine(request: Request):
 
     state_manager = FeagiStateManager.instance()
     if state_manager.get_burst_engine_state() != ServiceState.READY:
-        raise HTTPException(status_code=400, detail="Burst engine is not running!")
+        raise HTTPException(
+            status_code=400, detail="Burst engine is not running!"
+        )
 
 
 async def check_burst_engine_or_allow_genome_ops(request: Request):
@@ -150,7 +158,9 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
     # Otherwise perform the standard check
     state_manager = FeagiStateManager.instance()
     if state_manager.get_burst_engine_state() != ServiceState.READY:
-        raise HTTPException(status_code=400, detail="Burst engine is not running!")
+        raise HTTPException(
+            status_code=400, detail="Burst engine is not running!"
+        )
 
 
 async def check_burst_engine_or_allow_config_ops(request: Request):
@@ -194,4 +204,6 @@ async def check_burst_engine_for_processing(request: Request):
             detail="Burst engine is on hold (paused) - resume to perform this operation",
         )
     elif burst_state != ServiceState.READY:
-        raise HTTPException(status_code=400, detail="Burst engine is not running!")
+        raise HTTPException(
+            status_code=400, detail="Burst engine is not running!"
+        )

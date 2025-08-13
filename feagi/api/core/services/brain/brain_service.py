@@ -39,7 +39,9 @@ class BrainService(BaseService):
 
             return BurstEngine.get_instance()
         except Exception as e:
-            self.logger.error(f"Error getting burst engine singleton: {str(e)}")
+            self.logger.error(
+                f"Error getting burst engine singleton: {str(e)}"
+            )
             return None
 
     def get_burst_engine_status(self) -> Dict[str, Any]:
@@ -60,8 +62,12 @@ class BrainService(BaseService):
                 current_burst = getattr(burst_engine, "burst_count", 0)
             else:
                 # Fallback to state manager if burst engine not available
-                is_running = not getattr(self.state_manager, "exit_condition", False)
-                current_burst = getattr(self.state_manager, "current_burst_id", 0)
+                is_running = not getattr(
+                    self.state_manager, "exit_condition", False
+                )
+                current_burst = getattr(
+                    self.state_manager, "current_burst_id", 0
+                )
 
             return {
                 "status": "running" if is_running else "stopped",
@@ -82,7 +88,10 @@ class BrainService(BaseService):
                 import datetime
                 import os
                 import tempfile
-                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+
+                log_path = os.path.join(
+                    tempfile.gettempdir(), "feagi_injection_debug--temp.log"
+                )
                 with open(log_path, "a") as f:
                     f.write(
                         f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
@@ -100,7 +109,9 @@ class BrainService(BaseService):
             burst_engine = self._get_burst_engine()
             if not burst_engine:
                 if self.state_manager.is_debug_npu_enabled():
-                    print("[DEBUG] BRAIN SERVICE: No burst engine instance available")
+                    print(
+                        "[DEBUG] BRAIN SERVICE: No burst engine instance available"
+                    )
                 self.logger.error("No burst engine instance available")
                 return False
 
@@ -142,7 +153,9 @@ class BrainService(BaseService):
                         "BRAIN SERVICE: Starting burst engine main loop in background thread"
                     )
                     burst_engine.run()
-                    self.logger.debug("BRAIN SERVICE: burst_engine.run() returned")
+                    self.logger.debug(
+                        "BRAIN SERVICE: burst_engine.run() returned"
+                    )
                 except Exception as e:
                     self.logger.debug(
                         f"BRAIN SERVICE: Exception in burst engine main loop: {str(e)}"
@@ -153,12 +166,16 @@ class BrainService(BaseService):
                     # Set burst engine state to ERROR on exception
                     from feagi.core.state_manager import ServiceState
 
-                    self.state_manager.set_burst_engine_state(ServiceState.ERROR)
+                    self.state_manager.set_burst_engine_state(
+                        ServiceState.ERROR
+                    )
 
             self.logger.debug("BRAIN SERVICE: Creating background thread")
 
             # Start the burst engine in a daemon thread
-            burst_thread = threading.Thread(target=run_burst_engine, daemon=True)
+            burst_thread = threading.Thread(
+                target=run_burst_engine, daemon=True
+            )
             burst_thread.start()
 
             self.logger.debug(
@@ -205,11 +222,15 @@ class BrainService(BaseService):
                 startup_event.set()
 
             # Start monitoring thread
-            monitor_thread = threading.Thread(target=monitor_startup, daemon=True)
+            monitor_thread = threading.Thread(
+                target=monitor_startup, daemon=True
+            )
             monitor_thread.start()
 
             # RTOS: Wait for event with timeout (deterministic)
-            event_triggered = startup_event.wait(timeout=3.0)  # Max 3 second timeout
+            event_triggered = startup_event.wait(
+                timeout=3.0
+            )  # Max 3 second timeout
 
             self.logger.debug(
                 f"BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}"
@@ -217,7 +238,9 @@ class BrainService(BaseService):
 
             # Verify startup success
             if startup_success and burst_engine._running:
-                self.logger.debug("BRAIN SERVICE: Success! Burst engine is now running")
+                self.logger.debug(
+                    "BRAIN SERVICE: Success! Burst engine is now running"
+                )
                 self.logger.info(
                     "Burst engine started successfully in background thread"
                 )
@@ -225,7 +248,8 @@ class BrainService(BaseService):
                 # CRITICAL: If there's already a genome loaded, update the burst engine with it
                 # This ensures injection service gets initialized for existing genomes
                 genome_loaded = (
-                    self.state_manager and self.state_manager.is_genome_loaded()
+                    self.state_manager
+                    and self.state_manager.is_genome_loaded()
                 )
                 self.logger.debug(
                     f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}"
@@ -236,7 +260,11 @@ class BrainService(BaseService):
                         import datetime
                         import os
                         import tempfile
-                        log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+
+                        log_path = os.path.join(
+                            tempfile.gettempdir(),
+                            "feagi_injection_debug--temp.log",
+                        )
                         with open(log_path, "a") as f:
                             f.write(
                                 f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
@@ -253,7 +281,11 @@ class BrainService(BaseService):
                             import datetime
                             import os
                             import tempfile
-                            log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+
+                            log_path = os.path.join(
+                                tempfile.gettempdir(),
+                                "feagi_injection_debug--temp.log",
+                            )
                             with open(log_path, "a") as f:
                                 f.write(
                                     f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
@@ -271,7 +303,11 @@ class BrainService(BaseService):
                                 import datetime
                                 import os
                                 import tempfile
-                                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_debug--temp.log")
+
+                                log_path = os.path.join(
+                                    tempfile.gettempdir(),
+                                    "feagi_injection_debug--temp.log",
+                                )
                                 with open(log_path, "a") as f:
                                     f.write(
                                         f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
@@ -312,7 +348,9 @@ class BrainService(BaseService):
                 return True
 
             # Stop the burst engine main loop
-            self.logger.info("[DEBUG] BRAIN SERVICE: Stopping burst engine main loop")
+            self.logger.info(
+                "[DEBUG] BRAIN SERVICE: Stopping burst engine main loop"
+            )
             burst_engine.stop()
 
             # Set exit condition to stop the burst engine
@@ -329,6 +367,7 @@ class BrainService(BaseService):
                     get_timeout_config,
                     load_feagi_config,
                 )
+
                 cfg = load_feagi_config()
                 to = get_timeout_config(cfg)
                 delay = max(0.01, float(getattr(to, "thread_join", 0.2)))
@@ -341,7 +380,9 @@ class BrainService(BaseService):
                 # Set burst engine state to UNAVAILABLE
                 from feagi.core.state_manager import ServiceState
 
-                self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
+                self.state_manager.set_burst_engine_state(
+                    ServiceState.UNAVAILABLE
+                )
                 self.logger.info("Burst engine stopped successfully")
                 return True
             else:
@@ -374,7 +415,9 @@ class BrainService(BaseService):
             # Set engine to ON_HOLD (keeps engine alive but pauses processing)
             self.state_manager.set_burst_engine_state(ServiceState.ON_HOLD)
 
-            self.logger.info("Burst engine put on hold - neural processing paused")
+            self.logger.info(
+                "Burst engine put on hold - neural processing paused"
+            )
             return True
         except Exception as e:
             self.logger.error(f"Error putting burst engine on hold: {str(e)}")
@@ -431,7 +474,9 @@ class BrainService(BaseService):
                 stats.update(
                     {
                         "active_cortical_areas": len(
-                            getattr(self._connectome_manager, "cortical_areas", {})
+                            getattr(
+                                self._connectome_manager, "cortical_areas", {}
+                            )
                         ),
                         "current_timestep": getattr(
                             self._connectome_manager, "current_timestep", 0
@@ -451,26 +496,40 @@ class BrainService(BaseService):
                 return {}
 
             # Get current timestep
-            current_time = getattr(self._connectome_manager, "current_timestep", 0)
+            current_time = getattr(
+                self._connectome_manager, "current_timestep", 0
+            )
 
             # Count active neurons across all areas
             total_active = 0
             total_neurons = 0
             area_activity = {}
 
-            for area_idx, area in self._connectome_manager.cortical_areas.items():
-                area_neurons = self._connectome_manager.get_neurons_by_area(area_idx)
+            for (
+                area_idx,
+                area,
+            ) in self._connectome_manager.cortical_areas.items():
+                area_neurons = self._connectome_manager.get_neurons_by_area(
+                    area_idx
+                )
                 area_active = 0
 
                 for neuron_id in area_neurons:
-                    neuron_index = self._connectome_manager._neuron_id_to_index.get(
-                        neuron_id
+                    neuron_index = (
+                        self._connectome_manager._neuron_id_to_index.get(
+                            neuron_id
+                        )
                     )
                     if neuron_index is None:
                         continue
 
-                    last_fired = int(self._connectome_manager.last_fired[neuron_index])
-                    if last_fired > 0 and (current_time - last_fired) <= window:
+                    last_fired = int(
+                        self._connectome_manager.last_fired[neuron_index]
+                    )
+                    if (
+                        last_fired > 0
+                        and (current_time - last_fired) <= window
+                    ):
                         area_active += 1
 
                 total_active += area_active
@@ -551,7 +610,9 @@ class BrainService(BaseService):
                 process = psutil.Process()
                 metrics.update(
                     {
-                        "memory_usage_mb": process.memory_info().rss / 1024 / 1024,
+                        "memory_usage_mb": process.memory_info().rss
+                        / 1024
+                        / 1024,
                         "cpu_percent": process.cpu_percent(),
                     }
                 )
@@ -576,17 +637,19 @@ class BrainService(BaseService):
 
             for neuron_id in neuron_ids:
                 try:
-                    neuron_index = self._connectome_manager._neuron_id_to_index.get(
-                        neuron_id
+                    neuron_index = (
+                        self._connectome_manager._neuron_id_to_index.get(
+                            neuron_id
+                        )
                     )
                     if neuron_index is None:
                         failed_count += 1
                         continue
 
                     # Apply stimulation by setting membrane potential
-                    self._connectome_manager.membrane_potentials[neuron_index] = (
-                        intensity
-                    )
+                    self._connectome_manager.membrane_potentials[
+                        neuron_index
+                    ] = intensity
                     stimulated_count += 1
                 except Exception as e:
                     self.logger.warning(
@@ -606,25 +669,24 @@ class BrainService(BaseService):
             return {"success": False, "error": str(e)}
 
     def stimulate_neurons_unified(
-        self, 
-        neural_data: Dict[str, Dict[str, np.ndarray]]
+        self, neural_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, Any]:
         """
         Unified neural stimulation using coordinate-based data format.
-        
+
         SIMD-OPTIMIZED: Uses vectorized numpy operations instead of Python loops.
-        
+
         Args:
             neural_data: Dictionary with cortical_area_id as keys and coordinate arrays as values:
                 {
                     'cortical_area_1': {
                         'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint16),
-                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint16), 
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint16),
                         'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint16),
                         'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
                     }
                 }
-        
+
         Returns:
             Dictionary with stimulation results and statistics
         """
@@ -632,173 +694,242 @@ class BrainService(BaseService):
             total_stimulated = 0
             total_failed = 0
             area_results = {}
-            
+
             # Process each cortical area
             for cortical_id, area_data in neural_data.items():
                 try:
                     # Validate required fields
-                    required_fields = ['coordinates_x', 'coordinates_y', 'coordinates_z', 'membrane_potentials']
-                    missing_fields = [field for field in required_fields if field not in area_data]
+                    required_fields = [
+                        "coordinates_x",
+                        "coordinates_y",
+                        "coordinates_z",
+                        "membrane_potentials",
+                    ]
+                    missing_fields = [
+                        field
+                        for field in required_fields
+                        if field not in area_data
+                    ]
                     if missing_fields:
                         area_results[cortical_id] = {
-                            "success": False, 
-                            "error": f"Missing required fields: {missing_fields}"
+                            "success": False,
+                            "error": f"Missing required fields: {missing_fields}",
                         }
                         continue
-                    
+
                     # Extract coordinate arrays (already numpy arrays)
-                    coords_x = area_data['coordinates_x']
-                    coords_y = area_data['coordinates_y'] 
-                    coords_z = area_data['coordinates_z']
-                    potentials = area_data['membrane_potentials']
-                    
+                    coords_x = area_data["coordinates_x"]
+                    coords_y = area_data["coordinates_y"]
+                    coords_z = area_data["coordinates_z"]
+                    potentials = area_data["membrane_potentials"]
+
                     # Validate array lengths match
-                    if not (len(coords_x) == len(coords_y) == len(coords_z) == len(potentials)):
+                    if not (
+                        len(coords_x)
+                        == len(coords_y)
+                        == len(coords_z)
+                        == len(potentials)
+                    ):
                         area_results[cortical_id] = {
                             "success": False,
-                            "error": "Coordinate and potential arrays must have same length"
+                            "error": "Coordinate and potential arrays must have same length",
                         }
                         continue
-                    
+
                     if len(coords_x) == 0:
                         area_results[cortical_id] = {
                             "success": True,
                             "stimulated_count": 0,
                             "failed_count": 0,
                             "unique_coordinates": 0,
-                            "total_neurons_found": 0
+                            "total_neurons_found": 0,
                         }
                         continue
-                    
+
                     # SIMD OPTIMIZATION 1: Vectorized coordinate processing
                     # CRITICAL: Validate coordinate ranges before uint16 conversion to prevent silent data corruption
                     coords_x_array = np.asarray(coords_x)
                     coords_y_array = np.asarray(coords_y)
                     coords_z_array = np.asarray(coords_z)
-                    
+
                     # Check for values that would be truncated by uint16 conversion
-                    if len(coords_x_array) > 0 and coords_x_array.max() > 65535:
-                        self.logger.error(f"Area {cortical_id}: X coordinates exceed uint16 range! Max: {coords_x_array.max()}, limit: 65535")
+                    if (
+                        len(coords_x_array) > 0
+                        and coords_x_array.max() > 65535
+                    ):
+                        self.logger.error(
+                            f"Area {cortical_id}: X coordinates exceed uint16 range! Max: {coords_x_array.max()}, limit: 65535"
+                        )
                         area_results[cortical_id] = {
                             "success": False,
-                            "error": f"X coordinates exceed uint16 range (max: {coords_x_array.max()})"
+                            "error": f"X coordinates exceed uint16 range (max: {coords_x_array.max()})",
                         }
                         continue
-                        
-                    if len(coords_y_array) > 0 and coords_y_array.max() > 65535:
-                        self.logger.error(f"Area {cortical_id}: Y coordinates exceed uint16 range! Max: {coords_y_array.max()}, limit: 65535")
+
+                    if (
+                        len(coords_y_array) > 0
+                        and coords_y_array.max() > 65535
+                    ):
+                        self.logger.error(
+                            f"Area {cortical_id}: Y coordinates exceed uint16 range! Max: {coords_y_array.max()}, limit: 65535"
+                        )
                         area_results[cortical_id] = {
                             "success": False,
-                            "error": f"Y coordinates exceed uint16 range (max: {coords_y_array.max()})"
+                            "error": f"Y coordinates exceed uint16 range (max: {coords_y_array.max()})",
                         }
                         continue
-                        
-                    if len(coords_z_array) > 0 and coords_z_array.max() > 65535:
-                        self.logger.error(f"Area {cortical_id}: Z coordinates exceed uint16 range! Max: {coords_z_array.max()}, limit: 65535")
+
+                    if (
+                        len(coords_z_array) > 0
+                        and coords_z_array.max() > 65535
+                    ):
+                        self.logger.error(
+                            f"Area {cortical_id}: Z coordinates exceed uint16 range! Max: {coords_z_array.max()}, limit: 65535"
+                        )
                         area_results[cortical_id] = {
                             "success": False,
-                            "error": f"Z coordinates exceed uint16 range (max: {coords_z_array.max()})"
+                            "error": f"Z coordinates exceed uint16 range (max: {coords_z_array.max()})",
                         }
                         continue
-                    
+
                     # Convert to numpy arrays with validated uint16 conversion
                     coords_x = coords_x_array.astype(np.uint16)
                     coords_y = coords_y_array.astype(np.uint16)
                     coords_z = coords_z_array.astype(np.uint16)
                     potentials = np.asarray(potentials, dtype=np.float32)
-                    
+
                     # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
                     # Stack coordinates and find unique positions in one operation
-                    coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
-                    unique_coords, inverse_indices = np.unique(coordinate_matrix, axis=0, return_inverse=True)
-                    
+                    coordinate_matrix = np.column_stack(
+                        (coords_x, coords_y, coords_z)
+                    )
+                    unique_coords, inverse_indices = np.unique(
+                        coordinate_matrix, axis=0, return_inverse=True
+                    )
+
                     # Convert to set for batch lookup (ConnectomeManager API requirement)
                     candidate_positions = set(map(tuple, unique_coords))
-                    
+
                     # SIMD-optimized batch lookup: coordinates → neuron_ids
                     # This uses the existing batch_voxel_to_neuron_lookup method
-                    neuron_weight_pairs = self._connectome_manager.batch_voxel_to_neuron_lookup(
-                        cortical_id=cortical_id,
-                        candidate_positions=candidate_positions,
-                        post_synaptic_current=1.0  # Default weight
+                    neuron_weight_pairs = (
+                        self._connectome_manager.batch_voxel_to_neuron_lookup(
+                            cortical_id=cortical_id,
+                            candidate_positions=candidate_positions,
+                            post_synaptic_current=1.0,  # Default weight
+                        )
                     )
-                    
+
                     if not neuron_weight_pairs:
                         area_results[cortical_id] = {
                             "success": False,
-                            "error": f"No neurons found at coordinates in area {cortical_id}"
+                            "error": f"No neurons found at coordinates in area {cortical_id}",
                         }
                         continue
-                    
+
                     # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping
                     # Build efficient lookup using numpy operations
                     position_to_neurons = {}
-                    neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
-                    
+                    neuron_ids_array = np.array(
+                        [nid for nid, _ in neuron_weight_pairs], dtype=np.int64
+                    )
+
                     # Get all neuron positions in batch (if available)
-                    if hasattr(self._connectome_manager, 'batch_get_neuron_positions'):
+                    if hasattr(
+                        self._connectome_manager, "batch_get_neuron_positions"
+                    ):
                         # Use batch method if available
-                        neuron_positions = self._connectome_manager.batch_get_neuron_positions(neuron_ids_array)
+                        neuron_positions = self._connectome_manager.batch_get_neuron_positions(
+                            neuron_ids_array
+                        )
                         for i, neuron_id in enumerate(neuron_ids_array):
                             pos = neuron_positions[i]
                             if pos is not None:
-                                pos_tuple = tuple(pos[:3])  # Take first 3 elements (x, y, z)
+                                pos_tuple = tuple(
+                                    pos[:3]
+                                )  # Take first 3 elements (x, y, z)
                                 if pos_tuple not in position_to_neurons:
                                     position_to_neurons[pos_tuple] = []
-                                position_to_neurons[pos_tuple].append(neuron_id)
+                                position_to_neurons[pos_tuple].append(
+                                    neuron_id
+                                )
                     else:
                         # Fallback to individual lookups (still better than original loops)
                         for neuron_id, _ in neuron_weight_pairs:
-                            neuron_pos = self._connectome_manager.get_neuron_position(neuron_id)
+                            neuron_pos = (
+                                self._connectome_manager.get_neuron_position(
+                                    neuron_id
+                                )
+                            )
                             if neuron_pos:
                                 # Convert from (area_id, x, y, z, idx) format to (x, y, z)
                                 if len(neuron_pos) >= 4:
-                                    pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3])
+                                    pos_tuple = (
+                                        neuron_pos[1],
+                                        neuron_pos[2],
+                                        neuron_pos[3],
+                                    )
                                 else:
                                     pos_tuple = neuron_pos[:3]
-                                
+
                                 if pos_tuple not in position_to_neurons:
                                     position_to_neurons[pos_tuple] = []
-                                position_to_neurons[pos_tuple].append(neuron_id)
-                    
+                                position_to_neurons[pos_tuple].append(
+                                    neuron_id
+                                )
+
                     # SIMD OPTIMIZATION 4: Vectorized stimulation application
                     # Group coordinates by unique positions and apply stimulation in batches
                     area_stimulated = 0
                     area_failed = 0
-                    
+
                     # Process each unique coordinate position
                     for unique_idx, unique_coord in enumerate(unique_coords):
                         coord_tuple = tuple(unique_coord)
-                        
+
                         # Find all original indices that map to this unique coordinate
-                        coord_mask = (inverse_indices == unique_idx)
+                        coord_mask = inverse_indices == unique_idx
                         coord_potentials = potentials[coord_mask]
-                        
+
                         # Get neurons at this coordinate
-                        neurons_at_coord = position_to_neurons.get(coord_tuple, [])
-                        
+                        neurons_at_coord = position_to_neurons.get(
+                            coord_tuple, []
+                        )
+
                         if neurons_at_coord and len(coord_potentials) > 0:
                             # Use the first potential value for this coordinate
                             # (all coordinates at same position get same stimulation)
                             potential_value = float(coord_potentials[0])
-                            
+
                             # SIMD OPTIMIZATION 5: Batch membrane potential update
                             try:
-                                if hasattr(self._connectome_manager, 'neuron_array'):
-                                    neuron_array = self._connectome_manager.neuron_array
-                                    if hasattr(neuron_array, 'batch_update_membrane_potentials'):
+                                if hasattr(
+                                    self._connectome_manager, "neuron_array"
+                                ):
+                                    neuron_array = (
+                                        self._connectome_manager.neuron_array
+                                    )
+                                    if hasattr(
+                                        neuron_array,
+                                        "batch_update_membrane_potentials",
+                                    ):
                                         # Use vectorized batch update
                                         neuron_array.batch_update_membrane_potentials(
-                                            neurons_at_coord, 
-                                            [potential_value] * len(neurons_at_coord)
+                                            neurons_at_coord,
+                                            [potential_value]
+                                            * len(neurons_at_coord),
                                         )
-                                        area_stimulated += len(neurons_at_coord)
+                                        area_stimulated += len(
+                                            neurons_at_coord
+                                        )
                                     else:
                                         # Fallback to individual updates
                                         for neuron_id in neurons_at_coord:
                                             try:
                                                 neuron_array.set_neuron_property(
-                                                    neuron_id, "membrane_potential", potential_value
+                                                    neuron_id,
+                                                    "membrane_potential",
+                                                    potential_value,
                                                 )
                                                 area_stimulated += 1
                                             except Exception as e:
@@ -806,7 +937,7 @@ class BrainService(BaseService):
                                                     f"Failed to stimulate neuron {neuron_id}: {str(e)}"
                                                 )
                                                 area_failed += 1
-                                        
+
                                 else:
                                     area_failed += len(neurons_at_coord)
                             except Exception as e:
@@ -814,36 +945,38 @@ class BrainService(BaseService):
                                     f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
                                 )
                                 area_failed += len(neurons_at_coord)
-                    
+
                     area_results[cortical_id] = {
                         "success": True,
                         "stimulated_count": area_stimulated,
                         "failed_count": area_failed,
                         "unique_coordinates": len(unique_coords),
                         "total_neurons_found": len(neuron_ids_array),
-                        "optimization_used": "simd_vectorized"
+                        "optimization_used": "simd_vectorized",
                     }
-                    
+
                     total_stimulated += area_stimulated
                     total_failed += area_failed
-                    
+
                 except Exception as e:
-                    self.logger.error(f"Error processing area {cortical_id}: {str(e)}")
+                    self.logger.error(
+                        f"Error processing area {cortical_id}: {str(e)}"
+                    )
                     area_results[cortical_id] = {
                         "success": False,
-                        "error": str(e)
+                        "error": str(e),
                     }
                     continue
-            
+
             return {
                 "success": True,
                 "total_stimulated": total_stimulated,
                 "total_failed": total_failed,
                 "areas_processed": len(neural_data),
                 "area_results": area_results,
-                "method": "unified_coordinate_based_simd_optimized"
+                "method": "unified_coordinate_based_simd_optimized",
             }
-            
+
         except Exception as e:
             self.logger.error(f"Error in unified neuron stimulation: {str(e)}")
             return {"success": False, "error": str(e)}
@@ -860,7 +993,7 @@ class BrainService(BaseService):
                         state_frequency = state_freq
                 except Exception:
                     pass  # Use fallback
-            
+
             # Build config from authoritative state manager values
             base_config = {
                 "burst_frequency_hz": state_frequency,

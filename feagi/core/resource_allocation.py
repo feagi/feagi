@@ -160,7 +160,9 @@ class CPUAllocator:
         pools[2] = remaining_cores[:p2_count]
 
         # Priority 3 (background) gets remaining cores
-        pools[3] = [c for c in self.core_ids if c not in pools[1] and c not in pools[2]]
+        pools[3] = [
+            c for c in self.core_ids if c not in pools[1] and c not in pools[2]
+        ]
 
         return pools
 
@@ -228,7 +230,9 @@ class CPUAllocator:
             # If still not enough, take from higher priority (sacrifice)
             if len(available_cores) < num_cores and priority > 1:
                 higher_priority = priority - 1
-                while higher_priority >= 1 and len(available_cores) < num_cores:
+                while (
+                    higher_priority >= 1 and len(available_cores) < num_cores
+                ):
                     additional_cores = [
                         c
                         for c in self.priority_core_pools[higher_priority]
@@ -314,12 +318,15 @@ class CPUAllocator:
                 low_util_threshold = 0.3  # 30%
 
                 high_util = [
-                    p for p in processes if p.utilization >= high_util_threshold
+                    p
+                    for p in processes
+                    if p.utilization >= high_util_threshold
                 ]
                 low_util = [
                     p
                     for p in processes
-                    if p.utilization <= low_util_threshold and len(p.core_ids) > 1
+                    if p.utilization <= low_util_threshold
+                    and len(p.core_ids) > 1
                 ]
 
                 # If we have high utilization processes and low utilization processes,
@@ -344,7 +351,9 @@ class CPUAllocator:
                         changes[high_process.process_name] = (
                             high_process.core_ids.copy()
                         )
-                        changes[low_process.process_name] = low_process.core_ids.copy()
+                        changes[low_process.process_name] = (
+                            low_process.core_ids.copy()
+                        )
 
                         logger.info(
                             f"Rebalanced: moved core {core_to_move} from {low_process.process_name} to {high_process.process_name}"
@@ -359,7 +368,9 @@ class CPUAllocator:
 
             return changes
 
-    def update_utilization(self, process_name: str, utilization: float) -> None:
+    def update_utilization(
+        self, process_name: str, utilization: float
+    ) -> None:
         """
         Update CPU utilization for a process.
 
@@ -446,10 +457,14 @@ class CPUAllocator:
                 time.sleep(duration_seconds)
                 with self._lock:
                     if process_name in self.allocations:
-                        self.allocations[process_name].strategy = original_strategy
+                        self.allocations[
+                            process_name
+                        ].strategy = original_strategy
 
             # Start a thread to restore the strategy after duration
-            restore_thread = threading.Thread(target=restore_strategy, daemon=True)
+            restore_thread = threading.Thread(
+                target=restore_strategy, daemon=True
+            )
             restore_thread.start()
 
             return True

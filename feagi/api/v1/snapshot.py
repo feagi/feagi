@@ -7,6 +7,7 @@ Endpoints to manage and retrieve brain snapshots.
 - Download artifact: GET /v1/snapshots/{snapshot_id}/artifact/{fmt}
 - Restore: POST /v1/snapshots/{snapshot_id}/restore
 """
+
 from __future__ import annotations
 
 # Local imports used inside handlers (kept at module level for lint compliance)
@@ -73,16 +74,14 @@ class SnapshotRestoreRequest(BaseModel):
         None,
         pattern="^(mmap|load)$",
         description=(
-            "Restore mode: 'mmap' (zero-copy, requires store-encoded arrays) "
-            "or 'load'."
+            "Restore mode: 'mmap' (zero-copy, requires store-encoded arrays) or 'load'."
         ),
     )
     profile: Optional[str] = Field(
         None,
         pattern="^(model|stateful)$",
         description=(
-            "Which profile to restore: 'model' or 'stateful'. "
-            "Defaults to 'model'."
+            "Which profile to restore: 'model' or 'stateful'. Defaults to 'model'."
         ),
     )
 
@@ -124,7 +123,9 @@ class SnapshotAPI:
             "Requires [snapshot] output_dir and temp_dir in feagi_configuration.toml."
         ),
     )
-    async def create_snapshot(self, request: SnapshotCreateRequest) -> Dict[str, Any]:
+    async def create_snapshot(
+        self, request: SnapshotCreateRequest
+    ) -> Dict[str, Any]:
         """
         Create a snapshot folder and optionally persist an artifact (.fgc or .zip).
         """
@@ -196,7 +197,9 @@ class SnapshotAPI:
         ),
     )
     async def restore_snapshot(
-        self, snapshot_id: str, request: Optional[SnapshotRestoreRequest] = None
+        self,
+        snapshot_id: str,
+        request: Optional[SnapshotRestoreRequest] = None,
     ) -> Dict[str, Any]:
         """
         Restore a snapshot by id. If <id>/<id>.fgc exists, use it;
@@ -222,14 +225,22 @@ class SnapshotAPI:
 
             fc_path = Path(snapshot_root) / snapshot_id / f"{snapshot_id}.fgc"
             fcs_path = Path(snapshot_root) / snapshot_id / f"{snapshot_id}.fgs"
-            mode_default = (snapshot_cfg.get("fc_restore_mode") or "load").lower()
+            mode_default = (
+                snapshot_cfg.get("fc_restore_mode") or "load"
+            ).lower()
             if mode_default not in ("mmap", "load"):
                 raise ValueError(
                     "Invalid snapshot.fc_restore_mode; use 'mmap' or 'load'"
                 )
-            mode = request.mode.lower() if request and request.mode else mode_default
+            mode = (
+                request.mode.lower()
+                if request and request.mode
+                else mode_default
+            )
             requested_profile = (
-                request.profile.lower() if request and request.profile else "model"
+                request.profile.lower()
+                if request and request.profile
+                else "model"
             )
 
             if requested_profile == "stateful":
@@ -238,7 +249,9 @@ class SnapshotAPI:
                         "Requested profile 'stateful' but no .fgs artifact is available"
                     )
                 if mode == "mmap":
-                    from feagi.core.snapshot.container import validate_mmap_eligibility
+                    from feagi.core.snapshot.container import (
+                        validate_mmap_eligibility,
+                    )
 
                     validate_mmap_eligibility(fcs_path)
                 ok = restore_fgs_snapshot(
@@ -268,7 +281,9 @@ class SnapshotAPI:
                         state_manager=self.core_api_service.state_manager,
                     )
             else:
-                raise ValueError("Unsupported profile; use 'model' or 'stateful'")
+                raise ValueError(
+                    "Unsupported profile; use 'model' or 'stateful'"
+                )
 
             # Post-restore: load genome.json if present to back geometry/parameters
             try:
@@ -297,11 +312,20 @@ class SnapshotAPI:
                     # Backfill cortical area display names from genome when missing
                     try:
                         cmgr = self.core_api_service._connectome_manager
-                        blueprint = genome_obj.get("blueprint", {}) if isinstance(genome_obj, dict) else {}
-                        for cid, area in getattr(cmgr, "cortical_areas", {}).items():
+                        blueprint = (
+                            genome_obj.get("blueprint", {})
+                            if isinstance(genome_obj, dict)
+                            else {}
+                        )
+                        for cid, area in getattr(
+                            cmgr, "cortical_areas", {}
+                        ).items():
                             try:
                                 # If area.name is missing or equals id, try to use genome cortical_name
-                                if not getattr(area, "name", None) or area.name == cid:
+                                if (
+                                    not getattr(area, "name", None)
+                                    or area.name == cid
+                                ):
                                     g_def = blueprint.get(cid, {})
                                     g_name = g_def.get("cortical_name")
                                     if isinstance(g_name, str) and g_name:
@@ -319,6 +343,7 @@ class SnapshotAPI:
                         sm = self.core_api_service.state_manager
                         sm.increment_genome_counter()
                         import time as _t
+
                         sm.set_genome_timestamp(int(_t.time() * 1000))
                     except Exception:
                         pass
@@ -344,15 +369,21 @@ class SnapshotAPI:
 
             return {
                 "success": bool(ok),
-                "mode_used": mode if (fc_path.exists() or fcs_path.exists()) else None,
+                "mode_used": mode
+                if (fc_path.exists() or fcs_path.exists())
+                else None,
                 "profile_used": requested_profile,
             }
         except Exception as e:
-            logger.error(f"Failed to restore brain snapshot '{snapshot_id}': {e}")
+            logger.error(
+                f"Failed to restore brain snapshot '{snapshot_id}': {e}"
+            )
             raise ValueError(str(e)) from e
 
     @snapshot_endpoint("GET", "/{snapshot_id}/artifact/{fmt}")
-    async def get_snapshot_artifact(self, snapshot_id: str, fmt: str) -> Dict[str, Any]:
+    async def get_snapshot_artifact(
+        self, snapshot_id: str, fmt: str
+    ) -> Dict[str, Any]:
         """
         Download snapshot artifact as .fgc/.fgs or .zip.
         - .fgc: served from <id>/<id>.fgc; built on-demand if missing
@@ -384,8 +415,12 @@ class SnapshotAPI:
                 if not fc_path.exists():
                     c_path = snap_dir / "connectome.json"
                     s_path = snap_dir / "state.json"
-                    connectome_json = _json.loads(c_path.read_text(encoding="utf-8"))
-                    state_json = _json.loads(s_path.read_text(encoding="utf-8"))
+                    connectome_json = _json.loads(
+                        c_path.read_text(encoding="utf-8")
+                    )
+                    state_json = _json.loads(
+                        s_path.read_text(encoding="utf-8")
+                    )
                     fc_path = create_fgc_snapshot(
                         output_dir=snap_dir,
                         snapshot_id=snapshot_id,
@@ -397,8 +432,13 @@ class SnapshotAPI:
             if fmt_l == "fgs":
                 fcs_path = snap_dir / f"{snapshot_id}.fgs"
                 if not fcs_path.exists():
-                    raise ValueError("No stateful artifact available for this snapshot")
-                return {"path": str(fcs_path), "filename": f"{snapshot_id}.fgs"}
+                    raise ValueError(
+                        "No stateful artifact available for this snapshot"
+                    )
+                return {
+                    "path": str(fcs_path),
+                    "filename": f"{snapshot_id}.fgs",
+                }
             # zip: package to temp and stream, then cleanup
             if not temp_dir:
                 raise ValueError(
@@ -419,7 +459,9 @@ class SnapshotAPI:
                 "filename": f"{snapshot_id}.zip",
             }
         except Exception as e:
-            logger.error(f"Failed to get snapshot artifact '{snapshot_id}:{fmt}': {e}")
+            logger.error(
+                f"Failed to get snapshot artifact '{snapshot_id}:{fmt}': {e}"
+            )
             raise ValueError(str(e)) from e
 
     @snapshot_endpoint("GET", "/")
@@ -463,4 +505,4 @@ class SnapshotAPI:
 
 
 def create_snapshot_api(core_api_service: CoreAPIService) -> SnapshotAPI:
-    return SnapshotAPI(core_api_service) 
+    return SnapshotAPI(core_api_service)

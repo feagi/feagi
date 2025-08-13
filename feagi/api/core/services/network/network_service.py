@@ -48,7 +48,9 @@ class NetworkService(BaseService):
 
             # Check if state manager is available for agent connections
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, "connected_agents", {})
+                connected_agents = getattr(
+                    self.state_manager, "connected_agents", {}
+                )
                 status["connections"]["active"] = len(connected_agents)
 
                 # Count protocol usage
@@ -111,7 +113,9 @@ class NetworkService(BaseService):
 
             # Get connected agents data if available
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, "connected_agents", {})
+                connected_agents = getattr(
+                    self.state_manager, "connected_agents", {}
+                )
                 stats["total_connections"] = len(connected_agents)
                 stats["active_connections"] = len(
                     [
@@ -133,7 +137,9 @@ class NetworkService(BaseService):
             self.logger.error(f"Error getting connection statistics: {str(e)}")
             return {}
 
-    def test_connectivity(self, target: Optional[str] = None) -> Dict[str, Any]:
+    def test_connectivity(
+        self, target: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Test network connectivity to specific targets or general health."""
         try:
             results = {
@@ -212,7 +218,9 @@ class NetworkService(BaseService):
 
             # Update with actual agent connections if available
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, "connected_agents", {})
+                connected_agents = getattr(
+                    self.state_manager, "connected_agents", {}
+                )
                 for agent_info in connected_agents.values():
                     protocol = agent_info.get("protocol", "zmq")
                     if protocol in protocols:
@@ -233,11 +241,15 @@ class NetworkService(BaseService):
             self.logger.error(f"Error resetting network statistics: {str(e)}")
             return False
 
-    def configure_bandwidth_limits(self, limits: Dict[str, Any]) -> Dict[str, Any]:
+    def configure_bandwidth_limits(
+        self, limits: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Configure bandwidth limits for different types of traffic."""
         try:
             # This is a placeholder for bandwidth management
-            self.logger.info(f"Bandwidth limits configuration requested: {limits}")
+            self.logger.info(
+                f"Bandwidth limits configuration requested: {limits}"
+            )
 
             return {
                 "success": True,

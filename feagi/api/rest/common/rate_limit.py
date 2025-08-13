@@ -91,6 +91,8 @@ class RateLimiter:
 
         # Calculate remaining
         remaining_requests = max(0, self.requests_per_minute - count)
-        remaining_seconds = max(0, self.window_size - (current_time - window_start))
+        remaining_seconds = max(
+            0, self.window_size - (current_time - window_start)
+        )
 
         return remaining_requests, int(remaining_seconds)

@@ -77,7 +77,9 @@ def create_protocol(protocol_name: str) -> Optional[Type[Protocol]]:
     return _protocols[protocol_name]
 
 
-def get_protocol_by_content_type(content_type: str) -> Optional[Type[Protocol]]:
+def get_protocol_by_content_type(
+    content_type: str,
+) -> Optional[Type[Protocol]]:
     """
     Get a protocol by content type.
 

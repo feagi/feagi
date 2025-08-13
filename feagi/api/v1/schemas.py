@@ -72,7 +72,7 @@ class HealthCheckResponse(BaseModel):
     fitness: Optional[float] = None
     cortical_area_count: Optional[int] = None
     neuron_count: Optional[int] = None  # Total neurons (regular + memory)
-    memory_neuron_count: Optional[int] = None  # Memory neurons only  
+    memory_neuron_count: Optional[int] = None  # Memory neurons only
     regular_neuron_count: Optional[int] = None  # Regular neurons only
     synapse_count: Optional[int] = None
     estimated_brain_size_in_MB: Optional[float] = None
@@ -323,7 +323,9 @@ class CorticalNameRequest(BaseModel):
 class CorticalIdListRequest(BaseModel):
     """Request model for operations on multiple cortical areas."""
 
-    cortical_ids: List[str] = Field(validation_alias=AliasChoices("cortical_ids", "cortical_id_list"))
+    cortical_ids: List[str] = Field(
+        validation_alias=AliasChoices("cortical_ids", "cortical_id_list")
+    )
 
 
 class CorticalPropertiesUpdateRequest(BaseModel):
@@ -346,16 +348,16 @@ class CustomCorticalAreaRequest(BaseModel):
     coordinates_2d: List[int]
     coordinates_3d: List[int]
     copy_of: Optional[str] = None
-    
+
     # Support for sub_group_id field (alternative to cortical_sub_group)
     sub_group_id: Optional[str] = None
-    
+
     # Memory-specific properties for memory cortical areas
     init_lifespan: Optional[int] = None
     lifespan_growth_rate: Optional[float] = None
     longterm_mem_threshold: Optional[int] = None
     temporal_depth: Optional[int] = None
-    
+
     class Config:
         extra = "allow"  # Allow additional fields for extensibility
 
@@ -474,21 +476,21 @@ class NeuronMappingsResponse(BaseModel):
 
 class OutgoingSynapse(BaseModel):
     """Model for an outgoing synaptic connection."""
-    
+
     target_neuron_id: int
     weight: float
 
 
 class IncomingSynapse(BaseModel):
     """Model for an incoming synaptic connection."""
-    
+
     source_neuron_id: int
     weight: float
 
 
 class SynapseCounts(BaseModel):
     """Model for synapse count summary."""
-    
+
     outgoing: int
     incoming: int
     total: int
@@ -500,7 +502,9 @@ class NeuronPropertiesResponse(BaseModel):
     neuron_id: int
     cortical_id: str
     cortical_idx: int
-    position: List[int]  # PERFORMANCE FIX: Keep positions as integers, no conversion needed
+    position: List[
+        int
+    ]  # PERFORMANCE FIX: Keep positions as integers, no conversion needed
     threshold: float
     membrane_potential: float
     resting_potential: float
@@ -597,10 +601,10 @@ class CreateMorphologyRequest(BaseModel):
 
     morphology_data: Dict[str, Any]
     dimension_sensitive: Optional[bool] = Field(
-        None, 
+        None,
         description="Whether this morphology is sensitive to cortical area dimensions. "
-                   "If not provided, will auto-detect based on morphology type: "
-                   "patterns/vectors=False, functions=True"
+        "If not provided, will auto-detect based on morphology type: "
+        "patterns/vectors=False, functions=True",
     )
 
 
@@ -626,8 +630,8 @@ class DirectMorphologyRequest(BaseModel):
     dimension_sensitive: Optional[bool] = Field(
         None,
         description="Whether this morphology is sensitive to cortical area dimensions. "
-                   "If not provided, will auto-detect based on morphology type: "
-                   "patterns/vectors=False, functions=True"
+        "If not provided, will auto-detect based on morphology type: "
+        "patterns/vectors=False, functions=True",
     )
 
 
@@ -636,7 +640,9 @@ class MorphologyPropertiesResponse(BaseModel):
 
     morphology_name: str
     type: str
-    class_: Optional[str] = None  # Using class_ since class is reserved keyword
+    class_: Optional[str] = (
+        None  # Using class_ since class is reserved keyword
+    )
     parameters: Dict[str, Any]
     source: Optional[str] = None
 
@@ -774,7 +780,9 @@ class AgentRegistrationRequest(BaseModel):
     agent_version: str
     controller_version: str
     capabilities: Dict[str, Any]
-    agent_ip: Optional[str] = None  # If not provided, will be extracted from request
+    agent_ip: Optional[str] = (
+        None  # If not provided, will be extracted from request
+    )
 
 
 class AgentDeregistrationRequest(BaseModel):
@@ -940,16 +948,16 @@ class PathRequest(BaseModel):
 
 class ManualStimulationRequest(BaseModel):
     """Request model for manual neural stimulation across multiple cortical areas.
-    
+
     Example payload:
     {
         "stimulation_payload": {
-            "_power": [[1, 0, 0], [2, 4, 3]], 
+            "_power": [[1, 0, 0], [2, 4, 3]],
             "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
         }
     }
     """
-    
+
     stimulation_payload: Dict[str, List[List[int]]] = Field(
         description="Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates"
     )
@@ -960,33 +968,53 @@ class ManualStimulationRequest(BaseModel):
 
 class MemoryComponentInfo(BaseModel):
     """Memory information for a component (neurons or synapses)."""
-    
+
     count: int = Field(description="Number of items")
     size_bytes: int = Field(description="Memory size in bytes")
-    size_human: str = Field(description="Human-readable memory size (e.g., '1.2 KB')")
-    avg_bytes_per_item: float = Field(description="Average memory per item in bytes")
-    avg_human_per_item: str = Field(description="Human-readable average memory per item (e.g., '49 B')")
+    size_human: str = Field(
+        description="Human-readable memory size (e.g., '1.2 KB')"
+    )
+    avg_bytes_per_item: float = Field(
+        description="Average memory per item in bytes"
+    )
+    avg_human_per_item: str = Field(
+        description="Human-readable average memory per item (e.g., '49 B')"
+    )
 
 
 class SynapseMemoryBreakdown(BaseModel):
     """Memory breakdown for synapses by type."""
-    
-    incoming: MemoryComponentInfo = Field(description="Synapses coming into this area from other areas")
-    outgoing: MemoryComponentInfo = Field(description="Synapses going from this area to other areas")
-    internal: MemoryComponentInfo = Field(description="Synapses within the area (recurrent connections)")
+
+    incoming: MemoryComponentInfo = Field(
+        description="Synapses coming into this area from other areas"
+    )
+    outgoing: MemoryComponentInfo = Field(
+        description="Synapses going from this area to other areas"
+    )
+    internal: MemoryComponentInfo = Field(
+        description="Synapses within the area (recurrent connections)"
+    )
 
 
 class TotalMemoryInfo(BaseModel):
     """Total memory usage information."""
-    
+
     size_bytes: int = Field(description="Total memory size in bytes")
-    size_human: str = Field(description="Human-readable total memory size (e.g., '5.7 MB')")
+    size_human: str = Field(
+        description="Human-readable total memory size (e.g., '5.7 MB')"
+    )
 
 
 class CorticalAreaMemoryUsageResponse(BaseModel):
     """Response model for cortical area memory usage breakdown."""
-    
+
     cortical_id: str = Field(description="The cortical area ID")
-    neurons: MemoryComponentInfo = Field(description="Memory usage for all neurons in the area")
-    synapses: SynapseMemoryBreakdown = Field(description="Memory usage breakdown for synapses")
-    total: TotalMemoryInfo = Field(description="Total memory usage (neurons + all synapses)")
+    neurons: MemoryComponentInfo = Field(
+        description="Memory usage for all neurons in the area"
+    )
+    synapses: SynapseMemoryBreakdown = Field(
+        description="Memory usage breakdown for synapses"
+    )
+    total: TotalMemoryInfo = Field(
+        description="Total memory usage (neurons + all synapses)"
+    )

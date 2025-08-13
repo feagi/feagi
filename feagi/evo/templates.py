@@ -625,10 +625,10 @@ cortical_template_memory = {
     "neuron_excitability": 1.0,
     "visualization": True,
     # Memory-specific properties
-    "init_lifespan": 9,                    # Initial neuron lifespan
-    "lifespan_growth_rate": 1.0,           # Growth rate on reactivation
-    "longterm_mem_threshold": 100,         # Long-term conversion threshold
-    "temporal_depth": 1,                   # Pattern history depth
+    "init_lifespan": 9,  # Initial neuron lifespan
+    "lifespan_growth_rate": 1.0,  # Growth rate on reactivation
+    "longterm_mem_threshold": 100,  # Long-term conversion threshold
+    "temporal_depth": 1,  # Pattern history depth
 }
 
 
@@ -716,9 +716,21 @@ core_morphologies = {
     "projector_xy": {"parameters": {}, "type": "functions", "class": "core"},
     "projector_xz": {"parameters": {}, "type": "functions", "class": "core"},
     "projector_yz": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_x": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_y": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_z": {"parameters": {}, "type": "functions", "class": "core"},
+    "project_from_end_x": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
+    "project_from_end_y": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
+    "project_from_end_z": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
     "last_to_first": {"parameters": {}, "type": "functions", "class": "core"},
     "memory": {"parameters": {}, "type": "functions", "class": "core"},
     "0-0-0_to_all": {
@@ -769,7 +781,11 @@ core_morphologies = {
     "randomizer": {"parameters": {}, "type": "functions", "class": "core"},
     "expander_x": {"parameters": {}, "type": "functions", "class": "core"},
     "reducer_x": {"parameters": {}, "type": "functions", "class": "core"},
-    "lateral_pairs_x": {"parameters": {}, "type": "functions", "class": "core"},
+    "lateral_pairs_x": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
     "tile": {
         "parameters": {
             "src_seed": [16, 16, 1],

@@ -196,9 +196,15 @@ class BiDirectionalCorticalMap:
                 )
 
         # Verify core areas are intact (critical system requirement)
-        if self.__id_to_idx.get("_death") != 0 or self.__idx_to_id.get(0) != "_death":
+        if (
+            self.__id_to_idx.get("_death") != 0
+            or self.__idx_to_id.get(0) != "_death"
+        ):
             errors.add("Core area _death not properly mapped to index 0")
-        if self.__id_to_idx.get("_power") != 1 or self.__idx_to_id.get(1) != "_power":
+        if (
+            self.__id_to_idx.get("_power") != 1
+            or self.__idx_to_id.get(1) != "_power"
+        ):
             errors.add("Core area _power not properly mapped to index 1")
 
         return len(errors) == 0, errors

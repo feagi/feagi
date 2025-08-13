@@ -70,7 +70,9 @@ def run_test_mode(core_api_service, **kwargs):
         "⚠️  DEPRECATION WARNING: feagi.test_mode.run_test_mode is deprecated"
     )
     logger.warning("   Please use feagi.utils.test_mode.run_test_mode instead")
-    logger.warning("   This legacy function will be removed in a future version")
+    logger.warning(
+        "   This legacy function will be removed in a future version"
+    )
     logger.warning(
         "   See feagi_core/feagi/utils/test_mode/README.md for full documentation"
     )

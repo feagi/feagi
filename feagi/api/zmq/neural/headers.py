@@ -76,9 +76,13 @@ class NeuralDataHeader:
         if not (0 <= self.flags <= 65535):
             raise ValueError(f"Flags must be 0-65535, got {self.flags}")
         if self.neuron_count < 0:
-            raise ValueError(f"Neuron count must be >= 0, got {self.neuron_count}")
+            raise ValueError(
+                f"Neuron count must be >= 0, got {self.neuron_count}"
+            )
         if self.payload_size < 0:
-            raise ValueError(f"Payload size must be >= 0, got {self.payload_size}")
+            raise ValueError(
+                f"Payload size must be >= 0, got {self.payload_size}"
+            )
 
     @property
     def compression(self) -> CompressionType:

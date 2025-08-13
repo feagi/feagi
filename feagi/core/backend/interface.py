@@ -215,7 +215,10 @@ def get_available_backends() -> List[BackendType]:
         resources = resource_mgr.resources
 
         # Check for CUDA GPU availability
-        if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0:
+        if (
+            resources.get("gpu_available", False)
+            and resources.get("gpu_count", 0) > 0
+        ):
             available.append(BackendType.CUDA)
 
         # Check for WebGPU availability
@@ -223,14 +226,19 @@ def get_available_backends() -> List[BackendType]:
             available.append(BackendType.WEBGPU)
 
         # Check for Metal (Apple Silicon) availability
-        if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
+        if (
+            resources.get("metal_available", False)
+            and BackendType.METAL in _BACKENDS
+        ):
             available.append(BackendType.METAL)
 
         logger.debug(
             f"Available backends detected via ResourceManager: {[b.value for b in available]}"
         )
     except Exception as e:
-        logger.warning(f"Error detecting available backends via ResourceManager: {e}")
+        logger.warning(
+            f"Error detecting available backends via ResourceManager: {e}"
+        )
         logger.warning("Falling back to CPU backend only")
 
     return available
@@ -261,12 +269,18 @@ def determine_best_backend() -> BackendType:
         return BackendType.CUDA
 
     # Second preference: Metal for Apple Silicon
-    if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
+    if (
+        resources.get("metal_available", False)
+        and BackendType.METAL in _BACKENDS
+    ):
         logger.info("Apple Metal detected, selecting Metal backend")
         return BackendType.METAL
 
     # Third preference: WebGPU if available
-    if resources.get("webgpu_available", False) and BackendType.WEBGPU in _BACKENDS:
+    if (
+        resources.get("webgpu_available", False)
+        and BackendType.WEBGPU in _BACKENDS
+    ):
         logger.info("WebGPU detected, selecting WebGPU backend")
         return BackendType.WEBGPU
 
@@ -336,10 +350,14 @@ def get_backend(
 
             # Store the initialized instance
             _BACKEND_INSTANCES[backend_type] = backend
-            logger.info(f"Successfully initialized {backend_type.value} backend")
+            logger.info(
+                f"Successfully initialized {backend_type.value} backend"
+            )
             return backend
         except Exception as e:
-            logger.error(f"Error initializing {backend_type.value} backend: {e}")
+            logger.error(
+                f"Error initializing {backend_type.value} backend: {e}"
+            )
             # Try fallback to CPU if there was an error
             if backend_type != BackendType.CPU:
                 logger.warning("Falling back to CPU backend.")

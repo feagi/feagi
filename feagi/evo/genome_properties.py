@@ -29,5 +29,8 @@ genome_properties = {
         "encoding_id": [4, 19, 24],
         "value_type": [5, 26, 26],
     },
-    "value": {"gene_classifier": ["nx", "cx"], "value_type": ["b", "i", "f", "d", "t"]},
+    "value": {
+        "gene_classifier": ["nx", "cx"],
+        "value_type": ["b", "i", "f", "d", "t"],
+    },
 }

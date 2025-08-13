@@ -52,7 +52,10 @@ class SharedNeuronArray:
             ("firing_threshold", np.float32),  # Firing threshold
             ("refractory_period", np.float32),  # Refractory period in ms
             ("last_fired_timestamp", np.float64),  # Last time the neuron fired
-            ("cortical_id", np.int64),  # ID of the cortical area this neuron belongs to
+            (
+                "cortical_id",
+                np.int64,
+            ),  # ID of the cortical area this neuron belongs to
             ("neuron_type", np.int32),  # Type of neuron
             ("is_active", np.bool_),  # Whether the neuron is active
             ("reserved1", np.float32),  # Reserved for future use
@@ -61,7 +64,10 @@ class SharedNeuronArray:
     )
 
     def __init__(
-        self, name: str, capacity: int, manager: Optional[SharedMemoryManager] = None
+        self,
+        name: str,
+        capacity: int,
+        manager: Optional[SharedMemoryManager] = None,
     ):
         """
         Initialize a shared neuron array.
@@ -73,7 +79,9 @@ class SharedNeuronArray:
         """
         self.name = name
         self.capacity = capacity
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.neuron_array.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.neuron_array.{name}"
+        )
 
         # Calculate required size
         self.element_size = self.NEURON_DTYPE.itemsize
@@ -85,10 +93,14 @@ class SharedNeuronArray:
         self._manager = manager or SharedMemoryManager()
 
         # Create the shared memory region
-        self.region = self._manager.create_region(name, size=self.required_size)
+        self.region = self._manager.create_region(
+            name, size=self.required_size
+        )
 
         # Create the numpy array view
-        self.array = self.region.as_array(shape=(capacity,), dtype=self.NEURON_DTYPE)
+        self.array = self.region.as_array(
+            shape=(capacity,), dtype=self.NEURON_DTYPE
+        )
 
         # Initialize metadata
         self.count = 0
@@ -297,13 +309,19 @@ class SharedSynapseArray:
             ("plasticity", np.float32),  # Plasticity coefficient
             ("type", np.int32),  # Type of synapse (0=excitatory, 1=inhibitory)
             ("is_active", np.bool_),  # Whether the synapse is active
-            ("last_update_timestamp", np.float64),  # Last time the synapse was updated
+            (
+                "last_update_timestamp",
+                np.float64,
+            ),  # Last time the synapse was updated
             ("reserved1", np.float32),  # Reserved for future use
         ]
     )
 
     def __init__(
-        self, name: str, capacity: int, manager: Optional[SharedMemoryManager] = None
+        self,
+        name: str,
+        capacity: int,
+        manager: Optional[SharedMemoryManager] = None,
     ):
         """
         Initialize a shared synapse array.
@@ -315,7 +333,9 @@ class SharedSynapseArray:
         """
         self.name = name
         self.capacity = capacity
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.synapse_array.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.synapse_array.{name}"
+        )
 
         # Calculate required size
         self.element_size = self.SYNAPSE_DTYPE.itemsize
@@ -327,10 +347,14 @@ class SharedSynapseArray:
         self._manager = manager or SharedMemoryManager()
 
         # Create the shared memory region
-        self.region = self._manager.create_region(name, size=self.required_size)
+        self.region = self._manager.create_region(
+            name, size=self.required_size
+        )
 
         # Create the numpy array view
-        self.array = self.region.as_array(shape=(capacity,), dtype=self.SYNAPSE_DTYPE)
+        self.array = self.region.as_array(
+            shape=(capacity,), dtype=self.SYNAPSE_DTYPE
+        )
 
         # Initialize metadata
         self.count = 0
@@ -464,7 +488,9 @@ class SharedSynapseArray:
 
         indices = self._pre_to_indices[neuron_id]
         # Filter for active synapses
-        active_indices = [idx for idx in indices if self.array[idx]["is_active"]]
+        active_indices = [
+            idx for idx in indices if self.array[idx]["is_active"]
+        ]
         if not active_indices:
             return np.empty(0, dtype=self.SYNAPSE_DTYPE)
 
@@ -485,13 +511,17 @@ class SharedSynapseArray:
 
         indices = self._post_to_indices[neuron_id]
         # Filter for active synapses
-        active_indices = [idx for idx in indices if self.array[idx]["is_active"]]
+        active_indices = [
+            idx for idx in indices if self.array[idx]["is_active"]
+        ]
         if not active_indices:
             return np.empty(0, dtype=self.SYNAPSE_DTYPE)
 
         return self.array[active_indices]
 
-    def update_synapse(self, pre_neuron_id: int, post_neuron_id: int, **kwargs) -> bool:
+    def update_synapse(
+        self, pre_neuron_id: int, post_neuron_id: int, **kwargs
+    ) -> bool:
         """
         Update properties of a synapse.
 
@@ -588,7 +618,9 @@ class SharedConfigDict:
             initial_data: Initial configuration data
         """
         self.name = name
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.config_dict.{name}")
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.config_dict.{name}"
+        )
 
         # Estimate initial size based on data or use default
         initial_size = 1024 * 1024  # 1MB default
@@ -657,7 +689,9 @@ class SharedConfigDict:
             Value for the key, or default if not found
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for reading config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for reading config dictionary"
+            )
             return default
 
         try:
@@ -679,7 +713,9 @@ class SharedConfigDict:
             True if successful, False otherwise
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for writing config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for writing config dictionary"
+            )
             return False
         try:
             data = self._read_dict()
@@ -705,7 +741,9 @@ class SharedConfigDict:
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for updating config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for updating config dictionary"
+            )
             return False
 
         try:
@@ -727,7 +765,9 @@ class SharedConfigDict:
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for updating config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for updating config dictionary"
+            )
             return False
 
         try:
@@ -747,7 +787,9 @@ class SharedConfigDict:
             Dictionary containing all key-value pairs
         """
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for reading config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for reading config dictionary"
+            )
             return {}
 
         try:
@@ -765,7 +807,9 @@ class SharedConfigDict:
         """
         # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for clearing config dictionary")
+            self.logger.warning(
+                "Could not acquire lock for clearing config dictionary"
+            )
             return False
 
         try:

@@ -156,7 +156,7 @@ class UnifiedFQSampler:
         self._has_visualization_subscribers = False
         self._has_motor_subscribers = False
 
-        # Pre-allocated buffers for zero-copy operations  
+        # Pre-allocated buffers for zero-copy operations
         self._buffer_size = 100000  # VISUALIZATION FIX: Increased from 10,000 to 100,000 for large cortical areas
         self._preallocated_buffers = self._initialize_buffers()
 
@@ -180,7 +180,9 @@ class UnifiedFQSampler:
         return {
             "neuron_ids_buffer": np.zeros(self._buffer_size, dtype=np.int32),
             "potentials_buffer": np.zeros(self._buffer_size, dtype=np.float32),
-            "coordinates_buffer": np.zeros((self._buffer_size, 3), dtype=np.uint32),
+            "coordinates_buffer": np.zeros(
+                (self._buffer_size, 3), dtype=np.uint32
+            ),
             "temp_indices": np.zeros(self._buffer_size, dtype=np.int32),
         }
 
@@ -197,7 +199,9 @@ class UnifiedFQSampler:
             )
 
         if mode == SamplingMode.CUSTOM_AREAS and not target_areas:
-            raise ValueError("target_areas must be provided for custom_areas mode")
+            raise ValueError(
+                "target_areas must be provided for custom_areas mode"
+            )
 
         self.current_strategy = SamplingStrategy(
             mode=mode, target_areas=target_areas, custom_config={}
@@ -230,11 +234,15 @@ class UnifiedFQSampler:
             # Get target areas based on strategy
             target_areas = self._get_target_areas()
             if not target_areas:
-                logger.debug("🔥 FQ SAMPLER: No target areas found for sampling")
+                logger.debug(
+                    "🔥 FQ SAMPLER: No target areas found for sampling"
+                )
                 return None
 
             # High-performance sampling with zero-copy operations
-            logger.debug(f"🔥 FQ SAMPLER: Target areas for sampling: {target_areas}")
+            logger.debug(
+                f"🔥 FQ SAMPLER: Target areas for sampling: {target_areas}"
+            )
             result = self._sample_areas_optimized(target_areas)
 
             # Update performance stats
@@ -277,7 +285,9 @@ class UnifiedFQSampler:
 
     def _get_visualization_areas(self) -> List[str]:
         """Get cortical areas that have firing neurons AND visualization enabled."""
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas() START")
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas() START"
+        )
         visualization_areas = []
 
         if not self.fire_queue_provider:
@@ -297,73 +307,108 @@ class UnifiedFQSampler:
             ):
                 try:
                     # Get cortical indices that have firing neurons from FCL
-                    active_cortical_indices = (
-                        self.connectome_manager.fcl_manager.get_active_corticals()
+                    active_cortical_indices = self.connectome_manager.fcl_manager.get_active_corticals()
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: FCL returned {len(active_cortical_indices)} active indices: {sorted(active_cortical_indices)}"
                     )
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: FCL returned {len(active_cortical_indices)} active indices: {sorted(active_cortical_indices)}")
 
                     # Translate cortical_idx -> cortical_id using BiDirectionalCorticalMap
                     for cortical_idx in active_cortical_indices:
                         try:
-                            cortical_id = (
-                                self.connectome_manager.get_cortical_id_for_idx(
-                                    cortical_idx
-                                )
+                            cortical_id = self.connectome_manager.get_cortical_id_for_idx(
+                                cortical_idx
                             )
-                            
+
                             if cortical_id:
                                 areas_with_activity.append(cortical_id)
                                 # Get actual neuron count from FCL for this area
                                 fcl_bitmap = self.connectome_manager.fcl_manager.get_cortical_fcl(
                                     cortical_idx
                                 )
-                                neuron_count = len(fcl_bitmap) if fcl_bitmap else 0
-                                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Translated idx={cortical_idx} → id='{cortical_id}' ({neuron_count} neurons)")
+                                neuron_count = (
+                                    len(fcl_bitmap) if fcl_bitmap else 0
+                                )
+                                logger.info(
+                                    f"🔥 PIPELINE [{self.instance_id}]: Translated idx={cortical_idx} → id='{cortical_id}' ({neuron_count} neurons)"
+                                )
                             else:
-                                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: Failed translation for cortical_idx={cortical_idx}")
+                                logger.warning(
+                                    f"🔥 PIPELINE [{self.instance_id}]: Failed translation for cortical_idx={cortical_idx}"
+                                )
                         except Exception as e:
-                            logger.error(f"🔥 PIPELINE [{self.instance_id}]: Translation error for idx {cortical_idx}: {e}")
+                            logger.error(
+                                f"🔥 PIPELINE [{self.instance_id}]: Translation error for idx {cortical_idx}: {e}"
+                            )
                             continue
 
                 except Exception as e:
-                    logger.error(f"🔥 PIPELINE [{self.instance_id}]: FCL query error: {e}")
+                    logger.error(
+                        f"🔥 PIPELINE [{self.instance_id}]: FCL query error: {e}"
+                    )
                     areas_with_activity = []
             else:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No FCL manager available")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: No FCL manager available"
+                )
 
-            logger.info(f"🔥 PIPELINE [{self.instance_id}]: areas_with_activity: {areas_with_activity}")
+            logger.info(
+                f"🔥 PIPELINE [{self.instance_id}]: areas_with_activity: {areas_with_activity}"
+            )
 
             # STEP 2: Filter areas by visualization requirements
             filtered_areas = []
             for area_id in areas_with_activity:
                 try:
                     # Check if visualization is enabled for this area
-                    area_info = self.connectome_manager.get_cortical_area(area_id)
-                    if area_info and hasattr(area_info, 'properties') and area_info.properties:
-                        viz_enabled = area_info.properties.get('viz_enabled', True)
+                    area_info = self.connectome_manager.get_cortical_area(
+                        area_id
+                    )
+                    if (
+                        area_info
+                        and hasattr(area_info, "properties")
+                        and area_info.properties
+                    ):
+                        viz_enabled = area_info.properties.get(
+                            "viz_enabled", True
+                        )
                     else:
                         viz_enabled = True  # Default to enabled
-                    
+
                     if viz_enabled:
                         filtered_areas.append(area_id)
-                        logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area {area_id} included (has activity + visualization enabled)")
+                        logger.info(
+                            f"🔥 PIPELINE [{self.instance_id}]: Area {area_id} included (has activity + visualization enabled)"
+                        )
                     else:
-                        logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area {area_id} excluded (visualization disabled)")
-                        
+                        logger.info(
+                            f"🔥 PIPELINE [{self.instance_id}]: Area {area_id} excluded (visualization disabled)"
+                        )
+
                 except Exception as e:
-                    logger.error(f"🔥 PIPELINE [{self.instance_id}]: Error checking viz for {area_id}: {e}")
+                    logger.error(
+                        f"🔥 PIPELINE [{self.instance_id}]: Error checking viz for {area_id}: {e}"
+                    )
                     # Include by default if we can't check
                     filtered_areas.append(area_id)
 
             visualization_areas = filtered_areas
-            logger.info(f"🔥 PIPELINE [{self.instance_id}]: Final visualization areas: {visualization_areas}")
+            logger.info(
+                f"🔥 PIPELINE [{self.instance_id}]: Final visualization areas: {visualization_areas}"
+            )
 
         except Exception as e:
-            logger.error(f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas error: {e}")
+            logger.error(
+                f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas error: {e}"
+            )
             import traceback
-            logger.error(f"🔥 PIPELINE [{self.instance_id}]: Full traceback: {traceback.format_exc()}")
 
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas() END - returning {len(visualization_areas)} areas")
+            logger.error(
+                f"🔥 PIPELINE [{self.instance_id}]: Full traceback: {traceback.format_exc()}"
+            )
+
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas() END - returning {len(visualization_areas)} areas"
+        )
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:
@@ -385,7 +430,9 @@ class UnifiedFQSampler:
         # Refresh cache with optimized lookup
         opu_areas = []
         if not self.connectome_manager:
-            logger.debug("🔥 FQ SAMPLER: No connectome manager available for OPU areas")
+            logger.debug(
+                "🔥 FQ SAMPLER: No connectome manager available for OPU areas"
+            )
             self._opu_areas_cache = []
             self._cache_timestamp = current_time
             return []
@@ -408,8 +455,13 @@ class UnifiedFQSampler:
                             is_opu = False
 
                             # Check multiple possible OPU indicators
-                            if hasattr(area_obj, "properties") and area_obj.properties:
-                                area_type = area_obj.properties.get("type", "").upper()
+                            if (
+                                hasattr(area_obj, "properties")
+                                and area_obj.properties
+                            ):
+                                area_type = area_obj.properties.get(
+                                    "type", ""
+                                ).upper()
                                 cortical_area_type = area_obj.properties.get(
                                     "cortical_area_type", ""
                                 ).upper()
@@ -417,7 +469,8 @@ class UnifiedFQSampler:
                                 # Check for OPU type indicators
                                 if (
                                     area_type in ["OPU", "MOTOR", "OUTPUT"]
-                                    or cortical_area_type in ["OPU", "MOTOR", "OUTPUT"]
+                                    or cortical_area_type
+                                    in ["OPU", "MOTOR", "OUTPUT"]
                                     or "OPU" in area_type
                                     or "MOTOR" in area_type
                                 ):
@@ -425,7 +478,8 @@ class UnifiedFQSampler:
 
                             # Also check area name patterns (common convention)
                             if not is_opu and (
-                                "opu" in area_id.lower() or "motor" in area_id.lower()
+                                "opu" in area_id.lower()
+                                or "motor" in area_id.lower()
                             ):
                                 is_opu = True
 
@@ -461,118 +515,180 @@ class UnifiedFQSampler:
         High-performance area sampling with minimal allocations.
         Combines zero-copy operations with SIMD-friendly data structures.
         """
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _sample_areas_optimized() START with {len(target_areas)} areas: {target_areas}")
-        
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _sample_areas_optimized() START with {len(target_areas)} areas: {target_areas}"
+        )
+
         result = {}
         current_timestamp = time.time()
 
         # High-performance area sampling with minimal allocations
         for area_id in target_areas:
             try:
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Processing area '{area_id}'")
-                
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Processing area '{area_id}'"
+                )
+
                 # MEMORY AREA OPTIMIZATION: Check if this is a memory area first
                 is_memory_area = self._is_memory_area(area_id)
-                
+
                 if is_memory_area:
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as MEMORY area")
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as MEMORY area"
+                    )
                     # Memory areas: efficient handling with simplified data structure
-                    memory_data = self._sample_memory_area_optimized(area_id, current_timestamp)
+                    memory_data = self._sample_memory_area_optimized(
+                        area_id, current_timestamp
+                    )
                     if memory_data:
                         result[area_id] = memory_data
-                        logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' successfully sampled")
+                        logger.info(
+                            f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' successfully sampled"
+                        )
                     else:
-                        logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' returned no data")
+                        logger.info(
+                            f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' returned no data"
+                        )
                     continue
-                
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as REGULAR area")
-                
+
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as REGULAR area"
+                )
+
                 # REGULAR AREAS: Use existing fire queue lookup logic
                 area_data = None
-                if hasattr(self.fire_queue_provider, "get_area_fire_queue_zerocopy"):
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Using zerocopy method for '{area_id}'")
-                    area_data = self.fire_queue_provider.get_area_fire_queue_zerocopy(
-                        area_id
+                if hasattr(
+                    self.fire_queue_provider, "get_area_fire_queue_zerocopy"
+                ):
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Using zerocopy method for '{area_id}'"
+                    )
+                    area_data = (
+                        self.fire_queue_provider.get_area_fire_queue_zerocopy(
+                            area_id
+                        )
                     )
                 elif hasattr(self.fire_queue_provider, "get_area_fire_queue"):
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Using standard method for '{area_id}'")
-                    area_data = self.fire_queue_provider.get_area_fire_queue(area_id)
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Using standard method for '{area_id}'"
+                    )
+                    area_data = self.fire_queue_provider.get_area_fire_queue(
+                        area_id
+                    )
                 else:
-                    logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No fire queue method available for '{area_id}'")
+                    logger.warning(
+                        f"🔥 PIPELINE [{self.instance_id}]: No fire queue method available for '{area_id}'"
+                    )
                     continue
 
                 if not area_data or not area_data.get("neuron_ids"):
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: No data or no neuron_ids for regular area '{area_id}'")
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: No data or no neuron_ids for regular area '{area_id}'"
+                    )
                     continue
 
                 # Direct reference to data (zero-copy) with fallback to view creation
                 neuron_ids = area_data["neuron_ids"]
 
                 if not neuron_ids:
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Empty neuron_ids for regular area '{area_id}'")
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Empty neuron_ids for regular area '{area_id}'"
+                    )
                     continue
 
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Regular area '{area_id}' has {len(neuron_ids)} neurons")
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Regular area '{area_id}' has {len(neuron_ids)} neurons"
+                )
 
                 # Create efficient data structure maintaining references
                 result[area_id] = {
                     "neuron_ids": neuron_ids,  # Direct reference, no copy
-                    "membrane_potentials": area_data.get("membrane_potentials", []),
+                    "membrane_potentials": area_data.get(
+                        "membrane_potentials", []
+                    ),
                     "thresholds": area_data.get("thresholds", []),
                     "consecutive_fire_counts": area_data.get(
                         "consecutive_fire_counts", []
                     ),
-                    "refractory_counters": area_data.get("refractory_counters", []),
+                    "refractory_counters": area_data.get(
+                        "refractory_counters", []
+                    ),
                     "coordinates": area_data.get("coordinates", []),
                     "timestamp": current_timestamp,
                 }
-                
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Regular area '{area_id}' successfully sampled")
+
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Regular area '{area_id}' successfully sampled"
+                )
 
             except Exception as e:
-                logger.error(f"🔥 PIPELINE [{self.instance_id}]: CRITICAL ERROR sampling area '{area_id}': {e}")
-                logger.error(f"🔥 PIPELINE [{self.instance_id}]: Exception type: {type(e)}")
+                logger.error(
+                    f"🔥 PIPELINE [{self.instance_id}]: CRITICAL ERROR sampling area '{area_id}': {e}"
+                )
+                logger.error(
+                    f"🔥 PIPELINE [{self.instance_id}]: Exception type: {type(e)}"
+                )
                 import traceback
-                logger.error(f"🔥 PIPELINE [{self.instance_id}]: Full traceback: {traceback.format_exc()}")
+
+                logger.error(
+                    f"🔥 PIPELINE [{self.instance_id}]: Full traceback: {traceback.format_exc()}"
+                )
                 continue
 
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _sample_areas_optimized() END - sampled {len(result)} areas: {list(result.keys())}")
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _sample_areas_optimized() END - sampled {len(result)} areas: {list(result.keys())}"
+        )
         return result if result else None
 
     def _is_memory_area(self, area_id: str) -> bool:
         """
         Efficiently check if a cortical area is a memory area.
-        
+
         Args:
             area_id: Cortical area ID to check
-            
+
         Returns:
             True if this is a memory area, False otherwise
         """
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _is_memory_area('{area_id}') START")
-        
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _is_memory_area('{area_id}') START"
+        )
+
         try:
             if not self.connectome_manager:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No connectome_manager for memory check")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: No connectome_manager for memory check"
+                )
                 return False
-            
+
             # ONLY reliable check: Is it in the memory_areas set?
-            if hasattr(self.connectome_manager, 'memory_areas') and area_id in self.connectome_manager.memory_areas:
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is memory (in memory_areas set)")
+            if (
+                hasattr(self.connectome_manager, "memory_areas")
+                and area_id in self.connectome_manager.memory_areas
+            ):
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is memory (in memory_areas set)"
+                )
                 return True
-            
+
             # Secondary check: explicit sub_group_id = MEMORY
             area = self.connectome_manager.get_cortical_area(area_id)
-            if area and hasattr(area, 'properties') and area.properties:
-                if area.properties.get('sub_group_id') == 'MEMORY':
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is memory (sub_group_id=MEMORY)")
+            if area and hasattr(area, "properties") and area.properties:
+                if area.properties.get("sub_group_id") == "MEMORY":
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is memory (sub_group_id=MEMORY)"
+                    )
                     return True
-            
-            logger.info(f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is NOT a memory area")
+
+            logger.info(
+                f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' is NOT a memory area"
+            )
             return False
-            
+
         except Exception as e:
-            logger.error(f"🔥 PIPELINE [{self.instance_id}]: Error checking memory area '{area_id}': {e}")
+            logger.error(
+                f"🔥 PIPELINE [{self.instance_id}]: Error checking memory area '{area_id}': {e}"
+            )
             return False
 
     def _sample_memory_area_optimized(
@@ -580,76 +696,118 @@ class UnifiedFQSampler:
     ) -> Optional[Dict[str, Any]]:
         """
         Efficiently sample a memory area for visualization.
-        
+
         Memory areas are conceptual 1x1x1 voxels at (0,0,0) coordinates.
         They use placeholder IDs to avoid conflicts with regular neuron SoA lookups.
-        
+
         Args:
             area_id: Memory area ID
             timestamp: Current timestamp
-            
+
         Returns:
             Simplified data structure if area is active, None otherwise
         """
-        logger.info(f"🔥 PIPELINE [{self.instance_id}]: _sample_memory_area_optimized('{area_id}') START")
-        
+        logger.info(
+            f"🔥 PIPELINE [{self.instance_id}]: _sample_memory_area_optimized('{area_id}') START"
+        )
+
         try:
             if not self.connectome_manager:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No connectome_manager for memory sampling")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: No connectome_manager for memory sampling"
+                )
                 return None
-                
+
             # Get cortical_idx for this memory area
             area = self.connectome_manager.get_cortical_area(area_id)
             if not area:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' not found")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' not found"
+                )
                 return None
-                
-            cortical_idx = getattr(area, 'cortical_idx', None)
+
+            cortical_idx = getattr(area, "cortical_idx", None)
             if cortical_idx is None:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No cortical_idx for memory area '{area_id}'")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: No cortical_idx for memory area '{area_id}'"
+                )
                 return None
-                
-            logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has cortical_idx={cortical_idx}")
-                
+
+            logger.info(
+                f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has cortical_idx={cortical_idx}"
+            )
+
             # Check if memory area has activity in FCL
-            if (hasattr(self.connectome_manager, 'fcl_manager') and 
-                self.connectome_manager.fcl_manager):
-                
-                fcl_bitmap = self.connectome_manager.fcl_manager.get_cortical_fcl(cortical_idx)
+            if (
+                hasattr(self.connectome_manager, "fcl_manager")
+                and self.connectome_manager.fcl_manager
+            ):
+                fcl_bitmap = (
+                    self.connectome_manager.fcl_manager.get_cortical_fcl(
+                        cortical_idx
+                    )
+                )
                 if not fcl_bitmap or fcl_bitmap.is_empty():
-                    logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has no FCL activity")
+                    logger.info(
+                        f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has no FCL activity"
+                    )
                     return None
-                    
+
                 neuron_count = len(fcl_bitmap)
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has {neuron_count} firing neurons in FCL")
-                    
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has {neuron_count} firing neurons in FCL"
+                )
+
                 # Memory area is active - return safe placeholder data for visualization
                 # Use a high placeholder ID that won't conflict with regular neuron lookups
-                placeholder_id = 100000 + cortical_idx  # Safe range: 100000+ 
-                
+                placeholder_id = 100000 + cortical_idx  # Safe range: 100000+
+
                 memory_data = {
-                    "neuron_ids": [placeholder_id],       # list of int (matching regular areas)
-                    "membrane_potentials": [500.0],       # list of float (matching regular areas)
-                    "thresholds": [1.0],                  # FIXED: same length as neuron_ids (length 1)
-                    "consecutive_fire_counts": [0],       # FIXED: same length as neuron_ids (length 1)
-                    "refractory_counters": [0],           # FIXED: same length as neuron_ids (length 1)
-                    "coordinates": [(0, 0, 0)],           # list of tuple (matching regular areas)
+                    "neuron_ids": [
+                        placeholder_id
+                    ],  # list of int (matching regular areas)
+                    "membrane_potentials": [
+                        500.0
+                    ],  # list of float (matching regular areas)
+                    "thresholds": [
+                        1.0
+                    ],  # FIXED: same length as neuron_ids (length 1)
+                    "consecutive_fire_counts": [
+                        0
+                    ],  # FIXED: same length as neuron_ids (length 1)
+                    "refractory_counters": [
+                        0
+                    ],  # FIXED: same length as neuron_ids (length 1)
+                    "coordinates": [
+                        (0, 0, 0)
+                    ],  # list of tuple (matching regular areas)
                     "timestamp": timestamp,
                 }
-                
-                logger.info(f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' sampled successfully with placeholder_id={placeholder_id}")
+
+                logger.info(
+                    f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' sampled successfully with placeholder_id={placeholder_id}"
+                )
                 return memory_data
             else:
-                logger.warning(f"🔥 PIPELINE [{self.instance_id}]: No FCL manager for memory area '{area_id}'")
+                logger.warning(
+                    f"🔥 PIPELINE [{self.instance_id}]: No FCL manager for memory area '{area_id}'"
+                )
                 return None
-                
+
         except Exception as e:
-            logger.error(f"🔥 PIPELINE [{self.instance_id}]: Error sampling memory area '{area_id}': {e}")
+            logger.error(
+                f"🔥 PIPELINE [{self.instance_id}]: Error sampling memory area '{area_id}': {e}"
+            )
             import traceback
-            logger.error(f"🔥 PIPELINE [{self.instance_id}]: Traceback: {traceback.format_exc()}")
+
+            logger.error(
+                f"🔥 PIPELINE [{self.instance_id}]: Traceback: {traceback.format_exc()}"
+            )
             return None
 
-    def _update_performance_stats(self, sample_time: float, success: bool) -> None:
+    def _update_performance_stats(
+        self, sample_time: float, success: bool
+    ) -> None:
         """Update performance statistics efficiently."""
         self._performance_stats["samples_generated"] += 1
         self._performance_stats["last_sample_time"] = sample_time
@@ -692,14 +850,18 @@ class UnifiedFQSampler:
                                 f"🔥 FQ SAMPLER: Queued sample {sample_count} with data from {len(sample_data)} areas"
                             )
                         except Exception as e:
-                            logger.error(f"🔥 FQ SAMPLER: Output queue error: {e}")
+                            logger.error(
+                                f"🔥 FQ SAMPLER: Output queue error: {e}"
+                            )
                     elif sample_data:
                         if sample_count % 10 == 0:  # Log every 10 samples
                             logger.info(
                                 f"🔥 FQ SAMPLER: Generated sample {sample_count} with {len(sample_data)} areas but no output queue"
                             )
                     else:
-                        if sample_count % 30 == 0:  # Log every 30 empty samples
+                        if (
+                            sample_count % 30 == 0
+                        ):  # Log every 30 empty samples
                             logger.debug(
                                 f"🔥 FQ SAMPLER: Sample {sample_count} returned no data"
                             )
@@ -770,7 +932,9 @@ class UnifiedFQSampler:
         logger.info(
             f"🔥 FQ SAMPLER [{self.instance_id}]: Visualization subscribers: {old_state} -> {has_subscribers}"
         )
-        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Called from: {caller_info}")
+        logger.info(
+            f"🔥 FQ SAMPLER [{self.instance_id}]: Called from: {caller_info}"
+        )
         logger.info(
             f"🔥 FQ SAMPLER [{self.instance_id}]: Thread: {thread_id}, Mode: {self.sampling_mode}"
         )
@@ -807,7 +971,9 @@ class UnifiedFQSampler:
 
     def _is_debug_npu_enabled(self) -> bool:
         """Check if debug NPU logging is enabled."""
-        if self.state_manager and hasattr(self.state_manager, "is_debug_npu_enabled"):
+        if self.state_manager and hasattr(
+            self.state_manager, "is_debug_npu_enabled"
+        ):
             return self.state_manager.is_debug_npu_enabled()
         return False
 

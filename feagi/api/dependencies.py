@@ -77,7 +77,10 @@ def check_connectome_ready(
 
     # Check if connectome is in an appropriate state
     connectome_state = state_manager.get_connectome_state()
-    if connectome_state not in [ConnectomeState.READY, ConnectomeState.RUNNING]:
+    if connectome_state not in [
+        ConnectomeState.READY,
+        ConnectomeState.RUNNING,
+    ]:
         raise HTTPException(
             status_code=400,
             detail=f"Connectome is not ready (current state: {connectome_state.name}). Please wait for initialization to complete.",
@@ -119,7 +122,8 @@ def check_burst_engine_running(
     burst_engine = core_api_service.get_burst_engine()
     if not burst_engine:
         raise HTTPException(
-            status_code=500, detail="Burst engine not available through service."
+            status_code=500,
+            detail="Burst engine not available through service.",
         )
 
     return "OK"
@@ -152,7 +156,8 @@ def check_brain_running(_: bool = Depends(check_active_genome)):
         return True
     else:
         raise HTTPException(
-            status_code=400, detail="Brain not yet ready! Please try again later."
+            status_code=400,
+            detail="Brain not yet ready! Please try again later.",
         )
 
 
@@ -173,7 +178,8 @@ def check_plasticity_enabled(
     # First check if the burst engine is running (plasticity requires it)
     if state_manager.get_burst_engine_state() != ServiceState.RUNNING:
         raise HTTPException(
-            status_code=400, detail="Plasticity requires the burst engine to be running"
+            status_code=400,
+            detail="Plasticity requires the burst engine to be running",
         )
 
     # Get plasticity info and check if it's enabled
@@ -186,7 +192,8 @@ def check_plasticity_enabled(
             )
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to verify neuroplasticity state: {str(e)}"
+            status_code=500,
+            detail=f"Failed to verify neuroplasticity state: {str(e)}",
         ) from e
 
     return "OK"
@@ -229,7 +236,8 @@ def check_io_system_ready(
         return "OK"
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to verify I/O system readiness: {str(e)}"
+            status_code=500,
+            detail=f"Failed to verify I/O system readiness: {str(e)}",
         ) from e
 
 
@@ -294,8 +302,9 @@ def check_amalgamation_ready(
     state_manager = get_state_manager()
 
     # Check if there's already a pending amalgamation
-    if state_manager.pending_amalgamation and state_manager.pending_amalgamation.get(
-        "initiation_time"
+    if (
+        state_manager.pending_amalgamation
+        and state_manager.pending_amalgamation.get("initiation_time")
     ):
         raise HTTPException(
             status_code=409,  # Conflict
@@ -324,7 +333,8 @@ def check_cortical_area_exists(
         area_data = core_api_service.get_cortical_area(cortical_id)
         if not area_data:
             raise HTTPException(
-                status_code=404, detail=f"Cortical area with ID {cortical_id} not found"
+                status_code=404,
+                detail=f"Cortical area with ID {cortical_id} not found",
             )
     except HTTPException:
         # Re-raise HTTPExceptions
@@ -361,5 +371,6 @@ def check_monitoring_available(
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(
-            status_code=500, detail=f"Error checking monitoring availability: {str(e)}"
+            status_code=500,
+            detail=f"Error checking monitoring availability: {str(e)}",
         ) from e

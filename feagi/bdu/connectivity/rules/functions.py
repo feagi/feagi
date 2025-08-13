@@ -97,7 +97,9 @@ def syn_expander_x(
     dst_dims = dst_area.dimensions
 
     # Calculate the expansion ratio in each dimension
-    ratios = [dst_dims[i] / src_dims[i] if src_dims[i] > 0 else 1.0 for i in range(3)]
+    ratios = [
+        dst_dims[i] / src_dims[i] if src_dims[i] > 0 else 1.0 for i in range(3)
+    ]
 
     # Compute the destination position by scaling coordinates
     dst_x = min(int(src_pos[0] * ratios[0]), dst_dims[0] - 1)
@@ -194,7 +196,10 @@ def syn_randomizer(dst_area_id: AreaId, connectome_manager) -> Position:
 
 
 def syn_lateral_pairs_x(
-    neuron_id: NeuronId, area_id: AreaId, src_subregion: BoundingBox, connectome_manager
+    neuron_id: NeuronId,
+    area_id: AreaId,
+    src_subregion: BoundingBox,
+    connectome_manager,
 ) -> Optional[Position]:
     """
     Create lateral connections between neighboring neurons on the x-axis.
@@ -437,7 +442,9 @@ def syn_projector(
             if src_shape[i] > dst_shape[i]:
                 # Source is larger: scale down
                 ratio = src_shape[i] / dst_shape[i]
-                target_vox = int((neuron_location[i] - src_subregion[0][i]) / ratio)
+                target_vox = int(
+                    (neuron_location[i] - src_subregion[0][i]) / ratio
+                )
 
                 # Special handling for project_last_layer
                 if (
@@ -456,7 +463,9 @@ def syn_projector(
                 # Find all voxels that map to this source voxel
                 for vox in range(dst_shape[i]):
                     # Integer division to group voxels
-                    if int(vox / ratio) == (neuron_location[i] - src_subregion[0][i]):
+                    if int(vox / ratio) == (
+                        neuron_location[i] - src_subregion[0][i]
+                    ):
                         dst_vox_dict[i].add(vox)
 
             elif src_shape[i] == dst_shape[i]:
@@ -472,9 +481,15 @@ def syn_projector(
     # Generate all combinations of the destination coordinates
     if debug_bdu:
         logger.info("[BDU DEBUG] Destination voxel dictionary:")
-        logger.info(f"[BDU DEBUG]   X candidates: {sorted(list(dst_vox_dict[0]))}")
-        logger.info(f"[BDU DEBUG]   Y candidates: {sorted(list(dst_vox_dict[1]))}")
-        logger.info(f"[BDU DEBUG]   Z candidates: {sorted(list(dst_vox_dict[2]))}")
+        logger.info(
+            f"[BDU DEBUG]   X candidates: {sorted(list(dst_vox_dict[0]))}"
+        )
+        logger.info(
+            f"[BDU DEBUG]   Y candidates: {sorted(list(dst_vox_dict[1]))}"
+        )
+        logger.info(
+            f"[BDU DEBUG]   Z candidates: {sorted(list(dst_vox_dict[2]))}"
+        )
 
     if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
         for x in dst_vox_dict[0]:
@@ -493,13 +508,17 @@ def syn_projector(
                         )
 
     if debug_bdu:
-        logger.info(f"[BDU DEBUG] syn_projector final candidates: {candidate_list}")
+        logger.info(
+            f"[BDU DEBUG] syn_projector final candidates: {candidate_list}"
+        )
 
     return candidate_list
 
 
 def syn_memory(
-    src_area_id: AreaId, dst_area_id: AreaId, memory_register: Dict[AreaId, Set[AreaId]]
+    src_area_id: AreaId,
+    dst_area_id: AreaId,
+    memory_register: Dict[AreaId, Set[AreaId]],
 ) -> None:
     """
     Register source-destination area relationship in memory register.
@@ -515,7 +534,9 @@ def syn_memory(
     memory_register[dst_area_id].add(src_area_id)
 
 
-def syn_last_to_first(src_area_id: AreaId, connectome_manager) -> List[Position]:
+def syn_last_to_first(
+    src_area_id: AreaId, connectome_manager
+) -> List[Position]:
     """
     Generate a connection from the last neuron to the first.
 

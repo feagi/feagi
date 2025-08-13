@@ -33,7 +33,9 @@ class AgentsService(BaseService):
             if not self.state_manager:
                 return []
 
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
 
             # Ensure connected_agents is a dictionary, not an integer or other type
             if not isinstance(connected_agents, dict):
@@ -73,7 +75,10 @@ class AgentsService(BaseService):
         """Register a new agent."""
         try:
             if not self.state_manager:
-                return {"success": False, "error": "State manager not available"}
+                return {
+                    "success": False,
+                    "error": "State manager not available",
+                }
 
             # Extract agent information
             agent_id = agent_data.get("agent_id")
@@ -81,10 +86,14 @@ class AgentsService(BaseService):
                 return {"success": False, "error": "Agent ID required"}
 
             # Initialize connected_agents if it doesn't exist or is wrong type
-            if not hasattr(self.state_manager, "connected_agents") or not isinstance(
+            if not hasattr(
+                self.state_manager, "connected_agents"
+            ) or not isinstance(
                 getattr(self.state_manager, "connected_agents", None), dict
             ):
-                self.logger.warning("Initializing connected_agents as empty dictionary")
+                self.logger.warning(
+                    "Initializing connected_agents as empty dictionary"
+                )
                 # TODO: Use proper state manager method when available
                 # self.state_manager.reset_agent_registry()  # Not implemented yet
 
@@ -113,10 +122,15 @@ class AgentsService(BaseService):
         """Unregister an agent."""
         try:
             if not self.state_manager:
-                return {"success": False, "error": "State manager not available"}
+                return {
+                    "success": False,
+                    "error": "State manager not available",
+                }
 
             # Ensure connected_agents is a dictionary
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
             if not isinstance(connected_agents, dict):
                 self.logger.warning(
                     f"connected_agents is not a dictionary in unregister, got type {type(connected_agents)}. Initializing as empty dict."
@@ -127,7 +141,10 @@ class AgentsService(BaseService):
             if agent_id in connected_agents:
                 del connected_agents[agent_id]
                 self.logger.info(f"Agent {agent_id} unregistered successfully")
-                return {"success": True, "message": "Agent unregistered successfully"}
+                return {
+                    "success": True,
+                    "message": "Agent unregistered successfully",
+                }
             else:
                 return {"success": False, "error": "Agent not found"}
         except Exception as e:
@@ -143,7 +160,9 @@ class AgentsService(BaseService):
                 return False
 
             # Ensure connected_agents is a dictionary
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
             if not isinstance(connected_agents, dict):
                 self.logger.warning(
                     f"connected_agents is not a dictionary in update_agent_status, got type {type(connected_agents)}. Initializing as empty dict."
@@ -184,7 +203,9 @@ class AgentsService(BaseService):
                 return None
 
             # Ensure connected_agents is a dictionary
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
             if not isinstance(connected_agents, dict):
                 self.logger.warning(
                     f"connected_agents is not a dictionary in get_agent_details, got type {type(connected_agents)}. Initializing as empty dict."
@@ -226,9 +247,14 @@ class AgentsService(BaseService):
             # In a real system, this would involve the actual messaging infrastructure
 
             if not self.state_manager:
-                return {"success": False, "error": "State manager not available"}
+                return {
+                    "success": False,
+                    "error": "State manager not available",
+                }
 
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
 
             if agent_id not in connected_agents:
                 return {"success": False, "error": "Agent not found"}
@@ -249,14 +275,21 @@ class AgentsService(BaseService):
             return {"success": False, "error": str(e)}
 
     def broadcast_message(
-        self, message: Dict[str, Any], agent_filter: Optional[Dict[str, Any]] = None
+        self,
+        message: Dict[str, Any],
+        agent_filter: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Broadcast a message to all connected agents or filtered subset."""
         try:
             if not self.state_manager:
-                return {"success": False, "error": "State manager not available"}
+                return {
+                    "success": False,
+                    "error": "State manager not available",
+                }
 
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
 
             # Apply filter if provided
             target_agents = []
@@ -297,7 +330,9 @@ class AgentsService(BaseService):
             if not self.state_manager:
                 return {}
 
-            connected_agents = getattr(self.state_manager, "connected_agents", {})
+            connected_agents = getattr(
+                self.state_manager, "connected_agents", {}
+            )
 
             # Count agents by type and status
             type_counts = {}
@@ -308,7 +343,9 @@ class AgentsService(BaseService):
                 agent_status = agent_info.get("status", "unknown")
 
                 type_counts[agent_type] = type_counts.get(agent_type, 0) + 1
-                status_counts[agent_status] = status_counts.get(agent_status, 0) + 1
+                status_counts[agent_status] = (
+                    status_counts.get(agent_status, 0) + 1
+                )
 
             return {
                 "total_agents": len(connected_agents),

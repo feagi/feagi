@@ -134,11 +134,15 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
 
         if config.inbound_enabled is not None:
             enable_inbound_debug(config.inbound_enabled)
-            configured_fields.append(f"inbound_enabled={config.inbound_enabled}")
+            configured_fields.append(
+                f"inbound_enabled={config.inbound_enabled}"
+            )
 
         if config.outbound_enabled is not None:
             enable_outbound_debug(config.outbound_enabled)
-            configured_fields.append(f"outbound_enabled={config.outbound_enabled}")
+            configured_fields.append(
+                f"outbound_enabled={config.outbound_enabled}"
+            )
 
         if config.debug_level is not None:
             if not isinstance(config.debug_level, str):
@@ -164,9 +168,13 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     detail=f"message_filters must be a list, got {type(config.message_filters).__name__}",
                 )
             try:
-                filters = [MessageType(f.lower()) for f in config.message_filters]
+                filters = [
+                    MessageType(f.lower()) for f in config.message_filters
+                ]
                 set_message_filters(filters)
-                configured_fields.append(f"message_filters={config.message_filters}")
+                configured_fields.append(
+                    f"message_filters={config.message_filters}"
+                )
             except ValueError:
                 valid_types = [mt.value for mt in MessageType]
                 raise HTTPException(
@@ -181,7 +189,9 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     detail=f"endpoint_filters must be a list, got {type(config.endpoint_filters).__name__}",
                 )
             set_endpoint_filters(config.endpoint_filters)
-            configured_fields.append(f"endpoint_filters={config.endpoint_filters}")
+            configured_fields.append(
+                f"endpoint_filters={config.endpoint_filters}"
+            )
 
         if config.rate_limit_per_second is not None:
             if not isinstance(config.rate_limit_per_second, int):
@@ -189,7 +199,10 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     status_code=400,
                     detail=f"rate_limit_per_second must be an integer, got {type(config.rate_limit_per_second).__name__}",
                 )
-            if config.rate_limit_per_second < 1 or config.rate_limit_per_second > 10000:
+            if (
+                config.rate_limit_per_second < 1
+                or config.rate_limit_per_second > 10000
+            ):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Rate limit must be between 1 and 10000 messages per second, got {config.rate_limit_per_second}",
@@ -248,7 +261,9 @@ async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
             "message": "ZMQ debugging enabled with summary level logging",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error enabling debug: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error enabling debug: {str(e)}"
+        ) from e
 
 
 @router.post("/zmq/disable")
@@ -264,7 +279,9 @@ async def disable_zmq_debug():
 
         return {"status": "disabled", "message": "All ZMQ debugging disabled"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error disabling debug: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error disabling debug: {str(e)}"
+        ) from e
 
 
 @router.get("/zmq/endpoints", response_model=EndpointStatsResponse)
@@ -296,7 +313,9 @@ async def reset_zmq_debug_stats():
         reset_debug_stats()
         return {"status": "reset", "message": "All ZMQ debug statistics reset"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error resetting stats: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error resetting stats: {str(e)}"
+        ) from e
 
 
 # Advanced Debug Control
@@ -324,7 +343,9 @@ async def set_message_type_filters(message_types: List[str]):
 
         # Validate message types
         valid_types = [mt.value for mt in MessageType]
-        invalid_types = [t for t in message_types if t.lower() not in valid_types]
+        invalid_types = [
+            t for t in message_types if t.lower() not in valid_types
+        ]
 
         if invalid_types:
             raise HTTPException(
@@ -365,9 +386,15 @@ async def set_endpoint_filters_rest(endpoints: List[str]):
         if not endpoints:
             message = "All endpoints will be debugged"
         else:
-            message = f"Debugging enabled for endpoints: {', '.join(endpoints)}"
+            message = (
+                f"Debugging enabled for endpoints: {', '.join(endpoints)}"
+            )
 
-        return {"status": "configured", "endpoints": endpoints, "message": message}
+        return {
+            "status": "configured",
+            "endpoints": endpoints,
+            "message": message,
+        }
 
     except Exception as e:
         raise HTTPException(

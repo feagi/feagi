@@ -44,7 +44,10 @@ async def validate_token(token: str) -> bool:
     """
     # If no token is provided, allow access if authentication is disabled
     if not token:
-        return not os.environ.get("FEAGI_AUTH_REQUIRED", "false").lower() == "true"
+        return (
+            not os.environ.get("FEAGI_AUTH_REQUIRED", "false").lower()
+            == "true"
+        )
 
     # Check if token exists and is not expired
     token_data = _TOKENS.get(token)

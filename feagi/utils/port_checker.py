@@ -102,7 +102,11 @@ def check_all_ports_available(host: str, port_config: Dict[str, int]) -> None:
         if not check_port_availability(host, port_number):
             process_info = get_process_using_port(port_number)
             conflicts.append(
-                {"name": port_name, "port": port_number, "process": process_info}
+                {
+                    "name": port_name,
+                    "port": port_number,
+                    "process": process_info,
+                }
             )
             logger.error(
                 f"Port conflict detected: {port_name} (port {port_number}) is in use"
@@ -182,13 +186,17 @@ def validate_port_range(port_config: Dict[str, int]) -> None:
 
     for port_name, port_number in port_config.items():
         if not isinstance(port_number, int):
-            invalid_ports.append(f"{port_name}: {port_number} (not an integer)")
+            invalid_ports.append(
+                f"{port_name}: {port_number} (not an integer)"
+            )
         elif port_number < 1024:
             invalid_ports.append(
                 f"{port_name}: {port_number} (below 1024 - privileged range)"
             )
         elif port_number > 65535:
-            invalid_ports.append(f"{port_name}: {port_number} (above 65535 - invalid)")
+            invalid_ports.append(
+                f"{port_name}: {port_number} (above 65535 - invalid)"
+            )
 
     if invalid_ports:
         error_message = (
@@ -247,7 +255,9 @@ def get_config_file_location() -> str:
     return str(Path("./feagi_configuration.ini").resolve())
 
 
-def perform_comprehensive_port_check(host: str, port_config: Dict[str, int]) -> None:
+def perform_comprehensive_port_check(
+    host: str, port_config: Dict[str, int]
+) -> None:
     """
     Perform comprehensive port validation including duplicates, ranges, and availability.
 

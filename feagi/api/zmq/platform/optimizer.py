@@ -113,7 +113,9 @@ class LinuxOptimizer(PlatformOptimizer):
 
             # Enable SO_REUSEPORT for load balancing
             if hasattr(pysocket, "SO_REUSEPORT"):
-                socket.setsockopt(pysocket.SOL_SOCKET, pysocket.SO_REUSEPORT, 1)
+                socket.setsockopt(
+                    pysocket.SOL_SOCKET, pysocket.SO_REUSEPORT, 1
+                )
 
             # CPU affinity hints (requires recent kernels)
             if hasattr(pysocket, "SO_INCOMING_CPU"):
@@ -151,7 +153,9 @@ class DarwinOptimizer(PlatformOptimizer):
 
             # Prevent SIGPIPE on macOS
             if hasattr(pysocket, "SO_NOSIGPIPE"):
-                socket.setsockopt(pysocket.SOL_SOCKET, pysocket.SO_NOSIGPIPE, 1)
+                socket.setsockopt(
+                    pysocket.SOL_SOCKET, pysocket.SO_NOSIGPIPE, 1
+                )
 
             # macOS-specific buffer tuning
             # macOS has different buffer scaling behavior

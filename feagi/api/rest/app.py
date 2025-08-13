@@ -32,7 +32,12 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
@@ -113,7 +118,8 @@ def custom_swagger_ui_html():
     # Read the custom HTML template directly with Windows-compatible path handling
     template_path = Path(__file__).parent / "static" / "custom-swagger-ui.html"
     logger.info(
-        f"Loading custom Swagger UI template from {template_path}", status="[CONFIG]"
+        f"Loading custom Swagger UI template from {template_path}",
+        status="[CONFIG]",
     )
 
     try:
@@ -168,21 +174,30 @@ def custom_swagger_ui_html():
         )
 
         # Insert debug script before the closing body tag
-        html_content = html_content.replace("</body>", debug_script + "</body>")
+        html_content = html_content.replace(
+            "</body>", debug_script + "</body>"
+        )
 
-        logger.info("Custom Swagger UI template loaded successfully", status="[OK]")
+        logger.info(
+            "Custom Swagger UI template loaded successfully", status="[OK]"
+        )
         return HTMLResponse(content=html_content)
 
     except FileNotFoundError:
         logger.error(
-            f"Custom Swagger UI template not found at {template_path}", status="[ERR]"
+            f"Custom Swagger UI template not found at {template_path}",
+            status="[ERR]",
         )
         return _fallback_swagger_ui()
     except UnicodeDecodeError as e:
-        logger.error(f"Encoding error reading Swagger UI template: {e}", status="[ERR]")
+        logger.error(
+            f"Encoding error reading Swagger UI template: {e}", status="[ERR]"
+        )
         return _fallback_swagger_ui()
     except Exception as e:
-        logger.error(f"Failed to load custom Swagger UI template: {e}", status="[ERR]")
+        logger.error(
+            f"Failed to load custom Swagger UI template: {e}", status="[ERR]"
+        )
         return _fallback_swagger_ui()
 
 
@@ -245,32 +260,42 @@ async def log_requests(request: Request, call_next):
     # Check if debug API logging is enabled - try multiple methods to detect it
     state_manager = FeagiStateManager.instance()
     debug_api_enabled = False
-    
+
     # Method 1: Check state manager
     try:
         debug_api_enabled = state_manager.is_debug_api_enabled()
     except Exception:
         pass
-    
+
     # Method 2: Check environment variable as fallback
     if not debug_api_enabled:
         import os
+
         debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
-    
+
     # Method 3: Check for debug flag in command line (ultimate fallback)
     if not debug_api_enabled:
         import sys
+
         debug_api_enabled = "--debug-api" in sys.argv
 
     # Always show diagnostic info to understand what's happening
     if not hasattr(log_requests, "_diagnostic_shown"):
         try:
-            debug_config = getattr(state_manager, '_debug_config', {})
+            debug_config = getattr(state_manager, "_debug_config", {})
             logger.error("[DIAGNOSTIC] API Debug Status Check:")
-            logger.error(f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}")
-            logger.error(f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}")
-            logger.error(f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}")
-            logger.error(f"[DIAGNOSTIC]   Final debug_api_enabled: {debug_api_enabled}")
+            logger.error(
+                f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}"
+            )
+            logger.error(
+                f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}"
+            )
+            logger.error(
+                f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}"
+            )
+            logger.error(
+                f"[DIAGNOSTIC]   Final debug_api_enabled: {debug_api_enabled}"
+            )
             logger.error(f"[DIAGNOSTIC]   _debug_config: {debug_config}")
         except Exception as e:
             logger.error(f"[DIAGNOSTIC] Error checking debug status: {e}")
@@ -388,7 +413,9 @@ async def log_requests(request: Request, call_next):
             if response.status_code >= 400
             else "⚠️"
         )
-        logger.info(f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}")
+        logger.info(
+            f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}"
+        )
         logger.info(f"🟢 [API-DEBUG] Duration: {process_time:.2f}ms")
 
         # Response headers
@@ -426,7 +453,9 @@ async def log_requests(request: Request, call_next):
                     except (json.JSONDecodeError, ValueError):
                         # Not JSON, log as plain text (truncate if too long)
                         if len(response_body) > 2000:
-                            truncated_body = response_body[:2000] + "... (truncated)"
+                            truncated_body = (
+                                response_body[:2000] + "... (truncated)"
+                            )
                             logger.info(
                                 f"🟢 [API-DEBUG] Response Body (truncated): {truncated_body}"
                             )
@@ -448,7 +477,9 @@ async def log_requests(request: Request, call_next):
                     logger.info("🟢 [API-DEBUG] Response Body: <empty>")
 
         except Exception as e:
-            logger.info(f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>")
+            logger.info(
+                f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>"
+            )
 
         # Summary line
         logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
@@ -550,7 +581,9 @@ def create_rest_app_direct(config: Dict[str, Any]):
     connectome_manager = config["connectome_manager"]
 
     if not core_api_service:
-        raise RuntimeError("CoreAPIService is required for direct REST app creation")
+        raise RuntimeError(
+            "CoreAPIService is required for direct REST app creation"
+        )
 
     logger.info(
         "[OK] Using directly injected CoreAPIService and ConnectomeManager",
@@ -601,7 +634,8 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
         connectome = ConnectomeManager.instance()
         logger.info(
-            "[TARGET] Created singleton ConnectomeManager instance", status="[TARGET]"
+            "[TARGET] Created singleton ConnectomeManager instance",
+            status="[TARGET]",
         )
 
         # Create CoreAPIService with singleton instances
@@ -617,7 +651,9 @@ def create_rest_app(connectome: ConnectomeManager = None):
                 status="[OK]",
             )
         else:
-            logger.error("[ERR] Failed to create CoreAPIService", status="[ERR]")
+            logger.error(
+                "[ERR] Failed to create CoreAPIService", status="[ERR]"
+            )
             raise RuntimeError("Failed to create CoreAPIService")
 
         logger.info(
@@ -649,7 +685,9 @@ def create_rest_app(connectome: ConnectomeManager = None):
                 "[ERR] Failed to create CoreAPIService in standalone mode",
                 status="[ERR]",
             )
-            raise RuntimeError("Failed to create CoreAPIService in standalone mode")
+            raise RuntimeError(
+                "Failed to create CoreAPIService in standalone mode"
+            )
 
     # Set the connectome instance for FastAPI dependency injection
     from feagi.api.rest.dependencies import set_connectome_instance
@@ -694,7 +732,10 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
     # Physiology router (genome parameters)
     from feagi.api.transport.universal_fastapi import UniversalFastAPIWrapper
-    physiology_router = UniversalFastAPIWrapper().create_router_for_module("physiology")
+
+    physiology_router = UniversalFastAPIWrapper().create_router_for_module(
+        "physiology"
+    )
     app.include_router(
         physiology_router,
         prefix="/v1/physiology",
@@ -827,6 +868,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
     # Add the snapshot router
     from feagi.api.transport.universal_fastapi import get_snapshot_router
+
     app.include_router(
         get_snapshot_router(),
         prefix="/v1/snapshots",
@@ -865,9 +907,15 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
     # Log debug information about the created app
     logger.error("[APP-CREATION] FastAPI app created successfully")
-    logger.error(f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}")
-    logger.error(f"[APP-CREATION] App middleware count: {len(app.user_middleware)}")
-    logger.error(f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}")
+    logger.error(
+        f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}"
+    )
+    logger.error(
+        f"[APP-CREATION] App middleware count: {len(app.user_middleware)}"
+    )
+    logger.error(
+        f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}"
+    )
 
     return app
 
@@ -934,7 +982,9 @@ async def standardize_response_format(request, call_next):
             # Remove the marker and return raw response
             if "__raw_response__" in content:
                 del content["__raw_response__"]
-            return JSONResponse(content=content, status_code=response.status_code)
+            return JSONResponse(
+                content=content, status_code=response.status_code
+            )
     except Exception:
         # If we can't parse JSON or other issues, just return original response
         return response
@@ -954,7 +1004,8 @@ async def standardize_response_format(request, call_next):
         try:
             content = json.loads(body)
             return JSONResponse(
-                content=success_response(data=content), status_code=response.status_code
+                content=success_response(data=content),
+                status_code=response.status_code,
             )
         except Exception:
             # If we can't standardize, return original response rebuilt

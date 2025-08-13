@@ -106,9 +106,9 @@ def construct_genome_from_region(region_id):
     # Add blueprint for all areas in the region
     for cortical_area in comprehensive_area_list:
         if cortical_area in genome["blueprint"]:
-            genome_from_region["blueprint"][cortical_area] = genome["blueprint"][
-                cortical_area
-            ].copy()
+            genome_from_region["blueprint"][cortical_area] = genome[
+                "blueprint"
+            ][cortical_area].copy()
 
     # Add subregions
     genome_from_region["brain_regions"]["root"] = region.copy()
@@ -116,10 +116,14 @@ def construct_genome_from_region(region_id):
     genome_from_region["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
     genome_from_region["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
     for subregion in comprehensive_subregion_list:
-        genome_from_region["brain_regions"][subregion] = brain_regions[subregion].copy()
+        genome_from_region["brain_regions"][subregion] = brain_regions[
+            subregion
+        ].copy()
 
     # Set signatures
-    genome_from_region["signatures"]["genome"] = generate_hash(genome_from_region)
+    genome_from_region["signatures"]["genome"] = generate_hash(
+        genome_from_region
+    )
     genome_from_region["signatures"]["blueprint"] = generate_hash(
         genome_from_region["blueprint"]
     )
@@ -128,9 +132,9 @@ def construct_genome_from_region(region_id):
     )
 
     # Convert Genome to 2.0
-    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)[
-        "blueprint"
-    ]
+    genome_from_region["blueprint"] = genome_v1_v2_converter(
+        genome_from_region
+    )["blueprint"]
 
     return genome_from_region
 
@@ -145,18 +149,24 @@ def region_id_gen(
     return f"{now.strftime('%Y%m%d%H%M%S%f')[2:]}_{''.join(random.choice(chars) for _ in range(size))}_R"
 
 
-def change_cortical_area_parent(cortical_area_id: str, new_parent_id: str) -> None:
+def change_cortical_area_parent(
+    cortical_area_id: str, new_parent_id: str
+) -> None:
     """
     Change the parent region of a cortical area.
     Updates both the association and the region membership lists.
     """
     try:
-        current_parent_id = state.cortical_area_region_association.get(cortical_area_id)
+        current_parent_id = state.cortical_area_region_association.get(
+            cortical_area_id
+        )
         if current_parent_id is None:
             raise ValueError(
                 f"Cortical area {cortical_area_id} has no current parent region."
             )
-        state.cortical_area_region_association[cortical_area_id] = new_parent_id
+        state.cortical_area_region_association[cortical_area_id] = (
+            new_parent_id
+        )
         # Remove from old region
         if (
             cortical_area_id
@@ -174,7 +184,9 @@ def change_cortical_area_parent(cortical_area_id: str, new_parent_id: str) -> No
                 cortical_area_id
             )
     except Exception as e:
-        raise RuntimeError(f"Failed to change cortical area parent: {e}") from e
+        raise RuntimeError(
+            f"Failed to change cortical area parent: {e}"
+        ) from e
 
 
 def change_brain_region_parent(region_id: str, new_parent_id: str) -> None:
@@ -211,9 +223,9 @@ def create_region(region_data) -> str:
         "signature": "",
     }
     # Add to parent's regions list
-    state.genome["brain_regions"][region_data.parent_region_id]["regions"].append(
-        region_id
-    )
+    state.genome["brain_regions"][region_data.parent_region_id][
+        "regions"
+    ].append(region_id)
     # Associate areas
     if hasattr(region_data, "areas") and region_data.areas:
         for associated_area in region_data.areas:
@@ -243,10 +255,13 @@ def update_region(region_data: dict) -> None:
         if update not in ["area", "region"]:
             if update == "parent_region_id":
                 change_brain_region_parent(
-                    region_id=region_id, new_parent_id=region_data["parent_region_id"]
+                    region_id=region_id,
+                    new_parent_id=region_data["parent_region_id"],
                 )
             else:
-                state.genome["brain_regions"][region_id][update] = region_data[update]
+                state.genome["brain_regions"][region_id][update] = region_data[
+                    update
+                ]
         else:
             raise ValueError(f"{update} cannot be updated using this endpoint")
 
@@ -256,7 +271,9 @@ def delete_region_with_members(region_id: str) -> None:
     Delete a region and reassign its areas and subregions to its parent.
     """
     if region_id in state.genome["brain_regions"]:
-        parent_region = state.genome["brain_regions"][region_id]["parent_region_id"]
+        parent_region = state.genome["brain_regions"][region_id][
+            "parent_region_id"
+        ]
         # Move areas to parent
         for area in state.genome["brain_regions"][region_id]["areas"]:
             change_cortical_area_parent(
@@ -264,10 +281,17 @@ def delete_region_with_members(region_id: str) -> None:
             )
         # Move subregions to parent
         for subregion in state.genome["brain_regions"][region_id]["regions"]:
-            change_brain_region_parent(region_id=subregion, new_parent_id=parent_region)
+            change_brain_region_parent(
+                region_id=subregion, new_parent_id=parent_region
+            )
         # Remove from parent's regions list
-        if region_id in state.genome["brain_regions"][parent_region]["regions"]:
-            state.genome["brain_regions"][parent_region]["regions"].remove(region_id)
+        if (
+            region_id
+            in state.genome["brain_regions"][parent_region]["regions"]
+        ):
+            state.genome["brain_regions"][parent_region]["regions"].remove(
+                region_id
+            )
         # Delete the region
         state.genome["brain_regions"].pop(region_id)
 
@@ -289,16 +313,18 @@ def relocate_region_members(relocation_data: dict) -> None:
             if "parent_region_id" in relocation_data[object_id]:
                 change_cortical_area_parent(
                     cortical_area_id=object_id,
-                    new_parent_id=relocation_data[object_id]["parent_region_id"],
+                    new_parent_id=relocation_data[object_id][
+                        "parent_region_id"
+                    ],
                 )
         elif object_id in state.genome["brain_regions"]:
             if "coordinate_2d" in relocation_data[object_id]:
-                state.genome["brain_regions"][object_id]["coordinate_2d"][0] = (
-                    relocation_data[object_id]["coordinate_2d"][0]
-                )
-                state.genome["brain_regions"][object_id]["coordinate_2d"][1] = (
-                    relocation_data[object_id]["coordinate_2d"][1]
-                )
+                state.genome["brain_regions"][object_id]["coordinate_2d"][
+                    0
+                ] = relocation_data[object_id]["coordinate_2d"][0]
+                state.genome["brain_regions"][object_id]["coordinate_2d"][
+                    1
+                ] = relocation_data[object_id]["coordinate_2d"][1]
             if "parent_region_id" in relocation_data[object_id]:
                 if (
                     relocation_data[object_id]["parent_region_id"]
@@ -306,7 +332,9 @@ def relocate_region_members(relocation_data: dict) -> None:
                 ):
                     change_brain_region_parent(
                         region_id=object_id,
-                        new_parent_id=relocation_data[object_id]["parent_region_id"],
+                        new_parent_id=relocation_data[object_id][
+                            "parent_region_id"
+                        ],
                     )
                 else:
                     raise ValueError(
@@ -314,7 +342,9 @@ def relocate_region_members(relocation_data: dict) -> None:
                         f"is not a valid region id"
                     )
         else:
-            raise ValueError(f"{object_id} is not a valid region nor cortical id")
+            raise ValueError(
+                f"{object_id} is not a valid region nor cortical id"
+            )
     # Optionally, update cached dimensions or other state as needed
 
 

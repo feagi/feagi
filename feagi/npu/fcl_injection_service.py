@@ -103,7 +103,9 @@ class FCLInjectionService:
 
         # Configuration attributes expected by other components
         self.batch_size = 1000  # Default batch size for processing neurons
-        self.enable_probabilistic = True  # Enable probabilistic injection by default
+        self.enable_probabilistic = (
+            True  # Enable probabilistic injection by default
+        )
         self.last_injection_duration = 0.0
 
         # Statistics tracking
@@ -115,7 +117,9 @@ class FCLInjectionService:
         }
 
         # Pre-computed injection batches for efficiency
-        self._injection_batches: Dict[InjectionTiming, List[InjectionBatch]] = {
+        self._injection_batches: Dict[
+            InjectionTiming, List[InjectionBatch]
+        ] = {
             InjectionTiming.PRE_BURST: [],
             InjectionTiming.DURING_BURST: [],
             InjectionTiming.POST_BURST: [],
@@ -161,7 +165,9 @@ class FCLInjectionService:
                     self.special_area_handler.get_special_config(cid)
                     for cid in cortical_ids
                 ]
-                enabled_mask = [config and config.enabled for config in configs]
+                enabled_mask = [
+                    config and config.enabled for config in configs
+                ]
 
                 # Filter to enabled power areas only
                 enabled_indices = np.where(enabled_mask)[0]
@@ -173,6 +179,7 @@ class FCLInjectionService:
 
                     # Check if NPU debug is enabled for detailed injection logging
                     from feagi.core.state_manager import FeagiStateManager
+
                     state_manager = FeagiStateManager.instance()
                     if state_manager.is_debug_npu_enabled():
                         logger.info(
@@ -243,10 +250,14 @@ class FCLInjectionService:
         try:
             # Debug-only proof logging
             from feagi.core.state_manager import FeagiStateManager
+
             if FeagiStateManager.instance().is_debug_npu_enabled():
                 import os
                 import tempfile
-                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_proof--temp.log")
+
+                log_path = os.path.join(
+                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
+                )
                 with open(log_path, "a") as f:
                     f.write(
                         f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
@@ -258,22 +269,29 @@ class FCLInjectionService:
 
             # Debug-only: record found neurons
             from feagi.core.state_manager import FeagiStateManager
+
             if FeagiStateManager.instance().is_debug_npu_enabled():
                 import os
                 import tempfile
-                log_path = os.path.join(tempfile.gettempdir(), "feagi_injection_proof--temp.log")
+
+                log_path = os.path.join(
+                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
+                )
                 with open(log_path, "a") as f:
                     if power_neurons:
                         f.write(
                             f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
                         )
                     else:
-                        f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
+                        f.write(
+                            f"[{current_timestep}] NO POWER NEURONS FOUND\n"
+                        )
 
             if not power_neurons:
                 # Only log this occasionally to avoid spam
                 if current_timestep % 100 == 0:
                     from feagi.core.state_manager import FeagiStateManager
+
                     state_manager = FeagiStateManager.instance()
                     if state_manager.is_debug_npu_enabled():
                         logger.info(
@@ -282,14 +300,20 @@ class FCLInjectionService:
                 return 0
 
             # FAST: Set membrane potential to PSP value from cortical area properties
-            if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
+            if self.connectome_manager and hasattr(
+                self.connectome_manager, "neuron_array"
+            ):
                 # Get PSP value from power area properties via connectome manager
-                power_area = self.connectome_manager.get_cortical_area("_power")
+                power_area = self.connectome_manager.get_cortical_area(
+                    "_power"
+                )
                 if power_area and power_area.properties:
-                    psp_value = power_area.properties.get("postsynaptic_current", 500.0)
+                    psp_value = power_area.properties.get(
+                        "postsynaptic_current", 500.0
+                    )
                 else:
                     psp_value = 500.0  # Fallback to essential genome default
-                
+
                 neuron_array = self.connectome_manager.neuron_array
                 for neuron_id in power_neurons:
                     # For power neurons, set membrane potential to PSP value (use correct attribute name)
@@ -309,7 +333,9 @@ class FCLInjectionService:
                 current_timestep,
             )
 
-            if injected_count > 0 and current_timestep % 50 == 0:  # Log occasionally
+            if (
+                injected_count > 0 and current_timestep % 50 == 0
+            ):  # Log occasionally
                 logger.debug(
                     f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
                 )
@@ -355,11 +381,14 @@ class FCLInjectionService:
             Number of neurons injected
         """
         from feagi.core.state_manager import FeagiStateManager
+
         state_manager = FeagiStateManager.instance()
-        
+
         if not self._injection_batches[timing]:
             if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-DEBUG] No injection batches for {timing.value} phase")
+                logger.info(
+                    f"[NPU-DEBUG] No injection batches for {timing.value} phase"
+                )
             return 0
 
         if state_manager.is_debug_npu_enabled():
@@ -394,11 +423,15 @@ class FCLInjectionService:
             )
         else:
             if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-DEBUG] No candidates added to FCL in {timing.value} phase")
+                logger.info(
+                    f"[NPU-DEBUG] No candidates added to FCL in {timing.value} phase"
+                )
 
         return total_injected
 
-    def _inject_batch(self, batch: InjectionBatch, current_timestep: int) -> int:
+    def _inject_batch(
+        self, batch: InjectionBatch, current_timestep: int
+    ) -> int:
         """
         Add a batch of neuron candidates to the FCL.
 
@@ -493,7 +526,9 @@ class FCLInjectionService:
         return {
             "total_injections": self.injection_stats["total_injections"],
             "total_neurons_injected": self.total_neurons_injected,
-            "successful_injections": self.injection_stats["successful_injections"],
+            "successful_injections": self.injection_stats[
+                "successful_injections"
+            ],
             "failed_injections": self.injection_stats["failed_injections"],
             "last_injection_duration": self.last_injection_duration,
             "prepared_batches": {
@@ -504,7 +539,9 @@ class FCLInjectionService:
             "enable_probabilistic": self.enable_probabilistic,
         }
 
-    def set_injection_enabled(self, cortical_id: CorticalId, enabled: bool) -> bool:
+    def set_injection_enabled(
+        self, cortical_id: CorticalId, enabled: bool
+    ) -> bool:
         """
         Enable or disable injection for a specific cortical area.
 
@@ -597,11 +634,14 @@ class FCLInjectionService:
             total_injected = 0
 
             from feagi.core.state_manager import FeagiStateManager
+
             state_manager = FeagiStateManager.instance()
-            
+
             if not activations:
                 if state_manager.is_debug_npu_enabled():
-                    logger.info(f"[NPU-DEBUG] No activations provided by {source}")
+                    logger.info(
+                        f"[NPU-DEBUG] No activations provided by {source}"
+                    )
                 return 0
 
             if state_manager.is_debug_npu_enabled():
@@ -651,7 +691,9 @@ class FCLInjectionService:
                     )
 
                     # Inject the batch into FCL
-                    injected_count = self._inject_batch(batch, current_timestep)
+                    injected_count = self._inject_batch(
+                        batch, current_timestep
+                    )
                     total_injected += injected_count
 
                     if injected_count > 0:
@@ -680,12 +722,16 @@ class FCLInjectionService:
                     f"✅ FIXED: Set membrane potentials above threshold for external neurons from {source}"
                 )
             else:
-                logger.warning(f"No external candidates were injected from {source}")
+                logger.warning(
+                    f"No external candidates were injected from {source}"
+                )
 
             return total_injected
 
         except Exception as e:
-            logger.error(f"Error in external activations injection from {source}: {e}")
+            logger.error(
+                f"Error in external activations injection from {source}: {e}"
+            )
             import traceback
 
             logger.error(traceback.format_exc())

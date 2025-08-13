@@ -74,10 +74,16 @@ class NeuroplasticityAPI:
             return plasticity_info
         except Exception as e:
             logger.error(f"Error getting plasticity status: {e}")
-            raise ValueError(f"Failed to get plasticity status: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get plasticity status: {str(e)}"
+            ) from e
 
-    @neuroplasticity_endpoint("POST", "/configure", response_model=SuccessResponse)
-    async def configure_plasticity(self, config: Dict[str, Any]) -> SuccessResponse:
+    @neuroplasticity_endpoint(
+        "POST", "/configure", response_model=SuccessResponse
+    )
+    async def configure_plasticity(
+        self, config: Dict[str, Any]
+    ) -> SuccessResponse:
         """Configure neuroplasticity settings."""
         try:
             success = self.core_api_service.update_plasticity_config(config)
@@ -89,7 +95,9 @@ class NeuroplasticityAPI:
             )
         except Exception as e:
             logger.error(f"Error configuring plasticity: {e}")
-            raise ValueError(f"Failed to configure plasticity: {str(e)}") from e
+            raise ValueError(
+                f"Failed to configure plasticity: {str(e)}"
+            ) from e
 
     # ===== Area-Specific Plasticity Control =====
 
@@ -104,11 +112,17 @@ class NeuroplasticityAPI:
             if settings is None:
                 settings = {}
 
-            success = self.core_api_service.enable_area_plasticity(area_id, settings)
+            success = self.core_api_service.enable_area_plasticity(
+                area_id, settings
+            )
             if not success:
-                raise ValueError(f"Failed to enable plasticity for area {area_id}")
+                raise ValueError(
+                    f"Failed to enable plasticity for area {area_id}"
+                )
 
-            return SuccessResponse(message=f"Plasticity enabled for area {area_id}")
+            return SuccessResponse(
+                message=f"Plasticity enabled for area {area_id}"
+            )
         except Exception as e:
             logger.error(f"Error enabling area plasticity: {e}")
             raise ValueError(
@@ -123,9 +137,13 @@ class NeuroplasticityAPI:
         try:
             success = self.core_api_service.disable_area_plasticity(area_id)
             if not success:
-                raise ValueError(f"Failed to disable plasticity for area {area_id}")
+                raise ValueError(
+                    f"Failed to disable plasticity for area {area_id}"
+                )
 
-            return SuccessResponse(message=f"Plasticity disabled for area {area_id}")
+            return SuccessResponse(
+                message=f"Plasticity disabled for area {area_id}"
+            )
         except Exception as e:
             logger.error(f"Error disabling area plasticity: {e}")
             raise ValueError(
@@ -141,26 +159,36 @@ class NeuroplasticityAPI:
             return self.core_api_service.get_transforming_areas()
         except Exception as e:
             logger.error(f"Error getting transforming areas: {e}")
-            raise ValueError(f"Failed to get transforming areas: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get transforming areas: {str(e)}"
+            ) from e
 
     # ===== Queue Management =====
 
-    @neuroplasticity_endpoint("GET", "/plasticity_queue_depth", response_model=int)
+    @neuroplasticity_endpoint(
+        "GET", "/plasticity_queue_depth", response_model=int
+    )
     async def get_plasticity_queue_depth(self) -> int:
         """Get the current plasticity queue depth value."""
         try:
             return self.core_api_service.get_plasticity_queue_depth()
         except Exception as e:
             logger.error(f"Error getting plasticity queue depth: {e}")
-            raise ValueError(f"Failed to get plasticity queue depth: {str(e)}") from e
+            raise ValueError(
+                f"Failed to get plasticity queue depth: {str(e)}"
+            ) from e
 
     @neuroplasticity_endpoint(
         "PUT", "/plasticity_queue_depth", response_model=SuccessResponse
     )
-    async def update_plasticity_queue_depth(self, queue_depth: int) -> SuccessResponse:
+    async def update_plasticity_queue_depth(
+        self, queue_depth: int
+    ) -> SuccessResponse:
         """Update the plasticity queue depth setting."""
         try:
-            success = self.core_api_service.update_plasticity_queue_depth(queue_depth)
+            success = self.core_api_service.update_plasticity_queue_depth(
+                queue_depth
+            )
             if not success:
                 raise ValueError("Failed to update plasticity queue depth")
 
@@ -169,13 +197,17 @@ class NeuroplasticityAPI:
             )
         except Exception as e:
             logger.error(f"Error updating plasticity queue depth: {e}")
-            raise ValueError(f"Failed to update plasticity queue depth: {str(e)}") from e
+            raise ValueError(
+                f"Failed to update plasticity queue depth: {str(e)}"
+            ) from e
 
 
 # ===== Factory Function =====
 
 
-def create_neuroplasticity_api(core_api_service: CoreAPIService) -> NeuroplasticityAPI:
+def create_neuroplasticity_api(
+    core_api_service: CoreAPIService,
+) -> NeuroplasticityAPI:
     """
     Factory function to create a NeuroplasticityAPI instance.
 

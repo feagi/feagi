@@ -36,18 +36,29 @@ setup_feagi_logging()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("feagi.zmq")
 
 
 def main():
     """Run the FEAGI ZMQ server in standalone mode."""
-    parser = argparse.ArgumentParser(description="FEAGI ZMQ Server (Standalone)")
-    parser.add_argument("--host", type=str, help="Host to run the server on (required)")
-    parser.add_argument("--req-port", type=int, default=5555, help="REQ/REP port")
-    parser.add_argument("--pub-port", type=int, default=5556, help="PUB/SUB port")
-    parser.add_argument("--push-port", type=int, default=5557, help="PUSH/PULL port")
+    parser = argparse.ArgumentParser(
+        description="FEAGI ZMQ Server (Standalone)"
+    )
+    parser.add_argument(
+        "--host", type=str, help="Host to run the server on (required)"
+    )
+    parser.add_argument(
+        "--req-port", type=int, default=5555, help="REQ/REP port"
+    )
+    parser.add_argument(
+        "--pub-port", type=int, default=5556, help="PUB/SUB port"
+    )
+    parser.add_argument(
+        "--push-port", type=int, default=5557, help="PUSH/PULL port"
+    )
     parser.add_argument(
         "--sensorimotor-port", type=int, default=5558, help="Sensorimotor port"
     )
@@ -55,9 +66,14 @@ def main():
         "--control-port", type=int, default=5559, help="Control protocol port"
     )
     parser.add_argument(
-        "--vis-base-port", type=int, default=5560, help="Visualization base port"
+        "--vis-base-port",
+        type=int,
+        default=5560,
+        help="Visualization base port",
     )
-    parser.add_argument("--mock", action="store_true", help="Use mock core API")
+    parser.add_argument(
+        "--mock", action="store_true", help="Use mock core API"
+    )
     args = parser.parse_args()
 
     # Validate required arguments
@@ -89,7 +105,8 @@ def main():
             logger.info("Using real core API", status="[CONFIG]")
         except ImportError:
             logger.error(
-                "Failed to import core API, using mock instead", status="[WARN]"
+                "Failed to import core API, using mock instead",
+                status="[WARN]",
             )
             from unittest.mock import MagicMock
 
@@ -117,7 +134,9 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Start the server
-    logger.info(f"Starting ZMQ server on {args.host}:{args.req_port}", status="[START]")
+    logger.info(
+        f"Starting ZMQ server on {args.host}:{args.req_port}", status="[START]"
+    )
     logger.info(f"    - PUB/SUB port: {args.pub_port}")
     logger.info(f"    - PUSH/PULL port: {args.push_port}")
     logger.info(f"    - Sensorimotor port: {args.sensorimotor_port}")

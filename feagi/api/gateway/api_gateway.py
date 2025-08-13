@@ -106,7 +106,9 @@ class AgentConnection:
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.protocol_versions = protocol_versions
-        self.rate_limiter = RateLimiter(rate_limit=rate_limit, burst_limit=burst_limit)
+        self.rate_limiter = RateLimiter(
+            rate_limit=rate_limit, burst_limit=burst_limit
+        )
         self.last_heartbeat = time.time()
         self.connected = True
         self.capabilities = {}  # Sensory/motor capabilities
@@ -183,7 +185,9 @@ class APIGateway:
         try:
             # First check if we're running as part of the main FEAGI process
             if os.environ.get("FEAGI_INITIALIZED") == "1":
-                logger.info("Running in FEAGI main process, using Process Manager")
+                logger.info(
+                    "Running in FEAGI main process, using Process Manager"
+                )
                 from feagi.process_manager import get_process_manager
 
                 process_manager = get_process_manager()
@@ -198,7 +202,9 @@ class APIGateway:
                     self._core_api = create_core_api()
                     logger.info("Local Core API created")
         except ImportError:
-            logger.warning("Could not import Process Manager or create local Core API")
+            logger.warning(
+                "Could not import Process Manager or create local Core API"
+            )
 
         # Create mock if we couldn't get a real core API
         if self._core_api is None:
@@ -255,7 +261,10 @@ class APIGateway:
         """Process incoming messages from agents."""
         # Get configurable timeout values once at the start
         try:
-            from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+            from feagi.config.toml_loader import (
+                get_timeout_config,
+                load_feagi_config,
+            )
 
             config = load_feagi_config()
             timeout_config = get_timeout_config(config)
@@ -266,14 +275,16 @@ class APIGateway:
                 timeout_config.polling_timeout / 10000.0
             )  # Small fraction of polling timeout
         except Exception:
-            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            queue_timeout = (
+                1.0  # @architecture:acceptable - emergency fallback
+            )
             error_delay = 0.1  # @architecture:acceptable - emergency fallback
 
         while self._running:
             try:
                 # Get message from queue with configurable timeout
-                binary_data, agent_id, protocol_id, version = self._incoming_queue.get(
-                    timeout=queue_timeout
+                binary_data, agent_id, protocol_id, version = (
+                    self._incoming_queue.get(timeout=queue_timeout)
                 )
 
                 # Decode message using protocol translator
@@ -282,7 +293,9 @@ class APIGateway:
                 )
 
                 # Route to appropriate handler
-                self._route_message_to_core(agent_id, message, protocol_id, version)
+                self._route_message_to_core(
+                    agent_id, message, protocol_id, version
+                )
 
                 self._incoming_queue.task_done()
             except Exception as e:
@@ -298,7 +311,10 @@ class APIGateway:
         """
         # Get configurable timeout values
         try:
-            from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+            from feagi.config.toml_loader import (
+                get_timeout_config,
+                load_feagi_config,
+            )
 
             config = load_feagi_config()
             timeout_config = get_timeout_config(config)
@@ -309,7 +325,9 @@ class APIGateway:
                 timeout_config.polling_timeout / 10000.0
             )  # Small fraction of polling timeout
         except Exception:
-            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            queue_timeout = (
+                1.0  # @architecture:acceptable - emergency fallback
+            )
             error_delay = 0.1  # @architecture:acceptable - emergency fallback
 
         while (
@@ -338,7 +356,11 @@ class APIGateway:
                 time.sleep(error_delay)
 
     def _route_message_to_core(
-        self, agent_id: str, message: Any, protocol_id: ProtocolID, version: int
+        self,
+        agent_id: str,
+        message: Any,
+        protocol_id: ProtocolID,
+        version: int,
     ) -> None:
         """
         Route a message to the appropriate Core API Service handler.
@@ -385,7 +407,9 @@ class APIGateway:
                     sensory_data = message.get("sensory_data", {})
                     # Forward to core API
                     if hasattr(self._core_api, "process_sensory_data"):
-                        self._core_api.process_sensory_data(agent_id, sensory_data)
+                        self._core_api.process_sensory_data(
+                            agent_id, sensory_data
+                        )
 
             elif protocol_id == ProtocolID.FVP:
                 # Visualization requests would be handled here
@@ -534,19 +558,25 @@ class APIGateway:
 
         try:
             # Decode message using protocol translator
-            decoded_data, protocol_id, version = self._protocol_translator.decode(
-                binary_data
+            decoded_data, protocol_id, version = (
+                self._protocol_translator.decode(binary_data)
             )
 
             # Queue message for processing
-            self._incoming_queue.put((agent_id, decoded_data, protocol_id, version))
+            self._incoming_queue.put(
+                (agent_id, decoded_data, protocol_id, version)
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Error decoding message from agent {agent_id}: {str(e)}")
+            logger.error(
+                f"Error decoding message from agent {agent_id}: {str(e)}"
+            )
             return False
 
-    def send_message(self, agent_id: str, message: Any, protocol_name: str) -> bool:
+    def send_message(
+        self, agent_id: str, message: Any, protocol_name: str
+    ) -> bool:
         """
         Send a message to an agent.
 
@@ -578,7 +608,9 @@ class APIGateway:
             return False
 
         except Exception as e:
-            logger.error(f"Error encoding message for agent {agent_id}: {str(e)}")
+            logger.error(
+                f"Error encoding message for agent {agent_id}: {str(e)}"
+            )
             return False
 
     def get_agent_connection(self, agent_id: str) -> Optional[AgentConnection]:
@@ -696,11 +728,15 @@ class APIGateway:
         """
         # Use the agent's rate limiter if available
         if client_id in self._agent_connections:
-            return self._agent_connections[client_id].rate_limiter.allow_request()
+            return self._agent_connections[
+                client_id
+            ].rate_limiter.allow_request()
 
         # Otherwise use a default rate limiter
         if client_id not in self._rate_limiters:
-            self._rate_limiters[client_id] = RateLimiter(rate_limit=10, burst_limit=20)
+            self._rate_limiters[client_id] = RateLimiter(
+                rate_limit=10, burst_limit=20
+            )
 
         return self._rate_limiters[client_id].allow_request()
 

@@ -1,4 +1,3 @@
-
 #
 # Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
@@ -50,6 +49,7 @@ reduced) and incorporated in the new neuroplasticity function (below).
                                                         dst_cortical_area='utf8_memory', dst_neuron_id=dst_neuron,
                                                         long_term_depression=True, impact_multiplier=4)
 """
+
 import logging
 import traceback
 from collections import deque
@@ -82,7 +82,9 @@ def neuroplasticity():
             cortical_area = neuron[:6]
             # presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
-            postsynaptic_neurons = list_downstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
+            postsynaptic_neurons = list_downstream_plastic_neurons(
+                cortical_area=cortical_area, neuron_id=neuron
+            )
             postsynaptic_neurons_set = set()
             for item in postsynaptic_neurons:
                 postsynaptic_neurons_set.add(item)
@@ -96,7 +98,7 @@ def neuroplasticity():
                         src_cortical_area=cortical_area,
                         src_neuron_id=neuron,
                         dst_cortical_area=postsynaptic_neuron[:6],
-                        dst_neuron_id=postsynaptic_neuron
+                        dst_neuron_id=postsynaptic_neuron,
                     )
                 else:
                     # ------LTD------
@@ -105,16 +107,32 @@ def neuroplasticity():
                         src_neuron_id=neuron,
                         dst_cortical_area=postsynaptic_neuron[:6],
                         dst_neuron_id=postsynaptic_neuron,
-                        long_term_depression=True
+                        long_term_depression=True,
                     )
         except Exception as e:
-            print(f"Exception during neuroplasticity processing of {neuron}", e, traceback.print_exc())
+            print(
+                f"Exception during neuroplasticity processing of {neuron}",
+                e,
+                traceback.print_exc(),
+            )
 
 
-def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
-                                     dst_neuron_id, long_term_depression=False):
-    if dst_cortical_area in runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
-        for mapping in runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area]:
+def longterm_potentiation_depression(
+    src_cortical_area,
+    src_neuron_id,
+    dst_cortical_area,
+    dst_neuron_id,
+    long_term_depression=False,
+):
+    if (
+        dst_cortical_area
+        in runtime_data.genome["blueprint"][src_cortical_area][
+            "cortical_mapping_dst"
+        ]
+    ):
+        for mapping in runtime_data.genome["blueprint"][src_cortical_area][
+            "cortical_mapping_dst"
+        ][dst_cortical_area]:
             plasticity_flag = mapping["plasticity_flag"]
             if plasticity_flag:
                 ltp_multiplier = mapping["ltp_multiplier"]
@@ -123,10 +141,14 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
 
                 if long_term_depression:
                     # When long term depression flag is set, there will be negative synaptic influence caused
-                    plasticity_constant = plasticity_constant * ltd_multiplier * -1
+                    plasticity_constant = (
+                        plasticity_constant * ltd_multiplier * -1
+                    )
                     # print("<> <> <> <> <> <> <> <> <>  LTD  <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
                     try:
-                        runtime_data.cumulative_stats[src_cortical_area]["LTD"] += 1
+                        runtime_data.cumulative_stats[src_cortical_area][
+                            "LTD"
+                        ] += 1
                     except Exception as e:
                         print("Exception during LTD:", e)
 
@@ -134,18 +156,28 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                     # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
                     plasticity_constant = plasticity_constant * ltp_multiplier
                     try:
-                        runtime_data.cumulative_stats[src_cortical_area]["LTP"] += 1
+                        runtime_data.cumulative_stats[src_cortical_area][
+                            "LTP"
+                        ] += 1
                     except Exception as e:
                         print("Exception during LTP:", e)
 
                 try:
-                    new_psc = \
-                        runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                    new_psc = runtime_data.brain[src_cortical_area][
+                        src_neuron_id
+                    ]["neighbors"][dst_neuron_id]["postsynaptic_current"]
                     new_psc += plasticity_constant
 
                     # Condition to cap the postsynaptic_current and provide prohibitory reaction
-                    if new_psc > runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-                        new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+                    if (
+                        new_psc
+                        > runtime_data.genome["blueprint"][src_cortical_area][
+                            "postsynaptic_current_max"
+                        ]
+                    ):
+                        new_psc = runtime_data.genome["blueprint"][
+                            src_cortical_area
+                        ]["postsynaptic_current_max"]
 
                     # Condition to prevent postsynaptic current to become negative
                     # todo: consider setting a postsynaptic_min in genome to be used instead of 0
@@ -154,18 +186,33 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                         new_psc = 0
                         # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
                         #                                       dst_cortical_area, dst_neuron_id))
-                    post_synaptic_current_update(cortical_area_src=src_cortical_area,
-                                                 cortical_area_dst=dst_cortical_area,
-                                                 neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
-                                                 post_synaptic_current=new_psc)
+                    post_synaptic_current_update(
+                        cortical_area_src=src_cortical_area,
+                        cortical_area_dst=dst_cortical_area,
+                        neuron_id_src=src_neuron_id,
+                        neuron_id_dst=dst_neuron_id,
+                        post_synaptic_current=new_psc,
+                    )
 
                 except KeyError as e:
-                    print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
+                    print(
+                        "\n\n\nKey Error on longterm_potentiation_depression:",
+                        e,
+                        traceback.print_exc(),
+                    )
                     print("=============")
-                    print(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id, long_term_depression)
+                    print(
+                        src_cortical_area,
+                        src_neuron_id,
+                        dst_cortical_area,
+                        dst_neuron_id,
+                        long_term_depression,
+                    )
                     pass
     else:
-        print(f"longterm_potentiation_depression did not find {dst_cortical_area} as a mapping in {src_cortical_area}")
+        print(
+            f"longterm_potentiation_depression did not find {dst_cortical_area} as a mapping in {src_cortical_area}"
+        )
 
 
 def long_short_term_memory():
@@ -175,29 +222,59 @@ def long_short_term_memory():
         for memory_cortical_area in runtime_data.memory_register:
             if memory_cortical_area in runtime_data.brain:
                 neurogenesis_list = set()
-                for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
-                    if upstream_cortical_area in runtime_data.fire_candidate_list:
-                        if runtime_data.fire_candidate_list[upstream_cortical_area]:
+                for upstream_cortical_area in runtime_data.memory_register[
+                    memory_cortical_area
+                ]:
+                    if (
+                        upstream_cortical_area
+                        in runtime_data.fire_candidate_list
+                    ):
+                        if runtime_data.fire_candidate_list[
+                            upstream_cortical_area
+                        ]:
                             # todo: performance: exclude non-immortal neurons from being processed
-                            neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
+                            neurogenesis_list.update(
+                                runtime_data.fire_candidate_list[
+                                    upstream_cortical_area
+                                ]
+                            )
 
-                instant_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
-                runtime_data.memory_queue.push(cortical_id=memory_cortical_area,
-                                               value=instant_hash)
-                all_hashes = runtime_data.memory_queue.get_all_hashes(cortical_id=memory_cortical_area)
-                memory_hash = generate_mem_hash_cache(afferent_neuron_list=all_hashes)
+                instant_hash = generate_mem_hash_cache(
+                    afferent_neuron_list=neurogenesis_list
+                )
+                runtime_data.memory_queue.push(
+                    cortical_id=memory_cortical_area, value=instant_hash
+                )
+                all_hashes = runtime_data.memory_queue.get_all_hashes(
+                    cortical_id=memory_cortical_area
+                )
+                memory_hash = generate_mem_hash_cache(
+                    afferent_neuron_list=all_hashes
+                )
 
-                mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area,
-                                                          memory_hash=memory_hash)
+                mem_neuron_id = convert_hash_to_neuron_id(
+                    cortical_area=memory_cortical_area, memory_hash=memory_hash
+                )
 
-                if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
-                    neuron_id = init_neuron(cortical_area=memory_cortical_area,
-                                            soma_location=(0, 0, 0),
-                                            mem_neuron_id=memory_hash)
-                    runtime_data.voxel_dict[memory_cortical_area][(0, 0, 0)].add(neuron_id)
+                if (
+                    mem_neuron_id
+                    not in runtime_data.brain[memory_cortical_area]
+                    and memory_hash != "0x0"
+                ):
+                    neuron_id = init_neuron(
+                        cortical_area=memory_cortical_area,
+                        soma_location=(0, 0, 0),
+                        mem_neuron_id=memory_hash,
+                    )
+                    runtime_data.voxel_dict[memory_cortical_area][
+                        (0, 0, 0)
+                    ].add(neuron_id)
                     synapse_count = synapse_memory_neuron(neuron_id=neuron_id)
                 else:
-                    increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)
+                    increase_neuron_lifespan(
+                        cortical_area=memory_cortical_area,
+                        neuron_id=mem_neuron_id,
+                    )
 
                 if memory_hash != "0x0":
                     if memory_cortical_area not in runtime_data.future_fcl:
@@ -205,14 +282,21 @@ def long_short_term_memory():
 
                     runtime_data.lstm_fire_queue.add(mem_neuron_id)
                     if memory_cortical_area in runtime_data.plasticity_dict:
-                        runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
+                        runtime_data.plasticity_queue_candidates.add(
+                            mem_neuron_id
+                        )
 
                 inject_lstm_fire_queue_to_fcl()
             else:
                 # Clean up memory register in case it doesn't exist in brain
                 for memory_area in runtime_data.memory_register:
-                    if memory_cortical_area in runtime_data.memory_register[memory_area]:
-                        runtime_data.memory_register[memory_area].remove(memory_cortical_area)
+                    if (
+                        memory_cortical_area
+                        in runtime_data.memory_register[memory_area]
+                    ):
+                        runtime_data.memory_register[memory_area].remove(
+                            memory_cortical_area
+                        )
 
                 del runtime_data.memory_register[memory_cortical_area]
 
@@ -223,7 +307,9 @@ def lstm_lifespan_mgmt():
     """
     if runtime_data.memory_register:
         if runtime_data.burst_count > runtime_data.upcoming_lifesnap_mgmt:
-            runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome["physiology"]["lifespan_mgmt_interval"]
+            runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome[
+                "physiology"
+            ]["lifespan_mgmt_interval"]
 
             # Wipe short-term memory neurons that has expired
             memory_cleanup()
@@ -242,17 +328,36 @@ def memory_cleanup():
         apoptosis_candidates = set()
         for neuron in runtime_data.brain[memory_cortical_area]:
             # Neuron lifespan management
-            if not runtime_data.brain[memory_cortical_area][neuron]["immortal"]:
+            if not runtime_data.brain[memory_cortical_area][neuron][
+                "immortal"
+            ]:
                 # Neuron Apoptosis check
-                if runtime_data.brain[memory_cortical_area][neuron]["lifespan"] < runtime_data.burst_count:
+                if (
+                    runtime_data.brain[memory_cortical_area][neuron][
+                        "lifespan"
+                    ]
+                    < runtime_data.burst_count
+                ):
                     apoptosis_candidates.add(neuron)
                 # Short-term Memory to Long-term Memory transformation check
-                elif runtime_data.brain[memory_cortical_area][neuron]["lifespan"] > \
-                        runtime_data.burst_count + \
-                        runtime_data.genome["blueprint"][memory_cortical_area]["longterm_mem_threshold"]:
-                    convert_shortterm_to_longterm(memory_area=memory_cortical_area, memory_neuron_id=neuron)
+                elif (
+                    runtime_data.brain[memory_cortical_area][neuron][
+                        "lifespan"
+                    ]
+                    > runtime_data.burst_count
+                    + runtime_data.genome["blueprint"][memory_cortical_area][
+                        "longterm_mem_threshold"
+                    ]
+                ):
+                    convert_shortterm_to_longterm(
+                        memory_area=memory_cortical_area,
+                        memory_neuron_id=neuron,
+                    )
         for apoptosis_candidate in apoptosis_candidates:
-            neuron_apoptosis(cortical_area=memory_cortical_area, neuron_id=apoptosis_candidate)
+            neuron_apoptosis(
+                cortical_area=memory_cortical_area,
+                neuron_id=apoptosis_candidate,
+            )
 
 
 def generate_mem_hash_cache(afferent_neuron_list):
@@ -274,7 +379,7 @@ def generate_mem_hash_cache(afferent_neuron_list):
 
 
 def convert_hash_to_neuron_id(cortical_area, memory_hash):
-    neuron_id = str(cortical_area + '_' + memory_hash)
+    neuron_id = str(cortical_area + "_" + memory_hash)
     return neuron_id
 
 
@@ -302,8 +407,12 @@ class MemoryQueue:
 
         """
         if cortical_id not in self.memory:
-            self.add_id(cortical_id=cortical_id,
-                        max_size=runtime_data.genome["blueprint"][cortical_id].get("temporal_depth", 1))
+            self.add_id(
+                cortical_id=cortical_id,
+                max_size=runtime_data.genome["blueprint"][cortical_id].get(
+                    "temporal_depth", 1
+                ),
+            )
         self.memory[cortical_id].append(value)
 
     def get_all(self, cortical_id):
@@ -328,7 +437,9 @@ class MemoryQueue:
         """
         if cortical_id in self.memory:
             current_values = list(self.memory[cortical_id])
-            self.memory[cortical_id] = deque(current_values, maxlen=new_max_size)
+            self.memory[cortical_id] = deque(
+                current_values, maxlen=new_max_size
+            )
         else:
             raise KeyError(f"ID '{cortical_id}' does not exist.")
 

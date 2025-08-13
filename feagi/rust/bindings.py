@@ -46,7 +46,9 @@ class RustIntegration:
     def _check_available_modules(self) -> None:
         """Check which Rust modules are available."""
         # Check for the main feagi_rust module
-        feagi_rust_available = importlib.util.find_spec("feagi_rust") is not None
+        feagi_rust_available = (
+            importlib.util.find_spec("feagi_rust") is not None
+        )
         self.available_modules["feagi_rust"] = feagi_rust_available
 
         if feagi_rust_available:
@@ -72,7 +74,9 @@ class RustIntegration:
         """
         return self.available_modules.get(module_name, False)
 
-    def fallback_to_python(self, rust_fn_name: str, python_fn: Callable) -> Callable:
+    def fallback_to_python(
+        self, rust_fn_name: str, python_fn: Callable
+    ) -> Callable:
         """
         Create a function that tries to use a Rust implementation but falls back to Python.
 
@@ -92,7 +96,9 @@ class RustIntegration:
                 try:
                     # Try to import and call the Rust function
                     if parent_module:
-                        exec(f"from {module_name}.{parent_module} import {fn_name}")
+                        exec(
+                            f"from {module_name}.{parent_module} import {fn_name}"
+                        )
                         rust_fn = eval(f"{fn_name}")
                     else:
                         exec(f"from {module_name} import {fn_name}")
@@ -100,7 +106,9 @@ class RustIntegration:
 
                     return rust_fn(*args, **kwargs)
                 except (ImportError, AttributeError) as e:
-                    logger.warning(f"Failed to use Rust function {rust_fn_name}: {e}")
+                    logger.warning(
+                        f"Failed to use Rust function {rust_fn_name}: {e}"
+                    )
                 except Exception as e:
                     logger.error(f"Error in Rust function {rust_fn_name}: {e}")
                     raise RustBindingError(
@@ -117,7 +125,9 @@ class RustIntegration:
 # This is a template for implementers to follow when adding new Rust bindings
 
 
-def _py_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def _py_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """Python implementation of matrix multiplication."""
     return np.matmul(matrix_a, matrix_b)
 
@@ -169,11 +179,16 @@ def _py_update_membrane_potentials(
 ) -> np.ndarray:
     """Python implementation of membrane potential update."""
     # Placeholder implementation
-    return current_potentials + synaptic_inputs - (current_potentials * decay_factor)
+    return (
+        current_potentials
+        + synaptic_inputs
+        - (current_potentials * decay_factor)
+    )
 
 
 update_membrane_potentials = rust_integration.fallback_to_python(
-    "feagi_rust.neural.update_membrane_potentials", _py_update_membrane_potentials
+    "feagi_rust.neural.update_membrane_potentials",
+    _py_update_membrane_potentials,
 )
 
 
@@ -211,7 +226,9 @@ def _py_generate_connections(
     if not connections:
         return np.array([]), np.array([])
 
-    return np.array([c[0] for c in connections]), np.array([c[1] for c in connections])
+    return np.array([c[0] for c in connections]), np.array(
+        [c[1] for c in connections]
+    )
 
 
 generate_connections = rust_integration.fallback_to_python(

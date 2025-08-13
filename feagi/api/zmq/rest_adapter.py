@@ -173,7 +173,9 @@ class ZMQRestAPIAdapter:
             # Parse the message
             request = self._parse_message(message_data)
             if request is None:
-                return self._create_error_response(400, "Invalid request format")
+                return self._create_error_response(
+                    400, "Invalid request format"
+                )
 
             # Process the request
             response = await self._process_request(request)
@@ -184,7 +186,9 @@ class ZMQRestAPIAdapter:
         except Exception as e:
             logger.error(f"Error processing REST API message: {str(e)}")
             logger.error(traceback.format_exc())
-            return self._create_error_response(500, f"Internal server error: {str(e)}")
+            return self._create_error_response(
+                500, f"Internal server error: {str(e)}"
+            )
 
     async def _delegate_to_v1_api(self, params, query, body, headers) -> Any:
         """
@@ -215,7 +219,9 @@ class ZMQRestAPIAdapter:
 
         try:
             # Process through the v1 adapter
-            response_bytes = await self.v1_adapter.process_message(request_json)
+            response_bytes = await self.v1_adapter.process_message(
+                request_json
+            )
             response = json.loads(response_bytes.decode("utf-8"))
 
             # Return the body part of the response (the v1 adapter wraps it)
@@ -368,7 +374,9 @@ class ZMQRestAPIAdapter:
             # Extract client_id from request body
             client_id = body.get("client_id", None)
             if not client_id:
-                logger.error("[ERR] No client_id provided in heartbeat request")
+                logger.error(
+                    "[ERR] No client_id provided in heartbeat request"
+                )
                 raise ValueError("client_id is required for heartbeat")
 
             # Only log debug info when ZMQ inbound debugging is enabled
@@ -393,7 +401,10 @@ class ZMQRestAPIAdapter:
             viz_stream = zmq_server.get_visualization_stream()
 
             if viz_stream:
-                if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                if (
+                    state_manager
+                    and state_manager.is_debug_zmq_inbound_enabled()
+                ):
                     logger.info(
                         f"[CONFIG] DEBUG: Calling heartbeat_visualization_client for {client_id}"
                     )
@@ -408,9 +419,16 @@ class ZMQRestAPIAdapter:
 
                 # RTOS: VisualizationStream is now synchronous, no await needed
                 try:
-                    result = viz_stream.heartbeat_visualization_client(client_id)
-                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
-                        logger.info(f"[CONFIG] DEBUG: Method returned: {result}")
+                    result = viz_stream.heartbeat_visualization_client(
+                        client_id
+                    )
+                    if (
+                        state_manager
+                        and state_manager.is_debug_zmq_inbound_enabled()
+                    ):
+                        logger.info(
+                            f"[CONFIG] DEBUG: Method returned: {result}"
+                        )
                         logger.info(
                             f"[CONFIG] DEBUG: Heartbeat call completed for {client_id}"
                         )
@@ -424,7 +442,9 @@ class ZMQRestAPIAdapter:
                     logger.error(
                         f"[ERR] Error calling heartbeat method: {heartbeat_error}"
                     )
-                    raise ValueError(f"Heartbeat method failed: {str(heartbeat_error)}") from heartbeat_error
+                    raise ValueError(
+                        f"Heartbeat method failed: {str(heartbeat_error)}"
+                    ) from heartbeat_error
             else:
                 logger.error("[ERR] Visualization stream not available")
                 # Instead of failing completely, provide degraded functionality
@@ -439,7 +459,9 @@ class ZMQRestAPIAdapter:
                 }
 
         except Exception as e:
-            logger.error(f"[ERR] Error processing visualization heartbeat: {str(e)}")
+            logger.error(
+                f"[ERR] Error processing visualization heartbeat: {str(e)}"
+            )
             logger.error(f"[ERR] Exception type: {type(e)}")
             import traceback
 
@@ -452,12 +474,16 @@ class ZMQRestAPIAdapter:
                 "error": str(e),
             }
 
-    async def _handle_visualization_status(self, params, query, body, headers) -> Any:
+    async def _handle_visualization_status(
+        self, params, query, body, headers
+    ) -> Any:
         """Handle visualization status request."""
         try:
             # Check if embedded mode is enabled
             if os.environ.get("FEAGI_EMBEDDED_MODE", "0") == "1":
-                logger.debug("[CONFIG] Embedded mode: Visualization status - disabled")
+                logger.debug(
+                    "[CONFIG] Embedded mode: Visualization status - disabled"
+                )
                 return {
                     "enabled": False,
                     "active_clients": 0,
@@ -485,7 +511,9 @@ class ZMQRestAPIAdapter:
                 active_clients = viz_stream.get_connected_client_count()
 
                 # Check FQ sampler status
-                fq_sampler_enabled = getattr(viz_stream, "_fq_sampler_enabled", False)
+                fq_sampler_enabled = getattr(
+                    viz_stream, "_fq_sampler_enabled", False
+                )
 
                 return {
                     "enabled": True,
@@ -554,7 +582,9 @@ class ZMQRestAPIAdapter:
             logger.error(f"Error parsing message: {str(e)}")
             return None
 
-    async def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_request(
+        self, request: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Process a parsed REST API request.
 
@@ -625,7 +655,11 @@ class ZMQRestAPIAdapter:
                     and route_segments[i - 1] == "cortical_area"
                 ):
                     param_name = "cortical_id"
-                elif "neuron" in route and i > 0 and route_segments[i - 1] == "neuron":
+                elif (
+                    "neuron" in route
+                    and i > 0
+                    and route_segments[i - 1] == "neuron"
+                ):
                     param_name = "neuron_id"
 
                 # If we identified a parameter, update both the route template and params
@@ -653,10 +687,14 @@ class ZMQRestAPIAdapter:
             except Exception as e:
                 logger.error(f"Error in handler for {route_key}: {str(e)}")
                 logger.error(traceback.format_exc())
-                return self._create_error_response(500, f"Handler error: {str(e)}")
+                return self._create_error_response(
+                    500, f"Handler error: {str(e)}"
+                )
         else:
             logger.error(f"No handler found for route: {route_key}")
-            return self._create_error_response(404, f"Endpoint not found: {route}")
+            return self._create_error_response(
+                404, f"Endpoint not found: {route}"
+            )
 
     def _find_handler(
         self, route_key: str, params: Dict[str, Any]
@@ -698,7 +736,9 @@ class ZMQRestAPIAdapter:
                 if len(template_parts) != len(actual_parts):
                     continue
 
-                logger.debug(f"Comparing template {path} with actual {route_path}")
+                logger.debug(
+                    f"Comparing template {path} with actual {route_path}"
+                )
 
                 # Check if the pattern matches by comparing each segment
                 matches = True
@@ -711,7 +751,9 @@ class ZMQRestAPIAdapter:
                             # Parameter not provided, but should use route part as the parameter value
                             # This handles cases where the client just includes the value in the route
                             # but doesn't explicitly set it in params
-                            logger.debug(f"Adding missing param {param_name} = {ap}")
+                            logger.debug(
+                                f"Adding missing param {param_name} = {ap}"
+                            )
                             params[param_name] = ap
                     elif tp != ap:
                         matches = False
@@ -741,7 +783,9 @@ class ZMQRestAPIAdapter:
             "timestamp": int(time.time() * 1000),
         }
 
-    def _create_error_response(self, status: int, message: str) -> Dict[str, Any]:
+    def _create_error_response(
+        self, status: int, message: str
+    ) -> Dict[str, Any]:
         """
         Create an error response.
 
@@ -755,7 +799,11 @@ class ZMQRestAPIAdapter:
         return {
             "status": status,
             "headers": {"content-type": "application/json"},
-            "body": {"type": "error", "code": f"ERROR_{status}", "message": message},
+            "body": {
+                "type": "error",
+                "code": f"ERROR_{status}",
+                "message": message,
+            },
             "timestamp": int(time.time() * 1000),
         }
 

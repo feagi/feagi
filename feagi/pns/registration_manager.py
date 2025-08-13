@@ -50,7 +50,7 @@ class AgentRegistrationRequest:
         self.agent_data_port = agent_data_port
         self.agent_version = agent_version
         self.controller_version = controller_version
-        
+
         # Load agent_ip from configuration if not provided
         if agent_ip is None:
             try:
@@ -61,9 +61,11 @@ class AgentRegistrationRequest:
                 else:
                     agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
             except Exception as e:
-                logger.warning(f"Could not load agent configuration, using fallback: {e}")
+                logger.warning(
+                    f"Could not load agent configuration, using fallback: {e}"
+                )
                 agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
-        
+
         self.agent_ip = agent_ip
         self.metadata = metadata or {}
 
@@ -116,7 +118,11 @@ class RegistrationManager:
         self._agents: Dict[str, Dict[str, Any]] = {}
 
         # Capability tracking for FQ sampler decisions
-        self._capability_counts = {"visualization": 0, "motor": 0, "sensory": 0}
+        self._capability_counts = {
+            "visualization": 0,
+            "motor": 0,
+            "sensory": 0,
+        }
 
         # FQ sampler states
         self._fq_sampler_states = {
@@ -130,7 +136,9 @@ class RegistrationManager:
         # FEAGI readiness checks
         self._feagi_ready = True  # Assume ready by default
 
-        logger.info("🏛️ Registration Manager initialized - ready for agent coordination")
+        logger.info(
+            "🏛️ Registration Manager initialized - ready for agent coordination"
+        )
 
     def register_agent(
         self, request: AgentRegistrationRequest
@@ -158,7 +166,9 @@ class RegistrationManager:
                 if not validation_result.get("valid", False):
                     return AgentRegistrationResponse(
                         success=False,
-                        message=validation_result.get("error", "Validation failed"),
+                        message=validation_result.get(
+                            "error", "Validation failed"
+                        ),
                         agent_id=request.agent_id,
                         error_code="VALIDATION_ERROR",
                     )
@@ -219,11 +229,15 @@ class RegistrationManager:
                 self._agents[agent_id] = agent_data
 
                 # 6. Update capability counts (add new capabilities)
-                self._update_capability_counts(request.capabilities, increment=True)
+                self._update_capability_counts(
+                    request.capabilities, increment=True
+                )
 
                 # 7. Coordinate FQ samplers based on new agent capabilities
-                fq_coordination_result = self._coordinate_fq_samplers_for_registration(
-                    request.capabilities
+                fq_coordination_result = (
+                    self._coordinate_fq_samplers_for_registration(
+                        request.capabilities
+                    )
                 )
 
                 # 8. Update State Manager - call register_agent method
@@ -261,7 +275,9 @@ class RegistrationManager:
                     if is_re_registration
                     else "registered"
                 )
-                success_message = f"Agent '{agent_id}' {registration_type} successfully"
+                success_message = (
+                    f"Agent '{agent_id}' {registration_type} successfully"
+                )
 
                 logger.info(
                     f"✅ {success_message} - FQ samplers coordinated: {fq_coordination_result}"
@@ -275,7 +291,9 @@ class RegistrationManager:
                 )
 
             except Exception as e:
-                logger.error(f"❌ Error registering agent '{request.agent_id}': {e}")
+                logger.error(
+                    f"❌ Error registering agent '{request.agent_id}': {e}"
+                )
                 return AgentRegistrationResponse(
                     success=False,
                     message=f"Registration failed: {str(e)}",
@@ -312,7 +330,9 @@ class RegistrationManager:
                 del self._agents[agent_id]
 
                 # 4. Update capability counts
-                self._update_capability_counts(agent_capabilities, increment=False)
+                self._update_capability_counts(
+                    agent_capabilities, increment=False
+                )
 
                 # 5. Update State Manager - call deregister_agent method
                 if self._state_manager:
@@ -327,7 +347,9 @@ class RegistrationManager:
 
                 # 6. Coordinate FQ samplers based on remaining agents
                 fq_coordination_result = (
-                    self._coordinate_fq_samplers_for_deregistration(agent_capabilities)
+                    self._coordinate_fq_samplers_for_deregistration(
+                        agent_capabilities
+                    )
                 )
 
                 # 7. Notify listeners of state change
@@ -400,7 +422,9 @@ class RegistrationManager:
                     {
                         "agent_id": agent_data["agent_id"],
                         "agent_type": agent_data["agent_type"],
-                        "capabilities": list(agent_data["capabilities"].keys()),
+                        "capabilities": list(
+                            agent_data["capabilities"].keys()
+                        ),
                         "status": agent_data["status"],
                         "last_seen": agent_data["last_seen"],
                     }
@@ -410,7 +434,9 @@ class RegistrationManager:
                 "agents": agents_list,
                 "summary": {
                     "total_agents": len(self._agents),
-                    "visualization_agents": self._capability_counts["visualization"],
+                    "visualization_agents": self._capability_counts[
+                        "visualization"
+                    ],
                     "motor_agents": self._capability_counts["motor"],
                     "sensory_agents": self._capability_counts["sensory"],
                 },
@@ -429,7 +455,9 @@ class RegistrationManager:
             viz_agents = [
                 aid
                 for aid, adata in self._agents.items()
-                if self._has_visualization_capabilities(adata.get("capabilities", {}))
+                if self._has_visualization_capabilities(
+                    adata.get("capabilities", {})
+                )
             ]
             motor_agents = [
                 aid
@@ -439,7 +467,9 @@ class RegistrationManager:
 
             return {
                 "visualization_fq_sampler": {
-                    "enabled": self._fq_sampler_states["visualization_enabled"],
+                    "enabled": self._fq_sampler_states[
+                        "visualization_enabled"
+                    ],
                     "reason": f"{len(viz_agents)} visualization agent(s) connected",
                     "agents_requiring": viz_agents,
                     "sampling_rate": "30Hz",
@@ -455,7 +485,11 @@ class RegistrationManager:
                 "coordination_summary": {
                     "total_agents": len(self._agents),
                     "fq_samplers_enabled": sum(
-                        [1 for enabled in self._fq_sampler_states.values() if enabled]
+                        [
+                            1
+                            for enabled in self._fq_sampler_states.values()
+                            if enabled
+                        ]
                     ),
                     "visualization_agents": len(viz_agents),
                     "motor_agents": len(motor_agents),
@@ -512,10 +546,14 @@ class RegistrationManager:
             metadata=metadata or {},
         )
 
-        logger.info(f"🔧 [EMBEDDED MODE] Direct registration for agent '{agent_id}'")
+        logger.info(
+            f"🔧 [EMBEDDED MODE] Direct registration for agent '{agent_id}'"
+        )
         return self.register_agent(request)
 
-    def deregister_agent_direct(self, agent_id: str) -> AgentRegistrationResponse:
+    def deregister_agent_direct(
+        self, agent_id: str
+    ) -> AgentRegistrationResponse:
         """
         Direct function call interface for embedded mode agent deregistration.
 
@@ -525,7 +563,9 @@ class RegistrationManager:
         Returns:
             AgentRegistrationResponse with deregistration result
         """
-        logger.info(f"🔧 [EMBEDDED MODE] Direct deregistration for agent '{agent_id}'")
+        logger.info(
+            f"🔧 [EMBEDDED MODE] Direct deregistration for agent '{agent_id}'"
+        )
         return self.deregister_agent(agent_id)
 
     # --- PRIVATE METHODS ---
@@ -588,7 +628,9 @@ class RegistrationManager:
                 0, self._capability_counts["sensory"] + delta
             )
 
-    def _has_visualization_capabilities(self, capabilities: Dict[str, Any]) -> bool:
+    def _has_visualization_capabilities(
+        self, capabilities: Dict[str, Any]
+    ) -> bool:
         """Check if agent has visualization capabilities."""
         return (
             capabilities.get("visualization", False)
@@ -635,7 +677,9 @@ class RegistrationManager:
             )
         )
 
-        return has_motor_control or has_output_control or has_sensorimotor_control
+        return (
+            has_motor_control or has_output_control or has_sensorimotor_control
+        )
 
     def _has_sensory_capabilities(self, capabilities: Dict[str, Any]) -> bool:
         """Check if agent has sensory capabilities."""
@@ -665,20 +709,23 @@ class RegistrationManager:
                     # Get frequency from config or use default
                     viz_frequency = 30.0  # Default visualization frequency
                     if hasattr(self._process_manager, "_fq_sampler_config"):
-                        viz_frequency = self._process_manager._fq_sampler_config.get(
-                            "visualization_frequency", 30.0
+                        viz_frequency = (
+                            self._process_manager._fq_sampler_config.get(
+                                "visualization_frequency", 30.0
+                            )
                         )
-                    
+
                     # Use minimum of viz_frequency and FEAGI burst frequency
                     # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
                     burst_frequency = None
                     original_viz_frequency = viz_frequency
-                    
+
                     try:
                         from feagi.core.state_manager import FeagiStateManager
+
                         state_manager = FeagiStateManager.instance()
                         burst_frequency = state_manager.get_burst_frequency()
-                        
+
                         if burst_frequency and burst_frequency > 0:
                             viz_frequency = min(viz_frequency, burst_frequency)
                             logger.info(
@@ -720,8 +767,10 @@ class RegistrationManager:
                     # Get frequency from config or use default
                     motor_frequency = 100.0  # Default motor frequency
                     if hasattr(self._process_manager, "_fq_sampler_config"):
-                        motor_frequency = self._process_manager._fq_sampler_config.get(
-                            "motor_frequency", 100.0
+                        motor_frequency = (
+                            self._process_manager._fq_sampler_config.get(
+                                "motor_frequency", 100.0
+                            )
                         )
 
                     success = self._process_manager.create_fq_sampler(
@@ -733,17 +782,23 @@ class RegistrationManager:
                             "🚗 [ON-DEMAND] Motor FQ sampler created successfully"
                         )
                     else:
-                        logger.error("🚗 [ERROR] Failed to create motor FQ sampler")
+                        logger.error(
+                            "🚗 [ERROR] Failed to create motor FQ sampler"
+                        )
 
                 # CRITICAL: Notify ALL existing FQ samplers that motor client connected
                 self._notify_existing_fq_samplers_motor(True)
 
                 fq_results["motor"] = self._fq_sampler_states["motor_enabled"]
             else:
-                logger.info(f"✅ Agent has NO motor capabilities: {capabilities}")
+                logger.info(
+                    f"✅ Agent has NO motor capabilities: {capabilities}"
+                )
 
         except Exception as e:
-            logger.error(f"❌ Error coordinating FQ samplers for registration: {e}")
+            logger.error(
+                f"❌ Error coordinating FQ samplers for registration: {e}"
+            )
 
         return fq_results
 
@@ -783,15 +838,21 @@ class RegistrationManager:
                 ):
                     self._process_manager.disable_fq_sampler("motor")
                     self._fq_sampler_states["motor_enabled"] = False
-                    logger.info("🚗 Motor FQ sampler disabled - no motor agents remain")
+                    logger.info(
+                        "🚗 Motor FQ sampler disabled - no motor agents remain"
+                    )
                 fq_results["motor"] = self._fq_sampler_states["motor_enabled"]
 
         except Exception as e:
-            logger.error(f"❌ Error coordinating FQ samplers for deregistration: {e}")
+            logger.error(
+                f"❌ Error coordinating FQ samplers for deregistration: {e}"
+            )
 
         return fq_results
 
-    def _notify_existing_fq_samplers_visualization(self, has_clients: bool) -> None:
+    def _notify_existing_fq_samplers_visualization(
+        self, has_clients: bool
+    ) -> None:
         """
         Notify ALL existing FQ samplers about visualization client status.
 
@@ -816,7 +877,9 @@ class RegistrationManager:
                         f"🎨 Notified Process Manager visualization FQ sampler: {has_clients}"
                     )
                 except Exception as e:
-                    logger.error(f"Error notifying Process Manager viz FQ sampler: {e}")
+                    logger.error(
+                        f"Error notifying Process Manager viz FQ sampler: {e}"
+                    )
 
         # Notify ZMQ Server's FQ samplers
         zmq_server = None
@@ -841,7 +904,9 @@ class RegistrationManager:
                             f"📺 Notified ZMQ visualization stream FQ sampler: {has_clients}"
                         )
                     except Exception as e:
-                        logger.error(f"Error notifying ZMQ viz stream FQ sampler: {e}")
+                        logger.error(
+                            f"Error notifying ZMQ viz stream FQ sampler: {e}"
+                        )
 
     def _notify_existing_fq_samplers_motor(self, has_clients: bool) -> None:
         """
@@ -888,7 +953,9 @@ class RegistrationManager:
             except Exception as e:
                 logger.error(f"❌ Error updating State Manager: {e}")
 
-    def _notify_state_change(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _notify_state_change(
+        self, event_type: str, data: Dict[str, Any]
+    ) -> None:
         """Notify registered listeners of state changes."""
         for listener in self._state_change_listeners:
             try:

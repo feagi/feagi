@@ -92,7 +92,9 @@ class ResourceProfiler:
             self.tracemalloc_enabled = False
             logger.info("[SEARCH] Stopped memory tracing")
 
-    def snapshot_component(self, component_name: str) -> ComponentResourceUsage:
+    def snapshot_component(
+        self, component_name: str
+    ) -> ComponentResourceUsage:
         """Take a resource snapshot for a specific component."""
         try:
             # Current process stats
@@ -106,7 +108,9 @@ class ResourceProfiler:
             # File descriptors
             try:
                 fd_count = (
-                    self.process.num_fds() if hasattr(self.process, "num_fds") else 0
+                    self.process.num_fds()
+                    if hasattr(self.process, "num_fds")
+                    else 0
                 )
             except Exception:
                 fd_count = 0
@@ -144,7 +148,8 @@ class ResourceProfiler:
             top_stats = snapshot.statistics("lineno")
 
             breakdown = {
-                "total_mb": sum(stat.size for stat in top_stats) / (1024 * 1024),
+                "total_mb": sum(stat.size for stat in top_stats)
+                / (1024 * 1024),
                 "top_allocations": [],
             }
 
@@ -155,9 +160,13 @@ class ResourceProfiler:
                     "size_mb": stat.size / (1024 * 1024),
                     "count": stat.count,
                     "file": (
-                        stat.traceback.format()[-1] if stat.traceback else "unknown"
+                        stat.traceback.format()[-1]
+                        if stat.traceback
+                        else "unknown"
                     ),
-                    "avg_size_bytes": stat.size / stat.count if stat.count > 0 else 0,
+                    "avg_size_bytes": stat.size / stat.count
+                    if stat.count > 0
+                    else 0,
                 }
                 breakdown["top_allocations"].append(allocation)
 
@@ -224,7 +233,9 @@ class ResourceProfiler:
         memory_breakdown = self.get_memory_breakdown()
         if "error" not in memory_breakdown:
             report.append("[SAVE] MEMORY ALLOCATION BREAKDOWN:")
-            report.append(f"   Total traced: {memory_breakdown['total_mb']:.1f}MB")
+            report.append(
+                f"   Total traced: {memory_breakdown['total_mb']:.1f}MB"
+            )
             report.append("")
             report.append("   Top memory consumers:")
 
@@ -271,7 +282,9 @@ class ResourceProfiler:
             report.append("   CRITICAL - Too many threads:")
             report.append("     • Consolidate background tasks")
             report.append("     • Use async/await instead of threads")
-            report.append("     • Implement embedded mode with minimal threads")
+            report.append(
+                "     • Implement embedded mode with minimal threads"
+            )
 
         if self.baseline_cpu > 5.0:  # > 5 cores equivalent
             report.append("   CRITICAL - CPU usage too high:")

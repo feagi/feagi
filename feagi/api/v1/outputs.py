@@ -50,7 +50,9 @@ class OutputsAPI:
         request_model=IOConfigRequest,
         response_model=SuccessResponse,
     )
-    async def configure_outputs(self, request: IOConfigRequest) -> SuccessResponse:
+    async def configure_outputs(
+        self, request: IOConfigRequest
+    ) -> SuccessResponse:
         success = self.core_api_service.configure_outputs(request.config)
         if not success:
             raise ValueError("Failed to configure outputs")

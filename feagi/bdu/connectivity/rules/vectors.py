@@ -57,7 +57,9 @@ def preprocess_expression(expr: str) -> str:
     return expr
 
 
-def evaluate_expression(expr: Union[str, int], variables: Dict[str, Any]) -> int:
+def evaluate_expression(
+    expr: Union[str, int], variables: Dict[str, Any]
+) -> int:
     """
     Evaluate an algebraic expression with the given variables.
 
@@ -80,7 +82,9 @@ def evaluate_expression(expr: Union[str, int], variables: Dict[str, Any]) -> int
 
 
 def apply_vector_offset(
-    src_position: Position, vector: Union[Position, str], morphology_scalar: float = 1.0
+    src_position: Position,
+    vector: Union[Position, str],
+    morphology_scalar: float = 1.0,
 ) -> Position:
     """
     Apply a vector offset to a source position.
@@ -100,12 +104,16 @@ def apply_vector_offset(
 
     # Apply scalar and offset
     scaled_vector = tuple(int(v * morphology_scalar) for v in vector)
-    result_position = tuple(src_position[i] + scaled_vector[i] for i in range(3))
+    result_position = tuple(
+        src_position[i] + scaled_vector[i] for i in range(3)
+    )
 
     return result_position
 
 
-def validate_vector_position(position: Position, dst_dimensions: Position) -> bool:
+def validate_vector_position(
+    position: Position, dst_dimensions: Position
+) -> bool:
     """
     Validate that a position is within the destination area bounds.
 
@@ -143,7 +151,9 @@ def generate_vector_candidates(
     candidates = set()
 
     for vector in vectors:
-        candidate_pos = apply_vector_offset(src_position, vector, morphology_scalar)
+        candidate_pos = apply_vector_offset(
+            src_position, vector, morphology_scalar
+        )
 
         if validate_vector_position(candidate_pos, dst_dimensions):
             candidates.add(candidate_pos)
@@ -216,7 +226,9 @@ def match_vectors(
             for i in range(3)
         )
 
-        logger.debug(f"[MATCH_VECTORS DEBUG] calculated dst_voxel: {dst_voxel}")
+        logger.debug(
+            f"[MATCH_VECTORS DEBUG] calculated dst_voxel: {dst_voxel}"
+        )
         positions.add(dst_voxel)
 
     # Process algebraic expression-based vector
@@ -256,7 +268,9 @@ def match_vectors(
 
             positions.add((dst_x, dst_y, dst_z))
         except Exception as e:
-            logger.error(f"Error evaluating vector expression {vector}: {str(e)}")
+            logger.error(
+                f"Error evaluating vector expression {vector}: {str(e)}"
+            )
 
     logger.debug(f"[MATCH_VECTORS] Returning positions: {positions}")
     return positions

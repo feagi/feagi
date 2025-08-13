@@ -68,9 +68,13 @@ class EndpointRegistry:
             "full_path": f"/v1{path}",  # Add v1 prefix
         }
 
-        logger.debug(f"Registered endpoint: {methods} {path} -> {handler.__name__}")
+        logger.debug(
+            f"Registered endpoint: {methods} {path} -> {handler.__name__}"
+        )
 
-    def get_endpoints_by_module(self, module: str) -> Dict[str, Dict[str, Any]]:
+    def get_endpoints_by_module(
+        self, module: str
+    ) -> Dict[str, Dict[str, Any]]:
         """Get all endpoints for a specific module (e.g., 'system', 'genome')."""
         return {
             endpoint_id: endpoint_data

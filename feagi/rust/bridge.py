@@ -69,7 +69,9 @@ except ImportError:
         result = []
         for row in matrix:
             if len(row) != n_cols:
-                raise ValueError("All rows in matrix must have the same length")
+                raise ValueError(
+                    "All rows in matrix must have the same length"
+                )
 
             result.append(sum(a * b for a, b in zip(row, vector)))
 
@@ -103,7 +105,8 @@ except ImportError:
 
 
 def matrix_multiply(
-    matrix: Union[List[List[float]], np.ndarray], vector: Union[List[float], np.ndarray]
+    matrix: Union[List[List[float]], np.ndarray],
+    vector: Union[List[float], np.ndarray],
 ) -> np.ndarray:
     """
     Perform matrix-vector multiplication.

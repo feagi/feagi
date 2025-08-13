@@ -4,6 +4,7 @@ FEAGI v1 Physiology API - Single Source of Truth
 Endpoints to read/update physiology parameters in the active genome, including
 sleep trigger fields used by Sleep Manager.
 """
+
 from typing import Any, Dict
 
 from pydantic import BaseModel
@@ -22,7 +23,9 @@ class PhysiologyUpdateRequest(BaseModel):
     physiology: Dict[str, Any]
 
 
-def physiology_endpoint(methods, path, request_model=None, response_model=None, description=None):
+def physiology_endpoint(
+    methods, path, request_model=None, response_model=None, description=None
+):
     return endpoint(
         methods=methods,
         path=path,
@@ -51,7 +54,9 @@ class PhysiologyAPI:
             raise ValueError(f"Failed to get physiology: {str(e)}") from e
 
     @physiology_endpoint("PUT", "/", request_model=PhysiologyUpdateRequest)
-    async def update_physiology(self, request: PhysiologyUpdateRequest) -> Dict[str, Any]:
+    async def update_physiology(
+        self, request: PhysiologyUpdateRequest
+    ) -> Dict[str, Any]:
         """Update physiology parameters in the active genome and persist to state.
         Only whitelisted keys are accepted.
         """
@@ -81,4 +86,4 @@ class PhysiologyAPI:
 
 
 def create_physiology_api(core_api_service: CoreAPIService) -> PhysiologyAPI:
-    return PhysiologyAPI(core_api_service) 
+    return PhysiologyAPI(core_api_service)

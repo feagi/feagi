@@ -97,8 +97,12 @@ class SynapseManager:
         )
 
         # Adjacency lists for quick lookups
-        self.outgoing_synapses = [[] for _ in range(self.max_neurons)]  # Pre -> Post
-        self.incoming_synapses = [[] for _ in range(self.max_neurons)]  # Post <- Pre
+        self.outgoing_synapses = [
+            [] for _ in range(self.max_neurons)
+        ]  # Pre -> Post
+        self.incoming_synapses = [
+            [] for _ in range(self.max_neurons)
+        ]  # Post <- Pre
 
         # Counter for synapses per neuron
         self.synapse_count = np.zeros(self.max_neurons, dtype=np.int32)
@@ -144,7 +148,9 @@ class SynapseManager:
             return False
 
         if self.synapse_count[pre_neuron] >= self.max_synapses_per_neuron:
-            logger.warning(f"Neuron {pre_neuron} has reached maximum synapse count")
+            logger.warning(
+                f"Neuron {pre_neuron} has reached maximum synapse count"
+            )
             return False
 
         with self._synapse_lock:
@@ -158,11 +164,21 @@ class SynapseManager:
 
                 if is_plastic:
                     self.is_plastic[pre_neuron, post_neuron] = True
-                    self.plasticity_coeffs[pre_neuron, post_neuron] = plasticity_coeff
-                    self.plasticity_decay[pre_neuron, post_neuron] = plasticity_decay
-                    self.plasticity_type[pre_neuron, post_neuron] = plasticity_type
-                    self.activity_factor[pre_neuron, post_neuron] = activity_factor
-                    self.scaling_exponent[pre_neuron, post_neuron] = scaling_exponent
+                    self.plasticity_coeffs[pre_neuron, post_neuron] = (
+                        plasticity_coeff
+                    )
+                    self.plasticity_decay[pre_neuron, post_neuron] = (
+                        plasticity_decay
+                    )
+                    self.plasticity_type[pre_neuron, post_neuron] = (
+                        plasticity_type
+                    )
+                    self.activity_factor[pre_neuron, post_neuron] = (
+                        activity_factor
+                    )
+                    self.scaling_exponent[pre_neuron, post_neuron] = (
+                        scaling_exponent
+                    )
 
                     if not was_plastic:
                         self.plastic_synapses += 1
@@ -185,11 +201,17 @@ class SynapseManager:
             # Handle plastic synapse attributes
             if is_plastic:
                 self.is_plastic[pre_neuron, post_neuron] = True
-                self.plasticity_coeffs[pre_neuron, post_neuron] = plasticity_coeff
-                self.plasticity_decay[pre_neuron, post_neuron] = plasticity_decay
+                self.plasticity_coeffs[pre_neuron, post_neuron] = (
+                    plasticity_coeff
+                )
+                self.plasticity_decay[pre_neuron, post_neuron] = (
+                    plasticity_decay
+                )
                 self.plasticity_type[pre_neuron, post_neuron] = plasticity_type
                 self.activity_factor[pre_neuron, post_neuron] = activity_factor
-                self.scaling_exponent[pre_neuron, post_neuron] = scaling_exponent
+                self.scaling_exponent[pre_neuron, post_neuron] = (
+                    scaling_exponent
+                )
                 self.plastic_synapses += 1
 
             logger.debug(
@@ -345,7 +367,9 @@ class SynapseManager:
 
         return inputs
 
-    def compute_synaptic_input_matrix(self, firing_neurons: np.ndarray) -> np.ndarray:
+    def compute_synaptic_input_matrix(
+        self, firing_neurons: np.ndarray
+    ) -> np.ndarray:
         """
         Matrix-based computation of synaptic input for all neurons.
 
@@ -404,13 +428,17 @@ class SynapseManager:
             # Convert to COO format for iteration
             weights_coo = self.weights.tocoo()
 
-            for i, j, w in zip(weights_coo.row, weights_coo.col, weights_coo.data):
+            for i, j, w in zip(
+                weights_coo.row, weights_coo.col, weights_coo.data
+            ):
                 if w < threshold:
                     if j in self.outgoing_synapses[i]:
                         self.remove_synapse(i, j)
                         pruned_count += 1
 
-        logger.info(f"Pruned {pruned_count} weak synapses below threshold {threshold}")
+        logger.info(
+            f"Pruned {pruned_count} weak synapses below threshold {threshold}"
+        )
         return pruned_count
 
     def update_plasticity(self, dt: float = 1.0) -> None:
@@ -444,13 +472,21 @@ class SynapseManager:
                 if p_type == 1:  # STP (Short-Term Plasticity)
                     # Multiplicative update
                     new_weight = (
-                        current_weight * (coeff**exponent) * activity * (decay**dt)
+                        current_weight
+                        * (coeff**exponent)
+                        * activity
+                        * (decay**dt)
                     )
-                elif p_type == 2:  # LTP/LTD (Long-Term Potentiation/Depression)
+                elif (
+                    p_type == 2
+                ):  # LTP/LTD (Long-Term Potentiation/Depression)
                     # Additive update
                     new_weight = (
                         current_weight
-                        + (coeff**exponent) * activity * (decay**dt) * current_weight
+                        + (coeff**exponent)
+                        * activity
+                        * (decay**dt)
+                        * current_weight
                     )
                 else:
                     continue  # Skip unknown plasticity type
@@ -474,7 +510,9 @@ class SynapseManager:
             f"Finalized {self.total_synapses} synapses ({self.plastic_synapses} plastic)"
         )
 
-    def get_synapse_info(self, pre_neuron: int, post_neuron: int) -> Dict[str, Any]:
+    def get_synapse_info(
+        self, pre_neuron: int, post_neuron: int
+    ) -> Dict[str, Any]:
         """
         Get detailed information about a specific synapse.
 
@@ -562,7 +600,9 @@ class SynapseManager:
 
             # Copy existing data
             new_weights[: self.max_neurons, : self.max_neurons] = self.weights
-            new_is_plastic[: self.max_neurons, : self.max_neurons] = self.is_plastic
+            new_is_plastic[: self.max_neurons, : self.max_neurons] = (
+                self.is_plastic
+            )
             new_plasticity_coeffs[: self.max_neurons, : self.max_neurons] = (
                 self.plasticity_coeffs
             )

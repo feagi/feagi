@@ -103,7 +103,9 @@ class TestMode2Handler:
         """Analyze all cortical areas and collect information about dimensions for coordinate generation."""
         self.cortical_area_info = {}
         self.total_available_volume = 0
-        self.total_available_neurons = 0  # CRITICAL FIX: Initialize neuron counter
+        self.total_available_neurons = (
+            0  # CRITICAL FIX: Initialize neuron counter
+        )
 
         for cortical_id, area in self.connectome.cortical_areas.items():
             try:
@@ -140,14 +142,18 @@ class TestMode2Handler:
                 )
 
             except Exception as e:
-                logger.warning(f"Error analyzing cortical area {cortical_id}: {e}")
+                logger.warning(
+                    f"Error analyzing cortical area {cortical_id}: {e}"
+                )
                 continue
 
+        logger.info(f"Analyzed {len(self.cortical_area_info)} cortical areas")
         logger.info(
-            f"Analyzed {len(self.cortical_area_info)} cortical areas"
+            f"Total coordinate space volume: {self.total_available_volume}"
         )
-        logger.info(f"Total coordinate space volume: {self.total_available_volume}")
-        logger.info(f"Total available neurons: {self.total_available_neurons}")  # Log neuron count
+        logger.info(
+            f"Total available neurons: {self.total_available_neurons}"
+        )  # Log neuron count
 
     def _select_test_areas(self):
         """Select cortical areas for testing based on configuration."""
@@ -163,7 +169,9 @@ class TestMode2Handler:
         )
 
         # Simple random selection
-        self.selected_areas = random.sample(available_areas, num_areas_to_select)
+        self.selected_areas = random.sample(
+            available_areas, num_areas_to_select
+        )
 
         logger.info(
             f"Selected {len(self.selected_areas)} areas for testing: {self.selected_areas}"
@@ -174,9 +182,15 @@ class TestMode2Handler:
         logger.info(
             "🎲 TEST MODE 2: Numpy-based scalable random coordinate generation (using test_genome.json)"
         )
-        logger.info(f"   📊 Available cortical areas: {len(self.cortical_area_info)}")
-        logger.info(f"   🧠 Total coordinate space volume: {self.total_available_volume}")
-        logger.info(f"   🎯 Selected areas for testing: {len(self.selected_areas)}")
+        logger.info(
+            f"   📊 Available cortical areas: {len(self.cortical_area_info)}"
+        )
+        logger.info(
+            f"   🧠 Total coordinate space volume: {self.total_available_volume}"
+        )
+        logger.info(
+            f"   🎯 Selected areas for testing: {len(self.selected_areas)}"
+        )
         logger.info(
             f"   🔢 Coordinates per area range: {self.neurons_per_area_min}-{self.neurons_per_area_max}"
         )
@@ -201,7 +215,7 @@ class TestMode2Handler:
         """
         Generate random coordinate activations using numpy for scalability and submit them via test runner.
 
-        This method acts as a pure sensory data generator, working only with coordinates 
+        This method acts as a pure sensory data generator, working only with coordinates
         and membrane potentials, completely unaware of neuron IDs.
 
         Returns:
@@ -221,7 +235,10 @@ class TestMode2Handler:
                     width, height, depth = dimensions
 
                     # Determine number of coordinates to activate - simple random within range
-                    num_to_activate = np.random.randint(self.neurons_per_area_min, self.neurons_per_area_max + 1)
+                    num_to_activate = np.random.randint(
+                        self.neurons_per_area_min,
+                        self.neurons_per_area_max + 1,
+                    )
 
                     if num_to_activate <= 0:
                         continue
@@ -242,18 +259,24 @@ class TestMode2Handler:
                     )
 
                 except Exception as e:
-                    logger.error(f"Error generating coordinate activations for {area_id}: {e}")
+                    logger.error(
+                        f"Error generating coordinate activations for {area_id}: {e}"
+                    )
                     continue
 
             # Submit coordinate activations via test runner (proper architecture)
             if coordinate_activations:
-                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
+                total_coordinates = sum(
+                    len(coords) for coords in coordinate_activations.values()
+                )
                 logger.info(
                     f"🎲 Submitting {total_coordinates} NUMPY-GENERATED coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                injected_count = self.test_runner.submit_coordinate_activations(
-                    coordinate_activations, "test_mode_2_numpy"
+                injected_count = (
+                    self.test_runner.submit_coordinate_activations(
+                        coordinate_activations, "test_mode_2_numpy"
+                    )
                 )
 
                 if injected_count > 0:
@@ -262,14 +285,20 @@ class TestMode2Handler:
                     )
                     return True
                 else:
-                    logger.warning("Failed to inject numpy-generated coordinates")
+                    logger.warning(
+                        "Failed to inject numpy-generated coordinates"
+                    )
                     return False
             else:
-                logger.warning("No numpy-generated coordinate activations generated")
+                logger.warning(
+                    "No numpy-generated coordinate activations generated"
+                )
                 return False
 
         except Exception as e:
-            logger.error(f"Error generating numpy-based coordinate activations: {e}")
+            logger.error(
+                f"Error generating numpy-based coordinate activations: {e}"
+            )
             import traceback
 
             logger.error(traceback.format_exc())

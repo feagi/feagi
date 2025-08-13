@@ -35,17 +35,23 @@ from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 # Add the project root to the path if needed
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")
+)
 sys.path.insert(0, project_root)
 
 # Try importing our dependencies, with helpful error messages
 try:
     from feagi.bdu.connectome_manager import ConnectomeManager
-    from feagi.bdu.neuroembryogenesis import DevelopmentStage, Neuroembryogenesis
+    from feagi.bdu.neuroembryogenesis import (
+        DevelopmentStage,
+        Neuroembryogenesis,
+    )
     from feagi.utils.config import FeagiConfig
 except ImportError as e:
     print(f"Error importing dependencies: {e}")
