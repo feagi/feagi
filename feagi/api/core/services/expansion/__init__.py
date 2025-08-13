@@ -1,8 +1,8 @@
-"""
-Expansion Services Module
+"""Expansion Services Module.
 
-This module provides intelligent synapse management during cortical area expansion,
-implementing dimension-sensitive morphology handling and pattern extension.
+This module provides intelligent synapse management during cortical area
+expansion, implementing dimension-sensitive morphology handling and pattern
+extension.
 """
 
 from .connection_analyzer import ConnectionAnalyzer

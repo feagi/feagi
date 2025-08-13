@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -147,8 +145,8 @@ class TrainingAPI:
         response_model=SuccessResponse,
     )
     def activate_shock_scenarios(self, shock: Shock) -> SuccessResponse:
-        """
-        Enables shock for given scenarios. One or many shock scenario could coexist.
+        """Enables shock for given scenarios. One or many shock scenario could
+        coexist.
 
         Example:
         {
@@ -264,8 +262,7 @@ class TrainingAPI:
     def configure_fitness_criteria(
         self, fitness_criteria: Dict[str, float]
     ) -> SuccessResponse:
-        """
-        Configure the weights associated with each fitness criteria.
+        """Configure the weights associated with each fitness criteria.
 
         Important: Total weights has to equal to 1.
 
@@ -319,8 +316,8 @@ class TrainingAPI:
     def capture_fitness_stats_instance(
         self, fitness_stats: FitnessStats
     ) -> SuccessResponse:
-        """
-        Updates fitness stats. Data should be in a dictionary form following the structure defined under /fitness_criteria.
+        """Updates fitness stats. Data should be in a dictionary form following
+        the structure defined under /fitness_criteria.
 
         Sample:
         {
@@ -421,8 +418,7 @@ class TrainingAPI:
 
 
 def create_training_api(core_api_service: CoreAPIService) -> TrainingAPI:
-    """
-    Factory function to create a TrainingAPI instance.
+    """Factory function to create a TrainingAPI instance.
 
     This function can be used by transport adapters to get a configured
     TrainingAPI instance with the required dependencies.

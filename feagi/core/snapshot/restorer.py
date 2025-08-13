@@ -1,5 +1,4 @@
-"""
-Brain snapshot restore utilities (phase 1).
+"""Brain snapshot restore utilities (phase 1).
 
 Restores minimal snapshot content from a folder:
 - Reads manifest.json to validate snapshot folder
@@ -38,8 +37,8 @@ def restore_brain_snapshot(
     state_manager,
     connectome_manager=None,
 ) -> bool:
-    """
-    Restore a minimal brain snapshot (phase 1) from snapshot_root/snapshot_id.
+    """Restore a minimal brain snapshot (phase 1) from
+    snapshot_root/snapshot_id.
 
     Args:
         snapshot_root: Base directory containing snapshots

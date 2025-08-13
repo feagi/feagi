@@ -1,8 +1,8 @@
-"""
-Shared Memory IPC for FEAGI.
+"""Shared Memory IPC for FEAGI.
 
 This module provides shared memory-based inter-process communication for FEAGI,
-replacing the ZMQ-based approach for higher performance and lower resource usage.
+replacing the ZMQ-based approach for higher performance and lower resource
+usage.
 """
 
 from .data_structures import (

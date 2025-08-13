@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -111,16 +109,14 @@ class ProcessHealth:
 
 
 class HealthMonitor:
-    """
-    Monitor process health and implement recovery strategies.
+    """Monitor process health and implement recovery strategies.
 
-    This class tracks process health status, detects failures,
-    and initiates recovery actions according to defined policies.
+    This class tracks process health status, detects failures, and initiates
+    recovery actions according to defined policies.
     """
 
     def __init__(self, resource_manager_ref: Any = None):
-        """
-        Initialize the health monitor.
+        """Initialize the health monitor.
 
         Args:
             resource_manager_ref: Reference to the ResourceManager
@@ -146,8 +142,7 @@ class HealthMonitor:
         max_restarts: int = 3,
         heartbeat_timeout: float = 10.0,
     ) -> None:
-        """
-        Register a process for health monitoring.
+        """Register a process for health monitoring.
 
         Args:
             process_name: Name of the process
@@ -173,8 +168,7 @@ class HealthMonitor:
             )
 
     def update_heartbeat(self, process_name: str) -> bool:
-        """
-        Update the heartbeat timestamp for a process.
+        """Update the heartbeat timestamp for a process.
 
         Args:
             process_name: Name of the process
@@ -205,8 +199,7 @@ class HealthMonitor:
     def update_resource_usage(
         self, process_name: str, cpu_usage: float, memory_usage: int
     ) -> bool:
-        """
-        Update resource usage metrics for a process.
+        """Update resource usage metrics for a process.
 
         Args:
             process_name: Name of the process
@@ -230,8 +223,7 @@ class HealthMonitor:
             return True
 
     def _check_resource_thresholds(self, process_name: str) -> None:
-        """
-        Check if resource usage exceeds warning thresholds.
+        """Check if resource usage exceeds warning thresholds.
 
         Args:
             process_name: Name of the process
@@ -272,8 +264,7 @@ class HealthMonitor:
             )
 
     def start_monitoring(self, check_interval: float = 1.0) -> None:
-        """
-        Start the health monitoring thread.
+        """Start the health monitoring thread.
 
         Args:
             check_interval: Interval in seconds between health checks
@@ -302,8 +293,7 @@ class HealthMonitor:
         logger.info("Stopped health monitoring")
 
     def _monitoring_loop(self, check_interval: float) -> None:
-        """
-        Main monitoring loop that periodically checks process health.
+        """Main monitoring loop that periodically checks process health.
 
         Args:
             check_interval: Interval in seconds between health checks
@@ -368,8 +358,7 @@ class HealthMonitor:
                         self._handle_failed_process(process_name)
 
     def _handle_failed_process(self, process_name: str) -> None:
-        """
-        Handle a failed process according to its restart policy.
+        """Handle a failed process according to its restart policy.
 
         Args:
             process_name: Name of the failed process
@@ -407,8 +396,7 @@ class HealthMonitor:
                 )
 
     def _handle_warning_process(self, process_name: str) -> None:
-        """
-        Handle a process in WARNING state.
+        """Handle a process in WARNING state.
 
         Args:
             process_name: Name of the process
@@ -420,8 +408,7 @@ class HealthMonitor:
         pass
 
     def _handle_critical_process(self, process_name: str) -> None:
-        """
-        Handle a process in CRITICAL state.
+        """Handle a process in CRITICAL state.
 
         Args:
             process_name: Name of the process
@@ -433,8 +420,7 @@ class HealthMonitor:
         pass
 
     def get_health_status(self, process_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Get health status for a specific process.
+        """Get health status for a specific process.
 
         Args:
             process_name: Name of the process
@@ -459,8 +445,7 @@ class HealthMonitor:
             }
 
     def get_all_health_status(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get health status for all monitored processes.
+        """Get health status for all monitored processes.
 
         Returns:
             Dictionary mapping process names to their health status

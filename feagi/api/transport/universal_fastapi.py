@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -208,7 +206,8 @@ else:
     from feagi.api.v1.burst_engine import create_burst_engine_api
 
     def _maybe_file_response(result):
-        """Convert result dict with {path, filename} into a FileResponse and cleanup."""
+        """Convert result dict with {path, filename} into a FileResponse and
+        cleanup."""
         try:
             if (
                 isinstance(result, dict)
@@ -265,12 +264,12 @@ else:
     logger = setup_logger(__name__)
 
     class UniversalFastAPIWrapper:
-        """
-        Universal FastAPI wrapper that auto-generates routes from v1 API decorators.
+        """Universal FastAPI wrapper that auto-generates routes from v1 API
+        decorators.
 
         This wrapper scans the endpoint registry and automatically creates
-        FastAPI routes for all decorated endpoints, ensuring perfect consistency
-        with other transport protocols.
+        FastAPI routes for all decorated endpoints, ensuring perfect
+        consistency with other transport protocols.
         """
 
         def __init__(self):
@@ -800,6 +799,7 @@ else:
                                         status_code=500,
                                         detail="Internal server error",
                                     ) from e
+
                     else:
                         # Handle multiple path parameters
                         if path_param_names == ["snapshot_id", "fmt"]:
@@ -1011,6 +1011,7 @@ else:
                                         status_code=500,
                                         detail="Internal server error",
                                     ) from e
+
                     else:
                         # Handle multiple path parameters
                         if path_param_names == ["snapshot_id", "fmt"]:
@@ -1180,8 +1181,8 @@ else:
         async def get_agent_properties_query(
             agent_id: str, core_api_service=Depends(get_core_api_service)
         ):
-            """
-            Get agent properties using query parameter format.
+            """Get agent properties using query parameter format.
+
             This endpoint supports: /v1/agent/properties?agent_id=<agent_id>
             """
             try:
@@ -1232,7 +1233,8 @@ else:
         return wrapper.create_router_for_module("evolution")
 
     def create_snapshot_router() -> APIRouter:
-        """Create a FastAPI router for snapshot endpoints (manual wiring to avoid param issues)."""
+        """Create a FastAPI router for snapshot endpoints (manual wiring to
+        avoid param issues)."""
         # @ruff-skip: module has >100 violations - cleanup task: SNAP-ROUTER-RUFF-CLEANUP
         import os
 
@@ -1338,9 +1340,10 @@ else:
             compression: bool = True,
             core_api_service=Depends(get_core_api_service),
         ):
-            """
-            Create and stream a snapshot without persisting artifacts.
-            stateful=true → .fgs; false → .fgc. Always builds to temp_dir and deletes after send.
+            """Create and stream a snapshot without persisting artifacts.
+
+            stateful=true → .fgs; false → .fgc. Always builds to temp_dir and
+            deletes after send.
             """
             try:
                 # Create folder snapshot first

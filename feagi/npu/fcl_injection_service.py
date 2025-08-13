@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,8 +60,7 @@ class InjectionBatch:
 
 
 class FCLInjectionService:
-    """
-    Unified FCL injection service for all special area types.
+    """Unified FCL injection service for all special area types.
 
     This service handles injection of neurons from special cortical areas (power, modulator, etc.)
     into the Fire Candidate List (FCL) during burst processing. It uses a unified injection model
@@ -78,8 +75,7 @@ class FCLInjectionService:
     """
 
     def __init__(self, fcl_manager: Any, special_area_handler: Any):
-        """
-        Initialize the FCL injection service.
+        """Initialize the FCL injection service.
 
         Args:
             fcl_manager: Manager for the Fire Candidate List
@@ -133,11 +129,10 @@ class FCLInjectionService:
         )
 
     def _prepare_injection_batches(self) -> None:
-        """
-        Pre-compute injection batches for performance optimization.
+        """Pre-compute injection batches for performance optimization.
 
-        SIMPLIFIED for core power area (_power at cortical_idx=1):
-        Creates injection batches for detected power areas.
+        SIMPLIFIED for core power area (_power at cortical_idx=1): Creates
+        injection batches for detected power areas.
         """
         # Clear existing batches
         for timing in InjectionTiming:
@@ -230,8 +225,7 @@ class FCLInjectionService:
             # Continue with empty batches - injection will still work via direct method
 
     def inject_pre_burst(self, current_timestep: int) -> int:
-        """
-        Inject power area neurons into FCL with proper membrane potential.
+        """Inject power area neurons into FCL with proper membrane potential.
 
         Direct injection from the core power area (cortical_idx=1).
 
@@ -370,8 +364,7 @@ class FCLInjectionService:
     def _execute_injection_phase(
         self, timing: InjectionTiming, current_timestep: int
     ) -> int:
-        """
-        Execute injection for a specific timing phase.
+        """Execute injection for a specific timing phase.
 
         Args:
             timing: The injection timing phase
@@ -432,8 +425,7 @@ class FCLInjectionService:
     def _inject_batch(
         self, batch: InjectionBatch, current_timestep: int
     ) -> int:
-        """
-        Add a batch of neuron candidates to the FCL.
+        """Add a batch of neuron candidates to the FCL.
 
         This method handles the actual addition of candidates from special areas
         to the Fire Candidate List. The candidates will be processed along with
@@ -507,18 +499,16 @@ class FCLInjectionService:
             return 0
 
     def refresh_injection_batches(self) -> None:
-        """
-        Refresh injection batches when special areas change.
+        """Refresh injection batches when special areas change.
 
-        This should be called when the connectome structure changes or
-        when special areas are added/removed.
+        This should be called when the connectome structure changes or when
+        special areas are added/removed.
         """
         logger.info("Refreshing injection batches", status="[PROC]")
         self._prepare_injection_batches()
 
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about injection performance.
+        """Get statistics about injection performance.
 
         Returns:
             Dictionary with injection statistics and performance metrics
@@ -542,8 +532,7 @@ class FCLInjectionService:
     def set_injection_enabled(
         self, cortical_id: CorticalId, enabled: bool
     ) -> bool:
-        """
-        Enable or disable injection for a specific cortical area.
+        """Enable or disable injection for a specific cortical area.
 
         Args:
             cortical_id: The cortical area ID
@@ -565,8 +554,7 @@ class FCLInjectionService:
         return False
 
     def get_power_injection_preview(self) -> Dict[str, Any]:
-        """
-        Get a preview of what would be injected in the next burst.
+        """Get a preview of what would be injected in the next burst.
 
         Returns:
             Dictionary with preview information for debugging/monitoring
@@ -603,8 +591,8 @@ class FCLInjectionService:
         current_timestep: int,
         source: str = "external",
     ) -> int:
-        """
-        Inject neuron activations from external sources (test mode, manual stimulation, etc.).
+        """Inject neuron activations from external sources (test mode, manual
+        stimulation, etc.).
 
         This method provides a clean interface for external systems to submit neuron
         activations without needing to know FCL manager internals. The service handles
@@ -738,8 +726,7 @@ class FCLInjectionService:
             return 0
 
     def _check_burst_engine_ready(self) -> bool:
-        """
-        Check if the burst engine is ready to accept new injections.
+        """Check if the burst engine is ready to accept new injections.
 
         PERFORMANCE: Optimized for RTOS/SIMD/GPU environments with minimal overhead.
         Uses cached state checks to avoid expensive API calls during high-frequency operation.

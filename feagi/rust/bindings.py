@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -63,8 +61,7 @@ class RustIntegration:
                 self.available_modules["feagi_rust"] = False
 
     def is_available(self, module_name: str = "feagi_rust") -> bool:
-        """
-        Check if a specific Rust module is available.
+        """Check if a specific Rust module is available.
 
         Args:
             module_name: Name of the module to check
@@ -77,8 +74,8 @@ class RustIntegration:
     def fallback_to_python(
         self, rust_fn_name: str, python_fn: Callable
     ) -> Callable:
-        """
-        Create a function that tries to use a Rust implementation but falls back to Python.
+        """Create a function that tries to use a Rust implementation but falls
+        back to Python.
 
         Args:
             rust_fn_name: Fully qualified name of the Rust function (e.g., "feagi_rust.neural.fire_neurons")
@@ -138,8 +135,7 @@ rust_integration = RustIntegration()
 
 # Export the is_rust_available function
 def is_rust_available(module_name: str = "feagi_rust") -> bool:
-    """
-    Check if a specific Rust module is available.
+    """Check if a specific Rust module is available.
 
     Args:
         module_name: Name of the module to check

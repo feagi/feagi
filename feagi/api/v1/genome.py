@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -416,7 +414,8 @@ class GenomeAPI:
 
     @genome_endpoint("GET", "/file_name")
     def get_genome_file_name_direct(self) -> str:
-        """Get the current genome file name (returns string directly for legacy compatibility)."""
+        """Get the current genome file name (returns string directly for legacy
+        compatibility)."""
         try:
             filename = self.core_api_service.get_genome_filename()
             return filename or ""
@@ -771,7 +770,8 @@ class GenomeAPI:
     def append_file_to_genome(
         self, request: AppendFileRequest
     ) -> SuccessResponse:
-        """Append a given circuit file to the running genome at a specific location."""
+        """Append a given circuit file to the running genome at a specific
+        location."""
         try:
             # Parse the genome content
             genome_data = json.loads(request.content)
@@ -845,8 +845,7 @@ class GenomeAPI:
 
 
 def create_genome_api(core_api_service: CoreAPIService) -> GenomeAPI:
-    """
-    Factory function to create a GenomeAPI instance.
+    """Factory function to create a GenomeAPI instance.
 
     This function can be used by transport adapters to get a configured
     GenomeAPI instance with the required dependencies.

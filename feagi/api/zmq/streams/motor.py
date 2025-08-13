@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -57,8 +55,7 @@ logger = setup_logger()
 
 
 class MotorStream:
-    """
-    ZeroMQ Motor Stream implementation.
+    """ZeroMQ Motor Stream implementation.
 
     This implementation uses a PUB socket for sending motor data (FEAGI → agents).
     The stream automatically adjusts to the genome availability state:
@@ -82,8 +79,7 @@ class MotorStream:
         stream_config: Optional[Dict[str, Any]] = None,
         connectome_manager=None,
     ):
-        """
-        Initialize the Motor Stream.
+        """Initialize the Motor Stream.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -145,8 +141,7 @@ class MotorStream:
         self._update_active_mode()
 
     def _setup_socket(self):
-        """
-        Set up the motor (PUB) socket.
+        """Set up the motor (PUB) socket.
 
         Returns:
             Configured ZMQ socket
@@ -327,7 +322,8 @@ class MotorStream:
     async def _process_cortical_area_motor_data(
         self, cortical_data: Dict[str, Any]
     ) -> None:
-        """Process motor data in the cortical area format from UnifiedFQSampler."""
+        """Process motor data in the cortical area format from
+        UnifiedFQSampler."""
         try:
             # Check if we have connected clients
             client_count = self.get_connected_client_count()
@@ -439,7 +435,9 @@ class MotorStream:
                     )
 
                     # Create the final byte structure from the mapped data
-                    byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    byte_structure = (
+                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    )
                     binary_data = byte_structure.copy_out_as_byte_vector()
 
                     # DEBUG: Log the structure ID being generated
@@ -507,8 +505,7 @@ class MotorStream:
             logger.error(f"Error sending motor binary data: {e}")
 
     async def send_motor_data(self, channel_id: str, data: bytes) -> None:
-        """
-        Send motor data to agents.
+        """Send motor data to agents.
 
         Args:
             channel_id: Motor channel ID
@@ -563,8 +560,7 @@ class MotorStream:
             )
 
     async def broadcast_system_message(self, message: str) -> None:
-        """
-        Broadcast a system message to all connected agents.
+        """Broadcast a system message to all connected agents.
 
         Args:
             message: System message to broadcast
@@ -753,11 +749,10 @@ def _process_dict_data(fq_data: Dict[str, Any]) -> Dict[str, Any]:
 def handle_motor_stream(
     burst_engine, subscriber_count: int
 ) -> Optional[bytes]:
-    """
-    Handle motor stream with optimized performance path.
+    """Handle motor stream with optimized performance path.
 
-    This function uses the optimized FQ sampler if available, otherwise
-    falls back to legacy processing for compatibility.
+    This function uses the optimized FQ sampler if available, otherwise falls
+    back to legacy processing for compatibility.
     """
     if subscriber_count <= 0:
         return None

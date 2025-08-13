@@ -1,8 +1,8 @@
-"""
-Rust-compatible atomic operations and memory layouts for FEAGI state management.
+"""Rust-compatible atomic operations and memory layouts for FEAGI state
+management.
 
-This module provides atomic primitives and fixed-size data structures
-that can be directly converted to Rust when migrating.
+This module provides atomic primitives and fixed-size data structures that can
+be directly converted to Rust when migrating.
 """
 
 import ctypes
@@ -14,16 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class AtomicU8:
-    """
-    Rust-compatible atomic u8 using Python threading primitives.
+    """Rust-compatible atomic u8 using Python threading primitives.
 
     This maps directly to std::sync::atomic::AtomicU8 in Rust.
     All operations are thread-safe and provide memory ordering guarantees.
     """
 
     def __init__(self, initial: int = 0):
-        """
-        Initialize atomic u8 with initial value.
+        """Initialize atomic u8 with initial value.
 
         Args:
             initial: Initial value (must be 0-255)
@@ -35,8 +33,7 @@ class AtomicU8:
         self._lock = threading.Lock()
 
     def load(self) -> int:
-        """
-        Atomically load the current value.
+        """Atomically load the current value.
 
         Returns:
             Current value (0-255)
@@ -45,8 +42,7 @@ class AtomicU8:
             return self._value
 
     def store(self, value: int) -> None:
-        """
-        Atomically store a new value.
+        """Atomically store a new value.
 
         Args:
             value: New value (must be 0-255)
@@ -58,8 +54,7 @@ class AtomicU8:
             self._value = value
 
     def compare_exchange(self, expected: int, desired: int) -> bool:
-        """
-        Atomically compare and swap if equal.
+        """Atomically compare and swap if equal.
 
         Args:
             expected: Expected current value
@@ -78,8 +73,7 @@ class AtomicU8:
             return False
 
     def fetch_add(self, value: int) -> int:
-        """
-        Atomically add to current value and return old value.
+        """Atomically add to current value and return old value.
 
         Args:
             value: Value to add
@@ -94,8 +88,7 @@ class AtomicU8:
             return old_value
 
     def fetch_sub(self, value: int) -> int:
-        """
-        Atomically subtract from current value and return old value.
+        """Atomically subtract from current value and return old value.
 
         Args:
             value: Value to subtract
@@ -111,15 +104,13 @@ class AtomicU8:
 
 
 class AtomicU32:
-    """
-    Rust-compatible atomic u32 using Python threading primitives.
+    """Rust-compatible atomic u32 using Python threading primitives.
 
     This maps directly to std::sync::atomic::AtomicU32 in Rust.
     """
 
     def __init__(self, initial: int = 0):
-        """
-        Initialize atomic u32 with initial value.
+        """Initialize atomic u32 with initial value.
 
         Args:
             initial: Initial value (must be 0 to 2^32-1)
@@ -171,8 +162,7 @@ class AtomicU32:
 
 
 class AtomicU64:
-    """
-    Rust-compatible atomic u64 using Python threading primitives.
+    """Rust-compatible atomic u64 using Python threading primitives.
 
     This maps directly to std::sync::atomic::AtomicU64 in Rust.
     """
@@ -211,8 +201,7 @@ class AtomicU64:
 
 
 class RustCompatibleState(ctypes.Structure):
-    """
-    Memory layout identical to future Rust struct.
+    """Memory layout identical to future Rust struct.
 
     This structure uses explicit field ordering and padding to ensure
     the same memory layout as the equivalent Rust struct with #[repr(C)].
@@ -313,8 +302,7 @@ class RustCompatibleState(ctypes.Structure):
         return instance
 
     def validate_invariants(self) -> bool:
-        """
-        Validate structural invariants.
+        """Validate structural invariants.
 
         Returns:
             True if all invariants hold, False otherwise

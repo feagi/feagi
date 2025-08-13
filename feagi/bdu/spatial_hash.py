@@ -39,8 +39,7 @@ class SpatialHashConfig:
         genome_based_sizing: bool = True,
         enable_caching: bool = True,
     ):
-        """
-        Initialize spatial hash configuration.
+        """Initialize spatial hash configuration.
 
         Args:
             max_dimension: Maximum coordinate dimension (advisory only for Morton)
@@ -64,8 +63,7 @@ class SpatialHashState:
 
 
 class GlobalSpatialHash:
-    """
-    Global singleton spatial hash using Morton encoding.
+    """Global singleton spatial hash using Morton encoding.
 
     This class provides the main interface to FEAGI's spatial hash system,
     using Morton encoding + Roaring bitmaps for optimal performance.
@@ -90,8 +88,7 @@ class GlobalSpatialHash:
 
 # Main interface functions
 def get_spatial_hash() -> RoaringSpatialHash:
-    """
-    Get the singleton spatial hash instance.
+    """Get the singleton spatial hash instance.
 
     Returns:
         RoaringSpatialHash: The global Morton spatial hash instance
@@ -102,8 +99,7 @@ def get_spatial_hash() -> RoaringSpatialHash:
 def initialize_spatial_hash(
     config: Optional[SpatialHashConfig] = None,
 ) -> RoaringSpatialHash:
-    """
-    Initialize spatial hash with optional configuration.
+    """Initialize spatial hash with optional configuration.
 
     Args:
         config: Optional SpatialHashConfig (cache settings only)
@@ -123,8 +119,7 @@ def initialize_spatial_hash(
 
 
 def get_cache_info() -> Dict[str, Any]:
-    """
-    Get cache information from the spatial hash.
+    """Get cache information from the spatial hash.
 
     Returns:
         Dict: Cache information and statistics
@@ -134,8 +129,7 @@ def get_cache_info() -> Dict[str, Any]:
 
 
 def clear_spatial_hash_cache() -> bool:
-    """
-    Clear the spatial hash cache.
+    """Clear the spatial hash cache.
 
     Returns:
         bool: True if cache was cleared successfully
@@ -147,8 +141,7 @@ def clear_spatial_hash_cache() -> bool:
 
 
 def rebuild_spatial_hash_cache() -> bool:
-    """
-    Rebuild the spatial hash cache.
+    """Rebuild the spatial hash cache.
 
     Note: Morton encoding doesn't need rebuilding, but we maintain
     the interface for compatibility.
@@ -165,8 +158,7 @@ def rebuild_spatial_hash_cache() -> bool:
 def analyze_genome_coordinate_space(
     genome_data: Dict[str, Any],
 ) -> Tuple[int, int, int]:
-    """
-    Analyze genome coordinate space to determine optimal dimensions.
+    """Analyze genome coordinate space to determine optimal dimensions.
 
     Args:
         genome_data: Genome data containing cortical area definitions

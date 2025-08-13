@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,19 +34,19 @@ from .manager import SharedMemoryManager
 
 
 class SharedMemoryFEAGIGateway:
-    """
-    Standalone gateway implementation that uses shared memory for communication with FEAGI core.
+    """Standalone gateway implementation that uses shared memory for
+    communication with FEAGI core.
 
-    This class replaces the ZMQ-based gateway with a more efficient IPC mechanism
-    using memory-mapped files and event notifications. It is designed as a reference
-    for both Python and Rust implementations, and is fully RTOS/embedded compatible.
+    This class replaces the ZMQ-based gateway with a more efficient IPC
+    mechanism using memory-mapped files and event notifications. It is designed
+    as a reference for both Python and Rust implementations, and is fully
+    RTOS/embedded compatible.
     """
 
     def __init__(
         self, process_name: str = "api_server", temp_dir: Optional[str] = None
     ):
-        """
-        Initialize the shared memory gateway.
+        """Initialize the shared memory gateway.
 
         Args:
             process_name: Unique name for this process (used in event notifications)
@@ -120,8 +118,7 @@ class SharedMemoryFEAGIGateway:
             self._cache_timestamps.clear()
 
     def _get_cached(self, key: str, max_age: float = 5.0):
-        """
-        Get a value from cache if available and not expired.
+        """Get a value from cache if available and not expired.
 
         Args:
             key: Cache key
@@ -138,8 +135,7 @@ class SharedMemoryFEAGIGateway:
         return None
 
     def _set_cache(self, key: str, value: Any):
-        """
-        Set a value in cache.
+        """Set a value in cache.
 
         Args:
             key: Cache key
@@ -150,8 +146,7 @@ class SharedMemoryFEAGIGateway:
             self._cache_timestamps[key] = time.time()
 
     def get_cortical_areas(self) -> List[Dict[str, Any]]:
-        """
-        Get a list of all cortical areas.
+        """Get a list of all cortical areas.
 
         Returns:
             List of dictionaries containing cortical area information
@@ -168,8 +163,7 @@ class SharedMemoryFEAGIGateway:
         return areas
 
     def get_cortical_area(self, area_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get information about a specific cortical area.
+        """Get information about a specific cortical area.
 
         Args:
             area_id: ID of the cortical area
@@ -193,8 +187,7 @@ class SharedMemoryFEAGIGateway:
         return None
 
     def get_cortical_area_types(self) -> Dict[str, List[str]]:
-        """
-        Get available cortical area types.
+        """Get available cortical area types.
 
         Returns:
             Dictionary of cortical area types
@@ -212,8 +205,7 @@ class SharedMemoryFEAGIGateway:
         return area_types
 
     def get_burst_engine_config(self) -> Dict[str, Any]:
-        """
-        Get the burst engine configuration.
+        """Get the burst engine configuration.
 
         Returns:
             Dictionary containing burst engine configuration
@@ -241,8 +233,7 @@ class SharedMemoryFEAGIGateway:
         return config
 
     def get_genome_filename(self) -> Optional[str]:
-        """
-        Get the filename of the currently loaded genome.
+        """Get the filename of the currently loaded genome.
 
         Returns:
             Filename of the current genome, or None if no genome is loaded
@@ -258,8 +249,7 @@ class SharedMemoryFEAGIGateway:
         return filename
 
     def set_burst_engine_config(self, config: Dict[str, Any]) -> bool:
-        """
-        Set the burst engine configuration.
+        """Set the burst engine configuration.
 
         Args:
             config: Dictionary containing burst engine configuration
@@ -277,8 +267,7 @@ class SharedMemoryFEAGIGateway:
         return result
 
     def load_genome(self, genome_data: Dict[str, Any], filename: str) -> bool:
-        """
-        Load a genome from data.
+        """Load a genome from data.
 
         Args:
             genome_data: Dictionary containing genome data
@@ -298,8 +287,8 @@ class SharedMemoryFEAGIGateway:
         return result
 
     def shutdown(self, delete_shared_memory: bool = False):
-        """
-        Shutdown the gateway and clean up resources.
+        """Shutdown the gateway and clean up resources.
+
         Args:
             delete_shared_memory: If True, delete shared memory files (default: False)
         """

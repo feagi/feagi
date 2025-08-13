@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -312,8 +310,8 @@ class FeagiAgentAPI:
     async def get_agent_properties_query(
         self, agent_id: str
     ) -> AgentPropertiesResponse:
-        """
-        Get agent properties using query parameter format.
+        """Get agent properties using query parameter format.
+
         This endpoint supports the query parameter format: /v1/agent/properties?agent_id=<agent_id>
         This method is manually registered to FastAPI to support query parameters.
         """
@@ -322,8 +320,7 @@ class FeagiAgentAPI:
 
     @agent_endpoint("GET", "/fq_sampler_status")
     async def get_fq_sampler_status(self) -> dict:
-        """
-        Get comprehensive FQ sampler status with agent registry integration.
+        """Get comprehensive FQ sampler status with agent registry integration.
 
         Returns:
             Dictionary with FQ sampler status and related agent information
@@ -369,8 +366,7 @@ class FeagiAgentAPI:
     async def manual_stimulation(
         self, request: ManualStimulationRequest
     ) -> Dict[str, Any]:
-        """
-        Trigger manual neural stimulation across multiple cortical areas.
+        """Trigger manual neural stimulation across multiple cortical areas.
 
         Injects neuron activations associated with the payload data into the fire candidate list.
 

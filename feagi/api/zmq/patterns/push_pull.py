@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,11 +40,11 @@ from ..serialization import deserialize_message, serialize_message
 
 
 class PushServer:
-    """
-    ZeroMQ Push server implementation.
+    """ZeroMQ Push server implementation.
 
-    This server distributes work items to one or more Pull clients using the PUSH/PULL pattern.
-    It's designed for load balancing work across multiple workers.
+    This server distributes work items to one or more Pull clients using the
+    PUSH/PULL pattern. It's designed for load balancing work across multiple
+    workers.
     """
 
     def __init__(
@@ -57,8 +55,7 @@ class PushServer:
         hwm: int = 1000,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Push server.
+        """Initialize a new Push server.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -119,8 +116,7 @@ class PushServer:
         priority: int = 0,
         content_type: str = "application/json",
     ) -> None:
-        """
-        Queue a work item for processing.
+        """Queue a work item for processing.
 
         Args:
             item: The work item data to push
@@ -135,7 +131,8 @@ class PushServer:
         )
 
     async def _process_queue(self) -> None:
-        """Process queued work items and push them to workers with RTOS-friendly error handling."""
+        """Process queued work items and push them to workers with RTOS-
+        friendly error handling."""
         while self.running:
             try:
                 # Get the next work item (blocks until one is available)
@@ -201,8 +198,7 @@ class PushServer:
         items: List[Tuple[Any, str, int]],
         content_type: str = "application/json",
     ) -> None:
-        """
-        Queue multiple work items for processing.
+        """Queue multiple work items for processing.
 
         Args:
             items: List of (item, work_type, priority) tuples
@@ -213,10 +209,10 @@ class PushServer:
 
 
 class PullClient:
-    """
-    ZeroMQ Pull client implementation.
+    """ZeroMQ Pull client implementation.
 
-    This client connects to a Push server and receives work items for processing.
+    This client connects to a Push server and receives work items for
+    processing.
     """
 
     def __init__(
@@ -226,8 +222,7 @@ class PullClient:
         hwm: int = 100,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Pull client.
+        """Initialize a new Pull client.
 
         Args:
             host: Push server host address to connect to
@@ -258,8 +253,7 @@ class PullClient:
         }
 
     def register_handler(self, work_type: str, handler: Callable) -> None:
-        """
-        Register a handler for a specific work type.
+        """Register a handler for a specific work type.
 
         Args:
             work_type: The work type to handle
@@ -268,8 +262,7 @@ class PullClient:
         self.handlers[work_type] = handler
 
     def register_default_handler(self, handler: Callable) -> None:
-        """
-        Register a default handler for unknown work types.
+        """Register a default handler for unknown work types.
 
         Args:
             handler: Async callback function that takes (work_type, work_item) as arguments
@@ -306,7 +299,8 @@ class PullClient:
                 logger.warning(f"Error closing pull client socket: {e}")
 
     async def _receive_loop(self) -> None:
-        """Main loop for receiving work items and dispatching to handlers with RTOS-friendly error handling."""
+        """Main loop for receiving work items and dispatching to handlers with
+        RTOS-friendly error handling."""
         while self.running:
             try:
                 multipart = await self.socket.recv_multipart()
@@ -372,11 +366,10 @@ class PullClient:
 
 
 class PushPullManager:
-    """
-    Manager class for coordinating Push and Pull operations.
+    """Manager class for coordinating Push and Pull operations.
 
-    This class provides a unified interface for the FEAGI ZMQ server
-    to manage PUSH/PULL patterns.
+    This class provides a unified interface for the FEAGI ZMQ server to manage
+    PUSH/PULL patterns.
     """
 
     def __init__(
@@ -386,8 +379,7 @@ class PushPullManager:
         port: int = 5557,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new PushPull Manager.
+        """Initialize a new PushPull Manager.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -439,8 +431,7 @@ class PushPullManager:
     async def queue_work(
         self, work_type: str, data: Any, priority: int = 0
     ) -> None:
-        """
-        Queue a work item for processing.
+        """Queue a work item for processing.
 
         Args:
             work_type: Type of work item

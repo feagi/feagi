@@ -1,5 +1,4 @@
-"""
-High-performance sensory stream for neural data ingestion.
+"""High-performance sensory stream for neural data ingestion.
 
 This stream implements zero-copy neural data reception from FEAGI_Connector
 with pre-allocated buffers and platform-specific optimizations.
@@ -36,8 +35,7 @@ class StreamResult(IntEnum):
 
 
 class SensoryNeuralStream:
-    """
-    High-performance neural data ingestion from FEAGI_Connector.
+    """High-performance neural data ingestion from FEAGI_Connector.
 
     Features:
     - Zero-copy neural data processing
@@ -58,8 +56,7 @@ class SensoryNeuralStream:
         slot_size: int = 1048576,  # 1MB per slot
         cortical_config: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
-        """
-        Initialize neural sensory stream.
+        """Initialize neural sensory stream.
 
         Args:
             core_api: Core API service for FCL injection
@@ -189,7 +186,8 @@ class SensoryNeuralStream:
         logger.info("Neural sensory stream stopped")
 
     def __del__(self):
-        """Destructor to ensure cleanup even if stop() isn't called explicitly."""
+        """Destructor to ensure cleanup even if stop() isn't called
+        explicitly."""
         try:
             # Only attempt cleanup if we haven't already cleaned up and are still running
             if getattr(self, "running", False):
@@ -520,15 +518,21 @@ class SensoryNeuralStream:
                 # Build neural data with SAFE uint16 conversion (after validation)
                 neural_data = {
                     str(header.cortical_area_id): {
-                        "coordinates_x": x_coords.astype(np.uint16)
-                        if x_coords is not None
-                        else np.array([], dtype=np.uint16),
-                        "coordinates_y": y_coords.astype(np.uint16)
-                        if y_coords is not None
-                        else np.array([], dtype=np.uint16),
-                        "coordinates_z": z_coords.astype(np.uint16)
-                        if z_coords is not None
-                        else np.array([], dtype=np.uint16),
+                        "coordinates_x": (
+                            x_coords.astype(np.uint16)
+                            if x_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
+                        "coordinates_y": (
+                            y_coords.astype(np.uint16)
+                            if y_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
+                        "coordinates_z": (
+                            z_coords.astype(np.uint16)
+                            if z_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
                         "membrane_potentials": firing_rates.astype(np.float32),
                     }
                 }

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,15 +36,13 @@ from feagi.api.zmq.client import ZmqClient
 
 
 class RateLimiter:
-    """
-    Rate limiter for API Gateway.
+    """Rate limiter for API Gateway.
 
     Implements a token bucket algorithm for rate limiting.
     """
 
     def __init__(self, rate_limit: int, burst_limit: int):
-        """
-        Initialize rate limiter.
+        """Initialize rate limiter.
 
         Args:
             rate_limit: Maximum number of requests per second
@@ -59,8 +55,7 @@ class RateLimiter:
         self.lock = threading.Lock()
 
     def allow_request(self) -> bool:
-        """
-        Check if a request is allowed under the rate limit.
+        """Check if a request is allowed under the rate limit.
 
         Returns:
             True if the request is allowed, False otherwise
@@ -93,8 +88,7 @@ class AgentConnection:
         rate_limit: int = 100,
         burst_limit: int = 200,
     ):
-        """
-        Initialize agent connection.
+        """Initialize agent connection.
 
         Args:
             agent_id: Unique agent identifier
@@ -115,8 +109,7 @@ class AgentConnection:
 
 
 class APIGateway:
-    """
-    API Gateway for FEAGI.
+    """API Gateway for FEAGI.
 
     This class provides a central point of access to FEAGI's functionality for
     all API interfaces (REST, ZMQ, etc.). It manages connections to:
@@ -145,8 +138,7 @@ class APIGateway:
         return cls._instance
 
     def __init__(self, core_api: Optional[CoreAPIService] = None):
-        """
-        Initialize the API Gateway if not already initialized.
+        """Initialize the API Gateway if not already initialized.
 
         Args:
             core_api: Optional CoreAPIService instance. If not provided,
@@ -303,8 +295,7 @@ class APIGateway:
                 time.sleep(error_delay)  # Prevent tight loop on error
 
     def _process_outgoing_messages(self, agent_id: str):
-        """
-        Process outgoing messages for an agent.
+        """Process outgoing messages for an agent.
 
         Args:
             agent_id: Agent identifier
@@ -362,8 +353,7 @@ class APIGateway:
         protocol_id: ProtocolID,
         version: int,
     ) -> None:
-        """
-        Route a message to the appropriate Core API Service handler.
+        """Route a message to the appropriate Core API Service handler.
 
         Args:
             agent_id: Agent identifier
@@ -435,8 +425,7 @@ class APIGateway:
         protocol_versions: Dict[str, Union[int, List[int]]],
         capabilities: Dict[str, Any] = None,
     ) -> Dict[str, int]:
-        """
-        Register an agent with the gateway.
+        """Register an agent with the gateway.
 
         Args:
             agent_id: Unique agent identifier
@@ -501,8 +490,7 @@ class APIGateway:
         return compatible_versions
 
     def deregister_agent(self, agent_id: str) -> bool:
-        """
-        Deregister an agent.
+        """Deregister an agent.
 
         Args:
             agent_id: Agent identifier
@@ -534,8 +522,7 @@ class APIGateway:
         return True
 
     def receive_message(self, agent_id: str, binary_data: bytes) -> bool:
-        """
-        Receive a binary message from an agent.
+        """Receive a binary message from an agent.
 
         Args:
             agent_id: Agent identifier
@@ -577,8 +564,7 @@ class APIGateway:
     def send_message(
         self, agent_id: str, message: Any, protocol_name: str
     ) -> bool:
-        """
-        Send a message to an agent.
+        """Send a message to an agent.
 
         Args:
             agent_id: Agent identifier
@@ -614,8 +600,7 @@ class APIGateway:
             return False
 
     def get_agent_connection(self, agent_id: str) -> Optional[AgentConnection]:
-        """
-        Get information about an agent connection.
+        """Get information about an agent connection.
 
         Args:
             agent_id: Agent identifier
@@ -626,8 +611,7 @@ class APIGateway:
         return self._agent_connections.get(agent_id)
 
     def get_agent_status(self, agent_id: str) -> Dict[str, Any]:
-        """
-        Get status information about an agent.
+        """Get status information about an agent.
 
         Args:
             agent_id: Agent identifier
@@ -650,8 +634,7 @@ class APIGateway:
         }
 
     def get_all_agents(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get information about all registered agents.
+        """Get information about all registered agents.
 
         Returns:
             Dictionary mapping agent IDs to agent information
@@ -664,8 +647,7 @@ class APIGateway:
     # Authentication and authorization methods
 
     def authenticate(self, credentials: Dict[str, Any]) -> bool:
-        """
-        Authenticate a client.
+        """Authenticate a client.
 
         Args:
             credentials: Dictionary containing authentication credentials.
@@ -679,8 +661,7 @@ class APIGateway:
     def authorize(
         self, resource: str, action: str, credentials: Dict[str, Any]
     ) -> bool:
-        """
-        Authorize a client to perform an action on a resource.
+        """Authorize a client to perform an action on a resource.
 
         Args:
             resource: The resource being accessed.
@@ -698,8 +679,7 @@ class APIGateway:
     def route_request(
         self, protocol: str, endpoint: str, method: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Route a request to the appropriate handler.
+        """Route a request to the appropriate handler.
 
         Args:
             protocol: The protocol being used (REST, ZMQ).
@@ -716,8 +696,7 @@ class APIGateway:
     # Rate limiting methods
 
     def check_rate_limit(self, client_id: str, endpoint: str) -> bool:
-        """
-        Check if a client has exceeded rate limits for an endpoint.
+        """Check if a client has exceeded rate limits for an endpoint.
 
         Args:
             client_id: ID of the client.
@@ -745,8 +724,7 @@ class APIGateway:
     def record_request(
         self, protocol: str, endpoint: str, status: int, duration: float
     ):
-        """
-        Record a request for monitoring purposes.
+        """Record a request for monitoring purposes.
 
         Args:
             protocol: The protocol being used (REST, ZMQ).
@@ -758,8 +736,7 @@ class APIGateway:
         pass
 
     def get_metrics(self) -> Dict[str, Any]:
-        """
-        Get API metrics.
+        """Get API metrics.
 
         Returns:
             Dictionary containing API metrics.
@@ -792,8 +769,7 @@ class APIGateway:
 
 # Factory function for creating/getting gateway instances
 def get_api_gateway(core_api: Optional[CoreAPIService] = None) -> APIGateway:
-    """
-    Get or create an API Gateway instance.
+    """Get or create an API Gateway instance.
 
     Args:
         core_api: Optional CoreAPIService instance to use in the gateway.

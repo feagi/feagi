@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,8 +34,7 @@ logger = logging.getLogger("feagi.hardware")
 
 
 def get_cpu_info() -> Dict[str, Any]:
-    """
-    Get detailed CPU information.
+    """Get detailed CPU information.
 
     Returns:
         Dictionary containing CPU information including:
@@ -170,8 +167,7 @@ def get_cpu_info() -> Dict[str, Any]:
 
 
 def get_memory_info() -> Dict[str, int]:
-    """
-    Get system memory information.
+    """Get system memory information.
 
     Returns:
         Dictionary containing memory information in bytes:
@@ -211,8 +207,7 @@ def get_memory_info() -> Dict[str, int]:
 
 
 def get_cuda_info() -> Dict[str, Any]:
-    """
-    Get CUDA GPU information if available.
+    """Get CUDA GPU information if available.
 
     Returns:
         Dictionary containing CUDA information:
@@ -248,8 +243,7 @@ def get_cuda_info() -> Dict[str, Any]:
 
 
 def get_metal_info() -> Dict[str, Any]:
-    """
-    Get Metal GPU information if available (macOS only).
+    """Get Metal GPU information if available (macOS only).
 
     Returns:
         Dictionary containing Metal information:
@@ -310,8 +304,8 @@ def get_metal_info() -> Dict[str, Any]:
 
 
 def get_specialized_accelerators() -> Dict[str, Any]:
-    """
-    Detect specialized hardware accelerators (Apple Neural Engine, TPUs, etc.).
+    """Detect specialized hardware accelerators (Apple Neural Engine, TPUs,
+    etc.).
 
     Returns:
         Dictionary containing information about specialized accelerators
@@ -363,8 +357,7 @@ def get_specialized_accelerators() -> Dict[str, Any]:
 
 
 def get_webgpu_info() -> Dict[str, Any]:
-    """
-    Detect WebGPU availability and capabilities.
+    """Detect WebGPU availability and capabilities.
 
     Returns:
         Dictionary containing WebGPU information
@@ -409,8 +402,7 @@ def get_webgpu_info() -> Dict[str, Any]:
 
 
 def get_all_hardware_info() -> Dict[str, Any]:
-    """
-    Get comprehensive information about all available hardware.
+    """Get comprehensive information about all available hardware.
 
     Returns:
         Dictionary containing all hardware information
@@ -433,8 +425,7 @@ def get_all_hardware_info() -> Dict[str, Any]:
 
 
 def has_hardware_acceleration() -> Tuple[bool, str]:
-    """
-    Check if any hardware acceleration is available.
+    """Check if any hardware acceleration is available.
 
     Returns:
         Tuple of (has_acceleration, acceleration_type)
@@ -474,8 +465,7 @@ def has_hardware_acceleration() -> Tuple[bool, str]:
 
 
 def get_optimal_backend() -> str:
-    """
-    Determine the optimal backend based on available hardware.
+    """Determine the optimal backend based on available hardware.
 
     Returns:
         String identifier for the optimal backend

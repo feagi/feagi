@@ -145,15 +145,11 @@ def genome_2_print(genome):
 
 
 def genome_2_validator(genome_2):
-    """
-    Conducts various test to ensure the stability of the Genome 2.0
-    """
+    """Conducts various test to ensure the stability of the Genome 2.0."""
     standard_gene_length = 27
 
     def structure_test_gene_lengths():
-        """
-        Check length requirements for each gene
-        """
+        """Check length requirements for each gene."""
         gene_anomalies = 0
         for key in genome_2:
             if len(key) != standard_gene_length:
@@ -173,9 +169,7 @@ def genome_2_validator(genome_2):
 
 
 def genome_2_hierarchifier(flat_genome):
-    """
-    Converts Genome 2.0 to a hierarchical data structure
-    """
+    """Converts Genome 2.0 to a hierarchical data structure."""
     hierarchical_genome = dict()
     for key in flat_genome:
         cortical_id = key[9:15]
@@ -203,9 +197,7 @@ def genome_1_cortical_list(genome):
 
 
 def genome_2_cortical_list(flat_genome):
-    """
-    Generates a list of cortical areas inside genome
-    """
+    """Generates a list of cortical areas inside genome."""
     try:
         cortical_list = list()
         for key in flat_genome:
@@ -228,9 +220,7 @@ def json_comment_catcher(key):
 
 
 def cortical_area_id_update_checker(cortical_id):
-    """
-    Responsible for updating deprecated cortical names to new ones
-    """
+    """Responsible for updating deprecated cortical names to new ones."""
     if cortical_id == "i__v0C":
         return "iic400"
     elif cortical_id == "i_v0BL":
@@ -880,8 +870,7 @@ genome_1_to_2 = {
 
 
 def process_and_load_genome(genome_data, core_api_service):
-    """
-    Process and load a genome with comprehensive state management.
+    """Process and load a genome with comprehensive state management.
 
     Args:
         genome_data: The genome data to process and load
@@ -952,11 +941,11 @@ class GenomeValidationError(Exception):
 
 
 class BaseGenomeProcessor(ABC):
-    """
-    Abstract base class for genome processors.
+    """Abstract base class for genome processors.
 
-    Each genome version should have its own processor that inherits from this class.
-    This ensures consistent interface while allowing version-specific implementations.
+    Each genome version should have its own processor that inherits from this
+    class. This ensures consistent interface while allowing version-specific
+    implementations.
     """
 
     def __init__(self, genome_data: Dict[str, Any]):
@@ -970,8 +959,7 @@ class BaseGenomeProcessor(ABC):
 
     @abstractmethod
     def validate_genome(self) -> Tuple[bool, List[str]]:
-        """
-        Validate the genome structure and content.
+        """Validate the genome structure and content.
 
         Returns:
             Tuple of (is_valid, list_of_errors)
@@ -980,8 +968,7 @@ class BaseGenomeProcessor(ABC):
 
     @abstractmethod
     def extract_cortical_areas(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Extract cortical area definitions from the genome.
+        """Extract cortical area definitions from the genome.
 
         Returns:
             Dictionary mapping cortical_id to area properties
@@ -992,8 +979,7 @@ class BaseGenomeProcessor(ABC):
     def extract_cortical_mappings(
         self,
     ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
-        """
-        Extract cortical mappings from the genome.
+        """Extract cortical mappings from the genome.
 
         Returns:
             Dictionary mapping src_area_id to {dst_area_id: [connection_specs]}
@@ -1002,8 +988,7 @@ class BaseGenomeProcessor(ABC):
 
     @abstractmethod
     def extract_morphologies(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Extract morphology definitions from the genome.
+        """Extract morphology definitions from the genome.
 
         Returns:
             Dictionary mapping morphology_id to morphology definition
@@ -1012,8 +997,7 @@ class BaseGenomeProcessor(ABC):
 
     @abstractmethod
     def extract_physiology(self) -> Dict[str, Any]:
-        """
-        Extract physiology parameters from the genome.
+        """Extract physiology parameters from the genome.
 
         Returns:
             Dictionary of physiology parameters
@@ -1022,12 +1006,11 @@ class BaseGenomeProcessor(ABC):
 
 
 class GenomeV2Processor(BaseGenomeProcessor):
-    """
-    Processor for FEAGI 2.0 genome format.
+    """Processor for FEAGI 2.0 genome format.
 
     Handles the flat genome structure with keys like
-    "_____10c-{cortical_id}-cx-{property}-{type}"
-    This is the current format used in FEAGI 2.0.
+    "_____10c-{cortical_id}-cx-{property}-{type}" This is the current format
+    used in FEAGI 2.0.
     """
 
     def get_version(self) -> str:
@@ -1131,9 +1114,9 @@ class GenomeV2Processor(BaseGenomeProcessor):
             elif "_n_cnt" in property_key:
                 area_properties[cortical_id]["neurons_per_voxel"] = gene_value
             elif "synatt" in property_key:
-                area_properties[cortical_id]["synapse_attractivity"] = (
-                    gene_value
-                )
+                area_properties[cortical_id][
+                    "synapse_attractivity"
+                ] = gene_value
             elif "fire_t" in property_key:
                 area_properties[cortical_id]["firing_threshold"] = gene_value
             elif "refrac" in property_key:
@@ -1210,12 +1193,12 @@ class GenomeV2Processor(BaseGenomeProcessor):
                                     "plasticity_constant": (
                                         spec[4] if len(spec) > 4 else 1.0
                                     ),
-                                    "ltp_multiplier": spec[5]
-                                    if len(spec) > 5
-                                    else 1.0,
-                                    "ltd_multiplier": spec[6]
-                                    if len(spec) > 6
-                                    else 1.0,
+                                    "ltp_multiplier": (
+                                        spec[5] if len(spec) > 5 else 1.0
+                                    ),
+                                    "ltd_multiplier": (
+                                        spec[6] if len(spec) > 6 else 1.0
+                                    ),
                                 }
                                 mappings[src_id][dst_id].append(mapping_obj)
 
@@ -1240,10 +1223,10 @@ class GenomeV2Processor(BaseGenomeProcessor):
 
 
 class GenomeV3Processor(BaseGenomeProcessor):
-    """
-    Processor for future FEAGI 3.0 genome format.
+    """Processor for future FEAGI 3.0 genome format.
 
-    This is a placeholder for future genome versions with hierarchical structure.
+    This is a placeholder for future genome versions with hierarchical
+    structure.
     """
 
     def get_version(self) -> str:
@@ -1278,8 +1261,7 @@ class GenomeV3Processor(BaseGenomeProcessor):
 
 
 class GenomeProcessor:
-    """
-    Main genome processor orchestrator.
+    """Main genome processor orchestrator.
 
     This class determines the genome version and delegates to the appropriate
     version-specific processor. It provides a unified interface for all genome
@@ -1373,8 +1355,7 @@ class GenomeProcessor:
 
 # Utility functions for modern OOP interface
 def load_genome_from_file(genome_path: Union[str, Path]) -> Dict[str, Any]:
-    """
-    Load genome data from a JSON file.
+    """Load genome data from a JSON file.
 
     Args:
         genome_path: Path to the genome file
@@ -1401,8 +1382,7 @@ def load_genome_from_file(genome_path: Union[str, Path]) -> Dict[str, Any]:
 
 
 def create_genome_processor(genome_data: Dict[str, Any]) -> GenomeProcessor:
-    """
-    Create a genome processor for the given genome data.
+    """Create a genome processor for the given genome data.
 
     Args:
         genome_data: Dictionary containing genome data
@@ -1417,8 +1397,7 @@ def create_genome_processor(genome_data: Dict[str, Any]) -> GenomeProcessor:
 
 
 def process_genome_file(genome_path: Union[str, Path]) -> GenomeProcessor:
-    """
-    Load and process a genome file.
+    """Load and process a genome file.
 
     Args:
         genome_path: Path to the genome file
@@ -1438,8 +1417,7 @@ def process_genome_file(genome_path: Union[str, Path]) -> GenomeProcessor:
 def get_morphology_registry(
     genome_morphologies: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Convert genome morphologies to a registry format.
+    """Convert genome morphologies to a registry format.
 
     Args:
         genome_morphologies: Morphologies section from genome

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,17 +20,17 @@ if TYPE_CHECKING:
 
 
 class FEAGI:
-    """
-    The main FEAGI class that represents the Framework for Evolutionary Artificial General Intelligence framework.
+    """The main FEAGI class that represents the Framework for Evolutionary
+    Artificial General Intelligence framework.
 
-    This class serves as the primary entry point for creating and managing AI models.
+    This class serves as the primary entry point for creating and managing AI
+    models.
     """
 
     def __init__(
         self, config_path: Optional[str] = None, use_gpu: bool = False
     ):
-        """
-        Initialize a new FEAGI instance.
+        """Initialize a new FEAGI instance.
 
         Args:
             config_path: Optional path to a configuration file.
@@ -43,8 +41,7 @@ class FEAGI:
         self.use_gpu = use_gpu
 
     def _load_config(self, config_path: str) -> Dict:
-        """
-        Load configuration from a file.
+        """Load configuration from a file.
 
         Args:
             config_path: Path to the configuration file.
@@ -56,8 +53,7 @@ class FEAGI:
         return {}
 
     def create_model(self, name: str, model_type: str = "default") -> "Model":
-        """
-        Create a new model.
+        """Create a new model.
 
         Args:
             name: Name of the model.
@@ -73,8 +69,7 @@ class FEAGI:
         return model
 
     def load_model(self, path: str) -> "Model":
-        """
-        Load a model from disk.
+        """Load a model from disk.
 
         Args:
             path: Path to the model file.
@@ -90,8 +85,7 @@ class FEAGI:
         return model
 
     def list_models(self) -> List[str]:
-        """
-        List all models managed by this FEAGI instance.
+        """List all models managed by this FEAGI instance.
 
         Returns:
             List of model names.
@@ -99,8 +93,7 @@ class FEAGI:
         return list(self.models.keys())
 
     def get_model(self, name: str) -> Optional["Model"]:
-        """
-        Get a model by name.
+        """Get a model by name.
 
         Args:
             name: Name of the model.
@@ -111,8 +104,7 @@ class FEAGI:
         return self.models.get(name)
 
     def remove_model(self, name: str) -> bool:
-        """
-        Remove a model from this FEAGI instance.
+        """Remove a model from this FEAGI instance.
 
         Args:
             name: Name of the model to remove.
@@ -128,8 +120,7 @@ class FEAGI:
     # Methods required for API compatibility
 
     def get_brain_state(self) -> Dict[str, Any]:
-        """
-        Get the current brain state.
+        """Get the current brain state.
 
         Returns:
             Dictionary containing the current brain state.
@@ -143,8 +134,7 @@ class FEAGI:
         }
 
     def get_configuration(self) -> Dict[str, Any]:
-        """
-        Get the current configuration.
+        """Get the current configuration.
 
         Returns:
             Dictionary containing the current configuration.
@@ -153,8 +143,7 @@ class FEAGI:
         return dict(self.config)
 
     def get_cortical_areas(self) -> List[Dict[str, Any]]:
-        """
-        Get a list of all cortical areas in the brain.
+        """Get a list of all cortical areas in the brain.
 
         Returns:
             List of dictionaries containing cortical area information.
@@ -183,8 +172,7 @@ class FEAGI:
         ]
 
     def update_configuration(self, config: Dict[str, Any]) -> bool:
-        """
-        Update the configuration.
+        """Update the configuration.
 
         Args:
             config: New configuration parameters.
@@ -199,8 +187,7 @@ class FEAGI:
             return False
 
     def save_brain_state(self, path: str) -> bool:
-        """
-        Save the current brain state to a file.
+        """Save the current brain state to a file.
 
         Args:
             path: Path to save the brain state.
@@ -212,8 +199,7 @@ class FEAGI:
         return True
 
     def load_brain_state(self, path: str) -> bool:
-        """
-        Load a brain state from a file.
+        """Load a brain state from a file.
 
         Args:
             path: Path to the brain state file.
@@ -225,8 +211,7 @@ class FEAGI:
         return True
 
     def get_burst_engine_config(self) -> Dict[str, Any]:
-        """
-        Get the burst engine configuration.
+        """Get the burst engine configuration.
 
         Returns:
             Dictionary containing burst engine configuration.
@@ -251,8 +236,7 @@ class FEAGI:
         }
 
     def get_genome_filename(self) -> str:
-        """
-        Get the filename of the currently loaded genome.
+        """Get the filename of the currently loaded genome.
 
         Returns:
             String containing the filename of the currently loaded genome.
@@ -261,8 +245,7 @@ class FEAGI:
         return "sample_genome.json"
 
     def get_cortical_area_types(self) -> Dict[str, List[str]]:
-        """
-        Get available cortical area types.
+        """Get available cortical area types.
 
         Returns:
             Dictionary containing available cortical area types.
@@ -289,8 +272,7 @@ class FEAGI:
         }
 
     def start_simulation(self) -> bool:
-        """
-        Start the brain simulation.
+        """Start the brain simulation.
 
         Returns:
             True if successful, False otherwise.
@@ -299,8 +281,7 @@ class FEAGI:
         return True
 
     def stop_simulation(self) -> bool:
-        """
-        Stop the brain simulation.
+        """Stop the brain simulation.
 
         Returns:
             True if successful, False otherwise.

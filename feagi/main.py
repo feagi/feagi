@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,8 +50,7 @@ logger = setup_logger("feagi.main")
 
 
 def _update_all_logger_levels(log_level_str: str):
-    """
-    Update all existing logger levels to the new level.
+    """Update all existing logger levels to the new level.
 
     This is necessary because loggers created before CLI override
     retain their original level and don't automatically update.
@@ -79,8 +76,7 @@ def _update_all_logger_levels(log_level_str: str):
 
 
 def check_dependencies():
-    """
-    Check if installed dependencies match required versions.
+    """Check if installed dependencies match required versions.
 
     This function verifies that all required packages are installed with the correct versions.
     If not, it displays warnings or errors as appropriate.
@@ -148,8 +144,7 @@ def check_dependencies():
 
 
 def main():
-    """
-    Main entry point for FEAGI.
+    """Main entry point for FEAGI.
 
     Parses command-line arguments, loads TOML configuration with overrides,
     validates port availability, and starts all FEAGI processes.

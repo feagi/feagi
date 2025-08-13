@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -152,16 +150,14 @@ if EMBEDDED_MODE:
 else:
 
     class ZMQRestAdapter:
-        """
-        ZMQ Transport Adapter for FEAGI v1 API.
+        """ZMQ Transport Adapter for FEAGI v1 API.
 
         This adapter converts ZMQ messages formatted like REST API calls into
         v1 API business logic calls, ensuring identical behavior to FastAPI.
         """
 
         def __init__(self, core_api_service: CoreAPIService):
-            """
-            Initialize the ZMQ REST adapter.
+            """Initialize the ZMQ REST adapter.
 
             Args:
                 core_api_service: Core API service instance for processing requests
@@ -177,7 +173,8 @@ else:
             self._initialize_route_handlers()
 
         def _initialize_route_handlers(self):
-            """Initialize the mapping of routes to handler methods using v1 API."""
+            """Initialize the mapping of routes to handler methods using v1
+            API."""
             self.route_handlers = {
                 # ===== System Endpoints (using v1 API) =====
                 "GET:/v1/system/user_preferences": self._handle_get_user_preferences,
@@ -239,8 +236,7 @@ else:
             }
 
         async def process_message(self, message_data: bytes) -> bytes:
-            """
-            Process a REST API-style message received over ZMQ.
+            """Process a REST API-style message received over ZMQ.
 
             Args:
                 message_data: ZMQ message data containing REST API request
@@ -425,38 +421,38 @@ else:
         async def _handle_get_user_preferences(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/system/user_preferences"""
+            """Handler for GET /v1/system/user_preferences."""
             return self.system_api.get_user_preferences()
 
         async def _handle_update_user_preferences(
             self, params, query, body, headers
         ):
-            """Handler for PUT /v1/system/user_preferences"""
+            """Handler for PUT /v1/system/user_preferences."""
             request = UserPreferencesRequest(**body)
             return self.system_api.update_user_preferences(request)
 
         async def _handle_get_versions(self, params, query, body, headers):
-            """Handler for GET /v1/system/versions"""
+            """Handler for GET /v1/system/versions."""
             return self.system_api.get_versions()
 
         async def _handle_get_health_check(self, params, query, body, headers):
-            """Handler for GET /v1/system/health_check"""
+            """Handler for GET /v1/system/health_check."""
             return await self.system_api.get_health_check()
 
         async def _handle_get_configuration(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/system/configuration"""
+            """Handler for GET /v1/system/configuration."""
             return self.system_api.get_configuration()
 
         async def _handle_test_influxdb(self, params, query, body, headers):
-            """Handler for GET /v1/system/db/influxdb/test"""
+            """Handler for GET /v1/system/db/influxdb/test."""
             return self.system_api.test_influxdb()
 
         async def _handle_set_circuit_library_path(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/system/circuit_library_path"""
+            """Handler for POST /v1/system/circuit_library_path."""
             path = body.get("path") if body else query.get("path")
             if not path:
                 raise ValueError("Missing required parameter: path")
@@ -465,31 +461,31 @@ else:
         async def _handle_get_cortical_area_types(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/system/cortical_area_types"""
+            """Handler for GET /v1/system/cortical_area_types."""
             return self.system_api.get_cortical_area_types()
 
         async def _handle_reset_fcl(self, params, query, body, headers):
-            """Handler for POST /v1/system/fcl_reset"""
+            """Handler for POST /v1/system/fcl_reset."""
             return self.system_api.reset_fcl()
 
         async def _handle_register_system(self, params, query, body, headers):
-            """Handler for POST /v1/system/register"""
+            """Handler for POST /v1/system/register."""
             return self.system_api.register_system(body or {})
 
         async def _handle_manage_logs(self, params, query, body, headers):
-            """Handler for POST /v1/system/logs"""
+            """Handler for POST /v1/system/logs."""
             return self.system_api.manage_logs(body or {})
 
         async def _handle_get_beacon_subscribers(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/system/beacon/subscribers"""
+            """Handler for GET /v1/system/beacon/subscribers."""
             return self.system_api.get_beacon_subscribers()
 
         async def _handle_subscribe_to_beacon(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/system/beacon/subscribe"""
+            """Handler for POST /v1/system/beacon/subscribe."""
             subscriber_address = (
                 body.get("subscriber_address")
                 if body
@@ -504,7 +500,7 @@ else:
         async def _handle_unsubscribe_from_beacon(
             self, params, query, body, headers
         ):
-            """Handler for DELETE /v1/system/beacon/unsubscribe"""
+            """Handler for DELETE /v1/system/beacon/unsubscribe."""
             subscriber_address = (
                 body.get("subscriber_address")
                 if body
@@ -517,7 +513,7 @@ else:
             return self.system_api.unsubscribe_from_beacon(subscriber_address)
 
         async def _handle_get_version(self, params, query, body, headers):
-            """Handler for GET /v1/system/version"""
+            """Handler for GET /v1/system/version."""
             return self.system_api.get_version()
 
         # ===== Cortical Area Handler Implementations (using v1 API) =====
@@ -525,13 +521,13 @@ else:
         async def _handle_get_cortical_area_id_list(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/cortical_area/cortical_area_id_list"""
+            """Handler for GET /v1/cortical_area/cortical_area_id_list."""
             return self.cortical_area_api.get_cortical_area_id_list_legacy()
 
         async def _handle_get_cortical_area_properties_body(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/cortical_area/cortical_area_properties"""
+            """Handler for POST /v1/cortical_area/cortical_area_properties."""
             cortical_id = body.get("cortical_id") if body else None
             if not cortical_id:
                 raise ValueError("Missing required parameter: cortical_id")
@@ -542,7 +538,8 @@ else:
         async def _handle_get_multi_cortical_area_properties(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/cortical_area/multi_cortical_area_properties"""
+            """Handler for POST
+            /v1/cortical_area/multi_cortical_area_properties."""
             cortical_id_list = []
 
             if body:
@@ -570,14 +567,14 @@ else:
         # ===== Genome Handler Implementations (using v1 API) =====
 
         async def _handle_get_genome(self, params, query, body, headers):
-            """Handler for GET /v1/genome"""
+            """Handler for GET /v1/genome."""
             # This endpoint doesn't exist in v1 API yet, delegate to core service
             return self.core_api_service.get_genome()
 
         async def _handle_get_genome_blueprint(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/blueprint"""
+            """Handler for GET /v1/genome/blueprint."""
             # This endpoint doesn't exist in v1 API yet, delegate to core service
             genome = self.core_api_service.get_genome()
             return genome.get("cortical_areas", {}) if genome else {}
@@ -585,45 +582,45 @@ else:
         async def _handle_get_genome_file_name(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/file_name"""
+            """Handler for GET /v1/genome/file_name."""
             return self.genome_api.get_genome_file_name_direct()
 
         async def _handle_get_genome_defaults(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/defaults/files"""
+            """Handler for GET /v1/genome/defaults/files."""
             return self.genome_api.get_default_genome_files()
 
         async def _handle_download_genome(self, params, query, body, headers):
-            """Handler for GET /v1/genome/download"""
+            """Handler for GET /v1/genome/download."""
             return self.genome_api.download_genome()
 
         async def _handle_get_genome_number(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/genome_number"""
+            """Handler for GET /v1/genome/genome_number."""
             return self.genome_api.get_genome_number()
 
         async def _handle_get_cortical_template(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/cortical_template"""
+            """Handler for GET /v1/genome/cortical_template."""
             return self.genome_api.get_cortical_template()
 
         async def _handle_get_circuits(self, params, query, body, headers):
-            """Handler for GET /v1/genome/circuits"""
+            """Handler for GET /v1/genome/circuits."""
             return self.genome_api.get_circuit_library()
 
         async def _handle_get_amalgamation_history(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/amalgamation_history"""
+            """Handler for GET /v1/genome/amalgamation_history."""
             return self.genome_api.get_amalgamation_history()
 
         async def _handle_download_genome_region(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/genome/download_region"""
+            """Handler for GET /v1/genome/download_region."""
             region_id = query.get("region_id")
             if not region_id:
                 raise ValueError("Missing required query parameter: region_id")
@@ -632,19 +629,19 @@ else:
         async def _handle_upload_barebones_genome(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/genome/upload/barebones"""
+            """Handler for POST /v1/genome/upload/barebones."""
             return await self.genome_api.upload_barebones_genome()
 
         async def _handle_upload_essential_genome(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/genome/upload/essential"""
+            """Handler for POST /v1/genome/upload/essential."""
             return await self.genome_api.upload_essential_genome()
 
         async def _handle_upload_genome_file(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/genome/upload/file"""
+            """Handler for POST /v1/genome/upload/file."""
             if not body:
                 raise ValueError("Missing genome data in request body")
             return await self.genome_api.upload_genome_file(body)
@@ -652,13 +649,13 @@ else:
         async def _handle_upload_genome_string(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/genome/upload/string"""
+            """Handler for POST /v1/genome/upload/string."""
             if not body:
                 raise ValueError("Missing genome data in request body")
             return self.genome_api.upload_genome_string(body)
 
         async def _handle_reset_genome(self, params, query, body, headers):
-            """Handler for POST /v1/genome/reset"""
+            """Handler for POST /v1/genome/reset."""
             return await self.genome_api.reset_genome()
 
         # ===== Connectome Handler Implementations (using v1 API) =====
@@ -666,7 +663,7 @@ else:
         async def _handle_get_connectome_cortical_areas(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/connectome/cortical_areas"""
+            """Handler for GET /v1/connectome/cortical_areas."""
             # Use the working cortical area service method like the working endpoint
             cortical_area_ids = (
                 self.cortical_area_api.get_cortical_area_id_list_legacy()
@@ -700,19 +697,20 @@ else:
         async def _handle_get_cortical_areas_summary(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/connectome/cortical_areas/list/summary"""
+            """Handler for GET /v1/connectome/cortical_areas/list/summary."""
             return await self.connectome_api.get_cortical_areas_summary()
 
         async def _handle_get_cortical_areas_detailed(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/connectome/cortical_areas/list/detailed"""
+            """Handler for GET /v1/connectome/cortical_areas/list/detailed."""
             return await self.connectome_api.get_cortical_areas_detailed()
 
         async def _handle_get_transforming_cortical_areas(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/connectome/cortical_areas/list/transforming"""
+            """Handler for GET
+            /v1/connectome/cortical_areas/list/transforming."""
             return await self.connectome_api.get_transforming_cortical_areas()
 
         # ===== Burst Engine Handler Implementations (using v1 API) =====
@@ -720,13 +718,13 @@ else:
         async def _handle_get_simulation_timestep(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/burst_engine/simulation_timestep"""
+            """Handler for GET /v1/burst_engine/simulation_timestep."""
             return self.burst_engine_api.get_simulation_timestep()
 
         async def _handle_change_simulation_timestep(
             self, params, query, body, headers
         ):
-            """Handler for POST /v1/burst_engine/simulation_timestep"""
+            """Handler for POST /v1/burst_engine/simulation_timestep."""
             # Create SimulationTimestepRequest from the body using the new simplified format
             from feagi.api.v1.burst_engine import SimulationTimestepRequest
 
@@ -737,13 +735,13 @@ else:
         async def _handle_get_burst_engine_status(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/burst_engine/status"""
+            """Handler for GET /v1/burst_engine/status."""
             return await self.burst_engine_api.get_burst_engine_status()
 
         # ===== Agent Handler Implementations (using v1 API) =====
 
         async def _handle_list_agents(self, params, query, body, headers):
-            """Handler for GET /v1/agent/list"""
+            """Handler for GET /v1/agent/list."""
             return await self.agent_api.list_agents()
 
         async def _handle_get_agent_info(self, params, query, body, headers):
@@ -754,14 +752,14 @@ else:
             return await self.agent_api.get_agent_info(agent_id)
 
         async def _handle_configure_agent(self, params, query, body, headers):
-            """Handler for POST /v1/agent/configure"""
+            """Handler for POST /v1/agent/configure."""
             request = (
                 AgentConfigRequest(**body) if body else AgentConfigRequest()
             )
             return await self.agent_api.configure_agent(request)
 
         async def _handle_register_agent(self, params, query, body, headers):
-            """Handler for POST /v1/agent/register"""
+            """Handler for POST /v1/agent/register."""
             if not body:
                 raise ValueError(
                     "Missing agent registration data in request body"
@@ -770,7 +768,7 @@ else:
             return await self.agent_api.register_agent(request)
 
         async def _handle_deregister_agent(self, params, query, body, headers):
-            """Handler for DELETE /v1/agent/deregister"""
+            """Handler for DELETE /v1/agent/deregister."""
             if not body:
                 raise ValueError(
                     "Missing agent deregistration data in request body"
@@ -799,5 +797,5 @@ else:
         async def _handle_get_fq_sampler_status(
             self, params, query, body, headers
         ):
-            """Handler for GET /v1/agent/fq_sampler_status"""
+            """Handler for GET /v1/agent/fq_sampler_status."""
             return await self.agent_api.get_fq_sampler_status()

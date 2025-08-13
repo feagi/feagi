@@ -29,8 +29,7 @@ class TestMode1Handler:
     """
 
     def __init__(self, test_runner):
-        """
-        Initialize the Test Mode 1 handler.
+        """Initialize the Test Mode 1 handler.
 
         Args:
             test_runner: Reference to the main FeagiTestRunner instance
@@ -48,8 +47,7 @@ class TestMode1Handler:
         self.valid_areas_count = 0
 
     def initialize(self):
-        """
-        Initialize Test Mode 1 by loading the JSON file.
+        """Initialize Test Mode 1 by loading the JSON file.
 
         Returns:
             bool: True if initialization was successful, False otherwise
@@ -105,8 +103,7 @@ class TestMode1Handler:
             return False
 
     def load_test_activations_json(self):
-        """
-        Load predictable neuron activations from test_mode_activations.json.
+        """Load predictable neuron activations from test_mode_activations.json.
 
         The file must exist in the feagi/utils/test_mode/ directory alongside
         this handler module for deterministic neuron injection.
@@ -229,8 +226,8 @@ class TestMode1Handler:
             return False
 
     def inject_data(self):
-        """
-        Inject predictable neuron activations based on the JSON configuration.
+        """Inject predictable neuron activations based on the JSON
+        configuration.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -258,8 +255,8 @@ class TestMode1Handler:
             return False
 
     def _inject_predictable_activations(self):
-        """
-        Generate predictable coordinate activations from the JSON file and submit them via test runner.
+        """Generate predictable coordinate activations from the JSON file and
+        submit them via test runner.
 
         This method uses coordinates directly with the unified neural stimulation system,
         following proper architectural separation of concerns.
@@ -268,7 +265,9 @@ class TestMode1Handler:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            coordinate_activations = {}  # Dictionary to hold coordinate activations for submission
+            coordinate_activations = (
+                {}
+            )  # Dictionary to hold coordinate activations for submission
 
             logger.debug(
                 f"Generating predictable coordinate activations for {len(self.test_activations_data)} cortical areas"

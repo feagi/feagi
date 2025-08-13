@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,8 +24,9 @@ from feagi.evo.templates import cortical_types
 
 
 def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
-    """
-    Builds a nested dictionary representing all cortical area mappings in the connectome.
+    """Builds a nested dictionary representing all cortical area mappings in
+    the connectome.
+
     Args:
         state: The FeagiStateManager or similar object with .genome["blueprint"]
     Returns:
@@ -49,8 +48,9 @@ def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
 def build_power_connections(
     connectome, target_area_id: str, cortical_type: str, mapping_dict: dict
 ) -> None:
-    """
-    Create or update power connections for a target cortical area, based on mapping_dict.
+    """Create or update power connections for a target cortical area, based on
+    mapping_dict.
+
     Args:
         connectome: The ConnectomeManager instance to use.
         target_area_id: The cortical area to connect to.

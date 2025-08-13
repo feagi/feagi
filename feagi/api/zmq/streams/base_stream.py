@@ -1,5 +1,4 @@
-"""
-Base ZMQ Stream Implementation for FEAGI
+"""Base ZMQ Stream Implementation for FEAGI.
 
 This module provides specialized base classes for different ZMQ communication patterns:
 - UnidirectionalStream: For motor, sensory, visualization (one-way data flow)
@@ -52,8 +51,7 @@ class DataDirection(Enum):
 
 
 class BaseZMQStream(abc.ABC):
-    """
-    Base class for all FEAGI ZMQ streams providing common functionality.
+    """Base class for all FEAGI ZMQ streams providing common functionality.
 
     This class handles shared functionality like:
     - Basic state management
@@ -167,8 +165,8 @@ class BaseZMQStream(abc.ABC):
 
 
 class UnidirectionalStream(BaseZMQStream):
-    """
-    Base class for unidirectional ZMQ streams (Motor, Sensory, Visualization).
+    """Base class for unidirectional ZMQ streams (Motor, Sensory,
+    Visualization).
 
     Unidirectional streams have:
     - Single socket for data flow
@@ -271,8 +269,7 @@ class UnidirectionalStream(BaseZMQStream):
     def _safe_socket_operation(
         self, operation: Callable, *args, **kwargs
     ) -> Any:
-        """
-        Perform socket operation with comprehensive error handling.
+        """Perform socket operation with comprehensive error handling.
 
         This prevents the race condition that caused the original error.
         """
@@ -519,8 +516,7 @@ class UnidirectionalStream(BaseZMQStream):
 
 
 class BidirectionalStream(BaseZMQStream):
-    """
-    Base class for bidirectional ZMQ streams (Control, REST).
+    """Base class for bidirectional ZMQ streams (Control, REST).
 
     Bidirectional streams have:
     - Multiple sockets (ROUTER/DEALER pattern typically)

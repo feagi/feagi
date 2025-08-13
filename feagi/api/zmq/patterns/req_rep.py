@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,10 +42,10 @@ from ..serialization import deserialize_message, serialize_message
 
 
 class RequestReplyServer:
-    """
-    ZeroMQ Request-Reply server implementation.
+    """ZeroMQ Request-Reply server implementation.
 
-    This server handles command requests from clients using the REQ/REP pattern.
+    This server handles command requests from clients using the REQ/REP
+    pattern.
     """
 
     def __init__(
@@ -57,8 +55,7 @@ class RequestReplyServer:
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Request-Reply server.
+        """Initialize a new Request-Reply server.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -234,8 +231,7 @@ class RequestReplyServer:
 
 
 class RequestReplyClient:
-    """
-    ZeroMQ Request-Reply client implementation.
+    """ZeroMQ Request-Reply client implementation.
 
     This client connects to a Request-Reply server and sends command requests.
     """
@@ -247,8 +243,7 @@ class RequestReplyClient:
         timeout: int = 30,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Request-Reply client.
+        """Initialize a new Request-Reply client.
 
         Args:
             host: Server host address to connect to
@@ -285,8 +280,7 @@ class RequestReplyClient:
         params: Optional[Dict] = None,
         content_type: str = "application/json",
     ) -> Dict:
-        """
-        Send a command request to the server.
+        """Send a command request to the server.
 
         Args:
             command: Command to execute
@@ -335,8 +329,7 @@ class RequestReplyClient:
             return {"error": "Request timed out"}
 
     def set_auth_token(self, token: str) -> None:
-        """
-        Set the authentication token to use for requests.
+        """Set the authentication token to use for requests.
 
         Args:
             token: Authentication token
@@ -345,11 +338,10 @@ class RequestReplyClient:
 
 
 class RequestReplyManager:
-    """
-    Manager class for coordinating Request-Reply servers and clients.
+    """Manager class for coordinating Request-Reply servers and clients.
 
-    This class provides a unified interface for the FEAGI ZMQ server
-    to manage REQ/REP patterns.
+    This class provides a unified interface for the FEAGI ZMQ server to manage
+    REQ/REP patterns.
     """
 
     def __init__(
@@ -359,8 +351,7 @@ class RequestReplyManager:
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new RequestReply Manager.
+        """Initialize a new RequestReply Manager.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to

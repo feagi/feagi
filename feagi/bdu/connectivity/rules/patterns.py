@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,8 +36,7 @@ BoundingBox = Tuple[
 
 
 def check_pattern_validity(pattern: List[Any]) -> bool:
-    """
-    Check if a pattern contains valid elements.
+    """Check if a pattern contains valid elements.
 
     Args:
         pattern: List of pattern elements
@@ -60,8 +57,7 @@ def check_pattern_validity(pattern: List[Any]) -> bool:
 
 
 def validate_pattern_element(element: Any) -> bool:
-    """
-    Validate a single pattern element.
+    """Validate a single pattern element.
 
     Args:
         element: Pattern element to validate
@@ -82,8 +78,7 @@ def validate_pattern_element(element: Any) -> bool:
 
 
 def validate_pattern(pattern: List[Any]) -> bool:
-    """
-    Validate that a pattern contains only valid elements.
+    """Validate that a pattern contains only valid elements.
 
     Args:
         pattern: List of pattern elements to validate
@@ -95,8 +90,7 @@ def validate_pattern(pattern: List[Any]) -> bool:
 
 
 def match_pattern_element(element: Any, coordinate: int) -> bool:
-    """
-    Check if a coordinate matches a pattern element.
+    """Check if a coordinate matches a pattern element.
 
     Args:
         element: Pattern element ("*", "?", "!", or integer)
@@ -122,8 +116,7 @@ def match_pattern_element(element: Any, coordinate: int) -> bool:
 def apply_pattern_to_coordinates(
     pattern: List[Any], coordinates: List[Position]
 ) -> Generator[Position, None, None]:
-    """
-    Apply a pattern to filter coordinates.
+    """Apply a pattern to filter coordinates.
 
     Args:
         pattern: Pattern to apply (3-element list for x, y, z)
@@ -150,8 +143,8 @@ def apply_pattern_to_coordinates(
 def find_source_coordinates(
     src_pattern: List[Any], src_cortical_boundary: Position
 ) -> Generator[Position, None, None]:
-    """
-    Generate coordinates within the cortical boundary that match the given pattern.
+    """Generate coordinates within the cortical boundary that match the given
+    pattern.
 
     Args:
         src_pattern: A tuple (x, y, z) where each element can be an integer or "*".
@@ -191,8 +184,7 @@ def find_destination_coordinates(
     src_pattern: List[Any],
     dst_pattern: List[Any],
 ) -> Generator[Position, None, None]:
-    """
-    Generate destination coordinates that match the given patterns.
+    """Generate destination coordinates that match the given patterns.
 
     Args:
         dst_cortical_boundary: Dimensions of the destination cortical area
@@ -334,8 +326,8 @@ def generate_pattern_coordinates(
     src_coordinate: Position,
     dst_dimensions: Position,
 ) -> Generator[Position, None, None]:
-    """
-    Generate destination coordinates based on source and destination patterns.
+    """Generate destination coordinates based on source and destination
+    patterns.
 
     Args:
         src_pattern: Source pattern specification
@@ -363,8 +355,7 @@ def generate_pattern_coordinates(
 def calculate_pattern_offset(
     src_coordinate: Position, src_pattern: List[Any], dst_pattern: List[Any]
 ) -> Position:
-    """
-    Calculate coordinate offset based on pattern transformation.
+    """Calculate coordinate offset based on pattern transformation.
 
     Args:
         src_coordinate: Source coordinate
@@ -410,8 +401,7 @@ def calculate_pattern_offset(
 def define_subregions(
     area_id: AreaId, parameters: Dict[str, Any], cortical_dimensions: Position
 ) -> Set[BoundingBox]:
-    """
-    Define subregions within a cortical area for targeted synaptogenesis.
+    """Define subregions within a cortical area for targeted synaptogenesis.
 
     Args:
         area_id: ID of the cortical area

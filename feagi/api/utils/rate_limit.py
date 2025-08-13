@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,11 +25,10 @@ import time
 
 
 class RateLimiter:
-    """
-    Simple rate limiter implementation.
+    """Simple rate limiter implementation.
 
-    This class provides mechanisms to limit the rate of operations
-    based on various criteria.
+    This class provides mechanisms to limit the rate of operations based on
+    various criteria.
     """
 
     def __init__(self):
@@ -48,8 +45,7 @@ class RateLimiter:
     def check_rate(
         self, key: str, max_rate: float, window: float = 1.0
     ) -> bool:
-        """
-        Check if an operation is allowed under the rate limit.
+        """Check if an operation is allowed under the rate limit.
 
         Args:
             key: Identifier for the rate limit
@@ -81,8 +77,7 @@ class RateLimiter:
         return True
 
     def throttle(self, key: str, min_interval: float) -> float:
-        """
-        Check if operation should be throttled and get wait time.
+        """Check if operation should be throttled and get wait time.
 
         Args:
             key: Identifier for the throttled operation
@@ -111,8 +106,7 @@ class RateLimiter:
         return min_interval - elapsed
 
     async def wait_if_needed(self, key: str, min_interval: float) -> None:
-        """
-        Wait if necessary to maintain the minimum interval.
+        """Wait if necessary to maintain the minimum interval.
 
         Args:
             key: Identifier for the throttled operation

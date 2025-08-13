@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,16 +29,14 @@ import zmq
 
 
 class ZMQRestClient:
-    """
-    Client for accessing FEAGI REST API over ZMQ.
+    """Client for accessing FEAGI REST API over ZMQ.
 
-    This client provides methods that mirror the HTTP REST API but
-    use ZMQ as the transport protocol instead of HTTP.
+    This client provides methods that mirror the HTTP REST API but use ZMQ as
+    the transport protocol instead of HTTP.
     """
 
     def __init__(self, host: str, port: int = 5555, timeout: int = 30):
-        """
-        Initialize the ZMQ REST client.
+        """Initialize the ZMQ REST client.
 
         Args:
             host: FEAGI ZMQ server host (required - no hardcoded defaults)
@@ -55,8 +51,7 @@ class ZMQRestClient:
         self.identity = str(uuid.uuid4()).encode("utf-8")
 
     def connect(self):
-        """
-        Connect to the FEAGI ZMQ server.
+        """Connect to the FEAGI ZMQ server.
 
         Raises:
             ConnectionError: If connection fails
@@ -94,8 +89,7 @@ class ZMQRestClient:
         body: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a request to the FEAGI ZMQ server.
+        """Send a request to the FEAGI ZMQ server.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE)
@@ -187,8 +181,7 @@ class ZMQRestClient:
         query: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a GET request.
+        """Send a GET request.
 
         Args:
             route: API route
@@ -209,8 +202,7 @@ class ZMQRestClient:
         query: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a POST request.
+        """Send a POST request.
 
         Args:
             route: API route
@@ -232,8 +224,7 @@ class ZMQRestClient:
         query: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a PUT request.
+        """Send a PUT request.
 
         Args:
             route: API route
@@ -254,8 +245,7 @@ class ZMQRestClient:
         query: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a DELETE request.
+        """Send a DELETE request.
 
         Args:
             route: API route
@@ -307,8 +297,7 @@ class ZMQRestClient:
         return self.get("/v1/connectome/cortical_areas")
 
     def get_cortical_area(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Get a specific cortical area using the correct FEAGI endpoint.
+        """Get a specific cortical area using the correct FEAGI endpoint.
 
         Args:
             cortical_id: Cortical area ID

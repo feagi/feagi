@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -118,11 +116,10 @@ class DebugStats:
 
 
 class ZMQDebugger:
-    """
-    High-performance ZMQ debugging system with runtime configuration.
+    """High-performance ZMQ debugging system with runtime configuration.
 
-    This class provides zero-overhead debugging when disabled and
-    comprehensive debugging capabilities when enabled.
+    This class provides zero-overhead debugging when disabled and comprehensive
+    debugging capabilities when enabled.
     """
 
     def __init__(self):
@@ -160,7 +157,8 @@ class ZMQDebugger:
         )
 
     def _init_from_environment(self):
-        """Initialize from state manager or environment variables (called once at startup)."""
+        """Initialize from state manager or environment variables (called once
+        at startup)."""
         # Try to get configuration from state manager first
         try:
             from feagi.core.state_manager import FeagiStateManager
@@ -251,7 +249,10 @@ class ZMQDebugger:
             logger.info(f"ZMQ debug level set to: {level.name}")
 
     def set_message_filters(self, message_types: List[MessageType]):
-        """Set message type filters. Empty list = allow all."""
+        """Set message type filters.
+
+        Empty list = allow all.
+        """
         with self._lock:
             self._message_filters = set(message_types)
             if message_types:
@@ -264,7 +265,10 @@ class ZMQDebugger:
                 )
 
     def set_endpoint_filters(self, endpoints: List[str]):
-        """Set endpoint filters. Empty list = allow all."""
+        """Set endpoint filters.
+
+        Empty list = allow all.
+        """
         with self._lock:
             self._endpoint_filters = set(endpoints)
             if endpoints:
@@ -342,8 +346,7 @@ class ZMQDebugger:
         topic: str = "",
         context: str = "",
     ):
-        """
-            Log outbound ZMQ traffic with minimal performance impact.
+        """Log outbound ZMQ traffic with minimal performance impact.
 
         Args:
                 endpoint: ZMQ endpoint
@@ -405,8 +408,7 @@ class ZMQDebugger:
         message_type: MessageType = MessageType.UNKNOWN,
         context: str = "",
     ):
-        """
-            Log inbound ZMQ traffic with minimal performance impact.
+        """Log inbound ZMQ traffic with minimal performance impact.
 
         Args:
                 endpoint: ZMQ endpoint

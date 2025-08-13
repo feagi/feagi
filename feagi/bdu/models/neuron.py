@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -88,8 +86,7 @@ except ImportError:
 def simd_firing_check_with_excitability(
     potentials, thresholds, can_fire_mask, excitability, rng=None
 ):
-    """
-    SIMD-optimized firing check with probabilistic excitability.
+    """SIMD-optimized firing check with probabilistic excitability.
 
     Optimizations:
     1. Fast path when all excitability >= 0.999 (bypasses random generation entirely)
@@ -196,8 +193,8 @@ except ImportError:
 class NeuronMappingProvider(ABC):
     """Interface for providing neuron ID-to-index mappings.
 
-    This allows NeuronArray to work with external mapping systems
-    (like ConnectomeManager) instead of maintaining its own redundant mappings.
+    This allows NeuronArray to work with external mapping systems (like
+    ConnectomeManager) instead of maintaining its own redundant mappings.
     """
 
     @abstractmethod
@@ -232,7 +229,8 @@ class NeuronMappingProvider(ABC):
 
 
 class NeuronArray:
-    """Ultra-high-performance neuron storage optimized for embedded and GPU processing.
+    """Ultra-high-performance neuron storage optimized for embedded and GPU
+    processing.
 
     This implementation uses Structure of Arrays (SoA) with:
     - 64-byte cache-aligned memory for SIMD optimization
@@ -445,8 +443,8 @@ class NeuronArray:
         end_idx: int,
         excitability: float,
     ) -> None:
-        """
-        Set excitability for a cortical area and update performance tracking.
+        """Set excitability for a cortical area and update performance
+        tracking.
 
         Args:
             cortical_idx: Cortical area index
@@ -699,7 +697,8 @@ class NeuronArray:
         timestep: Optional[int] = None,
         decay_factor: Optional[float] = None,
     ):
-        """High-performance membrane potential update with embedded optimization."""
+        """High-performance membrane potential update with embedded
+        optimization."""
         # If called with old-style parameters, provide backward compatibility
         if (
             decay_factor is not None
@@ -731,7 +730,8 @@ class NeuronArray:
         decay_rates: Union[float, List[float]] = 0.5,
         refractory_periods: Union[int, List[int]] = 1,
     ) -> List[int]:
-        """Create multiple neurons with the same or different properties in batch."""
+        """Create multiple neurons with the same or different properties in
+        batch."""
         if cortical_idx is None:
             cortical_idx = 0
 
@@ -823,8 +823,7 @@ class NeuronArray:
         is_active: bool = True,
         properties: Optional[Dict[str, Any]] = None,
     ) -> int:
-        """
-        Create a new neuron and add it to the array.
+        """Create a new neuron and add it to the array.
 
         Args:
             cortical_idx: Integer index of the cortical area this neuron belongs to
@@ -1039,9 +1038,11 @@ class NeuronArray:
         """
         try:
             summary = {
-                "backend": self.backend.name
-                if hasattr(self.backend, "name")
-                else str(self.backend),
+                "backend": (
+                    self.backend.name
+                    if hasattr(self.backend, "name")
+                    else str(self.backend)
+                ),
                 "simd_enabled": getattr(self.backend, "simd_enabled", False),
                 "alignment": getattr(self.backend, "alignment", 64),
                 "neuron_count": self.neuron_count,
@@ -1098,11 +1099,11 @@ class NeuronArray:
 
 # For backwards compatibility
 class Neuron:
-    """
-    Wrapper class for individual neurons.
+    """Wrapper class for individual neurons.
 
-    This class provides an object-oriented interface to individual neurons for API compatibility.
-    It delegates most operations to the underlying NeuronArray for efficiency.
+    This class provides an object-oriented interface to individual neurons for
+    API compatibility. It delegates most operations to the underlying
+    NeuronArray for efficiency.
     """
 
     def __init__(
@@ -1116,8 +1117,7 @@ class Neuron:
         decay_rate: float = 0.5,
         refractory_period: int = 1,
     ):
-        """
-        Initialize a Neuron object.
+        """Initialize a Neuron object.
 
         Args:
             neuron_id: Unique neuron ID

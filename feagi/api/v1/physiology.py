@@ -42,7 +42,8 @@ class PhysiologyAPI:
 
     @physiology_endpoint("GET", "/")
     async def get_physiology(self) -> Dict[str, Any]:
-        """Return current physiology section from genome (with defaults applied)."""
+        """Return current physiology section from genome (with defaults
+        applied)."""
         try:
             genome = self.core_api_service.get_current_genome()
             phys = {}
@@ -57,7 +58,9 @@ class PhysiologyAPI:
     async def update_physiology(
         self, request: PhysiologyUpdateRequest
     ) -> Dict[str, Any]:
-        """Update physiology parameters in the active genome and persist to state.
+        """Update physiology parameters in the active genome and persist to
+        state.
+
         Only whitelisted keys are accepted.
         """
         try:

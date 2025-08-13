@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,8 +30,7 @@ import zmq.asyncio
 
 
 class ZmqClient:
-    """
-    ZeroMQ client for connecting to a remote FEAGI ZMQ server.
+    """ZeroMQ client for connecting to a remote FEAGI ZMQ server.
 
     This client connects to all ZMQ patterns provided by the FEAGI ZMQ server:
     - Request-Reply: For traditional CRUD operations
@@ -54,8 +51,7 @@ class ZmqClient:
         topics: Optional[List[str]] = None,
         stream_topics: Optional[List[str]] = None,
     ):
-        """
-        Initialize a new ZMQ client.
+        """Initialize a new ZMQ client.
 
         Args:
             host: Host address to connect to
@@ -153,8 +149,7 @@ class ZmqClient:
     async def request(
         self, action: str, data: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """
-        Send a request to the server and wait for a response.
+        """Send a request to the server and wait for a response.
 
         Args:
             action: The action to perform
@@ -192,8 +187,7 @@ class ZmqClient:
     async def subscribe(
         self, topic: str, callback: Callable[[Dict[str, Any]], None]
     ):
-        """
-        Subscribe to a topic and register a callback for events.
+        """Subscribe to a topic and register a callback for events.
 
         Args:
             topic: Topic to subscribe to
@@ -212,8 +206,7 @@ class ZmqClient:
     async def unsubscribe(
         self, topic: str, callback: Optional[Callable] = None
     ):
-        """
-        Unsubscribe from a topic.
+        """Unsubscribe from a topic.
 
         Args:
             topic: Topic to unsubscribe from
@@ -240,8 +233,7 @@ class ZmqClient:
                     self._sub_socket.setsockopt_string(zmq.UNSUBSCRIBE, topic)
 
     async def push(self, data: Dict[str, Any]):
-        """
-        Push data to the server.
+        """Push data to the server.
 
         Args:
             data: Data to push
@@ -291,8 +283,7 @@ def create_zmq_client(
     topics: Optional[List[str]] = None,
     stream_topics: Optional[List[str]] = None,
 ) -> ZmqClient:
-    """
-    Create and start a ZeroMQ client.
+    """Create and start a ZeroMQ client.
 
     Args:
         host: Host address of the server to connect to.

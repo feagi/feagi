@@ -1,8 +1,7 @@
-"""
-FEAGI Test Runner
+"""FEAGI Test Runner.
 
-Main test runner that coordinates between different test modes and provides
-the common testing infrastructure.
+Main test runner that coordinates between different test modes and provides the
+common testing infrastructure.
 """
 
 import threading
@@ -15,8 +14,7 @@ logger = setup_logger("feagi.test_mode")
 
 
 class FeagiTestRunner:
-    """
-    Test runner for FEAGI sensory input processing.
+    """Test runner for FEAGI sensory input processing.
 
     This class provides functionality for:
     1. Loading a test genome
@@ -34,8 +32,7 @@ class FeagiTestRunner:
         test_duration=10,
         frequency_hz=10,
     ):
-        """
-        Initialize the test runner.
+        """Initialize the test runner.
 
         Args:
             core_api_service: FEAGI's core API service
@@ -97,8 +94,7 @@ class FeagiTestRunner:
             raise ValueError(f"Unknown test mode: {self.test_mode}")
 
     def load_genome(self):
-        """
-        Load the essential genome using the core API.
+        """Load the essential genome using the core API.
 
         Returns:
             bool: True if genome was loaded successfully, False otherwise
@@ -174,8 +170,7 @@ class FeagiTestRunner:
             return False
 
     def load_test_genome(self):
-        """
-        Load the test genome and prepare it for testing.
+        """Load the test genome and prepare it for testing.
 
         For test mode 1, this method loads test_genome_1.json which includes the cortical
         mappings needed for neural signal propagation during testing.
@@ -249,8 +244,7 @@ class FeagiTestRunner:
             return False
 
     def _load_test_mode_genome(self):
-        """
-        Load the appropriate test genome based on test mode.
+        """Load the appropriate test genome based on test mode.
 
         For test mode 1: Uses test_genome_1.json with intercortical mapping iic400 -> iic400
         For other modes: Uses essential genome
@@ -340,8 +334,7 @@ class FeagiTestRunner:
             return False
 
     def init_test_mode(self):
-        """
-        Initialize the selected test mode handler.
+        """Initialize the selected test mode handler.
 
         Returns:
             bool: True if initialization was successful, False otherwise
@@ -368,8 +361,7 @@ class FeagiTestRunner:
         )
 
     def inject_test_data(self):
-        """
-        Inject test data using the selected test mode handler.
+        """Inject test data using the selected test mode handler.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -386,8 +378,8 @@ class FeagiTestRunner:
     def submit_coordinate_activations(
         self, coordinate_activations, source_name
     ):
-        """
-        Submit coordinate-based activations directly to unified neural stimulation.
+        """Submit coordinate-based activations directly to unified neural
+        stimulation.
 
         This method accepts coordinates directly and converts them to the format
         expected by the unified neural stimulation system.
@@ -521,8 +513,7 @@ class FeagiTestRunner:
             return 0
 
     def check_neural_activity(self):
-        """
-        Check if there is any neural activity.
+        """Check if there is any neural activity.
 
         Returns:
             tuple: (activity_detected, list_of_active_areas)
@@ -595,8 +586,7 @@ class FeagiTestRunner:
         return activity_detected, active_fcls
 
     def check_neural_activity_with_burst_sync(self, max_wait_time=0.5):
-        """
-        Check for neural activity with burst engine synchronization.
+        """Check for neural activity with burst engine synchronization.
 
         PERFORMANCE: Uses event-driven approach instead of polling for RTOS/SIMD/GPU compatibility.
 
@@ -653,8 +643,7 @@ class FeagiTestRunner:
             return self.check_neural_activity()
 
     def run_test(self):
-        """
-        Run the test in a separate thread.
+        """Run the test in a separate thread.
 
         Returns:
             bool: True if test was started successfully, False otherwise
@@ -800,8 +789,7 @@ class FeagiTestRunner:
             self.is_running = False
 
     def get_test_result(self):
-        """
-        Get the test result.
+        """Get the test result.
 
         Returns:
             bool or None: True if test passed, False if failed, None if still running
@@ -809,8 +797,7 @@ class FeagiTestRunner:
         return self.test_result
 
     def is_test_running(self):
-        """
-        Check if the test is currently running.
+        """Check if the test is currently running.
 
         Returns:
             bool: True if test is running, False otherwise
@@ -819,8 +806,7 @@ class FeagiTestRunner:
 
 
 def run_test_mode(core_api_service, test_mode="mode_1", **kwargs):
-    """
-    Run FEAGI in test mode.
+    """Run FEAGI in test mode.
 
     Args:
         core_api_service: FEAGI's core API service

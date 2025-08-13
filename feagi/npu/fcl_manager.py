@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -74,7 +72,8 @@ class FCLError(Exception):
 
 
 class TimestepOutOfRangeError(FCLError):
-    """Error raised when a requested timestep is outside the available window."""
+    """Error raised when a requested timestep is outside the available
+    window."""
 
     pass
 
@@ -280,7 +279,8 @@ class NeuronCollectionType(Enum):
 # Wrapper for neuron collections to make type handling explicit
 @dataclass
 class NeuronCollection:
-    """Container for different types of neuron collections with explicit type."""
+    """Container for different types of neuron collections with explicit
+    type."""
 
     collection_type: NeuronCollectionType
     data: Union[BitMap, List[int], Set[int]]
@@ -310,24 +310,25 @@ class NeuronCollection:
 
 
 class FCLManager:
-    """
-    Manager for the Fire Candidate List (FCL) queue with support for memory corticals.
+    """Manager for the Fire Candidate List (FCL) queue with support for memory
+    corticals.
 
-    The FCLManager maintains data structures for tracking which neurons are firing
-    at the current timestep and which have fired in previous timesteps. It provides
-    methods for adding neurons to the FCL, advancing the temporal window, and
-    querying firing history.
+    The FCLManager maintains data structures for tracking which neurons are
+    firing at the current timestep and which have fired in previous timesteps.
+    It provides methods for adding neurons to the FCL, advancing the temporal
+    window, and querying firing history.
 
-    This implementation supports both standard cortical areas and memory cortical areas
-    with custom window sizes for enhanced temporal pattern recognition.
+    This implementation supports both standard cortical areas and memory
+    cortical areas with custom window sizes for enhanced temporal pattern
+    recognition.
 
-    This implementation is designed to be thread-safe and efficient for large-scale
-    neural simulations.
+    This implementation is designed to be thread-safe and efficient for large-
+    scale neural simulations.
     """
 
     def __init__(self, window_size: int = 20):
-        """
-        Initialize a hierarchical FCL that tracks both neurons and their cortical areas.
+        """Initialize a hierarchical FCL that tracks both neurons and their
+        cortical areas.
 
         Args:
             window_size: Default number of timesteps to maintain in history (also called default_window_size)
@@ -340,9 +341,9 @@ class FCLManager:
         # Dynamic window sizing integration with StateManager
         self._state_manager = None
         self._dynamic_sizing_enabled = False
-        self._cortical_window_sizes: Dict[
-            CorticalIdx, int
-        ] = {}  # Cache for dynamic window sizes
+        self._cortical_window_sizes: Dict[CorticalIdx, int] = (
+            {}
+        )  # Cache for dynamic window sizes
 
         # WGPU-COMPATIBLE: Pre-allocate BitMaps more efficiently
         # Main FCL history - stores all neurons regardless of cortical
@@ -377,7 +378,8 @@ class FCLManager:
         self._initialize_state_manager_integration()
 
     def _initialize_state_manager_integration(self) -> None:
-        """Initialize integration with StateManager for dynamic window sizing."""
+        """Initialize integration with StateManager for dynamic window
+        sizing."""
         try:
             from feagi.core.state_manager import get_state_manager
 
@@ -407,8 +409,8 @@ class FCLManager:
     def update_cortical_window_size(
         self, cortical_idx: CorticalIdx, new_window_size: int
     ) -> bool:
-        """
-        Update window size for a cortical area and resize its history if needed.
+        """Update window size for a cortical area and resize its history if
+        needed.
 
         Args:
             cortical_idx: Cortical area index
@@ -446,8 +448,8 @@ class FCLManager:
         return True
 
     def get_cortical_window_size(self, cortical_idx: CorticalIdx) -> int:
-        """
-        Get the window size for a specific cortical area with dynamic sizing support.
+        """Get the window size for a specific cortical area with dynamic sizing
+        support.
 
         Args:
             cortical_idx: ID of the cortical area
@@ -485,7 +487,8 @@ class FCLManager:
     def _get_cortical_id_from_index(
         self, cortical_idx: CorticalIdx
     ) -> Optional[str]:
-        """Convert cortical index to cortical ID using ConnectomeManager mapping."""
+        """Convert cortical index to cortical ID using ConnectomeManager
+        mapping."""
         try:
             from feagi.bdu.connectome_manager import ConnectomeManager
 
@@ -514,8 +517,7 @@ class FCLManager:
     def register_memory_cortical(
         self, cortical_idx: CorticalIdx, window_size: int
     ) -> None:
-        """
-        Register a memory-type cortical area with a custom window size.
+        """Register a memory-type cortical area with a custom window size.
 
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -546,8 +548,8 @@ class FCLManager:
         )
 
     def is_memory_cortical(self, cortical_idx: CorticalIdx) -> bool:
-        """
-        Check if a cortical area is registered as a memory-type area with custom window size.
+        """Check if a cortical area is registered as a memory-type area with
+        custom window size.
 
         Args:
             cortical_idx: Cortical ID to check
@@ -560,8 +562,8 @@ class FCLManager:
     def _get_custom_cortical_index(
         self, cortical_idx: CorticalIdx, timestep: int
     ) -> int:
-        """
-        Calculate the correct index in the custom window size history for a given cortical area and timestep.
+        """Calculate the correct index in the custom window size history for a
+        given cortical area and timestep.
 
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -593,8 +595,7 @@ class FCLManager:
         return (timestep - start_timestep) % window_size
 
     def _ensure_cortical_initialized(self, cortical_idx: CorticalIdx) -> None:
-        """
-        Ensure a cortical area is initialized in the FCL history.
+        """Ensure a cortical area is initialized in the FCL history.
 
         Args:
             cortical_idx: ID of the cortical area to initialize
@@ -607,8 +608,8 @@ class FCLManager:
             self.cortical_fcl_history[cortical_idx] = cortical_history
 
     def _get_index_for_timestep(self, timestep: Optional[int] = None) -> int:
-        """
-        Get the correct index in the standard FCL history for a given timestep.
+        """Get the correct index in the standard FCL history for a given
+        timestep.
 
         Args:
             timestep: Timestep to get index for, or None for current timestep
@@ -639,8 +640,8 @@ class FCLManager:
             CorticalIdx, Union[BitMap, List[int], Set[int]]
         ],
     ) -> None:
-        """
-        Update the FCL with neurons firing in the current timestep, with support for memory corticals.
+        """Update the FCL with neurons firing in the current timestep, with
+        support for memory corticals.
 
         Args:
             current_timestep: Current simulation timestep
@@ -701,9 +702,9 @@ class FCLManager:
 
                 # Clear and update the standard cortical bitmap
                 self.cortical_fcl_history[cortical_idx][standard_index].clear()
-                self.cortical_fcl_history[cortical_idx][standard_index] = (
-                    cortical_bitmap
-                )
+                self.cortical_fcl_history[cortical_idx][
+                    standard_index
+                ] = cortical_bitmap
 
             # Always update the global FCL (for all corticals)
             self.global_fcl_history[standard_index] = (
@@ -734,8 +735,7 @@ class FCLManager:
             )
 
     def get_global_fcl(self, timestep: Optional[int] = None) -> BitMap:
-        """
-        Get the complete FCL for a specific timestep.
+        """Get the complete FCL for a specific timestep.
 
         Args:
             timestep: Specific timestep to query (defaults to current)
@@ -752,9 +752,8 @@ class FCLManager:
     def get_cortical_fcl(
         self, cortical_idx: CorticalIdx, timestep: Optional[int] = None
     ) -> BitMap:
-        """
-        Get FCL for a specific cortical area at a specific timestep.
-        Handles both standard and memory cortical areas.
+        """Get FCL for a specific cortical area at a specific timestep. Handles
+        both standard and memory cortical areas.
 
         Args:
             cortical_idx: ID of the cortical area to query (must be integer)
@@ -799,9 +798,8 @@ class FCLManager:
     def get_fcl_by_cortical(
         self, timestep: Optional[int] = None
     ) -> Dict[CorticalIdx, BitMap]:
-        """
-        Return a dictionary mapping each cortical area to its firing neurons.
-        Handles both standard and memory cortical areas.
+        """Return a dictionary mapping each cortical area to its firing
+        neurons. Handles both standard and memory cortical areas.
 
         Args:
             timestep: Optional timestep to query (defaults to current timestep)
@@ -831,9 +829,8 @@ class FCLManager:
     def get_active_corticals(
         self, timestep: Optional[int] = None
     ) -> Set[CorticalIdx]:
-        """
-        Get cortical areas that have firing neurons at the specified timestep.
-        Handles both standard and memory cortical areas.
+        """Get cortical areas that have firing neurons at the specified
+        timestep. Handles both standard and memory cortical areas.
 
         Args:
             timestep: Optional timestep (defaults to current)
@@ -866,9 +863,9 @@ class FCLManager:
     def get_cortical_temporal_pattern(
         self, cortical_idx: CorticalIdx, n_steps: int
     ) -> BitMap:
-        """
-        Get combined firing pattern for a memory-type cortical area over multiple timesteps.
-        Similar to get_neurons_fired_in_last_n_steps but optimized for memory areas.
+        """Get combined firing pattern for a memory-type cortical area over
+        multiple timesteps. Similar to get_neurons_fired_in_last_n_steps but
+        optimized for memory areas.
 
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -913,8 +910,8 @@ class FCLManager:
         pattern_duration: int,
         window_duration: int,
     ) -> float:
-        """
-        Calculate how consistently a pattern has been maintained in a memory cortical.
+        """Calculate how consistently a pattern has been maintained in a memory
+        cortical.
 
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -994,8 +991,8 @@ class FCLManager:
     def get_consistent_neurons_in_memory_cortical(
         self, cortical_idx: CorticalIdx, n_steps: int
     ) -> BitMap:
-        """
-        Get neurons in a memory cortical area that fired consistently across all specified timesteps.
+        """Get neurons in a memory cortical area that fired consistently across
+        all specified timesteps.
 
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -1053,9 +1050,8 @@ class FCLManager:
         cortical_indices: List[CorticalIdx],
         timestep: Optional[int] = None,
     ) -> BitMap:
-        """
-        Get neurons firing in any of the specified cortical areas.
-        Handles both standard and memory cortical areas.
+        """Get neurons firing in any of the specified cortical areas. Handles
+        both standard and memory cortical areas.
 
         Args:
             cortical_indices: List of cortical area IDs to query
@@ -1082,9 +1078,9 @@ class FCLManager:
         n_steps: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that fired in any of the last n timesteps.
-        Optionally filter by specific cortical areas. Handles both standard and memory cortical areas.
+        """Get neurons that fired in any of the last n timesteps. Optionally
+        filter by specific cortical areas. Handles both standard and memory
+        cortical areas.
 
         Args:
             n_steps: Number of timesteps to look back
@@ -1144,8 +1140,7 @@ class FCLManager:
         n_steps: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that fired in ALL of the last n timesteps.
+        """Get neurons that fired in ALL of the last n timesteps.
 
         Args:
             n_steps: Number of timesteps to look back
@@ -1197,8 +1192,7 @@ class FCLManager:
         end_time: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that became active between start and end times.
+        """Get neurons that became active between start and end times.
 
         Args:
             start_time: Starting timestep
@@ -1250,8 +1244,7 @@ class FCLManager:
         time2: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that fired at either time1 or time2, but not both.
+        """Get neurons that fired at either time1 or time2, but not both.
         Useful for detecting changes in firing patterns.
 
         Args:
@@ -1287,9 +1280,8 @@ class FCLManager:
         timestep: Optional[int] = None,
         cortical_idx: Optional[CorticalIdx] = None,
     ) -> int:
-        """
-        Efficiently count the number of firing neurons.
-        Handles both standard and memory cortical areas.
+        """Efficiently count the number of firing neurons. Handles both
+        standard and memory cortical areas.
 
         Args:
             timestep: Optional timestep (defaults to current)
@@ -1318,8 +1310,7 @@ class FCLManager:
             return len(cortical_fcl)
 
     def get_firing_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about firing patterns across the FCL history.
+        """Get statistics about firing patterns across the FCL history.
 
         Returns:
             Dictionary with statistics about firing neurons and active corticals
@@ -1342,9 +1333,7 @@ class FCLManager:
     # Methods for two-phase membrane potential update process
 
     def advance_timestep(self) -> None:
-        """
-        Advance to the next timestep, shifting FCL history.
-        """
+        """Advance to the next timestep, shifting FCL history."""
         self.current_timestep += 1
         self.current_window_index = (
             self.current_window_index + 1
@@ -1380,8 +1369,7 @@ class FCLManager:
         delta_potential: float,
         source_neuron_idx: Optional[int] = None,
     ) -> None:
-        """
-        Queue an update to a neuron's membrane potential.
+        """Queue an update to a neuron's membrane potential.
 
         Args:
             neuron_idx: Index of the neuron to update
@@ -1400,8 +1388,8 @@ class FCLManager:
         )
 
     def process_update_queue(self) -> List[Tuple[int, float]]:
-        """
-        Process the membrane potential update queue, aggregating updates per neuron.
+        """Process the membrane potential update queue, aggregating updates per
+        neuron.
 
         Returns:
             List of (neuron_idx, total_delta) tuples with the final updates
@@ -1432,8 +1420,8 @@ class FCLManager:
         return aggregated_updates
 
     def get_firing_neurons(self, offset: int = -1) -> List[int]:
-        """
-        Get list of neuron indices that are in the FCL at the specified offset.
+        """Get list of neuron indices that are in the FCL at the specified
+        offset.
 
         Args:
             offset: Timestep offset (-1 for previous timestep, which is the firing phase)
@@ -1449,8 +1437,7 @@ class FCLManager:
     def add_to_current_fcl(
         self, neuron_indices: Union[List[int], Set[int], BitMap]
     ) -> None:
-        """
-        Add neurons to the current timestep's FCL.
+        """Add neurons to the current timestep's FCL.
 
         Args:
             neuron_indices: Indices of neurons to add to current FCL
@@ -1471,8 +1458,7 @@ class FCLManager:
         self.total_neurons_fired += len(neuron_bitmap)
 
     def get_fcl(self, offset: int = 0) -> BitMap:
-        """
-        Get the FCL for a specific timestep relative to current.
+        """Get the FCL for a specific timestep relative to current.
 
         Args:
             offset: Timestep offset (0 for current, -1 for previous, etc.)
@@ -1554,7 +1540,8 @@ def example_fcl_usage() -> None:
 
 
 def example_enhanced_fcl_usage() -> None:
-    """Example showing the usage of the EnhancedFCLManager with memory corticals."""
+    """Example showing the usage of the EnhancedFCLManager with memory
+    corticals."""
     # Create manager
     fcl_manager = FCLManager(window_size=5)
 
@@ -1632,8 +1619,8 @@ def example_enhanced_fcl_usage() -> None:
 def inject_neurons_into_fcl(
     fcl_manager, cortical_idx, neuron_ids, timestep=None
 ):
-    """
-    Helper function to inject neurons into an FCL for a specific cortical area.
+    """Helper function to inject neurons into an FCL for a specific cortical
+    area.
 
     Args:
         fcl_manager: FCL manager instance

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,8 +30,7 @@ api_queue = queue.Queue()
 
 
 class CustomError(Exception):
-    """
-    Custom error class for API-specific exceptions.
+    """Custom error class for API-specific exceptions.
 
     Attributes:
         message: Error message
@@ -47,8 +44,7 @@ class CustomError(Exception):
         status_code: int = 500,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize the custom error.
+        """Initialize the custom error.
 
         Args:
             message: Error message
@@ -61,8 +57,7 @@ class CustomError(Exception):
         super().__init__(self.message)
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the error to a dictionary representation.
+        """Convert the error to a dictionary representation.
 
         Returns:
             Dictionary containing error information
@@ -76,8 +71,8 @@ class CustomError(Exception):
 
 
 async def check_brain_running(request: Request):
-    """
-    Dependency to check if the brain is running.
+    """Dependency to check if the brain is running.
+
     Raises an HTTPException if the brain is not running.
     """
     from feagi.api.rest.dependencies import get_connectome
@@ -106,8 +101,8 @@ async def check_brain_running(request: Request):
 
 
 async def check_active_genome(request: Request):
-    """
-    Dependency to check if there is an active genome.
+    """Dependency to check if there is an active genome.
+
     Raises an HTTPException if no genome is loaded.
     """
     from feagi.api.rest.dependencies import get_core_api_service
@@ -123,8 +118,8 @@ async def check_active_genome(request: Request):
 
 
 async def check_burst_engine(request: Request):
-    """
-    Dependency to check if the burst engine is running.
+    """Dependency to check if the burst engine is running.
+
     Raises an HTTPException if the burst engine is not ready.
     """
     from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -137,10 +132,9 @@ async def check_burst_engine(request: Request):
 
 
 async def check_burst_engine_or_allow_genome_ops(request: Request):
-    """
-    Similar to check_burst_engine, but also allows genome operations and burst engine control operations
-    when the burst engine is not yet running.
-    """
+    """Similar to check_burst_engine, but also allows genome operations and
+    burst engine control operations when the burst engine is not yet
+    running."""
     from feagi.core.state_manager import FeagiStateManager, ServiceState
 
     # Skip the check for genome loading/initial operations
@@ -164,10 +158,9 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
 
 
 async def check_burst_engine_or_allow_config_ops(request: Request):
-    """
-    Similar to check_burst_engine, but also allows configuration operations
-    like getting simulation_timestep when the burst engine is not yet running.
-    """
+    """Similar to check_burst_engine, but also allows configuration operations
+    like getting simulation_timestep when the burst engine is not yet
+    running."""
 
     # Allow configuration/read-only operations even when burst engine not READY
     config_read_endpoints = [
@@ -189,8 +182,8 @@ async def check_burst_engine_or_allow_config_ops(request: Request):
 
 
 async def check_burst_engine_for_processing(request: Request):
-    """
-    Check burst engine for operations that require active neural processing.
+    """Check burst engine for operations that require active neural processing.
+
     Blocks if engine is ON_HOLD (paused).
     """
     from feagi.core.state_manager import FeagiStateManager, ServiceState

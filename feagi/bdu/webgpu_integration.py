@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -131,8 +129,10 @@ class ConnectomeManagerWebGPU:
         )
 
     def _allocate_buffers(self):
-        """Allocate GPU buffers for neuron and synapse data with proper alignment."""
-        """Update GPU buffers with current neuron data using staging buffers."""
+        """Allocate GPU buffers for neuron and synapse data with proper
+        alignment."""
+        """Update GPU buffers with current neuron data using staging
+        buffers."""
         start_time = time.time()
 
         # Get neuron array
@@ -196,9 +196,9 @@ class ConnectomeManagerWebGPU:
 
         staging_thresholds = self.staging_buffers["thresholds"]
         staging_thresholds.map_write()
-        staging_thresholds.write_mapped_view().reshape(thresholds.shape)[:] = (
-            thresholds
-        )
+        staging_thresholds.write_mapped_view().reshape(thresholds.shape)[
+            :
+        ] = thresholds
         staging_thresholds.unmap()
 
         staging_ref_periods = self.staging_buffers["refractory_periods"]
@@ -217,16 +217,16 @@ class ConnectomeManagerWebGPU:
 
         staging_active = self.staging_buffers["is_active"]
         staging_active.map_write()
-        staging_active.write_mapped_view().reshape(is_active.shape)[:] = (
-            is_active
-        )
+        staging_active.write_mapped_view().reshape(is_active.shape)[
+            :
+        ] = is_active
         staging_active.unmap()
 
         staging_valid = self.staging_buffers["valid_mask"]
         staging_valid.map_write()
-        staging_valid.write_mapped_view().reshape(valid_mask.shape)[:] = (
-            valid_mask
-        )
+        staging_valid.write_mapped_view().reshape(valid_mask.shape)[
+            :
+        ] = valid_mask
         staging_valid.unmap()
 
         # Create command encoder to copy from staging buffers to device buffers

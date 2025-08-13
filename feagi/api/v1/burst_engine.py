@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -89,7 +87,8 @@ class BurstEngineAPI:
 
     @burst_engine_endpoint("GET", "/simulation_timestep")
     def get_simulation_timestep(self) -> float:
-        """Returns the simulation timestep (time between neural bursts) in seconds."""
+        """Returns the simulation timestep (time between neural bursts) in
+        seconds."""
         try:
             burst_timer = self.core_api_service.get_burst_timer()
             return burst_timer if burst_timer is not None else 0.0
@@ -436,8 +435,7 @@ class BurstEngineAPI:
     async def trigger_frequency_measurement(
         self, duration_seconds: float = 5.0, sample_count: int = 100
     ) -> Dict[str, Any]:
-        """
-        Trigger an on-demand burst frequency measurement.
+        """Trigger an on-demand burst frequency measurement.
 
         This is an expensive operation that measures actual burst engine performance
         over a specified period. Use sparingly for monitoring/debugging purposes.
@@ -475,8 +473,7 @@ class BurstEngineAPI:
     async def get_frequency_measurement_history(
         self, limit: int = 10
     ) -> Dict[str, Any]:
-        """
-        Get the history of frequency measurements.
+        """Get the history of frequency measurements.
 
         Args:
             limit: Maximum number of recent measurements to return (default 10, max 100)
@@ -510,8 +507,7 @@ class BurstEngineAPI:
         "GET", "/frequency_status", response_model=Dict[str, Any]
     )
     async def get_frequency_status(self) -> Dict[str, Any]:
-        """
-        Get current frequency status and latest measurement.
+        """Get current frequency status and latest measurement.
 
         Returns:
             Dictionary with frequency status, target frequency, and latest measurement
@@ -533,8 +529,7 @@ class BurstEngineAPI:
 def create_burst_engine_api(
     core_api_service: CoreAPIService,
 ) -> BurstEngineAPI:
-    """
-    Factory function to create a BurstEngineAPI instance.
+    """Factory function to create a BurstEngineAPI instance.
 
     This function can be used by transport adapters to get a configured
     BurstEngineAPI instance with the required dependencies.

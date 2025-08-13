@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -117,8 +115,7 @@ class ProcessManager:
         cli_args: Optional[Dict[str, Any]] = None,
         explicit_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """
-        Load and validate port configuration from TOML configuration.
+        """Load and validate port configuration from TOML configuration.
 
         This method enforces the principle that NO hardcoded defaults should exist for
         network configuration. All hosts and ports must come from explicit configuration.
@@ -228,8 +225,7 @@ class ProcessManager:
         return None
 
     def init_critical_processes(self, config: Dict[str, Any]) -> bool:
-        """
-        Initialize Priority 1 (Critical) processes.
+        """Initialize Priority 1 (Critical) processes.
 
         These processes are essential for FEAGI's core operation:
         - Connectome Manager (neural structure and arrays)
@@ -380,8 +376,7 @@ class ProcessManager:
             return False
 
     def init_important_processes(self, config: Dict[str, Any]) -> bool:
-        """
-        Initialize Priority 2 (Important) processes.
+        """Initialize Priority 2 (Important) processes.
 
         These processes handle important but less time-critical operations:
         - FCL Sampler
@@ -558,14 +553,10 @@ class ProcessManager:
                 # Use "*" (all interfaces) for binding when host is loopback on Windows
                 import platform
 
-                if (
-                    platform.system() == "Windows"
-                    and zmq_host
-                    in [
-                        "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
-                        "localhost",  # @architecture:acceptable - Windows compatibility fix
-                    ]
-                ):
+                if platform.system() == "Windows" and zmq_host in [
+                    "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
+                    "localhost",  # @architecture:acceptable - Windows compatibility fix
+                ]:
                     logger.info(
                         f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding"
                     )
@@ -589,17 +580,17 @@ class ProcessManager:
                         if sensory_enabled
                         else None
                     ),
-                    "motor": port_config.zmq_motor_port
-                    if motor_enabled
-                    else None,
+                    "motor": (
+                        port_config.zmq_motor_port if motor_enabled else None
+                    ),
                     "visualization": (
                         port_config.zmq_visualization_port
                         if visualization_enabled
                         else None
                     ),
-                    "rest": port_config.zmq_rest_port
-                    if rest_enabled
-                    else None,
+                    "rest": (
+                        port_config.zmq_rest_port if rest_enabled else None
+                    ),
                 }
 
                 logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
@@ -616,12 +607,12 @@ class ProcessManager:
                         if sensory_enabled
                         else None
                     ),
-                    motor_port=port_config.zmq_motor_port
-                    if motor_enabled
-                    else None,
-                    rest_port=port_config.zmq_rest_port
-                    if rest_enabled
-                    else None,
+                    motor_port=(
+                        port_config.zmq_motor_port if motor_enabled else None
+                    ),
+                    rest_port=(
+                        port_config.zmq_rest_port if rest_enabled else None
+                    ),
                     vis_port=(
                         port_config.zmq_visualization_port
                         if visualization_enabled
@@ -794,9 +785,11 @@ class ProcessManager:
                             self._sleep_manager = SleepManager(
                                 fcl_manager=self._fcl_manager,
                                 connectome_manager=self._connectome_manager,
-                                memory_processor=self._burst_engine.memory_processor
-                                if self._burst_engine
-                                else None,
+                                memory_processor=(
+                                    self._burst_engine.memory_processor
+                                    if self._burst_engine
+                                    else None
+                                ),
                                 window_bursts=int(
                                     sm_cfg["fcl_low_activity_window_bursts"]
                                 ),
@@ -841,8 +834,7 @@ class ProcessManager:
             return False
 
     def init_background_processes(self, config: Dict[str, Any]) -> bool:
-        """
-        Initialize Priority 3 (Background) processes.
+        """Initialize Priority 3 (Background) processes.
 
         RUST/RTOS COMPATIBLE: Uses direct task spawning instead of subprocesses.
         All services run in the same process space with shared memory access.
@@ -1020,10 +1012,10 @@ class ProcessManager:
             return False
 
     def _start_api_service_task(self, config: Dict[str, Any]) -> Optional[Any]:
-        """
-        Start API service as async task instead of subprocess.
+        """Start API service as async task instead of subprocess.
 
-        RUST/RTOS COMPATIBLE: This pattern translates directly to Rust async tasks.
+        RUST/RTOS COMPATIBLE: This pattern translates directly to Rust async
+        tasks.
         """
         try:
             import asyncio
@@ -1082,8 +1074,7 @@ class ProcessManager:
             return None
 
     def start(self, config: Dict[str, Any]) -> bool:
-        """
-        Start all FEAGI processes in priority order.
+        """Start all FEAGI processes in priority order.
 
         Args:
             config: Configuration for all processes
@@ -1164,11 +1155,11 @@ class ProcessManager:
         self._monitor_thread.start()
 
     def _check_processes(self):
-        """
-        Check all tasks and processes and restart any that have failed.
+        """Check all tasks and processes and restart any that have failed.
 
         RUST/RTOS COMPATIBLE: Monitors both async tasks and legacy processes.
-        In Rust, this would be integrated with the async runtime's task monitoring.
+        In Rust, this would be integrated with the async runtime's task
+        monitoring.
         """
         for name, service in self._processes.items():
             try:
@@ -1228,10 +1219,10 @@ class ProcessManager:
         return self._zmq_server
 
     def shutdown(self) -> None:
-        """
-        Gracefully shutdown all FEAGI processes and services.
+        """Gracefully shutdown all FEAGI processes and services.
 
-        Uses configurable timeout values from TOML configuration instead of hardcoded values.
+        Uses configurable timeout values from TOML configuration instead of
+        hardcoded values.
         """
         # @cursor:critical-path - Signal-safe shutdown should minimize logging
         try:
@@ -1454,8 +1445,8 @@ class ProcessManager:
         self.shutdown()
 
     def update_area_sample_rate(self, cortical_id, rate):
-        """
-        Update sample rate for specific cortical areas in the appropriate FQ sampler.
+        """Update sample rate for specific cortical areas in the appropriate FQ
+        sampler.
 
         Args:
             cortical_id: ID of the cortical area
@@ -1523,8 +1514,8 @@ class ProcessManager:
     def update_visualization_stream_frequency(
         self, new_frequency: float
     ) -> int:
-        """
-        Update visualization stream frequency to sync with FQ sampler frequency.
+        """Update visualization stream frequency to sync with FQ sampler
+        frequency.
 
         CRITICAL FIX: Visualization streams use their own timing (sample_rate),
         independent of FQ sampler frequency. This method updates both.
@@ -1577,8 +1568,7 @@ class ProcessManager:
         return updated_count
 
     def create_fq_sampler(self, mode: str, frequency: float) -> bool:
-        """
-        Create and register FQ sampler of the specified mode.
+        """Create and register FQ sampler of the specified mode.
 
         Args:
             mode: Sampling mode ('visualization', 'opu')
@@ -1791,8 +1781,7 @@ class ProcessManager:
             return False
 
     def disable_fq_sampler(self, mode: str):
-        """
-        Disable and destroy FQ sampler of the specified mode.
+        """Disable and destroy FQ sampler of the specified mode.
 
         Args:
             mode: Sampling mode to disable ('visualization', 'opu')
@@ -1866,8 +1855,7 @@ class ProcessManager:
             logger.error(f"Error disabling FQ sampler ({mode}): {e}")
 
     def _setup_genome_load_event_handling(self):
-        """
-        Set up event handling for genome load events.
+        """Set up event handling for genome load events.
 
         When a genome is successfully loaded, this will automatically start the burst engine.
         This implements the design requirement: "upon genome load, burst engine transitions to running"
@@ -1903,8 +1891,7 @@ class ProcessManager:
             )
 
     def _handle_genome_loaded_event(self, event):
-        """
-        Handle genome loaded event by starting the burst engine.
+        """Handle genome loaded event by starting the burst engine.
 
         Args:
             event: The genome loaded event containing filename and cortical area count
@@ -1981,7 +1968,10 @@ def get_process_manager() -> ProcessManager:
 
 
 def reset_process_manager() -> None:
-    """Reset the global ProcessManager instance. USE WITH CAUTION - only for testing or emergency cleanup."""
+    """Reset the global ProcessManager instance.
+
+    USE WITH CAUTION - only for testing or emergency cleanup.
+    """
     global _process_manager
     if _process_manager is not None:
         logger.warning("[SINGLETON] Resetting ProcessManager instance")
@@ -1997,8 +1987,7 @@ def reset_process_manager() -> None:
 
 
 def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
-    """
-    Start all FEAGI processes based on configuration.
+    """Start all FEAGI processes based on configuration.
 
     Args:
         startup_config: Configuration for process startup
@@ -2144,8 +2133,7 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
 
 
 class SleepManager:
-    """
-    Background task that detects periods of low FCL activity and triggers
+    """Background task that detects periods of low FCL activity and triggers
     memory maintenance tasks such as pattern-map GC and consolidation.
 
     Configuration is provided via TOML and must include:

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -87,11 +85,10 @@ __all__ = [
 
 
 def _is_debug_bdu_enabled() -> bool:
-    """
-    Check if BDU (Brain Development Unit) debugging is enabled.
+    """Check if BDU (Brain Development Unit) debugging is enabled.
 
-        Returns:
-        True if BDU debugging is enabled, False otherwise
+    Returns:
+    True if BDU debugging is enabled, False otherwise
     """
     try:
         from feagi.core.state_manager import FeagiStateManager
@@ -148,15 +145,14 @@ class MorphologyFunction(Enum):
 def linearize_position(
     position: Position, dimensions: Position
 ) -> LinearPosition:
-    """
-    Convert a 3D position to a linearized 1D index.
+    """Convert a 3D position to a linearized 1D index.
 
-        Args:
-        position: 3D position (x, y, z)
-        dimensions: Dimensions of the cortical area (width, height, depth)
+    Args:
+    position: 3D position (x, y, z)
+    dimensions: Dimensions of the cortical area (width, height, depth)
 
-        Returns:
-        Linearized position index
+    Returns:
+    Linearized position index
     """
     x, y, z = position
     width, height, depth = dimensions
@@ -166,15 +162,14 @@ def linearize_position(
 def delinearize_position(
     linear_pos: LinearPosition, dimensions: Position
 ) -> Position:
-    """
-    Convert a linearized 1D index back to a 3D position.
+    """Convert a linearized 1D index back to a 3D position.
 
-        Args:
-        linear_pos: Linearized position index
-        dimensions: Dimensions of the cortical area (width, height, depth)
+    Args:
+    linear_pos: Linearized position index
+    dimensions: Dimensions of the cortical area (width, height, depth)
 
-        Returns:
-        3D position (x, y, z)
+    Returns:
+    3D position (x, y, z)
     """
     width, height, depth = dimensions
     z = linear_pos // (width * height)
@@ -185,14 +180,13 @@ def delinearize_position(
 
 
 def preprocess_expression(expr: str) -> str:
-    """
-    Preprocess algebraic expressions for evaluation.
+    """Preprocess algebraic expressions for evaluation.
 
-        Args:
-        expr: Expression string
+    Args:
+    expr: Expression string
 
-        Returns:
-        Preprocessed expression string
+    Returns:
+    Preprocessed expression string
     """
     # Add * for implicit multiplication (e.g., 2x -> 2*x)
     expr = re.sub(r"(\d)([a-zA-Z])", r"\1*\2", expr)
@@ -202,15 +196,14 @@ def preprocess_expression(expr: str) -> str:
 
 
 def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
-    """
-    Evaluate an algebraic expression with the given x, y, z values.
+    """Evaluate an algebraic expression with the given x, y, z values.
 
-        Args:
-        expr: Expression string or integer value
-        x, y, z: Variable values
+    Args:
+    expr: Expression string or integer value
+    x, y, z: Variable values
 
-        Returns:
-        Evaluated integer result
+    Returns:
+    Evaluated integer result
     """
     if isinstance(expr, (int, float)):
         return int(expr)
@@ -226,8 +219,7 @@ def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
 
 
 def neighbor_finder(position, neighbor_range=1, include_self=False):
-    """
-    Find all neighboring positions within a given range.
+    """Find all neighboring positions within a given range.
 
     Args:
         position: 3D position as (x, y, z)
@@ -279,8 +271,7 @@ def find_candidate_neurons(
     memory_register: Dict[AreaId, Set[AreaId]],
     morphology_id_overwrite: Optional[str] = None,
 ) -> List[Tuple[NeuronId, float]]:
-    """
-    Find candidate neurons in the destination area for synaptic connections.
+    """Find candidate neurons in the destination area for synaptic connections.
 
     This is the main entry point for synaptogenesis rules. It determines which neurons
     in the destination area should be connected to the source neuron based on

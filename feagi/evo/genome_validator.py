@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
-"""
-Provides a series of methods to validate genome syntax
+"""Provides a series of methods to validate genome syntax.
 
 Supporting Genome Versions: 2.0
 """
@@ -180,7 +177,10 @@ def morphology_validator(genome):
 
 
 def _gene_segments_validator(gene_, verbose=True):
-    """Validate gene segment structure. Returns True if valid, False otherwise."""
+    """Validate gene segment structure.
+
+    Returns True if valid, False otherwise.
+    """
     guide = genome_properties["structure"]["segment_guide"].split(
         genome_properties["structure"]["segment_seperator"]
     )
@@ -225,7 +225,10 @@ def _gene_segments_validator(gene_, verbose=True):
 def _destination_rules_validator(
     gene_, blueprint, cortical_list, neuron_morphologies, verbose=True
 ):
-    """Validate destination rules for a gene. Returns True if valid, False otherwise."""
+    """Validate destination rules for a gene.
+
+    Returns True if valid, False otherwise.
+    """
     segments = gene_.split(genome_properties["structure"]["segment_seperator"])
     if segments[3] == "dstmap":
         for destination in blueprint[gene_]:
@@ -264,7 +267,10 @@ def _destination_rules_validator(
 
 
 def _special_areas_validator(gene_, blueprint, verbose=True):
-    """Validate special areas for a gene. Returns True if valid, False otherwise."""
+    """Validate special areas for a gene.
+
+    Returns True if valid, False otherwise.
+    """
     segments = gene_.split(genome_properties["structure"]["segment_seperator"])
     special_core_types = {"IPU", "OPU", "CORE"}
     cortical_area = segments[1]
@@ -304,8 +310,7 @@ def _special_areas_validator(gene_, blueprint, verbose=True):
 
 
 def validate_cortical_parameters(blueprint):
-    """
-    Validate cortical area parameters for correct types and ranges.
+    """Validate cortical area parameters for correct types and ranges.
 
     This function validates parameters like excitability, thresholds, etc.
     to ensure they are within acceptable ranges and types.
@@ -414,9 +419,8 @@ def validate_cortical_parameters(blueprint):
 
 
 def blueprint_validator(genome):
-    """
-    Responsible for validating integrity of genome by checking correctness of
-    segments and references.
+    """Responsible for validating integrity of genome by checking correctness
+    of segments and references.
 
     This function ensures:
     - Gene structure follows expected format
@@ -461,7 +465,8 @@ def blueprint_validator(genome):
 
     # Skip invalid cortical area IDs with warnings instead of failing validation
     def check_cortical_area_validity():
-        """Check for invalid cortical area IDs and warn about them, but don't fail validation."""
+        """Check for invalid cortical area IDs and warn about them, but don't
+        fail validation."""
         invalid_areas = []
 
         for gene in blueprint:
@@ -580,8 +585,8 @@ def print_validity(validity_status):
 
 
 def add_missing_dimension_sensitive_fields(genome):
-    """
-    Add missing dimension_sensitive fields to morphologies with type-based defaults.
+    """Add missing dimension_sensitive fields to morphologies with type-based
+    defaults.
 
     This function ensures backward compatibility by automatically adding the dimension_sensitive
     field to existing morphologies based on their type:
@@ -645,8 +650,7 @@ def genome_validator(genome):
 
 
 def genome_validator_with_errors(genome):
-    """
-    Enhanced genome validator that returns detailed validation results.
+    """Enhanced genome validator that returns detailed validation results.
 
     This function provides the same validation logic as genome_validator()
     but returns detailed error information instead of just a boolean result.
@@ -711,8 +715,7 @@ def genome_validator_with_errors(genome):
 
 
 def auto_correct_ipu_assignments(genome):
-    """
-    Auto-correct IPU assignments that are not supported.
+    """Auto-correct IPU assignments that are not supported.
 
     This function detects areas assigned to IPU type that should be CUSTOM type,
     and automatically corrects them based on the supported IPU list in templates.
@@ -799,8 +802,8 @@ def auto_correct_ipu_assignments(genome):
 
 
 def auto_correct_invalid_ipu_opu_areas(genome):
-    """
-    Auto-correct cortical areas that are assigned to IPU/OPU but have invalid cortical IDs.
+    """Auto-correct cortical areas that are assigned to IPU/OPU but have
+    invalid cortical IDs.
 
     This function detects cortical areas assigned to IPU or OPU types but with
     cortical IDs that aren't supported for those types, and automatically converts
@@ -917,8 +920,7 @@ def auto_correct_invalid_ipu_opu_areas(genome):
 
 
 def remove_invalid_cortical_areas(genome):
-    """
-    Remove cortical areas with completely invalid IDs from the genome.
+    """Remove cortical areas with completely invalid IDs from the genome.
 
     This function only removes cortical areas that have no group definition at all
     (likely typos with no valid structure). Areas with invalid IPU/OPU assignments
@@ -1000,9 +1002,8 @@ def remove_invalid_cortical_areas(genome):
 
 
 def sanitize_invalid_morphologies(genome):
-    """
-    Detect and remove invalid morphologies from the genome during auto-recovery.
-    Also adds missing required neuron properties with default values.
+    """Detect and remove invalid morphologies from the genome during auto-
+    recovery. Also adds missing required neuron properties with default values.
 
     This function identifies morphologies that are missing required fields and removes them,
     also cleaning up any blueprint references to those invalid morphologies.
@@ -1316,8 +1317,8 @@ def sanitize_invalid_morphologies(genome):
 
 
 def sanitize_missing_physiology(genome):
-    """
-    Detect and add missing physiology properties from the genome during auto-recovery.
+    """Detect and add missing physiology properties from the genome during
+    auto-recovery.
 
     This function ensures the physiology section exists and contains all required properties
     with appropriate default values from the physiology_template.
@@ -1413,8 +1414,7 @@ def sanitize_missing_physiology(genome):
 
 
 def validate_physiology_section(genome):
-    """
-    Validate the physiology section of the genome.
+    """Validate the physiology section of the genome.
 
     Args:
         genome: The genome data to validate
@@ -1502,8 +1502,8 @@ def validate_physiology_section(genome):
 
 
 def auto_correct_cortical_area_types(genome):
-    """
-    Auto-correct cortical area type assignments when cortical IDs belong to CORE type.
+    """Auto-correct cortical area type assignments when cortical IDs belong to
+    CORE type.
 
     This function detects when cortical areas are assigned to wrong types (e.g., IPU or OPU)
     when they should be CORE type based on their cortical_id, and automatically corrects them.
@@ -1599,8 +1599,7 @@ def auto_correct_cortical_area_types(genome):
 
 
 def migrate_burst_delay_to_simulation_timestep(genome):
-    """
-    Migrate burst_delay to simulation_timestep for backward compatibility.
+    """Migrate burst_delay to simulation_timestep for backward compatibility.
 
     This function ensures old genomes using burst_delay are automatically converted
     to use the new simulation_timestep key during validation.
@@ -1683,8 +1682,7 @@ def migrate_burst_delay_to_simulation_timestep(genome):
 
 
 def migrate_legacy_cortical_ids(genome):
-    """
-    Migrate legacy cortical IDs to new format for backward compatibility.
+    """Migrate legacy cortical IDs to new format for backward compatibility.
 
     This function detects old cortical ID formats used in customer genomes
     and automatically converts them to the new format used by feagi_data_processing.
@@ -1859,8 +1857,8 @@ def migrate_legacy_cortical_ids(genome):
 
 
 def blueprint_validator_silent(genome):
-    """
-    Silent version of blueprint_validator that doesn't log errors.
+    """Silent version of blueprint_validator that doesn't log errors.
+
     Used for initial validation checks before auto-recovery.
     """
     valid_genome = False
@@ -1936,9 +1934,8 @@ def blueprint_validator_silent(genome):
 
 
 def genome_validator_with_errors_silent(genome):
-    """
-    Silent version of genome validation that doesn't log errors.
-    Used for initial validation checks before auto-recovery.
+    """Silent version of genome validation that doesn't log errors. Used for
+    initial validation checks before auto-recovery.
 
     Args:
         genome: The genome data to validate
@@ -2075,7 +2072,8 @@ def morphology_validator_silent(genome):
 
 
 def validate_physiology_section_silent(genome):
-    """Silent version of validate_physiology_section that doesn't log errors."""
+    """Silent version of validate_physiology_section that doesn't log
+    errors."""
     errors = []
 
     # Check if physiology section exists

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,8 +40,7 @@ logger = setup_logger(__name__)
 def analyze_running_feagi(
     runtime_seconds: int = 30, output_file: str = None
 ) -> str:
-    """
-    Analyze a running FEAGI instance.
+    """Analyze a running FEAGI instance.
 
     Args:
         runtime_seconds: How long to monitor (default 30 seconds)
@@ -139,8 +136,7 @@ def analyze_running_feagi(
 
 
 def analyze_feagi_startup(config_file: str = None) -> str:
-    """
-    Analyze FEAGI resource usage during startup.
+    """Analyze FEAGI resource usage during startup.
 
     Args:
         config_file: Optional config file path

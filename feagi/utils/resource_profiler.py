@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,8 +50,7 @@ class ComponentResourceUsage:
 
 
 class ResourceProfiler:
-    """
-    Detailed resource profiler for FEAGI components.
+    """Detailed resource profiler for FEAGI components.
 
     Identifies resource consumption by:
     - Process components (API, ZMQ, BurstEngine, etc.)
@@ -164,9 +161,9 @@ class ResourceProfiler:
                         if stat.traceback
                         else "unknown"
                     ),
-                    "avg_size_bytes": stat.size / stat.count
-                    if stat.count > 0
-                    else 0,
+                    "avg_size_bytes": (
+                        stat.size / stat.count if stat.count > 0 else 0
+                    ),
                 }
                 breakdown["top_allocations"].append(allocation)
 

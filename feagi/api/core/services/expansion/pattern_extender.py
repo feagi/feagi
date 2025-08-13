@@ -1,8 +1,7 @@
-"""
-Pattern Extender for Cortical Area Expansion
+"""Pattern Extender for Cortical Area Expansion.
 
-This module handles the intelligent extension of existing synaptic patterns
-to newly created neurons during cortical area expansion.
+This module handles the intelligent extension of existing synaptic patterns to
+newly created neurons during cortical area expansion.
 """
 
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -13,8 +12,8 @@ logger = setup_logger(__name__)
 
 
 class PatternExtender:
-    """
-    Extends existing synaptic patterns to newly created neurons during expansion.
+    """Extends existing synaptic patterns to newly created neurons during
+    expansion.
 
     This class analyzes existing connectivity patterns in a cortical area and
     applies the same morphology rules to newly created neurons to maintain
@@ -22,8 +21,7 @@ class PatternExtender:
     """
 
     def __init__(self, connectome_manager, state_manager):
-        """
-        Initialize PatternExtender.
+        """Initialize PatternExtender.
 
         Args:
             connectome_manager: Reference to ConnectomeManager
@@ -40,8 +38,7 @@ class PatternExtender:
         new_dimensions: Tuple[int, int, int],
         new_neurons: Set[int],
     ) -> int:
-        """
-        Extend existing connectivity patterns to newly created neurons.
+        """Extend existing connectivity patterns to newly created neurons.
 
         Args:
             cortical_id: ID of the expanded cortical area
@@ -125,8 +122,8 @@ class PatternExtender:
     def _find_existing_mappings(
         self, cortical_id: str
     ) -> List[Dict[str, Any]]:
-        """
-        Find existing cortical mappings involving the specified area from hierarchical genome.
+        """Find existing cortical mappings involving the specified area from
+        hierarchical genome.
 
         Args:
             cortical_id: ID of the cortical area
@@ -319,8 +316,7 @@ class PatternExtender:
         new_neurons: Set[int],
         new_dimensions: Tuple[int, int, int],
     ) -> int:
-        """
-        Extend a specific mapping pattern to new neurons.
+        """Extend a specific mapping pattern to new neurons.
 
         Args:
             cortical_id: ID of the cortical area being expanded
@@ -385,8 +381,7 @@ class PatternExtender:
     def _get_morphology_definition(
         self, morphology_id: str
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get morphology definition from genome.
+        """Get morphology definition from genome.
 
         Args:
             morphology_id: ID of the morphology
@@ -414,8 +409,7 @@ class PatternExtender:
         morphology_def: Dict[str, Any],
         new_neurons: Set[int],
     ) -> int:
-        """
-        Apply morphology rules to new neurons to create synapses.
+        """Apply morphology rules to new neurons to create synapses.
 
         Args:
             cortical_id: ID of the cortical area

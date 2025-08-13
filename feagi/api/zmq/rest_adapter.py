@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -72,17 +70,15 @@ logger = setup_logger(__name__)
 
 
 class ZMQRestAPIAdapter:
-    """
-    Enhanced ZMQ REST API Adapter using transport-agnostic v1 API.
+    """Enhanced ZMQ REST API Adapter using transport-agnostic v1 API.
 
-    This adapter now delegates system endpoints to the transport-agnostic v1 API
-    while maintaining existing implementations for genome and connectome endpoints.
-    This ensures identical behavior between HTTP and ZMQ transports.
+    This adapter now delegates system endpoints to the transport-agnostic v1
+    API while maintaining existing implementations for genome and connectome
+    endpoints. This ensures identical behavior between HTTP and ZMQ transports.
     """
 
     def __init__(self, core_api_service):
-        """
-        Initialize the ZMQ REST API adapter.
+        """Initialize the ZMQ REST API adapter.
 
         Args:
             core_api_service: Core API service instance for processing requests
@@ -160,8 +156,7 @@ class ZMQRestAPIAdapter:
         }
 
     async def process_message(self, message_data: bytes) -> bytes:
-        """
-        Process a REST API-style message received over ZMQ.
+        """Process a REST API-style message received over ZMQ.
 
         Args:
             message_data: ZMQ message data containing REST API request
@@ -191,8 +186,7 @@ class ZMQRestAPIAdapter:
             )
 
     async def _delegate_to_v1_api(self, params, query, body, headers) -> Any:
-        """
-        Delegate system endpoint requests to the transport-agnostic v1 API.
+        """Delegate system endpoint requests to the transport-agnostic v1 API.
 
         This ensures identical behavior between HTTP and ZMQ transports.
         """
@@ -539,8 +533,7 @@ class ZMQRestAPIAdapter:
         logger.debug("ZMQ server reference set for visualization endpoints")
 
     def _parse_message(self, message_data: bytes) -> Optional[Dict[str, Any]]:
-        """
-        Parse ZMQ message data into a structured request.
+        """Parse ZMQ message data into a structured request.
 
         Args:
             message_data: Message data from ZMQ
@@ -585,8 +578,7 @@ class ZMQRestAPIAdapter:
     async def _process_request(
         self, request: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Process a parsed REST API request.
+        """Process a parsed REST API request.
 
         Args:
             request: Parsed request dictionary
@@ -699,8 +691,7 @@ class ZMQRestAPIAdapter:
     def _find_handler(
         self, route_key: str, params: Dict[str, Any]
     ) -> Optional[Callable]:
-        """
-        Find the appropriate handler for a route key.
+        """Find the appropriate handler for a route key.
 
         Args:
             route_key: Route key to find handler for
@@ -767,8 +758,7 @@ class ZMQRestAPIAdapter:
         return None
 
     def _create_success_response(self, body: Any) -> Dict[str, Any]:
-        """
-        Create a success response.
+        """Create a success response.
 
         Args:
             body: Response body
@@ -786,8 +776,7 @@ class ZMQRestAPIAdapter:
     def _create_error_response(
         self, status: int, message: str
     ) -> Dict[str, Any]:
-        """
-        Create an error response.
+        """Create an error response.
 
         Args:
             status: HTTP status code

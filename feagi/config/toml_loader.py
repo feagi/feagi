@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-"""
-TOML Configuration Loader for FEAGI 2.0
+"""TOML Configuration Loader for FEAGI 2.0.
 
 This module provides TOML-based configuration loading with:
 - Environment variable overrides
@@ -63,11 +61,10 @@ def _get_cache_key(
 
 @dataclass
 class PortConfiguration:
-    """
-    Port configuration loaded from TOML with validation.
+    """Port configuration loaded from TOML with validation.
 
-    All port numbers are required and must be explicitly configured.
-    No default values are provided to enforce configuration-driven architecture.
+    All port numbers are required and must be explicitly configured. No default
+    values are provided to enforce configuration-driven architecture.
     """
 
     # Required port configurations
@@ -94,8 +91,7 @@ class PortConfiguration:
 
 @dataclass
 class HostConfiguration:
-    """
-    Host configuration with required validation.
+    """Host configuration with required validation.
 
     All hosts must be explicitly configured - no defaults provided.
     """
@@ -119,8 +115,7 @@ class HostConfiguration:
 
 @dataclass
 class TimeoutConfiguration:
-    """
-    System timeout configurations loaded from TOML.
+    """System timeout configurations loaded from TOML.
 
     All timeouts are configurable to support different deployment environments.
     """
@@ -146,8 +141,7 @@ class TimeoutConfiguration:
 
 @dataclass
 class GenomeConfiguration:
-    """
-    Genome loading and validation configurations loaded from TOML.
+    """Genome loading and validation configurations loaded from TOML.
 
     Controls how FEAGI handles invalid genome files.
     """
@@ -159,10 +153,10 @@ class GenomeConfiguration:
 
 @dataclass
 class AgentConfiguration:
-    """
-    Agent registration and communication configuration.
+    """Agent registration and communication configuration.
 
-    Provides default values for agent registration when not explicitly provided.
+    Provides default values for agent registration when not explicitly
+    provided.
     """
 
     default_host: str
@@ -183,8 +177,7 @@ class FeagiConfigurationError(Exception):
 
 
 def find_config_file() -> Path:
-    """
-    Find the FEAGI configuration file.
+    """Find the FEAGI configuration file.
 
     Search order:
     1. Environment variable: FEAGI_CONFIG_PATH
@@ -231,8 +224,7 @@ def find_config_file() -> Path:
 
 
 def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Apply environment variable overrides to configuration.
+    """Apply environment variable overrides to configuration.
 
     Environment variable mapping:
     - FEAGI_API_HOST -> api.host
@@ -294,8 +286,7 @@ def apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
 def apply_cli_overrides(
     config: Dict[str, Any], cli_args: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """
-    Apply command-line argument overrides to configuration.
+    """Apply command-line argument overrides to configuration.
 
     Args:
         config: Base configuration dictionary
@@ -347,8 +338,7 @@ def load_toml_configuration(
     config_path: Optional[Union[str, Path]] = None,
     cli_args: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Load FEAGI configuration from TOML file with overrides.
+    """Load FEAGI configuration from TOML file with overrides.
 
     Loading order (later overrides earlier):
     1. TOML file defaults
@@ -401,8 +391,7 @@ def load_toml_configuration(
 
 
 def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
-    """
-    Extract and validate port configuration from loaded TOML config.
+    """Extract and validate port configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -453,8 +442,7 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
 
 
 def get_host_config(config: Dict[str, Any]) -> HostConfiguration:
-    """
-    Extract and validate host configuration from loaded TOML config.
+    """Extract and validate host configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -476,8 +464,7 @@ def get_host_config(config: Dict[str, Any]) -> HostConfiguration:
 
 
 def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
-    """
-    Extract timeout configuration from loaded TOML config.
+    """Extract timeout configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -515,8 +502,7 @@ def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
 
 
 def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
-    """
-    Extract genome configuration from loaded TOML config.
+    """Extract genome configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -534,8 +520,7 @@ def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
 
 
 def get_agent_config(config: Dict[str, Any]) -> AgentConfiguration:
-    """
-    Extract and validate agent configuration from loaded TOML config.
+    """Extract and validate agent configuration from loaded TOML config.
 
     Args:
         config: Configuration dictionary loaded from TOML
@@ -556,8 +541,7 @@ def get_agent_config(config: Dict[str, Any]) -> AgentConfiguration:
 
 
 def validate_configuration(config: Dict[str, Any]) -> None:
-    """
-    Validate the complete configuration for consistency and correctness.
+    """Validate the complete configuration for consistency and correctness.
 
     Args:
         config: Configuration dictionary to validate
@@ -601,8 +585,7 @@ def validate_configuration(config: Dict[str, Any]) -> None:
 def load_feagi_config(
     cli_args: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Load and validate FEAGI configuration with all overrides applied.
+    """Load and validate FEAGI configuration with all overrides applied.
 
     Uses global caching to prevent repeated file loading and log spam.
 

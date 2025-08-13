@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -57,17 +55,15 @@ class CoreAllocation:
 
 
 class CPUAllocator:
-    """
-    Advanced CPU allocation with load balancing.
+    """Advanced CPU allocation with load balancing.
 
-    This class manages CPU cores allocation to different processes,
-    implements load balancing, and adjusts allocations based on
-    process priorities and resource usage patterns.
+    This class manages CPU cores allocation to different processes, implements
+    load balancing, and adjusts allocations based on process priorities and
+    resource usage patterns.
     """
 
     def __init__(self, total_cores: Optional[int] = None):
-        """
-        Initialize the CPU allocator.
+        """Initialize the CPU allocator.
 
         Args:
             total_cores: Total number of CPU cores to manage.
@@ -88,8 +84,7 @@ class CPUAllocator:
         )
 
     def _detect_physical_cores(self) -> List[int]:
-        """
-        Attempt to detect physical cores for better allocation.
+        """Attempt to detect physical cores for better allocation.
 
         Returns:
             List of physical core IDs (may be duplicated for logical cores)
@@ -137,8 +132,7 @@ class CPUAllocator:
         return physical_cores if physical_cores else self.core_ids
 
     def _initialize_priority_pools(self) -> Dict[int, List[int]]:
-        """
-        Initialize core pools for each priority level.
+        """Initialize core pools for each priority level.
 
         Returns:
             Dictionary mapping priority levels to lists of core IDs
@@ -173,8 +167,7 @@ class CPUAllocator:
         num_cores: Optional[int] = None,
         strategy: AllocationStrategy = AllocationStrategy.STATIC,
     ) -> List[int]:
-        """
-        Allocate CPU cores to a process based on priority.
+        """Allocate CPU cores to a process based on priority.
 
         Args:
             process_name: Name of the process
@@ -263,8 +256,7 @@ class CPUAllocator:
             return allocated_cores
 
     def release_cores(self, process_name: str) -> None:
-        """
-        Release cores allocated to a process.
+        """Release cores allocated to a process.
 
         Args:
             process_name: Name of the process
@@ -286,8 +278,7 @@ class CPUAllocator:
             logger.info(f"Released {len(core_ids)} cores from {process_name}")
 
     def rebalance_allocations(self) -> Dict[str, List[int]]:
-        """
-        Rebalance core allocations based on current usage.
+        """Rebalance core allocations based on current usage.
 
         Returns:
             Dictionary mapping process names to new core allocations
@@ -371,8 +362,7 @@ class CPUAllocator:
     def update_utilization(
         self, process_name: str, utilization: float
     ) -> None:
-        """
-        Update CPU utilization for a process.
+        """Update CPU utilization for a process.
 
         Args:
             process_name: Name of the process
@@ -387,8 +377,7 @@ class CPUAllocator:
             allocation.last_updated = time.time()
 
     def get_allocation(self, process_name: str) -> Optional[CoreAllocation]:
-        """
-        Get core allocation for a process.
+        """Get core allocation for a process.
 
         Args:
             process_name: Name of the process
@@ -400,8 +389,7 @@ class CPUAllocator:
             return self.allocations.get(process_name)
 
     def get_all_allocations(self) -> Dict[str, CoreAllocation]:
-        """
-        Get all core allocations.
+        """Get all core allocations.
 
         Returns:
             Dictionary mapping process names to their CoreAllocation
@@ -412,8 +400,7 @@ class CPUAllocator:
     def set_allocation_strategy(
         self, process_name: str, strategy: AllocationStrategy
     ) -> bool:
-        """
-        Set allocation strategy for a process.
+        """Set allocation strategy for a process.
 
         Args:
             process_name: Name of the process
@@ -432,8 +419,7 @@ class CPUAllocator:
     def temporarily_boost_priority(
         self, process_name: str, duration_seconds: float = 30.0
     ) -> bool:
-        """
-        Temporarily boost priority for a process.
+        """Temporarily boost priority for a process.
 
         Args:
             process_name: Name of the process
@@ -457,9 +443,9 @@ class CPUAllocator:
                 time.sleep(duration_seconds)
                 with self._lock:
                     if process_name in self.allocations:
-                        self.allocations[
-                            process_name
-                        ].strategy = original_strategy
+                        self.allocations[process_name].strategy = (
+                            original_strategy
+                        )
 
             # Start a thread to restore the strategy after duration
             restore_thread = threading.Thread(

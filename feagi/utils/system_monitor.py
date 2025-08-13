@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -87,8 +85,7 @@ class ResourceSnapshot:
 
 
 class SystemResourceMonitor:
-    """
-    Real-time system resource monitor for FEAGI profiling mode.
+    """Real-time system resource monitor for FEAGI profiling mode.
 
     Tracks CPU, memory, and GPU usage both system-wide and process-specific using
     absolute measurements that are comparable across systems:
@@ -106,8 +103,7 @@ class SystemResourceMonitor:
         enable_detailed_logging: bool = True,
         max_history_entries: int = 100,
     ):
-        """
-        Initialize the system resource monitor.
+        """Initialize the system resource monitor.
 
         Args:
             monitoring_interval: Seconds between resource checks
@@ -447,8 +443,7 @@ def start_system_monitoring(
     enable_gpu_monitoring: bool = True,
     enable_detailed_logging: bool = True,
 ) -> SystemResourceMonitor:
-    """
-    Start system resource monitoring for profiling mode.
+    """Start system resource monitoring for profiling mode.
 
     Args:
         monitoring_interval: Seconds between resource checks

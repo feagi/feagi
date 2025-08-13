@@ -1,5 +1,4 @@
-"""
-FEAGI v1 Snapshot API
+"""FEAGI v1 Snapshot API.
 
 Endpoints to manage and retrieve brain snapshots.
 
@@ -126,9 +125,8 @@ class SnapshotAPI:
     async def create_snapshot(
         self, request: SnapshotCreateRequest
     ) -> Dict[str, Any]:
-        """
-        Create a snapshot folder and optionally persist an artifact (.fgc or .zip).
-        """
+        """Create a snapshot folder and optionally persist an artifact (.fgc or
+        .zip)."""
         try:
             config = load_feagi_config()
             snapshot_cfg = config.get("snapshot", {})
@@ -201,9 +199,9 @@ class SnapshotAPI:
         snapshot_id: str,
         request: Optional[SnapshotRestoreRequest] = None,
     ) -> Dict[str, Any]:
-        """
-        Restore a snapshot by id. If <id>/<id>.fgc exists, use it;
-        else use folder manifest.
+        """Restore a snapshot by id.
+
+        If <id>/<id>.fgc exists, use it; else use folder manifest.
         """
         try:
             config = load_feagi_config()
@@ -369,9 +367,9 @@ class SnapshotAPI:
 
             return {
                 "success": bool(ok),
-                "mode_used": mode
-                if (fc_path.exists() or fcs_path.exists())
-                else None,
+                "mode_used": (
+                    mode if (fc_path.exists() or fcs_path.exists()) else None
+                ),
                 "profile_used": requested_profile,
             }
         except Exception as e:
@@ -384,8 +382,8 @@ class SnapshotAPI:
     async def get_snapshot_artifact(
         self, snapshot_id: str, fmt: str
     ) -> Dict[str, Any]:
-        """
-        Download snapshot artifact as .fgc/.fgs or .zip.
+        """Download snapshot artifact as .fgc/.fgs or .zip.
+
         - .fgc: served from <id>/<id>.fgc; built on-demand if missing
         - .fgs: served from <id>/<id>.fgs (stateful)
         - .zip: packaged on-demand to temp and streamed (not persisted by default)
@@ -466,7 +464,8 @@ class SnapshotAPI:
 
     @snapshot_endpoint("GET", "/")
     async def list_snapshots(self) -> Dict[str, Any]:
-        """List available snapshot ids (folder names under [snapshot].output_dir)."""
+        """List available snapshot ids (folder names under
+        [snapshot].output_dir)."""
         try:
             config = load_feagi_config()
             root = Path(config.get("snapshot", {}).get("output_dir", ""))
@@ -483,7 +482,8 @@ class SnapshotAPI:
 
     @snapshot_endpoint("DELETE", "/{snapshot_id}")
     async def delete_snapshot(self, snapshot_id: str) -> Dict[str, Any]:
-        """Delete a snapshot folder and all of its contents (artifacts included)."""
+        """Delete a snapshot folder and all of its contents (artifacts
+        included)."""
         try:
             config = load_feagi_config()
             root = Path(config.get("snapshot", {}).get("output_dir", ""))

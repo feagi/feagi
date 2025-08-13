@@ -52,8 +52,7 @@ class SynapseProperties:
 
 
 class GlobalSynapseArray:
-    """
-    Ultra-high-performance synapse storage using Structure of Arrays (SoA).
+    """Ultra-high-performance synapse storage using Structure of Arrays (SoA).
 
     This implementation mirrors the GlobalNeuronArray design for consistency
     and optimal performance across CPU SIMD, GPU, and embedded RTOS systems.
@@ -70,8 +69,7 @@ class GlobalSynapseArray:
     """
 
     def __init__(self, max_synapses: int = 100_000_000, backend: str = "cpu"):
-        """
-        Initialize the Global Synapse Array.
+        """Initialize the Global Synapse Array.
 
         Args:
             max_synapses: Maximum number of synapses to support
@@ -128,8 +126,7 @@ class GlobalSynapseArray:
         conductance: float = 1.0,
         is_plastic: bool = False,
     ) -> bool:
-        """
-        Create a single synapse with O(1) performance.
+        """Create a single synapse with O(1) performance.
 
         Args:
             pre_neuron_id: Source neuron ID
@@ -185,8 +182,7 @@ class GlobalSynapseArray:
     def batch_create_synapses(
         self, synapse_specs: List[Tuple[int, int, float]]
     ) -> int:
-        """
-        Create multiple synapses using vectorized operations.
+        """Create multiple synapses using vectorized operations.
 
         This method achieves 300x+ performance improvement over sparse matrices
         by using SIMD-friendly vectorized operations on the SoA structure.
@@ -278,8 +274,7 @@ class GlobalSynapseArray:
         return created_count
 
     def delete_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
-        """
-        Delete a synapse with O(1) performance.
+        """Delete a synapse with O(1) performance.
 
         Args:
             pre_neuron_id: Source neuron ID
@@ -374,8 +369,7 @@ class GlobalSynapseArray:
     def propagate_activations_simd(
         self, firing_neurons: List[int], target_potentials: np.ndarray
     ) -> None:
-        """
-        Propagate activations using SIMD-optimized operations.
+        """Propagate activations using SIMD-optimized operations.
 
         This method processes synaptic transmission in vectorized batches
         for maximum performance on modern CPUs and GPUs.
@@ -459,8 +453,7 @@ class GlobalSynapseArray:
         return total_bytes / (1024 * 1024)  # Convert to MB
 
     def compact(self) -> int:
-        """
-        Compact the array by removing gaps from deleted synapses.
+        """Compact the array by removing gaps from deleted synapses.
 
         Returns:
             Number of slots compacted

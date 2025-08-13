@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -112,8 +110,7 @@ class CorticalAreaAPI:
         return self._templates_cache
 
     def _get_default_value(self, property_name: str, fallback_value=None):
-        """
-        Get default value for a specific property from templates.
+        """Get default value for a specific property from templates.
 
         Args:
             property_name: Name of the property in cortical_template
@@ -126,8 +123,8 @@ class CorticalAreaAPI:
         return defaults.get(property_name, fallback_value)
 
     def _get_structural_default(self, property_type: str):
-        """
-        Get acceptable structural/spatial defaults that are not neuron properties.
+        """Get acceptable structural/spatial defaults that are not neuron
+        properties.
 
         These are NOT from cortical_template since they are structural, not neural properties.
         They represent spatial positioning and brain organization defaults.
@@ -185,15 +182,21 @@ class CorticalAreaAPI:
                     list(coordinates)
                     if len(coordinates) >= 3
                     else [
-                        coordinates[0]
-                        if len(coordinates) > 0
-                        else self._get_structural_default("coordinate"),
-                        coordinates[1]
-                        if len(coordinates) > 1
-                        else self._get_structural_default("coordinate"),
-                        coordinates[2]
-                        if len(coordinates) > 2
-                        else self._get_structural_default("coordinate"),
+                        (
+                            coordinates[0]
+                            if len(coordinates) > 0
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[1]
+                            if len(coordinates) > 1
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[2]
+                            if len(coordinates) > 2
+                            else self._get_structural_default("coordinate")
+                        ),
                     ]
                 )
             else:
@@ -218,15 +221,21 @@ class CorticalAreaAPI:
                     list(dimensions)
                     if len(dimensions) >= 3
                     else [
-                        dimensions[0]
-                        if len(dimensions) > 0
-                        else self._get_structural_default("dimension"),
-                        dimensions[1]
-                        if len(dimensions) > 1
-                        else self._get_structural_default("dimension"),
-                        dimensions[2]
-                        if len(dimensions) > 2
-                        else self._get_structural_default("dimension"),
+                        (
+                            dimensions[0]
+                            if len(dimensions) > 0
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[1]
+                            if len(dimensions) > 1
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[2]
+                            if len(dimensions) > 2
+                            else self._get_structural_default("dimension")
+                        ),
                     ]
                 )
             else:
@@ -640,7 +649,8 @@ class CorticalAreaAPI:
         response_model=CorticalAreaIdListResponse,
     )
     def get_cortical_area_id_list(self) -> CorticalAreaIdListResponse:
-        """Get list of cortical area IDs (6-letter strings) present in the current genome."""
+        """Get list of cortical area IDs (6-letter strings) present in the
+        current genome."""
         try:
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
             return CorticalAreaIdListResponse(cortical_ids=cortical_ids)
@@ -1190,7 +1200,8 @@ class CorticalAreaAPI:
     def get_multiple_cortical_properties(
         self, request: CorticalIdListRequest
     ) -> List[Dict[str, Any]]:
-        """Get properties for multiple cortical areas with flexible field name support."""
+        """Get properties for multiple cortical areas with flexible field name
+        support."""
         try:
             cortical_ids = request.cortical_ids
 
@@ -1441,7 +1452,8 @@ class CorticalAreaAPI:
         "GET", "/cortical_idx_mapping", response_model=Dict[str, Any]
     )
     def get_cortical_idx_mapping(self) -> Dict[str, Any]:
-        """Get the current cortical_idx to cortical_id mapping for debugging corruption issues."""
+        """Get the current cortical_idx to cortical_id mapping for debugging
+        corruption issues."""
         try:
             mapping_data = self.core_api_service.get_cortical_idx_mapping()
             return mapping_data
@@ -1457,8 +1469,7 @@ class CorticalAreaAPI:
 def create_cortical_area_api(
     core_api_service: CoreAPIService,
 ) -> CorticalAreaAPI:
-    """
-    Factory function to create a CorticalAreaAPI instance.
+    """Factory function to create a CorticalAreaAPI instance.
 
     This function can be used by transport adapters to get a configured
     CorticalAreaAPI instance with the required dependencies.

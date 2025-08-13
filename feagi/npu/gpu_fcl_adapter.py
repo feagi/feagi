@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,11 +33,10 @@ from feagi.npu.fcl_manager import BitMap, CorticalIdx, FCLManager
 
 
 class GPUBitMap:
-    """
-    GPU-accelerated implementation of bitmap operations for FCL.
+    """GPU-accelerated implementation of bitmap operations for FCL.
 
-    This class provides a compatible interface with the BitMapProtocol,
-    but delegates operations to the GPU backend when available.
+    This class provides a compatible interface with the BitMapProtocol, but
+    delegates operations to the GPU backend when available.
     """
 
     def __init__(self, elements=None):
@@ -378,8 +375,8 @@ class GPUBitMap:
 
 
 def create_gpu_accelerated_fcl(window_size: int = 20):
-    """
-    Create a GPU-accelerated FCL manager if a compatible backend is available.
+    """Create a GPU-accelerated FCL manager if a compatible backend is
+    available.
 
     Args:
         window_size: Size of the FCL sliding window
@@ -412,11 +409,10 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
 
 
 class GPUAcceleratedFCL:
-    """
-    GPU-accelerated implementation of Fire Candidate List Manager.
+    """GPU-accelerated implementation of Fire Candidate List Manager.
 
-    This class provides the same interface as FCLManager,
-    but uses GPU operations for performance-critical bitmap operations.
+    This class provides the same interface as FCLManager, but uses GPU
+    operations for performance-critical bitmap operations.
     """
 
     def __init__(
@@ -424,8 +420,7 @@ class GPUAcceleratedFCL:
         backend: Optional[BackendInterface],
         default_window_size: int = 20,
     ):
-        """
-        Initialize the GPU-accelerated FCL manager.
+        """Initialize the GPU-accelerated FCL manager.
 
         Args:
             backend: GPU backend to use for operations
@@ -453,11 +448,10 @@ class GPUAcceleratedFCL:
         )
 
     def __getattr__(self, name):
-        """
-        Delegate all non-overridden attributes to the CPU FCL manager.
+        """Delegate all non-overridden attributes to the CPU FCL manager.
 
-        This allows us to implement only the methods that benefit from GPU acceleration
-        and rely on the CPU implementation for the rest.
+        This allows us to implement only the methods that benefit from GPU
+        acceleration and rely on the CPU implementation for the rest.
         """
         return getattr(self.cpu_fcl, name)
 
@@ -468,8 +462,7 @@ class GPUAcceleratedFCL:
             CorticalIdx, Union[BitMap, List[int], Set[int]]
         ],
     ) -> None:
-        """
-        Update the FCL with new firing neurons, accelerated with GPU.
+        """Update the FCL with new firing neurons, accelerated with GPU.
 
         Args:
             current_timestep: Current simulation timestep
@@ -486,8 +479,8 @@ class GPUAcceleratedFCL:
         end_time: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Compute the delta (difference) between FCLs at two timesteps, accelerated with GPU.
+        """Compute the delta (difference) between FCLs at two timesteps,
+        accelerated with GPU.
 
         Args:
             start_time: Starting timestep
@@ -526,8 +519,8 @@ class GPUAcceleratedFCL:
         n_steps: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that have been consistently active over the last n steps, accelerated with GPU.
+        """Get neurons that have been consistently active over the last n
+        steps, accelerated with GPU.
 
         Args:
             n_steps: Number of timesteps to check
@@ -580,8 +573,8 @@ class GPUAcceleratedFCL:
         n_steps: int,
         cortical_indices: Optional[List[CorticalIdx]] = None,
     ) -> BitMap:
-        """
-        Get neurons that fired in any of the last n steps, accelerated with GPU.
+        """Get neurons that fired in any of the last n steps, accelerated with
+        GPU.
 
         Args:
             n_steps: Number of timesteps to check

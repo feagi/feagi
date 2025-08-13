@@ -1,5 +1,4 @@
-"""
-FEAGI Container (.fc) writer/reader (phase 1).
+"""FEAGI Container (.fc) writer/reader (phase 1).
 
 Format:
 - Header: 8-byte magic (b"FEAGIFC1"), 4-byte little-endian uint32 header_len
@@ -98,8 +97,7 @@ def write_fc(
     extension: str = ".fgc",
     extra_chunks: List[Tuple[str, bytes]] | None = None,
 ) -> Path:
-    """
-    Write a FEAGI Container file with connectome and state chunks.
+    """Write a FEAGI Container file with connectome and state chunks.
 
     Returns: Path to the written .fc file
     """
@@ -359,8 +357,8 @@ def extract_chunk(fc_path: Path, chunk_name: str) -> bytes:
 def stream_chunk(fc_path: Path, chunk_name: str, block_size: int = 65536):
     """Stream a chunk's payload without loading entire chunk in memory.
 
-    For 'store', yields raw bytes blocks.
-    For 'deflate' and 'lz4', yields decompressed blocks (requires full decode state).
+    For 'store', yields raw bytes blocks. For 'deflate' and 'lz4', yields
+    decompressed blocks (requires full decode state).
     """
     header = read_fc_header(fc_path)
     chunks = header.get("chunks", [])
@@ -1430,8 +1428,8 @@ def get_chunk_view(
 ) -> memoryview | bytes:
     """Return a view into the mapped chunk if store-encoded; else return bytes.
 
-    If encoding == "store": returns memoryview (zero-copy).
-    If encoding == "deflate": returns decompressed bytes.
+    If encoding == "store": returns memoryview (zero-copy). If encoding ==
+    "deflate": returns decompressed bytes.
     """
     chunks = header.get("chunks", [])
     match = next((c for c in chunks if c.get("name") == chunk_name), None)

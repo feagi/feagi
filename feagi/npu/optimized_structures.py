@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -56,11 +54,10 @@ except Exception as e:
 
 
 class FireCandidateList:
-    """
-    Fire Candidate List (FCL) optimized for SIMD and WebGPU.
+    """Fire Candidate List (FCL) optimized for SIMD and WebGPU.
 
-    Manages the list of neurons that are firing in the current timestep,
-    with optimizations for both CPU (SIMD) and GPU processing.
+    Manages the list of neurons that are firing in the current timestep, with
+    optimizations for both CPU (SIMD) and GPU processing.
 
     Uses bitmap-like structures for efficient SIMD/GPU operations.
     """
@@ -68,8 +65,7 @@ class FireCandidateList:
     def __init__(
         self, neuron_ids: Optional[List[int]] = None, capacity: int = 1000000
     ):
-        """
-        Initialize an FCL, optionally with a list of neuron IDs.
+        """Initialize an FCL, optionally with a list of neuron IDs.
 
         Args:
             neuron_ids: Initial list of firing neurons
@@ -171,11 +167,10 @@ class FireCandidateList:
 
 
 class Connectome:
-    """
-    Connectome (synaptic connectivity) optimized for SIMD and WebGPU.
+    """Connectome (synaptic connectivity) optimized for SIMD and WebGPU.
 
-    Manages synaptic connections between neurons with optimizations for
-    sparse matrix operations in both CPU (SIMD) and GPU contexts.
+    Manages synaptic connections between neurons with optimizations for sparse
+    matrix operations in both CPU (SIMD) and GPU contexts.
 
     Uses CSR-like format for efficient sparse matrix operations.
     """
@@ -183,8 +178,7 @@ class Connectome:
     def __init__(
         self, neuron_count: int, estimated_connections: int = 1000000
     ):
-        """
-        Initialize a Connectome with specified capacity.
+        """Initialize a Connectome with specified capacity.
 
         Args:
             neuron_count: Number of neurons in the network
@@ -318,8 +312,7 @@ class Connectome:
             self._connection_count += 1
 
     def _resize_arrays(self, new_capacity: int) -> None:
-        """
-        Resize internal arrays to new capacity.
+        """Resize internal arrays to new capacity.
 
         Args:
             new_capacity: New capacity for arrays
@@ -338,8 +331,7 @@ class Connectome:
     def get_connections_for_neuron(
         self, neuron_id: int
     ) -> List[Dict[str, Any]]:
-        """
-        Get all outgoing connections for a neuron.
+        """Get all outgoing connections for a neuron.
 
         Args:
             neuron_id: Source neuron ID
@@ -385,8 +377,7 @@ class Connectome:
     def propagate_activations(
         self, source_activations: List[float], target_buffer: List[float]
     ) -> List[float]:
-        """
-        Propagate activations from source neurons to target neurons.
+        """Propagate activations from source neurons to target neurons.
 
         Args:
             source_activations: Activation values for all source neurons
@@ -428,8 +419,7 @@ class Connectome:
 
 
 class OptimizedFeagiCore:
-    """
-    Optimized FEAGI Core integrating GNA, FCL, and Connectome.
+    """Optimized FEAGI Core integrating GNA, FCL, and Connectome.
 
     This class provides a unified interface for the core FEAGI components,
     optimized for SIMD and WebGPU operations.
@@ -438,8 +428,7 @@ class OptimizedFeagiCore:
     def __init__(
         self, neuron_capacity: int, estimated_connections: int = 1000000
     ):
-        """
-        Initialize an optimized FEAGI core.
+        """Initialize an optimized FEAGI core.
 
         Args:
             neuron_capacity: Maximum number of neurons to support
@@ -507,8 +496,7 @@ class OptimizedFeagiCore:
             self._current_timestep += 1
 
     def propagate_activations(self) -> List[float]:
-        """
-        Propagate activations from all firing neurons to their targets.
+        """Propagate activations from all firing neurons to their targets.
 
         Returns:
             New membrane potentials after propagation

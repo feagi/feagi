@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,10 +27,8 @@ from ..shared.base_service import BaseService
 
 
 class GenomeService(BaseService):
-    """
-    Genome service handles genome loading, saving, validation,
-    and genome-related operations.
-    """
+    """Genome service handles genome loading, saving, validation, and genome-
+    related operations."""
 
     def __init__(
         self, connectome_manager, state_manager=None, core_api_service=None
@@ -769,7 +765,9 @@ class GenomeService(BaseService):
                         if hasattr(
                             self._connectome_manager, "get_total_neuron_count"
                         ):
-                            total_neurons = self._connectome_manager.get_total_neuron_count()
+                            total_neurons = (
+                                self._connectome_manager.get_total_neuron_count()
+                            )
                         elif hasattr(
                             self._connectome_manager, "cortical_areas"
                         ):
@@ -796,7 +794,9 @@ class GenomeService(BaseService):
                         if hasattr(
                             self._connectome_manager, "get_total_synapse_count"
                         ):
-                            total_synapses = self._connectome_manager.get_total_synapse_count()
+                            total_synapses = (
+                                self._connectome_manager.get_total_synapse_count()
+                            )
 
                         # Update state manager with brain statistics (CRITICAL for health check)
                         stats_result = self.state_manager.set_brain_stats(
@@ -1437,8 +1437,7 @@ class GenomeService(BaseService):
         return False
 
     def load_default_genome(self, genome_name: str) -> Dict[str, Any]:
-        """
-        Load a genome from the default templates directory.
+        """Load a genome from the default templates directory.
 
         Args:
             genome_name: Name of the genome (e.g., 'essential', 'test', 'barebones')
@@ -1541,8 +1540,8 @@ class GenomeService(BaseService):
         area_type: str,
         parameters: Dict[str, Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Create a new cortical area through proper genome modification pipeline.
+        """Create a new cortical area through proper genome modification
+        pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures cortical area modifications
         go through the proper data flow to maintain genome consistency.
@@ -1895,8 +1894,8 @@ class GenomeService(BaseService):
         area_type: str = None,
         parameters: Dict[str, Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Update an existing cortical area with intelligent routing for optimal performance.
+        """Update an existing cortical area with intelligent routing for
+        optimal performance.
 
         PERFORMANCE OPTIMIZATION: This method now intelligently routes updates based on
         change type to avoid unnecessary full brain rebuilds:
@@ -2030,8 +2029,7 @@ class GenomeService(BaseService):
             return None
 
     def delete_cortical_area(self, cortical_id: str) -> bool:
-        """
-        Delete a cortical area through proper genome modification pipeline.
+        """Delete a cortical area through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures cortical area modifications
         go through the proper data flow to maintain genome consistency.
@@ -2121,8 +2119,7 @@ class GenomeService(BaseService):
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
     def create_morphology(self, morphology_data: Dict[str, Any]) -> bool:
-        """
-        Create a new morphology through proper genome modification pipeline.
+        """Create a new morphology through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures morphology modifications
         go through the proper data flow to maintain genome consistency.
@@ -2220,8 +2217,8 @@ class GenomeService(BaseService):
     def update_morphology(
         self, morphology_id: str, updates: Dict[str, Any]
     ) -> bool:
-        """
-        Update an existing morphology through proper genome modification pipeline.
+        """Update an existing morphology through proper genome modification
+        pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures morphology modifications
         go through the proper data flow to maintain genome consistency.
@@ -2318,8 +2315,7 @@ class GenomeService(BaseService):
     def _check_morphology_usage(
         self, genome: Dict[str, Any], morphology_id: str
     ) -> Dict[str, List[str]]:
-        """
-        Check if a morphology is being used anywhere in the genome.
+        """Check if a morphology is being used anywhere in the genome.
 
         COMPREHENSIVE SAFETY CHECK: Scans all genome sections for morphology references
         to prevent deletion of morphologies that are still in use.
@@ -2419,8 +2415,7 @@ class GenomeService(BaseService):
         context_key: str,
         usage_list: List[str],
     ) -> None:
-        """
-        Recursively scan a dictionary for morphology references.
+        """Recursively scan a dictionary for morphology references.
 
         Args:
             data: Dictionary to scan
@@ -2451,8 +2446,7 @@ class GenomeService(BaseService):
                         )
 
     def delete_morphology(self, morphology_id: str) -> bool:
-        """
-        Delete a morphology through proper genome modification pipeline.
+        """Delete a morphology through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures morphology modifications
         go through the proper data flow to maintain genome consistency.
@@ -2573,8 +2567,7 @@ class GenomeService(BaseService):
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
-        """
-        Update cortical mapping through proper genome modification pipeline.
+        """Update cortical mapping through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures cortical mapping modifications
         go through the proper data flow to maintain genome consistency.
@@ -2817,8 +2810,8 @@ class GenomeService(BaseService):
     def update_cortical_mapping_properties(
         self, update_data: Dict[str, Any]
     ) -> bool:
-        """
-        Update cortical mapping properties between two specific cortical areas.
+        """Update cortical mapping properties between two specific cortical
+        areas.
 
         Args:
             update_data: Dictionary containing:
@@ -2962,8 +2955,8 @@ class GenomeService(BaseService):
     def delete_cortical_mapping(
         self, src_cortical_area: str, dst_cortical_area: str
     ) -> bool:
-        """
-        Delete cortical mapping and all associated synapses between two cortical areas.
+        """Delete cortical mapping and all associated synapses between two
+        cortical areas.
 
         ARCHITECTURE COMPLIANCE: WRITE operation through proper data flow:
         API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -3135,8 +3128,7 @@ class GenomeService(BaseService):
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
     def reset_genome(self) -> bool:
-        """
-        Reset genome through proper genome modification pipeline.
+        """Reset genome through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures genome reset
         goes through the proper data flow to maintain genome consistency.
@@ -3203,8 +3195,8 @@ class GenomeService(BaseService):
     def amalgamate_genome(
         self, amalgamation_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Perform genome amalgamation through proper genome modification pipeline.
+        """Perform genome amalgamation through proper genome modification
+        pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures genome amalgamation
         goes through the proper data flow to maintain genome consistency.
@@ -3271,8 +3263,8 @@ class GenomeService(BaseService):
             return {"success": False, "error": str(e)}
 
     def cancel_amalgamation(self, amalgamation_id: str) -> bool:
-        """
-        Cancel genome amalgamation through proper genome modification pipeline.
+        """Cancel genome amalgamation through proper genome modification
+        pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures amalgamation cancellation
         goes through the proper data flow to maintain genome consistency.
@@ -3331,8 +3323,8 @@ class GenomeService(BaseService):
             return False
 
     def append_file_to_genome(self, file_data: Dict[str, Any]) -> bool:
-        """
-        Append file content to genome through proper genome modification pipeline.
+        """Append file content to genome through proper genome modification
+        pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures file appending
         goes through the proper data flow to maintain genome consistency.
@@ -3406,8 +3398,7 @@ class GenomeService(BaseService):
         dimensions: Dict[str, int] = None,
         parameters: Dict[str, Any] = None,
     ) -> bool:
-        """
-        Create a brain region through proper genome modification pipeline.
+        """Create a brain region through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures brain region modifications
         go through the proper data flow to maintain genome consistency.
@@ -3532,8 +3523,7 @@ class GenomeService(BaseService):
         dimensions: Optional[Dict[str, int]] = None,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """
-        Update a brain region through proper genome modification pipeline.
+        """Update a brain region through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures brain region modifications
         go through the proper data flow to maintain genome consistency.
@@ -3670,8 +3660,7 @@ class GenomeService(BaseService):
     def delete_brain_region(
         self, region_id: str, delete_members: bool = False
     ) -> bool:
-        """
-        Delete a brain region through proper genome modification pipeline.
+        """Delete a brain region through proper genome modification pipeline.
 
         ARCHITECTURE COMPLIANCE: This method ensures brain region modifications
         go through the proper data flow to maintain genome consistency.
@@ -3831,8 +3820,7 @@ class GenomeService(BaseService):
     def _analyze_genome_requirements(
         self, genome_data: Dict[str, Any]
     ) -> Dict[str, int]:
-        """
-        Analyze genome to calculate required neuron and synapse capacity.
+        """Analyze genome to calculate required neuron and synapse capacity.
 
         This method must be called BEFORE ConnectomeManager initialization
         to ensure adequate capacity for the genome.
@@ -4675,8 +4663,8 @@ class GenomeService(BaseService):
         additional_neurons_needed: int,
         properties: Dict[str, Any],
     ) -> List[int]:
-        """
-        Create additional neurons for cortical area expansion using FEAGI's proper allocation.
+        """Create additional neurons for cortical area expansion using FEAGI's
+        proper allocation.
 
         ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
         instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
@@ -4750,8 +4738,7 @@ class GenomeService(BaseService):
     def _generate_positions_for_expansion(
         self, cortical_id: str, neuron_count: int, properties: Dict[str, Any]
     ) -> List[Tuple[int, int, int]]:
-        """
-        Generate neuron positions for area expansion.
+        """Generate neuron positions for area expansion.
 
         CRITICAL FIX: Only place neurons in voxels that don't already have neurons.
         This ensures expansion neurons go to the NEW expanded regions, not existing ones.
@@ -4841,8 +4828,8 @@ class GenomeService(BaseService):
     def _rebuild_neurons_for_area(
         self, cortical_id: str, properties: Dict[str, Any]
     ) -> None:
-        """
-        Rebuild neurons for a specific cortical area using FEAGI-compliant allocation.
+        """Rebuild neurons for a specific cortical area using FEAGI-compliant
+        allocation.
 
         ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
         instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
@@ -4946,8 +4933,7 @@ class GenomeService(BaseService):
     def _rebuild_connections_for_area(
         self, cortical_id: str, genome: Dict[str, Any]
     ) -> None:
-        """
-        Rebuild synaptic connections involving the specified cortical area.
+        """Rebuild synaptic connections involving the specified cortical area.
 
         ARCHITECTURE COMPLIANCE: Uses ConnectomeManager directly to avoid circular dependencies.
         GenomeService should not access CoreAPIService (which creates GenomeService).
@@ -5051,7 +5037,8 @@ class GenomeService(BaseService):
             raise
 
     def _remove_area_connections(self, cortical_id: str) -> None:
-        """Remove all synaptic connections involving the specified cortical area."""
+        """Remove all synaptic connections involving the specified cortical
+        area."""
         try:
             # Get all neurons in the area (before deletion, these would be the old neurons)
             # After area deletion and recreation, we need to remove connections to the old neurons
@@ -5098,8 +5085,8 @@ class GenomeService(BaseService):
     def _apply_genome_physiology_parameters(
         self, genome_data: Dict[str, Any], core_api_service=None
     ) -> None:
-        """
-        Apply genome physiology parameters (like simulation_timestep) to system configuration.
+        """Apply genome physiology parameters (like simulation_timestep) to
+        system configuration.
 
         This ensures the genome's simulation_timestep overwrites the current stimulation period.
         Also maintains backward compatibility with old genomes using burst_delay.

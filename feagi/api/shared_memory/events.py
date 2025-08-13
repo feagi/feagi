@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -87,8 +85,7 @@ class Event:
         data: Optional[Dict[str, Any]] = None,
         priority: EventPriority = EventPriority.MEDIUM,
     ):
-        """
-        Initialize an event.
+        """Initialize an event.
 
         Args:
             event_type: Type of the event
@@ -128,8 +125,7 @@ class Event:
 
 
 class EventNotificationSystem:
-    """
-    Provides event-based notification between FEAGI processes.
+    """Provides event-based notification between FEAGI processes.
 
     This system uses a combination of file-based semaphores and shared memory
     to enable efficient, non-blocking event notifications across processes.
@@ -141,8 +137,7 @@ class EventNotificationSystem:
         temp_dir: Optional[str] = None,
         max_queue_size: int = 1000,
     ):
-        """
-        Initialize the event notification system.
+        """Initialize the event notification system.
 
         Args:
             process_name: Name of this process (used as event source)
@@ -305,8 +300,7 @@ class EventNotificationSystem:
         data: Optional[Dict[str, Any]] = None,
         priority: EventPriority = EventPriority.MEDIUM,
     ) -> bool:
-        """
-        Send an event to other processes.
+        """Send an event to other processes.
 
         Args:
             event_type: Type of the event
@@ -356,8 +350,7 @@ class EventNotificationSystem:
         return success
 
     def subscribe(self, event_type: EventType):
-        """
-        Subscribe to a specific event type.
+        """Subscribe to a specific event type.
 
         Args:
             event_type: The event type to subscribe to
@@ -366,8 +359,7 @@ class EventNotificationSystem:
         self.logger.debug(f"Subscribed to event type: {event_type.value}")
 
     def unsubscribe(self, event_type: EventType):
-        """
-        Unsubscribe from a specific event type.
+        """Unsubscribe from a specific event type.
 
         Args:
             event_type: The event type to unsubscribe from
@@ -381,8 +373,7 @@ class EventNotificationSystem:
     def register_handler(
         self, event_type: EventType, handler: Callable[[Event], None]
     ):
-        """
-        Register a handler for a specific event type.
+        """Register a handler for a specific event type.
 
         Args:
             event_type: The event type to handle
@@ -402,8 +393,7 @@ class EventNotificationSystem:
     def unregister_handler(
         self, event_type: EventType, handler: Callable[[Event], None]
     ):
-        """
-        Unregister a handler for a specific event type.
+        """Unregister a handler for a specific event type.
 
         Args:
             event_type: The event type

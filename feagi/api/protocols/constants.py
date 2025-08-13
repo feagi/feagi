@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-"""
-Constants for FEAGI protocols and byte structures.
+"""Constants for FEAGI protocols and byte structures.
 
 This module defines constants used throughout the protocol implementation,
 including protocol identifiers and byte structure IDs.
@@ -33,11 +31,10 @@ class ProtocolID(IntEnum):
 
 
 class ByteStructureID(IntEnum):
-    """
-    Byte structure IDs for different data types.
+    """Byte structure IDs for different data types.
 
-    These IDs correspond to the structure IDs defined in the
-    FEAGI Byte Structures documentation.
+    These IDs correspond to the structure IDs defined in the FEAGI Byte
+    Structures documentation.
     """
 
     JSON = 1  # JSON data (slower, for non-performance-critical operations)

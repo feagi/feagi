@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 """
 Memory Neuron Array - Specialized SoA for memory neurons with temporal pattern tracking.
 
@@ -38,8 +37,8 @@ DEFAULT_LONGTERM_THRESHOLD = 100
 
 @dataclass
 class MemoryPatternKey:
-    """
-    Represents a temporal pattern key for memory neuron identification.
+    """Represents a temporal pattern key for memory neuron identification.
+
     Uses bitmap sequence approach for optimal performance.
     """
 
@@ -81,8 +80,7 @@ class MemoryNeuronArray:
     """
 
     def __init__(self, capacity: int):
-        """
-        Initialize memory neuron array with specified capacity.
+        """Initialize memory neuron array with specified capacity.
 
         Args:
             capacity: Maximum number of memory neurons to support
@@ -181,8 +179,7 @@ class MemoryNeuronArray:
         initial_lifespan: int = DEFAULT_INITIAL_LIFESPAN,
         lifespan_growth_rate: float = DEFAULT_LIFESPAN_GROWTH_RATE,
     ) -> Optional[int]:
-        """
-        Create a new memory neuron for the given pattern.
+        """Create a new memory neuron for the given pattern.
 
         Args:
             pattern_key: Temporal pattern this neuron represents
@@ -244,8 +241,7 @@ class MemoryNeuronArray:
     def reactivate_memory_neuron(
         self, neuron_idx: int, current_burst: int
     ) -> bool:
-        """
-        Reactivate an existing memory neuron and update its lifespan.
+        """Reactivate an existing memory neuron and update its lifespan.
 
         Args:
             neuron_idx: Index of neuron to reactivate
@@ -285,8 +281,7 @@ class MemoryNeuronArray:
     def find_memory_neuron_by_pattern(
         self, pattern_key: MemoryPatternKey
     ) -> Optional[int]:
-        """
-        Find memory neuron index for given pattern.
+        """Find memory neuron index for given pattern.
 
         Args:
             pattern_key: Pattern to search for
@@ -304,8 +299,7 @@ class MemoryNeuronArray:
         return None
 
     def age_memory_neurons(self, current_burst: int) -> List[int]:
-        """
-        Age all memory neurons and return list of neurons that died.
+        """Age all memory neurons and return list of neurons that died.
 
         Args:
             current_burst: Current burst number
@@ -339,8 +333,7 @@ class MemoryNeuronArray:
         return died_indices
 
     def age_by_bursts(self, delta_bursts: int) -> List[int]:
-        """
-        Age all eligible memory neurons by an arbitrary number of bursts.
+        """Age all eligible memory neurons by an arbitrary number of bursts.
 
         This method is vectorized for efficiency. It safely subtracts the given
         delta from current lifespans of active, non-long-term neurons, clamps at
@@ -403,8 +396,7 @@ class MemoryNeuronArray:
     def check_longterm_conversion(
         self, longterm_threshold: int = DEFAULT_LONGTERM_THRESHOLD
     ) -> List[int]:
-        """
-        Check for memory neurons that should convert to long-term memory.
+        """Check for memory neurons that should convert to long-term memory.
 
         Args:
             longterm_threshold: Lifespan threshold for long-term conversion
@@ -435,8 +427,7 @@ class MemoryNeuronArray:
         return converted_indices
 
     def get_active_neurons_for_area(self, cortical_area_id: str) -> List[int]:
-        """
-        Get all active memory neuron indices for a specific cortical area.
+        """Get all active memory neuron indices for a specific cortical area.
 
         Args:
             cortical_area_id: Cortical area ID to search for
@@ -456,8 +447,7 @@ class MemoryNeuronArray:
     def get_memory_neuron_info(
         self, neuron_idx: int
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get detailed information about a memory neuron.
+        """Get detailed information about a memory neuron.
 
         Args:
             neuron_idx: Neuron index to query
@@ -491,8 +481,7 @@ class MemoryNeuronArray:
         }
 
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about the memory neuron array.
+        """Get statistics about the memory neuron array.
 
         Returns:
             Dictionary with array statistics
@@ -510,15 +499,17 @@ class MemoryNeuronArray:
             "longterm_memory_neurons": int(np.sum(longterm_mask)),
             "deleted_indices_available": len(self.deleted_indices),
             "memory_usage_bytes": self._calculate_memory_usage(),
-            "average_lifespan_active": float(
-                np.mean(
-                    self.lifespan_current[: self.next_available_index][
-                        active_mask
-                    ]
+            "average_lifespan_active": (
+                float(
+                    np.mean(
+                        self.lifespan_current[: self.next_available_index][
+                            active_mask
+                        ]
+                    )
                 )
-            )
-            if np.any(active_mask)
-            else 0.0,
+                if np.any(active_mask)
+                else 0.0
+            ),
             "total_activations": int(
                 np.sum(
                     self.activation_count[: self.next_available_index][
@@ -529,7 +520,8 @@ class MemoryNeuronArray:
         }
 
     def _get_next_neuron_index(self) -> Optional[int]:
-        """Get next available neuron index, reusing deleted indices if available."""
+        """Get next available neuron index, reusing deleted indices if
+        available."""
         # Reuse deleted index if available
         if self.deleted_indices:
             return self.deleted_indices.pop()
@@ -544,7 +536,8 @@ class MemoryNeuronArray:
         return idx
 
     def _deactivate_memory_neuron(self, neuron_idx: int) -> None:
-        """Deactivate a memory neuron but keep it for potential reactivation."""
+        """Deactivate a memory neuron but keep it for potential
+        reactivation."""
         if self._is_valid_index(neuron_idx):
             self.is_active[neuron_idx] = False
             self.deleted_indices.add(neuron_idx)
@@ -558,8 +551,7 @@ class MemoryNeuronArray:
     def collect_garbage(
         self, current_burst: int, prune_inactive_after_bursts: Optional[int]
     ) -> int:
-        """
-        Remove pattern mappings for neurons that are inactive and stale.
+        """Remove pattern mappings for neurons that are inactive and stale.
 
         Args:
             current_burst: Current burst number

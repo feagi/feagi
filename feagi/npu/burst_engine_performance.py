@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,8 +52,7 @@ except ImportError:
 
 
 class BurstEnginePerformanceMixin:
-    """
-    Performance functionality mixin for BurstEngine.
+    """Performance functionality mixin for BurstEngine.
 
     Provides SIMD acceleration, frequency measurement, and performance monitoring:
     - Centralized SIMD configuration integration
@@ -68,13 +65,18 @@ class BurstEnginePerformanceMixin:
     """
 
     def __init__(self, *args, **kwargs):
-        """Initialize performance functionality. Called by main BurstEngine.__init__."""
+        """Initialize performance functionality.
+
+        Called by main BurstEngine.__init__.
+        """
         # DO NOT call super().__init__ in mixins - causes multiple inheritance issues
         # Just initialize our own attributes
 
         # Initialize frequency measurement system
         self._burst_timing_buffer = []  # Circular buffer for burst durations
-        self._processing_timing_buffer = []  # Circular buffer for pure processing durations
+        self._processing_timing_buffer = (
+            []
+        )  # Circular buffer for pure processing durations
         self._timing_buffer_size = 100  # Keep last 100 burst measurements
         self._last_frequency_update = 0.0
         self._frequency_measurement_enabled = (
@@ -168,8 +170,8 @@ class BurstEnginePerformanceMixin:
     def measure_actual_frequency(
         self, duration_seconds: float = 5.0, sample_count: int = 100
     ) -> dict:
-        """
-        Measure both actual and potential burst frequencies over a specified period.
+        """Measure both actual and potential burst frequencies over a specified
+        period.
 
         This is an expensive operation that should only be called on-demand for monitoring
         or debugging purposes. It collects detailed timing data during burst processing.
@@ -359,8 +361,7 @@ class BurstEnginePerformanceMixin:
                 self._processing_timing_buffer.clear()
 
     def _record_burst_timing(self, burst_duration_seconds: float) -> None:
-        """
-        Record burst timing data if frequency measurement is enabled.
+        """Record burst timing data if frequency measurement is enabled.
 
         Args:
             burst_duration_seconds: Duration of the burst in seconds
@@ -378,8 +379,7 @@ class BurstEnginePerformanceMixin:
     def _record_processing_timing(
         self, processing_duration_seconds: float
     ) -> None:
-        """
-        Record processing timing data if frequency measurement is enabled.
+        """Record processing timing data if frequency measurement is enabled.
 
         Args:
             processing_duration_seconds: Duration of the processing in seconds
@@ -397,8 +397,7 @@ class BurstEnginePerformanceMixin:
     def burst(
         self, burst_size: Optional[int] = None, use_gpu: bool = False
     ) -> Dict[str, Any]:
-        """
-        Execute a neural processing burst with SIMD optimization.
+        """Execute a neural processing burst with SIMD optimization.
 
         Args:
             burst_size: Number of neurons to process (None for auto-sizing)
@@ -608,8 +607,7 @@ class BurstEnginePerformanceMixin:
             logger.debug(f"Performance reporting failed: {e}")
 
     def get_performance_metrics(self) -> Dict[str, Any]:
-        """
-        Get comprehensive performance metrics.
+        """Get comprehensive performance metrics.
 
         Returns:
             Dictionary with performance statistics
@@ -666,8 +664,7 @@ class BurstEnginePerformanceMixin:
         logger.info("Performance statistics reset")
 
     def enable_frequency_measurement(self, enabled: bool = True) -> None:
-        """
-        Enable or disable frequency measurement.
+        """Enable or disable frequency measurement.
 
         Args:
             enabled: Whether to enable frequency measurement

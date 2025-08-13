@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,9 +20,8 @@ from ..shared.base_service import BaseService
 
 
 class CorticalAreaService(BaseService):
-    """
-    Cortical Area service handles cortical area operations including
-    CRUD operations, activity monitoring, and cortical area management.
+    """Cortical Area service handles cortical area operations including CRUD
+    operations, activity monitoring, and cortical area management.
 
     IMPORTANT: This service maintains the critical distinction between:
     - cortical_id: 6-character string identifier (e.g., "iic400", "motor1")
@@ -42,8 +39,8 @@ class CorticalAreaService(BaseService):
         # self._cortical_areas_cache_timestamp = 0
 
     def _validate_state_consistency(self) -> bool:
-        """
-        Validate that the state manager and connectome manager are consistent.
+        """Validate that the state manager and connectome manager are
+        consistent.
 
         Returns:
             bool: True if state is consistent, False if inconsistencies are detected
@@ -99,9 +96,9 @@ class CorticalAreaService(BaseService):
         return False
 
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
-        """
-        Map a cortical_id (6-character string) to its corresponding cortical_idx (integer).
-        Uses O(1) BiDirectionalCorticalMap instead of O(N) linear search.
+        """Map a cortical_id (6-character string) to its corresponding
+        cortical_idx (integer). Uses O(1) BiDirectionalCorticalMap instead of
+        O(N) linear search.
 
         Args:
             cortical_id: 6-character string identifier
@@ -147,9 +144,9 @@ class CorticalAreaService(BaseService):
             return None
 
     def _get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
-        """
-        Map a cortical_idx (integer) to its corresponding cortical_id (6-character string).
-        Uses O(1) BiDirectionalCorticalMap instead of O(N) linear search.
+        """Map a cortical_idx (integer) to its corresponding cortical_id
+        (6-character string). Uses O(1) BiDirectionalCorticalMap instead of
+        O(N) linear search.
 
         Args:
             cortical_idx: Integer index
@@ -208,8 +205,8 @@ class CorticalAreaService(BaseService):
             return []
 
     def get_area(self, cortical_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a cortical area by its cortical_id from ConnectomeManager (single source of truth).
+        """Get a cortical area by its cortical_id from ConnectomeManager
+        (single source of truth).
 
         Args:
             cortical_id: 6-character string identifier
@@ -245,8 +242,7 @@ class CorticalAreaService(BaseService):
         area_type: str,
         parameters: Dict[str, Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Create a new cortical area.
+        """Create a new cortical area.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
         to maintain proper data flow and ensure genome consistency.
@@ -279,8 +275,7 @@ class CorticalAreaService(BaseService):
         area_type: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Update an existing cortical area.
+        """Update an existing cortical area.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
         to maintain proper data flow and ensure genome consistency.
@@ -330,8 +325,7 @@ class CorticalAreaService(BaseService):
             return None
 
     def delete_area(self, cortical_id: str) -> bool:
-        """
-        Delete a cortical area.
+        """Delete a cortical area.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
         to maintain proper data flow and ensure genome consistency.
@@ -360,8 +354,7 @@ class CorticalAreaService(BaseService):
     def get_area_neurons(
         self, cortical_id: str
     ) -> Optional[List[Dict[str, Any]]]:
-        """
-        Get neurons for a specific cortical area.
+        """Get neurons for a specific cortical area.
 
         Args:
             cortical_id: 6-character string identifier
@@ -521,8 +514,7 @@ class CorticalAreaService(BaseService):
     def get_area_activity(
         self, cortical_id: str, window: int = 1
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get activity data for a specific cortical area.
+        """Get activity data for a specific cortical area.
 
         Args:
             cortical_id: 6-character string identifier
@@ -603,8 +595,7 @@ class CorticalAreaService(BaseService):
     def get_area_connectivity(
         self, cortical_id: str, direction: str = "both"
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get connectivity information for a cortical area.
+        """Get connectivity information for a cortical area.
 
         Args:
             cortical_id: 6-character string identifier
@@ -766,8 +757,7 @@ class CorticalAreaService(BaseService):
     # unified approach for consistency and performance.
 
     def get_id_list(self) -> List[str]:
-        """
-        Get a list of all cortical area IDs (6-character strings).
+        """Get a list of all cortical area IDs (6-character strings).
 
         Returns:
             List of cortical area ID strings
@@ -788,7 +778,8 @@ class CorticalAreaService(BaseService):
             return []
 
     def get_index_list(self) -> List[int]:
-        """Get a list of all cortical area indices (integers) used by the FCL."""
+        """Get a list of all cortical area indices (integers) used by the
+        FCL."""
         try:
             # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
             indices = self._connectome_manager.get_all_cortical_indices()

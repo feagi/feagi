@@ -1,5 +1,4 @@
-"""
-Backend Abstraction Layer for FEAGI.
+"""Backend Abstraction Layer for FEAGI.
 
 This module provides a unified interface for different computational backends,
 enabling FEAGI to run on various hardware configurations including CPU and GPU.

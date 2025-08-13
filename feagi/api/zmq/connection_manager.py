@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,8 +43,7 @@ from ..core.services.core_api_service import CoreAPIService
 
 
 class ConnectionManager:
-    """
-    Connection manager for multiple ZMQ clients using ROUTER-DEALER pattern.
+    """Connection manager for multiple ZMQ clients using ROUTER-DEALER pattern.
 
     This class handles:
     - Creation of sockets for different protocols
@@ -63,8 +60,7 @@ class ConnectionManager:
         context: Optional[zmq.asyncio.Context] = None,
         visualization_port: Optional[int] = None,
     ):
-        """
-        Initialize the connection manager.
+        """Initialize the connection manager.
 
         Args:
             control_port: Port for control messages (ROUTER pattern)
@@ -136,8 +132,7 @@ class ConnectionManager:
     def register_client(
         self, agent_id: str, zmq_id: bytes, supported_protocols: Dict[str, int]
     ) -> None:
-        """
-        Register a new client connection.
+        """Register a new client connection.
 
         Args:
             agent_id: Unique identifier for the agent
@@ -154,8 +149,7 @@ class ConnectionManager:
         logger.info(f"Registered client {agent_id} with ZMQ ID {zmq_id.hex()}")
 
     def deregister_client(self, agent_id: str) -> bool:
-        """
-        Deregister a client.
+        """Deregister a client.
 
         Args:
             agent_id: Agent identifier
@@ -170,8 +164,7 @@ class ConnectionManager:
         return False
 
     def get_client_info(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get information about a client by agent ID.
+        """Get information about a client by agent ID.
 
         Args:
             agent_id: Agent identifier
@@ -184,8 +177,7 @@ class ConnectionManager:
     def get_client_by_zmq_id(
         self, zmq_id: bytes
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        """
-        Find client by ZMQ identity.
+        """Find client by ZMQ identity.
 
         Args:
             zmq_id: ZMQ identity frame
@@ -199,8 +191,7 @@ class ConnectionManager:
         return None, None
 
     def update_client_activity(self, agent_id: str) -> None:
-        """
-        Update the last activity timestamp for a client.
+        """Update the last activity timestamp for a client.
 
         Args:
             agent_id: Agent identifier
@@ -212,8 +203,7 @@ class ConnectionManager:
     async def send_message(
         self, agent_id: str, protocol_type: str, message: bytes
     ) -> bool:
-        """
-        Send a message to a specific client.
+        """Send a message to a specific client.
 
         Args:
             agent_id: Agent identifier
@@ -271,8 +261,8 @@ class ConnectionManager:
             return False
 
     def get_inactive_clients(self, timeout_seconds: int = 30) -> List[str]:
-        """
-        Get a list of clients that have been inactive for longer than the specified timeout.
+        """Get a list of clients that have been inactive for longer than the
+        specified timeout.
 
         Args:
             timeout_seconds: Number of seconds of inactivity to consider a client inactive
@@ -288,8 +278,7 @@ class ConnectionManager:
         ]
 
     def get_connection_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about current connections.
+        """Get statistics about current connections.
 
         Returns:
             Dictionary of connection statistics
@@ -331,12 +320,11 @@ class ConnectionManager:
 
 
 class ZMQConnectionManager:
-    """
-    ZeroMQ Connection Manager.
+    """ZeroMQ Connection Manager.
 
-    This singleton manages all ZeroMQ connections for FEAGI API.
-    It ensures consistent state across all streams and handles
-    lifecycle management for connections.
+    This singleton manages all ZeroMQ connections for FEAGI API. It ensures
+    consistent state across all streams and handles lifecycle management for
+    connections.
     """
 
     _instance = None
@@ -357,8 +345,7 @@ class ZMQConnectionManager:
     def __init__(
         self, core_api: Optional[CoreAPIService] = None, host: str = None
     ):
-        """
-        Initialize the connection manager.
+        """Initialize the connection manager.
 
         Args:
             core_api: Core API service
@@ -399,8 +386,7 @@ class ZMQConnectionManager:
         self._update_active_mode()
 
     def create_server(self, server_type: str = "default", **kwargs) -> Any:
-        """
-        Create a ZMQ server instance.
+        """Create a ZMQ server instance.
 
         Args:
             server_type: Type of server to create

@@ -89,8 +89,8 @@ class AgentRegistrationResponse:
 
 
 class RegistrationManager:
-    """
-    Central Registration Manager for agent lifecycle and FQ sampler coordination.
+    """Central Registration Manager for agent lifecycle and FQ sampler
+    coordination.
 
     This class serves as the single authority for:
     - Agent registration and deregistration
@@ -103,8 +103,7 @@ class RegistrationManager:
     """
 
     def __init__(self, state_manager=None, process_manager=None):
-        """
-        Initialize Registration Manager.
+        """Initialize Registration Manager.
 
         Args:
             state_manager: State Manager instance for persistent state
@@ -143,8 +142,7 @@ class RegistrationManager:
     def register_agent(
         self, request: AgentRegistrationRequest
     ) -> AgentRegistrationResponse:
-        """
-        Register a new agent in the FEAGI system.
+        """Register a new agent in the FEAGI system.
 
         This method handles agent registration with comprehensive state management,
         FQ sampler coordination, and notification of state changes.
@@ -302,8 +300,7 @@ class RegistrationManager:
                 )
 
     def deregister_agent(self, agent_id: str) -> AgentRegistrationResponse:
-        """
-        Deregister an agent from FEAGI system.
+        """Deregister an agent from FEAGI system.
 
         Args:
             agent_id: ID of agent to deregister
@@ -374,8 +371,7 @@ class RegistrationManager:
                 )
 
     def heartbeat_agent(self, agent_id: str) -> bool:
-        """
-        Update agent heartbeat timestamp.
+        """Update agent heartbeat timestamp.
 
         Args:
             agent_id: ID of agent sending heartbeat
@@ -392,8 +388,7 @@ class RegistrationManager:
             return False
 
     def get_agent_properties(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get properties for a specific agent.
+        """Get properties for a specific agent.
 
         Args:
             agent_id: ID of agent
@@ -409,8 +404,7 @@ class RegistrationManager:
             )
 
     def list_agents(self) -> Dict[str, Any]:
-        """
-        Get list of all registered agents.
+        """Get list of all registered agents.
 
         Returns:
             Dictionary with agents list and summary statistics
@@ -444,8 +438,7 @@ class RegistrationManager:
             }
 
     def get_fq_sampler_coordination_status(self) -> Dict[str, Any]:
-        """
-        Get current FQ sampler coordination status.
+        """Get current FQ sampler coordination status.
 
         Returns:
             Dictionary with FQ sampler states and agent coordination info
@@ -498,8 +491,7 @@ class RegistrationManager:
             }
 
     def register_state_change_listener(self, listener: Callable) -> None:
-        """
-        Register a listener for agent state changes.
+        """Register a listener for agent state changes.
 
         Args:
             listener: Callable that will be notified of state changes
@@ -507,8 +499,7 @@ class RegistrationManager:
         self._state_change_listeners.add(listener)
 
     def unregister_state_change_listener(self, listener: Callable) -> None:
-        """
-        Unregister a state change listener.
+        """Unregister a state change listener.
 
         Args:
             listener: Listener to remove
@@ -524,8 +515,7 @@ class RegistrationManager:
         capabilities: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AgentRegistrationResponse:
-        """
-        Direct function call interface for embedded mode agent registration.
+        """Direct function call interface for embedded mode agent registration.
 
         This method provides a simplified interface for embedded mode where
         agents are spawned as direct processes rather than ZMQ connections.
@@ -554,8 +544,8 @@ class RegistrationManager:
     def deregister_agent_direct(
         self, agent_id: str
     ) -> AgentRegistrationResponse:
-        """
-        Direct function call interface for embedded mode agent deregistration.
+        """Direct function call interface for embedded mode agent
+        deregistration.
 
         Args:
             agent_id: ID of agent to deregister
@@ -640,11 +630,12 @@ class RegistrationManager:
         )
 
     def _has_motor_capabilities(self, capabilities: Dict[str, Any]) -> bool:
-        """
-        Check if agent has actual motor control capabilities (not just visualization).
+        """Check if agent has actual motor control capabilities (not just
+        visualization).
 
-        Brain visualizers that need to see motor data should NOT trigger motor FQ sampler creation.
-        Only agents that actually control motors should trigger motor FQ samplers.
+        Brain visualizers that need to see motor data should NOT trigger motor
+        FQ sampler creation. Only agents that actually control motors should
+        trigger motor FQ samplers.
         """
         # Explicit motor control capabilities
         has_motor_control = (
@@ -853,8 +844,7 @@ class RegistrationManager:
     def _notify_existing_fq_samplers_visualization(
         self, has_clients: bool
     ) -> None:
-        """
-        Notify ALL existing FQ samplers about visualization client status.
+        """Notify ALL existing FQ samplers about visualization client status.
 
         This is critical because there may be FQ samplers that were created during
         startup or by other processes that don't know about client connections.
@@ -909,8 +899,7 @@ class RegistrationManager:
                         )
 
     def _notify_existing_fq_samplers_motor(self, has_clients: bool) -> None:
-        """
-        Notify ALL existing FQ samplers about motor client status.
+        """Notify ALL existing FQ samplers about motor client status.
 
         Args:
             has_clients: True if motor clients are connected, False otherwise
@@ -977,8 +966,7 @@ def get_registration_manager() -> Optional[RegistrationManager]:
 
 
 def set_registration_manager(manager: Optional[RegistrationManager]) -> None:
-    """
-    Set the global Registration Manager instance.
+    """Set the global Registration Manager instance.
 
     Args:
         manager: Registration Manager instance to set, or None to clear
@@ -996,8 +984,7 @@ def set_registration_manager(manager: Optional[RegistrationManager]) -> None:
 def create_registration_manager(
     state_manager=None, process_manager=None
 ) -> RegistrationManager:
-    """
-    Create and initialize the global Registration Manager instance.
+    """Create and initialize the global Registration Manager instance.
 
     Args:
         state_manager: State Manager instance

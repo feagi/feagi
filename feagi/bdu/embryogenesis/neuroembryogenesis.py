@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +27,6 @@ import numpy as np
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-
 """
 Neuroembryogenesis Module for FEAGI 2.1
 
@@ -128,8 +125,7 @@ class DevelopmentStage(Enum):
 
 
 class NeuroEmbryogenesis:
-    """
-    Manages the development of a brain from genome instructions.
+    """Manages the development of a brain from genome instructions.
 
     This class orchestrates the process of reading genome data and constructing
     the corresponding neural architecture using the ConnectomeManager.
@@ -143,8 +139,7 @@ class NeuroEmbryogenesis:
             Callable[[DevelopmentStage, float, str], None]
         ] = None,
     ):
-        """
-        Initialize the NeuroEmbryogenesis system.
+        """Initialize the NeuroEmbryogenesis system.
 
         Args:
             connectome_manager: The connectome manager to use for brain development
@@ -213,7 +208,9 @@ class NeuroEmbryogenesis:
         # Tracking data
         self.cortical_id_map = {}  # cortical_idx -> cortical_id
         self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
-        self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
+        self.voxel_neuron_map = (
+            {}
+        )  # Maps (area_id, position) to list of neuron IDs
 
         # Add temporary method to ConnectomeManager to provide morphology information
         # Add this once at initialization instead of each time in
@@ -253,8 +250,7 @@ class NeuroEmbryogenesis:
             self.progress_callback(DevelopmentStage.FAILED, 0, message)
 
     def _is_debug_bdu_enabled(self) -> bool:
-        """
-        Check if BDU (Brain Development Unit) debugging is enabled.
+        """Check if BDU (Brain Development Unit) debugging is enabled.
 
         Returns:
             True if BDU debugging is enabled, False otherwise
@@ -268,8 +264,7 @@ class NeuroEmbryogenesis:
             return False
 
     def load_genome(self, genome_path: Union[str, Path]) -> bool:
-        """
-        Load a genome from file.
+        """Load a genome from file.
 
         Args:
             genome_path: Path to the genome file
@@ -386,7 +381,9 @@ class NeuroEmbryogenesis:
 
             # Set the morphology registry on the ConnectomeManager
             if hasattr(self.connectome_manager, "get_morphologies_registry"):
-                self.connectome_manager._neuroembryogenesis_morphologies_registry = morphology_registry
+                self.connectome_manager._neuroembryogenesis_morphologies_registry = (
+                    morphology_registry
+                )
 
             if is_valid:
                 self._report_progress(
@@ -412,8 +409,7 @@ class NeuroEmbryogenesis:
             return False
 
     def _extract_cortical_properties(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Extract cortical area properties from hierarchical genome format.
+        """Extract cortical area properties from hierarchical genome format.
 
         ARCHITECTURE: Single source of truth - hierarchical genome format only.
         No fallbacks, no format detection, one clean reliable path.
@@ -493,8 +489,7 @@ class NeuroEmbryogenesis:
     def _calculate_subregion(
         self, cortical_id: str, morphology: Dict
     ) -> BoundingBox:
-        """
-        Calculate a bounding box for a subregion of the cortical area.
+        """Calculate a bounding box for a subregion of the cortical area.
 
         Args:
             cortical_id: 6-character cortical identifier
@@ -533,8 +528,8 @@ class NeuroEmbryogenesis:
         )
 
     def _get_cortical_ids_from_genome(self) -> List[str]:
-        """
-        Extract the list of cortical area IDs from hierarchical genome blueprint.
+        """Extract the list of cortical area IDs from hierarchical genome
+        blueprint.
 
         ARCHITECTURE: Single source of truth - hierarchical genome format only.
         No fallbacks, no format detection, one clean reliable path.
@@ -551,8 +546,8 @@ class NeuroEmbryogenesis:
         return cortical_ids
 
     def _setup_cortical_areas(self) -> bool:
-        """
-        Create all cortical areas in the connectome manager based on the genome.
+        """Create all cortical areas in the connectome manager based on the
+        genome.
 
         ENHANCED: Now guarantees core areas (_death, _power) are created first from templates,
         then allows genome to override their properties, then creates remaining areas.
@@ -736,8 +731,7 @@ class NeuroEmbryogenesis:
             return False
 
     def _create_core_areas_from_templates(self) -> bool:
-        """
-        Create the guaranteed core areas (_death, _power) from templates.py.
+        """Create the guaranteed core areas (_death, _power) from templates.py.
 
         These areas are ALWAYS created regardless of genome content to ensure
         system reliability and proper cortical_idx reservation.
@@ -833,8 +827,7 @@ class NeuroEmbryogenesis:
     def _update_core_areas_from_genome(
         self, genome_cortical_ids: List[str]
     ) -> None:
-        """
-        Update core area properties if they are defined in the genome.
+        """Update core area properties if they are defined in the genome.
 
         This allows genomes to override the template defaults for core areas
         while ensuring the areas always exist.
@@ -1098,9 +1091,9 @@ class NeuroEmbryogenesis:
                                         neuron_ids[neuron_idx]
                                     )
                                     neuron_idx += 1
-                            self.voxel_neuron_map[cortical_id][position] = (
-                                voxel_neurons
-                            )
+                            self.voxel_neuron_map[cortical_id][
+                                position
+                            ] = voxel_neurons
 
                 # CRITICAL FIX: Sync neurons with cortical area objects using vectorized operations
                 # PERFORMANCE: Use bulk set operations and dict comprehensions instead of loops
@@ -1155,8 +1148,7 @@ class NeuroEmbryogenesis:
             return False
 
     def _perform_synaptogenesis(self) -> bool:
-        """
-        Create synaptic connections based on genome mappings.
+        """Create synaptic connections based on genome mappings.
 
         Returns:
             True if successful, False otherwise
@@ -1229,9 +1221,9 @@ class NeuroEmbryogenesis:
                                     and connection_specs
                                 ):
                                     # The format is already correct - just use it directly
-                                    mapping_data[cortical_id][dst_area_id] = (
-                                        connection_specs
-                                    )
+                                    mapping_data[cortical_id][
+                                        dst_area_id
+                                    ] = connection_specs
                                     mappings_found += len(connection_specs)
                                     logger.info(
                                         f"  {cortical_id} -> {dst_area_id}: {len(connection_specs)} connections"
@@ -1323,8 +1315,7 @@ class NeuroEmbryogenesis:
             return False
 
     def get_morphology_registry(self) -> Dict[str, Dict]:
-        """
-        Create a registry of morphology functions from the genome.
+        """Create a registry of morphology functions from the genome.
 
         Returns:
             Dictionary mapping morphology_id to morphology type and parameters
@@ -1454,8 +1445,7 @@ class NeuroEmbryogenesis:
         return registry
 
     def develop_brain(self, genome_path: Union[str, Path]) -> bool:
-        """
-        Main entry point to develop a brain from genome.
+        """Main entry point to develop a brain from genome.
 
         Args:
             genome_path: Path to the genome JSON file
@@ -1507,8 +1497,7 @@ class NeuroEmbryogenesis:
     def develop_brain_from_genome_data(
         self, genome_data: Dict[str, Any]
     ) -> bool:
-        """
-        Develop a brain from genome data directly (not from file).
+        """Develop a brain from genome data directly (not from file).
 
         This method is used when the genome data is already loaded and sanitized
         in the state manager, ensuring single source of truth architecture.
@@ -1578,8 +1567,7 @@ class NeuroEmbryogenesis:
         return True
 
     def _load_genome_data(self, genome_data: Dict[str, Any]) -> bool:
-        """
-        Load genome data directly from dictionary (not from file).
+        """Load genome data directly from dictionary (not from file).
 
         Args:
             genome_data: The genome dictionary
@@ -1660,7 +1648,9 @@ class NeuroEmbryogenesis:
 
             # Set the morphology registry on the ConnectomeManager
             if hasattr(self.connectome_manager, "get_morphologies_registry"):
-                self.connectome_manager._neuroembryogenesis_morphologies_registry = morphology_registry
+                self.connectome_manager._neuroembryogenesis_morphologies_registry = (
+                    morphology_registry
+                )
 
             self._report_progress(
                 DevelopmentStage.INITIALIZATION,
@@ -1676,8 +1666,7 @@ class NeuroEmbryogenesis:
             return False
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
-        """
-        Update cortical mapping in the connectome based on genome changes.
+        """Update cortical mapping in the connectome based on genome changes.
 
         This method is ONLY used during connectome building/updating.
         It should not be used for runtime cortical property access.
@@ -1747,9 +1736,9 @@ class NeuroEmbryogenesis:
 
                         if src_area_id not in converted_mapping:
                             converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][dst_area_id] = (
-                            connection_specs
-                        )
+                        converted_mapping[src_area_id][
+                            dst_area_id
+                        ] = connection_specs
 
                         logger.info(
                             f"Mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
@@ -1759,9 +1748,9 @@ class NeuroEmbryogenesis:
                         src_area_id = dst_area_id
                         if src_area_id not in converted_mapping:
                             converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][dst_area_id] = (
-                            connection_specs
-                        )
+                        converted_mapping[src_area_id][
+                            dst_area_id
+                        ] = connection_specs
 
                         logger.info(
                             f"Self-mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
@@ -2058,8 +2047,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Apply morphology-based synaptogenesis between two cortical areas.
+        """Apply morphology-based synaptogenesis between two cortical areas.
 
         ARCHITECTURE: Morphology-driven approach following FEAGI 2.0 principles.
         Gets morphology definition from genome and routes to appropriate processor
@@ -2266,8 +2254,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process vector-based morphology using numpy vectorized operations.
+        """Process vector-based morphology using numpy vectorized operations.
 
         PERFORMANCE: Vectorized approach for massive performance improvement.
         Instead of processing 12,288 neurons one-by-one, processes ALL at once.
@@ -2518,8 +2505,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process pattern-based morphology using legacy pattern logic.
+        """Process pattern-based morphology using legacy pattern logic.
 
         ARCHITECTURE: Implements legacy find_destination_coordinates in FEAGI 2.0.
         PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
@@ -2633,8 +2619,7 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """
-        Process function-based morphology with direct implementation.
+        """Process function-based morphology with direct implementation.
 
         ARCHITECTURE: Clean FEAGI 2.0 implementation without legacy dependencies.
         Supports all function morphologies including block_to_block.
@@ -2949,8 +2934,7 @@ def develop_brain_from_genome(
         Callable[[DevelopmentStage, float, str], None]
     ] = None,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """
-    Develop a brain from a genome file.
+    """Develop a brain from a genome file.
 
     Args:
         genome_path: Path to the genome JSON file

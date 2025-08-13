@@ -1,5 +1,4 @@
-"""
-Rust-friendly state manager for FEAGI.
+"""Rust-friendly state manager for FEAGI.
 
 This state manager is designed for easy conversion to Rust while maintaining
 full compatibility with existing Python code. It provides atomic operations,
@@ -28,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 class FCLWindowSizeCache:
-    """
-    Cached FCL window size computation for dynamic memory area support.
-    Tracks cortical area mappings to memory areas and computes optimal window sizes.
+    """Cached FCL window size computation for dynamic memory area support.
+
+    Tracks cortical area mappings to memory areas and computes optimal window
+    sizes.
     """
 
     def __init__(self, default_window_size: int = 20):
@@ -89,7 +89,8 @@ class FCLWindowSizeCache:
     def update_memory_temporal_depth(
         self, memory_cortical_id: str, new_temporal_depth: int
     ) -> None:
-        """Update temporal depth for a memory area and invalidate affected window sizes."""
+        """Update temporal depth for a memory area and invalidate affected
+        window sizes."""
         with self._lock:
             if memory_cortical_id in self.memory_areas:
                 old_depth = self.memory_temporal_depths.get(
@@ -110,7 +111,8 @@ class FCLWindowSizeCache:
     def add_cortical_mapping(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
-        """Add a mapping from source cortical area to target (potentially memory) area."""
+        """Add a mapping from source cortical area to target (potentially
+        memory) area."""
         with self._lock:
             if target_cortical_id in self.memory_areas:
                 self.cortical_to_memory_mappings[source_cortical_id].add(
@@ -291,8 +293,7 @@ class StateChangeEvent:
 
 
 class FeagiStateManager:
-    """
-    Rust-friendly state manager designed for easy conversion.
+    """Rust-friendly state manager designed for easy conversion.
 
     This manager provides:
     - Atomic operations for all state changes
@@ -800,8 +801,8 @@ class FeagiStateManager:
     # === SYSTEM READINESS CHECKS ===
 
     def is_system_ready_for_fq_samplers(self) -> bool:
-        """
-        Check if all critical services are ready for FQ sampler initialization.
+        """Check if all critical services are ready for FQ sampler
+        initialization.
 
         Returns:
             True if system is ready, False otherwise
@@ -831,8 +832,8 @@ class FeagiStateManager:
         return True
 
     def get_critical_service_readiness_report(self) -> Dict[str, Any]:
-        """
-        Get detailed report of critical service readiness for event-driven decisions.
+        """Get detailed report of critical service readiness for event-driven
+        decisions.
 
         Returns:
             Dict containing service states and readiness conditions
@@ -1271,7 +1272,8 @@ class FeagiStateManager:
         }
 
     def reset_cumulative_activity(self) -> None:
-        """Reset cumulative counters (e.g., when Sleep maintenance triggers)."""
+        """Reset cumulative counters (e.g., when Sleep maintenance
+        triggers)."""
         self._ensure_activity_counters()
         self._cumulative_activity_total = 0
         self._cumulative_activity_bursts = 0
@@ -1455,8 +1457,7 @@ class FeagiStateManager:
         agent_ip: Optional[str] = None,
         **kwargs,
     ) -> Result[None]:
-        """
-        Register an agent in the state manager.
+        """Register an agent in the state manager.
 
         Args:
             agent_id: Unique agent identifier
@@ -1504,8 +1505,7 @@ class FeagiStateManager:
         return result
 
     def deregister_agent(self, agent_id: str) -> Result[None]:
-        """
-        Deregister an agent from the state manager.
+        """Deregister an agent from the state manager.
 
         Args:
             agent_id: Agent identifier to remove
@@ -1589,11 +1589,13 @@ class FeagiStateManager:
         self._storage.store_state(self._state)
 
     def get_system_status(self) -> Dict[str, Any]:
-        """Get comprehensive system status (alias for get_critical_services_status)."""
+        """Get comprehensive system status (alias for
+        get_critical_services_status)."""
         return self.get_critical_services_status()
 
     def get_state_summary(self) -> Dict[str, Any]:
-        """Get comprehensive state summary (alias for get_comprehensive_state_report)."""
+        """Get comprehensive state summary (alias for
+        get_comprehensive_state_report)."""
         return self.get_comprehensive_state_report()
 
     def set_debug_configuration(self, config: Dict[str, Any]) -> None:
@@ -1694,7 +1696,8 @@ class FeagiStateManager:
     # === MORTON SPATIAL HASH STATE MANAGEMENT ===
 
     def get_morton_coordinate_limit(self) -> int:
-        """Get the maximum coordinate value supported by the active Morton spatial hash.
+        """Get the maximum coordinate value supported by the active Morton
+        spatial hash.
 
         Returns:
             Maximum coordinate value per dimension (exclusive)
@@ -1827,7 +1830,8 @@ class FeagiStateManager:
     def add_cortical_mapping_to_cache(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
-        """Add cortical mapping to memory area cache (called by ConnectomeManager)."""
+        """Add cortical mapping to memory area cache (called by
+        ConnectomeManager)."""
         self._memory_area_cache.add_cortical_mapping(
             source_cortical_id, target_cortical_id
         )
@@ -1835,7 +1839,8 @@ class FeagiStateManager:
     def remove_cortical_mapping_from_cache(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
-        """Remove cortical mapping from memory area cache (called by ConnectomeManager)."""
+        """Remove cortical mapping from memory area cache (called by
+        ConnectomeManager)."""
         self._memory_area_cache.remove_cortical_mapping(
             source_cortical_id, target_cortical_id
         )
@@ -1869,8 +1874,7 @@ class FeagiStateManager:
         logger.debug("Cortical areas cache invalidated")
 
     def get_cortical_areas_cache(self, connectome_manager=None) -> List[Dict]:
-        """
-        Get cached cortical areas data, refreshing if needed.
+        """Get cached cortical areas data, refreshing if needed.
 
         Args:
             connectome_manager: ConnectomeManager instance to refresh from if cache is dirty
@@ -1913,8 +1917,7 @@ class FeagiStateManager:
     def update_cortical_areas_cache(
         self, cortical_id: str, operation: str
     ) -> None:
-        """
-        Update cortical areas cache after operations.
+        """Update cortical areas cache after operations.
 
         Args:
             cortical_id: ID of the cortical area that changed
@@ -1964,5 +1967,5 @@ class GenomeTransaction:
 
 
 def get_state_manager():
-    """Get the singleton instance of FeagiStateManager"""
+    """Get the singleton instance of FeagiStateManager."""
     return FeagiStateManager.instance()

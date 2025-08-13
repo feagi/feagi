@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,8 +36,7 @@ class BenchmarkResult:
     """Results of a benchmark run."""
 
     def __init__(self, name: str, iterations: int, times: List[float]):
-        """
-        Initialize benchmark results.
+        """Initialize benchmark results.
 
         Args:
             name: Name of the benchmark
@@ -90,8 +87,7 @@ class Benchmark:
         warmup: int = 10,
         name: Optional[str] = None,
     ) -> BenchmarkResult:
-        """
-        Run a benchmark on a function.
+        """Run a benchmark on a function.
 
         Args:
             func: Function to benchmark
@@ -133,8 +129,7 @@ class Benchmark:
         return result
 
     def compare(self, name1: str, name2: str) -> Dict[str, Any]:
-        """
-        Compare two benchmark results.
+        """Compare two benchmark results.
 
         Args:
             name1: Name of the first benchmark
@@ -166,8 +161,7 @@ class Benchmark:
         }
 
     def print_comparison(self, name1: str, name2: str) -> None:
-        """
-        Print a comparison between two benchmark results.
+        """Print a comparison between two benchmark results.
 
         Args:
             name1: Name of the first benchmark
@@ -185,8 +179,7 @@ class Benchmark:
 def benchmark(
     iterations: int = 100, warmup: int = 10, name: Optional[str] = None
 ) -> Callable:
-    """
-    Decorator to benchmark a function.
+    """Decorator to benchmark a function.
 
     Args:
         iterations: Number of iterations to run

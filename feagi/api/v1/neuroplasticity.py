@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -154,7 +152,8 @@ class NeuroplasticityAPI:
 
     @neuroplasticity_endpoint("GET", "/transforming", response_model=List[str])
     async def get_transforming_areas(self) -> List[str]:
-        """Get a list of all cortical areas currently undergoing transformation."""
+        """Get a list of all cortical areas currently undergoing
+        transformation."""
         try:
             return self.core_api_service.get_transforming_areas()
         except Exception as e:
@@ -208,8 +207,7 @@ class NeuroplasticityAPI:
 def create_neuroplasticity_api(
     core_api_service: CoreAPIService,
 ) -> NeuroplasticityAPI:
-    """
-    Factory function to create a NeuroplasticityAPI instance.
+    """Factory function to create a NeuroplasticityAPI instance.
 
     This function can be used by transport adapters to get a configured
     NeuroplasticityAPI instance with the required dependencies.

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +16,6 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
-
 """Cortical mapping rules and constraints for the BDU.
 
 This module provides the framework for defining and enforcing rules
@@ -158,7 +155,8 @@ class MappingDefault:
 
 
 class CorticalMappingRestrictionsRegistry:
-    """Registry for managing mapping restrictions and defaults between cortical area types."""
+    """Registry for managing mapping restrictions and defaults between cortical
+    area types."""
 
     def __init__(self):
         """Initialize the restrictions registry with default restrictions."""
@@ -167,7 +165,8 @@ class CorticalMappingRestrictionsRegistry:
         self._initialize_default_restrictions()
 
     def _initialize_default_restrictions(self):
-        """Initialize the default restrictions based on the current Godot configuration."""
+        """Initialize the default restrictions based on the current Godot
+        configuration."""
 
         # Memory → OPU: Restricted to "projector" morphology only
         self.add_restriction(
@@ -265,7 +264,8 @@ class CorticalMappingRestrictionsRegistry:
     def get_default(
         self, source_type: str, destination_type: str
     ) -> Optional[MappingDefault]:
-        """Get the default morphology for a specific source/destination combination.
+        """Get the default morphology for a specific source/destination
+        combination.
 
         Args:
             source_type: Source cortical area type
@@ -578,7 +578,8 @@ class TopologicalMapping(CorticalMapping):
 
 
 class ProjectionMapping(CorticalMapping):
-    """Mapping that projects from a higher-dimensional space to a lower one or vice versa."""
+    """Mapping that projects from a higher-dimensional space to a lower one or
+    vice versa."""
 
     def __init__(
         self,

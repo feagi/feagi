@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,10 +28,8 @@ from ..shared.base_service import BaseService
 
 
 class SystemService(BaseService):
-    """
-    System service handles system-level operations like health checks,
-    configuration management, and system information.
-    """
+    """System service handles system-level operations like health checks,
+    configuration management, and system information."""
 
     def __init__(self, connectome_manager, state_manager=None):
         """Initialize system service."""
@@ -42,8 +38,7 @@ class SystemService(BaseService):
         self._connectome_manager = connectome_manager
 
     async def get_health(self) -> Dict[str, Any]:
-        """
-        Get comprehensive system health information.
+        """Get comprehensive system health information.
 
         Returns:
             Dictionary containing health metrics for all FEAGI components
@@ -242,7 +237,9 @@ class SystemService(BaseService):
                 self._connectome_manager, "memory_neuron_array"
             ):
                 try:
-                    mem_stats = self._connectome_manager.memory_neuron_array.get_statistics()
+                    mem_stats = (
+                        self._connectome_manager.memory_neuron_array.get_statistics()
+                    )
                     memory_count = int(
                         mem_stats.get(
                             "total_active_neurons",
@@ -570,7 +567,8 @@ class SystemService(BaseService):
             return []
 
     def enable_visualization_fq_sampler(self) -> bool:
-        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        """Enable the visualization FQ sampler for brain visualizer
+        connectivity."""
         try:
             # Import here to avoid circular dependencies
             from feagi.process_manager import get_process_manager

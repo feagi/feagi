@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,8 +77,8 @@ Usage:
 
 
 class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
-    """
-    RTOS/Rust-friendly burst engine for FEAGI neural simulation.
+    """RTOS/Rust-friendly burst engine for FEAGI neural simulation.
+
     - No dynamic allocation in the main loop
     - All configuration and memory allocation happens before entering the loop
     - Main loop is a single, clear sequence of steps
@@ -101,9 +99,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         fcl_manager: Optional[Any] = None,
         config: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Singleton pattern implementation to ensure only one BurstEngine instance exists.
-        """
+        """Singleton pattern implementation to ensure only one BurstEngine
+        instance exists."""
         if cls._instance is None:
             cls._instance = super(BurstEngine, cls).__new__(cls)
             cls._instance_id = _generate_instance_id()
@@ -147,8 +144,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         fcl_manager: Optional[Any] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """
-        Initialize the Burst Engine.
+        """Initialize the Burst Engine.
 
         Args:
             connectome_manager: The connectome manager
@@ -310,16 +306,19 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
     @classmethod
     def reset_singleton(cls):
-        """Reset the singleton instance. USE WITH EXTREME CAUTION - for testing only."""
+        """Reset the singleton instance.
+
+        USE WITH EXTREME CAUTION - for testing only.
+        """
         cls._instance = None
         cls._instance_id = None
 
     def _initialize_injection_service(self) -> None:
-        """
-        Initialize the FCL injection service for special area handling.
+        """Initialize the FCL injection service for special area handling.
 
-        This method sets up the injection service that handles power areas and other
-        special cortical areas that need to inject neurons into the FCL during burst processing.
+        This method sets up the injection service that handles power areas and
+        other special cortical areas that need to inject neurons into the FCL
+        during burst processing.
         """
         try:
             # Import here to avoid circular dependencies
@@ -482,7 +481,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             # Log performance periodically for embedded systems
             if self.burst_count % 100 == 0:  # Every 100 bursts
-                perf_summary = self.connectome_manager.neuron_array.get_performance_summary()
+                perf_summary = (
+                    self.connectome_manager.neuron_array.get_performance_summary()
+                )
                 avg_burst_time_ms = burst_time * 1000
 
                 if avg_burst_time_ms < 66.7:  # Under 15Hz target
@@ -518,8 +519,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
     def _process_burst_with_power_injection(
         self, current_timestep: int
     ) -> List[int]:
-        """
-        Enhanced burst processing with unified FCL injection model.
+        """Enhanced burst processing with unified FCL injection model.
 
         This method uses the same clean architecture as _process_burst() but with
         explicit timestep parameter for compatibility. Implements the unified FCL
@@ -636,11 +636,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         return fired_neurons
 
     def run(self) -> None:
-        """
-        Main burst engine loop.
+        """Main burst engine loop.
 
-        This method runs the main burst engine loop with precise timing control.
-        Uses RTOS-compatible timing for deterministic performance.
+        This method runs the main burst engine loop with precise timing
+        control. Uses RTOS-compatible timing for deterministic performance.
         """
         if self._running:
             logger.warning("Burst engine is already running")
@@ -674,7 +673,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                                 FeagiStateManager,
                             )
 
-                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                            if (
+                                FeagiStateManager.instance().is_debug_npu_enabled()
+                            ):
                                 import datetime
                                 import os
                                 import tempfile
@@ -759,8 +760,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         self.state_manager.set_burst_engine_state(ServiceState.STOPPED)
 
     def run_test(self) -> List[int]:
-        """
-        Run a single test burst for testing purposes.
+        """Run a single test burst for testing purposes.
 
         Returns:
             List of fired neuron IDs
@@ -795,11 +795,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return []
 
     def update_with_genome(self) -> None:
-        """
-        Update the burst engine configuration when a new genome is loaded.
+        """Update the burst engine configuration when a new genome is loaded.
 
         This method should be called after a new genome is loaded into the
-        connectome manager to refresh the engine's understanding of the neural network.
+        connectome manager to refresh the engine's understanding of the neural
+        network.
         """
         logger.info("Updating burst engine with new genome", status="[CONFIG]")
         # Debug-only file write for development tracking
@@ -963,8 +963,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.genome_loaded = False
 
     def refresh_special_areas(self) -> None:
-        """
-        Refresh special area detection and injection service configuration.
+        """Refresh special area detection and injection service configuration.
 
         This method can be called to re-detect special areas after configuration changes.
         Completely area-agnostic - handles all special area types (power, modulator, sensory, etc.)
@@ -985,8 +984,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             logger.error(f"Error refreshing injection service: {e}")
 
     def get_injection_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about FCL injection service (all special area types).
+        """Get statistics about FCL injection service (all special area types).
 
         Returns:
             Dictionary containing injection statistics for all special areas
@@ -1001,8 +999,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return {"error": str(e)}
 
     def set_injection_enabled(self, cortical_id: str, enabled: bool) -> bool:
-        """
-        Enable or disable injection for a specific cortical area.
+        """Enable or disable injection for a specific cortical area.
 
         Works for any special area type (power, modulator, sensory, etc.)
 
@@ -1058,8 +1055,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         return True
 
     def get_frequency_config(self) -> Dict[str, float]:
-        """
-        Get current frequency configuration from STATE MANAGER (authoritative source).
+        """Get current frequency configuration from STATE MANAGER
+        (authoritative source).
 
         Returns:
             Dictionary with current frequency settings from state manager
@@ -1096,8 +1093,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         puf: bool = False,
         max_consecutive_fires: int = 10,
     ) -> bool:
-        """
-        Run fire queue processing with membrane potential and plasticity updates.
+        """Run fire queue processing with membrane potential and plasticity
+        updates.
 
         Args:
             mpf: Membrane potential flag
@@ -1155,7 +1152,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return False
 
     def _initialize_memory_processor(self) -> None:
-        """Initialize the memory processor if ConnectomeManager has memory_neuron_array."""
+        """Initialize the memory processor if ConnectomeManager has
+        memory_neuron_array."""
         try:
             # Check if we have access to the memory neuron array
             if hasattr(self.connectome_manager, "memory_neuron_array"):

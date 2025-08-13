@@ -1,8 +1,7 @@
-"""
-Frequency synchronization utility for FEAGI.
+"""Frequency synchronization utility for FEAGI.
 
-This module provides functionality to synchronize FQ sampler frequencies
-with brain burst frequency to ensure consistent data streaming rates.
+This module provides functionality to synchronize FQ sampler frequencies with
+brain burst frequency to ensure consistent data streaming rates.
 """
 
 from typing import Any, Dict, Optional
@@ -13,17 +12,15 @@ logger = setup_logger(__name__)
 
 
 class FrequencySynchronizer:
-    """
-    Synchronizes FQ sampler frequencies with brain burst frequency.
+    """Synchronizes FQ sampler frequencies with brain burst frequency.
 
-    This ensures that data streaming to bridges and visualization tools
-    matches the brain's actual processing frequency, preventing confusing
-    mismatches between brain activity and data transmission rates.
+    This ensures that data streaming to bridges and visualization tools matches
+    the brain's actual processing frequency, preventing confusing mismatches
+    between brain activity and data transmission rates.
     """
 
     def __init__(self, process_manager=None, burst_engine=None):
-        """
-        Initialize the frequency synchronizer.
+        """Initialize the frequency synchronizer.
 
         Args:
             process_manager: ProcessManager instance containing FQ samplers
@@ -34,8 +31,7 @@ class FrequencySynchronizer:
         self.logger = logger
 
     def sync_all_samplers_to_brain_frequency(self) -> bool:
-        """
-        Synchronize all FQ samplers to match current brain burst frequency.
+        """Synchronize all FQ samplers to match current brain burst frequency.
 
         Returns:
             True if synchronization was successful, False otherwise
@@ -75,8 +71,7 @@ class FrequencySynchronizer:
             return False
 
     def sync_visualization_sampler(self, target_frequency: float) -> bool:
-        """
-        Synchronize visualization sampler to target frequency.
+        """Synchronize visualization sampler to target frequency.
 
         Args:
             target_frequency: Target frequency in Hz
@@ -105,8 +100,7 @@ class FrequencySynchronizer:
             return False
 
     def sync_motor_sampler(self, target_frequency: float) -> bool:
-        """
-        Synchronize motor sampler to target frequency.
+        """Synchronize motor sampler to target frequency.
 
         Args:
             target_frequency: Target frequency in Hz
@@ -133,8 +127,8 @@ class FrequencySynchronizer:
             return False
 
     def get_brain_frequency(self) -> Optional[float]:
-        """
-        Get the current brain burst frequency from STATE MANAGER (authoritative source).
+        """Get the current brain burst frequency from STATE MANAGER
+        (authoritative source).
 
         Returns:
             Brain frequency in Hz, or None if not available
@@ -169,8 +163,7 @@ class FrequencySynchronizer:
             return None
 
     def get_sampler_frequencies(self) -> Dict[str, Optional[float]]:
-        """
-        Get current frequencies of all FQ samplers.
+        """Get current frequencies of all FQ samplers.
 
         Returns:
             Dictionary with current sampler frequencies
@@ -199,8 +192,7 @@ class FrequencySynchronizer:
         return frequencies
 
     def check_frequency_mismatch(self) -> Dict[str, Any]:
-        """
-        Check for frequency mismatches between brain and samplers.
+        """Check for frequency mismatches between brain and samplers.
 
         Returns:
             Dictionary with mismatch information
@@ -249,8 +241,7 @@ class FrequencySynchronizer:
 
 # Convenience function for easy use
 def sync_fq_samplers_to_brain_frequency(process_manager, burst_engine) -> bool:
-    """
-    Convenience function to synchronize all FQ samplers to brain frequency.
+    """Convenience function to synchronize all FQ samplers to brain frequency.
 
     Args:
         process_manager: ProcessManager instance
@@ -266,8 +257,7 @@ def sync_fq_samplers_to_brain_frequency(process_manager, burst_engine) -> bool:
 def check_frequency_mismatches(
     process_manager, burst_engine
 ) -> Dict[str, Any]:
-    """
-    Convenience function to check for frequency mismatches.
+    """Convenience function to check for frequency mismatches.
 
     Args:
         process_manager: ProcessManager instance

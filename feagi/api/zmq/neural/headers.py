@@ -1,5 +1,4 @@
-"""
-Fixed-size header structures for neural data transmission.
+"""Fixed-size header structures for neural data transmission.
 
 All headers are designed to be exactly 32 bytes for consistency and alignment.
 These structures are compatible with C/Rust FFI for future migration.
@@ -33,8 +32,7 @@ class NeuralHeaderError(Exception):
 
 @dataclass
 class NeuralDataHeader:
-    """
-    Fixed-size 32-byte header for neural data packets.
+    """Fixed-size 32-byte header for neural data packets.
 
     Layout (32 bytes total):
     - magic: 4 bytes (b'FEAG')
@@ -179,8 +177,7 @@ def create_header(
     has_coordinates: bool = True,
     version: int = 1,
 ) -> NeuralDataHeader:
-    """
-    Create a neural data header with sensible defaults.
+    """Create a neural data header with sensible defaults.
 
     Args:
         protocol_id: Protocol type for the neural data
@@ -225,8 +222,7 @@ def create_header(
 
 
 def parse_header(data: bytes) -> tuple[NeuralDataHeader, memoryview]:
-    """
-    Parse header and return header object plus payload view.
+    """Parse header and return header object plus payload view.
 
     Args:
         data: Raw bytes containing header and payload

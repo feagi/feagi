@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,8 +39,7 @@ BoundingBox = Tuple[
 
 
 def _is_debug_bdu_enabled() -> bool:
-    """
-    Check if BDU (Brain Development Unit) debugging is enabled.
+    """Check if BDU (Brain Development Unit) debugging is enabled.
 
     Returns:
         True if BDU debugging is enabled, False otherwise
@@ -119,8 +116,7 @@ def syn_reducer_x(
     dst_y_index: int = 0,
     dst_z_index: int = 0,
 ) -> List[Position]:
-    """
-    Implement the reducer rule for x-dimension.
+    """Implement the reducer rule for x-dimension.
 
     This rule reverses the expander rule, mapping source neurons to their
     component representations in the destination area.
@@ -173,8 +169,7 @@ def syn_reducer_x(
 
 
 def syn_randomizer(dst_area_id: AreaId, connectome_manager) -> Position:
-    """
-    Select a random position in the destination area.
+    """Select a random position in the destination area.
 
     Args:
         dst_area_id: Destination area ID
@@ -201,8 +196,7 @@ def syn_lateral_pairs_x(
     src_subregion: BoundingBox,
     connectome_manager,
 ) -> Optional[Position]:
-    """
-    Create lateral connections between neighboring neurons on the x-axis.
+    """Create lateral connections between neighboring neurons on the x-axis.
 
     Creates connections in the pattern:
     0->1  2->3 ...
@@ -256,8 +250,7 @@ def syn_block_connection(
     connectome_manager,
     scaling_factor: int = 10,
 ) -> Position:
-    """
-    Map blocks of neurons from source to destination with scaling.
+    """Map blocks of neurons from source to destination with scaling.
 
     Maps blocks such that voxel x to x+s from source connected to voxel x//s
     from destination on the x-axis.
@@ -311,8 +304,7 @@ def syn_projector(
     transpose: Optional[Tuple[str, str, str]] = None,
     project_last_layer_of: Optional[str] = None,
 ) -> List[Position]:
-    """
-    Project neurons from source to destination while maintaining topology.
+    """Project neurons from source to destination while maintaining topology.
 
     This is a complex mapping function that handles various projections including:
     - Standard projection maintaining relative positions
@@ -520,8 +512,7 @@ def syn_memory(
     dst_area_id: AreaId,
     memory_register: Dict[AreaId, Set[AreaId]],
 ) -> None:
-    """
-    Register source-destination area relationship in memory register.
+    """Register source-destination area relationship in memory register.
 
     Args:
         src_area_id: Source area ID
@@ -537,8 +528,7 @@ def syn_memory(
 def syn_last_to_first(
     src_area_id: AreaId, connectome_manager
 ) -> List[Position]:
-    """
-    Generate a connection from the last neuron to the first.
+    """Generate a connection from the last neuron to the first.
 
     Args:
         src_area_id: Source area ID

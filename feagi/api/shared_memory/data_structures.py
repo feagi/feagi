@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,10 +34,8 @@ from .manager import SharedMemoryManager
 
 
 class SharedNeuronArray:
-    """
-    A shared memory array for storing neuron data that can be accessed
-    by multiple processes.
-    """
+    """A shared memory array for storing neuron data that can be accessed by
+    multiple processes."""
 
     # Define neuron property fields and their data types
     NEURON_DTYPE = np.dtype(
@@ -69,8 +65,7 @@ class SharedNeuronArray:
         capacity: int,
         manager: Optional[SharedMemoryManager] = None,
     ):
-        """
-        Initialize a shared neuron array.
+        """Initialize a shared neuron array.
 
         Args:
             name: Name of the shared memory region
@@ -126,8 +121,7 @@ class SharedNeuronArray:
         refractory_period: float = 5.0,
         membrane_potential: float = 0.0,
     ) -> bool:
-        """
-        Add a neuron to the array.
+        """Add a neuron to the array.
 
         Args:
             neuron_id: Unique neuron ID
@@ -176,8 +170,7 @@ class SharedNeuronArray:
         return True
 
     def get_neuron(self, neuron_id: int) -> Optional[np.ndarray]:
-        """
-        Get a neuron by ID.
+        """Get a neuron by ID.
 
         Args:
             neuron_id: ID of the neuron to get
@@ -192,8 +185,7 @@ class SharedNeuronArray:
         return self.array[idx]
 
     def get_neurons_by_cortical_area(self, cortical_id: int) -> np.ndarray:
-        """
-        Get all neurons in a cortical area.
+        """Get all neurons in a cortical area.
 
         Args:
             cortical_id: ID of the cortical area
@@ -208,8 +200,7 @@ class SharedNeuronArray:
         return self.array[indices]
 
     def update_neuron(self, neuron_id: int, **kwargs) -> bool:
-        """
-        Update properties of a neuron.
+        """Update properties of a neuron.
 
         Args:
             neuron_id: ID of the neuron to update
@@ -233,8 +224,7 @@ class SharedNeuronArray:
         return True
 
     def remove_neuron(self, neuron_id: int) -> bool:
-        """
-        Remove a neuron from the array.
+        """Remove a neuron from the array.
 
         Args:
             neuron_id: ID of the neuron to remove
@@ -263,8 +253,7 @@ class SharedNeuronArray:
         return True
 
     def remove_cortical_area(self, cortical_id: int) -> int:
-        """
-        Remove all neurons in a cortical area.
+        """Remove all neurons in a cortical area.
 
         Args:
             cortical_id: ID of the cortical area to remove
@@ -295,9 +284,8 @@ class SharedNeuronArray:
 
 
 class SharedSynapseArray:
-    """
-    A shared memory array for storing synaptic connections between neurons.
-    """
+    """A shared memory array for storing synaptic connections between
+    neurons."""
 
     # Define synapse data structure
     SYNAPSE_DTYPE = np.dtype(
@@ -323,8 +311,7 @@ class SharedSynapseArray:
         capacity: int,
         manager: Optional[SharedMemoryManager] = None,
     ):
-        """
-        Initialize a shared synapse array.
+        """Initialize a shared synapse array.
 
         Args:
             name: Name of the shared memory region
@@ -358,12 +345,12 @@ class SharedSynapseArray:
 
         # Initialize metadata
         self.count = 0
-        self._pre_to_indices: Dict[
-            int, List[int]
-        ] = {}  # Pre-neuron ID to synapse indices
-        self._post_to_indices: Dict[
-            int, List[int]
-        ] = {}  # Post-neuron ID to synapse indices
+        self._pre_to_indices: Dict[int, List[int]] = (
+            {}
+        )  # Pre-neuron ID to synapse indices
+        self._post_to_indices: Dict[int, List[int]] = (
+            {}
+        )  # Post-neuron ID to synapse indices
 
         # Initialize the array with zeros
         self.array.fill(0)
@@ -381,8 +368,7 @@ class SharedSynapseArray:
         plasticity: float = 0.01,
         synapse_type: int = 0,
     ) -> bool:
-        """
-        Add a synapse to the array.
+        """Add a synapse to the array.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -457,8 +443,7 @@ class SharedSynapseArray:
     def get_synapse(
         self, pre_neuron_id: int, post_neuron_id: int
     ) -> Optional[np.ndarray]:
-        """
-        Get a synapse by pre and post neuron IDs.
+        """Get a synapse by pre and post neuron IDs.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -474,8 +459,7 @@ class SharedSynapseArray:
         return self.array[idx]
 
     def get_efferent_synapses(self, neuron_id: int) -> np.ndarray:
-        """
-        Get all efferent (outgoing) synapses for a neuron.
+        """Get all efferent (outgoing) synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -497,8 +481,7 @@ class SharedSynapseArray:
         return self.array[active_indices]
 
     def get_afferent_synapses(self, neuron_id: int) -> np.ndarray:
-        """
-        Get all afferent (incoming) synapses for a neuron.
+        """Get all afferent (incoming) synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -522,8 +505,7 @@ class SharedSynapseArray:
     def update_synapse(
         self, pre_neuron_id: int, post_neuron_id: int, **kwargs
     ) -> bool:
-        """
-        Update properties of a synapse.
+        """Update properties of a synapse.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -547,8 +529,7 @@ class SharedSynapseArray:
         return True
 
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
-        """
-        Remove a synapse from the array.
+        """Remove a synapse from the array.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -567,8 +548,7 @@ class SharedSynapseArray:
         return True
 
     def remove_neuron_synapses(self, neuron_id: int) -> int:
-        """
-        Remove all synapses connected to a neuron.
+        """Remove all synapses connected to a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -598,10 +578,8 @@ class SharedSynapseArray:
 
 
 class SharedConfigDict:
-    """
-    A shared memory dictionary for configuration data that can be accessed
-    by multiple processes.
-    """
+    """A shared memory dictionary for configuration data that can be accessed
+    by multiple processes."""
 
     def __init__(
         self,
@@ -609,8 +587,7 @@ class SharedConfigDict:
         manager: Optional[SharedMemoryManager] = None,
         initial_data: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a shared configuration dictionary.
+        """Initialize a shared configuration dictionary.
 
         Args:
             name: Name of the shared memory region
@@ -678,8 +655,7 @@ class SharedConfigDict:
             return False
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get a value from the dictionary.
+        """Get a value from the dictionary.
 
         Args:
             key: Key to get
@@ -702,8 +678,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def set(self, key: str, value: Any) -> bool:
-        """
-        Set a value in the dictionary.
+        """Set a value in the dictionary.
 
         Args:
             key: Key to set
@@ -730,8 +705,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def update(self, values: Dict[str, Any]) -> bool:
-        """
-        Update multiple values in the dictionary.
+        """Update multiple values in the dictionary.
 
         Args:
             values: Dictionary of key-value pairs to update
@@ -754,8 +728,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def delete(self, key: str) -> bool:
-        """
-        Delete a key from the dictionary.
+        """Delete a key from the dictionary.
 
         Args:
             key: Key to delete
@@ -780,8 +753,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def get_all(self) -> Dict[str, Any]:
-        """
-        Get all key-value pairs in the dictionary.
+        """Get all key-value pairs in the dictionary.
 
         Returns:
             Dictionary containing all key-value pairs
@@ -799,8 +771,7 @@ class SharedConfigDict:
             self.region.release_lock()
 
     def clear(self) -> bool:
-        """
-        Clear all keys from the dictionary.
+        """Clear all keys from the dictionary.
 
         Returns:
             True if successful, False otherwise

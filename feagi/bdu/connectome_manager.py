@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -59,7 +57,8 @@ class NeuronPropertyType(Enum):
 
 
 class ConnectomeManager(NeuronMappingProvider):
-    """Manager for creating and manipulating the neural connectome with GPU/CPU optimization.
+    """Manager for creating and manipulating the neural connectome with GPU/CPU
+    optimization.
 
     This high-performance ConnectomeManager uses Structure of Arrays (SoA) format
     for neuron storage, providing massive memory efficiency improvements over
@@ -249,9 +248,9 @@ class ConnectomeManager(NeuronMappingProvider):
         self.cortical_mapping = BiDirectionalCorticalMap()
 
         # Legacy compatibility - delegate to NeuronArray as single source of truth
-        self._neuron_to_position: Dict[
-            int, Tuple[str, int, int, int, int]
-        ] = {}
+        self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = (
+            {}
+        )
 
         # Initialize neuron ID mappings - ConnectomeManager is single source of truth
         self._neuron_id_to_index_map: Dict[int, int] = {}
@@ -347,8 +346,7 @@ class ConnectomeManager(NeuronMappingProvider):
     # ======================================================================
 
     def resize_for_genome(self, genome_data: Dict[str, Any]) -> bool:
-        """
-        Resize the connectome based on genome requirements.
+        """Resize the connectome based on genome requirements.
 
         This method is called after genome loading to optimize memory usage
         based on actual genome requirements.
@@ -516,8 +514,8 @@ class ConnectomeManager(NeuronMappingProvider):
             return False
 
     def _calculate_neuron_space(self, config) -> int:
-        """
-        Calculate optimal neuron space based on genome stats and configuration.
+        """Calculate optimal neuron space based on genome stats and
+        configuration.
 
         Logic:
         1. Read genome stats to get actual neuron requirements
@@ -568,8 +566,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def _calculate_synapse_space(
         self, config, default_max_synapses: int
     ) -> int:
-        """
-        Calculate optimal synapse space based on genome stats and configuration.
+        """Calculate optimal synapse space based on genome stats and
+        configuration.
 
         Args:
             config: FeagiConfig object with genome and connectome settings
@@ -615,8 +613,7 @@ class ConnectomeManager(NeuronMappingProvider):
             return min_synapse_space
 
     def _calculate_memory_neuron_space(self, config) -> int:
-        """
-        Calculate optimal memory neuron space based on configuration.
+        """Calculate optimal memory neuron space based on configuration.
 
         Args:
             config: FeagiConfig object with connectome settings
@@ -684,8 +681,7 @@ class ConnectomeManager(NeuronMappingProvider):
     # ======================================================================
 
     def get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
-        """
-        Get cortical_idx from cortical_id.
+        """Get cortical_idx from cortical_id.
 
         This method is the ONLY way to access the BiDirectionalCorticalMap.
         It provides a clean interface for ID to index mapping.
@@ -699,8 +695,7 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.cortical_mapping.get_idx(cortical_id)
 
     def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
-        """
-        Get cortical_id from cortical_idx.
+        """Get cortical_id from cortical_idx.
 
         This method is the ONLY way to access the BiDirectionalCorticalMap.
         It provides a clean interface for index to ID mapping.
@@ -769,8 +764,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def _sync_cortical_mapping(
         self, cortical_id: str, cortical_idx: int
     ) -> None:
-        """
-        Synchronize cortical mapping between ID and index.
+        """Synchronize cortical mapping between ID and index.
 
         This is an internal method that should only be called by ConnectomeManager.
         It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
@@ -782,8 +776,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
 
     def _remove_cortical_mapping(self, cortical_id: str) -> None:
-        """
-        Remove cortical mapping for an area.
+        """Remove cortical mapping for an area.
 
         This is an internal method that should only be called by ConnectomeManager.
         It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
@@ -794,8 +787,8 @@ class ConnectomeManager(NeuronMappingProvider):
         self.cortical_mapping.remove_by_id(cortical_id)
 
     def _find_next_available_cortical_idx(self) -> int:
-        """
-        Dynamically find the next available cortical_idx using proper state management.
+        """Dynamically find the next available cortical_idx using proper state
+        management.
 
         This method scans existing cortical areas to find the next available index,
         respecting reserved cortical_idx constraints (0 for _death, 1 for _power).
@@ -852,8 +845,8 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
     def rebuild_cortical_mapping_from_existing_areas(self) -> bool:
-        """
-        Retroactively synchronize BiDirectionalCorticalMap from existing cortical areas.
+        """Retroactively synchronize BiDirectionalCorticalMap from existing
+        cortical areas.
 
         This fixes systems that were loaded from disk before BiDirectionalCorticalMap
         was implemented, ensuring mapping consistency.
@@ -1324,7 +1317,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return result
 
     def get_neuron_properties(self, neuron_id: int) -> Dict[str, Any]:
-        """Get all properties of a specific neuron including synaptic connections.
+        """Get all properties of a specific neuron including synaptic
+        connections.
 
         Args:
             neuron_id: ID of the neuron
@@ -1428,7 +1422,8 @@ class ConnectomeManager(NeuronMappingProvider):
         self.neuron_array.set_neuron_property(neuron_id, property_name, value)
 
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
-        """Get all neurons in a specific cortical area using GPU/SIMD-optimized vectorized operations.
+        """Get all neurons in a specific cortical area using GPU/SIMD-optimized
+        vectorized operations.
 
         VECTORIZED VERSION: Leverages Structure of Arrays (SoA) design for maximum performance.
         - Fully vectorized NumPy operations (GPU/SIMD friendly)
@@ -1490,7 +1485,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return neuron_ids_array.tolist()
 
     def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
-        """Get the ID of the cortical area containing a neuron using translation layer.
+        """Get the ID of the cortical area containing a neuron using
+        translation layer.
 
         Args:
             neuron_id: ID of the neuron
@@ -1521,7 +1517,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
     # For backward compatibility, maintain the old method name
     def get_area_for_neuron(self, neuron_id: int) -> str:
-        """Get the ID of the cortical area containing a neuron (backward compatibility).
+        """Get the ID of the cortical area containing a neuron (backward
+        compatibility).
 
         Args:
             neuron_id: ID of the neuron
@@ -1650,7 +1647,8 @@ class ConnectomeManager(NeuronMappingProvider):
         plasticity_decay: float = 0.0,
         **kwargs,
     ) -> bool:
-        """Create a synapse between two neurons using high-performance GlobalSynapseArray.
+        """Create a synapse between two neurons using high-performance
+        GlobalSynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1696,7 +1694,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def batch_create_synapses(
         self, synapse_specs: List[Tuple[int, int, float]]
     ) -> int:
-        """Create multiple synapses using ultra-high-performance GlobalSynapseArray.
+        """Create multiple synapses using ultra-high-performance
+        GlobalSynapseArray.
 
         This method achieves 300x+ performance improvement over legacy sparse matrices
         by using SIMD-friendly vectorized operations on the SoA structure.
@@ -1757,7 +1756,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_synapse_weight(
         self, pre_neuron_id: int, post_neuron_id: int
     ) -> float:
-        """Get the weight of a synapse between two neurons using GlobalSynapseArray.
+        """Get the weight of a synapse between two neurons using
+        GlobalSynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1787,7 +1787,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def update_synapse_weight(
         self, pre_neuron_id: int, post_neuron_id: int, new_weight: float
     ) -> bool:
-        """Update the weight of a synapse between two neurons using GlobalSynapseArray.
+        """Update the weight of a synapse between two neurons using
+        GlobalSynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1856,7 +1857,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.synapse_array.get_incoming_connections(neuron_id)
 
     def get_synapse_count(self) -> int:
-        """Get the total number of synapses in the connectome using GlobalSynapseArray.
+        """Get the total number of synapses in the connectome using
+        GlobalSynapseArray.
 
         Returns:
             Number of synapses
@@ -2094,8 +2096,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def register_memory_area(
         self, cortical_id: str, temporal_depth: int
     ) -> bool:
-        """
-        Register a cortical area as a memory area with temporal depth.
+        """Register a cortical area as a memory area with temporal depth.
 
         Args:
             cortical_id: ID of the cortical area
@@ -2217,8 +2218,7 @@ class ConnectomeManager(NeuronMappingProvider):
         return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
-        """
-        Unregister a memory area.
+        """Unregister a memory area.
 
         Args:
             cortical_id: ID of the memory area to unregister
@@ -2254,8 +2254,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def add_memory_area_mapping(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
-        """
-        Add a mapping to a memory area and update FCL window cache.
+        """Add a mapping to a memory area and update FCL window cache.
 
         Args:
             source_cortical_id: Source cortical area
@@ -2410,8 +2409,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def remove_memory_area_mapping(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
-        """
-        Remove a mapping from a memory area and update FCL window cache.
+        """Remove a mapping from a memory area and update FCL window cache.
 
         Args:
             source_cortical_id: Source cortical area
@@ -2552,8 +2550,7 @@ class ConnectomeManager(NeuronMappingProvider):
             return False
 
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Get properties of a cortical area.
+        """Get properties of a cortical area.
 
         This is the SINGLE SOURCE OF TRUTH for cortical area properties.
         All other components must use this method to access cortical properties.
@@ -2605,16 +2602,16 @@ class ConnectomeManager(NeuronMappingProvider):
 
                 properties = {
                     "id": cortical_id,
-                    "cortical_idx": int(cortical_idx)
-                    if cortical_idx is not None
-                    else None,
+                    "cortical_idx": (
+                        int(cortical_idx) if cortical_idx is not None else None
+                    ),
                     "name": area.name,
                     "coordinates": tuple(coordinates),
                     "dimensions": tuple(dimensions),
                     "type": area.area_type,
-                    "parameters": area.properties.copy()
-                    if area.properties
-                    else {},
+                    "parameters": (
+                        area.properties.copy() if area.properties else {}
+                    ),
                     "neuron_count": int(
                         len(self.get_neurons_by_area(cortical_id))
                     ),
@@ -2687,8 +2684,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def _extract_neuron_properties_for_area(
         self, cortical_id: str
     ) -> Dict[str, Any]:
-        """
-        Extract actual neuron properties from the neuron array for a cortical area.
+        """Extract actual neuron properties from the neuron array for a
+        cortical area.
 
         For regular cortical areas: Returns representative neuron properties like excitability,
         threshold, etc. by sampling neurons in the area and computing averages.
@@ -2812,8 +2809,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def update_cortical_area_properties(
         self, cortical_id: str, property_updates: Dict[str, Any]
     ) -> bool:
-        """
-        Update properties of a cortical area.
+        """Update properties of a cortical area.
 
         This method ensures ConnectomeManager stays synchronized with genome changes.
         Called by GenomeService after genome updates to maintain consistency.
@@ -3325,7 +3321,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def remove_area_from_region(
         self, cortical_id: str, region_id: str
     ) -> bool:
-        """Alias for remove_cortical_area_from_region for backward compatibility."""
+        """Alias for remove_cortical_area_from_region for backward
+        compatibility."""
         return self.remove_cortical_area_from_region(cortical_id, region_id)
 
     # Property to maintain backward compatibility with the existing API
@@ -3503,7 +3500,8 @@ class ConnectomeManager(NeuronMappingProvider):
         property_name: Union[str, NeuronPropertyType],
         values: Union[List[float], List[int], float, int],
     ) -> bool:
-        """Update a property for multiple neurons at once in a vectorized operation.
+        """Update a property for multiple neurons at once in a vectorized
+        operation.
 
         Args:
             neuron_ids: List of neuron IDs to update
@@ -3726,7 +3724,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def vectorized_cortical_area_operations(
         self, operation: str, cortical_ids: List[str], **kwargs
     ) -> Dict[str, Any]:
-        """Perform vectorized operations on multiple cortical areas efficiently.
+        """Perform vectorized operations on multiple cortical areas
+        efficiently.
 
         Args:
             operation: Type of operation ('count_neurons', 'get_activity', 'update_properties', etc.)
@@ -3874,7 +3873,8 @@ class ConnectomeManager(NeuronMappingProvider):
         weight_override: Optional[float] = None,
         max_synapses: int = 1_000_000,  # Increased from 10,000 to 1M for large cortical areas
     ) -> Dict[str, int]:
-        """Apply multiple connectivity rules at once using vectorized operations.
+        """Apply multiple connectivity rules at once using vectorized
+        operations.
 
         Args:
             rule_ids: List of connectivity rule IDs to apply
@@ -4559,7 +4559,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
     @property
     def synapse_count(self) -> int:
-        """Get the total number of synapses in the connectome using GlobalSynapseArray."""
+        """Get the total number of synapses in the connectome using
+        GlobalSynapseArray."""
         return self.synapse_array.synapse_count
 
     @property
@@ -4575,7 +4576,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return len(self.cortical_areas) > 0
 
     def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
-        """Check if a synapse exists between two neurons using GlobalSynapseArray.
+        """Check if a synapse exists between two neurons using
+        GlobalSynapseArray.
 
         Args:
             pre_neuron: ID of the pre-synaptic neuron
@@ -4655,7 +4657,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return result
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
-        """Process firing neurons and update membrane potentials using GlobalSynapseArray.
+        """Process firing neurons and update membrane potentials using
+        GlobalSynapseArray.
 
         This method is provided for backward compatibility with the test suite.
 
@@ -4704,7 +4707,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.next_neuron_id
 
     def enable_refractory_debug_logging(self):
-        """Enable debug logging for refractory period behavior in the neuron array."""
+        """Enable debug logging for refractory period behavior in the neuron
+        array."""
         if hasattr(self, "neuron_array") and self.neuron_array:
             self.neuron_array.enable_refractory_debug()
             print("🔬 [CONNECTOME] Refractory debug logging enabled")
@@ -4712,7 +4716,8 @@ class ConnectomeManager(NeuronMappingProvider):
             print("❌ [CONNECTOME] No neuron array available")
 
     def disable_refractory_debug_logging(self):
-        """Disable debug logging for refractory period behavior in the neuron array."""
+        """Disable debug logging for refractory period behavior in the neuron
+        array."""
         if hasattr(self, "neuron_array") and self.neuron_array:
             self.neuron_array.disable_refractory_debug()
             print("🔇 [CONNECTOME] Refractory debug logging disabled")
@@ -4941,8 +4946,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def _ensure_brain_regions_structure(
         self, genome_data: Dict[str, Any]
     ) -> None:
-        """
-        Ensure that brain_regions structure exists in the genome and ConnectomeManager.
+        """Ensure that brain_regions structure exists in the genome and
+        ConnectomeManager.
 
         This method automatically creates a default "root" brain region if none exists,
         ensuring compatibility with cortical area creation APIs and proper organization.
@@ -5177,7 +5182,8 @@ class ConnectomeManager(NeuronMappingProvider):
         pass
 
     def _vectorized_index_to_neuron_id(self, indices):
-        """Vectorized index-to-neuron-ID conversion for performance-critical paths.
+        """Vectorized index-to-neuron-ID conversion for performance-critical
+        paths.
 
         Args:
             indices: Single index (int) or array of indices (np.ndarray)
@@ -5832,9 +5838,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 if self.has_synapse(source_id, target_id):
                     synapse_count += 1
 
-        self.cortical_connections[connection_id]["synapse_count"] = (
-            synapse_count
-        )
+        self.cortical_connections[connection_id][
+            "synapse_count"
+        ] = synapse_count
         return synapse_count
 
     def get_connection_statistics(self, connection_id: str) -> Dict[str, Any]:
@@ -6174,7 +6180,8 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup of neurons at given voxel positions within a cortical area.
+        """Batch lookup of neurons at given voxel positions within a cortical
+        area.
 
         Args:
             cortical_id: ID of the cortical area to search in
@@ -6211,7 +6218,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_max_allowable_cortical_area_dimensions(
         self,
     ) -> Tuple[int, int, int]:
-        """Get the maximum allowable cortical area dimensions based on Morton spatial hash limits.
+        """Get the maximum allowable cortical area dimensions based on Morton
+        spatial hash limits.
 
         Returns:
             Tuple of (max_width, max_height, max_depth) that can be safely created

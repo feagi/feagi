@@ -1,5 +1,4 @@
-"""
-ZeroMQ Interface for FEAGI API
+"""ZeroMQ Interface for FEAGI API.
 
 This package provides ZeroMQ-based interfaces for high-performance
 communication with FEAGI, including:
@@ -74,8 +73,7 @@ def create_zmq_server(
     use_encryption=False,
     config=None,
 ):
-    """
-    Create and initialize a ZMQ server instance.
+    """Create and initialize a ZMQ server instance.
 
     This is the main factory function for creating ZMQ servers in FEAGI.
 
@@ -129,8 +127,7 @@ def create_zmq_client(
     sub_port: int = None,
     topics: List[str] = None,
 ):
-    """
-    Create a ZMQ client for connecting to a FEAGI ZMQ server.
+    """Create a ZMQ client for connecting to a FEAGI ZMQ server.
 
     This function creates a client that can publish and subscribe to
     the specified ZMQ server.
@@ -187,7 +184,7 @@ def create_zmq_client(
                 self.subscriptions = {}
 
             def start(self):
-                """Start the client"""
+                """Start the client."""
 
                 # Create and run a background thread to run the client
                 def run_client():
@@ -199,7 +196,7 @@ def create_zmq_client(
                 return True
 
             def shutdown(self):
-                """Shutdown the client"""
+                """Shutdown the client."""
                 if self.running:
                     # Create a new event loop for shutdown
                     loop = asyncio.new_event_loop()
@@ -209,7 +206,7 @@ def create_zmq_client(
                     self.running = False
 
             def publish(self, topic, message):
-                """Publish a message to a topic"""
+                """Publish a message to a topic."""
                 # Forward to ZmqClient
                 response = self.client.send_request(
                     "publish", {"topic": topic, "message": message}
@@ -217,7 +214,7 @@ def create_zmq_client(
                 return "error" not in response
 
             def subscribe(self, topic, callback):
-                """Subscribe to a topic with a callback"""
+                """Subscribe to a topic with a callback."""
                 # Store subscription for later use
                 self.subscriptions[topic] = callback
 

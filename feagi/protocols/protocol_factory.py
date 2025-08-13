@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,8 +43,7 @@ _protocols: Dict[str, Type[Protocol]] = {}
 
 
 def register_protocol(protocol_class: Type[Protocol]):
-    """
-    Register a protocol implementation.
+    """Register a protocol implementation.
 
     Args:
         protocol_class: Protocol class to register.
@@ -61,8 +58,7 @@ def register_protocol(protocol_class: Type[Protocol]):
 
 
 def create_protocol(protocol_name: str) -> Optional[Type[Protocol]]:
-    """
-    Create a protocol by name.
+    """Create a protocol by name.
 
     Args:
         protocol_name: Name of the protocol to create.
@@ -80,8 +76,7 @@ def create_protocol(protocol_name: str) -> Optional[Type[Protocol]]:
 def get_protocol_by_content_type(
     content_type: str,
 ) -> Optional[Type[Protocol]]:
-    """
-    Get a protocol by content type.
+    """Get a protocol by content type.
 
     Args:
         content_type: Content type to match.
@@ -101,8 +96,7 @@ def get_protocol_by_content_type(
 
 
 def get_available_protocols() -> Dict[str, str]:
-    """
-    Get a dictionary of available protocols.
+    """Get a dictionary of available protocols.
 
     Returns:
         Dictionary mapping protocol names to content types.

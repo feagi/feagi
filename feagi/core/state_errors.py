@@ -1,5 +1,4 @@
-"""
-Rust-compatible error handling for FEAGI state management.
+"""Rust-compatible error handling for FEAGI state management.
 
 This module provides Result-style error handling that can be directly
 converted to Rust's std::result::Result<T, E> when migrating.
@@ -13,11 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class StateError(IntEnum):
-    """
-    Rust-compatible error codes using fixed integer values.
+    """Rust-compatible error codes using fixed integer values.
 
-    These map directly to Rust enum discriminants and avoid
-    dynamic string allocation in error handling.
+    These map directly to Rust enum discriminants and avoid dynamic string
+    allocation in error handling.
     """
 
     SUCCESS = 0
@@ -37,8 +35,7 @@ E = TypeVar("E")
 
 
 class Result(Generic[T]):
-    """
-    Rust-style Result type for error handling without exceptions.
+    """Rust-style Result type for error handling without exceptions.
 
     This provides a zero-cost abstraction for error handling that
     can be directly converted to Rust's Result<T, E> type.
@@ -59,8 +56,7 @@ class Result(Generic[T]):
         error: Optional[StateError] = None,
         _is_ok: bool = None,
     ):
-        """
-        Initialize Result with either a value or an error.
+        """Initialize Result with either a value or an error.
 
         Args:
             value: Success value (mutually exclusive with error)
@@ -91,8 +87,7 @@ class Result(Generic[T]):
         return not self._is_ok
 
     def unwrap(self) -> T:
-        """
-        Extract the value, panicking if Result contains an error.
+        """Extract the value, panicking if Result contains an error.
 
         Returns:
             The contained value
@@ -105,8 +100,7 @@ class Result(Generic[T]):
         return self._value
 
     def unwrap_err(self) -> StateError:
-        """
-        Extract the error, panicking if Result contains a value.
+        """Extract the error, panicking if Result contains a value.
 
         Returns:
             The contained error
@@ -119,8 +113,7 @@ class Result(Generic[T]):
         return self._error
 
     def unwrap_or(self, default: T) -> T:
-        """
-        Extract the value or return a default.
+        """Extract the value or return a default.
 
         Args:
             default: Value to return if Result contains an error
@@ -131,8 +124,7 @@ class Result(Generic[T]):
         return self._value if self._is_ok else default
 
     def unwrap_or_else(self, func: Callable[[StateError], T]) -> T:
-        """
-        Extract the value or compute a default from the error.
+        """Extract the value or compute a default from the error.
 
         Args:
             func: Function to compute default from error
@@ -143,8 +135,7 @@ class Result(Generic[T]):
         return self._value if self._is_ok else func(self._error)
 
     def expect(self, message: str) -> T:
-        """
-        Extract the value, panicking with a custom message if error.
+        """Extract the value, panicking with a custom message if error.
 
         Args:
             message: Custom panic message
@@ -160,8 +151,7 @@ class Result(Generic[T]):
         return self._value
 
     def map(self, func: Callable[[T], Any]) -> "Result[Any]":
-        """
-        Transform the contained value if present.
+        """Transform the contained value if present.
 
         Args:
             func: Function to transform the value
@@ -179,8 +169,7 @@ class Result(Generic[T]):
             return Result.err(self._error)
 
     def and_then(self, func: Callable[[T], "Result[Any]"]) -> "Result[Any]":
-        """
-        Chain operations that return Results (flatMap).
+        """Chain operations that return Results (flatMap).
 
         Args:
             func: Function that takes value and returns Result
@@ -195,8 +184,7 @@ class Result(Generic[T]):
 
     @staticmethod
     def ok(value: T) -> "Result[T]":
-        """
-        Create a successful Result.
+        """Create a successful Result.
 
         Args:
             value: Success value
@@ -208,8 +196,7 @@ class Result(Generic[T]):
 
     @staticmethod
     def err(error: StateError) -> "Result[T]":
-        """
-        Create an error Result.
+        """Create an error Result.
 
         Args:
             error: Error code
@@ -223,8 +210,7 @@ class Result(Generic[T]):
 def validate_state_transition(
     from_state: int, to_state: int, valid_transitions: dict
 ) -> Result[None]:
-    """
-    Validate a state transition using a lookup table.
+    """Validate a state transition using a lookup table.
 
     This provides constant-time validation suitable for real-time systems.
 
@@ -244,8 +230,7 @@ def validate_state_transition(
 
 
 def combine_results(*results: Result[Any]) -> Result[list]:
-    """
-    Combine multiple Results into a single Result.
+    """Combine multiple Results into a single Result.
 
     Args:
         *results: Variable number of Results to combine

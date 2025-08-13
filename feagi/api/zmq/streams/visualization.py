@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -136,7 +134,9 @@ class VisualizationStream:
         self._active_mode = False  # True when genome is loaded and ready
 
         # Client tracking with heartbeat timeouts
-        self.client_last_heartbeat = {}  # Mapping of client_id -> last heartbeat time
+        self.client_last_heartbeat = (
+            {}
+        )  # Mapping of client_id -> last heartbeat time
         self.client_heartbeat_timeout = (
             30  # Consider clients disconnected after 30s
         )
@@ -360,8 +360,9 @@ class VisualizationStream:
         logger.info("[OK] Visualization stream stopped")
 
     def _data_worker(self) -> None:
-        """
-        Data processing worker using UnifiedFQSampler cortical area format only.
+        """Data processing worker using UnifiedFQSampler cortical area format
+        only.
+
         RUST/RTOS COMPATIBLE: FQ sampler exists from startup, uses
         enable/disable states.
         """
@@ -600,7 +601,9 @@ class VisualizationStream:
 
                 if total_neurons > 0:
                     # Create the byte structure
-                    byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    byte_structure = (
+                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    )
                     binary_data = byte_structure.copy_out_as_byte_vector()
                     print("raw binary data:", binary_data)
                 else:
@@ -647,8 +650,9 @@ class VisualizationStream:
             logger.error(f"Error processing cortical area data: {e}")
 
     def _publish_data(self, data: bytes) -> None:
-        """
-        Publish data on the 'activity' topic with comprehensive error handling.
+        """Publish data on the 'activity' topic with comprehensive error
+        handling.
+
         Includes optional LZ4/Zstandard compression for reduced network usage.
         """
         # Defensive null check to prevent race condition
@@ -858,7 +862,8 @@ class VisualizationStream:
             raise
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get visualization stream statistics including compression performance."""
+        """Get visualization stream statistics including compression
+        performance."""
         runtime = time.time() - self.stats["start_time"]
         # total_messages = max(self.stats["data_sent"], 1)  # Unused variable removed
 
@@ -901,8 +906,7 @@ class VisualizationStream:
             return {**base_stats, **compression_stats}
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
-        """
-        Process heartbeat from a visualization client.
+        """Process heartbeat from a visualization client.
 
         Args:
             client_id: Unique identifier of the visualization client (bridge instance)
@@ -930,9 +934,11 @@ class VisualizationStream:
             return len(self.client_last_heartbeat)
 
     def _get_registered_visualization_agents(self) -> int:
-        """
-        Get the number of registered visualization agents from the agent registry.
-        This bridges the old heartbeat system with the new agent registration system.
+        """Get the number of registered visualization agents from the agent
+        registry.
+
+        This bridges the old heartbeat system with the new agent registration
+        system.
         """
         try:
             if not self.core_api:
@@ -1005,8 +1011,8 @@ class VisualizationStream:
         return
 
     def _client_cleanup_worker(self) -> None:
-        """
-        Client cleanup worker thread.
+        """Client cleanup worker thread.
+
         Manages client heartbeat timeouts and automatic cleanup.
         """
         cleanup_interval = 5.0  # Check every 5 seconds
@@ -1064,8 +1070,7 @@ class VisualizationStream:
         logger.debug("Client cleanup worker stopped")
 
     def _subscriber_monitor_worker(self) -> None:
-        """
-        Subscriber monitoring worker thread.
+        """Subscriber monitoring worker thread.
 
         DEPRECATED: FQ sampler management is now handled by the Agent API
         (feagi_agent.py) based on agent registration/deregistration with
@@ -1136,8 +1141,8 @@ class VisualizationStream:
     def _convert_fq_format_to_viz_format(
         self, sample_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Convert UnifiedFQSampler format to visualization format.
+        """Convert UnifiedFQSampler format to visualization format.
+
         This is a pass-through since UnifiedFQSampler already provides the
         correct format.
         """
@@ -1146,10 +1151,10 @@ class VisualizationStream:
     def _prepare_broadcast_data(
         self, for_visualization: Dict[str, Any]
     ) -> bytes:
-        """
-        Prepare data for broadcasting to visualization clients.
-        Convert to binary format using feagi_data_processing with
-        high-performance NumPy arrays.
+        """Prepare data for broadcasting to visualization clients.
+
+        Convert to binary format using feagi_data_processing with high-
+        performance NumPy arrays.
         """
         try:
             # Encode using feagi_data_processing binary format - USE
@@ -1303,9 +1308,7 @@ class VisualizationStream:
             return b""
 
     def _broadcast_to_clients(self, broadcast_data: bytes) -> None:
-        """
-        Broadcast data to all connected visualization clients.
-        """
+        """Broadcast data to all connected visualization clients."""
         if broadcast_data:
             self._publish_data(broadcast_data)
         else:

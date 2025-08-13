@@ -1,8 +1,7 @@
-"""
-Connection Analyzer for Cortical Area Expansion
+"""Connection Analyzer for Cortical Area Expansion.
 
-This module analyzes existing connectivity patterns and morphology usage
-to support intelligent expansion decisions.
+This module analyzes existing connectivity patterns and morphology usage to
+support intelligent expansion decisions.
 """
 
 from typing import Any, Dict, List, Optional
@@ -13,17 +12,16 @@ logger = setup_logger(__name__)
 
 
 class ConnectionAnalyzer:
-    """
-    Analyzes connectivity patterns and morphology usage for expansion planning.
+    """Analyzes connectivity patterns and morphology usage for expansion
+    planning.
 
-    This class examines existing synaptic connections and morphology definitions
-    to determine how expansion should handle dimension-sensitive vs dimension-agnostic
-    connectivity patterns.
+    This class examines existing synaptic connections and morphology
+    definitions to determine how expansion should handle dimension-sensitive vs
+    dimension-agnostic connectivity patterns.
     """
 
     def __init__(self, connectome_manager, state_manager):
-        """
-        Initialize ConnectionAnalyzer.
+        """Initialize ConnectionAnalyzer.
 
         Args:
             connectome_manager: Reference to ConnectomeManager
@@ -34,8 +32,7 @@ class ConnectionAnalyzer:
         self.logger = logger
 
     def analyze_area_connectivity(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Analyze connectivity patterns for a cortical area.
+        """Analyze connectivity patterns for a cortical area.
 
         Args:
             cortical_id: ID of the cortical area to analyze
@@ -192,7 +189,8 @@ class ConnectionAnalyzer:
             }
 
     def _get_incoming_mappings(self, cortical_id: str) -> List[Dict[str, Any]]:
-        """Get mappings where this area is the destination (excluding internal mappings)."""
+        """Get mappings where this area is the destination (excluding internal
+        mappings)."""
         mappings = []
         try:
             genome = self.state_manager.genome
@@ -524,8 +522,7 @@ class ConnectionAnalyzer:
         return None
 
     def get_expansion_recommendation(self, cortical_id: str) -> Dict[str, Any]:
-        """
-        Get recommendations for how to handle expansion for this area.
+        """Get recommendations for how to handle expansion for this area.
 
         Args:
             cortical_id: ID of the cortical area

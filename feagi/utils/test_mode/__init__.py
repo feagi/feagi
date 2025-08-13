@@ -1,5 +1,4 @@
-"""
-FEAGI Test Mode Module
+"""FEAGI Test Mode Module.
 
 This module provides different test modes for FEAGI neural network testing:
 - test_mode_1: JSON-based predictable neuron activations

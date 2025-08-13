@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,8 +50,7 @@ class SpecialAreaConfig:
 
 
 class SpecialAreaHandler:
-    """
-    Handler for core power area injection.
+    """Handler for core power area injection.
 
     Simplified for 100kHz performance: Directly accesses the core power area
     at cortical_idx=1 (_power) which is guaranteed to exist in every genome.
@@ -63,8 +60,7 @@ class SpecialAreaHandler:
     def __init__(
         self, connectome_manager: Any, config: Optional[Dict[str, Any]] = None
     ):
-        """
-        Initialize the special area handler.
+        """Initialize the special area handler.
 
         Args:
             connectome_manager: The connectome manager instance
@@ -82,8 +78,7 @@ class SpecialAreaHandler:
         )
 
     def get_power_area_neurons(self) -> List[NeuronId]:
-        """
-        Get neurons from core power area (cortical_idx=1) for injection.
+        """Get neurons from core power area (cortical_idx=1) for injection.
 
         Direct access method optimized for 100kHz performance.
         No lookup overhead - directly accesses guaranteed core area.
@@ -294,8 +289,7 @@ class SpecialAreaHandler:
             return []
 
     def get_all_power_neurons(self) -> Dict[CorticalId, List[NeuronId]]:
-        """
-        Get all power area neurons in dictionary format.
+        """Get all power area neurons in dictionary format.
 
         BACKWARD COMPATIBILITY: This method maintains the old interface
         that returns a dictionary, but now only contains the single core power area.
@@ -315,8 +309,7 @@ class SpecialAreaHandler:
             return {}
 
     def get_special_config(self, cortical_id: CorticalId) -> Optional[Any]:
-        """
-        Get configuration for a special area.
+        """Get configuration for a special area.
 
         SIMPLIFIED: For core power area, returns a simple config object.
         For other areas, returns None (not supported in simplified approach).
@@ -346,8 +339,7 @@ class SpecialAreaHandler:
             return None
 
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about power area injection.
+        """Get statistics about power area injection.
 
         Returns:
             Dictionary with statistics and performance metrics
@@ -359,8 +351,7 @@ class SpecialAreaHandler:
         }
 
     def record_injection(self) -> None:
-        """
-        Record that an injection has occurred.
+        """Record that an injection has occurred.
 
         Updates internal statistics for monitoring injection frequency.
         """

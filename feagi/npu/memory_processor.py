@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 """
 Memory Processor - CPU-optimized pattern detection and memory neuron lifecycle management.
 
@@ -52,8 +51,8 @@ class MemoryProcessingStats:
 
 
 class MemoryProcessor:
-    """
-    CPU-optimized memory processor for temporal pattern detection and memory neuron lifecycle.
+    """CPU-optimized memory processor for temporal pattern detection and memory
+    neuron lifecycle.
 
     This processor operates independently from GPU neural processing to avoid interference.
     It handles memory area pattern detection, neuron creation, aging, and lifecycle management.
@@ -74,8 +73,7 @@ class MemoryProcessor:
         pattern_cache_size: int = 10000,
         connectome_manager=None,
     ):
-        """
-        Initialize memory processor.
+        """Initialize memory processor.
 
         Args:
             memory_neuron_array: Memory neuron storage array
@@ -135,8 +133,7 @@ class MemoryProcessor:
         longterm_threshold: int = 100,
         upstream_areas: Optional[Set[str]] = None,
     ) -> bool:
-        """
-        Register a memory cortical area for processing.
+        """Register a memory cortical area for processing.
 
         Args:
             cortical_id: Memory cortical area ID
@@ -165,8 +162,7 @@ class MemoryProcessor:
             return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
-        """
-        Unregister a memory cortical area.
+        """Unregister a memory cortical area.
 
         Args:
             cortical_id: Memory cortical area ID to unregister
@@ -189,13 +185,12 @@ class MemoryProcessor:
     ) -> None:
         """Update upstream areas for a memory area (for optimization)."""
         if cortical_id in self.memory_area_properties:
-            self.memory_area_properties[cortical_id]["upstream_areas"] = (
-                upstream_areas
-            )
+            self.memory_area_properties[cortical_id][
+                "upstream_areas"
+            ] = upstream_areas
 
     def process_memory_areas_batch(self, current_burst: int) -> Dict[str, Any]:
-        """
-        Process all registered memory areas for current burst cycle.
+        """Process all registered memory areas for current burst cycle.
 
         Args:
             current_burst: Current burst timestep
@@ -429,8 +424,7 @@ class MemoryProcessor:
     def _process_single_memory_area(
         self, memory_area_id: str, current_burst: int
     ) -> Dict[str, int]:
-        """
-        Process a single memory area for current burst.
+        """Process a single memory area for current burst.
 
         Args:
             memory_area_id: ID of the memory cortical area
@@ -598,8 +592,8 @@ class MemoryProcessor:
     def _extract_temporal_pattern(
         self, upstream_areas: Set[str], temporal_depth: int, current_burst: int
     ) -> Optional[MemoryPatternKey]:
-        """
-        Extract temporal patterns from upstream cortical areas' FCL activity.
+        """Extract temporal patterns from upstream cortical areas' FCL
+        activity.
 
         Args:
             upstream_areas: Set of upstream cortical area IDs
@@ -780,8 +774,8 @@ class MemoryProcessor:
         self._pattern_access_order.append(pattern_key)
 
     def _update_state_manager_neuron_count(self, increment: int) -> None:
-        """
-        Update StateManager neuron count when memory neurons are created/destroyed.
+        """Update StateManager neuron count when memory neurons are
+        created/destroyed.
 
         Args:
             increment: Number of neurons added (positive) or removed (negative)
@@ -1043,8 +1037,7 @@ class MemoryProcessor:
         include_inactive: bool = True,
         limit: int = 0,
     ) -> None:
-        """
-        Log a detailed snapshot of memory neurons for a given area.
+        """Log a detailed snapshot of memory neurons for a given area.
 
         Args:
             memory_area_id: Memory cortical area ID to inspect

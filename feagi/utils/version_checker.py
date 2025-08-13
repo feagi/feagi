@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,14 +32,15 @@ logger = setup_logger()
 
 
 class VersionMismatchError(Exception):
-    """Exception raised when a package version doesn't match the requirements."""
+    """Exception raised when a package version doesn't match the
+    requirements."""
 
     pass
 
 
 def parse_requirements_file(file_path: str) -> Dict[str, str]:
-    """
-    Parse requirements.txt file and extract package names and version constraints.
+    """Parse requirements.txt file and extract package names and version
+    constraints.
 
     Properly handles conditional requirements based on Python version and platform.
 
@@ -104,8 +103,7 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
 
 
 def _evaluate_requirement_condition(condition: str) -> bool:
-    """
-    Evaluate a requirement condition (e.g., python_version<"3.11").
+    """Evaluate a requirement condition (e.g., python_version<"3.11").
 
     Args:
         condition: The condition string to evaluate
@@ -170,8 +168,7 @@ def _evaluate_requirement_condition(condition: str) -> bool:
 
 
 def get_installed_version(package_name: str) -> Optional[str]:
-    """
-    Get the installed version of a package.
+    """Get the installed version of a package.
 
     Args:
         package_name: Name of the package
@@ -188,8 +185,7 @@ def get_installed_version(package_name: str) -> Optional[str]:
 def check_version_compatibility(
     constraint: str, installed_version: str
 ) -> bool:
-    """
-    Check if an installed version satisfies a version constraint.
+    """Check if an installed version satisfies a version constraint.
 
     Args:
         constraint: Version constraint string (e.g., ">=1.0.0")
@@ -213,8 +209,7 @@ def check_version_compatibility(
 
 
 def check_zmq_installation() -> Tuple[bool, Optional[str]]:
-    """
-    Specifically check the PyZMQ installation for issues.
+    """Specifically check the PyZMQ installation for issues.
 
     Returns:
         Tuple of (is_working, error_message)
@@ -319,8 +314,7 @@ def check_zmq_installation() -> Tuple[bool, Optional[str]]:
 def check_dependencies(
     requirements_path: Optional[str] = None,
 ) -> Tuple[bool, List[str]]:
-    """
-    Check if installed dependencies match the requirements.
+    """Check if installed dependencies match the requirements.
 
     Args:
         requirements_path: Path to requirements.txt file
@@ -371,8 +365,7 @@ def check_dependencies(
 def verify_dependencies(
     requirements_path: Optional[str] = None, raise_exception: bool = False
 ) -> bool:
-    """
-    Verify that all dependencies meet version requirements.
+    """Verify that all dependencies meet version requirements.
 
     Args:
         requirements_path: Path to requirements.txt file

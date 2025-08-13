@@ -111,8 +111,8 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Custom Swagger UI with dark theme
 def custom_swagger_ui_html():
-    """
-    Custom Swagger UI with Windows compatibility and better error handling.
+    """Custom Swagger UI with Windows compatibility and better error handling.
+
     This fixes the white screen issue that can occur on Windows systems.
     """
     # Read the custom HTML template directly with Windows-compatible path handling
@@ -202,9 +202,7 @@ def custom_swagger_ui_html():
 
 
 def _fallback_swagger_ui():
-    """
-    Fallback to default FastAPI Swagger UI if custom template fails.
-    """
+    """Fallback to default FastAPI Swagger UI if custom template fails."""
     logger.warning("Using fallback default Swagger UI", status="[WARN]")
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
@@ -222,8 +220,8 @@ async def swagger_ui_html_route():
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    """
-    Automatically redirect root URL to API documentation.
+    """Automatically redirect root URL to API documentation.
+
     When users visit http://127.0.0.1:8000/, they'll be redirected to /docs
     """
     return RedirectResponse(url="/docs", status_code=302)
@@ -246,8 +244,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """
-    Enhanced API debug logging middleware for comprehensive request/response tracking.
+    """Enhanced API debug logging middleware for comprehensive request/response
+    tracking.
 
     When --debug-api is enabled, this logs:
     - Complete request details (method, URL, headers, query params, body)
@@ -409,9 +407,7 @@ async def log_requests(request: Request, call_next):
         status_emoji = (
             "✅"
             if 200 <= response.status_code < 300
-            else "❌"
-            if response.status_code >= 400
-            else "⚠️"
+            else "❌" if response.status_code >= 400 else "⚠️"
         )
         logger.info(
             f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}"
@@ -554,8 +550,8 @@ async def set_api_state_ready():
 
 
 def create_rest_app_direct(config: Dict[str, Any]):
-    """
-    RUST/RTOS COMPATIBLE: Factory function for REST app with direct dependency injection.
+    """RUST/RTOS COMPATIBLE: Factory function for REST app with direct
+    dependency injection.
 
     This eliminates subprocess boundaries and environment variable dependencies,
     making the code much easier to port to Rust where all services run as async tasks
@@ -616,7 +612,8 @@ def create_rest_app_direct(config: Dict[str, Any]):
 
 
 def create_rest_app(connectome: ConnectomeManager = None):
-    """Factory function to return the FastAPI app instance, with connectome dependency injection."""
+    """Factory function to return the FastAPI app instance, with connectome
+    dependency injection."""
 
     # CRITICAL FIX: Ensure true singleton pattern for mission-critical reliability
     core_api_service = None
@@ -921,7 +918,10 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
 
 def get_core_api():
-    """Dependency placeholder for the core API service. Should be overridden in tests."""
+    """Dependency placeholder for the core API service.
+
+    Should be overridden in tests.
+    """
     raise NotImplementedError(
         "get_core_api must be overridden in tests with a mock implementation."
     )
@@ -960,8 +960,8 @@ async def generic_exception_handler(request, exc):
 
 @app.middleware("http")
 async def standardize_response_format(request, call_next):
-    """
-    Middleware that standardizes API responses.
+    """Middleware that standardizes API responses.
+
     - Skips standardization for v1 routes
     - Applies standardization to v2+ routes
     - Honors raw_response() markers

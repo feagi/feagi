@@ -13,17 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
-"""This module is responsible for creating bidirectional synapses between neurons that are
-firing together, while also strengthening/weakening (via LTP/LTD, respectively) a given active
-neuron's synapses to upstream/downstream neurons firing in the previous fire candidate list (FCL).
+"""This module is responsible for creating bidirectional synapses between
+neurons that are firing together, while also strengthening/weakening (via
+LTP/LTD, respectively) a given active neuron's synapses to upstream/downstream
+neurons firing in the previous fire candidate list (FCL).
 
 The following code block was extracted from the now-deleted neuroplasticity function that used
 LTP/LTD to strengthen/weaken synapses between vision memory and UTF8 memory neurons. It is likely
 that this code will need to be generalized for use with any cortical area(s) when encountering a
 similar scenario (where a neuron's synaptic connectivity to multiple sequential neurons needs to be
-reduced) and incorporated in the new neuroplasticity function (below). 
+reduced) and incorporated in the new neuroplasticity function (below).
 
     ####################################################################################
     #                                                                                  #
@@ -302,9 +301,7 @@ def long_short_term_memory():
 
 
 def lstm_lifespan_mgmt():
-    """
-    Handles lifecycle management for memory neurons
-    """
+    """Handles lifecycle management for memory neurons."""
     if runtime_data.memory_register:
         if runtime_data.burst_count > runtime_data.upcoming_lifesnap_mgmt:
             runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome[
@@ -385,26 +382,21 @@ def convert_hash_to_neuron_id(cortical_area, memory_hash):
 
 class MemoryQueue:
     def __init__(self):
-        """
-        Initializes the memory queue as an empty dictionary.
-        """
+        """Initializes the memory queue as an empty dictionary."""
         self.memory = {}
 
     def add_id(self, cortical_id, max_size):
-        """
-        Adds a new ID to the memory queue and initializes it with an empty FIFO deque with the specified size.
-        """
+        """Adds a new ID to the memory queue and initializes it with an empty
+        FIFO deque with the specified size."""
 
         if cortical_id not in self.memory:
             self.memory[cortical_id] = deque(maxlen=max_size)
 
     def push(self, cortical_id, value):
-        """
-        Pushes a value to the FIFO deque associated with the given ID.
-        If the ID doesn't exist, raises a KeyError.
+        """Pushes a value to the FIFO deque associated with the given ID. If
+        the ID doesn't exist, raises a KeyError.
 
         value = (memory_hash, [neuron list])
-
         """
         if cortical_id not in self.memory:
             self.add_id(
@@ -416,25 +408,19 @@ class MemoryQueue:
         self.memory[cortical_id].append(value)
 
     def get_all(self, cortical_id):
-        """
-        Retrieves all items in the FIFO deque for the given ID.
-        """
+        """Retrieves all items in the FIFO deque for the given ID."""
         if cortical_id in self.memory:
             return list(self.memory[cortical_id])
         return []
 
     def get_all_hashes(self, cortical_id):
-        """
-        Retrieves all set hashes from the FIFO deque for the given ID.
-        """
+        """Retrieves all set hashes from the FIFO deque for the given ID."""
         if cortical_id in self.memory:
             return self.memory[cortical_id]
         return []
 
     def resize(self, cortical_id, new_max_size):
-        """
-        Resizes the FIFO deque for a specific ID.
-        """
+        """Resizes the FIFO deque for a specific ID."""
         if cortical_id in self.memory:
             current_values = list(self.memory[cortical_id])
             self.memory[cortical_id] = deque(
@@ -444,9 +430,8 @@ class MemoryQueue:
             raise KeyError(f"ID '{cortical_id}' does not exist.")
 
     def remove_id(self, cortical_id):
-        """
-        Removes an ID and its associated FIFO deque from the memory queue.
-        """
+        """Removes an ID and its associated FIFO deque from the memory
+        queue."""
         if cortical_id in self.memory:
             del self.memory[cortical_id]
         else:

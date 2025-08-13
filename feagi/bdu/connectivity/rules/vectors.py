@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,8 +39,7 @@ BoundingBox = Tuple[
 
 
 def preprocess_expression(expr: str) -> str:
-    """
-    Preprocess algebraic expressions for evaluation.
+    """Preprocess algebraic expressions for evaluation.
 
     Args:
         expr: Expression string
@@ -60,8 +57,7 @@ def preprocess_expression(expr: str) -> str:
 def evaluate_expression(
     expr: Union[str, int], variables: Dict[str, Any]
 ) -> int:
-    """
-    Evaluate an algebraic expression with the given variables.
+    """Evaluate an algebraic expression with the given variables.
 
     Args:
         expr: Expression string or integer value
@@ -86,8 +82,7 @@ def apply_vector_offset(
     vector: Union[Position, str],
     morphology_scalar: float = 1.0,
 ) -> Position:
-    """
-    Apply a vector offset to a source position.
+    """Apply a vector offset to a source position.
 
     Args:
         src_position: Source neuron position (x, y, z)
@@ -114,8 +109,7 @@ def apply_vector_offset(
 def validate_vector_position(
     position: Position, dst_dimensions: Position
 ) -> bool:
-    """
-    Validate that a position is within the destination area bounds.
+    """Validate that a position is within the destination area bounds.
 
     Args:
         position: Position to validate (x, y, z)
@@ -136,8 +130,8 @@ def generate_vector_candidates(
     morphology_scalar: float,
     dst_dimensions: Position,
 ) -> Set[Position]:
-    """
-    Generate candidate positions by applying multiple vectors to a source position.
+    """Generate candidate positions by applying multiple vectors to a source
+    position.
 
     Args:
         src_position: Source neuron position
@@ -173,8 +167,7 @@ def match_vectors(
     src_subregion: BoundingBox,
     connectome_manager,
 ) -> Set[Position]:
-    """
-    Find target positions that match vector rules.
+    """Find target positions that match vector rules.
 
     Args:
         src_voxel: Source neuron position

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -68,8 +66,7 @@ class SamplingStrategy:
 
 
 class UnifiedFQSampler:
-    """
-    Unified Fire Queue Sampler with Extensible Strategy Architecture.
+    """Unified Fire Queue Sampler with Extensible Strategy Architecture.
 
     Maintains all critical performance characteristics while providing
     flexible sampling strategies for different use cases.
@@ -114,8 +111,7 @@ class UnifiedFQSampler:
         target_areas: Optional[List[str]] = None,
         state_manager=None,
     ):
-        """
-        Initialize the unified FQ sampler.
+        """Initialize the unified FQ sampler.
 
         Args:
             fire_queue_provider: Source for fire queue data
@@ -222,8 +218,7 @@ class UnifiedFQSampler:
             return False
 
     def sample(self) -> Optional[Dict[str, Any]]:
-        """
-        Sample data using the current strategy with zero-copy operations.
+        """Sample data using the current strategy with zero-copy operations.
 
         Returns:
             Dictionary organized by cortical areas with high-performance data access.
@@ -284,7 +279,8 @@ class UnifiedFQSampler:
         return []
 
     def _get_visualization_areas(self) -> List[str]:
-        """Get cortical areas that have firing neurons AND visualization enabled."""
+        """Get cortical areas that have firing neurons AND visualization
+        enabled."""
         logger.info(
             f"🔥 PIPELINE [{self.instance_id}]: _get_visualization_areas() START"
         )
@@ -307,7 +303,9 @@ class UnifiedFQSampler:
             ):
                 try:
                     # Get cortical indices that have firing neurons from FCL
-                    active_cortical_indices = self.connectome_manager.fcl_manager.get_active_corticals()
+                    active_cortical_indices = (
+                        self.connectome_manager.fcl_manager.get_active_corticals()
+                    )
                     logger.info(
                         f"🔥 PIPELINE [{self.instance_id}]: FCL returned {len(active_cortical_indices)} active indices: {sorted(active_cortical_indices)}"
                     )
@@ -412,7 +410,8 @@ class UnifiedFQSampler:
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:
-        """Get all available cortical areas (legacy method, use _get_visualization_areas instead)."""
+        """Get all available cortical areas (legacy method, use
+        _get_visualization_areas instead)."""
         # Keep for backward compatibility but delegate to proper method
         return self._get_visualization_areas()
 
@@ -511,8 +510,8 @@ class UnifiedFQSampler:
     def _sample_areas_optimized(
         self, target_areas: List[str]
     ) -> Optional[Dict[str, Any]]:
-        """
-        High-performance area sampling with minimal allocations.
+        """High-performance area sampling with minimal allocations.
+
         Combines zero-copy operations with SIMD-friendly data structures.
         """
         logger.info(
@@ -641,8 +640,7 @@ class UnifiedFQSampler:
         return result if result else None
 
     def _is_memory_area(self, area_id: str) -> bool:
-        """
-        Efficiently check if a cortical area is a memory area.
+        """Efficiently check if a cortical area is a memory area.
 
         Args:
             area_id: Cortical area ID to check
@@ -694,8 +692,7 @@ class UnifiedFQSampler:
     def _sample_memory_area_optimized(
         self, area_id: str, timestamp: float
     ) -> Optional[Dict[str, Any]]:
-        """
-        Efficiently sample a memory area for visualization.
+        """Efficiently sample a memory area for visualization.
 
         Memory areas are conceptual 1x1x1 voxels at (0,0,0) coordinates.
         They use placeholder IDs to avoid conflicts with regular neuron SoA lookups.

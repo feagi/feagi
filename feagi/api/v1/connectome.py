@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -175,7 +173,8 @@ class ConnectomeAPI:
     async def get_neuron_properties(
         self, neuron_id: int
     ) -> NeuronPropertiesResponse:
-        """Get detailed properties of a specific neuron including refractory counter."""
+        """Get detailed properties of a specific neuron including refractory
+        counter."""
         try:
             properties = self.core_api_service.get_neuron_properties(neuron_id)
             if not properties:
@@ -197,7 +196,8 @@ class ConnectomeAPI:
     async def get_cortical_area_neurons(
         self, cortical_id: str
     ) -> List[Dict[str, Any]]:
-        """Get all neurons in a specific cortical area with their properties."""
+        """Get all neurons in a specific cortical area with their
+        properties."""
         try:
             neurons = self.core_api_service.get_cortical_area_neurons(
                 cortical_id
@@ -493,8 +493,7 @@ class ConnectomeAPI:
 
 
 def create_connectome_api(core_api_service: CoreAPIService) -> ConnectomeAPI:
-    """
-    Factory function to create a ConnectomeAPI instance.
+    """Factory function to create a ConnectomeAPI instance.
 
     This function can be used by transport adapters to get a configured
     ConnectomeAPI instance with the required dependencies.

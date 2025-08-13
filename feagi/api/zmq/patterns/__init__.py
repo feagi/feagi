@@ -1,5 +1,4 @@
-"""
-ZeroMQ Pattern Implementations for FEAGI API
+"""ZeroMQ Pattern Implementations for FEAGI API.
 
 This package contains implementations of different ZeroMQ messaging patterns
 for use with the FEAGI API.

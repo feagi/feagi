@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-"""
-Binary Protocol Serialization for FEAGI
+"""Binary Protocol Serialization for FEAGI.
 
 This module provides binary serialization and deserialization functions for
 the FEAGI communication protocols (FCP, FVP, FSMP).
@@ -51,11 +49,10 @@ class BinaryProtocolError(Exception):
 
 
 class BinarySerializer:
-    """
-    Binary serializer for FEAGI protocols.
+    """Binary serializer for FEAGI protocols.
 
-    This class provides methods to serialize and deserialize messages
-    according to the binary protocol specifications.
+    This class provides methods to serialize and deserialize messages according
+    to the binary protocol specifications.
     """
 
     # Protocol header format: protocol_id (1 byte) + version (1 byte)
@@ -76,8 +73,7 @@ class BinarySerializer:
 
     @classmethod
     def encode_header(cls, protocol_id: ProtocolID, version: int) -> bytes:
-        """
-        Encode the protocol header.
+        """Encode the protocol header.
 
         Args:
             protocol_id: Protocol identifier
@@ -90,8 +86,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_header(cls, data: bytes) -> Tuple[ProtocolID, int]:
-        """
-        Decode the protocol header.
+        """Decode the protocol header.
 
         Args:
             data: Binary data containing the header
@@ -120,8 +115,7 @@ class BinarySerializer:
     def encode_fcp(
         cls, command_type: int, payload: bytes, version: int = 1
     ) -> bytes:
-        """
-        Encode an FCP message.
+        """Encode an FCP message.
 
         Args:
             command_type: Command type
@@ -140,8 +134,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_fcp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FCP message.
+        """Decode an FCP message.
 
         Args:
             data: Binary FCP message
@@ -194,8 +187,7 @@ class BinarySerializer:
         timestamp: Optional[int] = None,
         version: int = 1,
     ) -> bytes:
-        """
-        Encode an FVP message.
+        """Encode an FVP message.
 
         Args:
             frame_type: Frame type
@@ -220,8 +212,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_fvp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FVP message.
+        """Decode an FVP message.
 
         Args:
             data: Binary FVP message
@@ -275,8 +266,7 @@ class BinarySerializer:
         timestamp: Optional[int] = None,
         version: int = 1,
     ) -> bytes:
-        """
-        Encode an FSMP message.
+        """Encode an FSMP message.
 
         Args:
             channel_id: Channel ID (0-65535)
@@ -301,8 +291,7 @@ class BinarySerializer:
 
     @classmethod
     def decode_fsmp(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode an FSMP message.
+        """Decode an FSMP message.
 
         Args:
             data: Binary FSMP message
@@ -353,8 +342,7 @@ class BinarySerializer:
     def encode(
         cls, protocol_id: ProtocolID, message: Dict[str, Any], version: int = 1
     ) -> bytes:
-        """
-        Encode a message for the specified protocol.
+        """Encode a message for the specified protocol.
 
         Args:
             protocol_id: Protocol identifier
@@ -389,8 +377,7 @@ class BinarySerializer:
 
     @classmethod
     def decode(cls, data: bytes) -> Dict[str, Any]:
-        """
-        Decode a binary message.
+        """Decode a binary message.
 
         Args:
             data: Binary message

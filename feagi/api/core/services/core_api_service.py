@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,8 +45,7 @@ logger = setup_logger()
 
 
 class CoreAPIService:
-    """
-    Facade for all FEAGI core API operations.
+    """Facade for all FEAGI core API operations.
 
     This class delegates to specialized domain services while maintaining
     the exact same public interface as the original CoreAPIService.
@@ -66,8 +63,7 @@ class CoreAPIService:
         state_manager=None,
         config: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize the Core API Service facade.
+        """Initialize the Core API Service facade.
 
         Args:
             connectome_manager: ConnectomeManager instance
@@ -242,7 +238,8 @@ class CoreAPIService:
         return self._system_service.get_unique_logs()
 
     def enable_visualization_fq_sampler(self) -> bool:
-        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        """Enable the visualization FQ sampler for brain visualizer
+        connectivity."""
         return self._system_service.enable_visualization_fq_sampler()
 
     def disable_visualization_fq_sampler(self) -> bool:
@@ -279,8 +276,7 @@ class CoreAPIService:
     def load_genome(
         self, genome_data: Dict[str, Any], filename: str = "genome.json"
     ) -> Dict[str, Any]:
-        """
-        Load a genome and prepare it for use.
+        """Load a genome and prepare it for use.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager → NeuroEmbryogenesis
@@ -332,7 +328,8 @@ class CoreAPIService:
         return self._genome_service.get_genome_counter()
 
     def get_current_genome(self) -> Optional[Dict[str, Any]]:
-        """Get the currently loaded genome data (alias for get_genome for download compatibility)."""
+        """Get the currently loaded genome data (alias for get_genome for
+        download compatibility)."""
         return self._genome_service.get_genome()
 
     def get_generations(self) -> Dict[str, Any]:
@@ -393,7 +390,8 @@ class CoreAPIService:
     def update_cortical_area_properties(
         self, cortical_id: str, properties: Dict[str, Any]
     ) -> bool:
-        """Update properties of an existing cortical area with intelligent routing."""
+        """Update properties of an existing cortical area with intelligent
+        routing."""
         self.logger.info(
             f"[CORTICAL-UPDATE] CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}"
         )
@@ -481,7 +479,8 @@ class CoreAPIService:
     def get_neuron_properties(
         self, neuron_id: int
     ) -> Optional[Dict[str, Any]]:
-        """Get detailed properties of a specific neuron including refractory counter."""
+        """Get detailed properties of a specific neuron including refractory
+        counter."""
         self.logger.info(
             f"DEBUG: get_neuron_properties called for neuron_id: {neuron_id} (type: {type(neuron_id)})"
         )
@@ -531,11 +530,13 @@ class CoreAPIService:
             return None
 
     def get_cortical_id_list(self) -> List[str]:
-        """Get a list of all cortical area IDs (6-character strings) in the current genome."""
+        """Get a list of all cortical area IDs (6-character strings) in the
+        current genome."""
         return self._cortical_area_service.get_id_list()
 
     def get_cortical_index_list(self) -> List[int]:
-        """Get a list of all cortical area indices (integers) used by the FCL."""
+        """Get a list of all cortical area indices (integers) used by the
+        FCL."""
         return self._cortical_area_service.get_index_list()
 
     def get_cortical_name_list(self) -> List[str]:
@@ -543,7 +544,8 @@ class CoreAPIService:
         return self._cortical_area_service.get_name_list()
 
     def get_cortical_id_name_mapping(self) -> Dict[str, str]:
-        """Map every cortical area's 6-character cortical_id to its human-readable name."""
+        """Map every cortical area's 6-character cortical_id to its human-
+        readable name."""
         return self._cortical_area_service.get_id_name_mapping()
 
     def get_cortical_locations_2d(self) -> Dict[str, List[int]]:
@@ -551,7 +553,8 @@ class CoreAPIService:
         return self._cortical_area_service.get_cortical_locations_2d()
 
     def get_cortical_2d_locations(self) -> Dict[str, List[int]]:
-        """Get 2D locations of all cortical areas (alias for get_cortical_locations_2d)."""
+        """Get 2D locations of all cortical areas (alias for
+        get_cortical_locations_2d)."""
         return self._cortical_area_service.get_cortical_locations_2d()
 
     def get_area_neuron_count(self, cortical_id: str) -> int:
@@ -821,8 +824,8 @@ class CoreAPIService:
     def stimulate_neurons(
         self, neural_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, Any]:
-        """
-        Unified method to stimulate neurons using coordinate-based data format.
+        """Unified method to stimulate neurons using coordinate-based data
+        format.
 
         This method handles both individual neuron stimulation and cortical area stimulation
         by converting coordinates to neuron IDs and injecting them into FCL.
@@ -913,8 +916,8 @@ class CoreAPIService:
     # =================================================================
 
     def refresh_cached_data(self):
-        """
-        Refresh any cached data when connectome changes.
+        """Refresh any cached data when connectome changes.
+
         This can be called when the genome is reloaded or modified.
         """
         # Build cortical_id -> cortical_idx cache for optimal performance
@@ -937,24 +940,24 @@ class CoreAPIService:
         """Get health information about all domain services."""
         try:
             return {
-                "system_service": "healthy"
-                if self._system_service
-                else "unavailable",
-                "genome_service": "healthy"
-                if self._genome_service
-                else "unavailable",
+                "system_service": (
+                    "healthy" if self._system_service else "unavailable"
+                ),
+                "genome_service": (
+                    "healthy" if self._genome_service else "unavailable"
+                ),
                 "cortical_area_service": (
                     "healthy" if self._cortical_area_service else "unavailable"
                 ),
                 "connectome_service": (
                     "healthy" if self._connectome_service else "unavailable"
                 ),
-                "brain_service": "healthy"
-                if self._brain_service
-                else "unavailable",
-                "agents_service": "healthy"
-                if self._agents_service
-                else "unavailable",
+                "brain_service": (
+                    "healthy" if self._brain_service else "unavailable"
+                ),
+                "agents_service": (
+                    "healthy" if self._agents_service else "unavailable"
+                ),
                 "network_service": (
                     "healthy" if self._network_service else "unavailable"
                 ),
@@ -1001,12 +1004,12 @@ class CoreAPIService:
                     )
                     if mp_batch is not None or mp_cache is not None:
                         engine_config["memory_processing"] = {
-                            "batch_size": mp_batch
-                            if mp_batch is not None
-                            else 100,
-                            "pattern_cache_size": mp_cache
-                            if mp_cache is not None
-                            else 10000,
+                            "batch_size": (
+                                mp_batch if mp_batch is not None else 100
+                            ),
+                            "pattern_cache_size": (
+                                mp_cache if mp_cache is not None else 10000
+                            ),
                         }
 
                 singleton_instance = BurstEngine(
@@ -1045,7 +1048,8 @@ class CoreAPIService:
     # =================================================================
 
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data for FQSampler from FCL with real neuron coordinates."""
+        """Get the global fire queue data for FQSampler from FCL with real
+        neuron coordinates."""
         try:
             if (
                 hasattr(self._connectome_manager, "fcl_manager")
@@ -1566,8 +1570,8 @@ class CoreAPIService:
     def _synchronize_fq_samplers_with_burst_frequency(
         self, new_burst_frequency: float
     ) -> None:
-        """
-        Automatically synchronize all active FQ samplers with new burst frequency.
+        """Automatically synchronize all active FQ samplers with new burst
+        frequency.
 
         Ensures that no FQ sampler exceeds the burst frequency by applying:
         new_sampler_freq = min(configured_freq, new_burst_freq)
@@ -1876,7 +1880,8 @@ class CoreAPIService:
             ) from e
 
     def _get_morphology_description(self, morphology: Dict[str, Any]) -> str:
-        """Generate a description for a morphology based on its type and parameters."""
+        """Generate a description for a morphology based on its type and
+        parameters."""
         morphology_type = morphology.get("type", "unknown")
 
         descriptions = {
@@ -1918,8 +1923,7 @@ class CoreAPIService:
         )
 
     def create_morphology(self, morphology_data: Dict[str, Any]) -> bool:
-        """
-        Create a new morphology.
+        """Create a new morphology.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -1935,8 +1939,7 @@ class CoreAPIService:
     def update_morphology(
         self, morphology_id: str, updates: Dict[str, Any]
     ) -> bool:
-        """
-        Update an existing morphology.
+        """Update an existing morphology.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -1952,8 +1955,7 @@ class CoreAPIService:
             raise ValueError(f"Failed to update morphology: {str(e)}") from e
 
     def delete_morphology(self, morphology_id: str) -> bool:
-        """
-        Delete a morphology.
+        """Delete a morphology.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -2028,8 +2030,7 @@ class CoreAPIService:
             ) from e
 
     def _extract_area_name_from_flat_format(self, flat_area_name: str) -> str:
-        """
-        Extract clean cortical area name from flat genome format.
+        """Extract clean cortical area name from flat genome format.
 
         Converts: "_____10c-CTGM4_-cx-dstmap-d" → "CTGM4_"
         Converts: "_____10c-iic400-cx-..." → "iic400"
@@ -2069,10 +2070,10 @@ class CoreAPIService:
         original_area_id: str,
         usage_list: List[List[str]],
     ) -> None:
-        """
-        Scan dictionary for cortical mapping usage of morphology.
+        """Scan dictionary for cortical mapping usage of morphology.
 
-        This replicates the exact logic from the working deletion safety system.
+        This replicates the exact logic from the working deletion safety
+        system.
         """
         if not isinstance(data, dict):
             return
@@ -2139,8 +2140,8 @@ class CoreAPIService:
                         usage_list.append([source_area, target_area])
 
     def get_cortical_mapping(self) -> Dict[str, Any]:
-        """
-        Get the simple cortical mapping structure showing source -> destination relationships.
+        """Get the simple cortical mapping structure showing source ->
+        destination relationships.
 
         Returns:
             Dictionary containing cortical area mappings as source -> [destinations] format
@@ -2154,8 +2155,8 @@ class CoreAPIService:
             return {}
 
     def get_simple_cortical_mapping(self) -> Dict[str, List[str]]:
-        """
-        Get simple cortical mapping showing only source -> destination relationships.
+        """Get simple cortical mapping showing only source -> destination
+        relationships.
 
         Returns a clean dictionary where each cortical area ID maps to a list
         of destination cortical areas it connects to.
@@ -2203,8 +2204,8 @@ class CoreAPIService:
             raise
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
-        """
-        Update the cortical mapping structure by converting formatted data back to genome format.
+        """Update the cortical mapping structure by converting formatted data
+        back to genome format.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -2293,12 +2294,12 @@ class CoreAPIService:
                         "plasticity_constant": (
                             connection[4] if len(connection) > 4 else 1
                         ),
-                        "ltp_multiplier": connection[5]
-                        if len(connection) > 5
-                        else 1,
-                        "ltd_multiplier": connection[6]
-                        if len(connection) > 6
-                        else 1,
+                        "ltp_multiplier": (
+                            connection[5] if len(connection) > 5 else 1
+                        ),
+                        "ltd_multiplier": (
+                            connection[6] if len(connection) > 6 else 1
+                        ),
                     }
                     formatted_connections.append(formatted_connection)
 
@@ -2360,7 +2361,8 @@ class CoreAPIService:
         src_cortical_area: str,
         dst_cortical_area: str,
     ) -> bool:
-        """Delete cortical mapping and all associated synapses between two cortical areas."""
+        """Delete cortical mapping and all associated synapses between two
+        cortical areas."""
         try:
             self.logger.info(
                 f"Deleting cortical mapping from {src_cortical_area} to {dst_cortical_area}"
@@ -2387,8 +2389,7 @@ class CoreAPIService:
             return False
 
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
-        """
-        Get detailed cortical mapping information in the expected format.
+        """Get detailed cortical mapping information in the expected format.
 
         Returns a dictionary where each cortical area ID maps to its connection targets
         with detailed morphology and plasticity parameters.
@@ -2449,9 +2450,9 @@ class CoreAPIService:
                                 )
 
                         if formatted_connections:
-                            mapping_response[area_id][target_area_id] = (
-                                formatted_connections
-                            )
+                            mapping_response[area_id][
+                                target_area_id
+                            ] = formatted_connections
 
             logger.info(
                 f"Generated detailed cortical map for {len(mapping_response)} areas"
@@ -2593,8 +2594,8 @@ class CoreAPIService:
     def trigger_multi_area_stimulation(
         self, stimulation_payload: Dict[str, List[List[int]]]
     ) -> Dict[str, Any]:
-        """
-        Trigger manual stimulation across multiple cortical areas using coordinate lists.
+        """Trigger manual stimulation across multiple cortical areas using
+        coordinate lists.
 
         Uses the existing FCL injection service to properly inject external stimulations
         into the Fire Candidate List during burst processing.
@@ -2678,9 +2679,11 @@ class CoreAPIService:
                             "success": True,
                             "coordinates_requested": len(coordinate_list),
                             "neurons_found": len(neuron_ids),
-                            "neuron_ids": neuron_ids[:10]
-                            if len(neuron_ids) > 10
-                            else neuron_ids,  # Limit for response size
+                            "neuron_ids": (
+                                neuron_ids[:10]
+                                if len(neuron_ids) > 10
+                                else neuron_ids
+                            ),  # Limit for response size
                         }
 
                         self.logger.debug(
@@ -2827,8 +2830,8 @@ class CoreAPIService:
     # =================================================================
 
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
-        """
-        Get cortical index for a cortical ID using O(1) BiDirectionalCorticalMap.
+        """Get cortical index for a cortical ID using O(1)
+        BiDirectionalCorticalMap.
 
         Args:
             cortical_id: 6-character string identifier
@@ -3056,8 +3059,7 @@ class CoreAPIService:
     def trigger_frequency_measurement(
         self, duration_seconds: float = 5.0, sample_count: int = 100
     ) -> dict:
-        """
-        Trigger an on-demand burst frequency measurement.
+        """Trigger an on-demand burst frequency measurement.
 
         This is an expensive operation that should only be called when needed for monitoring.
 
@@ -3075,8 +3077,7 @@ class CoreAPIService:
     def get_frequency_measurement_history(
         self, limit: Optional[int] = None
     ) -> dict:
-        """
-        Get the history of frequency measurements.
+        """Get the history of frequency measurements.
 
         Args:
             limit: Maximum number of recent measurements to return
@@ -3399,7 +3400,8 @@ class CoreAPIService:
     def get_area_fire_queue(
         self, cortical_id: str
     ) -> Optional[Dict[str, Any]]:
-        """Get fire queue data for specific area in dictionary format (FQ sampler compatible).
+        """Get fire queue data for specific area in dictionary format (FQ
+        sampler compatible).
 
         This method provides the interface expected by the FQ sampler, converting the direct
         numpy array data to the dictionary format that the sampler expects.
@@ -3463,8 +3465,8 @@ class CoreAPIService:
     def get_neuron_coordinates(
         self, neuron_ids: List[int]
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get coordinates (X, Y, Z) for a list of neuron IDs using SIMD-optimized extraction.
+        """Get coordinates (X, Y, Z) for a list of neuron IDs using SIMD-
+        optimized extraction.
 
         Leverages FEAGI's centralized SIMD configuration for maximum performance.
         Uses vectorized operations with optimal memory layouts and cache-friendly algorithms.
@@ -3688,8 +3690,8 @@ class CoreAPIService:
     def get_neuron_coordinates_numpy(
         self, neuron_ids: List[int]
     ) -> Optional[np.ndarray]:
-        """
-        Get coordinates for a list of neuron IDs as SIMD-optimized numpy array (zero-copy).
+        """Get coordinates for a list of neuron IDs as SIMD-optimized numpy
+        array (zero-copy).
 
         Highest performance method using vectorized SIMD operations and optimal memory layouts.
         Designed for real-time applications requiring maximum throughput.
@@ -3837,8 +3839,7 @@ class CoreAPIService:
     def _simd_bounds_check(
         self, indices: np.ndarray, max_value: int, simd_config: dict
     ) -> np.ndarray:
-        """
-        SIMD-optimized bounds checking for neuron indices.
+        """SIMD-optimized bounds checking for neuron indices.
 
         Uses vectorized operations to check multiple indices simultaneously.
         """
@@ -3874,8 +3875,8 @@ class CoreAPIService:
         simd_config: dict,
         performance_stats: dict,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        SIMD-optimized coordinate extraction using vectorized array indexing.
+        """SIMD-optimized coordinate extraction using vectorized array
+        indexing.
 
         Processes coordinates in SIMD-aligned chunks for maximum throughput.
         Handles both NumPy arrays and PyTorch tensors properly.
@@ -3916,13 +3917,19 @@ class CoreAPIService:
                     # Direct SIMD-optimized array indexing on NumPy arrays - keep uint32
                     coords_x = neuron_array.coordinates_x[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
                     coords_y = neuron_array.coordinates_y[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
                     coords_z = neuron_array.coordinates_z[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
 
                     performance_stats["extraction_method"] = (
                         "simd_numpy_direct"
@@ -3963,8 +3970,9 @@ class CoreAPIService:
     def _vectorized_extract_coordinates(
         self, neuron_array, valid_indices: np.ndarray, performance_stats: dict
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Vectorized coordinate extraction fallback using standard numpy operations.
+        """Vectorized coordinate extraction fallback using standard numpy
+        operations.
+
         Handles both NumPy arrays and PyTorch tensors properly.
         """
         try:
@@ -4002,13 +4010,19 @@ class CoreAPIService:
                     # Direct NumPy array indexing - keep uint32
                     coords_x = neuron_array.coordinates_x[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
                     coords_y = neuron_array.coordinates_y[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
                     coords_z = neuron_array.coordinates_z[
                         valid_indices
-                    ].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    ].astype(
+                        np.uint32
+                    )  # ✅ FIXED: Keep uint32
 
                     performance_stats["extraction_method"] = (
                         "vectorized_numpy_direct"
@@ -4044,8 +4058,7 @@ class CoreAPIService:
     def benchmark_neuron_coordinate_extraction(
         self, neuron_count: int = 10000
     ) -> Dict[str, Any]:
-        """
-        Benchmark SIMD-optimized neuron coordinate extraction performance.
+        """Benchmark SIMD-optimized neuron coordinate extraction performance.
 
         Tests different batch sizes and extraction methods to demonstrate
         the performance benefits of SIMD optimization.
@@ -4238,9 +4251,9 @@ class CoreAPIService:
                 return {
                     "source_type": source_type,
                     "destination_type": destination_type,
-                    "restriction": restriction.to_dict()
-                    if restriction
-                    else None,
+                    "restriction": (
+                        restriction.to_dict() if restriction else None
+                    ),
                     "default": default.to_dict() if default else None,
                 }
             else:
@@ -4287,9 +4300,9 @@ class CoreAPIService:
                     "destination_cortical_id": destination_cortical_id,
                     "source_type": source_type,
                     "destination_type": destination_type,
-                    "restriction": restriction.to_dict()
-                    if restriction
-                    else None,
+                    "restriction": (
+                        restriction.to_dict() if restriction else None
+                    ),
                     "default": default.to_dict() if default else None,
                     "has_restricted_morphologies": (
                         restriction.has_restricted_morphologies()
@@ -4326,8 +4339,7 @@ class CoreAPIService:
         controller_version: str = None,
         agent_ip: str = None,
     ) -> bool:
-        """
-        Register an agent with full capability structure and metadata.
+        """Register an agent with full capability structure and metadata.
 
         Args:
             agent_id: Unique identifier for the agent
@@ -4366,8 +4378,7 @@ class CoreAPIService:
             return False
 
     def unregister_agent(self, agent_id: str) -> bool:
-        """
-        Unregister an agent and remove from all tracking.
+        """Unregister an agent and remove from all tracking.
 
         Args:
             agent_id: Unique identifier for the agent to remove
@@ -4398,8 +4409,8 @@ class CoreAPIService:
             return []
 
     def get_agent_registry_summary(self) -> dict:
-        """
-        Get comprehensive summary of agent registry state for FQ sampler management.
+        """Get comprehensive summary of agent registry state for FQ sampler
+        management.
 
         Returns:
             Dictionary with registry state including counts and agent lists
@@ -4432,7 +4443,8 @@ class CoreAPIService:
             return []
 
     def get_cortical_idx_mapping(self) -> Dict[str, Any]:
-        """Get the current cortical_idx to cortical_id mapping for debugging corruption issues."""
+        """Get the current cortical_idx to cortical_id mapping for debugging
+        corruption issues."""
         try:
             # Get mappings from BiDirectionalCorticalMap
             id_to_idx = (
@@ -4463,9 +4475,9 @@ class CoreAPIService:
                 },
                 "debug_info": {
                     "total_mappings": len(id_to_idx),
-                    "highest_idx": max(idx_to_id.keys())
-                    if idx_to_id
-                    else None,
+                    "highest_idx": (
+                        max(idx_to_id.keys()) if idx_to_id else None
+                    ),
                     "all_indices": sorted(list(idx_to_id.keys())),
                     "all_ids": sorted(list(id_to_idx.keys())),
                 },
@@ -4498,8 +4510,7 @@ class CoreAPIService:
         dimensions: Dict[str, int] = None,
         parameters: Dict[str, Any] = None,
     ) -> bool:
-        """
-        Create a brain region.
+        """Create a brain region.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4528,8 +4539,7 @@ class CoreAPIService:
         dimensions: Optional[Dict[str, int]] = None,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """
-        Update a brain region.
+        """Update a brain region.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4552,8 +4562,7 @@ class CoreAPIService:
     def delete_brain_region(
         self, region_id: str, preserve_children: bool = True
     ) -> bool:
-        """
-        Delete a brain region.
+        """Delete a brain region.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4576,8 +4585,7 @@ class CoreAPIService:
     def change_cortical_area_parent(
         self, cortical_area_id: str, new_parent_id: str
     ) -> bool:
-        """
-        Change the parent region of a cortical area.
+        """Change the parent region of a cortical area.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4600,8 +4608,7 @@ class CoreAPIService:
     def change_brain_region_parent(
         self, region_id: str, new_parent_id: str
     ) -> bool:
-        """
-        Change the parent of a brain region.
+        """Change the parent of a brain region.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4623,8 +4630,7 @@ class CoreAPIService:
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
     def reset_genome(self) -> bool:
-        """
-        Reset the genome.
+        """Reset the genome.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4640,8 +4646,7 @@ class CoreAPIService:
     def process_amalgamation_request(
         self, amalgamation_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Process an amalgamation request.
+        """Process an amalgamation request.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4659,8 +4664,7 @@ class CoreAPIService:
             ) from e
 
     def cancel_amalgamation(self, amalgamation_id: str) -> bool:
-        """
-        Cancel an amalgamation.
+        """Cancel an amalgamation.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4674,8 +4678,7 @@ class CoreAPIService:
             raise ValueError(f"Failed to cancel amalgamation: {str(e)}") from e
 
     def append_circuit_to_genome(self, circuit_data: Dict[str, Any]) -> bool:
-        """
-        Append circuit to genome.
+        """Append circuit to genome.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4691,8 +4694,7 @@ class CoreAPIService:
             ) from e
 
     def complete_amalgamation(self, amalgamation_data: Dict[str, Any]) -> bool:
-        """
-        Complete an amalgamation.
+        """Complete an amalgamation.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4709,8 +4711,7 @@ class CoreAPIService:
             ) from e
 
     def cancel_pending_amalgamation(self, amalgamation_id: str) -> bool:
-        """
-        Cancel a pending amalgamation.
+        """Cancel a pending amalgamation.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4728,8 +4729,7 @@ class CoreAPIService:
             ) from e
 
     def mark_amalgamation_complete(self, amalgamation_id: str) -> bool:
-        """
-        Mark an amalgamation as complete.
+        """Mark an amalgamation as complete.
 
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
@@ -4754,7 +4754,8 @@ class CoreAPIService:
     def _calculate_neuron_memory_usage(
         self, cortical_id: str
     ) -> Dict[str, Any]:
-        """Calculate memory usage for neurons in a cortical area using actual NeuronArray memory."""
+        """Calculate memory usage for neurons in a cortical area using actual
+        NeuronArray memory."""
         try:
             # Get neurons in the area
             neurons = self._connectome_manager.get_neurons_by_cortical_area(
@@ -4942,14 +4943,14 @@ class CoreAPIService:
                     "size_human": self._format_bytes(
                         int(incoming_count * bytes_per_synapse)
                     ),
-                    "avg_bytes_per_item": bytes_per_synapse
-                    if incoming_count > 0
-                    else 0.0,
-                    "avg_human_per_item": self._format_bytes(
-                        int(bytes_per_synapse)
-                    )
-                    if incoming_count > 0
-                    else "0 B",
+                    "avg_bytes_per_item": (
+                        bytes_per_synapse if incoming_count > 0 else 0.0
+                    ),
+                    "avg_human_per_item": (
+                        self._format_bytes(int(bytes_per_synapse))
+                        if incoming_count > 0
+                        else "0 B"
+                    ),
                 },
                 "outgoing": {
                     "count": outgoing_count,
@@ -4957,14 +4958,14 @@ class CoreAPIService:
                     "size_human": self._format_bytes(
                         int(outgoing_count * bytes_per_synapse)
                     ),
-                    "avg_bytes_per_item": bytes_per_synapse
-                    if outgoing_count > 0
-                    else 0.0,
-                    "avg_human_per_item": self._format_bytes(
-                        int(bytes_per_synapse)
-                    )
-                    if outgoing_count > 0
-                    else "0 B",
+                    "avg_bytes_per_item": (
+                        bytes_per_synapse if outgoing_count > 0 else 0.0
+                    ),
+                    "avg_human_per_item": (
+                        self._format_bytes(int(bytes_per_synapse))
+                        if outgoing_count > 0
+                        else "0 B"
+                    ),
                 },
                 "internal": {
                     "count": internal_count,
@@ -4972,14 +4973,14 @@ class CoreAPIService:
                     "size_human": self._format_bytes(
                         int(internal_count * bytes_per_synapse)
                     ),
-                    "avg_bytes_per_item": bytes_per_synapse
-                    if internal_count > 0
-                    else 0.0,
-                    "avg_human_per_item": self._format_bytes(
-                        int(bytes_per_synapse)
-                    )
-                    if internal_count > 0
-                    else "0 B",
+                    "avg_bytes_per_item": (
+                        bytes_per_synapse if internal_count > 0 else 0.0
+                    ),
+                    "avg_human_per_item": (
+                        self._format_bytes(int(bytes_per_synapse))
+                        if internal_count > 0
+                        else "0 B"
+                    ),
                 },
             }
 
@@ -5019,7 +5020,8 @@ class CoreAPIService:
             return f"{size:.1f} {units[unit_index]}"
 
     def update_genome_physiology(self, updates: Dict[str, Any]) -> bool:
-        """Update physiology parameters in the current genome and refresh state.
+        """Update physiology parameters in the current genome and refresh
+        state.
 
         Args:
             updates: dict of physiology fields to update

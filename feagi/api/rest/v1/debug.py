@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -96,8 +94,7 @@ class EndpointStatsResponse(BaseModel):
 
 @router.get("/zmq/status", response_model=ZMQDebugResponse)
 async def get_zmq_debug_status():
-    """
-    Get current ZMQ debugging status and configuration.
+    """Get current ZMQ debugging status and configuration.
 
     Returns current settings including:
     - Inbound/outbound debugging state
@@ -116,8 +113,7 @@ async def get_zmq_debug_status():
 
 @router.post("/zmq/configure")
 async def configure_zmq_debug(config: ZMQDebugConfig):
-    """
-    Configure ZMQ debugging settings at runtime.
+    """Configure ZMQ debugging settings at runtime.
 
     Allows dynamic control of:
     - Enable/disable inbound or outbound debugging
@@ -243,8 +239,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
 
 @router.post("/zmq/enable")
 async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
-    """
-    Quick enable ZMQ debugging with default settings.
+    """Quick enable ZMQ debugging with default settings.
 
     Args:
         inbound: Enable inbound message debugging
@@ -268,8 +263,7 @@ async def enable_zmq_debug(inbound: bool = True, outbound: bool = True):
 
 @router.post("/zmq/disable")
 async def disable_zmq_debug():
-    """
-    Disable all ZMQ debugging.
+    """Disable all ZMQ debugging.
 
     This immediately stops all debug logging with zero overhead.
     """
@@ -286,11 +280,10 @@ async def disable_zmq_debug():
 
 @router.get("/zmq/endpoints", response_model=EndpointStatsResponse)
 async def get_zmq_endpoint_stats():
-    """
-    Get per-endpoint ZMQ debugging statistics.
+    """Get per-endpoint ZMQ debugging statistics.
 
-    Returns statistics for each ZMQ endpoint that has been debugged,
-    including message counts, byte totals, and rate limiting information.
+    Returns statistics for each ZMQ endpoint that has been debugged, including
+    message counts, byte totals, and rate limiting information.
     """
     try:
         stats = get_endpoint_stats()
@@ -303,11 +296,10 @@ async def get_zmq_endpoint_stats():
 
 @router.post("/zmq/reset-stats")
 async def reset_zmq_debug_stats():
-    """
-    Reset all ZMQ debugging statistics.
+    """Reset all ZMQ debugging statistics.
 
-    Clears all counters and statistics, useful for measuring
-    performance over a specific time period.
+    Clears all counters and statistics, useful for measuring performance over a
+    specific time period.
     """
     try:
         reset_debug_stats()
@@ -323,8 +315,7 @@ async def reset_zmq_debug_stats():
 
 @router.post("/zmq/filter/messages")
 async def set_message_type_filters(message_types: List[str]):
-    """
-    Set message type filters for ZMQ debugging.
+    """Set message type filters for ZMQ debugging.
 
     Args:
         message_types: List of message types to debug.
@@ -373,8 +364,7 @@ async def set_message_type_filters(message_types: List[str]):
 
 @router.post("/zmq/filter/endpoints")
 async def set_endpoint_filters_rest(endpoints: List[str]):
-    """
-    Set endpoint filters for ZMQ debugging (REST alias).
+    """Set endpoint filters for ZMQ debugging (REST alias).
 
     Args:
         endpoints: List of endpoints to debug (e.g., ["tcp://localhost:5562", "tcp://*:5564"])
@@ -404,8 +394,7 @@ async def set_endpoint_filters_rest(endpoints: List[str]):
 
 @router.post("/zmq/level/{level}")
 async def set_zmq_debug_level(level: str):
-    """
-    Set ZMQ debug verbosity level.
+    """Set ZMQ debug verbosity level.
 
     Args:
         level: Debug level (off, minimal, headers, summary, full)
@@ -443,8 +432,7 @@ async def set_zmq_debug_level(level: str):
 
 @router.post("/zmq/rate-limit/{limit}")
 async def set_zmq_rate_limit(limit: int):
-    """
-    Set rate limiting for ZMQ debug messages.
+    """Set rate limiting for ZMQ debug messages.
 
     Args:
         limit: Maximum messages per second to log (1-10000)
@@ -478,11 +466,10 @@ async def set_zmq_rate_limit(limit: int):
 
 @router.get("/zmq/help")
 async def get_zmq_debug_help():
-    """
-    Get help information for ZMQ debugging features.
+    """Get help information for ZMQ debugging features.
 
-    Returns comprehensive documentation about available debugging
-    features, configuration options, and usage examples.
+    Returns comprehensive documentation about available debugging features,
+    configuration options, and usage examples.
     """
     return {
         "zmq_debugging": {
@@ -532,11 +519,10 @@ async def get_zmq_debug_help():
 
 @router.get("/info")
 async def get_debug_info():
-    """
-    Get general debug information about FEAGI systems.
+    """Get general debug information about FEAGI systems.
 
-    Returns information about available debugging features,
-    current system state, and debugging recommendations.
+    Returns information about available debugging features, current system
+    state, and debugging recommendations.
     """
     try:
         zmq_status = get_debug_status()
@@ -574,8 +560,7 @@ async def get_debug_info():
 
 @router.post("/zmq/console")
 async def enable_console_output(enabled: bool = True):
-    """
-    Simple endpoint to enable/disable console output for ZMQ debugging.
+    """Simple endpoint to enable/disable console output for ZMQ debugging.
 
     This is easier to use from Swagger UI than the full configure endpoint.
 

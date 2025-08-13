@@ -1,5 +1,4 @@
-"""
-Platform-specific optimizations for ZMQ sockets handling neural data.
+"""Platform-specific optimizations for ZMQ sockets handling neural data.
 
 This module provides platform-aware socket configuration to maximize
 performance for neural data transmission.
@@ -28,8 +27,7 @@ class PlatformOptimizer:
     def optimize_for_neural_data(
         self, socket: zmq.Socket, socket_type: int, is_sender: bool = False
     ) -> None:
-        """
-        Optimize socket for neural data transmission.
+        """Optimize socket for neural data transmission.
 
         Args:
             socket: ZMQ socket to optimize
@@ -142,7 +140,7 @@ class LinuxOptimizer(PlatformOptimizer):
 
 
 class DarwinOptimizer(PlatformOptimizer):
-    """macOS-specific optimizations."""
+    """MacOS-specific optimizations."""
 
     def _apply_platform_optimizations(
         self, socket: zmq.Socket, socket_type: int, is_sender: bool
@@ -226,8 +224,7 @@ def get_platform_optimizer() -> PlatformOptimizer:
 def optimize_socket_for_neural_data(
     socket: zmq.Socket, socket_type: int, is_sender: bool = False
 ) -> None:
-    """
-    Optimize a ZMQ socket for neural data transmission.
+    """Optimize a ZMQ socket for neural data transmission.
 
     Args:
         socket: ZMQ socket to optimize

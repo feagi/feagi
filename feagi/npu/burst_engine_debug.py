@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,8 +36,7 @@ logger = setup_logger(__name__)
 
 
 class BurstEngineDebugMixin:
-    """
-    Debug functionality mixin for BurstEngine.
+    """Debug functionality mixin for BurstEngine.
 
     Provides comprehensive debugging and diagnostics capabilities including:
     - Fire queue analysis and visualization
@@ -52,7 +49,10 @@ class BurstEngineDebugMixin:
     """
 
     def __init__(self, *args, **kwargs):
-        """Initialize debug functionality. Called by main BurstEngine.__init__."""
+        """Initialize debug functionality.
+
+        Called by main BurstEngine.__init__.
+        """
         # DO NOT call super().__init__ in mixins - causes multiple inheritance issues
         # Just initialize our own attributes
 
@@ -65,8 +65,7 @@ class BurstEngineDebugMixin:
         logger.debug("BurstEngine debug mixin initialized")
 
     def register_fq_sampler(self, fq_sampler: Any) -> None:
-        """
-        Register an FQ sampler for debugging and monitoring.
+        """Register an FQ sampler for debugging and monitoring.
 
         Args:
             fq_sampler: FQSampler instance to register
@@ -79,8 +78,7 @@ class BurstEngineDebugMixin:
                 )
 
     def unregister_fq_sampler(self, fq_sampler: Any) -> None:
-        """
-        Unregister an FQ sampler.
+        """Unregister an FQ sampler.
 
         Args:
             fq_sampler: FQSampler instance to unregister
@@ -93,8 +91,7 @@ class BurstEngineDebugMixin:
                 )
 
     def _debug_fire_queue_output(self) -> None:
-        """
-        Debug fire queue output for NPU debugging.
+        """Debug fire queue output for NPU debugging.
 
         When --debug-npu flag is enabled, this method displays detailed information
         about the current fire queue contents including:
@@ -396,8 +393,7 @@ class BurstEngineDebugMixin:
             logger.error(traceback.format_exc())
 
     def get_debug_statistics(self) -> Dict[str, Any]:
-        """
-        Get comprehensive debug statistics for the burst engine.
+        """Get comprehensive debug statistics for the burst engine.
 
         Returns:
             Dictionary containing debug information about samplers, performance, etc.
@@ -440,8 +436,7 @@ class BurstEngineDebugMixin:
     def debug_burst_performance(
         self, burst_duration: float, processing_duration: float
     ) -> None:
-        """
-        Debug burst performance information.
+        """Debug burst performance information.
 
         Args:
             burst_duration: Total burst duration including delays
@@ -469,8 +464,7 @@ class BurstEngineDebugMixin:
         )
 
     def debug_memory_usage(self) -> Optional[Dict[str, Any]]:
-        """
-        Debug memory usage information.
+        """Debug memory usage information.
 
         Returns:
             Dictionary with memory usage statistics or None if unavailable
@@ -509,8 +503,7 @@ class BurstEngineDebugMixin:
             return None
 
     def debug_validate_state(self) -> Dict[str, bool]:
-        """
-        Validate internal state consistency for debugging.
+        """Validate internal state consistency for debugging.
 
         Returns:
             Dictionary of validation results

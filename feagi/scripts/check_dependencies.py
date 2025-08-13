@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,7 +36,8 @@ logger = logging.getLogger("feagi.dependency_checker")
 
 
 def main():
-    """Check if all required dependencies are installed with the correct versions."""
+    """Check if all required dependencies are installed with the correct
+    versions."""
     parser = argparse.ArgumentParser(description="FEAGI Dependency Checker")
     parser.add_argument(
         "--requirements", type=str, help="Path to requirements.txt file"

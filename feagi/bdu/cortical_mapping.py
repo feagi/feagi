@@ -1,5 +1,4 @@
-"""
-FEAGI BiDirectional Cortical Mapping
+"""FEAGI BiDirectional Cortical Mapping.
 
 RTOS/GPU/Rust/SIMD-Compatible O(1) Cortical ID ↔ Index Translation
 
@@ -26,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class BiDirectionalCorticalMap:
-    """
-    Lock-free bidirectional cortical_id ↔ cortical_idx mapping for O(1) lookups.
+    """Lock-free bidirectional cortical_id ↔ cortical_idx mapping for O(1)
+    lookups.
 
     RTOS/GPU/Rust/SIMD Compliance:
     - No threading locks (atomic dict operations only)

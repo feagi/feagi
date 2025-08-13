@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +23,7 @@ from feagi.core.state_manager import GenomeState
 
 
 class GenomeTransaction:
-    """Handles atomic genome modifications with connectome synchronization"""
+    """Handles atomic genome modifications with connectome synchronization."""
 
     def __init__(self, description: str, core_api_service=None):
         """Initialize a genome transaction.
@@ -61,7 +59,7 @@ class GenomeTransaction:
         )
 
     def commit(self):
-        """Commit all changes and synchronize with connectome"""
+        """Commit all changes and synchronize with connectome."""
         if self._has_committed:
             try:
                 logger.warning(
@@ -181,7 +179,7 @@ class GenomeTransaction:
             del current[parts[-1]]
 
     def _apply_to_genome(self, operation, path, old_value, new_value):
-        """Apply a change to the genome"""
+        """Apply a change to the genome."""
         logger.info(f"Applying genome operation: {operation}", status="[DNA]")
 
         # Handle different operation types
@@ -203,7 +201,7 @@ class GenomeTransaction:
             raise ValueError(f"Unknown operation type: {operation}")
 
     def _synchronize_connectome(self, genome=None):
-        """Synchronize changes with the connectome
+        """Synchronize changes with the connectome.
 
         Args:
             genome: Optional genome data. If not provided, will get from core_api_service
@@ -223,7 +221,7 @@ class GenomeTransaction:
 
     @contextmanager
     def transaction_scope(self):
-        """Context manager for automatic commit/rollback"""
+        """Context manager for automatic commit/rollback."""
         try:
             yield self
             self.commit()
@@ -252,7 +250,7 @@ class GenomeTransaction:
 
 
 def begin_genome_transaction_context(self):
-    """Context manager for genome transactions"""
+    """Context manager for genome transactions."""
     from contextlib import contextmanager
 
     from feagi.core.genome_transaction import GenomeTransaction

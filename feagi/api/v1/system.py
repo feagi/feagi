@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -255,7 +253,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/cortical_area_visualization_skip_rate")
     def get_cortical_area_visualization_skip_rate(self) -> int:
-        """Get cortical area visualization skip rate (returns int directly for legacy compatibility)."""
+        """Get cortical area visualization skip rate (returns int directly for
+        legacy compatibility)."""
         try:
             skip_rate = self.core_api_service.get_visualization_skip_rate()
             return skip_rate
@@ -269,7 +268,8 @@ class SystemAPI:
         "GET", "/cortical_area_visualization_suppression_threshold"
     )
     def get_cortical_area_visualization_suppression_threshold(self) -> int:
-        """Get cortical area visualization suppression threshold (returns int directly for legacy compatibility)."""
+        """Get cortical area visualization suppression threshold (returns int
+        directly for legacy compatibility)."""
         try:
             threshold = (
                 self.core_api_service.get_visualization_suppression_threshold()
@@ -299,7 +299,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/global_activity_visualization")
     def get_global_activity_visualization_status(self) -> bool:
-        """Get global activity visualization status (returns bool directly for legacy compatibility)."""
+        """Get global activity visualization status (returns bool directly for
+        legacy compatibility)."""
         try:
             enabled = self.core_api_service.get_global_activity_visualization()
             return enabled
@@ -347,7 +348,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/unique_logs")
     def get_unique_logs_dict(self) -> Dict[str, Any]:
-        """Get unique log entries (returns dict format for legacy compatibility)."""
+        """Get unique log entries (returns dict format for legacy
+        compatibility)."""
         try:
             logs = self.core_api_service.get_unique_logs()
             # Convert list to dict format for legacy compatibility
@@ -358,7 +360,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/unique_logs")
     def get_unique_logs_legacy(self) -> Dict[str, Any]:
-        """Get unique log entries (returns legacy format {"PNS":[],"CNS":[]})."""
+        """Get unique log entries (returns legacy format
+        {"PNS":[],"CNS":[]})."""
         try:
             # Return the exact legacy format
             return {"PNS": [], "CNS": []}
@@ -475,7 +478,8 @@ class SystemAPI:
         response_model=SuccessResponse,
     )
     def enable_visualization_fq_sampler(self) -> SuccessResponse:
-        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        """Enable the visualization FQ sampler for brain visualizer
+        connectivity."""
         try:
             success = self.core_api_service.enable_visualization_fq_sampler()
             if success:
@@ -524,7 +528,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/fcl_status")
     def get_fcl_status(self) -> Dict[str, Any]:
-        """Return detailed status of the FCL manager (queues/windows by cortical)."""
+        """Return detailed status of the FCL manager (queues/windows by
+        cortical)."""
         try:
             fclm = self.core_api_service.get_fcl_manager()
             if not fclm:
@@ -668,7 +673,8 @@ class SystemAPI:
 
     @system_endpoint("GET", "/processes")
     def get_active_processes(self) -> Dict[str, Any]:
-        """Return details about active FEAGI processes/tasks managed by the ProcessManager."""
+        """Return details about active FEAGI processes/tasks managed by the
+        ProcessManager."""
         try:
             from feagi.process_manager import get_process_manager
 
@@ -764,8 +770,7 @@ class SystemAPI:
 
 
 def create_system_api(core_api_service: CoreAPIService) -> SystemAPI:
-    """
-    Factory function to create a SystemAPI instance.
+    """Factory function to create a SystemAPI instance.
 
     This function can be used by transport adapters to get a configured
     SystemAPI instance with the required dependencies.

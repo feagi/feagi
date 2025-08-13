@@ -1,5 +1,4 @@
-"""
-Morton Encoding + Roaring Bitmap Spatial Hash System
+"""Morton Encoding + Roaring Bitmap Spatial Hash System.
 
 This module implements an efficient spatial hash system using:
 1. Morton encoding (Z-order curve) for spatial locality preservation
@@ -85,8 +84,7 @@ class MortonUtils:
 
     @staticmethod
     def morton_encode_3d(x: int, y: int, z: int) -> int:
-        """
-        Encode 3D coordinates into Morton code (Z-order curve).
+        """Encode 3D coordinates into Morton code (Z-order curve).
 
         Interleaves bits of x, y, z coordinates to preserve spatial locality.
 
@@ -116,8 +114,7 @@ class MortonUtils:
 
     @staticmethod
     def morton_decode_3d(morton_code: int) -> Tuple[int, int, int]:
-        """
-        Decode Morton code back to 3D coordinates.
+        """Decode Morton code back to 3D coordinates.
 
         Args:
             morton_code: Morton encoded integer
@@ -136,8 +133,7 @@ class MortonUtils:
     def morton_encode_region_3d(
         x1: int, y1: int, z1: int, x2: int, y2: int, z2: int
     ) -> RoaringBitmap:
-        """
-        Encode a 3D region into a roaring bitmap.
+        """Encode a 3D region into a roaring bitmap.
 
         Args:
             x1, y1, z1: Start coordinates (inclusive)
@@ -156,8 +152,7 @@ class MortonUtils:
 
 
 class RoaringSpatialHash:
-    """
-    Morton encoding + Roaring bitmap spatial hash implementation.
+    """Morton encoding + Roaring bitmap spatial hash implementation.
 
     This class provides efficient spatial coordinate mapping using:
     - Morton encoding for spatial locality preservation
@@ -166,8 +161,7 @@ class RoaringSpatialHash:
     """
 
     def __init__(self, cache_dir: Optional[Path] = None):
-        """
-        Initialize the roaring spatial hash system.
+        """Initialize the roaring spatial hash system.
 
         Args:
             cache_dir: Directory for caching bitmap data
@@ -180,9 +174,9 @@ class RoaringSpatialHash:
         # Core data structures
         self.cortical_bitmaps: Dict[str, RoaringBitmap] = {}
         self.neuron_map: Dict[Tuple[str, int], List[int]] = defaultdict(list)
-        self.coordinate_map: Dict[
-            int, Tuple[str, int, int, int]
-        ] = {}  # neuron_id → (cortical_area, x, y, z)
+        self.coordinate_map: Dict[int, Tuple[str, int, int, int]] = (
+            {}
+        )  # neuron_id → (cortical_area, x, y, z)
 
         # Statistics
         self.total_coordinates = 0
@@ -217,8 +211,7 @@ class RoaringSpatialHash:
     def add_neuron(
         self, cortical_area: str, x: int, y: int, z: int, neuron_id: int
     ) -> bool:
-        """
-        Add a neuron coordinate to the spatial hash.
+        """Add a neuron coordinate to the spatial hash.
 
         Args:
             cortical_area: Cortical area identifier
@@ -257,8 +250,7 @@ class RoaringSpatialHash:
     def get_neuron_at_coordinate(
         self, cortical_area: str, x: int, y: int, z: int
     ) -> Optional[int]:
-        """
-        Get neuron ID at specific coordinate.
+        """Get neuron ID at specific coordinate.
 
         Args:
             cortical_area: Cortical area identifier
@@ -289,8 +281,7 @@ class RoaringSpatialHash:
     def get_neurons_at_coordinate(
         self, cortical_area: str, x: int, y: int, z: int
     ) -> List[int]:
-        """
-        Get all neuron IDs at specific coordinate.
+        """Get all neuron IDs at specific coordinate.
 
         Args:
             cortical_area: Cortical area identifier
@@ -324,8 +315,7 @@ class RoaringSpatialHash:
         y2: int,
         z2: int,
     ) -> List[int]:
-        """
-        Get all neuron IDs in a 3D region.
+        """Get all neuron IDs in a 3D region.
 
         Args:
             cortical_area: Cortical area identifier
@@ -363,8 +353,7 @@ class RoaringSpatialHash:
             return []
 
     def get_area_union(self, cortical_areas: List[str]) -> RoaringBitmap:
-        """
-        Get union of multiple cortical areas (fast bitmap operation).
+        """Get union of multiple cortical areas (fast bitmap operation).
 
         Args:
             cortical_areas: List of cortical area identifiers
@@ -381,8 +370,7 @@ class RoaringSpatialHash:
     def get_area_intersection(
         self, cortical_areas: List[str]
     ) -> RoaringBitmap:
-        """
-        Get intersection of multiple cortical areas.
+        """Get intersection of multiple cortical areas.
 
         Args:
             cortical_areas: List of cortical area identifiers
@@ -417,9 +405,11 @@ class RoaringSpatialHash:
             for area_id, bitmap in self.cortical_bitmaps.items():
                 stats["cortical_areas"][area_id] = {
                     "coordinate_count": len(bitmap),
-                    "memory_bytes": bitmap.shrink_to_fit()
-                    if hasattr(bitmap, "shrink_to_fit")
-                    else 0,
+                    "memory_bytes": (
+                        bitmap.shrink_to_fit()
+                        if hasattr(bitmap, "shrink_to_fit")
+                        else 0
+                    ),
                 }
 
             return stats
@@ -435,8 +425,7 @@ class RoaringSpatialHash:
             logger.info("[MORTON SPATIAL HASH] Cleared all data")
 
     def save_to_cache(self, cache_key: str) -> bool:
-        """
-        Save current state to cache file.
+        """Save current state to cache file.
 
         Args:
             cache_key: Unique identifier for cache file
@@ -467,8 +456,7 @@ class RoaringSpatialHash:
             return False
 
     def load_from_cache(self, cache_key: str) -> bool:
-        """
-        Load state from cache file.
+        """Load state from cache file.
 
         Args:
             cache_key: Unique identifier for cache file
@@ -517,8 +505,8 @@ class RoaringSpatialHash:
     def initialize_for_dimensions(
         self, max_dims: Tuple[int, int, int]
     ) -> None:
-        """
-        Initialize spatial hash for specific dimensions (compatibility method).
+        """Initialize spatial hash for specific dimensions (compatibility
+        method).
 
         Args:
             max_dims: Maximum dimensions (advisory only for Morton encoding)
@@ -533,8 +521,7 @@ class RoaringSpatialHash:
             )
 
     def wait_for_ready(self, timeout_seconds: float = 60.0) -> bool:
-        """
-        Wait for spatial hash to become ready.
+        """Wait for spatial hash to become ready.
 
         Args:
             timeout_seconds: Maximum time to wait
@@ -556,8 +543,7 @@ class RoaringSpatialHash:
     def expand_cache_for_new_area(
         self, position: Tuple[int, int, int], dimensions: Tuple[int, int, int]
     ) -> bool:
-        """
-        Expand cache for new cortical area (compatibility method).
+        """Expand cache for new cortical area (compatibility method).
 
         Note: Morton encoding handles any coordinate range automatically.
 
@@ -612,8 +598,8 @@ class RoaringSpatialHash:
         candidate_positions: Set[Tuple[int, int, int]],
         neuron_positions: List[Tuple[int, int, int]],
     ) -> List[Tuple[int, int]]:
-        """
-        Fast batch lookup for matching candidate positions to neuron positions.
+        """Fast batch lookup for matching candidate positions to neuron
+        positions.
 
         Args:
             candidate_positions: Set of (x, y, z) coordinates to search for
@@ -724,7 +710,8 @@ def get_max_cortical_area_dimensions() -> Tuple[int, int, int]:
 def analyze_coordinate_requirements(
     max_x: int, max_y: int, max_z: int
 ) -> Dict[str, Any]:
-    """Analyze coordinate requirements and suggest optimal Morton configuration.
+    """Analyze coordinate requirements and suggest optimal Morton
+    configuration.
 
     Args:
         max_x, max_y, max_z: Maximum coordinates that will be used

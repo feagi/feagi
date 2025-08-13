@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -77,9 +75,9 @@ class PrecisionType(Enum):
 class ArrayBackend:
     """Backend-agnostic array operations.
 
-    This class provides a unified interface for array operations across different
-    backends (NumPy, PyTorch, CuPy, WebGPU), enabling transparent switching
-    between CPU and GPU acceleration.
+    This class provides a unified interface for array operations across
+    different backends (NumPy, PyTorch, CuPy, WebGPU), enabling transparent
+    switching between CPU and GPU acceleration.
     """
 
     def __init__(
@@ -275,7 +273,8 @@ class ArrayBackend:
             )
 
     def _initialize_wgpu(self):
-        """Initialize wgpu backend (Rust-based GPU library with Metal backend on Mac)."""
+        """Initialize wgpu backend (Rust-based GPU library with Metal backend
+        on Mac)."""
         if not WGPU_AVAILABLE:
             logger.error("wgpu not available but wgpu backend requested")
             raise RuntimeError("wgpu package not available")
@@ -1045,7 +1044,8 @@ class ArrayBackend:
     def set_item(
         self, array: Any, index: Union[int, Tuple[int, ...]], value: Any
     ) -> None:
-        """Set item at index in array (handles GPU buffers that don't support item assignment).
+        """Set item at index in array (handles GPU buffers that don't support
+        item assignment).
 
         Args:
             array: Array to modify

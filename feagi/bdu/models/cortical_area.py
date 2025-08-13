@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +46,8 @@ def generate_cortical_id(prefix="C", seed="___"):
 class CorticalArea:
     """Represents a cortical area in the connectome.
 
-    Cortical areas are three-dimensional regions that contain populations of neurons
-    and have specific functional roles in the brain.
+    Cortical areas are three-dimensional regions that contain populations of
+    neurons and have specific functional roles in the brain.
     """
 
     def __init__(

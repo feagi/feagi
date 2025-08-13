@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,8 +52,7 @@ logger = setup_logger(__name__)
 
 
 class RestStream:
-    """
-    ZeroMQ REST Stream implementation for pure REST API operations.
+    """ZeroMQ REST Stream implementation for pure REST API operations.
 
     This implementation provides a dedicated endpoint for REST API requests
     using a ROUTER-DEALER pattern for scalable, stateless operation.
@@ -76,8 +73,7 @@ class RestStream:
         port: int = 5563,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize the REST stream.
+        """Initialize the REST stream.
 
         Args:
             core_api: Core API service for accessing FEAGI
@@ -195,9 +191,8 @@ class RestStream:
         logger.info("[HALT] REST Stream stopped")
 
     async def _router_dealer_proxy(self):
-        """
-        Run a ROUTER-DEALER proxy to route messages between external clients and internal workers.
-        """
+        """Run a ROUTER-DEALER proxy to route messages between external clients
+        and internal workers."""
         logger.debug("Starting ROUTER-DEALER proxy for REST stream")
 
         try:
@@ -485,8 +480,7 @@ class RestStream:
             logger.debug("REST message processor stopped")
 
     def _is_valid_rest_message(self, message: Dict[str, Any]) -> bool:
-        """
-        Validate that a message is a valid REST format.
+        """Validate that a message is a valid REST format.
 
         Args:
             message: Decoded JSON message
@@ -545,8 +539,8 @@ class RestStream:
                 if total_requests > 0
                 else 100
             ),
-            "requests_per_second": total_requests / uptime
-            if uptime > 0
-            else 0,
+            "requests_per_second": (
+                total_requests / uptime if uptime > 0 else 0
+            ),
             "running": self.running,
         }

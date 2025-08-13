@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,15 +21,13 @@ logger = setup_logger()
 
 
 class BaseService:
-    """
-    Base class for all FEAGI domain services.
+    """Base class for all FEAGI domain services.
 
     Provides common functionality and patterns used across all services.
     """
 
     def __init__(self, connectome_manager, state_manager=None):
-        """
-        Initialize base service.
+        """Initialize base service.
 
         Args:
             connectome_manager: ConnectomeManager instance
@@ -57,8 +53,8 @@ class BaseService:
         return True
 
     def _validate_genome_loaded(self) -> bool:
-        """
-        Check if a genome is currently loaded with robust fallback validation.
+        """Check if a genome is currently loaded with robust fallback
+        validation.
 
         This method uses multiple validation approaches to handle timing issues
         between genome loading and state manager synchronization.
@@ -94,8 +90,7 @@ class BaseService:
     def _safe_execute(
         self, operation, error_message: str, default_return=None
     ):
-        """
-        Safely execute an operation with error handling.
+        """Safely execute an operation with error handling.
 
         Args:
             operation: Function to execute
@@ -112,8 +107,7 @@ class BaseService:
             return default_return
 
     def _validate_state_consistency(self) -> bool:
-        """
-        Validate that state manager and connectome manager are in sync.
+        """Validate that state manager and connectome manager are in sync.
 
         This method ensures that both managers have consistent data and
         that all required attributes are properly set for health checks.
@@ -207,8 +201,7 @@ class BaseService:
             return False
 
     def _sync_state_if_needed(self) -> bool:
-        """
-        Synchronize state between managers if they're out of sync.
+        """Synchronize state between managers if they're out of sync.
 
         This method attempts to fix any inconsistencies found during validation.
 

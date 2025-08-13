@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-FEAGI Process Killer
+"""FEAGI Process Killer.
 
 This script safely terminates all FEAGI-related processes running on the system.
 It attempts graceful shutdown first (SIGTERM) and then force-kills stubborn processes (SIGKILL).
@@ -27,7 +26,7 @@ import psutil
 
 
 class Colors:
-    """ANSI color codes for terminal output"""
+    """ANSI color codes for terminal output."""
 
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
@@ -42,13 +41,12 @@ class Colors:
 
 
 def print_colored(message: str, color: str = Colors.NC, end: str = "\n"):
-    """Print a colored message"""
+    """Print a colored message."""
     print(f"{color}{message}{Colors.NC}", end=end)
 
 
 def find_feagi_processes() -> List[Tuple[int, str]]:
-    """
-    Find all FEAGI-related processes.
+    """Find all FEAGI-related processes.
 
     Returns:
         List of tuples (pid, command_line)
@@ -114,7 +112,7 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
 
 
 def display_processes(processes: List[Tuple[int, str]]) -> None:
-    """Display found processes in a formatted way"""
+    """Display found processes in a formatted way."""
     if not processes:
         print_colored("No FEAGI processes found running", Colors.GREEN)
         return
@@ -140,8 +138,7 @@ def display_processes(processes: List[Tuple[int, str]]) -> None:
 
 
 def kill_processes_graceful(pids: List[int]) -> List[int]:
-    """
-    Attempt to kill processes gracefully using SIGTERM
+    """Attempt to kill processes gracefully using SIGTERM.
 
     Args:
         pids: List of process IDs to kill
@@ -182,8 +179,7 @@ def kill_processes_graceful(pids: List[int]) -> List[int]:
 
 
 def kill_processes_force(pids: List[int]) -> List[int]:
-    """
-    Force kill processes using SIGKILL
+    """Force kill processes using SIGKILL.
 
     Args:
         pids: List of process IDs to kill
@@ -222,7 +218,7 @@ def kill_processes_force(pids: List[int]) -> List[int]:
 
 
 def confirm_kill(force: bool = False) -> bool:
-    """Ask user for confirmation unless force is True"""
+    """Ask user for confirmation unless force is True."""
     if force:
         return True
 
@@ -236,7 +232,7 @@ def confirm_kill(force: bool = False) -> bool:
 
 
 def main():
-    """Main execution function"""
+    """Main execution function."""
     parser = argparse.ArgumentParser(
         description="FEAGI Process Killer - Safely terminate all FEAGI processes"
     )

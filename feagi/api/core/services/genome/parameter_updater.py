@@ -1,9 +1,8 @@
-"""
-Direct neuron parameter update service for cortical areas.
+"""Direct neuron parameter update service for cortical areas.
 
-This module enables updating neuron properties directly in the ConnectomeManager
-without requiring expensive full brain rebuilds, providing massive performance
-improvements for parameter-only changes.
+This module enables updating neuron properties directly in the
+ConnectomeManager without requiring expensive full brain rebuilds, providing
+massive performance improvements for parameter-only changes.
 """
 
 import time
@@ -19,8 +18,7 @@ logger = setup_logger(__name__)
 
 
 class CorticalParameterUpdater:
-    """
-    Handles direct neuron parameter updates without full brain rebuild.
+    """Handles direct neuron parameter updates without full brain rebuild.
 
     This service provides massive performance improvements by updating neuron
     properties directly in the ConnectomeManager neuron arrays, avoiding the expensive
@@ -40,8 +38,7 @@ class CorticalParameterUpdater:
     def update_neuron_parameters(
         self, cortical_id: str, parameter_changes: Dict[str, Any]
     ) -> bool:
-        """
-        Update neuron parameters directly in ConnectomeManager.
+        """Update neuron parameters directly in ConnectomeManager.
 
         Args:
             cortical_id: ID of the cortical area to update
@@ -119,7 +116,8 @@ class CorticalParameterUpdater:
         property_type: Union[NeuronPropertyType, str],
         conversion_func: type,
     ) -> bool:
-        """Update a single parameter across all neurons in the cortical area."""
+        """Update a single parameter across all neurons in the cortical
+        area."""
 
         try:
             # Convert value to correct type
@@ -166,7 +164,8 @@ class CorticalParameterUpdater:
         value: Any,
         property_type: str,
     ) -> bool:
-        """Handle custom neuron properties that don't map to NeuronPropertyType enum."""
+        """Handle custom neuron properties that don't map to NeuronPropertyType
+        enum."""
 
         # Handle cortical area-level parameters (not per-neuron properties)
         if property_type == "consecutive_fire_count":

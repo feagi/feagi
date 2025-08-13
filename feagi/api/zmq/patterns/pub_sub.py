@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,12 +39,11 @@ from ..serialization import deserialize_message, serialize_message
 
 
 class PublisherServer:
-    """
-    ZeroMQ Publisher server implementation.
+    """ZeroMQ Publisher server implementation.
 
-    This server broadcasts messages to multiple subscribers using the PUB/SUB pattern.
-    It's designed for one-to-many communication where subscribers can filter
-    messages based on topics.
+    This server broadcasts messages to multiple subscribers using the PUB/SUB
+    pattern. It's designed for one-to-many communication where subscribers can
+    filter messages based on topics.
     """
 
     def __init__(
@@ -56,8 +53,7 @@ class PublisherServer:
         port: int = 5556,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Publisher server.
+        """Initialize a new Publisher server.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -121,8 +117,7 @@ class PublisherServer:
     async def publish(
         self, topic: str, data: Any, content_type: str = "application/json"
     ) -> None:
-        """
-        Publish a message to a specific topic.
+        """Publish a message to a specific topic.
 
         Args:
             topic: The topic string to publish to
@@ -201,8 +196,7 @@ class PublisherServer:
         return {"logs": [], "timestamp": time.time()}
 
     async def broadcast_event(self, event_type: str, event_data: Dict) -> None:
-        """
-        Broadcast a system event message.
+        """Broadcast a system event message.
 
         Args:
             event_type: Type of the event (e.g., "cortical_area.created")
@@ -217,10 +211,10 @@ class PublisherServer:
 
 
 class SubscriberClient:
-    """
-    ZeroMQ Subscriber client implementation.
+    """ZeroMQ Subscriber client implementation.
 
-    This client connects to a Publisher and receives messages based on subscribed topics.
+    This client connects to a Publisher and receives messages based on
+    subscribed topics.
     """
 
     def __init__(
@@ -230,8 +224,7 @@ class SubscriberClient:
         topics: Optional[List[str]] = None,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Subscriber client.
+        """Initialize a new Subscriber client.
 
         Args:
             host: Publisher host address to connect to
@@ -258,8 +251,7 @@ class SubscriberClient:
         self.callbacks = {}
 
     def register_callback(self, topic: str, callback: Callable) -> None:
-        """
-        Register a callback for a specific topic.
+        """Register a callback for a specific topic.
 
         Args:
             topic: The topic to register for
@@ -270,8 +262,7 @@ class SubscriberClient:
         self.socket.setsockopt(zmq.SUBSCRIBE, topic.encode())
 
     def unregister_callback(self, topic: str) -> None:
-        """
-        Unregister a callback for a specific topic.
+        """Unregister a callback for a specific topic.
 
         Args:
             topic: The topic to unregister
@@ -336,11 +327,10 @@ class SubscriberClient:
 
 
 class PubSubManager:
-    """
-    Manager class for coordinating Publishers and Subscribers.
+    """Manager class for coordinating Publishers and Subscribers.
 
-    This class provides a unified interface for the FEAGI ZMQ server
-    to manage PUB/SUB patterns.
+    This class provides a unified interface for the FEAGI ZMQ server to manage
+    PUB/SUB patterns.
     """
 
     def __init__(
@@ -350,8 +340,7 @@ class PubSubManager:
         port: int = 5556,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new PubSub Manager.
+        """Initialize a new PubSub Manager.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -377,8 +366,7 @@ class PubSubManager:
         await self.publisher.stop()
 
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
-        """
-        Publish an event to all subscribers.
+        """Publish an event to all subscribers.
 
         Args:
             event_type: Type of the event

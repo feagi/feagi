@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -71,8 +69,7 @@ async def register_visualization_client(
     request: VisualizationClientRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> VisualizationClientResponse:
-    """
-    Register a visualization client.
+    """Register a visualization client.
 
     This triggers the FQ sampler to start sampling for visualization data.
     """
@@ -133,8 +130,7 @@ async def unregister_visualization_client(
     request: VisualizationClientRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> SuccessResponse:
-    """
-    Unregister a visualization client.
+    """Unregister a visualization client.
 
     If this is the last client, the FQ sampler will stop sampling.
     """
@@ -198,8 +194,7 @@ async def visualization_client_heartbeat(
     request: VisualizationHeartbeatRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> SuccessResponse:
-    """
-    Send a heartbeat from a visualization client.
+    """Send a heartbeat from a visualization client.
 
     This keeps the client active and prevents timeout.
     """
@@ -255,8 +250,7 @@ async def visualization_client_heartbeat(
 async def get_visualization_status(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> VisualizationStatusResponse:
-    """
-    Get the current visualization system status.
+    """Get the current visualization system status.
 
     Returns information about active clients and FQ sampler status.
     """

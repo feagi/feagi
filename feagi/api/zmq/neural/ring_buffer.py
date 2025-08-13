@@ -1,8 +1,7 @@
-"""
-Lock-free ring buffer for zero-copy neural data transmission.
+"""Lock-free ring buffer for zero-copy neural data transmission.
 
-This implementation uses atomic operations and memory mapping for high-performance
-neural data buffering without locks or memory copies.
+This implementation uses atomic operations and memory mapping for high-
+performance neural data buffering without locks or memory copies.
 """
 
 import mmap
@@ -45,8 +44,7 @@ class RingBufferStats:
 
 
 class ZeroCopyRingBuffer:
-    """
-    Lock-free ring buffer for zero-copy neural data.
+    """Lock-free ring buffer for zero-copy neural data.
 
     This implementation uses:
     - Memory-mapped files for zero-copy access
@@ -61,8 +59,7 @@ class ZeroCopyRingBuffer:
     def __init__(
         self, slots: int, slot_size: int, use_shared_memory: bool = True
     ):
-        """
-        Initialize ring buffer.
+        """Initialize ring buffer.
 
         Args:
             slots: Number of slots (will be rounded up to power of 2)
@@ -162,8 +159,7 @@ class ZeroCopyRingBuffer:
         )
 
     def get_write_slot(self) -> Optional[BufferSlot]:
-        """
-        Get next available write slot without blocking.
+        """Get next available write slot without blocking.
 
         Returns:
             BufferSlot if available, None if buffer is full or closed
@@ -197,8 +193,7 @@ class ZeroCopyRingBuffer:
         )
 
     def commit_write(self, slot: BufferSlot) -> None:
-        """
-        Commit a write operation.
+        """Commit a write operation.
 
         Args:
             slot: The slot that was written to
@@ -216,8 +211,7 @@ class ZeroCopyRingBuffer:
         self._update_usage_stats()
 
     def get_read_slot(self) -> Optional[BufferSlot]:
-        """
-        Get next slot to read from without blocking.
+        """Get next slot to read from without blocking.
 
         Returns:
             BufferSlot if available, None if buffer is empty
@@ -246,8 +240,7 @@ class ZeroCopyRingBuffer:
         )
 
     def commit_read(self, slot: BufferSlot) -> None:
-        """
-        Commit a read operation.
+        """Commit a read operation.
 
         Args:
             slot: The slot that was read from
@@ -306,7 +299,8 @@ class ZeroCopyRingBuffer:
         self.read_index.value = 0
 
     def close(self):
-        """Close and cleanup resources with RTOS-friendly deterministic cleanup."""
+        """Close and cleanup resources with RTOS-friendly deterministic
+        cleanup."""
         # RTOS-friendly: Simple, bounded cleanup operations
 
         # Step 1: Mark as closed to prevent new operations
@@ -363,7 +357,8 @@ class ZeroCopyRingBuffer:
             self.shm = None
 
     def __del__(self):
-        """Destructor to ensure cleanup even if close() isn't called explicitly."""
+        """Destructor to ensure cleanup even if close() isn't called
+        explicitly."""
         try:
             # Only attempt cleanup if we haven't already cleaned up
             if hasattr(self, "buffer") and self.buffer is not None:

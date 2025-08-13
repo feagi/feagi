@@ -26,8 +26,7 @@ class TestMode2Handler:
     """
 
     def __init__(self, test_runner):
-        """
-        Initialize the Test Mode 2 handler.
+        """Initialize the Test Mode 2 handler.
 
         Args:
             test_runner: Reference to the main FeagiTestRunner instance
@@ -47,8 +46,7 @@ class TestMode2Handler:
         self.selected_areas = []
 
     def initialize(self):
-        """
-        Initialize Test Mode 2 by analyzing available cortical areas.
+        """Initialize Test Mode 2 by analyzing available cortical areas.
 
         Returns:
             bool: True if initialization was successful, False otherwise
@@ -100,7 +98,8 @@ class TestMode2Handler:
             return False
 
     def _analyze_cortical_areas(self):
-        """Analyze all cortical areas and collect information about dimensions for coordinate generation."""
+        """Analyze all cortical areas and collect information about dimensions
+        for coordinate generation."""
         self.cortical_area_info = {}
         self.total_available_volume = 0
         self.total_available_neurons = (
@@ -196,8 +195,7 @@ class TestMode2Handler:
         )
 
     def inject_data(self):
-        """
-        Generate and inject large-scale random neuron activations.
+        """Generate and inject large-scale random neuron activations.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -212,8 +210,8 @@ class TestMode2Handler:
             return False
 
     def _inject_numpy_generated_activations(self):
-        """
-        Generate random coordinate activations using numpy for scalability and submit them via test runner.
+        """Generate random coordinate activations using numpy for scalability
+        and submit them via test runner.
 
         This method acts as a pure sensory data generator, working only with coordinates
         and membrane potentials, completely unaware of neuron IDs.
@@ -222,7 +220,9 @@ class TestMode2Handler:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            coordinate_activations = {}  # Dictionary to hold coordinate activations for submission
+            coordinate_activations = (
+                {}
+            )  # Dictionary to hold coordinate activations for submission
 
             logger.debug(
                 f"Generating random coordinate activations for {len(self.selected_areas)} cortical areas"

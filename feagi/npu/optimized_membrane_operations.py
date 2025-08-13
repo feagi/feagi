@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,16 +45,14 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy")
 
 
 class SIMDMembraneProcessor:
-    """
-    SIMD-optimized membrane potential processor.
+    """SIMD-optimized membrane potential processor.
 
     Uses vectorized operations, optimal memory layouts, and cache-friendly
     algorithms for maximum throughput on neural membrane potential updates.
     """
 
     def __init__(self, capacity: int, use_profiling: bool = False):
-        """
-        Initialize SIMD membrane processor.
+        """Initialize SIMD membrane processor.
 
         Args:
             capacity: Maximum number of neurons to support
@@ -125,8 +121,7 @@ class SIMDMembraneProcessor:
     def vectorized_membrane_update(
         self, neuron_indices: np.ndarray, input_currents: np.ndarray
     ) -> np.ndarray:
-        """
-        Perform vectorized membrane potential update with SIMD optimization.
+        """Perform vectorized membrane potential update with SIMD optimization.
 
         Args:
             neuron_indices: Indices of neurons to update
@@ -168,18 +163,19 @@ class SIMDMembraneProcessor:
 
         if np.any(can_update):
             # Vectorized decay operation
-            self.membrane_potentials[: self.capacity][can_update] *= (
-                self.decay_rates[: self.capacity][can_update]
-            )
+            self.membrane_potentials[: self.capacity][
+                can_update
+            ] *= self.decay_rates[: self.capacity][can_update]
 
             # Vectorized drift towards resting potential
             potential_diff = (
                 self.resting_potentials[: self.capacity][can_update]
                 - self.membrane_potentials[: self.capacity][can_update]
             )
-            self.membrane_potentials[: self.capacity][can_update] += (
-                potential_diff
-                * (1.0 - self.decay_rates[: self.capacity][can_update])
+            self.membrane_potentials[: self.capacity][
+                can_update
+            ] += potential_diff * (
+                1.0 - self.decay_rates[: self.capacity][can_update]
             )
 
         # Step 2: Update refractory counters (vectorized)
@@ -200,9 +196,9 @@ class SIMDMembraneProcessor:
                 receiving_currents = valid_currents[can_receive]
 
                 # Use numpy's advanced indexing for efficient scatter
-                self.membrane_potentials[receiving_indices] += (
-                    receiving_currents
-                )
+                self.membrane_potentials[
+                    receiving_indices
+                ] += receiving_currents
 
         # Step 4: Vectorized threshold detection and firing
         threshold_exceeded = (
@@ -233,8 +229,7 @@ class SIMDMembraneProcessor:
     def batch_membrane_update(
         self, batch_indices: List[np.ndarray], batch_currents: List[np.ndarray]
     ) -> List[np.ndarray]:
-        """
-        Process multiple batches of membrane updates efficiently.
+        """Process multiple batches of membrane updates efficiently.
 
         Args:
             batch_indices: List of neuron index arrays
@@ -278,8 +273,7 @@ class SIMDMembraneProcessor:
     def sparse_membrane_update(
         self, sparse_input_matrix: np.ndarray, active_sources: np.ndarray
     ) -> np.ndarray:
-        """
-        Update membrane potentials from sparse input matrix.
+        """Update membrane potentials from sparse input matrix.
 
         Args:
             sparse_input_matrix: Sparse matrix of synaptic weights
@@ -360,8 +354,7 @@ class SIMDMembraneProcessor:
         return np.array([], dtype=np.int32)
 
     def optimized_decay_only_update(self) -> np.ndarray:
-        """
-        Perform decay-only update for all neurons (no input).
+        """Perform decay-only update for all neurons (no input).
 
         This is optimized for the common case where no neurons are firing
         but membrane potentials still need to decay.
@@ -394,18 +387,19 @@ class SIMDMembraneProcessor:
 
         if np.any(can_update):
             # Vectorized decay operation
-            self.membrane_potentials[: self.capacity][can_update] *= (
-                self.decay_rates[: self.capacity][can_update]
-            )
+            self.membrane_potentials[: self.capacity][
+                can_update
+            ] *= self.decay_rates[: self.capacity][can_update]
 
             # Vectorized drift towards resting potential
             potential_diff = (
                 self.resting_potentials[: self.capacity][can_update]
                 - self.membrane_potentials[: self.capacity][can_update]
             )
-            self.membrane_potentials[: self.capacity][can_update] += (
-                potential_diff
-                * (1.0 - self.decay_rates[: self.capacity][can_update])
+            self.membrane_potentials[: self.capacity][
+                can_update
+            ] += potential_diff * (
+                1.0 - self.decay_rates[: self.capacity][can_update]
             )
 
             # Check for spontaneous firing due to decay dynamics
@@ -464,8 +458,7 @@ def vectorized_membrane_update(
     refractory_counters: np.ndarray,
     refractory_periods: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Standalone vectorized membrane potential update.
+    """Standalone vectorized membrane potential update.
 
     Args:
         membrane_potentials: Current membrane potentials
@@ -516,8 +509,7 @@ def batch_vectorized_update(
     batch_data: List[Tuple[np.ndarray, np.ndarray]],
     membrane_processor: SIMDMembraneProcessor,
 ) -> List[np.ndarray]:
-    """
-    Process multiple membrane update batches efficiently.
+    """Process multiple membrane update batches efficiently.
 
     Args:
         batch_data: List of (neuron_indices, input_currents) tuples

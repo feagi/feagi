@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -171,7 +169,9 @@ class MemoryAnalyzer:
                 obj_types.items(),
                 key=lambda x: x[1]["total_size"],
                 reverse=True,
-            )[:20]  # Top 20
+            )[
+                :20
+            ]  # Top 20
 
             breakdown = {
                 "total_objects": len(gc.get_objects()),
@@ -212,9 +212,9 @@ class MemoryAnalyzer:
             "total_rss_mb": memory_info.rss / (1024 * 1024),
             "total_vms_mb": memory_info.vms / (1024 * 1024),
             "thread_count": process.num_threads(),
-            "fd_count": process.num_fds()
-            if hasattr(process, "num_fds")
-            else 0,
+            "fd_count": (
+                process.num_fds() if hasattr(process, "num_fds") else 0
+            ),
         }
 
         # Calculate overhead if we have baseline

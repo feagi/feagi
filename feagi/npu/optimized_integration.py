@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +46,7 @@ def create_optimized_core(
     estimated_connections: int = 1000000,
     use_optimized: bool = True,
 ) -> Union["OptimizedFeagiCore", Dict[str, Any]]:
-    """
-    Create an optimized FEAGI core or a compatible dict-based structure.
+    """Create an optimized FEAGI core or a compatible dict-based structure.
 
     Args:
         neuron_count: Number of neurons to support
@@ -76,8 +73,7 @@ def create_optimized_core(
 def get_core_property(
     core: Union["OptimizedFeagiCore", Dict[str, Any]], property_name: str
 ) -> Any:
-    """
-    Get a property from the core, regardless of implementation.
+    """Get a property from the core, regardless of implementation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -104,8 +100,7 @@ def set_core_property(
     property_name: str,
     value: Any,
 ) -> None:
-    """
-    Set a property on the core, regardless of implementation.
+    """Set a property on the core, regardless of implementation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -122,8 +117,7 @@ def set_core_property(
 
 
 def step_simulation(core: Union["OptimizedFeagiCore", Dict[str, Any]]) -> None:
-    """
-    Step the simulation forward by one timestep.
+    """Step the simulation forward by one timestep.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -164,8 +158,8 @@ def step_simulation_with_fire_queue(
     puf: bool = False,
     max_consecutive_fires: int = 10,
 ) -> None:
-    """
-    Step the simulation forward using the fire queue process with PSP calculation.
+    """Step the simulation forward using the fire queue process with PSP
+    calculation.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -392,8 +386,7 @@ def step_simulation_with_fire_queue(
 def propagate_activations(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
 ) -> List[float]:
-    """
-    Propagate activations through the network.
+    """Propagate activations through the network.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -426,8 +419,7 @@ def add_connection(
     target_id: int,
     weight: float,
 ) -> None:
-    """
-    Add a connection between two neurons in the optimized core.
+    """Add a connection between two neurons in the optimized core.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -447,8 +439,7 @@ def get_membrane_potential(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
     neuron_id: int,
 ) -> float:
-    """
-    Get the membrane potential of a neuron.
+    """Get the membrane potential of a neuron.
 
     Args:
         core: The core object (optimized or dict-based)
@@ -470,8 +461,7 @@ def set_membrane_potential(
     neuron_id: int,
     value: float,
 ) -> None:
-    """
-    Set the membrane potential of a neuron.
+    """Set the membrane potential of a neuron.
 
     Args:
         core: The core object (optimized or dict-based)

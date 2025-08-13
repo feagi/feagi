@@ -1,5 +1,5 @@
-"""
-Classification system for cortical area changes to enable intelligent update routing.
+"""Classification system for cortical area changes to enable intelligent update
+routing.
 
 This module determines whether cortical area changes require:
 - Full brain rebuild (structural changes)
@@ -27,11 +27,11 @@ class ChangeType(Enum):
 
 
 class CorticalChangeClassifier:
-    """
-    Classifies cortical area changes to route them to optimal update mechanisms.
+    """Classifies cortical area changes to route them to optimal update
+    mechanisms.
 
-    This enables major performance improvements by avoiding unnecessary full brain
-    rebuilds for simple parameter or metadata changes.
+    This enables major performance improvements by avoiding unnecessary full
+    brain rebuilds for simple parameter or metadata changes.
     """
 
     # Properties requiring full rebuild (affect neuron topology/count/connections)
@@ -143,8 +143,7 @@ class CorticalChangeClassifier:
 
     @classmethod
     def classify_changes(cls, changes: Dict[str, Any]) -> ChangeType:
-        """
-        Classify if changes are structural, parameter, metadata, or hybrid.
+        """Classify if changes are structural, parameter, metadata, or hybrid.
 
         Args:
             changes: Dictionary of field_name -> new_value changes
@@ -189,8 +188,7 @@ class CorticalChangeClassifier:
     def separate_changes_by_type(
         cls, changes: Dict[str, Any]
     ) -> Dict[ChangeType, Dict[str, Any]]:
-        """
-        Separate changes into buckets by type for hybrid processing.
+        """Separate changes into buckets by type for hybrid processing.
 
         Args:
             changes: Dictionary of all changes
@@ -221,8 +219,7 @@ class CorticalChangeClassifier:
     def get_neuron_property_mappings(
         cls, parameter_changes: Dict[str, Any]
     ) -> List[Tuple[str, Any, Union[NeuronPropertyType, str], type]]:
-        """
-        Get neuron property mappings for parameter changes.
+        """Get neuron property mappings for parameter changes.
 
         Args:
             parameter_changes: Parameter changes to map

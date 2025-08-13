@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +21,6 @@ import scipy.sparse as sp
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-
 """Synapse model for the BDU.
 
 This module provides the data model for representing synapses,
@@ -32,8 +29,8 @@ which are connections between neurons.
 
 
 class SynapseManager:
-    """
-    Manages synapse storage and operations using compressed sparse representations.
+    """Manages synapse storage and operations using compressed sparse
+    representations.
 
     This class uses compressed sparse row/column (CSR/CSC) format to efficiently
     store synaptic connections between neurons, optimizing for both memory usage
@@ -47,8 +44,7 @@ class SynapseManager:
     """
 
     def __init__(self, max_neurons: int, max_synapses_per_neuron: int = 1000):
-        """
-        Initialize the SynapseManager.
+        """Initialize the SynapseManager.
 
         Args:
             max_neurons: Maximum number of neurons that can have synapses
@@ -124,8 +120,7 @@ class SynapseManager:
         activity_factor: float = 1.0,
         scaling_exponent: float = 1.0,
     ) -> bool:
-        """
-        Add a synapse between two neurons.
+        """Add a synapse between two neurons.
 
         Args:
             pre_neuron: ID of the presynaptic neuron
@@ -220,8 +215,7 @@ class SynapseManager:
             return True
 
     def remove_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
-        """
-        Remove a synapse between two neurons.
+        """Remove a synapse between two neurons.
 
         Args:
             pre_neuron: ID of the presynaptic neuron
@@ -259,8 +253,7 @@ class SynapseManager:
             return True
 
     def get_synapse_weight(self, pre_neuron: int, post_neuron: int) -> float:
-        """
-        Get the weight of a synapse between two neurons.
+        """Get the weight of a synapse between two neurons.
 
         Args:
             pre_neuron: ID of the presynaptic neuron
@@ -275,8 +268,7 @@ class SynapseManager:
         return self.weights[pre_neuron, post_neuron]
 
     def get_outgoing_synapses(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """
-        Get all outgoing synapses for a neuron.
+        """Get all outgoing synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -293,8 +285,7 @@ class SynapseManager:
         ]
 
     def get_incoming_synapses(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """
-        Get all incoming synapses for a neuron.
+        """Get all incoming synapses for a neuron.
 
         Args:
             neuron_id: ID of the neuron
@@ -313,8 +304,7 @@ class SynapseManager:
     def update_synapse_weight(
         self, pre_neuron: int, post_neuron: int, new_weight: float
     ) -> bool:
-        """
-        Update the weight of an existing synapse.
+        """Update the weight of an existing synapse.
 
         Args:
             pre_neuron: ID of the presynaptic neuron
@@ -343,8 +333,7 @@ class SynapseManager:
         return self.plastic_synapses
 
     def compute_synaptic_input(self, firing_neurons: List[int]) -> np.ndarray:
-        """
-        Compute synaptic input for all neurons based on firing neurons.
+        """Compute synaptic input for all neurons based on firing neurons.
 
         Args:
             firing_neurons: List of neuron IDs that are firing
@@ -370,8 +359,7 @@ class SynapseManager:
     def compute_synaptic_input_matrix(
         self, firing_neurons: np.ndarray
     ) -> np.ndarray:
-        """
-        Matrix-based computation of synaptic input for all neurons.
+        """Matrix-based computation of synaptic input for all neurons.
 
         This method uses sparse matrix operations for efficiency.
 
@@ -394,8 +382,7 @@ class SynapseManager:
         return inputs
 
     def optimize_storage(self):
-        """
-        Optimize storage format for operations.
+        """Optimize storage format for operations.
 
         This can be called after adding many synapses to improve performance.
         """
@@ -413,8 +400,7 @@ class SynapseManager:
     # New methods below this point
 
     def prune_weak_synapses(self, threshold: float = 0.1) -> int:
-        """
-        Remove synapses with weights below the threshold.
+        """Remove synapses with weights below the threshold.
 
         Args:
             threshold: Minimum weight to keep a synapse
@@ -442,8 +428,7 @@ class SynapseManager:
         return pruned_count
 
     def update_plasticity(self, dt: float = 1.0) -> None:
-        """
-        Update all plastic synapses based on their plasticity rules.
+        """Update all plastic synapses based on their plasticity rules.
 
         Args:
             dt: Time step for the update
@@ -500,10 +485,10 @@ class SynapseManager:
         logger.debug(f"Updated {plastic_coo.nnz} plastic synapses")
 
     def finalize_synapses(self) -> None:
-        """
-        Finalize synapse structures after adding all synapses.
+        """Finalize synapse structures after adding all synapses.
 
-        This optimizes the data structures for efficient access during simulation.
+        This optimizes the data structures for efficient access during
+        simulation.
         """
         self.optimize_storage()
         logger.info(
@@ -513,8 +498,7 @@ class SynapseManager:
     def get_synapse_info(
         self, pre_neuron: int, post_neuron: int
     ) -> Dict[str, Any]:
-        """
-        Get detailed information about a specific synapse.
+        """Get detailed information about a specific synapse.
 
         Args:
             pre_neuron: ID of the presynaptic neuron
@@ -559,8 +543,7 @@ class SynapseManager:
         return info
 
     def resize(self, new_max_neurons: int) -> bool:
-        """
-        Resize the synapse manager to accommodate more neurons.
+        """Resize the synapse manager to accommodate more neurons.
 
         Args:
             new_max_neurons: New maximum number of neurons

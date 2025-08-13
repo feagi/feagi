@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 """
 FEAGI Protocol Package - Byte Structures Implementation
 
@@ -30,13 +29,13 @@ from feagi.api.protocols.constants import ByteStructureID, ProtocolID
 
 # Create compatibility classes to maintain the existing API
 class ByteStructureEncoder:
-    """Compatibility wrapper for feagi_data_processing encoding"""
+    """Compatibility wrapper for feagi_data_processing encoding."""
 
     def __init__(self):
         self.fdp = fdp
 
     def encode_json(self, data: dict) -> bytes:
-        """Encode JSON data to FeagiByteStructure format"""
+        """Encode JSON data to FeagiByteStructure format."""
         import json
 
         json_bytes = json.dumps(data).encode("utf-8")
@@ -44,8 +43,8 @@ class ByteStructureEncoder:
         return json_bytes
 
     def encode_neuron_data(self, neuron_data: list) -> bytes:
-        """Encode neuron data to FeagiByteStructure format using
-        high-performance NumPy arrays"""
+        """Encode neuron data to FeagiByteStructure format using high-
+        performance NumPy arrays."""
         import numpy as np
 
         if not neuron_data:
@@ -134,13 +133,13 @@ class ByteStructureEncoder:
 
 
 class ByteStructureDecoder:
-    """Compatibility wrapper for feagi_data_processing decoding"""
+    """Compatibility wrapper for feagi_data_processing decoding."""
 
     def __init__(self):
         self.fdp = fdp
 
     def decode_message(self, data: bytes) -> dict:
-        """Decode FeagiByteStructure format to dictionary"""
+        """Decode FeagiByteStructure format to dictionary."""
         # Create a FeagiByteStructure from the bytes
         byte_structure = self.fdp.io_processing.bytes.FeagiByteStructure(data)
         structure_type = byte_structure.try_get_structure_type()
@@ -159,7 +158,7 @@ class ByteStructureDecoder:
 
 
 class ByteStructureTranslator:
-    """Compatibility wrapper providing translation methods"""
+    """Compatibility wrapper providing translation methods."""
 
     def __init__(self):
         self.encoder = ByteStructureEncoder()
@@ -167,11 +166,11 @@ class ByteStructureTranslator:
         self.fdp = fdp
 
     def create_message(self, data: dict) -> bytes:
-        """Create a binary message from dictionary data"""
+        """Create a binary message from dictionary data."""
         return self.encoder.encode_json(data)
 
     def decode_message(self, data: bytes) -> dict:
-        """Decode a binary message to dictionary"""
+        """Decode a binary message to dictionary."""
         return self.decoder.decode_message(data)
 
 

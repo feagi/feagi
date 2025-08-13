@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,8 +41,7 @@ _resource_lock = threading.RLock()
 
 @dataclass
 class ProcessInfo(RustCompatible):
-    """
-    Information about a running process.
+    """Information about a running process.
 
     process_name: Name of the process
     pid: Process ID
@@ -68,8 +65,7 @@ class ProcessInfo(RustCompatible):
 
 @dataclass
 class ResourceAllocation(RustCompatible):
-    """
-    Resource allocation information.
+    """Resource allocation information.
 
     cpu_cores: List of CPU core IDs allocated
     memory_mb: Amount of memory allocated in MB
@@ -82,8 +78,7 @@ class ResourceAllocation(RustCompatible):
 
 
 class ResourceManager:
-    """
-    Manages resources and processes for FEAGI.
+    """Manages resources and processes for FEAGI.
 
     This class is responsible for:
     1. Starting, terminating, and orchestrating FEAGI processes
@@ -100,8 +95,7 @@ class ResourceManager:
     _instances = weakref.WeakValueDictionary()
 
     def __init__(self, config: Optional[Dict] = None):
-        """
-        Initialize the Resource Manager.
+        """Initialize the Resource Manager.
 
         Args:
             config: Optional configuration dictionary
@@ -127,8 +121,7 @@ class ResourceManager:
 
     @classmethod
     def get_instance(cls, config: Optional[Dict] = None) -> "ResourceManager":
-        """
-        Get or create the ResourceManager instance.
+        """Get or create the ResourceManager instance.
 
         Args:
             config: Optional configuration dictionary
@@ -143,8 +136,7 @@ class ResourceManager:
             return next(iter(cls._instances.values()))
 
     def _detect_resources(self) -> Dict[str, Any]:
-        """
-        Detect available computing resources.
+        """Detect available computing resources.
 
         Returns:
             Dictionary containing information about available resources
@@ -225,8 +217,7 @@ class ResourceManager:
             return resources
 
     def _get_available_memory(self) -> int:
-        """
-        Get available system memory in bytes.
+        """Get available system memory in bytes.
 
         Returns:
             Available memory in bytes
@@ -249,8 +240,7 @@ class ResourceManager:
         kwargs: Dict = None,
         cpu_allocation: int = 1,
     ) -> bool:
-        """
-        Start a new process with the given parameters.
+        """Start a new process with the given parameters.
 
         This method is thread-safe.
 
@@ -309,8 +299,7 @@ class ResourceManager:
     def _allocate_resources(
         self, process_name: str, cpu_count: int
     ) -> Optional[ResourceAllocation]:
-        """
-        Allocate resources for a process.
+        """Allocate resources for a process.
 
         This method is internally thread-safe.
 
@@ -360,8 +349,7 @@ class ResourceManager:
         args: tuple = (),
         kwargs: Dict = None,
     ) -> bool:
-        """
-        Start a new thread with the given parameters.
+        """Start a new thread with the given parameters.
 
         This method is thread-safe.
 
@@ -397,8 +385,7 @@ class ResourceManager:
             return True
 
     def terminate_process(self, name: str) -> bool:
-        """
-        Terminate a running process.
+        """Terminate a running process.
 
         This method is thread-safe.
 
@@ -442,8 +429,7 @@ class ResourceManager:
             return True
 
     def _cleanup_process_resources(self, name: str) -> None:
-        """
-        Clean up resources allocated to a process.
+        """Clean up resources allocated to a process.
 
         This method is internally thread-safe.
 
@@ -468,8 +454,7 @@ class ResourceManager:
             self.processes.pop(name, None)
 
     def monitor_processes(self, interval: float = 5.0) -> None:
-        """
-        Start monitoring the health of all processes.
+        """Start monitoring the health of all processes.
 
         This method is thread-safe.
 
@@ -514,8 +499,7 @@ class ResourceManager:
         self.start_thread("process_monitor", _monitor)
 
     def get_process_info(self, name: str) -> Optional[ProcessInfo]:
-        """
-        Get information about a running process.
+        """Get information about a running process.
 
         This method is thread-safe.
 
@@ -529,8 +513,7 @@ class ResourceManager:
             return self.process_info.get(name)
 
     def update_process_heartbeat(self, name: str) -> bool:
-        """
-        Update the heartbeat for a process.
+        """Update the heartbeat for a process.
 
         This method is thread-safe and should be called periodically by processes.
 
@@ -547,8 +530,7 @@ class ResourceManager:
             return False
 
     def initialize_critical_structures(self) -> bool:
-        """
-        Initialize critical data structures required by FEAGI.
+        """Initialize critical data structures required by FEAGI.
 
         This method is thread-safe.
 
@@ -568,8 +550,7 @@ class ResourceManager:
                 return False
 
     def shutdown(self) -> None:
-        """
-        Shutdown all processes and threads.
+        """Shutdown all processes and threads.
 
         This method is thread-safe.
         """

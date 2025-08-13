@@ -1,5 +1,4 @@
-"""
-Brain snapshot creation utilities.
+"""Brain snapshot creation utilities.
 
 This module creates a deterministic-on-content minimal snapshot of the brain
 sufficient for packaging and transport. It currently writes:
@@ -27,8 +26,9 @@ def _safe_mkdirs(path: Path) -> None:
 
 
 def _build_connectome_summary(connectome_manager) -> Dict[str, Any]:
-    """
-    Build a JSON-safe summary of the connectome. Avoids non-serializable objects.
+    """Build a JSON-safe summary of the connectome.
+
+    Avoids non-serializable objects.
     """
     try:
         areas = []
@@ -112,8 +112,8 @@ def create_brain_snapshot(
     output_dir: Path,
     snapshot_id: str | None = None,
 ) -> Path:
-    """
-    Create a minimal brain snapshot under output_dir and return its directory path.
+    """Create a minimal brain snapshot under output_dir and return its
+    directory path.
 
     Args:
         connectome_manager: Active ConnectomeManager

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Neural Stream Compression Protocol
+"""Neural Stream Compression Protocol.
 
 High-performance compression for video-rate neural data transmission.
 Leverages Morton spatial hashing and Roaring bitmaps for 10-100x compression.
@@ -31,8 +30,8 @@ class NeuralStreamFrame:
 
 
 class NeuralStreamCompressor:
-    """
-    High-performance neural stream compressor.
+    """High-performance neural stream compressor.
+
     Uses Morton codes + Roaring bitmaps for spatial compression.
     """
 

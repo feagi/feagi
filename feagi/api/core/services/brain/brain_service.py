@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,16 +22,18 @@ from ..shared.base_service import BaseService
 
 
 class BrainService(BaseService):
-    """
-    Brain service handles brain simulation operations including
-    burst engine control, monitoring, and analysis.
+    """Brain service handles brain simulation operations including burst engine
+    control, monitoring, and analysis.
 
     CRITICAL: This service NEVER creates its own BurstEngine instance.
     It always uses the singleton instance from the BurstEngine class.
     """
 
     def _get_burst_engine(self):
-        """Get the singleton burst engine instance. Never creates a new one."""
+        """Get the singleton burst engine instance.
+
+        Never creates a new one.
+        """
         try:
             from feagi.npu.burst_engine import BurstEngine
 
@@ -144,7 +144,8 @@ class BrainService(BaseService):
             import threading
 
             def run_burst_engine():
-                """Background thread function to run the burst engine main loop"""
+                """Background thread function to run the burst engine main
+                loop."""
                 try:
                     self.logger.debug(
                         "BRAIN SERVICE: Background thread starting, about to call burst_engine.run()"
@@ -187,7 +188,7 @@ class BrainService(BaseService):
             startup_success = False
 
             def monitor_startup():
-                """Monitor burst engine startup and signal completion"""
+                """Monitor burst engine startup and signal completion."""
                 nonlocal startup_success
                 # Fixed iteration count for deterministic behavior
                 max_iterations = 200  # ~2 seconds at 100Hz check rate
@@ -671,8 +672,7 @@ class BrainService(BaseService):
     def stimulate_neurons_unified(
         self, neural_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, Any]:
-        """
-        Unified neural stimulation using coordinate-based data format.
+        """Unified neural stimulation using coordinate-based data format.
 
         SIMD-OPTIMIZED: Uses vectorized numpy operations instead of Python loops.
 
@@ -1028,7 +1028,8 @@ class BrainService(BaseService):
             return {"error": str(e)}
 
     def get_burst_timer(self) -> float:
-        """Get burst timer (stimulation period) from state manager (authoritative source)."""
+        """Get burst timer (stimulation period) from state manager
+        (authoritative source)."""
         try:
             if self.state_manager:
                 # Read from state_manager - the single source of truth

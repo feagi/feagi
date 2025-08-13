@@ -1,5 +1,4 @@
-"""
-Platform-specific optimizations for neural data transmission.
+"""Platform-specific optimizations for neural data transmission.
 
 This package provides platform-aware socket configuration to maximize
 performance across different operating systems.

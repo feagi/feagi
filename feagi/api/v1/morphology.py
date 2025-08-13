@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -73,8 +71,7 @@ class MorphologyAPI:
         self.core_api_service = core_api_service
 
     def _auto_detect_dimension_sensitive(self, morphology_type: str) -> bool:
-        """
-        Auto-detect dimension_sensitive based on morphology type.
+        """Auto-detect dimension_sensitive based on morphology type.
 
         Args:
             morphology_type: The type of morphology (patterns, vectors, functions, etc.)
@@ -348,8 +345,7 @@ class MorphologyAPI:
 
 
 def create_morphology_api(core_api_service: CoreAPIService) -> MorphologyAPI:
-    """
-    Factory function to create a MorphologyAPI instance.
+    """Factory function to create a MorphologyAPI instance.
 
     This function can be used by transport adapters to get a configured
     MorphologyAPI instance with the required dependencies.

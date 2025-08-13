@@ -17,8 +17,7 @@ from feagi.core.resource_mgr import ResourceManager
 
 # Create a factory function to initialize a complete FEAGI system
 def create_feagi(config=None):
-    """
-    Initialize a complete FEAGI system.
+    """Initialize a complete FEAGI system.
 
     This is a convenience function that initializes core components and returns
     a dictionary with references to them.

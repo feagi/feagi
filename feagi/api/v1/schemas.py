@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -442,14 +440,16 @@ class MappingRestrictionsResponse(BaseModel):
 
 
 class MappingRestrictionsRequest(BaseModel):
-    """Request model for getting mapping restrictions between specific types."""
+    """Request model for getting mapping restrictions between specific
+    types."""
 
     source_type: Optional[str] = None
     destination_type: Optional[str] = None
 
 
 class CorticalAreaMappingRestrictionRequest(BaseModel):
-    """Request model for getting mapping restrictions between two cortical areas."""
+    """Request model for getting mapping restrictions between two cortical
+    areas."""
 
     source_cortical_id: str
     destination_cortical_id: str
@@ -684,7 +684,8 @@ class CorticalMappingPropertiesResponse(BaseModel):
 
 
 class UpdateCorticalMappingPropertiesRequest(BaseModel):
-    """Request model for updating cortical mapping properties between two areas."""
+    """Request model for updating cortical mapping properties between two
+    areas."""
 
     src_cortical_area: str
     dst_cortical_area: str
@@ -947,7 +948,8 @@ class PathRequest(BaseModel):
 
 
 class ManualStimulationRequest(BaseModel):
-    """Request model for manual neural stimulation across multiple cortical areas.
+    """Request model for manual neural stimulation across multiple cortical
+    areas.
 
     Example payload:
     {

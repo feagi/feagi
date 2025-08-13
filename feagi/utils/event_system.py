@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,8 +36,7 @@ _global_event_system: Optional[EventNotificationSystem] = None
 
 
 def get_event_system() -> Optional[EventNotificationSystem]:
-    """
-    Get the global event system instance.
+    """Get the global event system instance.
 
     Returns:
         EventNotificationSystem instance or None if not initialized
@@ -64,8 +61,7 @@ def emit_event(
     data: Optional[Dict[str, Any]] = None,
     priority: EventPriority = EventPriority.HIGH,
 ) -> bool:
-    """
-    Emit an event through the global event system.
+    """Emit an event through the global event system.
 
     Args:
         event_type: Type of event to emit
@@ -88,8 +84,7 @@ def emit_event(
 
 
 def initialize_event_system(process_name: str = "feagi_core") -> bool:
-    """
-    Initialize the global event system with a specific process name.
+    """Initialize the global event system with a specific process name.
 
     Args:
         process_name: Name for this process in the event system

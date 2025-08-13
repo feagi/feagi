@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -203,7 +201,8 @@ class SIMDProfiler:
         operation_time: float,
         element_count: int,
     ) -> float:
-        """Calculate SIMD efficiency as ratio of theoretical to actual performance."""
+        """Calculate SIMD efficiency as ratio of theoretical to actual
+        performance."""
         if operation_time <= 0 or element_count <= 0:
             return 0.0
 
