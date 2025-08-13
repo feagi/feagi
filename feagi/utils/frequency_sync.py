@@ -5,7 +5,8 @@ This module provides functionality to synchronize FQ sampler frequencies
 with brain burst frequency to ensure consistent data streaming rates.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)

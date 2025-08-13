@@ -1536,7 +1536,7 @@ def migrate_burst_delay_to_simulation_timestep(genome):
         
         # Log migration results
         if migrated:
-            print(f"🔄 [GENOME MIGRATION] Successfully migrated burst_delay → simulation_timestep")
+            print("🔄 [GENOME MIGRATION] Successfully migrated burst_delay → simulation_timestep")
             for change in changes:
                 print(f"🔄 [GENOME MIGRATION] {change}")
         

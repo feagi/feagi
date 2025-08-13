@@ -21,15 +21,13 @@ Optimized for both GPU/SIMD processing and single-core embedded systems.
 """
 
 import logging
-import time
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 
 # Import optimized backends and SIMD operations
-from feagi.bdu.models.array_backend import ArrayBackend, BackendType
+from feagi.bdu.models.array_backend import ArrayBackend
 
 logger = logging.getLogger(__name__)
 
@@ -534,7 +532,7 @@ class NeuronArray:
                             buggy_indices = np.array(non_fired_in_area)[incorrect_refractory]
                             print(f"   🚨 BUG DETECTED: Non-fired neurons became refractory: {buggy_indices}")
                             print(f"      Their refractory counters: {self.refractory_counters[buggy_indices]}")
-                            print(f"      This confirms AREA-WIDE REFRACTORY SUPPRESSION!")
+                            print("      This confirms AREA-WIDE REFRACTORY SUPPRESSION!")
                             
                             # Check memory addresses to see if they're sharing memory
                             fired_addr = id(self.refractory_counters[fired_indices[0]] if fired_indices else None)
@@ -542,9 +540,9 @@ class NeuronArray:
                             print(f"      Memory check - Fired neuron addr: {fired_addr}, Buggy neuron addr: {buggy_addr}")
                             
                             if fired_addr == buggy_addr:
-                                print(f"      🎯 ROOT CAUSE: SHARED MEMORY - neurons sharing same refractory counter!")
+                                print("      🎯 ROOT CAUSE: SHARED MEMORY - neurons sharing same refractory counter!")
                             else:
-                                print(f"      🎯 ROOT CAUSE: INDEXING BUG - incorrect array slicing/indexing!")
+                                print("      🎯 ROOT CAUSE: INDEXING BUG - incorrect array slicing/indexing!")
 
         # PHASE 6: Extract fired neuron IDs
         fired_neurons = []

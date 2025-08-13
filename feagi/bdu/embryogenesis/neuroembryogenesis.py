@@ -77,7 +77,6 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import genome processing from EVO (single source of truth)
 from feagi.evo.genome_processor import (
-    create_genome_processor,
     genome_morphology_updator,
     genome_physiology_updator,
     genome_stat_updator,
@@ -1902,7 +1901,7 @@ class NeuroEmbryogenesis:
             # CRITICAL: Special handling for memory morphology - NO synapse creation
             if morphology_id == "memory":
                 logger.info(f"[MEMORY-MORPHOLOGY] Detected memory morphology from {src_area_id} to {dst_area_id}")
-                logger.info(f"[MEMORY-MORPHOLOGY] Registering memory mapping without creating synapses")
+                logger.info("[MEMORY-MORPHOLOGY] Registering memory mapping without creating synapses")
                 
                 # Import and call syn_memory directly to populate memory register  
                 from feagi.bdu.connectivity.rules.functions import syn_memory
@@ -1924,10 +1923,10 @@ class NeuroEmbryogenesis:
                                 logger.info(f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}")
                             except Exception as e:
                                 logger.error(f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}")
-                                logger.exception(f"[MEMORY-PROPAGATION] Full exception trace:")
-                    logger.info(f"[MEMORY-PROPAGATION] Completed processing all memory register entries")
+                                logger.exception("[MEMORY-PROPAGATION] Full exception trace:")
+                    logger.info("[MEMORY-PROPAGATION] Completed processing all memory register entries")
                 
-                logger.info(f"[MEMORY-MORPHOLOGY] Memory morphology processing completed - 0 synapses created as expected")
+                logger.info("[MEMORY-MORPHOLOGY] Memory morphology processing completed - 0 synapses created as expected")
                 return 0  # No synapses created for memory morphology
 
             # Route to appropriate processor based on morphology type
@@ -2431,8 +2430,8 @@ class NeuroEmbryogenesis:
                             logger.info(f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}")
                         except Exception as e:
                             logger.error(f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}")
-                            logger.exception(f"[MEMORY-PROPAGATION] Full exception trace:")
-                logger.info(f"[MEMORY-PROPAGATION] Completed processing all memory register entries")
+                            logger.exception("[MEMORY-PROPAGATION] Full exception trace:")
+                logger.info("[MEMORY-PROPAGATION] Completed processing all memory register entries")
             else:
                 logger.info(f"[MEMORY-PROPAGATION] No memory register found for morphology {morphology_id}")
 

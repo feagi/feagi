@@ -4,7 +4,7 @@ FEAGI v1 Physiology API - Single Source of Truth
 Endpoints to read/update physiology parameters in the active genome, including
 sleep trigger fields used by Sleep Manager.
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import BaseModel
 

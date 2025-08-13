@@ -20,12 +20,12 @@ Memory neurons are created dynamically based on upstream firing patterns and hav
 special lifecycle properties including lifespan management and long-term memory conversion.
 """
 
-import logging
-import numpy as np
-from typing import Dict, Set, Optional, Tuple, List, Any
-from dataclasses import dataclass
-import time
 import hashlib
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

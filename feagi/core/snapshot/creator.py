@@ -301,7 +301,7 @@ def create_brain_snapshot(
                     # Prefer ConnectomeManager authoritative mapping
                     idx2id_map = None
                     if hasattr(connectome_manager, "index_to_neuron_id"):
-                        idx2id_map = getattr(connectome_manager, "index_to_neuron_id")
+                        idx2id_map = connectome_manager.index_to_neuron_id
                     # Build an aligned array of neuron IDs
                     if idx2id_map is not None:
                         if active_idx is not None and active_idx.size:

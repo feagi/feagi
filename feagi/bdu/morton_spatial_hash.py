@@ -17,14 +17,12 @@ Licensed under the Apache License, Version 2.0
 """
 
 import logging
-from typing import Dict, List, Tuple, Set, Optional, Any
-from enum import Enum
-import threading
-import time
-from pathlib import Path
 import pickle
-import hashlib
+import threading
 from collections import defaultdict
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Try to import roaring bitmap - fall back to set if not available
 try:
@@ -482,7 +480,7 @@ class RoaringSpatialHash:
         with self._lock:
             self._set_state(MortonSpatialHashState.READY)
             logger.info(f"[MORTON SPATIAL HASH] Initialized for dimensions: {max_dims}")
-            logger.info(f"[MORTON SPATIAL HASH] Morton encoding handles any coordinate range automatically")
+            logger.info("[MORTON SPATIAL HASH] Morton encoding handles any coordinate range automatically")
 
     def wait_for_ready(self, timeout_seconds: float = 60.0) -> bool:
         """
@@ -519,7 +517,7 @@ class RoaringSpatialHash:
             Always True (Morton encoding handles expansion automatically)
         """
         logger.debug(f"[MORTON SPATIAL HASH] Cache expansion requested for pos={position}, dims={dimensions}")
-        logger.debug(f"[MORTON SPATIAL HASH] Morton encoding handles expansion automatically")
+        logger.debug("[MORTON SPATIAL HASH] Morton encoding handles expansion automatically")
         return True
 
     def add_coordinate(self, cortical_area: str, x: int, y: int, z: int, neuron_id: int) -> bool:

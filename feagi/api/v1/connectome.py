@@ -39,7 +39,6 @@ from .schemas import (
     BatchSynapseCreationResponse,
     ConnectomeDimensionsResponse,
     ConnectomePathResponse,
-    ConnectomeSnapshotResponse,
     CorticalAreaInfoResponse,
     CorticalAreasListResponse,
     CorticalStatsResponse,

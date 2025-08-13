@@ -22,7 +22,6 @@ shared memory events system. It maintains the expected interface while
 using the proper event notification system.
 """
 
-import logging
 from typing import Any, Dict, Optional
 
 from feagi.api.shared_memory.events import (

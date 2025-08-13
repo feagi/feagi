@@ -1348,7 +1348,10 @@ class GenomeService(BaseService):
                         raise ValueError("Failed to generate unique cortical area ID after 100 attempts")
 
                 # Import cortical template for proper defaults
-                from feagi.evo.templates import cortical_template, cortical_template_memory
+                from feagi.evo.templates import (
+                    cortical_template,
+                    cortical_template_memory,
+                )
 
                 # Check if this is a memory cortical area
                 is_memory_area = (parameters and parameters.get("sub_group_id") == "MEMORY")
@@ -2297,24 +2300,24 @@ class GenomeService(BaseService):
                 
                 # CRITICAL FIX: Persist genome changes to StateManager
                 # This ensures other parts of the system see the updated genome
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Saving updated genome to StateManager...")
+                self.logger.info("🧠 [MAPPING-DEBUG] Saving updated genome to StateManager...")
                 self.state_manager.genome = current_genome
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Genome saved to StateManager successfully")
+                self.logger.info("🧠 [MAPPING-DEBUG] Genome saved to StateManager successfully")
 
                 # Trigger NeuroEmbryogenesis to update ConnectomeManager
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
                     NeuroEmbryogenesis,
                 )
 
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance...")
+                self.logger.info("🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance...")
                 embryogenesis = NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
-                self.logger.info(f"🧠 [MAPPING-DEBUG] NeuroEmbryogenesis created successfully")
+                self.logger.info("🧠 [MAPPING-DEBUG] NeuroEmbryogenesis created successfully")
 
                 # CRITICAL FIX: Load the genome data into the NeuroEmbryogenesis instance
                 # This ensures the morphology definitions are available for cortical mapping
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Loading genome data into NeuroEmbryogenesis...")
+                self.logger.info("🧠 [MAPPING-DEBUG] Loading genome data into NeuroEmbryogenesis...")
                 if not embryogenesis._load_genome_data(current_genome):
                     self.logger.error(
                         "🧠 [MAPPING-DEBUG] ERROR: Failed to load genome data into NeuroEmbryogenesis"
@@ -2322,7 +2325,7 @@ class GenomeService(BaseService):
                     if transaction:
                         transaction.rollback()
                     return False
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Genome data loaded successfully")
+                self.logger.info("🧠 [MAPPING-DEBUG] Genome data loaded successfully")
 
                 # Apply the cortical mapping update
                 self.logger.info(f"🧠 [MAPPING-DEBUG] Calling embryogenesis.update_cortical_mapping with: {mapping}")
@@ -2377,7 +2380,7 @@ class GenomeService(BaseService):
             dst_area = update_data.get("dst_cortical_area")
             mapping_data = update_data.get("mapping_data", [])
 
-            self.logger.info(f"🧠 [MAPPING-DEBUG] update_cortical_mapping_properties called")
+            self.logger.info("🧠 [MAPPING-DEBUG] update_cortical_mapping_properties called")
             self.logger.info(f"🧠 [MAPPING-DEBUG] src_area: {src_area}")
             self.logger.info(f"🧠 [MAPPING-DEBUG] dst_area: {dst_area}")
             self.logger.info(f"🧠 [MAPPING-DEBUG] mapping_data: {mapping_data}")
@@ -2401,10 +2404,10 @@ class GenomeService(BaseService):
             # Begin genome transaction for atomic modification
             if self.state_manager:
                 transaction = self.state_manager.begin_genome_transaction()
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Started genome transaction")
+                self.logger.info("🧠 [MAPPING-DEBUG] Started genome transaction")
             else:
                 transaction = None
-                self.logger.warning(f"🧠 [MAPPING-DEBUG] No StateManager - no transaction protection")
+                self.logger.warning("🧠 [MAPPING-DEBUG] No StateManager - no transaction protection")
 
             try:
                 # Get current genome for modification
@@ -2415,7 +2418,7 @@ class GenomeService(BaseService):
                     )
                     return False
 
-                self.logger.info(f"🧠 [MAPPING-DEBUG] Current genome loaded successfully")
+                self.logger.info("🧠 [MAPPING-DEBUG] Current genome loaded successfully")
 
                 # CRITICAL FIX: Handle empty mapping_data as deletion request
                 if not mapping_data or len(mapping_data) == 0:
@@ -2431,37 +2434,37 @@ class GenomeService(BaseService):
                     self.logger.info(f"🧠 [MAPPING-DEBUG] Formatted mapping: {formatted_mapping}")
                     
                     # Use the existing update_cortical_mapping method
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] Calling update_cortical_mapping...")
+                    self.logger.info("🧠 [MAPPING-DEBUG] Calling update_cortical_mapping...")
                     success = self.update_cortical_mapping(formatted_mapping)
                     self.logger.info(f"🧠 [MAPPING-DEBUG] update_cortical_mapping result: {success}")
 
                 if success and transaction:
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] Committing transaction...")
+                    self.logger.info("🧠 [MAPPING-DEBUG] Committing transaction...")
                     transaction.commit()
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] Transaction committed successfully")
+                    self.logger.info("🧠 [MAPPING-DEBUG] Transaction committed successfully")
                 elif transaction:
-                    self.logger.error(f"🧠 [MAPPING-DEBUG] Rolling back transaction due to failure")
+                    self.logger.error("🧠 [MAPPING-DEBUG] Rolling back transaction due to failure")
                     transaction.rollback()
                     return False
 
                 if success:
-                    self.logger.info(f"🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully")
+                    self.logger.info("🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully")
                 else:
-                    self.logger.error(f"🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed")
+                    self.logger.error("🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed")
 
                 return success
 
             except Exception as e:
                 self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in inner try block: {e}")
-                self.logger.exception(f"🧠 [MAPPING-DEBUG] Exception traceback:")
+                self.logger.exception("🧠 [MAPPING-DEBUG] Exception traceback:")
                 if transaction:
-                    self.logger.error(f"🧠 [MAPPING-DEBUG] Rolling back transaction due to exception")
+                    self.logger.error("🧠 [MAPPING-DEBUG] Rolling back transaction due to exception")
                     transaction.rollback()
                 raise e
 
         except Exception as e:
             self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in outer try block: {e}")
-            self.logger.exception(f"🧠 [MAPPING-DEBUG] Outer exception traceback:")
+            self.logger.exception("🧠 [MAPPING-DEBUG] Outer exception traceback:")
             return False
 
     def delete_cortical_mapping(
@@ -4292,7 +4295,10 @@ class GenomeService(BaseService):
 
             # Validate physiology and sanitize missing fields/types
             try:
-                from feagi.evo.genome_validator import validate_physiology_section, sanitize_missing_physiology
+                from feagi.evo.genome_validator import (
+                    sanitize_missing_physiology,
+                    validate_physiology_section,
+                )
                 sanitize_missing_physiology(genome)
                 result = validate_physiology_section(genome)
                 if not result.get("valid", False):

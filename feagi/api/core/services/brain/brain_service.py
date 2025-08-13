@@ -325,7 +325,10 @@ class BrainService(BaseService):
             import time
 
             try:
-                from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+                from feagi.config.toml_loader import (
+                    get_timeout_config,
+                    load_feagi_config,
+                )
                 cfg = load_feagi_config()
                 to = get_timeout_config(cfg)
                 delay = max(0.01, float(getattr(to, "thread_join", 0.2)))

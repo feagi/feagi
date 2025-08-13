@@ -8,12 +8,12 @@ Leverages Morton spatial hashing and Roaring bitmaps for 10-100x compression.
 Optimized for 2K video streams: 2048x1080 pixels @ 30-60 FPS
 """
 
-import struct
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass
 import logging
 import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     restored = compressor.decompress_frame(frame)
     decompress_time = (time.time() - start) * 1000
     
-    print(f"⚡ Performance:")
+    print("⚡ Performance:")
     print(f"   Compression: {compress_time:.1f}ms")
     print(f"   Decompression: {decompress_time:.1f}ms")
     print(f"   Ratio: {frame.metadata['compression_ratio']:.1f}x")
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     print(f"   Bandwidth savings: {(1-1/frame.metadata['compression_ratio'])*100:.1f}%")
     
     # Performance estimates for different scenarios
-    print(f"\n📊 Compression estimates:")
+    print("\n📊 Compression estimates:")
     for sparsity in [0.01, 0.05, 0.1, 0.2]:
         neurons = int(2048 * 1080 * sparsity)
         perf = compressor.estimate_performance(neurons)

@@ -18,14 +18,13 @@ Licensed under the Apache License, Version 2.0
 """
 
 import logging
-from typing import Dict, List, Tuple, Set, Optional, Any
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 from .morton_spatial_hash import (
     RoaringSpatialHash,
-    MortonSpatialHashState, 
     get_morton_spatial_hash,
-    reset_morton_spatial_hash
+    reset_morton_spatial_hash,
 )
 
 logger = logging.getLogger(__name__)

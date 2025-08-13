@@ -1077,7 +1077,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 batch_size = memory_config.get("batch_size", 100)
                 cache_size = memory_config.get("pattern_cache_size", 10000)
                 
-                logger.info(f"[MEMORY-INIT] Starting MemoryProcessor initialization...")
+                logger.info("[MEMORY-INIT] Starting MemoryProcessor initialization...")
                 logger.info(f"[MEMORY-INIT] Config: batch_size={batch_size}, cache_size={cache_size}")
                 logger.info(f"[MEMORY-INIT] ConnectomeManager type: {type(self.connectome_manager)}")
                 logger.info(f"[MEMORY-INIT] Has memory_neuron_array: {hasattr(self.connectome_manager, 'memory_neuron_array')}")
@@ -1087,7 +1087,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     logger.info(f"[MEMORY-INIT] Memory neuron array capacity: {array_capacity}")
                 
                 # DEBUG: Check parameters before MemoryProcessor call
-                logger.info(f"[MEMORY-INIT] About to create MemoryProcessor...")
+                logger.info("[MEMORY-INIT] About to create MemoryProcessor...")
                 logger.info(f"[MEMORY-INIT] memory_neuron_array type: {type(self.connectome_manager.memory_neuron_array)}")
                 logger.info(f"[MEMORY-INIT] fcl_manager type: {type(self.fcl_manager)}")
                 logger.info(f"[MEMORY-INIT] fcl_manager is None: {self.fcl_manager is None}")
@@ -1100,7 +1100,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     connectome_manager=self.connectome_manager
                 )
                 
-                logger.info(f"[MEMORY-INIT] MemoryProcessor constructor completed successfully")
+                logger.info("[MEMORY-INIT] MemoryProcessor constructor completed successfully")
                 
                 logger.info(f"[OK] MemoryProcessor initialized with batch_size={batch_size}, cache_size={cache_size}")
             else:
@@ -1117,11 +1117,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             npu_debug = self.state_manager.is_debug_npu_enabled() if self.state_manager else False
             
             if npu_debug:
-                logger.info(f"🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns")
+                logger.info("🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns")
             
             if not self.memory_processor:
                 if npu_debug:
-                    logger.info(f"🧠 [MEMORY] BURST ENGINE: No MemoryProcessor - skipping memory processing")
+                    logger.info("🧠 [MEMORY] BURST ENGINE: No MemoryProcessor - skipping memory processing")
                 return
             
             if npu_debug:
@@ -1148,14 +1148,14 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         """Register a memory area with the memory processor."""
         if not self.memory_processor:
             # CRITICAL FIX: Retry MemoryProcessor initialization if it failed due to timing
-            logger.info(f"🔧 [MEMORY-FIX] MemoryProcessor is None, attempting reinitialization...")
+            logger.info("🔧 [MEMORY-FIX] MemoryProcessor is None, attempting reinitialization...")
             self._initialize_memory_processor()
             
             if not self.memory_processor:
-                logger.error(f"🔧 [MEMORY-FIX] MemoryProcessor reinitialization failed")
+                logger.error("🔧 [MEMORY-FIX] MemoryProcessor reinitialization failed")
                 return False
             else:
-                logger.info(f"🔧 [MEMORY-FIX] MemoryProcessor reinitialization SUCCESS!")
+                logger.info("🔧 [MEMORY-FIX] MemoryProcessor reinitialization SUCCESS!")
         
         if not self.memory_processor:
             return False

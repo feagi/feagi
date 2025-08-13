@@ -13,10 +13,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 import zmq
 import zmq.asyncio
-import json
 
 from feagi.utils.logger import setup_logger
-from feagi.utils.zmq_debug import MessageType, log_inbound
 
 from ..memory import NeuralBufferPool
 from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer

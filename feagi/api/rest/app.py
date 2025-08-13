@@ -60,7 +60,6 @@ from feagi.api.transport.universal_fastapi import (
     get_simulation_router,
     get_system_router,
     get_training_router,
-    get_snapshot_router,
 )
 
 # Import the visualization router
@@ -267,7 +266,7 @@ async def log_requests(request: Request, call_next):
     if not hasattr(log_requests, "_diagnostic_shown"):
         try:
             debug_config = getattr(state_manager, '_debug_config', {})
-            logger.error(f"[DIAGNOSTIC] API Debug Status Check:")
+            logger.error("[DIAGNOSTIC] API Debug Status Check:")
             logger.error(f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}")
             logger.error(f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}")
             logger.error(f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}")
@@ -865,7 +864,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
     state_manager.set_api_state(ServiceState.READY)
 
     # Log debug information about the created app
-    logger.error(f"[APP-CREATION] FastAPI app created successfully")
+    logger.error("[APP-CREATION] FastAPI app created successfully")
     logger.error(f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}")
     logger.error(f"[APP-CREATION] App middleware count: {len(app.user_middleware)}")
     logger.error(f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}")

@@ -5,9 +5,9 @@ This module handles the intelligent extension of existing synaptic patterns
 to newly created neurons during cortical area expansion.
 """
 
-from typing import Dict, Any, List, Tuple, Set, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 from feagi.utils.logger import setup_logger
-from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 
 logger = setup_logger(__name__)
 
@@ -59,7 +59,7 @@ class PatternExtender:
         
         try:
             # Find existing cortical mappings for this area
-            self.logger.info(f"🔍 [PATTERN-EXTEND] Searching for existing mappings...")
+            self.logger.info("🔍 [PATTERN-EXTEND] Searching for existing mappings...")
             existing_mappings = self._find_existing_mappings(cortical_id)
             
             self.logger.info(f"🔍 [PATTERN-EXTEND] Found {len(existing_mappings)} existing mappings")
@@ -107,7 +107,7 @@ class PatternExtender:
         try:
             genome = self.state_manager.genome
             if not genome or "blueprint" not in genome:
-                self.logger.warning(f"[PATTERN-EXTEND] No hierarchical genome found")
+                self.logger.warning("[PATTERN-EXTEND] No hierarchical genome found")
                 return []
                 
             existing_mappings = []
@@ -369,7 +369,7 @@ class PatternExtender:
                     embryogenesis.genome = current_genome
                     self.logger.info(f"[PATTERN-EXTEND] Set genome on embryogenesis, morphologies available: {len(current_genome.get('neuron_morphologies', {}))}")
                 else:
-                    self.logger.warning(f"[PATTERN-EXTEND] No genome available in state_manager")
+                    self.logger.warning("[PATTERN-EXTEND] No genome available in state_manager")
                 
                 embryogenesis.update_cortical_mapping(formatted_mapping)
                 

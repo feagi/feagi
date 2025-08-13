@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import json
 import os
+import zipfile
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
-import zipfile
 
 
 def _flatten_manifest_files(files_entry: Dict[str, object]) -> List[str]:

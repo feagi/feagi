@@ -9,7 +9,8 @@ This module determines whether cortical area changes require:
 """
 
 from enum import Enum
-from typing import Dict, List, Set, Any, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
+
 from feagi.bdu.connectome_manager import NeuronPropertyType
 from feagi.utils.logger import setup_logger
 
@@ -186,6 +187,6 @@ class CorticalChangeClassifier:
         logger.info(f"[CHANGE-CLASSIFIER] Type: {change_type.value} | Changes: {change_summary}")
         
         if change_type == ChangeType.PARAMETER:
-            logger.info(f"[OPTIMIZATION] Fast parameter update path selected - avoiding full rebuild")
+            logger.info("[OPTIMIZATION] Fast parameter update path selected - avoiding full rebuild")
         elif change_type == ChangeType.METADATA:
-            logger.info(f"[OPTIMIZATION] Metadata-only update - minimal processing required") 
+            logger.info("[OPTIMIZATION] Metadata-only update - minimal processing required") 

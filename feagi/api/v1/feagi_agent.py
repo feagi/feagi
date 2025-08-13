@@ -26,7 +26,7 @@ from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 
 try:
-    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+    from feagi.config.toml_loader import get_agent_config, load_feagi_config
 except ImportError:
     # Handle cases where configuration might not be available
     load_feagi_config = None

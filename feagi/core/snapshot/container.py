@@ -743,10 +743,7 @@ def restore_fgc_snapshot(
                     hasattr(connectome_manager, "neuron_array")
                     and hasattr(connectome_manager.neuron_array, "valid_mask")
                 ):
-                    vm = getattr(
-                        connectome_manager.neuron_array,
-                        "valid_mask",
-                    )
+                    vm = connectome_manager.neuron_array.valid_mask
                     total_neurons = int(np.count_nonzero(vm))
                 if (
                     hasattr(connectome_manager, "memory_neuron_array")

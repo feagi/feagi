@@ -239,7 +239,6 @@ else:
     from feagi.api.v1.evolution import create_evolution_api
     from feagi.api.v1.feagi_agent import create_feagi_agent_api
     from feagi.api.v1.genome import create_genome_api
-    from feagi.api.v1.physiology import create_physiology_api
     from feagi.api.v1.inputs import create_inputs_api
     from feagi.api.v1.insights import create_insights_api
     from feagi.api.v1.monitoring import create_monitoring_api
@@ -247,11 +246,12 @@ else:
     from feagi.api.v1.network import create_network_api
     from feagi.api.v1.neuroplasticity import create_neuroplasticity_api
     from feagi.api.v1.outputs import create_outputs_api
+    from feagi.api.v1.physiology import create_physiology_api
     from feagi.api.v1.region import create_region_api
     from feagi.api.v1.simulation import create_simulation_api
+    from feagi.api.v1.snapshot import create_snapshot_api
     from feagi.api.v1.system import create_system_api
     from feagi.api.v1.training import create_training_api
-    from feagi.api.v1.snapshot import create_snapshot_api
     from feagi.utils.logger import setup_logger
 
     logger = setup_logger(__name__)
@@ -1094,7 +1094,12 @@ else:
     def create_snapshot_router() -> APIRouter:
         """Create a FastAPI router for snapshot endpoints (manual wiring to avoid param issues)."""
         # @ruff-skip: module has >100 violations - cleanup task: SNAP-ROUTER-RUFF-CLEANUP
+        import os
+
         from fastapi import APIRouter, Depends, HTTPException
+        from fastapi.responses import FileResponse
+        from starlette.background import BackgroundTask
+
         from feagi.api.v1.snapshot import (
             SnapshotAPI,
             SnapshotCreateRequest,
@@ -1102,9 +1107,6 @@ else:
             SnapshotRestoreRequest,
             SnapshotRestoreResponse,
         )
-        from fastapi.responses import FileResponse
-        from starlette.background import BackgroundTask
-        import os
 
         router = APIRouter()
 
@@ -1197,8 +1199,13 @@ else:
                 if not temp_dir:
                     raise HTTPException(status_code=400, detail="Snapshot temp_dir is required")
                 # Create container in temp
-                from feagi.core.snapshot.container import create_fc_snapshot_from_folder, MAGIC_FGC, MAGIC_FGS
                 from pathlib import Path
+
+                from feagi.core.snapshot.container import (
+                    MAGIC_FGC,
+                    MAGIC_FGS,
+                    create_fc_snapshot_from_folder,
+                )
                 sdir = Path(resp["path"])  # folder just created
                 tmpdir = Path(temp_dir)
                 tmpdir.mkdir(parents=True, exist_ok=True)
@@ -1272,13 +1279,11 @@ else:
         ):
             try:
                 from pathlib import Path
+
                 from feagi.config.toml_loader import load_feagi_config
                 from feagi.core.snapshot.container import (
-                    read_fc_header,
-                    MAGIC_FGC,
                     MAGIC_FGS,
-                    restore_fgc_snapshot,
-                    restore_fgs_snapshot,
+                    read_fc_header,
                 )
                 cfg = load_feagi_config()
                 snap_cfg = cfg.get("snapshot", {})
@@ -1290,7 +1295,9 @@ else:
                     raise HTTPException(status_code=400, detail="Snapshot temp_dir is required")
                 tmp_root.mkdir(parents=True, exist_ok=True)
                 # Save uploaded file to temp
-                import uuid, shutil, os
+                import os
+                import shutil
+                import uuid
                 tmp_name = f"upload-{uuid.uuid4().hex}"
                 tmp_path = tmp_root / tmp_name
                 with open(tmp_path, "wb") as f:

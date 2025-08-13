@@ -9,15 +9,16 @@ Result-based error handling, and fixed-size data structures.
 import logging
 import threading
 import time
-from enum import IntEnum
-from typing import Any, Dict, List, Optional, Set, Callable, Tuple
 from collections import defaultdict
+from enum import IntEnum
+from typing import Any, Dict, List, Optional, Set
 
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
 from .state_storage import FileStorage, MemoryStorage, StateStorage
+
 try:
-    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+    from feagi.config.toml_loader import get_agent_config, load_feagi_config
 except ImportError:
     # Handle cases where configuration might not be available
     load_feagi_config = None

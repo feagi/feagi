@@ -7,9 +7,10 @@ improvements for parameter-only changes.
 """
 
 import time
-from typing import Dict, List, Any, Union
-from feagi.bdu.connectome_manager import NeuronPropertyType, ConnectomeManager
+from typing import Any, Dict, List, Union
+
 from feagi.api.core.services.genome.change_classifier import CorticalChangeClassifier
+from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)

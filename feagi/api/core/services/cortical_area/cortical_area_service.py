@@ -16,7 +16,6 @@ limitations under the License.
 
 """Cortical Area service for managing FEAGI cortical area operations."""
 
-import time
 from typing import Any, Dict, List, Optional
 
 from ..shared.base_service import BaseService
@@ -113,11 +112,11 @@ class CorticalAreaService(BaseService):
         try:
             # Check if cortical_mapping exists
             if not hasattr(self._connectome_manager, 'cortical_mapping'):
-                self.logger.error(f"DEBUG: ConnectomeManager has no cortical_mapping attribute")
+                self.logger.error("DEBUG: ConnectomeManager has no cortical_mapping attribute")
                 return None
             
             if self._connectome_manager.cortical_mapping is None:
-                self.logger.error(f"DEBUG: ConnectomeManager.cortical_mapping is None")
+                self.logger.error("DEBUG: ConnectomeManager.cortical_mapping is None")
                 return None
             
             # Use the connectome manager's O(1) mapping method

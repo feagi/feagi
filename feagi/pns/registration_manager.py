@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Set
 
 try:
-    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+    from feagi.config.toml_loader import get_agent_config, load_feagi_config
 except ImportError:
     # Handle cases where configuration might not be available
     load_feagi_config = None

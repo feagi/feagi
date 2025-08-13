@@ -533,7 +533,7 @@ class CoreAPIService:
                 CorticalAreaMemoryUsageResponse,
                 MemoryComponentInfo,
                 SynapseMemoryBreakdown,
-                TotalMemoryInfo
+                TotalMemoryInfo,
             )
             
             # Get neuron memory usage
@@ -1441,7 +1441,7 @@ class CoreAPIService:
                                     f"(CRITICAL: streams were using independent timing!)"
                                 )
                             else:
-                                self.logger.warning(f"🎬 [AUTO-SYNC] No visualization streams found to update sample_rate")
+                                self.logger.warning("🎬 [AUTO-SYNC] No visualization streams found to update sample_rate")
                         except Exception as e:
                             self.logger.error(f"🎬 [AUTO-SYNC] Failed to update visualization stream frequency: {e}")
                         

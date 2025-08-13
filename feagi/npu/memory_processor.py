@@ -24,14 +24,12 @@ This processor runs parallel to normal neural processing and handles:
 """
 
 import logging
-import time
+import sys  # Added for sys.argv
 import threading
-from typing import Dict, Set, List, Optional, Tuple, Any
-from collections import defaultdict, deque
+import time
+from collections import deque
 from dataclasses import dataclass
-import sys # Added for sys.argv
-
-import numpy as np
+from typing import Any, Dict, List, Optional, Set
 
 from feagi.bdu.models.memory_neuron import MemoryNeuronArray, MemoryPatternKey
 from feagi.npu.fcl_manager import FCLManager
@@ -95,7 +93,7 @@ class MemoryProcessor:
         if hasattr(fcl_manager, 'connectome_manager'):
             logger.info(f"🧠 [MEMORY-INIT] FCLManager has connectome_manager: {fcl_manager.connectome_manager is not None}")
         else:
-            logger.info(f"🧠 [MEMORY-INIT] FCLManager does NOT have connectome_manager attribute")
+            logger.info("🧠 [MEMORY-INIT] FCLManager does NOT have connectome_manager attribute")
         
         # Processing control
         self._processing_lock = threading.RLock()
@@ -211,7 +209,7 @@ class MemoryProcessor:
                 
                 if not self.active_memory_areas:
                     if mem_debug:
-                        logger.info(f"🧠 [MEMORY] No active memory areas to process")
+                        logger.info("🧠 [MEMORY] No active memory areas to process")
                     # Still perform global aging/lifecycle to allow short-term memories to expire
                     lifecycle_result = self._perform_aging_and_lifecycle(current_burst)
                     self.stats.memory_neurons_died += lifecycle_result.get("neurons_died", 0)
@@ -255,7 +253,7 @@ class MemoryProcessor:
                 
                 # Perform aging and lifecycle management
                 if mem_debug:
-                    logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
+                    logger.info("🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
                 lifecycle_result = self._perform_aging_and_lifecycle(current_burst)
                 
                 if mem_debug:
@@ -408,7 +406,7 @@ class MemoryProcessor:
                 if existing_neuron_idx is not None:
                     logger.info(f"🔍 [MEMORY] Pattern lookup result: FOUND existing neuron #{existing_neuron_idx}")
                 else:
-                    logger.info(f"🔍 [MEMORY] Pattern lookup result: NOT FOUND - will create NEW neuron")
+                    logger.info("🔍 [MEMORY] Pattern lookup result: NOT FOUND - will create NEW neuron")
             
             if existing_neuron_idx is not None:
                 # EXISTING neuron found - reactivate it (apply additive lifespan growth)
@@ -417,7 +415,7 @@ class MemoryProcessor:
                     stats['neurons_reactivated'] = 1
                     if mem_debug:
                         logger.info(f"🌟 [MEMORY] Pattern found: reactivated existing memory neuron {existing_neuron_idx}")
-                        logger.info(f"🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
+                        logger.info("🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
             else:
                 # NO existing neuron - create a new one
                 try:
@@ -430,10 +428,10 @@ class MemoryProcessor:
                     )
                     stats['neurons_created'] = 1
                     if mem_debug:
-                        logger.info(f"⭐ ⭐ ⭐ [MEMORY] 🆕 NEW MEMORY NEURON BORN! ⭐ ⭐ ⭐")
+                        logger.info("⭐ ⭐ ⭐ [MEMORY] 🆕 NEW MEMORY NEURON BORN! ⭐ ⭐ ⭐")
                         logger.info(f"⭐ [MEMORY] Created memory neuron #{new_neuron_idx} for area {memory_area_id}")
                         logger.info(f"⭐ [MEMORY] Pattern: {temporal_pattern}")
-                        logger.info(f"⭐ [MEMORY] This is a COMPLETELY NEW pattern - neuron count should increase!")
+                        logger.info("⭐ [MEMORY] This is a COMPLETELY NEW pattern - neuron count should increase!")
                     
                     # CRITICAL FIX: Update StateManager neuron count
                     self._update_state_manager_neuron_count(increment=1)
@@ -488,7 +486,7 @@ class MemoryProcessor:
             
             if not upstream_areas:
                 if mem_debug:
-                    logger.info(f"🧠 [MEMORY] No upstream areas - cannot extract pattern")
+                    logger.info("🧠 [MEMORY] No upstream areas - cannot extract pattern")
                 return None
             
             pattern_bitmaps = []
@@ -553,7 +551,7 @@ class MemoryProcessor:
             non_empty_patterns = [p for p in pattern_bitmaps if p]
             if not non_empty_patterns:
                 if mem_debug:
-                    logger.info(f"🧠 [MEMORY] No meaningful patterns found - all timesteps empty")
+                    logger.info("🧠 [MEMORY] No meaningful patterns found - all timesteps empty")
                 return None
             
             # Create pattern key
@@ -642,12 +640,12 @@ class MemoryProcessor:
             logger.info(f"🔍 [MEMORY] StateManager result value: {result}")
             logger.info(f"🔍 [MEMORY] Has is_err attr: {hasattr(result, 'is_err')}")
             if hasattr(result, 'is_err'):
-                logger.info(f"🔍 [MEMORY] is_err callable: {callable(getattr(result, 'is_err'))}")
+                logger.info(f"🔍 [MEMORY] is_err callable: {callable(result.is_err)}")
             
             # Handle both boolean and Result return types for compatibility
             if hasattr(result, 'is_ok') and hasattr(result, 'is_err'):
                 # Result object (Rust-style)
-                logger.info(f"🔍 [MEMORY] Processing as Result object")
+                logger.info("🔍 [MEMORY] Processing as Result object")
                 if result.is_err:
                     try:
                         err = result.unwrap_err()
@@ -663,7 +661,7 @@ class MemoryProcessor:
                 # Boolean return type
                 logger.info(f"🔍 [MEMORY] Processing as boolean: {result}")
                 if not result:
-                    logger.error(f"🚨 [MEMORY] FAILED to update StateManager neuron count: returned False")
+                    logger.error("🚨 [MEMORY] FAILED to update StateManager neuron count: returned False")
                 else:
                     logger.info(
                         f"⭐ [MEMORY] ✅ StateManager counts updated: total {total}→{total_new} (Δ{increment:+d}), "
@@ -672,7 +670,7 @@ class MemoryProcessor:
             else:
                 # Unknown return type, log for debugging but assume failure
                 logger.error(f"🚨 [MEMORY] StateManager returned unexpected type: {type(result)} = {result}")
-                logger.error(f"🚨 [MEMORY] Cannot verify if neuron count update succeeded!")
+                logger.error("🚨 [MEMORY] Cannot verify if neuron count update succeeded!")
                 
         except Exception as e:
             logger.error(f"🚨 [MEMORY] CRITICAL ERROR updating StateManager neuron count: {e}")

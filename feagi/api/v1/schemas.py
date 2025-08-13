@@ -24,7 +24,7 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, RootModel, Field, AliasChoices
+from pydantic import AliasChoices, BaseModel, Field, RootModel
 
 # ===== System Schemas =====
 

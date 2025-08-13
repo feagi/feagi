@@ -5,7 +5,8 @@ This module analyzes existing connectivity patterns and morphology usage
 to support intelligent expansion decisions.
 """
 
-from typing import Dict, Any, List, Tuple, Set, Optional
+from typing import Any, Dict, List, Optional
+
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -46,7 +47,7 @@ class ConnectionAnalyzer:
         
         try:
             # Get incoming and outgoing connections
-            self.logger.info(f"🔍 [CONNECTION-ANALYZER] Searching for mappings in genome...")
+            self.logger.info("🔍 [CONNECTION-ANALYZER] Searching for mappings in genome...")
             incoming_mappings = self._get_incoming_mappings(cortical_id)
             outgoing_mappings = self._get_outgoing_mappings(cortical_id)
             internal_mappings = self._get_internal_mappings(cortical_id)
@@ -54,14 +55,14 @@ class ConnectionAnalyzer:
             self.logger.info(f"🔍 [CONNECTION-ANALYZER] Received from _get_internal_mappings: {len(internal_mappings)} mappings")
             self.logger.info(f"🔍 [CONNECTION-ANALYZER] Internal mappings content: {[m.get('morphology', 'unknown') for m in internal_mappings]}")
             
-            self.logger.info(f"🔍 [CONNECTION-ANALYZER] Raw mapping search results:")
+            self.logger.info("🔍 [CONNECTION-ANALYZER] Raw mapping search results:")
             self.logger.info(f"🔍 [CONNECTION-ANALYZER]   - Incoming: {len(incoming_mappings)}")
             self.logger.info(f"🔍 [CONNECTION-ANALYZER]   - Outgoing: {len(outgoing_mappings)}")
             self.logger.info(f"🔍 [CONNECTION-ANALYZER]   - Internal: {len(internal_mappings)}")
             
             # Log details of internal mappings if found
             if internal_mappings:
-                self.logger.info(f"🔍 [CONNECTION-ANALYZER] Internal mapping details:")
+                self.logger.info("🔍 [CONNECTION-ANALYZER] Internal mapping details:")
                 for i, mapping in enumerate(internal_mappings):
                     morphology = mapping.get("morphology", "unknown")
                     source = mapping.get("source", "unknown")
@@ -72,7 +73,7 @@ class ConnectionAnalyzer:
                 
             # Log details of outgoing mappings if any
             if outgoing_mappings:
-                self.logger.info(f"🔍 [CONNECTION-ANALYZER] Outgoing mapping details:")
+                self.logger.info("🔍 [CONNECTION-ANALYZER] Outgoing mapping details:")
                 for i, mapping in enumerate(outgoing_mappings[:3]):  # Show first 3
                     morphology = mapping.get("morphology", "unknown")
                     dest = mapping.get("destination", "unknown")
@@ -258,14 +259,14 @@ class ConnectionAnalyzer:
                         
                         if isinstance(area_data, dict) and "cortical_mapping_dst" in area_data:
                             cortical_mappings = area_data["cortical_mapping_dst"]
-                            self.logger.info(f"🔍 [CONNECTION-ANALYZER] Found cortical_mapping_dst")
+                            self.logger.info("🔍 [CONNECTION-ANALYZER] Found cortical_mapping_dst")
                             self.logger.info(f"🔍 [CONNECTION-ANALYZER] Mapping data type: {type(cortical_mappings)}")
                             self.logger.info(f"🔍 [CONNECTION-ANALYZER] Mapping data: {cortical_mappings}")
                             
                             # Check for mappings to itself (internal mappings)
                             if isinstance(cortical_mappings, dict) and cortical_id in cortical_mappings:
                                 connection_specs = cortical_mappings[cortical_id]
-                                self.logger.info(f"🔍 [CONNECTION-ANALYZER] Found internal mappings!")
+                                self.logger.info("🔍 [CONNECTION-ANALYZER] Found internal mappings!")
                                 self.logger.info(f"🔍 [CONNECTION-ANALYZER] Connection specs type: {type(connection_specs)}")
                                 self.logger.info(f"🔍 [CONNECTION-ANALYZER] Connection specs: {connection_specs}")
                                 
@@ -305,14 +306,14 @@ class ConnectionAnalyzer:
                             else:
                                 self.logger.info(f"🔍 [CONNECTION-ANALYZER] No self-mapping found. Available destinations: {list(cortical_mappings.keys()) if isinstance(cortical_mappings, dict) else 'not a dict'}")
                         else:
-                            self.logger.info(f"🔍 [CONNECTION-ANALYZER] No cortical_mapping_dst found in area data")
+                            self.logger.info("🔍 [CONNECTION-ANALYZER] No cortical_mapping_dst found in area data")
                     else:
                         self.logger.info(f"🔍 [CONNECTION-ANALYZER] {cortical_id} not found in blueprint")
                         self.logger.info(f"🔍 [CONNECTION-ANALYZER] Available cortical areas: {list(blueprint.keys()) if isinstance(blueprint, dict) else 'not a dict'}")
                 else:
-                    self.logger.info(f"🔍 [CONNECTION-ANALYZER] No blueprint found in genome")
+                    self.logger.info("🔍 [CONNECTION-ANALYZER] No blueprint found in genome")
             else:
-                self.logger.info(f"🔍 [CONNECTION-ANALYZER] No genome available")
+                self.logger.info("🔍 [CONNECTION-ANALYZER] No genome available")
                                         
             self.logger.info(f"🔍 [CONNECTION-ANALYZER] Found {len(mappings)} internal mappings for {cortical_id}")
             self.logger.info(f"🔍 [CONNECTION-ANALYZER] About to return mappings: {[m.get('morphology', 'unknown') for m in mappings]}")

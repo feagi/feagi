@@ -27,12 +27,12 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.api.v1.schemas import (
     CorticalAreaIdListResponse,
     CorticalAreaIndexListResponse,
     CorticalAreaMappingRestrictionRequest,
     CorticalAreaMappingRestrictionResponse,
+    CorticalAreaMemoryUsageResponse,
     CorticalAreaNameListResponse,
     CorticalAreaPropertiesResponse,
     CorticalAreaTypesResponse,
@@ -41,14 +41,14 @@ from feagi.api.v1.schemas import (
     CorticalIdRequest,
     CorticalLocationResponse,
     CorticalNameRequest,
+    CorticalPropertiesUpdateRequest,
+    CustomCorticalAreaRequest,
     MappingRestrictionsRequest,
     MappingRestrictionsResponse,
     NeuronCountResponse,
     SuccessResponse,
-    CorticalPropertiesUpdateRequest,
-    CustomCorticalAreaRequest,
-    CorticalAreaMemoryUsageResponse,
 )
+from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.utils.logger import setup_logger
 
 from .decorators import endpoint

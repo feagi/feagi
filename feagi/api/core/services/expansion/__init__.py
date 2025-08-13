@@ -5,8 +5,8 @@ This module provides intelligent synapse management during cortical area expansi
 implementing dimension-sensitive morphology handling and pattern extension.
 """
 
-from .pattern_extender import PatternExtender
 from .connection_analyzer import ConnectionAnalyzer
+from .pattern_extender import PatternExtender
 
 __all__ = [
     "PatternExtender",

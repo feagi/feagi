@@ -50,16 +50,23 @@ reduced) and incorporated in the new neuroplasticity function (below).
                                                         dst_cortical_area='utf8_memory', dst_neuron_id=dst_neuron,
                                                         long_term_depression=True, impact_multiplier=4)
 """
-import traceback
 import logging
-import xxhash
-
+import traceback
 from collections import deque
-from src.inf import runtime_data
-from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
-from src.evo.synapse import synapse_memory_neuron
-from src.npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
+import xxhash
+from src.evo.neuron import (
+    convert_shortterm_to_longterm,
+    increase_neuron_lifespan,
+    init_neuron,
+    neuron_apoptosis,
+)
+from src.evo.synapse import synapse_memory_neuron
+from src.inf import runtime_data
+from src.npu.physiology import (
+    list_downstream_plastic_neurons,
+    post_synaptic_current_update,
+)
 
 logger = logging.getLogger(__name__)
 

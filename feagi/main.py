@@ -533,7 +533,10 @@ def main():
         def force_exit():
             """Force exit after timeout if graceful shutdown hangs."""
             try:
-                from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+                from feagi.config.toml_loader import (
+                    get_timeout_config,
+                    load_feagi_config,
+                )
 
                 cfg = load_feagi_config()
                 to = get_timeout_config(cfg)

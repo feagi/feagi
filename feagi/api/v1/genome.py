@@ -26,12 +26,15 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 
 import json
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from fastapi import HTTPException, UploadFile
 from pydantic import BaseModel
 
 from feagi.api.core.services.core_api_service import CoreAPIService
+
+# Import genome conversion functions for hierarchical <-> flat conversion
+from feagi.evo.genome_processor import genome_v1_v2_converter
 from feagi.utils.logger import setup_logger
 
 from .decorators import genome_endpoint
@@ -48,9 +51,6 @@ from .schemas import (
     GenomeUploadResponse,
     SuccessResponse,
 )
-
-# Import genome conversion functions for hierarchical <-> flat conversion
-from feagi.evo.genome_processor import genome_v1_v2_converter
 
 logger = setup_logger(__name__)
 
