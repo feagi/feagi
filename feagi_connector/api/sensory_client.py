@@ -105,18 +105,28 @@ class FeagiSensoryClient:
             
             logger.info(f"Step 2: Created numpy arrays - x={len(neurons_x)}, y={len(neurons_y)}, z={len(neurons_z)}, p={len(neurons_p)}")
             
-            # Create cortical ID
-            cortical_id_obj = fdp.cortical_data.CorticalID(str(cortical_area))
-            logger.info(f"Step 3: Created cortical ID object")
+            # Create cortical ID using the modern feagi-data-processing approach
+            cortical_area_str = str(cortical_area)
+            
+            try:
+                # Try to create cortical ID directly from string - handles all modern format IDs
+                cortical_id_obj = fdp.genome.CorticalID.try_new_from_string(cortical_area_str)
+                logger.info(f"Step 3: Created cortical ID object from string: {cortical_area_str}")
+            except ValueError as e:
+                # If direct creation fails, treat as custom cortical area
+                # Note: Legacy ID conversion should happen at the genome level via migration
+                logger.warning(f"Could not create cortical ID from '{cortical_area_str}': {e}")
+                logger.info(f"Treating '{cortical_area_str}' as custom cortical area")
+                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(f'c{cortical_area_str}')
             
             # Use NumPy approach
-            neurons_array = fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+            neurons_array = fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                 neurons_x, neurons_y, neurons_z, neurons_p
             )
             logger.info(f"Step 4: Created neuron arrays object")
             
             # Create mapped neuron data container
-            generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+            generated_mapped_neuron_data = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             logger.info(f"Step 5: Created mapped neuron data container")
             
             generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
@@ -127,7 +137,7 @@ class FeagiSensoryClient:
             logger.info(f"Step 7: Created byte structure")
             
             # Get binary data - USE STANDARD METHOD - NO FALLBACKS
-            binary_data = byte_structure.copy_as_bytes()
+            binary_data = byte_structure.copy_out_as_byte_vector()
             logger.info(f"Step 8: Extracted binary data - {len(binary_data)} bytes")
             
             logger.info(f"📊 Agent encoded {len(neuron_data)} neurons into {len(binary_data)} bytes")
