@@ -165,7 +165,7 @@ class FileStorage:
             if os.path.exists(temp_path):
                 try:
                     os.unlink(temp_path)
-                except:
+                except Exception:
                     pass
             return Result.err(StateError.STORAGE_FAILURE)
     
@@ -175,5 +175,5 @@ class FileStorage:
             # Check if we can write to the directory
             parent_dir = os.path.dirname(self._file_path)
             return os.access(parent_dir, os.W_OK) and self._initialized
-        except:
+        except Exception:
             return False

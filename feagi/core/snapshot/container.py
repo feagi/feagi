@@ -33,6 +33,8 @@ import zlib
 from hashlib import blake2b, sha256
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import numpy as np
+from io import BytesIO
 
 MAGIC = b"FEAGIFGC"  # 8-byte magic for model container
 ALIGNMENT = 4096
