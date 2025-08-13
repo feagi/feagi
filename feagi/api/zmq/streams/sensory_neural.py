@@ -298,9 +298,23 @@ class SensoryNeuralStream:
                 cortical_areas = {}
                 neuron_count = 0
                 
-                for cortical_id, neuron_arrays in cortical_mapped.iter_full():
+                for cortical_id_obj, neuron_arrays in cortical_mapped.iter_full():
                     # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
                     x_coords, y_coords, z_coords, potentials = neuron_arrays
+                    
+                    # CRITICAL FIX: Handle both CorticalID objects and strings
+                    if hasattr(cortical_id_obj, 'as_ascii_string'):
+                        # It's a CorticalID object - convert to string
+                        cortical_id = cortical_id_obj.as_ascii_string()
+                    else:
+                        # It's already a string, but might be 'CorticalID(iic000)' format
+                        cortical_id_str = str(cortical_id_obj)
+                        if cortical_id_str.startswith('CorticalID(') and cortical_id_str.endswith(')'):
+                            # Extract the actual cortical ID from 'CorticalID(iic000)' format
+                            cortical_id = cortical_id_str[11:-1]  # Remove 'CorticalID(' and ')'
+                        else:
+                            # Use as is
+                            cortical_id = cortical_id_str
                     
                     if cortical_id not in cortical_areas:
                         cortical_areas[cortical_id] = {
