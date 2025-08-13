@@ -351,9 +351,9 @@ async def set_message_type_filters(message_types: List[str]):
 
 
 @router.post("/zmq/filter/endpoints")
-async def set_endpoint_filters(endpoints: List[str]):
+async def set_endpoint_filters_rest(endpoints: List[str]):
     """
-    Set endpoint filters for ZMQ debugging.
+    Set endpoint filters for ZMQ debugging (REST alias).
 
     Args:
         endpoints: List of endpoints to debug (e.g., ["tcp://localhost:5562", "tcp://*:5564"])

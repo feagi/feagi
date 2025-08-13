@@ -248,7 +248,7 @@ class SystemAPI:
             )
 
     @system_endpoint("GET", "/global_activity_visualization")
-    def get_global_activity_visualization(self) -> Dict[str, Any]:
+    def get_global_activity_visualization_info(self) -> Dict[str, Any]:
         """Get global activity visualization settings."""
         try:
             settings = self.core_api_service.get_global_activity_visualization()
@@ -258,7 +258,7 @@ class SystemAPI:
             raise ValueError(f"Failed to get global activity visualization: {str(e)}")
 
     @system_endpoint("GET", "/global_activity_visualization")
-    def get_global_activity_visualization(self) -> bool:
+    def get_global_activity_visualization_status(self) -> bool:
         """Get global activity visualization status (returns bool directly for legacy compatibility)."""
         try:
             enabled = self.core_api_service.get_global_activity_visualization()
@@ -292,7 +292,7 @@ class SystemAPI:
             raise ValueError(f"Failed to set global activity visualization: {str(e)}")
 
     @system_endpoint("GET", "/unique_logs")
-    def get_unique_logs(self) -> List[str]:
+    def get_unique_logs_list(self) -> List[str]:
         """Get unique log entries."""
         try:
             logs = self.core_api_service.get_unique_logs()
@@ -302,7 +302,7 @@ class SystemAPI:
             raise ValueError(f"Failed to get unique logs: {str(e)}")
 
     @system_endpoint("GET", "/unique_logs")
-    def get_unique_logs(self) -> Dict[str, Any]:
+    def get_unique_logs_dict(self) -> Dict[str, Any]:
         """Get unique log entries (returns dict format for legacy compatibility)."""
         try:
             logs = self.core_api_service.get_unique_logs()
@@ -313,7 +313,7 @@ class SystemAPI:
             raise ValueError(f"Failed to get unique logs: {str(e)}")
 
     @system_endpoint("GET", "/unique_logs")
-    def get_unique_logs(self) -> Dict[str, Any]:
+    def get_unique_logs_legacy(self) -> Dict[str, Any]:
         """Get unique log entries (returns legacy format {"PNS":[],"CNS":[]})."""
         try:
             # Return the exact legacy format

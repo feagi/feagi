@@ -249,7 +249,7 @@ async def log_requests(request: Request, call_next):
     # Method 1: Check state manager
     try:
         debug_api_enabled = state_manager.is_debug_api_enabled()
-    except:
+    except Exception:
         pass
     
     # Method 2: Check environment variable as fallback

@@ -4263,10 +4263,6 @@ class GenomeService(BaseService):
             import traceback
             self.logger.debug(f"Genome physiology error traceback: {traceback.format_exc()}")
 
-    def get_genome_filename(self) -> Optional[str]:
-        """Get the filename of the currently loaded genome."""
-        return self._genome_filename
-
     def get_current_genome(self) -> Dict[str, Any]:
         """Get the current genome copy (internal helper)."""
         return self._current_genome or {}
