@@ -1633,7 +1633,7 @@ class CoreAPIService:
             return morphology_info
         except Exception as e:
             self.logger.error(f"Error getting morphology info: {str(e)}")
-            raise ValueError(f"Failed to retrieve morphology info: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology info: {str(e)}") from e
 
     def _get_morphology_description(self, morphology: Dict[str, Any]) -> str:
         """Generate a description for a morphology based on its type and parameters."""
@@ -1688,7 +1688,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error creating morphology: {str(e)}")
-            raise ValueError(f"Failed to create morphology: {str(e)}")
+            raise ValueError(f"Failed to create morphology: {str(e)}") from e
 
     def update_morphology(self, morphology_id: str, updates: Dict[str, Any]) -> bool:
         """
@@ -1703,7 +1703,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error updating morphology: {str(e)}")
-            raise ValueError(f"Failed to update morphology: {str(e)}")
+            raise ValueError(f"Failed to update morphology: {str(e)}") from e
 
     def delete_morphology(self, morphology_id: str) -> bool:
         """
@@ -1718,7 +1718,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error deleting morphology: {str(e)}")
-            raise ValueError(f"Failed to delete morphology: {str(e)}")
+            raise ValueError(f"Failed to delete morphology: {str(e)}") from e
 
     def get_morphology_properties(self, morphology_name: str) -> Dict[str, Any]:
         """Get properties of a specific morphology."""
@@ -1736,7 +1736,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error getting morphology properties: {str(e)}")
-            raise ValueError(f"Failed to get morphology properties: {str(e)}")
+            raise ValueError(f"Failed to get morphology properties: {str(e)}") from e
 
     def get_morphology_usage(self, morphology_name: str) -> List[List[str]]:
         """Get usage report for a specific morphology."""
@@ -1767,7 +1767,7 @@ class CoreAPIService:
             import traceback
 
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
-            raise ValueError(f"Failed to get morphology usage: {str(e)}")
+            raise ValueError(f"Failed to get morphology usage: {str(e)}") from e
 
     def _extract_area_name_from_flat_format(self, flat_area_name: str) -> str:
         """
@@ -2007,7 +2007,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error getting cortical mapping properties: {str(e)}")
-            raise ValueError(f"Failed to get cortical mapping properties: {str(e)}")
+            raise ValueError(f"Failed to get cortical mapping properties: {str(e)}") from e
 
     def update_cortical_mapping_properties(
         self,
@@ -3578,7 +3578,7 @@ class CoreAPIService:
             self.logger.error(f"Vectorized coordinate extraction failed: {e}")
             # ❌ NO FALLBACK - Don't create fake coordinates
             # Real coordinates must exist - this is a configuration/initialization error
-            raise ValueError(f"Failed to extract neuron coordinates: {e}")
+            raise ValueError(f"Failed to extract neuron coordinates: {e}") from e
 
     def benchmark_neuron_coordinate_extraction(
         self, neuron_count: int = 10000
@@ -3937,52 +3937,8 @@ class CoreAPIService:
                 "last_update": 0,
             }
 
-    def get_agent_properties(self, agent_id: str) -> dict:
-        """
-        Get full properties for a specific agent.
-
-        Args:
-            agent_id: Agent identifier
-
-        Returns:
-            Dictionary with agent properties or empty dict if not found
-        """
-        try:
-            if self.state_manager:
-                return self.state_manager.get_agent_properties(agent_id)
-            else:
-                self.logger.warning("State manager not available for agent properties")
-                return {}
-        except Exception as e:
-            self.logger.error(f"Failed to get agent properties for {agent_id}: {e}")
-            return {}
-
-    def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
-        """Configure an agent with the given configuration."""
-        return self._agents_service.configure_agent(agent_id, config)
-
-    def get_service_health(self) -> Dict[str, Any]:
-        """Get health information about all domain services."""
-        try:
-            return {
-                "system_service": "healthy" if self._system_service else "unavailable",
-                "genome_service": "healthy" if self._genome_service else "unavailable",
-                "cortical_area_service": (
-                    "healthy" if self._cortical_area_service else "unavailable"
-                ),
-                "connectome_service": (
-                    "healthy" if self._connectome_service else "unavailable"
-                ),
-                "brain_service": "healthy" if self._brain_service else "unavailable",
-                "agents_service": "healthy" if self._agents_service else "unavailable",
-                "network_service": (
-                    "healthy" if self._network_service else "unavailable"
-                ),
-                "facade_status": "operational",
-            }
-        except Exception as e:
-            self.logger.error(f"Error getting service health: {str(e)}")
-            return {"facade_status": "error", "error": str(e)}
+    # Duplicate methods removed; use primary implementations defined earlier.
+    # configure_agent retained elsewhere; health and agent properties handled above.
 
     def get_visualized_cortical_list(self) -> List[str]:
         """Get list of cortical areas currently being visualized."""
@@ -4075,7 +4031,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error creating brain region: {str(e)}")
-            raise ValueError(f"Failed to create brain region: {str(e)}")
+            raise ValueError(f"Failed to create brain region: {str(e)}") from e
 
     def update_brain_region(
         self,
@@ -4105,7 +4061,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error updating brain region: {str(e)}")
-            raise ValueError(f"Failed to update brain region: {str(e)}")
+            raise ValueError(f"Failed to update brain region: {str(e)}") from e
 
     def delete_brain_region(
         self, region_id: str, preserve_children: bool = True
@@ -4129,7 +4085,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error deleting brain region: {str(e)}")
-            raise ValueError(f"Failed to delete brain region: {str(e)}")
+            raise ValueError(f"Failed to delete brain region: {str(e)}") from e
 
     def change_cortical_area_parent(
         self, cortical_area_id: str, new_parent_id: str
@@ -4151,7 +4107,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error changing cortical area parent: {str(e)}")
-            raise ValueError(f"Failed to change cortical area parent: {str(e)}")
+            raise ValueError(f"Failed to change cortical area parent: {str(e)}") from e
 
     def change_brain_region_parent(self, region_id: str, new_parent_id: str) -> bool:
         """
@@ -4168,7 +4124,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error changing brain region parent: {str(e)}")
-            raise ValueError(f"Failed to change brain region parent: {str(e)}")
+            raise ValueError(f"Failed to change brain region parent: {str(e)}") from e
 
     # ===== GENOME WRITE OPERATIONS =====
     # These methods handle genome modifications through proper data flow:
@@ -4187,7 +4143,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error resetting genome: {str(e)}")
-            raise ValueError(f"Failed to reset genome: {str(e)}")
+            raise ValueError(f"Failed to reset genome: {str(e)}") from e
 
     def process_amalgamation_request(
         self, amalgamation_data: Dict[str, Any]
@@ -4204,7 +4160,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error processing amalgamation request: {str(e)}")
-            raise ValueError(f"Failed to process amalgamation request: {str(e)}")
+            raise ValueError(f"Failed to process amalgamation request: {str(e)}") from e
 
     def cancel_amalgamation(self, amalgamation_id: str) -> bool:
         """
@@ -4219,7 +4175,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error cancelling amalgamation: {str(e)}")
-            raise ValueError(f"Failed to cancel amalgamation: {str(e)}")
+            raise ValueError(f"Failed to cancel amalgamation: {str(e)}") from e
 
     def append_circuit_to_genome(self, circuit_data: Dict[str, Any]) -> bool:
         """
@@ -4234,7 +4190,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error appending circuit to genome: {str(e)}")
-            raise ValueError(f"Failed to append circuit to genome: {str(e)}")
+            raise ValueError(f"Failed to append circuit to genome: {str(e)}") from e
 
     def complete_amalgamation(self, amalgamation_data: Dict[str, Any]) -> bool:
         """
@@ -4250,7 +4206,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error completing amalgamation: {str(e)}")
-            raise ValueError(f"Failed to complete amalgamation: {str(e)}")
+            raise ValueError(f"Failed to complete amalgamation: {str(e)}") from e
 
     def cancel_pending_amalgamation(self, amalgamation_id: str) -> bool:
         """
@@ -4265,7 +4221,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error cancelling pending amalgamation: {str(e)}")
-            raise ValueError(f"Failed to cancel pending amalgamation: {str(e)}")
+            raise ValueError(f"Failed to cancel pending amalgamation: {str(e)}") from e
 
     def mark_amalgamation_complete(self, amalgamation_id: str) -> bool:
         """
@@ -4282,7 +4238,7 @@ class CoreAPIService:
 
         except Exception as e:
             self.logger.error(f"Error marking amalgamation complete: {str(e)}")
-            raise ValueError(f"Failed to mark amalgamation complete: {str(e)}")
+            raise ValueError(f"Failed to mark amalgamation complete: {str(e)}") from e
 
     # ===== READ OPERATIONS (Already properly routed) =====
     # These methods are READ operations and correctly use existing services
