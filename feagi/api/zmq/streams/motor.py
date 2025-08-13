@@ -170,7 +170,8 @@ class MotorStream:
                 self.core_api.genome_is_loaded() if self.core_api else False
             )
         except Exception as e:
-            # If there's any error accessing genome state, default to standby mode
+            #  If there's any error accessing genome state, default to standby
+            #  mode
             logger.warning(
                 f"Error checking genome state: {e}, defaulting to standby mode"
             )
@@ -264,7 +265,8 @@ class MotorStream:
                 pass  # Expected during cancellation
             self._subscriber_monitor_task = None
 
-        # NOTE: FQ sampler control is handled by Registration Manager, not by streams
+        #  NOTE: FQ sampler control is handled by Registration Manager, not by
+        #  streams
 
         # RTOS-friendly: Simple socket cleanup
         if self.socket:
@@ -349,7 +351,8 @@ class MotorStream:
                 membrane_potentials = area_data.get("membrane_potentials", [])
                 coordinates = area_data.get("coordinates", [])
 
-                # Use membrane potentials if available, otherwise default to 1.0
+                #  Use membrane potentials if available, otherwise default to
+                #  1.0
                 if membrane_potentials and len(membrane_potentials) == len(
                     neuron_ids
                 ):
@@ -398,11 +401,13 @@ class MotorStream:
                         potentials[:max_len], dtype=np.float32
                     )
 
-                    # Create cortical ID using modern feagi-data-processing approach
+                    #  Create cortical ID using modern feagi-data-processing
+                    #  approach
                     area_str = str(area_id)
 
                     try:
-                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
@@ -429,7 +434,8 @@ class MotorStream:
                         )
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
                     generated_mapped_neuron_data.insert(
                         cortical_id_obj, neurons_array
                     )
@@ -482,7 +488,8 @@ class MotorStream:
                 )
                 return
 
-            # Debug logging for outbound motor data (zero-overhead when disabled)
+            #  Debug logging for outbound motor data (zero-overhead when
+            #  disabled)
             debug_endpoint = f"tcp://{self.host}:{self.port}"
             log_outbound(
                 endpoint=debug_endpoint,
@@ -532,7 +539,8 @@ class MotorStream:
                 )
                 return
 
-            # Debug logging for outbound motor data (zero-overhead when disabled)
+            #  Debug logging for outbound motor data (zero-overhead when
+            #  disabled)
             debug_endpoint = f"tcp://{self.host}:{self.port}"
             log_outbound(
                 endpoint=debug_endpoint,
@@ -622,11 +630,14 @@ class MotorStream:
                         f"{self._last_subscriber_count} -> {current_count}"
                     )
                     self._last_subscriber_count = current_count
-                    # NOTE: FQ sampler control is handled by Registration Manager
+                    #  NOTE: FQ sampler control is handled by Registration
+                    #  Manager
                     # when agents register/deregister
 
-                # RTOS-friendly: Use small bounded intervals for responsive shutdown
-                # Check running flag more frequently for deterministic cancellation
+                #  RTOS-friendly: Use small bounded intervals for responsive
+                #  shutdown
+                #  Check running flag more frequently for deterministic
+                #  cancellation
                 remaining_sleep = self.subscriber_check_interval
                 while remaining_sleep > 0 and self.running:
                     sleep_chunk = min(

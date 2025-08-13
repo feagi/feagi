@@ -104,7 +104,8 @@ class CorticalAreaAPI:
                 logger.error(
                     "CRITICAL: Cannot import cortical_template from templates.py - using minimal fallbacks"
                 )
-                # Minimal emergency fallbacks only - should never happen in normal operation
+                #  Minimal emergency fallbacks only - should never happen in
+                #  normal operation
                 self._templates_cache = {}
 
         return self._templates_cache
@@ -147,7 +148,8 @@ class CorticalAreaAPI:
             "parent_region_id": "root",
             "parent_region_title": "Genome's root brain region",
             "cortical_group": "CUSTOM",
-            # Memory area structural dimensions (always minimal for memory types)
+            #  Memory area structural dimensions (always minimal for memory
+            #  types)
             "memory_dimensions": [1, 1, 1],
         }
         return structural_defaults.get(property_type, None)
@@ -174,7 +176,8 @@ class CorticalAreaAPI:
             # Transform modern FEAGI format to expected legacy format
             parameters = area_data.get("parameters", {})
 
-            # Extract coordinates using structural defaults for spatial positioning
+            #  Extract coordinates using structural defaults for spatial
+            #  positioning
             coordinates = area_data.get("coordinates", {})
             if isinstance(coordinates, (list, tuple)):
                 # Handle tuple/list format: (x, y, z)
@@ -213,7 +216,8 @@ class CorticalAreaAPI:
                     ),
                 ]
 
-            # Extract dimensions using structural defaults for spatial dimensions
+            #  Extract dimensions using structural defaults for spatial
+            #  dimensions
             dimensions = area_data.get("dimensions", {})
             if isinstance(dimensions, (list, tuple)):
                 # Handle tuple/list format: (width, height, depth)
@@ -252,7 +256,9 @@ class CorticalAreaAPI:
                     ),
                 ]
 
-            # Build legacy format response using template defaults for neural properties and structural defaults for spatial/organizational properties
+            #  Build legacy format response using template defaults for neural
+            #  properties and structural defaults for spatial/organizational
+            #  properties
             legacy_properties = {
                 "cortical_id": area_data.get("id", request.cortical_id),
                 "cortical_idx": area_data.get(
@@ -416,7 +422,8 @@ class CorticalAreaAPI:
             if not cortical_id:
                 raise ValueError("cortical_id is required")
 
-            # Create a copy and remove cortical_id from the properties to update
+            #  Create a copy and remove cortical_id from the properties to
+            #  update
             properties_to_update = properties.copy()
             properties_to_update.pop("cortical_id", None)
 
@@ -495,7 +502,8 @@ class CorticalAreaAPI:
             copy_of = request.copy_of
 
             # Validate parent region
-            # ConnectomeManager ensures brain_regions structure exists during genome loading
+            #  ConnectomeManager ensures brain_regions structure exists during
+            #  genome loading
             genome_brain_regions = getattr(connectome, "genome", {}).get(
                 "brain_regions", {}
             )
@@ -560,10 +568,12 @@ class CorticalAreaAPI:
                 prefix="M" if is_memory else "C", seed=temp_name[:3]
             )
 
-            # ARCHITECTURE COMPLIANCE: Route through GenomeService instead of direct ConnectomeManager access
+            #  ARCHITECTURE COMPLIANCE: Route through GenomeService instead of
+            #  direct ConnectomeManager access
             genome_service = self.core_api_service._genome_service
 
-            # Create cortical area through proper pipeline: hierarchical genome -> GenomeService -> connectome
+            #  Create cortical area through proper pipeline: hierarchical
+            #  genome -> GenomeService -> connectome
             result = genome_service.create_cortical_area(
                 name=cortical_name,
                 coordinates={
@@ -822,7 +832,9 @@ class CorticalAreaAPI:
                             "z": coordinates[2],
                         }
 
-                    # Build complete cortical area data using template defaults for neural properties and structural defaults for spatial/organizational properties
+                    #  Build complete cortical area data using template
+                    #  defaults for neural properties and structural defaults
+                    #  for spatial/organizational properties
                     geometry_data[cortical_id] = {
                         "cortical_id": area_data.get("id", cortical_id),
                         "cortical_name": area_data.get("name", cortical_id),
@@ -1427,7 +1439,8 @@ class CorticalAreaAPI:
             )
 
             if not restriction_data:
-                # Return empty restriction for non-existent areas or no restrictions
+                #  Return empty restriction for non-existent areas or no
+                #  restrictions
                 return CorticalAreaMappingRestrictionResponse(
                     source_cortical_id=request.source_cortical_id,
                     destination_cortical_id=request.destination_cortical_id,

@@ -168,12 +168,14 @@ class MultiGPUManager:
         except Exception as e:
             logger.warning(f"Error discovering CuPy CUDA devices: {e}")
 
-        # Try WebGPU devices (placeholder - actual implementation would depend on wgpu-py)
+        #  Try WebGPU devices (placeholder - actual implementation would depend
+        #  on wgpu-py)
         try:
             # import wgpu  # Unused import removed
 
             # WebGPU device discovery would go here
-            # This is a placeholder since WebGPU device enumeration is more complex
+            #  This is a placeholder since WebGPU device enumeration is more
+            #  complex
             logger.debug(
                 "WebGPU backend available but device discovery not implemented"
             )

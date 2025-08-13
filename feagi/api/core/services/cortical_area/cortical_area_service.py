@@ -34,7 +34,8 @@ class CorticalAreaService(BaseService):
         """Initialize cortical area service."""
         super().__init__(connectome_manager, state_manager)
         self._genome_service = genome_service
-        # REMOVED: Time-based cache replaced with StateManager event-driven cache
+        #  REMOVED: Time-based cache replaced with StateManager event-driven
+        #  cache
         # self._cortical_areas_cache = None
         # self._cortical_areas_cache_timestamp = 0
 
@@ -154,7 +155,8 @@ class CorticalAreaService(BaseService):
         Returns:
             6-character string identifier if found, None otherwise
         """
-        # Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) disaster!
+        #  Use O(1) lookup from BiDirectionalCorticalMap - no more O(N)
+        #  disaster!
         return self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
 
     def clear_cache(self) -> None:
@@ -173,7 +175,8 @@ class CorticalAreaService(BaseService):
     def get_all_areas(self) -> List[Dict[str, Any]]:
         """Get all cortical areas using StateManager event-driven cache."""
         try:
-            # ARCHITECTURE COMPLIANCE: Use StateManager as single source of truth for cache
+            #  ARCHITECTURE COMPLIANCE: Use StateManager as single source of
+            #  truth for cache
             if self.state_manager:
                 result = self.state_manager.get_cortical_areas_cache(
                     self._connectome_manager
@@ -215,7 +218,8 @@ class CorticalAreaService(BaseService):
             Area information dictionary or None if not found
         """
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
+            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
+            #  of truth
             return self._connectome_manager.get_cortical_area_properties(
                 cortical_id
             )
@@ -254,7 +258,8 @@ class CorticalAreaService(BaseService):
             return None
 
         try:
-            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            #  ARCHITECTURE COMPLIANCE: Route WRITE operation through
+            #  GenomeService
             return self._genome_service.create_cortical_area(
                 name=name,
                 coordinates=coordinates,
@@ -305,7 +310,8 @@ class CorticalAreaService(BaseService):
             return None
 
         try:
-            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            #  ARCHITECTURE COMPLIANCE: Route WRITE operation through
+            #  GenomeService
             result = self._genome_service.update_cortical_area(
                 cortical_id=cortical_id,
                 name=name,
@@ -343,7 +349,8 @@ class CorticalAreaService(BaseService):
             return False
 
         try:
-            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            #  ARCHITECTURE COMPLIANCE: Route WRITE operation through
+            #  GenomeService
             return self._genome_service.delete_cortical_area(cortical_id)
         except Exception as e:
             self.logger.error(
@@ -709,7 +716,8 @@ class CorticalAreaService(BaseService):
                             }
                         )
                     else:
-                        # If no valid name or cortical_id, don't include this connection
+                        #  If no valid name or cortical_id, don't include this
+                        #  connection
                         self.logger.warning(
                             f"Skipping connection to area {connected_area_idx} - no valid name or cortical_id"
                         )
@@ -737,7 +745,8 @@ class CorticalAreaService(BaseService):
                             }
                         )
                     else:
-                        # If no valid name or cortical_id, don't include this connection
+                        #  If no valid name or cortical_id, don't include this
+                        #  connection
                         self.logger.warning(
                             f"Skipping connection to area {connected_area_idx} - no valid name or cortical_id"
                         )
@@ -752,8 +761,10 @@ class CorticalAreaService(BaseService):
                 f"Failed to retrieve connectivity: {str(e)}"
             ) from e
 
-    # REMOVED: stimulate_area method - consolidated into unified stimulate_neurons method
-    # in core API service. All stimulation now goes through the coordinate-based
+    #  REMOVED: stimulate_area method - consolidated into unified
+    #  stimulate_neurons method
+    #  in core API service. All stimulation now goes through the
+    #  coordinate-based
     # unified approach for consistency and performance.
 
     def get_id_list(self) -> List[str]:
@@ -763,7 +774,8 @@ class CorticalAreaService(BaseService):
             List of cortical area ID strings
         """
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
+            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
+            #  of truth
             cortical_ids = self._connectome_manager.get_all_cortical_ids()
             self.logger.debug(
                 f"Retrieved {len(cortical_ids)} cortical area IDs from ConnectomeManager"
@@ -781,7 +793,8 @@ class CorticalAreaService(BaseService):
         """Get a list of all cortical area indices (integers) used by the
         FCL."""
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
+            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
+            #  of truth
             indices = self._connectome_manager.get_all_cortical_indices()
             self.logger.debug(
                 f"Retrieved {len(indices)} cortical indices from ConnectomeManager"
@@ -799,7 +812,8 @@ class CorticalAreaService(BaseService):
     def get_name_list(self) -> List[str]:
         """Get a list of all cortical area names."""
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
+            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
+            #  of truth
             names = self._connectome_manager.get_cortical_area_names()
             return sorted(names)
         except Exception as e:
@@ -821,7 +835,8 @@ class CorticalAreaService(BaseService):
                 cortical_idx,
                 area,
             ) in self._connectome_manager.cortical_areas.items():
-                # Use cortical_id if available, otherwise fall back to string of index
+                #  Use cortical_id if available, otherwise fall back to string
+                #  of index
                 area_id = getattr(area, "cortical_id", str(cortical_idx))
                 mapping[area_id] = area.name
 
@@ -879,7 +894,8 @@ class CorticalAreaService(BaseService):
     def get_2d_locations(self) -> Dict[str, List[int]]:
         """Get 2D locations of all cortical areas."""
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
+            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
+            #  of truth
             # Extract 2D coordinates from cortical area properties
             locations = {}
             cortical_ids = self._connectome_manager.get_all_cortical_ids()

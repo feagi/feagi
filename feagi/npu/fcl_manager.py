@@ -351,7 +351,8 @@ class FCLManager:
         for _ in range(window_size):
             self.global_fcl_history.append(BitMap())
 
-        # Cortical-specific FCL history - mapping from cortical_idx to list of bitmaps
+        #  Cortical-specific FCL history - mapping from cortical_idx to list of
+        #  bitmaps
         self.cortical_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
 
         # Memory cortical areas with custom window sizes
@@ -535,7 +536,8 @@ class FCLManager:
         history_array = [BitMap() for _ in range(window_size)]
 
         # Store area with custom settings
-        # The third element is the start timestep, initialized to current timestep
+        #  The third element is the start timestep, initialized to current
+        #  timestep
         self.custom_cortical_history[cortical_idx] = (
             window_size,
             history_array,
@@ -1114,7 +1116,8 @@ class FCLManager:
             # Process both standard and memory areas
             for cortical_idx in cortical_indices:
                 if self.is_memory_cortical(cortical_idx):
-                    # For memory areas, use their specialized temporal pattern function
+                    #  For memory areas, use their specialized temporal pattern
+                    #  function
                     area_result = self.get_cortical_temporal_pattern(
                         cortical_idx, n_steps
                     )
@@ -1305,7 +1308,8 @@ class FCLManager:
             index = self._get_index_for_timestep(timestep)
             return len(self.global_fcl_history[index])
         else:
-            # Count neurons in the specified area (handles both standard and memory corticals)
+            #  Count neurons in the specified area (handles both standard and
+            #  memory corticals)
             cortical_fcl = self.get_cortical_fcl(cortical_idx, timestep)
             return len(cortical_fcl)
 
@@ -1581,14 +1585,18 @@ def example_enhanced_fcl_usage() -> None:
             )
 
     # Get neurons from specific corticals
-    # standard_cortical_fcl = fcl_manager.get_cortical_fcl(100)  # Unused variable removed
-    # memory_cortical_fcl = fcl_manager.get_cortical_fcl(400)  # Unused variable removed
+    #  standard_cortical_fcl = fcl_manager.get_cortical_fcl(100) # Unused
+    #  variable removed
+    #  memory_cortical_fcl = fcl_manager.get_cortical_fcl(400) # Unused
+    #  variable removed
 
     # Get combined activity from multiple corticals
-    # selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100, 300])  # Unused variable removed
+    #  selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100,
+    #  300]) # Unused variable removed
 
     # Check for temporal patterns in the memory cortical
-    # temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400, n_steps=5)  # Unused variable removed
+    #  temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400,
+    #  n_steps=5) # Unused variable removed
 
     # For memory corticals, we can analyze consistency over time
     # pattern_consistency = fcl_manager.get_memory_cortical_consistency(
@@ -1598,7 +1606,8 @@ def example_enhanced_fcl_usage() -> None:
     # )  # Unused variable removed
 
     # Get the most consistently active neurons in the memory cortical
-    # consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_cortical(
+    #  consistent_neurons =
+    #  fcl_manager.get_consistent_neurons_in_memory_cortical(
     #     400, n_steps=5
     # )  # Unused variable removed
 

@@ -258,7 +258,8 @@ def restore_brain_snapshot(
     except Exception:
         pass
 
-    # Restore SoA arrays from NPZ if present and a connectome manager is provided
+    #  Restore SoA arrays from NPZ if present and a connectome manager is
+    #  provided
     try:
         import numpy as np  # noqa: F401
 
@@ -291,7 +292,8 @@ def restore_brain_snapshot(
                                         # Unpack bit-packed booleans
                                         arr = np.unpackbits(arr, count=None)
                                     if index_map is not None:
-                                        # Scatter into existing capacity (or ensure length)
+                                        #  Scatter into existing capacity (or
+                                        #  ensure length)
                                         target = getattr(na, key, None)
                                         if target is None:
                                             setattr(na, key, arr)
@@ -414,7 +416,8 @@ def restore_brain_snapshot(
             else:
                 pass
 
-            # Post-restore: rebuild coordinate indices and id/index mappings (best-effort)
+            #  Post-restore: rebuild coordinate indices and id/index mappings
+            #  (best-effort)
             try:
                 na = getattr(connectome_manager, "neuron_array", None)
                 areas = getattr(connectome_manager, "cortical_areas", {})
@@ -443,7 +446,8 @@ def restore_brain_snapshot(
                                 area._position_map.clear()
                             if hasattr(area, "_position_to_neurons"):
                                 area._position_to_neurons.clear()
-                            # Collect all neurons belonging to this area by cortical_idx
+                            #  Collect all neurons belonging to this area by
+                            #  cortical_idx
                             cidx = getattr(area, "cortical_idx", None)
                             if cidx is None:
                                 continue
@@ -472,11 +476,14 @@ def restore_brain_snapshot(
                                 try:
                                     nid = -1
                                     if idx2id_arr is not None:
-                                        # If index map was present, indices array may be sparse; fall back to direct position if size permits
+                                        #  If index map was present, indices
+                                        #  array may be sparse; fall back to
+                                        #  direct position if size permits
                                         if int(i) < idx2id_arr.shape[0]:
                                             nid = int(idx2id_arr[int(i)])
                                     if nid < 0:
-                                        # Fallback to neuron_array mapping if available
+                                        #  Fallback to neuron_array mapping if
+                                        #  available
                                         nid = int(
                                             getattr(
                                                 na, "index_to_id_map", {}
@@ -531,7 +538,8 @@ def restore_brain_snapshot(
                             fclm.clear_all_window_caches()
                         except Exception:
                             pass
-                    # Refresh StateManager cortical areas cache to synchronize with restored areas
+                    #  Refresh StateManager cortical areas cache to synchronize
+                    #  with restored areas
                     try:
                         sm = state_manager
                         if sm and hasattr(sm, "set_cortical_list"):
@@ -559,7 +567,8 @@ def restore_brain_snapshot(
     except SnapshotRestoreError:
         raise
     except Exception:
-        # Best-effort for SoA restore to avoid breaking minimal snapshot restores
+        #  Best-effort for SoA restore to avoid breaking minimal snapshot
+        #  restores
         pass
 
     return True

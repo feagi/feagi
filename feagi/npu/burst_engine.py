@@ -20,8 +20,10 @@ import numpy as np
 
 # RTOS-COMPATIBLE: Removed signal and threading imports - not available in RTOS
 # import signal  # REMOVED: Not compatible with RTOS
-# import threading  # REMOVED: Not compatible with RTOS - use RTOS task primitives instead
-# WGPU-COMPATIBLE: Remove os import to eliminate environment variable dependencies
+#  import threading # REMOVED: Not compatible with RTOS - use RTOS task
+#  primitives instead
+#  WGPU-COMPATIBLE: Remove os import to eliminate environment variable
+#  dependencies
 # import os  # REMOVED: Environment variables not available in WGPU contexts
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.npu.fcl_injection_service import FCLInjectionService
@@ -124,7 +126,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         old_value = getattr(self, "_running_state", None)
         self._running_state = value
 
-        # WGPU-COMPATIBLE: Check debug_npu config instead of environment variable
+        #  WGPU-COMPATIBLE: Check debug_npu config instead of environment
+        #  variable
         # Check if NPU debug mode is enabled via --debug-npu flag
         state_manager = FeagiStateManager.instance()
         if state_manager.is_debug_npu_enabled() and old_value != value:
@@ -180,7 +183,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         self.memory_processor = None
         self._initialize_memory_processor()
 
-        # WGPU-COMPATIBLE: Check debug_npu from config only (no environment variables)
+        #  WGPU-COMPATIBLE: Check debug_npu from config only (no environment
+        #  variables)
         self.debug_npu = self.config.get("debug_npu", False)
 
         # Log debug NPU status when enabled
@@ -281,7 +285,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         if self.cortical_areas:
             self._initialize_injection_service()
 
-        # Manually initialize mixins (not through super() to avoid multiple inheritance issues)
+        #  Manually initialize mixins (not through super() to avoid multiple
+        #  inheritance issues)
         # Initialize performance mixin
         BurstEnginePerformanceMixin.__init__(self)
         # Initialize debug mixin
@@ -378,7 +383,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         Designed for 10M neurons at 15Hz on single-core embedded systems.
         """
-        # CRITICAL FIX: Initialize state_manager once at method start to prevent
+        #  CRITICAL FIX: Initialize state_manager once at method start to
+        #  prevent
         # "cannot access local variable" errors when exceptions occur
         state_manager = FeagiStateManager.instance()
 
@@ -394,7 +400,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 and state_manager.is_debug_npu_enabled()
             ):
                 try:
-                    # Get FCL from previous timestep (t-1) - this is what FQ sampler reads
+                    #  Get FCL from previous timestep (t-1) - this is what FQ
+                    #  sampler reads
                     fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
                     if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
                         neuron_list = list(fcl_t_minus_1)[
@@ -404,14 +411,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                             f"🔥 [NPU-DEBUG] FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}"
                         )
 
-                        # Show which cortical areas these neurons belong to using vectorized operation
+                        #  Show which cortical areas these neurons belong to
+                        #  using vectorized operation
                         if hasattr(
                             self.connectome_manager, "neuron_array"
                         ) and hasattr(
                             self.connectome_manager.neuron_array,
                             "cortical_area_id",
                         ):
-                            # Convert FCL to numpy array for vectorized processing
+                            #  Convert FCL to numpy array for vectorized
+                            #  processing
                             neuron_ids_array = np.array(
                                 list(fcl_t_minus_1), dtype=np.int32
                             )
@@ -462,7 +471,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 self.injection_service.inject_pre_burst(self.burst_count)
 
             # 2. Unified neural computation using embedded optimizations
-            # This now automatically uses SIMD, cache-aligned arrays, and block-sparse matrices
+            #  This now automatically uses SIMD, cache-aligned arrays, and
+            #  block-sparse matrices
             fired_neurons = self.connectome_manager.update_membrane_potentials(
                 current_timestep=self.burst_count
             )
@@ -504,7 +514,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         except Exception as e:
             logger.error(f"Error in burst processing: {e}")
-            # CRITICAL DEBUG: Always log traceback for state_manager errors to identify source
+            #  CRITICAL DEBUG: Always log traceback for state_manager errors to
+            #  identify source
             import traceback
 
             full_traceback = traceback.format_exc()
@@ -571,7 +582,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 )
 
         # 1. External candidates injection (pre-burst phase)
-        #    Add candidates to FCL for external sources (power areas, sensory input, etc.)
+        #  Add candidates to FCL for external sources (power areas, sensory
+        #  input, etc.)
         if self.injection_service:
             if state_manager.is_debug_npu_enabled():
                 logger.info(
@@ -580,7 +592,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.injection_service.inject_pre_burst(current_timestep)
 
         # 2. Core neural computation (synaptic propagation)
-        #    Process ALL FCL candidates (internal + external) in one unified sweep
+        #  Process ALL FCL candidates (internal + external) in one unified
+        #  sweep
         if state_manager.is_debug_npu_enabled():
             logger.info(
                 "[NPU-DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
@@ -691,7 +704,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         except Exception:
                             pass
 
-                    # fired_neurons = self._process_burst()  # Unused variable removed
+                    #  fired_neurons = self._process_burst() # Unused variable
+                    #  removed
                     self._process_burst()
                     processing_end = time.perf_counter()
                     processing_duration = processing_end - processing_start
@@ -709,7 +723,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 except Exception as e:
                     logger.error(f"Error in burst processing: {e}")
-                    # CRITICAL DEBUG: Always log traceback for state_manager errors to identify source
+                    #  CRITICAL DEBUG: Always log traceback for state_manager
+                    #  errors to identify source
                     import traceback
 
                     full_traceback = traceback.format_exc()
@@ -732,7 +747,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 # Calculate sleep time to maintain target frequency
                 if cycle_duration < self.burst_interval:
-                    # sleep_time = self.burst_interval - cycle_duration  # Unused variable removed
+                    #  sleep_time = self.burst_interval - cycle_duration #
+                    #  Unused variable removed
                     # RTOS-COMPATIBLE: Use deterministic timing
                     target_time = burst_cycle_start + self.burst_interval
                     while time.perf_counter() < target_time:
@@ -822,7 +838,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             pass
 
         try:
-            # CRITICAL FIX: Synchronize neuron array data to prevent size mismatches
+            #  CRITICAL FIX: Synchronize neuron array data to prevent size
+            #  mismatches
             # This fixes the "(13452,) (13846,) (13452,)" broadcasting error
             if hasattr(self.connectome_manager, "neuron_array"):
                 neuron_array = self.connectome_manager.neuron_array
@@ -850,7 +867,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         )
                     )
 
-                    # Count actual valid entries in ID mapping as source of truth
+                    #  Count actual valid entries in ID mapping as source of
+                    #  truth
                     actual_valid_count = len(
                         self.connectome_manager.neuron_id_to_index
                     )
@@ -858,7 +876,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         f"[SYNC FIX] ID mapping reports {actual_valid_count} neurons"
                     )
 
-                    # Rebuild valid_mask based on actual ID mappings (source of truth)
+                    #  Rebuild valid_mask based on actual ID mappings (source
+                    #  of truth)
                     corrected_valid_mask = np.zeros_like(
                         valid_mask, dtype=bool
                     )
@@ -883,7 +902,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         f"[SYNC FIX] Corrected valid_mask: {np.sum(corrected_valid_mask)} valid neurons"
                     )
 
-                # CRITICAL: Invalidate any cached arrays in burst engine to force refresh
+                #  CRITICAL: Invalidate any cached arrays in burst engine to
+                #  force refresh
                 if hasattr(self, "_cached_valid_neurons"):
                     delattr(self, "_cached_valid_neurons")
                 if hasattr(self, "_cached_neuron_count"):
@@ -906,12 +926,14 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 if area.properties.get("__shed", False)
             )
 
-            # Always ensure injection service is initialized when genome is loaded
+            #  Always ensure injection service is initialized when genome is
+            #  loaded
             # Update cortical areas from connectome
             self.cortical_areas = new_cortical_areas
             self.shed_areas = new_shed_areas
 
-            # Always initialize injection service to ensure proper special area detection
+            #  Always initialize injection service to ensure proper special
+            #  area detection
             state_manager = FeagiStateManager.instance()
             if state_manager.is_debug_npu_enabled():
                 logger.info(
@@ -1122,7 +1144,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             except Exception:
                 pass
 
-            # Derive current timestep from FCL manager if available; otherwise start at 0
+            #  Derive current timestep from FCL manager if available; otherwise
+            #  start at 0
             current_timestep = (
                 self.fcl_manager.current_timestep + 1
                 if self.fcl_manager
@@ -1252,7 +1275,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 )
                 logger.info(f"🧠 [MEMORY] Active memory areas: {active_areas}")
 
-            # Process memory areas aligned with FCL's current timestep to avoid window mismatches
+            #  Process memory areas aligned with FCL's current timestep to
+            #  avoid window mismatches
             fcl_current_timestep = (
                 self.fcl_manager.current_timestep
                 if self.fcl_manager
@@ -1275,7 +1299,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
     ) -> bool:
         """Register a memory area with the memory processor."""
         if not self.memory_processor:
-            # CRITICAL FIX: Retry MemoryProcessor initialization if it failed due to timing
+            #  CRITICAL FIX: Retry MemoryProcessor initialization if it failed
+            #  due to timing
             logger.info(
                 "🔧 [MEMORY-FIX] MemoryProcessor is None, attempting reinitialization..."
             )

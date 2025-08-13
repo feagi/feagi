@@ -366,8 +366,10 @@ class FeagiStateManager:
         self._cortical_areas_cache = None
         self._cortical_areas_cache_dirty = True  # Mark as dirty initially
 
-        # Initialize attributes expected by service health checks to avoid transient warnings
-        # These placeholders are replaced as the system initializes but prevent noisy WARN logs
+        #  Initialize attributes expected by service health checks to avoid
+        #  transient warnings
+        #  These placeholders are replaced as the system initializes but
+        #  prevent noisy WARN logs
         if not hasattr(self, "brain_stats"):
             self.brain_stats: Dict[str, int] = {
                 "neuron_count": 0,
@@ -385,7 +387,8 @@ class FeagiStateManager:
         if not hasattr(self, "exit_condition"):
             self.exit_condition: Optional[str] = None
 
-        # Flag to indicate a resynchronization is ongoing to reduce duplicate warnings
+        #  Flag to indicate a resynchronization is ongoing to reduce duplicate
+        #  warnings
         self._resync_in_progress: bool = False
 
         logger.info("FeagiStateManager initialized")
@@ -1086,7 +1089,8 @@ class FeagiStateManager:
                 "log_level": log_level,
                 "verbose": verbose,
                 "config_loaded": True,
-                # Debug flags from command line args - FIXED: use correct key names from CLI mapping
+                #  Debug flags from command line args - FIXED: use correct key
+                #  names from CLI mapping
                 "debug_npu": debug_config.get(
                     "npu", False
                 ),  # CLI maps debug_npu -> debug.npu
@@ -1114,7 +1118,8 @@ class FeagiStateManager:
                 if flag.startswith("debug_") and enabled
             ]
 
-            # Add memory debug flag separately since it doesn't follow the "debug_" prefix pattern
+            #  Add memory debug flag separately since it doesn't follow the
+            #  "debug_" prefix pattern
             if self._debug_config.get("mem_debug", False):
                 enabled_flags.append("mem_debug")
 

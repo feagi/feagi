@@ -70,7 +70,8 @@ class TestMode1Handler:
                 logger.error("No cortical areas found in connectome")
                 return False
 
-            # Verify cortical areas actually have neurons (neuroembryogenesis completed)
+            #  Verify cortical areas actually have neurons (neuroembryogenesis
+            #  completed)
             total_neurons = 0
             areas_with_neurons = 0
             for _cortical_id, area in self.connectome.cortical_areas.items():
@@ -112,8 +113,10 @@ class TestMode1Handler:
             bool: True if JSON file was loaded successfully, False otherwise
         """
         try:
-            # Get the directory where the current test_mode_1.py module is located
-            # This ensures the JSON file is expected in the same directory as the handler
+            #  Get the directory where the current test_mode_1.py module is
+            #  located
+            #  This ensures the JSON file is expected in the same directory as
+            #  the handler
             module_dir = Path(__file__).parent
             json_path = module_dir / "test_mode_activations.json"
 
@@ -328,7 +331,8 @@ class TestMode1Handler:
                     )
                     continue
 
-            # Submit coordinate activations via test runner (proper architecture)
+            #  Submit coordinate activations via test runner (proper
+            #  architecture)
             if coordinate_activations:
                 total_coordinates = sum(
                     len(coords) for coords in coordinate_activations.values()

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """
 Memory Processor - CPU-optimized pattern detection and memory neuron lifecycle management.
 
@@ -228,7 +228,8 @@ class MemoryProcessor:
                         logger.info(
                             "🧠 [MEMORY] No active memory areas to process"
                         )
-                    # Still perform global aging/lifecycle to allow short-term memories to expire
+                    #  Still perform global aging/lifecycle to allow short-term
+                    #  memories to expire
                     lifecycle_result = self._perform_aging_and_lifecycle(
                         current_burst
                     )
@@ -239,7 +240,8 @@ class MemoryProcessor:
                         lifecycle_result.get("neurons_converted", 0)
                     )
                     if mem_debug:
-                        # Dump snapshots for all known memory areas (properties keys)
+                        #  Dump snapshots for all known memory areas
+                        #  (properties keys)
                         for area_id in list(
                             self.memory_area_properties.keys()
                         ):
@@ -505,7 +507,8 @@ class MemoryProcessor:
                     )
 
             if existing_neuron_idx is not None:
-                # EXISTING neuron found - reactivate it (apply additive lifespan growth)
+                #  EXISTING neuron found - reactivate it (apply additive
+                #  lifespan growth)
                 reactivated = (
                     self.memory_neuron_array.reactivate_memory_neuron(
                         existing_neuron_idx, current_burst
@@ -565,16 +568,19 @@ class MemoryProcessor:
                     logger.error(
                         f"🚨 [MEMORY] Full traceback: {traceback.format_exc()}"
                     )
-                    # Don't let memory neuron creation failure block the entire process
+                    #  Don't let memory neuron creation failure block the
+                    #  entire process
 
-            # 3. CRITICAL FIX: Inject active memory neurons into FCL for visualization
+            #  3. CRITICAL FIX: Inject active memory neurons into FCL for
+            #  visualization
             # Memory neurons must fire to be visible to FQ Sampler
             if mem_debug:
                 logger.info(
                     f"�� [MEMORY] Injecting reactivated memory neurons into FCL for {memory_area_id}"
                 )
 
-            # For now, inject a single representative neuron (index 0) - proper implementation would
+            #  For now, inject a single representative neuron (index 0) -
+            #  proper implementation would
             # get actual memory neuron indices from the pattern cache
             self._inject_memory_neurons_into_fcl(
                 memory_area_id, [0], current_burst
@@ -585,7 +591,8 @@ class MemoryProcessor:
                     f"🧠 [MEMORY] No temporal pattern detected for memory area {memory_area_id} (no upstream activity)"
                 )
 
-        # Aging and long-term conversion occur once per burst in batch lifecycle processing
+        #  Aging and long-term conversion occur once per burst in batch
+        #  lifecycle processing
 
         return stats
 
@@ -633,7 +640,8 @@ class MemoryProcessor:
                     )  # Empty pattern for negative timesteps
                     continue
 
-                # Combine firing patterns from all upstream areas for this timestep
+                #  Combine firing patterns from all upstream areas for this
+                #  timestep
                 combined_bitmap = None
                 areas_with_activity = []
 
@@ -869,7 +877,8 @@ class MemoryProcessor:
                 f"🚨 [MEMORY] StateManager update traceback: {traceback.format_exc()}"
             )
 
-    # --- Added helper methods for upstream discovery, lifecycle, cortical mapping, and FCL injection ---
+    #  --- Added helper methods for upstream discovery, lifecycle, cortical
+    #  mapping, and FCL injection ---
 
     def _discover_upstream_areas(self, memory_cortical_id: str) -> Set[str]:
         """Discover upstream cortical areas for a given memory cortical area.
@@ -958,7 +967,8 @@ class MemoryProcessor:
                 )
 
             # Apply long-term conversion using configured thresholds per area
-            # Note: MemoryNeuronArray operates globally; we invoke conversion check
+            #  Note: MemoryNeuronArray operates globally; we invoke conversion
+            #  check
             # per distinct threshold to approximate area-specific policies.
             thresholds: Set[int] = set()
             for props in self.memory_area_properties.values():
@@ -1028,7 +1038,8 @@ class MemoryProcessor:
             current_burst: Current burst number
         """
         # Intentionally left as a no-op to maintain strict FCL semantics.
-        # Memory neuron to FCL integration will use proper ID mapping in future work.
+        #  Memory neuron to FCL integration will use proper ID mapping in
+        #  future work.
         return
 
     def _debug_log_memory_area_snapshot(

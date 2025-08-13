@@ -184,14 +184,16 @@ class ConnectomeManager(NeuronMappingProvider):
 
         self.max_synapses = max_synapses
 
-        # Initialize neuron array with automatic backend selection and mapping provider
+        #  Initialize neuron array with automatic backend selection and mapping
+        #  provider
         self.neuron_array = NeuronArray(
             max_neurons=self.max_neurons,
             backend=backend,
             mapping_provider=self,
         )
 
-        # CRITICAL FIX: Initialize neuron ID counter properly to prevent ID/index conflicts
+        #  CRITICAL FIX: Initialize neuron ID counter properly to prevent
+        #  ID/index conflicts
         # This prevents memory corruption from reusing IDs as indices
         if not hasattr(self.neuron_array, "_next_neuron_id"):
             self.neuron_array._next_neuron_id = (
@@ -214,7 +216,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"[CONNECTOME] Memory neuron array initialized with capacity {max_memory_neurons}"
             )
         except Exception as e:
-            # CRITICAL FIX: Always ensure memory_neuron_array exists for BurstEngine
+            #  CRITICAL FIX: Always ensure memory_neuron_array exists for
+            #  BurstEngine
             self.logger.warning(
                 f"Error initializing memory neuron array with config: {e}"
             )
@@ -241,22 +244,26 @@ class ConnectomeManager(NeuronMappingProvider):
         self.connectivity_rules = {}
         self.cortical_connections = {}
 
-        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "_power"
+        #  Core area reservations - cortical_idx=0 for "_death", cortical_idx=1
+        #  for "_power"
         self.reserved_cortical_areas = {"_death": 0, "_power": 1}
 
         # Initialize bidirectional cortical mapping
         self.cortical_mapping = BiDirectionalCorticalMap()
 
-        # Legacy compatibility - delegate to NeuronArray as single source of truth
+        #  Legacy compatibility - delegate to NeuronArray as single source of
+        #  truth
         self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = (
             {}
         )
 
-        # Initialize neuron ID mappings - ConnectomeManager is single source of truth
+        #  Initialize neuron ID mappings - ConnectomeManager is single source
+        #  of truth
         self._neuron_id_to_index_map: Dict[int, int] = {}
         self._index_to_neuron_id_map: Dict[int, int] = {}
 
-        # Cache management for property-based access (prevents memory corruption)
+        #  Cache management for property-based access (prevents memory
+        #  corruption)
         self._cache_invalidated = True
 
         # Neuron ID management - delegate to NeuronArray
@@ -268,7 +275,8 @@ class ConnectomeManager(NeuronMappingProvider):
             max_synapses=self.max_synapses, backend=backend
         )
 
-        # Initialize FCL manager and other missing attributes for BurstEngine compatibility
+        #  Initialize FCL manager and other missing attributes for BurstEngine
+        #  compatibility
         from feagi.npu.fcl_manager import FCLManager
 
         self.fcl_manager = FCLManager()
@@ -282,7 +290,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if multi_gpu_config:
             self._init_multi_gpu(multi_gpu_config)
 
-        # Initialize global spatial hash system for ultra-fast coordinate lookups
+        #  Initialize global spatial hash system for ultra-fast coordinate
+        #  lookups
         from feagi.bdu.spatial_hash import get_spatial_hash
 
         self._spatial_hash = get_spatial_hash()
@@ -310,9 +319,9 @@ class ConnectomeManager(NeuronMappingProvider):
 
         ConnectomeManager._initialized = True
 
-    # ============================================================================
+    #  ============================================================================
     # NeuronMappingProvider Interface Implementation - Single Source of Truth
-    # ============================================================================
+    #  ============================================================================
 
     def get_neuron_index(self, neuron_id: int) -> Optional[int]:
         """Get the array index for a neuron ID."""
@@ -397,8 +406,10 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.info(f"   Current neuron capacity: {self.max_neurons:,}")
             logger.info(f"   Optimal neuron capacity: {optimal_neuron_size:,}")
 
-            # CRITICAL FIX: Skip dynamic sizing if neurons already exist (e.g., during test mode)
-            # This prevents spatial hash corruption and neuron loss during genome loading
+            #  CRITICAL FIX: Skip dynamic sizing if neurons already exist
+            #  (e.g., during test mode)
+            #  This prevents spatial hash corruption and neuron loss during
+            #  genome loading
             current_neuron_count = self.get_neuron_count()
             if current_neuron_count > 0:
                 logger.info(
@@ -409,7 +420,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 return False
 
-            # Check if resizing is beneficial (reduce by at least 50% or increase if needed)
+            #  Check if resizing is beneficial (reduce by at least 50% or
+            #  increase if needed)
             if (
                 optimal_neuron_size < self.max_neurons * 0.5
                 or optimal_neuron_size > self.max_neurons
@@ -456,7 +468,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 else:
                     self._neuron_to_position = {}
 
-                # CRITICAL FIX: Clear and rebuild Morton spatial hash after resizing
+                #  CRITICAL FIX: Clear and rebuild Morton spatial hash after
+                #  resizing
                 # This prevents stale neuron references in the spatial hash
                 from feagi.bdu.spatial_hash import get_spatial_hash
 
@@ -800,7 +813,8 @@ class ConnectomeManager(NeuronMappingProvider):
             # Collect all currently used cortical_idx values
             used_indices = set()
 
-            # Add reserved indices (always reserved regardless of whether areas exist)
+            #  Add reserved indices (always reserved regardless of whether
+            #  areas exist)
             reserved_indices = set(self.reserved_cortical_areas.values())
             used_indices.update(reserved_indices)
 
@@ -813,7 +827,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     ):
                         used_indices.add(area.cortical_idx)
 
-            # Find the next available index starting from the minimum allowed (2)
+            #  Find the next available index starting from the minimum allowed
+            #  (2)
             min_non_reserved_idx = (
                 max(reserved_indices) + 1 if reserved_indices else 0
             )
@@ -1014,7 +1029,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if current_timestep is not None:
             self.current_timestep = current_timestep
 
-        # Perform high-performance neural update with GlobalSynapseArray integration
+        #  Perform high-performance neural update with GlobalSynapseArray
+        #  integration
         # First update membrane potentials and get fired neurons
         fired_neurons = self.neuron_array.update_membrane_potentials(
             timestep=self.current_timestep
@@ -1058,7 +1074,8 @@ class ConnectomeManager(NeuronMappingProvider):
         else:
             self.active_neurons[:] = False
 
-        # Convert fired indices to neuron IDs FIRST - CRITICAL FIX: Use correct vectorized method
+        #  Convert fired indices to neuron IDs FIRST - CRITICAL FIX: Use
+        #  correct vectorized method
         if fired_indices:
             fired_neuron_ids = self._vectorized_index_to_neuron_id(
                 np.array(fired_indices)
@@ -1070,7 +1087,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Update FCL manager with fired neurons
         if hasattr(self, "fcl_manager") and self.fcl_manager:
-            # CRITICAL FIX: Initialize state_manager outside if block to ensure scope
+            #  CRITICAL FIX: Initialize state_manager outside if block to
+            #  ensure scope
             from feagi.core.state_manager import get_state_manager
 
             state_manager = get_state_manager()
@@ -1079,7 +1097,8 @@ class ConnectomeManager(NeuronMappingProvider):
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
             if fired_neuron_ids:
-                # DEBUG: Log fired neurons and mapping status (gated by --debug-bdu flag)
+                #  DEBUG: Log fired neurons and mapping status (gated by
+                #  --debug-bdu flag)
                 if state_manager.is_debug_bdu_enabled():
                     logger.info(
                         f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
@@ -1090,7 +1109,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     fired_neuron_ids, dtype=np.int32
                 )
 
-                # All fired_neuron_ids should be valid since they came from indices
+                #  All fired_neuron_ids should be valid since they came from
+                #  indices
                 # But verify the mapping exists for safety
                 valid_mask = np.array(
                     [
@@ -1126,7 +1146,8 @@ class ConnectomeManager(NeuronMappingProvider):
                         indices
                     ].astype(np.int32)
 
-                    # Group neurons by cortical area using vectorized operations
+                    #  Group neurons by cortical area using vectorized
+                    #  operations
                     unique_cortical_indices = np.unique(cortical_indices)
                     for cortical_idx in unique_cortical_indices:
                         mask = cortical_indices == cortical_idx
@@ -1226,7 +1247,8 @@ class ConnectomeManager(NeuronMappingProvider):
             refractory_period=refractory_period,
         )
 
-        # Get the index from ConnectomeManager's mapping (single source of truth)
+        #  Get the index from ConnectomeManager's mapping (single source of
+        #  truth)
         index = self.get_neuron_index(neuron_id)
         if index is None:
             raise RuntimeError(
@@ -1356,7 +1378,8 @@ class ConnectomeManager(NeuronMappingProvider):
             }
 
         except Exception as e:
-            # If synapse lookup fails, still return basic properties but log the error
+            #  If synapse lookup fails, still return basic properties but log
+            #  the error
             self.logger.warning(
                 f"Failed to retrieve synapse information for neuron {neuron_id}: {e}"
             )
@@ -1472,7 +1495,8 @@ class ConnectomeManager(NeuronMappingProvider):
         valid_indices = np.where(combined_mask)[0]
 
         # VECTORIZED: Convert indices to neuron_ids using optimized SoA lookup
-        # Uses pre-built lookup array for O(1) per-element access (GPU/SIMD friendly)
+        #  Uses pre-built lookup array for O(1) per-element access (GPU/SIMD
+        #  friendly)
         if len(valid_indices) == 0:
             return []
 
@@ -1589,7 +1613,8 @@ class ConnectomeManager(NeuronMappingProvider):
         for target_id, _ in outgoing_connections:
             self.remove_synapse(neuron_id, target_id)
 
-        # Delete incoming synapses (synapses where this neuron is post-synaptic)
+        #  Delete incoming synapses (synapses where this neuron is
+        #  post-synaptic)
         incoming_connections = self.get_incoming_connections(neuron_id)
         for source_id, _ in incoming_connections:
             self.remove_synapse(source_id, neuron_id)
@@ -1725,7 +1750,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Use GlobalSynapseArray's vectorized batch creation
         return self.synapse_array.batch_create_synapses(valid_specs)
 
-    # Legacy optimized method removed - GlobalSynapseArray is inherently optimized
+    #  Legacy optimized method removed - GlobalSynapseArray is inherently
+    #  optimized
 
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
         """Remove a synapse between two neurons using GlobalSynapseArray.
@@ -1886,7 +1912,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if len(fired_indices):
             self.fcl_manager.add_to_current_fcl(fired_indices)
 
-        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
+        #  Convert fired indices to neuron IDs - CRITICAL FIX: Use correct
+        #  vectorized method
         if fired_indices:
             fired_neuron_ids = self._vectorized_index_to_neuron_id(
                 np.array(fired_indices)
@@ -1902,7 +1929,8 @@ class ConnectomeManager(NeuronMappingProvider):
         return fired_neuron_ids
 
     # More methods would follow for cortical areas, brain regions, etc.
-    # For this initial implementation, we're focusing on neuron and synapse management
+    #  For this initial implementation, we're focusing on neuron and synapse
+    #  management
 
     # ----------------------------------------------------------------------
     # Cortical Area Management Methods
@@ -1958,8 +1986,10 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
 
         # CRITICAL FIX: Check if an area with this cortical_id already exists
-        # This prevents duplicate creation of core areas (_power, _death) which would
-        # cause multiple areas to share the same cortical_idx, leading to neuron corruption
+        #  This prevents duplicate creation of core areas (_power, _death)
+        #  which would
+        #  cause multiple areas to share the same cortical_idx, leading to
+        #  neuron corruption
         if cortical_id and cortical_id in self.cortical_areas:
             logger.info(
                 f"Cortical area '{cortical_id}' already exists, returning existing area ID"
@@ -1968,7 +1998,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Check for reserved core areas and assign appropriate cortical_idx
         if cortical_id in self.reserved_cortical_areas:
-            # This is a core area (_power or _death) - use reserved cortical_idx
+            #  This is a core area (_power or _death) - use reserved
+            #  cortical_idx
             cortical_idx = self.reserved_cortical_areas[cortical_id]
             logger.info(
                 f"Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'"
@@ -1980,8 +2011,10 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Assigned cortical_idx={cortical_idx} to area '{cortical_id}' (dynamically allocated)"
             )
 
-        # CRITICAL COLLISION DETECTION: Ensure no two areas can share the same cortical_idx
-        # This is essential for one-to-one mapping between cortical_id and cortical_idx
+        #  CRITICAL COLLISION DETECTION: Ensure no two areas can share the same
+        #  cortical_idx
+        #  This is essential for one-to-one mapping between cortical_id and
+        #  cortical_idx
         existing_area_with_same_idx = None
         for existing_cortical_id, existing_area in self.cortical_areas.items():
             if (
@@ -2133,7 +2166,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"[MEMORY-REG] Initialized upstream mappings for {cortical_id}"
             )
 
-        # Update StateManager cache - but don't fail registration if StateManager fails
+        #  Update StateManager cache - but don't fail registration if
+        #  StateManager fails
         state_manager_success = False
         try:
             logger.info("[MEMORY-REG] Importing StateManager...")
@@ -2174,7 +2208,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 "[MEMORY-REG] Continuing with memory area registration despite StateManager failure"
             )
 
-        # CRITICAL FIX: Don't fail memory area registration if StateManager fails
+        #  CRITICAL FIX: Don't fail memory area registration if StateManager
+        #  fails
         # The memory area should still be functional for cortical mappings
         logger.info(
             f"Registered memory area {cortical_id} with temporal_depth={temporal_depth}"
@@ -2192,7 +2227,8 @@ class ConnectomeManager(NeuronMappingProvider):
             area = self.cortical_areas[cortical_id]
             cortical_idx = area.cortical_idx
 
-            # FCL window size should be at least temporal_depth for pattern recognition
+            #  FCL window size should be at least temporal_depth for pattern
+            #  recognition
             # Use default FCL window size as minimum to avoid issues
             fcl_window_size = max(
                 temporal_depth, self.fcl_manager.default_window_size
@@ -2311,7 +2347,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
                 burst_engine = BurstEngine.get_instance()
                 if burst_engine and burst_engine.memory_processor:
-                    # CRITICAL: Ensure memory area is registered with MemoryProcessor
+                    #  CRITICAL: Ensure memory area is registered with
+                    #  MemoryProcessor
                     if (
                         target_cortical_id
                         not in burst_engine.memory_processor.active_memory_areas
@@ -2358,7 +2395,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     current_upstream = self.memory_area_upstream_mappings[
                         target_cortical_id
                     ]
-                    # Update MemoryProcessor with the complete set of upstream areas
+                    #  Update MemoryProcessor with the complete set of upstream
+                    #  areas
                     burst_engine.memory_processor.update_memory_area_upstream(
                         target_cortical_id, current_upstream
                     )
@@ -2628,9 +2666,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 raise conversion_error
 
-            # CRITICAL FIX: Preserve existing mapping data from NeuroEmbryogenesis
-            # The area.properties["mapping"] may contain mapping specifications that haven't
-            # been converted to actual synaptic connections yet (e.g., memory mappings)
+            #  CRITICAL FIX: Preserve existing mapping data from
+            #  NeuroEmbryogenesis
+            #  The area.properties["mapping"] may contain mapping
+            #  specifications that haven't
+            #  been converted to actual synaptic connections yet (e.g., memory
+            #  mappings)
             existing_mapping = (
                 area.properties.get("mapping", {}) if area.properties else {}
             )
@@ -2642,11 +2683,13 @@ class ConnectomeManager(NeuronMappingProvider):
             # Start with existing mapping data from NeuroEmbryogenesis
             outgoing_mappings = existing_mapping.copy()
 
-            # ARCHITECTURE COMPLIANCE: Only supplement with connection matrix data
+            #  ARCHITECTURE COMPLIANCE: Only supplement with connection matrix
+            #  data
             # if there's no existing mapping specification for that target
             for dst_area_id in self.cortical_areas.keys():
                 if dst_area_id != cortical_id:  # Skip self-connections
-                    # Only check connection matrix if no mapping specification exists
+                    #  Only check connection matrix if no mapping specification
+                    #  exists
                     if dst_area_id not in outgoing_mappings:
                         # Get connection matrix between areas
                         connection_matrix = self.get_connection_matrix(
@@ -2660,17 +2703,20 @@ class ConnectomeManager(NeuronMappingProvider):
                                 connection_matrix.get("connections", [])
                             )
 
-            # Update mapping information in parameters (preserving NeuroEmbryogenesis data)
+            #  Update mapping information in parameters (preserving
+            #  NeuroEmbryogenesis data)
             properties["parameters"]["mapping"] = outgoing_mappings
 
             # CRITICAL FIX: Extract actual neuron properties from neuron array
-            # The user expects to see excitability, threshold, etc. in the cortical area properties
+            #  The user expects to see excitability, threshold, etc. in the
+            #  cortical area properties
             neuron_properties = self._extract_neuron_properties_for_area(
                 cortical_id
             )
             properties.update(neuron_properties)
 
-            # Convert all numpy types to native Python types for JSON serialization
+            #  Convert all numpy types to native Python types for JSON
+            #  serialization
             return self._convert_numpy_types_to_python(properties)
         except KeyError:
             self.logger.warning(f"Cortical area {cortical_id} not found")
@@ -2705,8 +2751,10 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
             if is_memory_area:
-                # For memory areas, return properties from the area's configuration
-                # Memory areas don't have regular neurons, so we use template properties
+                #  For memory areas, return properties from the area's
+                #  configuration
+                #  Memory areas don't have regular neurons, so we use template
+                #  properties
                 memory_properties = {
                     # Standard neuron properties (from memory template)
                     "neuron_excitability": area.properties.get(
@@ -2737,7 +2785,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 return memory_properties
 
-            # For regular cortical areas, extract properties from actual neurons
+            #  For regular cortical areas, extract properties from actual
+            #  neurons
             cortical_idx = area.cortical_idx
             neuron_array = self.neuron_array
 
@@ -2783,7 +2832,8 @@ class ConnectomeManager(NeuronMappingProvider):
             avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
             avg_refractory = sum(refractory_values) / len(refractory_values)
 
-            # Convert decay_rate back to leak_coefficient (reverse the calculation)
+            #  Convert decay_rate back to leak_coefficient (reverse the
+            #  calculation)
             # decay_rate = 1.0 - (leak_coefficient / 100.0)
             # leak_coefficient = (1.0 - decay_rate) * 100.0
             avg_leak_coefficient = (1.0 - avg_decay_rate) * 100.0
@@ -2839,7 +2889,8 @@ class ConnectomeManager(NeuronMappingProvider):
             for prop_name, new_value in property_updates.items():
                 # Handle special property name mappings
                 if prop_name == "neuron_consecutive_fire_count":
-                    # Update both the full name and the abbreviated name that the API looks for
+                    #  Update both the full name and the abbreviated name that
+                    #  the API looks for
                     area.properties["consecutive_fire_cnt_max"] = new_value
                     area.properties["c_fr_c"] = (
                         new_value  # The API looks for this field first
@@ -3005,7 +3056,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # CRITICAL: Invalidate lookup arrays after bulk neuron deletion
         if delete_neurons and neurons_to_delete:
-            # Clear the lookup maps that may be inconsistent after neuron deletion
+            #  Clear the lookup maps that may be inconsistent after neuron
+            #  deletion
             self._neuron_id_to_index_map.clear()
             self._index_to_neuron_id_map.clear()
             logger.info(
@@ -3448,7 +3500,8 @@ class ConnectomeManager(NeuronMappingProvider):
             cortical_idx = area.cortical_idx
 
         # Create neurons in batch using NeuronArray's batch method
-        # Let NeuronArray generate and manage its own IDs to prevent mapping conflicts
+        #  Let NeuronArray generate and manage its own IDs to prevent mapping
+        #  conflicts
         created_neuron_ids = self.neuron_array.batch_create_neurons(
             cortical_idx=cortical_idx,
             positions=positions,
@@ -3478,8 +3531,10 @@ class ConnectomeManager(NeuronMappingProvider):
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
 
-        # CRITICAL FIX: Register neurons in Morton spatial hash for coordinate-based lookups
-        # This enables neural injection, batch_voxel_to_neuron_lookup, and test mode to work
+        #  CRITICAL FIX: Register neurons in Morton spatial hash for
+        #  coordinate-based lookups
+        #  This enables neural injection, batch_voxel_to_neuron_lookup, and
+        #  test mode to work
         from feagi.bdu.spatial_hash import get_spatial_hash
 
         spatial_hash = get_spatial_hash()
@@ -3574,7 +3629,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 return False
 
-            # Convert update_values to the same type as the target array if needed
+            #  Convert update_values to the same type as the target array if
+            #  needed
             if isinstance(target_array, torch.Tensor):
                 # Handle PyTorch tensors
                 idx_tensor = torch.tensor(
@@ -3791,7 +3847,8 @@ class ConnectomeManager(NeuronMappingProvider):
                             or y >= new_dimensions[1]
                             or z >= new_dimensions[2]
                         ):
-                            # This neuron is now outside bounds - get its ID and delete it
+                            #  This neuron is now outside bounds - get its ID
+                            #  and delete it
                             neuron_id = self.index_to_neuron_id.get(idx)
                             if neuron_id is not None:
                                 self.delete_neuron(neuron_id)
@@ -4429,7 +4486,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if position is None:
             position = (0, 0, 0)
 
-        # For test compatibility, create a temporary cortical area if none is provided
+        #  For test compatibility, create a temporary cortical area if none is
+        #  provided
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
@@ -4485,7 +4543,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if position is None:
             position = (0, 0, 0)
 
-        # For test compatibility, create a temporary cortical area if none is provided
+        #  For test compatibility, create a temporary cortical area if none is
+        #  provided
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
@@ -4833,8 +4892,10 @@ class ConnectomeManager(NeuronMappingProvider):
         if hasattr(self, "area_neuron_masks"):
             self.area_neuron_masks.clear()
 
-        # NOTE: No longer managing next_cortical_idx counter since we use dynamic allocation
-        # The _find_next_available_cortical_idx() method handles cortical_idx assignment by
+        #  NOTE: No longer managing next_cortical_idx counter since we use
+        #  dynamic allocation
+        #  The _find_next_available_cortical_idx() method handles cortical_idx
+        #  assignment by
         # scanning existing areas and respecting reserved indices
 
         # 3. Clear brain regions
@@ -4861,10 +4922,12 @@ class ConnectomeManager(NeuronMappingProvider):
 
                 self.neuron_array.neuron_count = 0
 
-                # CRITICAL: Reset the internal index tracking to allow reuse of neurons
+                #  CRITICAL: Reset the internal index tracking to allow reuse
+                #  of neurons
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
-                # CRITICAL FIX: Reset NeuronArray's neuron ID counter to prevent ID instability
+                #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
+                #  prevent ID instability
                 self.neuron_array._next_neuron_id = 1
 
                 # Clear mappings that track neuron relationships
@@ -4883,7 +4946,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
-                # CRITICAL FIX: Also reset the neuron ID counter during force reset
+                #  CRITICAL FIX: Also reset the neuron ID counter during force
+                #  reset
                 self.neuron_array._next_neuron_id = 1
                 logger.info(
                     "Force-reset critical neuron array counters", status="[OK]"
@@ -4899,7 +4963,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if hasattr(self, "next_neuron_id"):
             self.next_neuron_id = 1  # Start from 1, not 0
 
-        # CRITICAL: Ensure NeuronArray and ConnectomeManager counters are synchronized
+        #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
+        #  synchronized
         if hasattr(self, "neuron_array") and hasattr(
             self.neuron_array, "_next_neuron_id"
         ):
@@ -4968,12 +5033,15 @@ class ConnectomeManager(NeuronMappingProvider):
         if "root" not in genome_data["brain_regions"]:
             logger.info("[BRAIN REGIONS] Creating default 'root' brain region")
 
-            # Get existing cortical areas from blueprint to assign to root region
+            #  Get existing cortical areas from blueprint to assign to root
+            #  region
             existing_areas = []
             blueprint = genome_data.get("blueprint", {})
             if blueprint:
-                # ARCHITECTURE: Only support hierarchical format (single source of truth)
-                # Flat format support removed - all genomes converted to hierarchical in GenomeService
+                #  ARCHITECTURE: Only support hierarchical format (single
+                #  source of truth)
+                #  Flat format support removed - all genomes converted to
+                #  hierarchical in GenomeService
                 existing_areas = list(blueprint.keys())
                 logger.info(
                     f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}"
@@ -5004,7 +5072,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Sync ConnectomeManager's brain_regions with genome
         self.brain_regions.update(genome_data["brain_regions"])
 
-        # ARCHITECTURE: StateManager is the single source of truth for genome data
+        #  ARCHITECTURE: StateManager is the single source of truth for genome
+        #  data
         # No local genome reference needed - always access through StateManager
 
         logger.info(
@@ -5057,7 +5126,8 @@ class ConnectomeManager(NeuronMappingProvider):
             # STEP 3: SAVE CURRENT STATE IF REQUESTED
             if save_current_state:
                 try:
-                    # Save current brain state (placeholder - implement actual save logic)
+                    #  Save current brain state (placeholder - implement actual
+                    #  save logic)
                     saved_state_info = {
                         "filename": "brain_state_backup.json",
                         "timestamp": "now",
@@ -5077,7 +5147,8 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         # STEP 4: CLEAR EXISTING BRAIN DATA (ALWAYS!)
-        # Even if no existing brain, we need to reset counters from any previous state
+        #  Even if no existing brain, we need to reset counters from any
+        #  previous state
         logger.info("Step 4: Clearing/resetting all brain data and arrays")
         clear_results = self._clear_existing_brain_data()
         logger.info(
@@ -5128,12 +5199,14 @@ class ConnectomeManager(NeuronMappingProvider):
                 status="[OK]",
             )
 
-            # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
+            #  CRITICAL: After reallocation, ensure NeuronArray is in pristine
+            #  state
             if hasattr(self, "neuron_array"):
                 self.neuron_array.next_index = 0
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.free_indices = set()
-                # CRITICAL FIX: Reset NeuronArray's neuron ID counter to prevent ID instability
+                #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
+                #  prevent ID instability
                 self.neuron_array._next_neuron_id = 1
                 self._neuron_id_to_index_map.clear()
                 self._index_to_neuron_id_map.clear()
@@ -5195,12 +5268,14 @@ class ConnectomeManager(NeuronMappingProvider):
             # Single index lookup
             return self.neuron_array.index_to_id_map.get(indices, -1)
         else:
-            # Batch lookup using vectorized method - CRITICAL: Ensure proper data types
+            #  Batch lookup using vectorized method - CRITICAL: Ensure proper
+            #  data types
             result = self.neuron_array.vectorized_indices_to_neuron_ids(
                 np.asarray(indices),
                 filter_invalid=True,  # Only return valid IDs
             )
-            # CRITICAL: Convert to Python integers to prevent segfault in FCL processing
+            #  CRITICAL: Convert to Python integers to prevent segfault in FCL
+            #  processing
             return result.astype(np.int64)
 
     # ======================================================================
@@ -5284,7 +5359,8 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs at the specified position
         """
-        # CRITICAL PERFORMANCE FIX: Use spatial indexing instead of linear search
+        #  CRITICAL PERFORMANCE FIX: Use spatial indexing instead of linear
+        #  search
         try:
             # Get cortical area to access spatial index
             cortical_area = self.get_cortical_area(cortical_id)
@@ -5405,7 +5481,8 @@ class ConnectomeManager(NeuronMappingProvider):
                         # Convert target neuron ID to index for comparison
                         dst_idx = self.neuron_id_to_index.get(dst_neuron_id)
                         if dst_idx is not None and dst_idx in target_indices:
-                            # Return neuron IDs instead of indices for consistency
+                            #  Return neuron IDs instead of indices for
+                            #  consistency
                             connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
@@ -6202,7 +6279,8 @@ class ConnectomeManager(NeuronMappingProvider):
             for position in candidate_positions:
                 neurons_at_pos = area.get_neurons_at_position(position)
                 for nid in neurons_at_pos:
-                    # FIXED: Use ConnectomeManager's mapping instead of neuron_array.id_to_index_map
+                    #  FIXED: Use ConnectomeManager's mapping instead of
+                    #  neuron_array.id_to_index_map
                     if nid in self._neuron_id_to_index_map:
                         found_neurons.append((nid, post_synaptic_current))
 
@@ -6229,7 +6307,8 @@ class ConnectomeManager(NeuronMappingProvider):
         state_manager = get_state_manager()
 
         morton_limit = state_manager.get_morton_coordinate_limit()
-        # Morton limit is per coordinate, so cortical area dimensions must be less than this
+        #  Morton limit is per coordinate, so cortical area dimensions must be
+        #  less than this
         max_dimension = morton_limit - 1  # Leave room for 0-based indexing
 
         return (max_dimension, max_dimension, max_dimension)

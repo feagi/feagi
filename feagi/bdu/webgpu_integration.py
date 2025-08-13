@@ -112,11 +112,13 @@ class ConnectomeManagerWebGPU:
 
     def _init_shaders(self):
         """Initialize shader modules for different operations."""
-        # Neuron update shader (follows recommendations from the architecture document)
+        #  Neuron update shader (follows recommendations from the architecture
+        #  document)
         neuron_shader = """
         """
 
-        # Synapse processing shader (follows architecture document recommendations)
+        #  Synapse processing shader (follows architecture document
+        #  recommendations)
         synapse_shader = """
         """
 
@@ -528,7 +530,8 @@ class ConnectomeManagerWebGPU:
             count=min(fired_count, 1_000_000),
         )
 
-        # OPTIMIZED: Use vectorized conversion instead of dictionary comprehension
+        #  OPTIMIZED: Use vectorized conversion instead of dictionary
+        #  comprehension
         fired_neuron_ids = (
             self.connectome.neuron_array.vectorized_indices_to_neuron_ids(
                 fired_neurons_data.astype(np.int64), filter_invalid=True

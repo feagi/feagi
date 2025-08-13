@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """
 Memory Neuron Array - Specialized SoA for memory neurons with temporal pattern tracking.
 
@@ -93,8 +93,10 @@ class MemoryNeuronArray:
         self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         self.index_to_pattern: Dict[int, MemoryPatternKey] = {}
 
-        # Rust-friendly digest mapping (primary for future migration): digest(bytes[32]) -> neuron_index
-        # Digest is computed deterministically from (pattern_data bytes, temporal_depth, source_cortical_areas)
+        #  Rust-friendly digest mapping (primary for future migration):
+        #  digest(bytes[32]) -> neuron_index
+        #  Digest is computed deterministically from (pattern_data bytes,
+        #  temporal_depth, source_cortical_areas)
         self.pattern_digest_to_index: Dict[bytes, int] = {}
         self.index_to_pattern_digest: Dict[int, bytes] = {}
 
@@ -191,7 +193,8 @@ class MemoryNeuronArray:
         Returns:
             Neuron index if successful, None if capacity exceeded or pattern exists
         """
-        # Prefer digest-based lookup (Rust-friendly); keep legacy mapping for compatibility
+        #  Prefer digest-based lookup (Rust-friendly); keep legacy mapping for
+        #  compatibility
         digest = self._compute_pattern_digest(pattern_key)
         existing_idx = self.pattern_digest_to_index.get(digest)
         if existing_idx is None and pattern_key in self.pattern_to_index:

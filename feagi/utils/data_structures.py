@@ -89,7 +89,8 @@ class RustCompatible:
             doc = ""
             class_doc = inspect.getdoc(self.__class__)
             if class_doc:
-                # Simple heuristic to extract field docs: look for "field_name: docstring"
+                #  Simple heuristic to extract field docs: look for
+                #  "field_name: docstring"
                 for line in class_doc.split("\n"):
                     if line.strip().startswith(f"{field_name}:"):
                         doc = line.split(":", 1)[1].strip()

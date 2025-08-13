@@ -42,7 +42,8 @@ class ConnectomeService(BaseService):
         try:
             neuron_id_int = int(neuron_id)
 
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             if (
                 neuron_id_int
                 not in self._connectome_manager._neuron_id_to_index
@@ -80,7 +81,8 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_synapses = sum(
                 len(connections)
@@ -136,7 +138,8 @@ class ConnectomeService(BaseService):
             return None
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             source_neurons = self._connectome_manager.get_neurons_by_area(
                 source_area
             )
@@ -186,7 +189,8 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             areas = list(self._connectome_manager.cortical_areas.keys())
             connectivity_matrix = {}
 
@@ -238,7 +242,8 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_connections = sum(
                 len(connections)

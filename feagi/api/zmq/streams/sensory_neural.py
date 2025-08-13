@@ -189,7 +189,8 @@ class SensoryNeuralStream:
         """Destructor to ensure cleanup even if stop() isn't called
         explicitly."""
         try:
-            # Only attempt cleanup if we haven't already cleaned up and are still running
+            #  Only attempt cleanup if we haven't already cleaned up and are
+            #  still running
             if getattr(self, "running", False):
                 # Try to stop gracefully but don't await (we're in destructor)
                 if hasattr(self, "ring_buffer"):
@@ -316,7 +317,8 @@ class SensoryNeuralStream:
                     cortical_id_obj,
                     neuron_arrays,
                 ) in cortical_mapped.iter_full():
-                    # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
+                    #  neuron_arrays is a tuple: (x_coords, y_coords, z_coords,
+                    #  potentials)
                     x_coords, y_coords, z_coords, potentials = neuron_arrays
 
                     # CRITICAL FIX: Handle both CorticalID objects and strings
@@ -324,12 +326,14 @@ class SensoryNeuralStream:
                         # It's a CorticalID object - convert to string
                         cortical_id = cortical_id_obj.as_ascii_string()
                     else:
-                        # It's already a string, but might be 'CorticalID(iic000)' format
+                        #  It's already a string, but might be
+                        #  'CorticalID(iic000)' format
                         cortical_id_str = str(cortical_id_obj)
                         if cortical_id_str.startswith(
                             "CorticalID("
                         ) and cortical_id_str.endswith(")"):
-                            # Extract the actual cortical ID from 'CorticalID(iic000)' format
+                            #  Extract the actual cortical ID from
+                            #  'CorticalID(iic000)' format
                             cortical_id = cortical_id_str[
                                 11:-1
                             ]  # Remove 'CorticalID(' and ')'
@@ -427,11 +431,13 @@ class SensoryNeuralStream:
             return StreamResult.DECODE_ERROR
 
         finally:
-            # Only commit the write slot if we actually processed data - CORRECT METHOD
+            #  Only commit the write slot if we actually processed data -
+            #  CORRECT METHOD
             if data_processed and slot:
                 self.ring_buffer.commit_write(slot)
 
-                # CRITICAL FIX: Auto-drain ring buffer after successful processing
+                #  CRITICAL FIX: Auto-drain ring buffer after successful
+                #  processing
                 # Since we process data immediately (not in separate consumer),
                 # we need to advance read index to prevent buffer_full errors
                 read_slot = self.ring_buffer.get_read_slot()
@@ -457,7 +463,8 @@ class SensoryNeuralStream:
             neuron_count = header.neuron_count
 
             # Create numpy arrays as views into the payload
-            # Layout: [firing_rates(float32) | x_coords(int32) | y_coords(int32) | z_coords(int32)]
+            #  Layout: [firing_rates(float32) | x_coords(int32) |
+            #  y_coords(int32) | z_coords(int32)]
             bytes_per_neuron = 16  # 4 + 4 + 4 + 4
 
             if len(payload) < neuron_count * bytes_per_neuron:
@@ -490,7 +497,8 @@ class SensoryNeuralStream:
 
             # Convert to unified neural data format with SAFE uint16 conversion
             try:
-                # CRITICAL FIX: Validate coordinate ranges before conversion to uint16
+                #  CRITICAL FIX: Validate coordinate ranges before conversion
+                #  to uint16
                 if x_coords is not None:
                     max_x = x_coords.max() if len(x_coords) > 0 else 0
                     if max_x > 65535:
@@ -515,7 +523,8 @@ class SensoryNeuralStream:
                         )
                         return StreamResult.DECODE_ERROR
 
-                # Build neural data with SAFE uint16 conversion (after validation)
+                #  Build neural data with SAFE uint16 conversion (after
+                #  validation)
                 neural_data = {
                     str(header.cortical_area_id): {
                         "coordinates_x": (

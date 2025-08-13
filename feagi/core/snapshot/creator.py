@@ -150,7 +150,8 @@ def create_brain_snapshot(
     try:
         from feagi.api.core.services.core_api_service import CoreAPIService
 
-        # connectome_manager is available; construct a minimal facade to fetch genome
+        #  connectome_manager is available; construct a minimal facade to fetch
+        #  genome
         cas = CoreAPIService(connectome_manager, state_manager)
         g = cas.get_current_genome() or cas.get_genome()
         if isinstance(g, dict) and g:
@@ -329,7 +330,8 @@ def create_brain_snapshot(
                                 dtype=_np.int64,
                             )
                         else:
-                            # Use next_index to limit to used range if available
+                            #  Use next_index to limit to used range if
+                            #  available
                             used_range = int(getattr(na, "next_index", 0))
                             if used_range <= 0:
                                 used_range = len(getattr(na, "valid_mask", []))
@@ -348,7 +350,8 @@ def create_brain_snapshot(
                             idx2id_path.read_bytes(), digest_size=32
                         ).hexdigest()
                 except Exception:
-                    # Mapping export is best-effort; core snapshot remains valid
+                    #  Mapping export is best-effort; core snapshot remains
+                    #  valid
                     pass
                 _np.savez_compressed(neurons_npz, **neuron_payload)
                 # Write meta

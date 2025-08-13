@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """Provides a series of methods to validate genome syntax.
 
 Supporting Genome Versions: 2.0
@@ -359,7 +359,8 @@ def validate_cortical_parameters(blueprint):
         if not isinstance(area_data, dict):
             continue
 
-        # In hierarchical format, properties are stored directly under the cortical area
+        #  In hierarchical format, properties are stored directly under the
+        #  cortical area
         # NOT under a "parameters" sub-dict
         for param_name, rules in parameter_rules.items():
             if param_name in area_data:
@@ -463,7 +464,8 @@ def blueprint_validator(genome):
 
         return param_validation["valid"]
 
-    # Skip invalid cortical area IDs with warnings instead of failing validation
+    #  Skip invalid cortical area IDs with warnings instead of failing
+    #  validation
     def check_cortical_area_validity():
         """Check for invalid cortical area IDs and warn about them, but don't
         fail validation."""
@@ -495,7 +497,8 @@ def blueprint_validator(genome):
                     not has_group_definition
                     and cortical_area not in invalid_areas
                 ):
-                    # Check if it looks like a known typo (e.g., ii_inf should be i_iinf)
+                    #  Check if it looks like a known typo (e.g., ii_inf should
+                    #  be i_iinf)
                     potential_fix = None
                     all_supported_ids = set()
 
@@ -622,7 +625,8 @@ def add_missing_dimension_sensitive_fields(genome):
                     f"AUTO-MIGRATION: Added dimension_sensitive=False to {morph_type} morphology '{morph_name}'"
                 )
             elif morph_type == "functions":
-                # Functions are typically dimension-sensitive (e.g., projectors)
+                #  Functions are typically dimension-sensitive (e.g.,
+                #  projectors)
                 morph_data["dimension_sensitive"] = True
                 logger.info(
                     f"AUTO-MIGRATION: Added dimension_sensitive=True to {morph_type} morphology '{morph_name}'"
@@ -667,7 +671,8 @@ def genome_validator_with_errors(genome):
     """
     errors = []
 
-    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility
+    #  MIGRATION: Convert burst_delay to simulation_timestep for backward
+    #  compatibility
     migration_result = migrate_burst_delay_to_simulation_timestep(genome)
     if migration_result["warnings"]:
         # Add migration warnings to validation errors if they indicate issues
@@ -675,7 +680,8 @@ def genome_validator_with_errors(genome):
             if "Error during" in warning:
                 errors.append(f"Migration warning: {warning}")
 
-    # MIGRATION: Convert legacy cortical IDs to new format for backward compatibility
+    #  MIGRATION: Convert legacy cortical IDs to new format for backward
+    #  compatibility
     cortical_id_migration_result = migrate_legacy_cortical_ids(genome)
     if cortical_id_migration_result["warnings"]:
         # Add migration warnings to validation errors if they indicate issues
@@ -1039,7 +1045,8 @@ def sanitize_invalid_morphologies(genome):
         cortical_id_migration_result.get("warnings", [])
     )
 
-    # ALWAYS auto-recover missing physiology section first (regardless of other issues)
+    #  ALWAYS auto-recover missing physiology section first (regardless of
+    #  other issues)
     physiology_recovery_result = sanitize_missing_physiology(genome)
     if (
         physiology_recovery_result["recovery_summary"]
@@ -1071,7 +1078,8 @@ def sanitize_invalid_morphologies(genome):
     # Collect warnings from IPU assignment corrections
     validation_warnings.extend(ipu_correction_result.get("warnings", []))
 
-    # Auto-correct invalid IPU/OPU areas to CUSTOM type (instead of removing them)
+    #  Auto-correct invalid IPU/OPU areas to CUSTOM type (instead of removing
+    #  them)
     invalid_ipu_opu_correction_result = auto_correct_invalid_ipu_opu_areas(
         genome
     )
@@ -1087,7 +1095,8 @@ def sanitize_invalid_morphologies(genome):
         invalid_ipu_opu_correction_result.get("warnings", [])
     )
 
-    # Remove only completely invalid cortical areas (those with no group definition)
+    #  Remove only completely invalid cortical areas (those with no group
+    #  definition)
     invalid_area_removal_result = remove_invalid_cortical_areas(genome)
     if (
         invalid_area_removal_result["removal_summary"]
@@ -1165,7 +1174,8 @@ def sanitize_invalid_morphologies(genome):
                 for mapping in gene_value:
                     if isinstance(mapping, dict) and "morphology" in mapping:
                         if mapping["morphology"] in removed_morphologies:
-                            # For now, we'll note this but not remove entire mappings
+                            #  For now, we'll note this but not remove entire
+                            #  mappings
                             fixed_references.append(
                                 f"Found mapping in {gene_key} with invalid morphology '{mapping['morphology']}'"
                             )
@@ -1175,7 +1185,8 @@ def sanitize_invalid_morphologies(genome):
             del blueprint[key]
 
         # Add missing required neuron properties with default values
-        # Import the cortical template for default values - THE SINGLE SOURCE OF TRUTH
+        #  Import the cortical template for default values - THE SINGLE SOURCE
+        #  OF TRUTH
         try:
             from feagi.evo.templates import (
                 cortical_property_mappings,
@@ -1201,7 +1212,8 @@ def sanitize_invalid_morphologies(genome):
         # Extract cortical areas from blueprint and add missing properties
         cortical_areas = set()
         for gene_key in blueprint.keys():
-            # Extract cortical area ID from gene key (format: _____10c-AREA_ID-...)
+            #  Extract cortical area ID from gene key (format:
+            #  _____10c-AREA_ID-...)
             parts = gene_key.split("-")
             if len(parts) >= 2:
                 cortical_area_id = parts[1]
@@ -1217,7 +1229,8 @@ def sanitize_invalid_morphologies(genome):
 
                 # Check if this property is missing from the blueprint
                 if gene_key not in blueprint:
-                    # Get the default value from cortical_template (THE SINGLE SOURCE OF TRUTH)
+                    #  Get the default value from cortical_template (THE SINGLE
+                    #  SOURCE OF TRUTH)
                     default_value = cortical_template.get(
                         prop_name, 0
                     )  # 0 as final fallback
@@ -1227,7 +1240,8 @@ def sanitize_invalid_morphologies(genome):
                         f"Added missing property {gene_key} = {default_value}"
                     )
 
-        # Add missing structural properties with sensible defaults for position coordinates
+        #  Add missing structural properties with sensible defaults for
+        #  position coordinates
         for cortical_area in cortical_areas:
             for (
                 prop_name,
@@ -1711,15 +1725,18 @@ def migrate_legacy_cortical_ids(genome):
     cortical_id_mappings = {}
     migrated = False
 
-    # Complete legacy cortical ID mappings based on feagi-data-processing sensor_types.rs
-    # Maps old cortical IDs from templates.py to new IDs from feagi-data-processing
+    #  Complete legacy cortical ID mappings based on feagi-data-processing
+    #  sensor_types.rs
+    #  Maps old cortical IDs from templates.py to new IDs from
+    #  feagi-data-processing
     legacy_id_map = {
         # CORE areas
         "___pwr": "_power",  # Core power area
         "___dth": "_death",  # Core death area
         # Motor/Output areas (OPU) - confirmed in templates.py
         "o__mot": "co_mot",  # Motor output
-        # Vision areas (IPU) - peripheral camera mappings confirmed in templates.py
+        #  Vision areas (IPU) - peripheral camera mappings confirmed in
+        #  templates.py
         "iv00_C": "iic400",  # Central vision (ImageCameraCenter)
         "iv00TL": "iic600",  # Top-left vision (ImageCameraTopLeft) → updated in templates.py
         "iv00TM": "iic700",  # Top-middle vision (ImageCameraTopMiddle) → updated in templates.py
@@ -1729,7 +1746,8 @@ def migrate_legacy_cortical_ids(genome):
         "iv00BL": "iic000",  # Bottom-left vision (ImageCameraBottomLeft)
         "iv00BM": "iic100",  # Bottom-middle vision (ImageCameraBottomMiddle)
         "iv00BR": "iic200",  # Bottom-right vision (ImageCameraBottomRight)
-        # Sensor areas (IPU) - based on sensor_types.rs and updated in templates.py
+        #  Sensor areas (IPU) - based on sensor_types.rs and updated in
+        #  templates.py
         "i__inf": "iinf00",  # Infrared sensor → confirmed in sensor_types.rs + templates.py
         "ii_inf": "iiif00",  # Reverse infrared sensor → confirmed in sensor_types.rs + templates.py
         "idgpio": "idgp00",  # Digital GPIO input → confirmed in sensor_types.rs + templates.py
@@ -1738,7 +1756,8 @@ def migrate_legacy_cortical_ids(genome):
         "i__bat": "ibat00",  # Battery gauge sensor → confirmed in sensor_types.rs + templates.py
         "i_spos": "isvp00",  # Servo position sensor → confirmed in sensor_types.rs + templates.py
         # Additional sensor areas that may exist in customer genomes
-        # These are from templates.py but don't have new mappings yet in sensor_types.rs
+        #  These are from templates.py but don't have new mappings yet in
+        #  sensor_types.rs
         # Will be updated as feagi-data-processing is extended
     }
 
@@ -1949,14 +1968,16 @@ def genome_validator_with_errors_silent(genome):
     """
     errors = []
 
-    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility (silent)
+    #  MIGRATION: Convert burst_delay to simulation_timestep for backward
+    #  compatibility (silent)
     try:
         migrate_burst_delay_to_simulation_timestep(genome)
     except Exception:
         # Silent mode - don't log migration errors
         pass
 
-    # MIGRATION: Convert legacy cortical IDs to new format for backward compatibility (silent)
+    #  MIGRATION: Convert legacy cortical IDs to new format for backward
+    #  compatibility (silent)
     try:
         migrate_legacy_cortical_ids(genome)
     except Exception:

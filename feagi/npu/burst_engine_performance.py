@@ -69,7 +69,8 @@ class BurstEnginePerformanceMixin:
 
         Called by main BurstEngine.__init__.
         """
-        # DO NOT call super().__init__ in mixins - causes multiple inheritance issues
+        #  DO NOT call super().__init__ in mixins - causes multiple inheritance
+        #  issues
         # Just initialize our own attributes
 
         # Initialize frequency measurement system
@@ -215,7 +216,8 @@ class BurstEnginePerformanceMixin:
 
         try:
             # Wait for measurements to be collected
-            # The timing data will be collected automatically in the main burst loop
+            #  The timing data will be collected automatically in the main
+            #  burst loop
             while (
                 time.perf_counter() < measurement_end
                 and len(self._burst_timing_buffer) < sample_count
@@ -249,7 +251,8 @@ class BurstEnginePerformanceMixin:
                     "No timing data collected during measurement period"
                 )
 
-            # Full cycle timing statistics (includes delays) - for actual frequency
+            #  Full cycle timing statistics (includes delays) - for actual
+            #  frequency
             full_cycle_data_ms = [t * 1000 for t in self._burst_timing_buffer]
             min_cycle_time_ms = min(full_cycle_data_ms)
             max_cycle_time_ms = max(full_cycle_data_ms)
@@ -260,7 +263,8 @@ class BurstEnginePerformanceMixin:
                 else 0.0
             )
 
-            # Processing timing statistics (pure processing) - for potential frequency
+            #  Processing timing statistics (pure processing) - for potential
+            #  frequency
             processing_data_ms = [
                 t * 1000 for t in self._processing_timing_buffer
             ]

@@ -183,7 +183,8 @@ class HealthMonitor:
             health = self.monitored_processes[process_name]
             health.last_heartbeat = time.time()
 
-            # If process was in WARNING state due to heartbeat, restore to RUNNING
+            #  If process was in WARNING state due to heartbeat, restore to
+            #  RUNNING
             if (
                 health.state == ProcessState.WARNING
                 and time.time() - health.last_heartbeat
@@ -236,7 +237,8 @@ class HealthMonitor:
             return
 
         cpu_usage = health.resource_usage.get("cpu", 0.0)
-        # memory_usage = health.resource_usage.get("memory", 0)  # Unused variable removed
+        #  memory_usage = health.resource_usage.get("memory", 0) # Unused
+        #  variable removed
 
         # Check for CRITICAL condition
         if cpu_usage >= health.cpu_warning_threshold:
@@ -256,7 +258,8 @@ class HealthMonitor:
                 )
                 self._handle_warning_process(process_name)
 
-        # If CPU usage is normal but was previously in WARNING, restore to RUNNING
+        #  If CPU usage is normal but was previously in WARNING, restore to
+        #  RUNNING
         elif current_state == ProcessState.WARNING:
             health.state = ProcessState.RUNNING
             logger.info(

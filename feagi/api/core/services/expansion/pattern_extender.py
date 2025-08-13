@@ -161,9 +161,11 @@ class PatternExtender:
                         ) in cortical_mappings.items():
                             if isinstance(connection_specs, list):
                                 for spec in connection_specs:
-                                    # CRITICAL FIX: Handle both dict and array formats
+                                    #  CRITICAL FIX: Handle both dict and array
+                                    #  formats
                                     if isinstance(spec, dict):
-                                        # Dict format: {"morphology_id": "lateral_+x", ...}
+                                        #  Dict format: {"morphology_id":
+                                        #  "lateral_+x", ...}
                                         mapping = {
                                             "source": cortical_id,
                                             "destination": dst_area,
@@ -180,8 +182,10 @@ class PatternExtender:
                                         isinstance(spec, list)
                                         and len(spec) >= 1
                                     ):
-                                        # Array format: ["lateral_+x", [1, 1, 1], 1.0, False, 1, 1, 1]
-                                        # Convert to dictionary format that the rest of the code expects
+                                        #  Array format: ["lateral_+x", [1, 1,
+                                        #  1], 1.0, False, 1, 1, 1]
+                                        #  Convert to dictionary format that
+                                        #  the rest of the code expects
                                         morphology_id = (
                                             spec[0] if len(spec) > 0 else None
                                         )
@@ -189,7 +193,8 @@ class PatternExtender:
                                             "morphology_id": morphology_id
                                         }
 
-                                        # Convert array elements to dictionary format
+                                        #  Convert array elements to dictionary
+                                        #  format
                                         if len(spec) > 1:
                                             morphology_dict[
                                                 "morphology_scalar"
@@ -232,9 +237,11 @@ class PatternExtender:
                             connection_specs = cortical_mappings[cortical_id]
                             if isinstance(connection_specs, list):
                                 for spec in connection_specs:
-                                    # CRITICAL FIX: Handle both dict and array formats
+                                    #  CRITICAL FIX: Handle both dict and array
+                                    #  formats
                                     if isinstance(spec, dict):
-                                        # Dict format: {"morphology_id": "lateral_+x", ...}
+                                        #  Dict format: {"morphology_id":
+                                        #  "lateral_+x", ...}
                                         mapping = {
                                             "source": source_area_id,
                                             "destination": cortical_id,
@@ -251,7 +258,8 @@ class PatternExtender:
                                         isinstance(spec, list)
                                         and len(spec) >= 1
                                     ):
-                                        # Array format: ["lateral_+x", [1, 1, 1], 1.0, False, 1, 1, 1]
+                                        #  Array format: ["lateral_+x", [1, 1,
+                                        #  1], 1.0, False, 1, 1, 1]
                                         morphology_id = (
                                             spec[0] if len(spec) > 0 else None
                                         )
@@ -259,7 +267,8 @@ class PatternExtender:
                                             "morphology_id": morphology_id
                                         }
 
-                                        # Convert array elements to dictionary format
+                                        #  Convert array elements to dictionary
+                                        #  format
                                         if len(spec) > 1:
                                             morphology_dict[
                                                 "morphology_scalar"
@@ -359,7 +368,8 @@ class PatternExtender:
                 self.logger.info(
                     f"[PATTERN-EXTEND] Morphology {morphology_id} is dimension-sensitive - full reconstruction needed"
                 )
-                # For dimension-sensitive morphologies, full reconstruction is handled elsewhere
+                #  For dimension-sensitive morphologies, full reconstruction is
+                #  handled elsewhere
                 return 0
             else:
                 self.logger.info(
@@ -456,23 +466,27 @@ class PatternExtender:
             initial_synapse_count = self.connectome_manager.get_synapse_count()
 
             # Apply morphology using the existing neuroembryogenesis logic
-            # Filter to only process new neurons by temporarily modifying area neurons
+            #  Filter to only process new neurons by temporarily modifying area
+            #  neurons
             area = self.connectome_manager.cortical_areas.get(cortical_id)
             if not area:
                 return 0
 
-            # Temporarily store original neuron list and replace with new neurons only
+            #  Temporarily store original neuron list and replace with new
+            #  neurons only
             original_neurons = area._neuron_indices.copy()
             try:
                 # Set area to contain only new neurons for pattern application
                 area._neuron_indices = new_neurons
 
-                # Apply the cortical mapping to create synapses for new neurons only
+                #  Apply the cortical mapping to create synapses for new
+                #  neurons only
                 embryogenesis = NeuroEmbryogenesis(
                     self.connectome_manager, self.state_manager
                 )
 
-                # CRITICAL FIX: Ensure embryogenesis has the current genome with morphology definitions
+                #  CRITICAL FIX: Ensure embryogenesis has the current genome
+                #  with morphology definitions
                 current_genome = self.state_manager.genome
                 if current_genome:
                     embryogenesis.genome = current_genome

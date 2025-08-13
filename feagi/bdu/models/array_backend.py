@@ -99,7 +99,8 @@ class ArrayBackend:
             try:
                 backend_type = BackendType(backend_type.lower())
             except ValueError:
-                # Only raise ValueError for obviously invalid strings, allow fallback for edge cases
+                #  Only raise ValueError for obviously invalid strings, allow
+                #  fallback for edge cases
                 if backend_type.lower() in [
                     "invalid_backend",
                     "invalid",
@@ -125,7 +126,8 @@ class ArrayBackend:
 
         self.backend_type = self._resolve_backend_type(backend_type)
         self.precision = precision
-        # Initialize default device (will be overridden by specific backends if needed)
+        #  Initialize default device (will be overridden by specific backends
+        #  if needed)
         self.device = "cpu"
         self._initialize_backend()
 
@@ -160,7 +162,8 @@ class ArrayBackend:
             if self._is_backend_available(candidate):
                 return candidate
 
-        # If no backend is available (unlikely, as NumPy should always be), default to NumPy
+        #  If no backend is available (unlikely, as NumPy should always be),
+        #  default to NumPy
         logger.warning(
             "No array backend could be resolved. Defaulting to NumPy."
         )
@@ -179,7 +182,8 @@ class ArrayBackend:
         if backend_type == BackendType.NUMPY:
             return True
         elif backend_type == BackendType.PYTORCH:
-            # PyTorch backend is available if torch is importable. CUDA usage is selected at init.
+            #  PyTorch backend is available if torch is importable. CUDA usage
+            #  is selected at init.
             return TORCH_AVAILABLE
         elif backend_type == BackendType.CUPY:
             return CUPY_AVAILABLE
@@ -364,7 +368,8 @@ class ArrayBackend:
         if self.backend_type == BackendType.NUMPY:
             return np.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
-            # For uint32, we need special handling since PyTorch doesn't support it
+            #  For uint32, we need special handling since PyTorch doesn't
+            #  support it
             if adjusted_dtype == np.uint32:
                 # Use int64 in PyTorch but preserve uint32 semantics
                 torch_dtype = torch.int64
@@ -598,8 +603,10 @@ class ArrayBackend:
             if self.precision == PrecisionType.FP16 and np.issubdtype(
                 data_np.dtype, np.floating
             ):
-                # Note: SciPy CSR doesn't work well with float16 due to internal code,
-                # so we'll use float32 for internal storage but mark it for FP16 precision
+                #  Note: SciPy CSR doesn't work well with float16 due to
+                #  internal code,
+                #  so we'll use float32 for internal storage but mark it for
+                #  FP16 precision
                 # This is a workaround for SciPy sparse matrix limitations
                 data_np = data_np.astype(np.float32)
                 csr = scipy.sparse.csr_matrix(
@@ -684,7 +691,8 @@ class ArrayBackend:
                 shape=shape,
             )
         elif self.backend_type == BackendType.WGPU:
-            # wgpu doesn't have built-in sparse matrix support, so we'll convert to dense
+            #  wgpu doesn't have built-in sparse matrix support, so we'll
+            #  convert to dense
             logger.warning(
                 "wgpu doesn't have native sparse matrix support. Converting to dense."
             )
@@ -936,8 +944,10 @@ class ArrayBackend:
             else:
                 return cp.matmul(a, b)
         elif self.backend_type == BackendType.WGPU:
-            # For wgpu, we can use a precompiled shader for matrix multiplication
-            # This is a simplified example; in practice, you would need to handle different shapes
+            #  For wgpu, we can use a precompiled shader for matrix
+            #  multiplication
+            #  This is a simplified example; in practice, you would need to
+            #  handle different shapes
             a_numpy = self._wgpu_to_numpy(a)
             b_numpy = self._wgpu_to_numpy(b)
 
@@ -1059,8 +1069,10 @@ class ArrayBackend:
         elif self.backend_type == BackendType.CUPY:
             array[index] = value
         elif self.backend_type == BackendType.WGPU:
-            # For wgpu, we need to handle this differently since GPU buffers don't support item assignment
-            # Convert to numpy, modify, then upload back (inefficient but works for now)
+            #  For wgpu, we need to handle this differently since GPU buffers
+            #  don't support item assignment
+            #  Convert to numpy, modify, then upload back (inefficient but
+            #  works for now)
             numpy_array = self._wgpu_to_numpy(array)
             numpy_array[index] = value
             # Update the GPU buffer by recreating it
@@ -1070,7 +1082,8 @@ class ArrayBackend:
             new_buffer._feagi_dtype = array._feagi_dtype
             new_buffer._feagi_size = array._feagi_size
             # Replace the original buffer's contents (this is a workaround)
-            # In practice, we'd need to modify the calling code to handle this better
+            #  In practice, we'd need to modify the calling code to handle this
+            #  better
             logger.warning(
                 "wgpu item assignment requires buffer recreation - consider batch operations for better performance"
             )

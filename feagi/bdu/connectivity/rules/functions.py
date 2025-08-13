@@ -344,7 +344,8 @@ def syn_projector(
         logger.info(f"[BDU DEBUG] Destination dimensions: {dst_dimensions}")
         logger.info(f"[BDU DEBUG] Source subregion: {src_subregion}")
 
-    # These will be updated based on the transpose and project_last_layer parameters
+    #  These will be updated based on the transpose and project_last_layer
+    #  parameters
     src_shape = [0, 0, 0]
     dst_shape = list(dst_dimensions)
 

@@ -187,12 +187,14 @@ class PublisherServer:
 
     async def _handle_system_events(self) -> Dict:
         """Get system events for broadcasting."""
-        # Instead of trying to call a non-existent method, return a default empty structure
+        #  Instead of trying to call a non-existent method, return a default
+        #  empty structure
         return {"events": [], "timestamp": time.time()}
 
     async def _handle_log_events(self) -> Dict:
         """Get log events for broadcasting."""
-        # Instead of trying to call a non-existent method, return a default empty structure
+        #  Instead of trying to call a non-existent method, return a default
+        #  empty structure
         return {"logs": [], "timestamp": time.time()}
 
     async def broadcast_event(self, event_type: str, event_data: Dict) -> None:

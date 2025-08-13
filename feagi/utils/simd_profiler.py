@@ -214,7 +214,8 @@ class SIMDProfiler:
         theoretical_time = theoretical_cycles / estimated_frequency
 
         # Efficiency is theoretical time / actual time
-        # Values > 1.0 indicate better than expected performance (cache effects, etc.)
+        #  Values > 1.0 indicate better than expected performance (cache
+        #  effects, etc.)
         # Values < 1.0 indicate suboptimal SIMD usage
         efficiency = (
             theoretical_time / operation_time if operation_time > 0 else 0.0

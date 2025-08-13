@@ -66,7 +66,8 @@ class BaseService:
                 if state_manager_result:
                     return True
                 else:
-                    # State manager says no genome, but let's double-check with connectome
+                    #  State manager says no genome, but let's double-check
+                    #  with connectome
                     self.logger.debug(
                         "State manager reports no genome loaded, checking connectome directly"
                     )
@@ -76,9 +77,12 @@ class BaseService:
                 )
 
         # REMOVED: Unapproved connectome pre-loading mechanism
-        # Previously this method would check if cortical areas exist in connectome
-        # and treat that as "genome loaded", bypassing proper neuroembryogenesis.
-        # This caused corruption by loading connectomes without BiDirectionalCorticalMap
+        #  Previously this method would check if cortical areas exist in
+        #  connectome
+        #  and treat that as "genome loaded", bypassing proper
+        #  neuroembryogenesis.
+        #  This caused corruption by loading connectomes without
+        #  BiDirectionalCorticalMap
         # synchronization. Connectome serialization/deserialization should be
         # user-controlled features, not automatic defaults.
 

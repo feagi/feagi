@@ -69,7 +69,8 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
                 pkg_part = pkg_part.strip()
                 condition = condition.strip()
 
-                # Evaluate the condition to see if this package should be included
+                #  Evaluate the condition to see if this package should be
+                #  included
                 if not _evaluate_requirement_condition(condition):
                     # Skip this package as the condition is not met
                     continue

@@ -293,10 +293,12 @@ class UnifiedFQSampler:
             return []
 
         try:
-            # STEP 1: Get areas that actually have firing neurons FROM FCL (performance fix)
+            #  STEP 1: Get areas that actually have firing neurons FROM FCL
+            #  (performance fix)
             areas_with_activity = []
 
-            # ✅ FCL-DRIVEN APPROACH: Query FCL for active cortical indices, then translate to IDs
+            #  ✅ FCL-DRIVEN APPROACH: Query FCL for active cortical indices,
+            #  then translate to IDs
             if (
                 hasattr(self.connectome_manager, "fcl_manager")
                 and self.connectome_manager.fcl_manager
@@ -310,7 +312,8 @@ class UnifiedFQSampler:
                         f"🔥 PIPELINE [{self.instance_id}]: FCL returned {len(active_cortical_indices)} active indices: {sorted(active_cortical_indices)}"
                     )
 
-                    # Translate cortical_idx -> cortical_id using BiDirectionalCorticalMap
+                    #  Translate cortical_idx -> cortical_id using
+                    #  BiDirectionalCorticalMap
                     for cortical_idx in active_cortical_indices:
                         try:
                             cortical_id = self.connectome_manager.get_cortical_id_for_idx(
@@ -319,7 +322,8 @@ class UnifiedFQSampler:
 
                             if cortical_id:
                                 areas_with_activity.append(cortical_id)
-                                # Get actual neuron count from FCL for this area
+                                #  Get actual neuron count from FCL for this
+                                #  area
                                 fcl_bitmap = self.connectome_manager.fcl_manager.get_cortical_fcl(
                                     cortical_idx
                                 )
@@ -444,7 +448,8 @@ class UnifiedFQSampler:
                     f"🔥 FQ SAMPLER: Found OPU areas via get_areas_by_type: {opu_areas}"
                 )
             else:
-                # Optimized scan for OPU areas - look for various OPU indicators
+                #  Optimized scan for OPU areas - look for various OPU
+                #  indicators
                 if hasattr(self.connectome_manager, "cortical_areas"):
                     for (
                         area_id,
@@ -528,14 +533,16 @@ class UnifiedFQSampler:
                     f"🔥 PIPELINE [{self.instance_id}]: Processing area '{area_id}'"
                 )
 
-                # MEMORY AREA OPTIMIZATION: Check if this is a memory area first
+                #  MEMORY AREA OPTIMIZATION: Check if this is a memory area
+                #  first
                 is_memory_area = self._is_memory_area(area_id)
 
                 if is_memory_area:
                     logger.info(
                         f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as MEMORY area"
                     )
-                    # Memory areas: efficient handling with simplified data structure
+                    #  Memory areas: efficient handling with simplified data
+                    #  structure
                     memory_data = self._sample_memory_area_optimized(
                         area_id, current_timestamp
                     )
@@ -586,7 +593,8 @@ class UnifiedFQSampler:
                     )
                     continue
 
-                # Direct reference to data (zero-copy) with fallback to view creation
+                #  Direct reference to data (zero-copy) with fallback to view
+                #  creation
                 neuron_ids = area_data["neuron_ids"]
 
                 if not neuron_ids:
@@ -755,8 +763,10 @@ class UnifiedFQSampler:
                     f"🔥 PIPELINE [{self.instance_id}]: Memory area '{area_id}' has {neuron_count} firing neurons in FCL"
                 )
 
-                # Memory area is active - return safe placeholder data for visualization
-                # Use a high placeholder ID that won't conflict with regular neuron lookups
+                #  Memory area is active - return safe placeholder data for
+                #  visualization
+                #  Use a high placeholder ID that won't conflict with regular
+                #  neuron lookups
                 placeholder_id = 100000 + cortical_idx  # Safe range: 100000+
 
                 memory_data = {

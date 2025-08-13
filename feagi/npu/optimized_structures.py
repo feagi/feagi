@@ -83,14 +83,16 @@ class FireCandidateList:
             # Fallback to NumPy implementation
             self._use_rust = False
 
-            # For smaller neuron counts, use a dense boolean mask (fastest for most operations)
+            #  For smaller neuron counts, use a dense boolean mask (fastest for
+            #  most operations)
             if capacity <= 1000000:  # 1M neurons threshold
                 self._mask = np.zeros(capacity, dtype=np.bool_)
                 if neuron_ids is not None:
                     self._mask[neuron_ids] = True
                 self._use_dense = True
             else:
-                # For large neuron counts, use a bitmap as well to ensure O(1) add/remove/contains
+                #  For large neuron counts, use a bitmap as well to ensure O(1)
+                #  add/remove/contains
                 # This avoids per-step allocations and linear membership checks
                 self._mask = np.zeros(capacity, dtype=np.bool_)
                 if neuron_ids is not None and len(neuron_ids) > 0:
@@ -197,8 +199,10 @@ class Connectome:
             self._use_rust = False
 
             # Initialize CSR-like arrays
-            # source_offsets[i] gives the starting index in target_indices for source i's connections
-            # source_offsets[i+1] - source_offsets[i] gives the number of connections from source i
+            #  source_offsets[i] gives the starting index in target_indices for
+            #  source i's connections
+            #  source_offsets[i+1] - source_offsets[i] gives the number of
+            #  connections from source i
             self.source_offsets = np.zeros(neuron_count + 1, dtype=np.int32)
 
             # Connection tracking arrays (Structure of Arrays design)
@@ -210,7 +214,8 @@ class Connectome:
                 estimated_connections, dtype=np.float32
             )
 
-            # MEMORY OPTIMIZATION: Use uint16 for cortical indices (supports 65,536 areas)
+            #  MEMORY OPTIMIZATION: Use uint16 for cortical indices (supports
+            #  65,536 areas)
             self.source_cortical_idxs = np.zeros(
                 estimated_connections, dtype=np.uint16
             )
@@ -263,7 +268,8 @@ class Connectome:
                 )
                 self._resize_arrays(new_capacity)
 
-            # Find position to insert: after existing connections from source_id
+            #  Find position to insert: after existing connections from
+            #  source_id
             insert_pos = self.source_offsets[source_id]
 
             # Shift existing connections from later sources
@@ -532,7 +538,8 @@ class OptimizedFeagiCore:
                 source_activations.tolist(), target_buffer.tolist()
             )
 
-            # Update membrane potentials using NeuronArray batch API if available
+            #  Update membrane potentials using NeuronArray batch API if
+            #  available
             if (
                 hasattr(self.gna, "batch_update_membrane_potentials")
                 and firing_neurons

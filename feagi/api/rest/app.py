@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 
 import os
 import random
@@ -41,11 +41,13 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-# Remove the old router imports - no longer needed since we use universal wrapper directly
+#  Remove the old router imports - no longer needed since we use universal
+#  wrapper directly
 from feagi.api.dependencies import *
 from feagi.api.models import *
 
-# Import the universal FastAPI wrapper directly instead of individual router files
+#  Import the universal FastAPI wrapper directly instead of individual router
+#  files
 from feagi.api.transport.universal_fastapi import (
     get_burst_engine_router,
     get_connectome_router,
@@ -82,8 +84,10 @@ from .commons import (
 from .config import settings
 from .response_utils import error_response, success_response
 
-# Note: v2 routers have been removed since we now use the universal wrapper directly for all routes
-# The v2 functionality can be added in the future if needed via the universal wrapper pattern
+#  Note: v2 routers have been removed since we now use the universal wrapper
+#  directly for all routes
+#  The v2 functionality can be added in the future if needed via the universal
+#  wrapper pattern
 
 
 description = """FEAGI REST API will help you integrate FEAGI into other applications and
@@ -115,7 +119,8 @@ def custom_swagger_ui_html():
 
     This fixes the white screen issue that can occur on Windows systems.
     """
-    # Read the custom HTML template directly with Windows-compatible path handling
+    #  Read the custom HTML template directly with Windows-compatible path
+    #  handling
     template_path = Path(__file__).parent / "static" / "custom-swagger-ui.html"
     logger.info(
         f"Loading custom Swagger UI template from {template_path}",
@@ -383,7 +388,8 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         logger.warning(f"🔵 [API-DEBUG] Failed to read request body: {e}")
 
-    # Store original body for downstream handlers (since we consumed the stream)
+    #  Store original body for downstream handlers (since we consumed the
+    #  stream)
     async def receive():
         return {
             "type": "http.request",
@@ -424,7 +430,8 @@ async def log_requests(request: Request, call_next):
         try:
             # For streaming responses, we need to be careful
             if hasattr(response, "body_iterator"):
-                # This is a streaming response, we can't easily capture the body
+                #  This is a streaming response, we can't easily capture the
+                #  body
                 logger.info(
                     "🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
                 )
@@ -539,7 +546,7 @@ standard_response = {
 #     response = await call_next(request)
 #     origin = response.headers.get("Access-Control-Allow-Origin", "")
 #     new_origin = ""
-#     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
+#  response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
 #     return response
 
 
@@ -571,7 +578,8 @@ def create_rest_app_direct(config: Dict[str, Any]):
         status="[LINK]",
     )
 
-    # RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment lookup
+    #  RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment
+    #  lookup
     core_api_service = config["core_api"]
     state_manager = config["state_manager"]
     connectome_manager = config["connectome_manager"]
@@ -600,7 +608,8 @@ def create_rest_app_direct(config: Dict[str, Any]):
 
     set_core_api_service_instance(core_api_service)
 
-    # For now, return the existing app instance (already configured with all routes)
+    #  For now, return the existing app instance (already configured with all
+    #  routes)
     # In future iterations, we can create a fresh app instance here
     global app
 
@@ -615,7 +624,8 @@ def create_rest_app(connectome: ConnectomeManager = None):
     """Factory function to return the FastAPI app instance, with connectome
     dependency injection."""
 
-    # CRITICAL FIX: Ensure true singleton pattern for mission-critical reliability
+    #  CRITICAL FIX: Ensure true singleton pattern for mission-critical
+    #  reliability
     core_api_service = None
 
     # Check if we're running as part of the main FEAGI process (singleton mode)
@@ -625,7 +635,8 @@ def create_rest_app(connectome: ConnectomeManager = None):
             status="[LINK]",
         )
 
-        # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
+        #  CRITICAL FIX: In subprocess mode, we can't access parent's
+        #  ProcessManager
         # Instead, use the singleton ConnectomeManager directly
         from feagi.bdu.connectome_manager import ConnectomeManager
 
@@ -700,7 +711,8 @@ def create_rest_app(connectome: ConnectomeManager = None):
     global app
 
     # CRITICAL: Include all routers here instead of at module level
-    # This prevents FastAPI router creation during module import in embedded mode
+    #  This prevents FastAPI router creation during module import in embedded
+    #  mode
     logger.info("[LINK] Including FastAPI routers for REST endpoints")
 
     app.include_router(

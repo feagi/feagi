@@ -153,7 +153,8 @@ class WebGPUBackend(BackendInterface):
         #     np.uint8: "uint8",
         # }  # Unused variable removed
 
-        # buffer_format = format_map.get(np.dtype(dtype), "float32")  # Unused variable removed
+        #  buffer_format = format_map.get(np.dtype(dtype), "float32") # Unused
+        #  variable removed
 
         # Create a buffer on the GPU
         buffer_size = size * np.dtype(dtype).itemsize

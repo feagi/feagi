@@ -372,7 +372,8 @@ class ConnectomeAPI:
             with open(temp_file_path, "w") as f:
                 json.dump(area, f, indent=2)
 
-            # Return file info (transport adapters will handle actual file serving)
+            #  Return file info (transport adapters will handle actual file
+            #  serving)
             return {
                 "file_path": temp_file_path,
                 "file_name": file_name,

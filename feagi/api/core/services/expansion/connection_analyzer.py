@@ -112,7 +112,8 @@ class ConnectionAnalyzer:
             dimension_sensitive_mappings = []
             dimension_agnostic_mappings = []
 
-            # Create a set to track unique mappings (avoid duplicates from internal mappings)
+            #  Create a set to track unique mappings (avoid duplicates from
+            #  internal mappings)
             unique_mappings = []
             seen_mappings = set()
 
@@ -197,7 +198,8 @@ class ConnectionAnalyzer:
             if genome and "blueprint" in genome:
                 blueprint = genome["blueprint"]
 
-                # Search through all cortical areas for mappings TO this cortical_id
+                #  Search through all cortical areas for mappings TO this
+                #  cortical_id
                 for source_area_id, area_data in blueprint.items():
                     if (
                         isinstance(area_data, dict)
@@ -205,7 +207,8 @@ class ConnectionAnalyzer:
                     ):
                         cortical_mappings = area_data["cortical_mapping_dst"]
 
-                        # Check if this area has mappings to our target cortical_id
+                        #  Check if this area has mappings to our target
+                        #  cortical_id
                         if (
                             isinstance(cortical_mappings, dict)
                             and cortical_id in cortical_mappings
@@ -214,7 +217,8 @@ class ConnectionAnalyzer:
 
                             if isinstance(connection_specs, list):
                                 for spec in connection_specs:
-                                    # CRITICAL FIX: Handle both dict and array formats
+                                    #  CRITICAL FIX: Handle both dict and array
+                                    #  formats
                                     if isinstance(spec, dict):
                                         # Dict format
                                         if (
@@ -233,7 +237,8 @@ class ConnectionAnalyzer:
                                         isinstance(spec, list)
                                         and len(spec) >= 1
                                     ):
-                                        # Array format: ["lateral_+x", [1, 1, 1], 1.0, False, 1, 1, 1]
+                                        #  Array format: ["lateral_+x", [1, 1,
+                                        #  1], 1.0, False, 1, 1, 1]
                                         if (
                                             source_area_id != cortical_id
                                         ):  # Only include if it's not an internal mapping
@@ -283,7 +288,8 @@ class ConnectionAnalyzer:
                             ) in cortical_mappings.items():
                                 if isinstance(connection_specs, list):
                                     for spec in connection_specs:
-                                        # CRITICAL FIX: Handle both dict and array formats
+                                        #  CRITICAL FIX: Handle both dict and
+                                        #  array formats
                                         if isinstance(spec, dict):
                                             # Dict format
                                             if (
@@ -302,7 +308,8 @@ class ConnectionAnalyzer:
                                             isinstance(spec, list)
                                             and len(spec) >= 1
                                         ):
-                                            # Array format: ["lateral_+x", [1, 1, 1], 1.0, False, 1, 1, 1]
+                                            #  Array format: ["lateral_+x", [1,
+                                            #  1, 1], 1.0, False, 1, 1, 1]
                                             if (
                                                 dst_area_id != cortical_id
                                             ):  # Only include if it's not an internal mapping
@@ -356,7 +363,8 @@ class ConnectionAnalyzer:
                         f"🔍 [CONNECTION-ANALYZER] Blueprint keys: {list(blueprint.keys()) if isinstance(blueprint, dict) else 'not a dict'}"
                     )
 
-                    # Check if this cortical area has internal mappings (mappings to itself)
+                    #  Check if this cortical area has internal mappings
+                    #  (mappings to itself)
                     if cortical_id in blueprint:
                         area_data = blueprint[cortical_id]
                         self.logger.info(
@@ -406,9 +414,11 @@ class ConnectionAnalyzer:
 
                                 if isinstance(connection_specs, list):
                                     for spec in connection_specs:
-                                        # CRITICAL FIX: Handle both dict and array formats
+                                        #  CRITICAL FIX: Handle both dict and
+                                        #  array formats
                                         if isinstance(spec, dict):
-                                            # Dict format: {"morphology_id": "lateral_+x", ...}
+                                            #  Dict format: {"morphology_id":
+                                            #  "lateral_+x", ...}
                                             mapping = {
                                                 "source": cortical_id,
                                                 "destination": cortical_id,
@@ -426,7 +436,9 @@ class ConnectionAnalyzer:
                                             and len(spec) >= 1
                                         ):
                                             try:
-                                                # Array format: ["lateral_+x", [1, 1, 1], 1.0, False, 1, 1, 1]
+                                                #  Array format: ["lateral_+x",
+                                                #  [1, 1, 1], 1.0, False, 1, 1,
+                                                #  1]
                                                 morphology_id = (
                                                     spec[0]
                                                     if len(spec) > 0

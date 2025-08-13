@@ -76,7 +76,8 @@ class FeagiAgentAPI:
 
             agents_data = registration_manager.list_agents()
 
-            # Extract just the agent IDs for the simple list format expected by AgentListResponse
+            #  Extract just the agent IDs for the simple list format expected
+            #  by AgentListResponse
             agent_ids = [
                 agent["agent_id"] for agent in agents_data.get("agents", [])
             ]
@@ -127,7 +128,8 @@ class FeagiAgentAPI:
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
         try:
-            # Delegate to Registration Manager for centralized agent coordination
+            #  Delegate to Registration Manager for centralized agent
+            #  coordination
             from feagi.pns.registration_manager import (
                 AgentRegistrationRequest as RegistrationRequest,
             )
@@ -201,7 +203,8 @@ class FeagiAgentAPI:
         self, request: AgentDeregistrationRequest
     ) -> SuccessResponse:
         try:
-            # Delegate to Registration Manager for centralized agent coordination
+            #  Delegate to Registration Manager for centralized agent
+            #  coordination
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
@@ -326,7 +329,8 @@ class FeagiAgentAPI:
             Dictionary with FQ sampler status and related agent information
         """
         try:
-            # Delegate to Registration Manager for comprehensive FQ sampler coordination status
+            #  Delegate to Registration Manager for comprehensive FQ sampler
+            #  coordination status
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
@@ -406,7 +410,8 @@ class FeagiAgentAPI:
             return {"success": False, "error": str(e)}
 
 
-# NOTE: FQ sampler management methods removed - now handled by Registration Manager
+#  NOTE: FQ sampler management methods removed - now handled by Registration
+#  Manager
 # All agent registration, deregistration, and FQ sampler coordination is now
 # centralized in the Registration Manager (feagi.pns.registration_manager)
 # This eliminates the complexity of multiple coordination points.

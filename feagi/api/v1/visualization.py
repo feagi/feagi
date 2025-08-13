@@ -85,7 +85,8 @@ async def register_visualization_client(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
@@ -149,7 +150,8 @@ async def unregister_visualization_client(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
@@ -209,7 +211,8 @@ async def visualization_client_heartbeat(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
@@ -263,7 +266,8 @@ async def get_visualization_status(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server

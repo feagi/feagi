@@ -361,7 +361,8 @@ class RegionAPI:
             if not connectome:
                 raise ValueError("Connectome is not ready!")
 
-            # For compatibility, just use core API service without genome validation
+            #  For compatibility, just use core API service without genome
+            #  validation
             success = self.core_api_service.change_cortical_area_parent(
                 cortical_area_id=association_data.id,
                 new_parent_id=association_data.new_region_id,

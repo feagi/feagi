@@ -43,7 +43,8 @@ class GPUConnectomeManager(ConnectomeManager):
 
         super().__init__(*args, **kwargs)
 
-        # Verify GPU backend was selected (after parent initialization completes)
+        #  Verify GPU backend was selected (after parent initialization
+        #  completes)
         self._verify_gpu_backend()
 
         backend_info = self.get_backend_info()

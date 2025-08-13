@@ -219,7 +219,8 @@ class NeuralBufferPool:
                 continue
 
             # Calculate buffer size for neural data
-            # Each neuron needs: 4 bytes (float32) firing + 12 bytes (3 x int32) coordinates
+            #  Each neuron needs: 4 bytes (float32) firing + 12 bytes (3 x
+            #  int32) coordinates
             buffer_size = neuron_count * 16
 
             # Create pool with area-specific configuration

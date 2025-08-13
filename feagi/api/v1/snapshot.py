@@ -283,7 +283,8 @@ class SnapshotAPI:
                     "Unsupported profile; use 'model' or 'stateful'"
                 )
 
-            # Post-restore: load genome.json if present to back geometry/parameters
+            #  Post-restore: load genome.json if present to back
+            #  geometry/parameters
             try:
                 gpath = Path(snapshot_root) / snapshot_id / "genome.json"
                 if gpath.exists():
@@ -307,7 +308,8 @@ class SnapshotAPI:
                         )
                     except Exception:
                         pass
-                    # Backfill cortical area display names from genome when missing
+                    #  Backfill cortical area display names from genome when
+                    #  missing
                     try:
                         cmgr = self.core_api_service._connectome_manager
                         blueprint = (
@@ -319,7 +321,8 @@ class SnapshotAPI:
                             cmgr, "cortical_areas", {}
                         ).items():
                             try:
-                                # If area.name is missing or equals id, try to use genome cortical_name
+                                #  If area.name is missing or equals id, try to
+                                #  use genome cortical_name
                                 if (
                                     not getattr(area, "name", None)
                                     or area.name == cid
@@ -330,13 +333,15 @@ class SnapshotAPI:
                                         area.name = g_name
                             except Exception:
                                 continue
-                        # Refresh cortical areas cache to propagate updated names
+                        #  Refresh cortical areas cache to propagate updated
+                        #  names
                         sm = self.core_api_service.state_manager
                         sm.invalidate_cortical_areas_cache()
                         _ = sm.get_cortical_areas_cache(cmgr)
                     except Exception:
                         pass
-                    # Always update genome counter and timestamp on successful restore
+                    #  Always update genome counter and timestamp on successful
+                    #  restore
                     try:
                         sm = self.core_api_service.state_manager
                         sm.increment_genome_counter()

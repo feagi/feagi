@@ -195,7 +195,8 @@ def find_destination_coordinates(
     Yields:
         Matching destination coordinates
     """
-    # Generate ranges based on dst_pattern, dst_cortical_boundary, and src_coordinate
+    #  Generate ranges based on dst_pattern, dst_cortical_boundary, and
+    #  src_coordinate
     x_range = (
         range(dst_cortical_boundary[0])
         if dst_pattern[0] == "*"
@@ -416,7 +417,8 @@ def define_subregions(
 
     if "src_seed" in parameters and "src_pattern" in parameters:
         seed = parameters["src_seed"]
-        # pattern format expected as [[c, s], [c, s], [c, s]] where c indicates choose and s as skip
+        #  pattern format expected as [[c, s], [c, s], [c, s]] where c
+        #  indicates choose and s as skip
         pattern = parameters["src_pattern"]
 
         seed_pointer = [0, 0, 0]

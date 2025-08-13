@@ -278,7 +278,8 @@ else:
 
         def create_router_for_module(self, module_name: str) -> APIRouter:
             """Create a FastAPI router for a specific v1 API module."""
-            # Special-case snapshot: use manual router to avoid param binding issues
+            #  Special-case snapshot: use manual router to avoid param binding
+            #  issues
             if module_name == "snapshot":
                 from feagi.api.transport.universal_fastapi import (
                     create_snapshot_router,
@@ -470,10 +471,12 @@ else:
                 for annotation in param_annotations.values()
             )
 
-            # Get the path for this specific handler (need to access from endpoint_data)
+            #  Get the path for this specific handler (need to access from
+            #  endpoint_data)
             endpoint_path = endpoint_data.get("path", "")
 
-            # Determine handler characteristics - check if path contains path parameters
+            #  Determine handler characteristics - check if path contains path
+            #  parameters
             has_path_params = (
                 "{" in endpoint_path
                 and "}" in endpoint_path
@@ -638,14 +641,16 @@ else:
                     return fastapi_handler_with_request
 
             elif has_path_params:
-                # Handler expects path parameters only (like /properties/{agent_id})
+                #  Handler expects path parameters only (like
+                #  /properties/{agent_id})
                 # Extract parameter names from the path
                 import re
 
                 path_param_names = re.findall(r"\{(\w+)\}", endpoint_path)
 
                 if is_async:
-                    # Build handler function dynamically with explicit path parameters
+                    #  Build handler function dynamically with explicit path
+                    #  parameters
                     if len(path_param_names) == 1:
                         param_name = path_param_names[0]
 
@@ -832,7 +837,8 @@ else:
                             **path_params,
                         ):
                             try:
-                                # Pass path parameters in the order they appear in the method signature
+                                #  Pass path parameters in the order they
+                                #  appear in the method signature
                                 args = [
                                     path_params[param]
                                     for param in handler_params
@@ -857,7 +863,8 @@ else:
 
                     return fastapi_handler_with_path_params
                 else:
-                    # Build handler function dynamically with explicit path parameters
+                    #  Build handler function dynamically with explicit path
+                    #  parameters
                     if len(path_param_names) == 1:
                         param_name = path_param_names[0]
 
@@ -1044,7 +1051,8 @@ else:
                             **path_params,
                         ):
                             try:
-                                # Pass path parameters in the order they appear in the method signature
+                                #  Pass path parameters in the order they
+                                #  appear in the method signature
                                 args = [
                                     path_params[param]
                                     for param in handler_params
@@ -1170,7 +1178,8 @@ else:
         router = wrapper.create_router_for_module("feagi_agent")
 
         # MANUAL ADDITION: Query parameter version of agent properties endpoint
-        # The universal wrapper doesn't support query parameters, so we add this manually
+        #  The universal wrapper doesn't support query parameters, so we add
+        #  this manually
         from fastapi import Depends, HTTPException
 
         from feagi.api.rest.dependencies import get_core_api_service
@@ -1235,7 +1244,8 @@ else:
     def create_snapshot_router() -> APIRouter:
         """Create a FastAPI router for snapshot endpoints (manual wiring to
         avoid param issues)."""
-        # @ruff-skip: module has >100 violations - cleanup task: SNAP-ROUTER-RUFF-CLEANUP
+        #  @ruff-skip: module has >100 violations - cleanup task:
+        #  SNAP-ROUTER-RUFF-CLEANUP
         import os
 
         from fastapi import APIRouter, Depends, HTTPException
@@ -1320,7 +1330,8 @@ else:
                             background=BackgroundTask(_cleanup),
                         )
                     else:
-                        # For .fc via this path, the file is persisted; no cleanup here
+                        #  For .fc via this path, the file is persisted; no
+                        #  cleanup here
                         return FileResponse(
                             path=file_path,
                             filename=filename,
@@ -1504,7 +1515,8 @@ else:
                 # Restore
                 api = SnapshotAPI(core_api_service)
                 parsed_mode = mode.lower() if isinstance(mode, str) else "load"
-                # Enforce mmap eligibility via existing logic inside restore endpoints
+                #  Enforce mmap eligibility via existing logic inside restore
+                #  endpoints
                 from feagi.api.v1.snapshot import SnapshotRestoreRequest
 
                 req = SnapshotRestoreRequest(

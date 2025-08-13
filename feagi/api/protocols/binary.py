@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """Binary Protocol Serialization for FEAGI.
 
 This module provides binary serialization and deserialization functions for
@@ -59,15 +59,18 @@ class BinarySerializer:
     HEADER_FORMAT = "!BB"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-    # FCP message format: header + command_type (1 byte) + message_length (4 bytes) + payload
+    #  FCP message format: header + command_type (1 byte) + message_length (4
+    #  bytes) + payload
     FCP_HEADER_FORMAT = "!BI"
     FCP_HEADER_SIZE = struct.calcsize(FCP_HEADER_FORMAT)
 
-    # FVP message format: header + frame_type (1 byte) + timestamp (8 bytes) + data_length (4 bytes) + payload
+    #  FVP message format: header + frame_type (1 byte) + timestamp (8 bytes) +
+    #  data_length (4 bytes) + payload
     FVP_HEADER_FORMAT = "!BQI"
     FVP_HEADER_SIZE = struct.calcsize(FVP_HEADER_FORMAT)
 
-    # FSMP message format: header + channel_id (2 bytes) + timestamp (8 bytes) + data_length (4 bytes) + payload
+    #  FSMP message format: header + channel_id (2 bytes) + timestamp (8 bytes)
+    #  + data_length (4 bytes) + payload
     FSMP_HEADER_FORMAT = "!HQI"
     FSMP_HEADER_SIZE = struct.calcsize(FSMP_HEADER_FORMAT)
 

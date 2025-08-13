@@ -111,7 +111,8 @@ def main():
     }
 
     try:
-        # Try different ways to initialize FeagiConfig depending on its implementation
+        #  Try different ways to initialize FeagiConfig depending on its
+        #  implementation
         try:
             config = FeagiConfig(**config_dict)
         except TypeError:

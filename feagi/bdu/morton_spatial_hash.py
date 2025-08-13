@@ -476,7 +476,8 @@ class RoaringSpatialHash:
             # Restore state
             self.cortical_bitmaps = cache_data["cortical_bitmaps"]
 
-            # Handle backward compatibility: convert old single-neuron format to list format
+            #  Handle backward compatibility: convert old single-neuron format
+            #  to list format
             loaded_neuron_map = cache_data["neuron_map"]
             self.neuron_map = defaultdict(list)
 

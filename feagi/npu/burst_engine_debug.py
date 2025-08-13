@@ -53,7 +53,8 @@ class BurstEngineDebugMixin:
 
         Called by main BurstEngine.__init__.
         """
-        # DO NOT call super().__init__ in mixins - causes multiple inheritance issues
+        #  DO NOT call super().__init__ in mixins - causes multiple inheritance
+        #  issues
         # Just initialize our own attributes
 
         # FQ Sampler registry for debugging motor and visualization streams
@@ -150,7 +151,8 @@ class BurstEngineDebugMixin:
                         else 0
                     )
 
-                    # Display first few neurons for small lists, summarize for large ones
+                    #  Display first few neurons for small lists, summarize for
+                    #  large ones
                     if area_count <= 10:
                         neuron_list = sorted(list(area_fcl))
                         logger.debug(
@@ -162,7 +164,8 @@ class BurstEngineDebugMixin:
                             f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count - 5} more)"
                         )
 
-                # Show special area injection info if available (all area types)
+                #  Show special area injection info if available (all area
+                #  types)
                 if (
                     hasattr(self, "injection_service")
                     and self.injection_service
@@ -342,7 +345,8 @@ class BurstEngineDebugMixin:
                                 #     "sensor",
                                 #     "output",
                                 #     "input",
-                                # ]  # Common prefixes - Unused variable removed
+                                #  ] # Common prefixes - Unused variable
+                                #  removed
                                 sampled_any = False
 
                                 # Get FCL by cortical areas for sampling

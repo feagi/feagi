@@ -100,7 +100,8 @@ class MappingRestriction:
         if self.has_restricted_morphologies():
             return morphology_name in self.restricted_morphologies
 
-        # If there are disallowed morphologies, anything except those is allowed
+        #  If there are disallowed morphologies, anything except those is
+        #  allowed
         if self.has_disallowed_morphologies():
             return morphology_name not in self.disallowed_morphologies
 
@@ -184,7 +185,8 @@ class CorticalMappingRestrictionsRegistry:
             )
         )
 
-        # OPU → Memory: Restricted to "memory" morphology only, very limited changes
+        #  OPU → Memory: Restricted to "memory" morphology only, very limited
+        #  changes
         self.add_restriction(
             MappingRestriction(
                 source_type="OPU",
@@ -686,7 +688,8 @@ class ProjectionMapping(CorticalMapping):
 
         elif projection_type == "expand":
             # Expand by duplicating along the specified axis
-            # If expanding along z (axis=2), we'll map x,y and replicate across z
+            #  If expanding along z (axis=2), we'll map x,y and replicate
+            #  across z
             result = [0, 0, 0]
             src_idx = 0
             for i in range(3):

@@ -194,7 +194,8 @@ def step_simulation_with_fire_queue(
             current_fcl_array = np.array(current_fcl, dtype=np.int32)
             gna.set_membrane_potentials_vectorized(current_fcl_array, 0.0)
 
-            # Note: Consecutive fire count tracking would be added here in a full implementation
+            #  Note: Consecutive fire count tracking would be added here in a
+            #  full implementation
 
         # Process fired neurons (handles refractory period)
         if isinstance(core, dict):
@@ -219,7 +220,8 @@ def step_simulation_with_fire_queue(
             if not connections:
                 continue
 
-            # Get firing neuron membrane potential (should be 0 now, but using original logic)
+            #  Get firing neuron membrane potential (should be 0 now, but using
+            #  original logic)
             firing_neuron_mp = gna.get_membrane_potential(source_id)
 
             # Default PSP value
@@ -247,7 +249,8 @@ def step_simulation_with_fire_queue(
                     else conn.get("weight")
                 )
 
-                # Calculate PSP: (numerator / denominator) * synapse_conductance
+                #  Calculate PSP: (numerator / denominator) *
+                #  synapse_conductance
                 psp = (numerator / denominator) * synapse_conductance
 
                 # Get current target membrane potential
@@ -260,7 +263,8 @@ def step_simulation_with_fire_queue(
                 fire_queue["neuron_ids"].append(target_id)
                 fire_queue["membrane_potentials"].append(updated_mp)
                 fire_queue["thresholds"].append(1.0)  # Default threshold
-                # CRITICAL FIX: Get actual consecutive fire count, not placeholder 0
+                #  CRITICAL FIX: Get actual consecutive fire count, not
+                #  placeholder 0
                 actual_consecutive_fires = 0
                 if hasattr(gna, "get_consecutive_fire_count"):
                     actual_consecutive_fires = gna.get_consecutive_fire_count(
@@ -269,7 +273,8 @@ def step_simulation_with_fire_queue(
                 elif hasattr(gna, "neuron_array") and hasattr(
                     gna.neuron_array, "consecutive_fire_counts"
                 ):
-                    # For optimized structures, access consecutive fire counts directly
+                    #  For optimized structures, access consecutive fire counts
+                    #  directly
                     # CRITICAL FIX: Use proper neuron ID to array index mapping
                     if hasattr(gna, "get_neuron_index"):
                         index = gna.get_neuron_index(target_id)
@@ -282,7 +287,8 @@ def step_simulation_with_fire_queue(
                     elif target_id < len(
                         gna.neuron_array.consecutive_fire_counts
                     ):
-                        # Fallback: treat as direct index (for backwards compatibility)
+                        #  Fallback: treat as direct index (for backwards
+                        #  compatibility)
                         actual_consecutive_fires = (
                             gna.neuron_array.consecutive_fire_counts[target_id]
                         )
@@ -297,7 +303,8 @@ def step_simulation_with_fire_queue(
                     actual_consecutive_fires
                 )
 
-                # CRITICAL FIX: Get actual refractory counter, not placeholder 0
+                #  CRITICAL FIX: Get actual refractory counter, not placeholder
+                #  0
                 actual_refractory_counter = 0
                 if hasattr(gna, "get_refractory_counter"):
                     actual_refractory_counter = gna.get_refractory_counter(
@@ -306,7 +313,8 @@ def step_simulation_with_fire_queue(
                 elif hasattr(gna, "neuron_array") and hasattr(
                     gna.neuron_array, "refractory_counters"
                 ):
-                    # For optimized structures, access refractory counters directly
+                    #  For optimized structures, access refractory counters
+                    #  directly
                     # CRITICAL FIX: Use proper neuron ID to array index mapping
                     if hasattr(gna, "get_neuron_index"):
                         index = gna.get_neuron_index(target_id)
@@ -317,7 +325,8 @@ def step_simulation_with_fire_queue(
                                 gna.neuron_array.refractory_counters[index]
                             )
                     elif target_id < len(gna.neuron_array.refractory_counters):
-                        # Fallback: treat as direct index (for backwards compatibility)
+                        #  Fallback: treat as direct index (for backwards
+                        #  compatibility)
                         actual_refractory_counter = (
                             gna.neuron_array.refractory_counters[target_id]
                         )

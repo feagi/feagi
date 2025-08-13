@@ -291,7 +291,8 @@ class VisualizationStream:
         self.running = False
         self._stop_event.set()
 
-        # Wait for worker threads BEFORE closing socket to prevent race conditions
+        #  Wait for worker threads BEFORE closing socket to prevent race
+        #  conditions
         total_threads = len(self.worker_threads)
         if total_threads > 0:
             logger.debug(
@@ -420,7 +421,8 @@ class VisualizationStream:
                 # RUST/RTOS COMPATIBLE: FQ sampler exists but may be disabled
                 # Skip processing if no FQ sampler exists (stream disabled) OR
                 # if sampler is disabled (no clients)
-                # PROFESSIONAL FIX: Check the FQ sampler's actual state instead of our own flag
+                #  PROFESSIONAL FIX: Check the FQ sampler's actual state
+                #  instead of our own flag
                 fq_sampler_has_subscribers = (
                     getattr(
                         self.fq_sampler,
@@ -432,18 +434,21 @@ class VisualizationStream:
                 )
 
                 if not self.fq_sampler or not fq_sampler_has_subscribers:
-                    # Brief wait to avoid busy-waiting when no clients connected
+                    #  Brief wait to avoid busy-waiting when no clients
+                    #  connected
                     time.sleep(
                         0.1
                     )  # @architecture:acceptable - no clients connected
                     continue
 
-                # Get data from UnifiedFQSampler ONLY when enabled (clients connected)
+                #  Get data from UnifiedFQSampler ONLY when enabled (clients
+                #  connected)
                 try:
                     sample_data = self.fq_sampler.sample()
 
                     if sample_data:
-                        # Convert UnifiedFQSampler format to visualization format
+                        #  Convert UnifiedFQSampler format to visualization
+                        #  format
                         for_visualization = (
                             self._convert_fq_format_to_viz_format(sample_data)
                         )
@@ -508,7 +513,8 @@ class VisualizationStream:
                             f"neurons in area {area_id}"
                         )
 
-                    # Use high-performance coordinate extraction - real data only
+                    #  Use high-performance coordinate extraction - real data
+                    #  only
                     coords_result = self.core_api.get_neuron_coordinates(
                         neuron_ids
                     )
@@ -520,8 +526,10 @@ class VisualizationStream:
                             "valid_indices", [True] * len(neuron_ids)
                         )
 
-                        # ROBUSTNESS: Filter out invalid neurons instead of failing completely
-                        # This prevents bridge freeze when some neurons become invalid during reconstruction
+                        #  ROBUSTNESS: Filter out invalid neurons instead of
+                        #  failing completely
+                        #  This prevents bridge freeze when some neurons become
+                        #  invalid during reconstruction
                         if not all(valid_indices):
                             valid_count = sum(valid_indices)
                             logger.warning(
@@ -568,7 +576,8 @@ class VisualizationStream:
                                 )
                                 continue
                     else:
-                        # ❌ Complete failure - no coordinate data available at all
+                        #  ❌ Complete failure - no coordinate data available at
+                        #  all
                         logger.warning(
                             f"[VIZ-ROBUST] Failed to get any coordinates for area {area_id} "
                             f"({len(neuron_ids)} neurons). Skipping area instead of crashing."
@@ -697,7 +706,8 @@ class VisualizationStream:
                             f"{compression_time_ms:.1f}ms"
                         )
                 else:
-                    # Compression didn't help, use original data - gate with debug flag
+                    #  Compression didn't help, use original data - gate with
+                    #  debug flag
                     from feagi.core.state_manager import FeagiStateManager
 
                     state_manager = FeagiStateManager.instance()
@@ -865,7 +875,8 @@ class VisualizationStream:
         """Get visualization stream statistics including compression
         performance."""
         runtime = time.time() - self.stats["start_time"]
-        # total_messages = max(self.stats["data_sent"], 1)  # Unused variable removed
+        #  total_messages = max(self.stats["data_sent"], 1) # Unused variable
+        #  removed
 
         base_stats = {
             "running": self.running,
@@ -979,7 +990,8 @@ class VisualizationStream:
                     f"🔍 AGENT REGISTRY: Found {viz_agent_count} registered "
                     f"visualization agents: {connected_viz_agents}"
                 )
-            # Note: Removed spam debug log for "no agents found" - this is normal
+            #  Note: Removed spam debug log for "no agents found" - this is
+            #  normal
             # when no agents are connected
 
             return viz_agent_count
@@ -1113,7 +1125,8 @@ class VisualizationStream:
                     )
                     self._last_subscriber_count = total_subscribers
 
-                # LONGER INTERVAL: Since we're not controlling FQ sampler, check
+                #  LONGER INTERVAL: Since we're not controlling FQ sampler,
+                #  check
                 # less frequently
                 wait_time = max(
                     self.subscriber_check_interval, 10.0
@@ -1166,7 +1179,8 @@ class VisualizationStream:
                 fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
 
-            # Convert cortical area data to the format expected by the new encoder
+            #  Convert cortical area data to the format expected by the new
+            #  encoder
             for area_id, area_data in for_visualization.items():
                 if area_data and area_data.get("neuron_ids"):
                     neuron_ids = area_data.get("neuron_ids", [])
@@ -1174,7 +1188,8 @@ class VisualizationStream:
                         "membrane_potentials", []
                     )
 
-                    # MEMORY AREA FIX: Check if coordinates are already provided (for memory areas)
+                    #  MEMORY AREA FIX: Check if coordinates are already
+                    #  provided (for memory areas)
                     provided_coordinates = area_data.get("coordinates", [])
 
                     if provided_coordinates:
@@ -1187,7 +1202,8 @@ class VisualizationStream:
                             f"[VIZ-DEBUG] Using provided coordinates for {area_id}: {provided_coordinates}"
                         )
                     else:
-                        # Use high-performance coordinate extraction - real data only (regular areas)
+                        #  Use high-performance coordinate extraction - real
+                        #  data only (regular areas)
                         coords_result = self.core_api.get_neuron_coordinates(
                             neuron_ids
                         )
@@ -1244,11 +1260,13 @@ class VisualizationStream:
                         f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, p.shape={neurons_p.shape}"
                     )
 
-                    # Create cortical ID using modern feagi-data-processing approach
+                    #  Create cortical ID using modern feagi-data-processing
+                    #  approach
                     area_str = str(area_id)
 
                     try:
-                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
@@ -1275,7 +1293,8 @@ class VisualizationStream:
                         )
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
                     generated_mapped_neuron_data.insert(
                         cortical_id_obj, neurons_array
                     )

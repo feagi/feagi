@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """This module is responsible for creating bidirectional synapses between
 neurons that are firing together, while also strengthening/weakening (via
 LTP/LTD, respectively) a given active neuron's synapses to upstream/downstream
@@ -25,13 +25,16 @@ similar scenario (where a neuron's synaptic connectivity to multiple sequential 
 reduced) and incorporated in the new neuroplasticity function (below).
 
     ####################################################################################
-    #                                                                                  #
-    # TODO: generalize the following code so it is applicable to other cortical areas  #
-    # - consider filtering cortical areas where location_generation_type is sequential #
-    #                                                                                  #
+    #  #
+    #  TODO: generalize the following code so it is applicable to other
+    #  cortical areas #
+    #  - consider filtering cortical areas where location_generation_type is
+    #  sequential #
+    #  #
     ####################################################################################
 
-    # Reducing synaptic connectivity when a single memory neuron is associated with more than one utf_memory one
+    #  Reducing synaptic connectivity when a single memory neuron is associated
+    #  with more than one utf_memory one
     if utf8_memory_count >= 2:
         synapse_to_utf = 0
         runtime_data.temp_neuron_list = []
@@ -79,7 +82,9 @@ def neuroplasticity():
     for neuron in common_neurons:
         try:
             cortical_area = neuron[:6]
-            # presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
+            #  presynaptic_neurons =
+            #  list_upstream_plastic_neurons(cortical_area=cortical_area,
+            #  neuron_id=neuron)
 
             postsynaptic_neurons = list_downstream_plastic_neurons(
                 cortical_area=cortical_area, neuron_id=neuron
@@ -88,7 +93,8 @@ def neuroplasticity():
             for item in postsynaptic_neurons:
                 postsynaptic_neurons_set.add(item)
 
-            # connected_neurons = presynaptic_neurons | postsynaptic_neurons_set
+            #  connected_neurons = presynaptic_neurons |
+            #  postsynaptic_neurons_set
 
             for postsynaptic_neuron in postsynaptic_neurons:
                 if postsynaptic_neuron in common_neurons:
@@ -139,11 +145,14 @@ def longterm_potentiation_depression(
                 plasticity_constant = mapping["plasticity_constant"]
 
                 if long_term_depression:
-                    # When long term depression flag is set, there will be negative synaptic influence caused
+                    #  When long term depression flag is set, there will be
+                    #  negative synaptic influence caused
                     plasticity_constant = (
                         plasticity_constant * ltd_multiplier * -1
                     )
-                    # print("<> <> <> <> <> <> <> <> <>  LTD  <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
+                    #  print("<> <> <> <> <> <> <> <> <> LTD <> <> <> <> <> <>
+                    #  <> <> <>", src_neuron_id, dst_neuron_id,
+                    #  plasticity_constant)
                     try:
                         runtime_data.cumulative_stats[src_cortical_area][
                             "LTD"
@@ -152,7 +161,9 @@ def longterm_potentiation_depression(
                         print("Exception during LTD:", e)
 
                 else:
-                    # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
+                    #  print("<> <> <> <> <> <> <> <> <> LTP <> <> <> <> <> <>
+                    #  <> <>", src_neuron_id, dst_neuron_id,
+                    #  plasticity_constant)
                     plasticity_constant = plasticity_constant * ltp_multiplier
                     try:
                         runtime_data.cumulative_stats[src_cortical_area][
@@ -167,7 +178,8 @@ def longterm_potentiation_depression(
                     ]["neighbors"][dst_neuron_id]["postsynaptic_current"]
                     new_psc += plasticity_constant
 
-                    # Condition to cap the postsynaptic_current and provide prohibitory reaction
+                    #  Condition to cap the postsynaptic_current and provide
+                    #  prohibitory reaction
                     if (
                         new_psc
                         > runtime_data.genome["blueprint"][src_cortical_area][
@@ -178,13 +190,17 @@ def longterm_potentiation_depression(
                             src_cortical_area
                         ]["postsynaptic_current_max"]
 
-                    # Condition to prevent postsynaptic current to become negative
-                    # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-                    # Condition to prune a synapse if its postsynaptic_current is zero
+                    #  Condition to prevent postsynaptic current to become
+                    #  negative
+                    #  todo: consider setting a postsynaptic_min in genome to
+                    #  be used instead of 0
+                    #  Condition to prune a synapse if its postsynaptic_current
+                    #  is zero
                     if new_psc < 0:
                         new_psc = 0
-                        # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                        #                                       dst_cortical_area, dst_neuron_id))
+                        #  runtime_data.prunning_candidates.add((src_cortical_area,
+                        #  src_neuron_id,
+                        #  dst_cortical_area, dst_neuron_id))
                     post_synaptic_current_update(
                         cortical_area_src=src_cortical_area,
                         cortical_area_dst=dst_cortical_area,
@@ -231,7 +247,8 @@ def long_short_term_memory():
                         if runtime_data.fire_candidate_list[
                             upstream_cortical_area
                         ]:
-                            # todo: performance: exclude non-immortal neurons from being processed
+                            #  todo: performance: exclude non-immortal neurons
+                            #  from being processed
                             neurogenesis_list.update(
                                 runtime_data.fire_candidate_list[
                                     upstream_cortical_area

@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """
 FEAGI Protocol Package - Byte Structures Implementation
 
@@ -89,7 +89,8 @@ class ByteStructureEncoder:
             area_str = str(cortical_id)
 
             try:
-                # Try to create cortical ID directly from string - handles all modern format IDs
+                #  Try to create cortical ID directly from string - handles all
+                #  modern format IDs
                 cortical_id_obj = (
                     self.fdp.genome.CorticalID.try_new_from_string(area_str)
                 )

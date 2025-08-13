@@ -123,7 +123,8 @@ def write_fc(
         "chunks": [],
     }
 
-    # We will compute offsets after building header JSON length; we need chunk metadata first
+    #  We will compute offsets after building header JSON length; we need chunk
+    #  metadata first
     chunks_meta: List[Dict[str, Any]] = [
         {
             "name": "connectome.json",
@@ -277,7 +278,8 @@ def read_fc_footer(fc_path: Path) -> Dict[str, Any]:
         return json.loads(footer_json.decode("utf-8"))
 
 
-# Helper: collect SoA NPZ and index maps from a snapshot folder into chunk tuples
+#  Helper: collect SoA NPZ and index maps from a snapshot folder into chunk
+#  tuples
 def _collect_folder_chunks(snap_dir: Path) -> List[Tuple[str, bytes]]:
     chunks: List[Tuple[str, bytes]] = []
     for sub, fname in (
@@ -658,7 +660,8 @@ def restore_fgc_snapshot(
                                 cortical_idx=idx,
                             )
                             if hasattr(connectome_manager, "cortical_areas"):
-                                # Store areas keyed by cortical_id (string), not index
+                                #  Store areas keyed by cortical_id (string),
+                                #  not index
                                 connectome_manager.cortical_areas[cid] = area
                             # Sync mapping
                             if hasattr(
@@ -1402,7 +1405,8 @@ def map_fc(fc_path: Path):
     try:
         mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
         header = read_fc_header(fc_path)
-        # Keep both mapping and file handle; return both so caller can close the file
+        #  Keep both mapping and file handle; return both so caller can close
+        #  the file
         return mm, header, f
     except Exception:
         # Ensure file closed on error

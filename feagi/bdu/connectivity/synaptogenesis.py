@@ -53,7 +53,8 @@ from .rules.vectors import match_vectors
 
 logger = setup_logger(__name__)
 
-# Explicitly export imported functions for use by test modules and external consumers
+#  Explicitly export imported functions for use by test modules and external
+#  consumers
 __all__ = [
     # Function-based morphologies
     "syn_block_connection",
@@ -335,8 +336,10 @@ def find_candidate_neurons(
     raw_candidate_positions = set()
     candidate_neuron_list = []
 
-    # Get morphology type - for function morphologies, we know the type directly
-    # This follows the legacy pattern where function morphologies are handled directly
+    #  Get morphology type - for function morphologies, we know the type
+    #  directly
+    #  This follows the legacy pattern where function morphologies are handled
+    #  directly
     if neuron_morphology in [e.value for e in MorphologyFunction]:
         morphology_type = RuleType.FUNCTIONS.value
         morphologies_registry = None  # Not needed for function morphologies
@@ -573,7 +576,8 @@ def find_candidate_neurons(
                     for pos in positions:
                         raw_candidate_positions.add(pos)
 
-            # Handle special memory morphology that doesn't produce voxel positions
+            #  Handle special memory morphology that doesn't produce voxel
+            #  positions
             elif neuron_morphology == MorphologyFunction.MEMORY.value:
                 syn_memory(src_area_id, dst_area_id, memory_register)
                 # No positions are added for memory function
@@ -586,7 +590,8 @@ def find_candidate_neurons(
         else:
             logger.warning(f"Unsupported morphology type: {morphology_type}")
 
-        # Legacy-style batch lookup: single O(N) pass instead of O(P×N) individual lookups
+        #  Legacy-style batch lookup: single O(N) pass instead of O(P×N)
+        #  individual lookups
         if debug_bdu:
             logger.info(
                 f"[BDU DEBUG] Processing {len(raw_candidate_positions)} candidate positions"
@@ -595,7 +600,8 @@ def find_candidate_neurons(
                 f"[BDU DEBUG] Candidate positions: {sorted(list(raw_candidate_positions))}"
             )
 
-        # Use legacy batch approach for performance (like voxels.voxel_list_to_neuron_list)
+        #  Use legacy batch approach for performance (like
+        #  voxels.voxel_list_to_neuron_list)
         candidate_neuron_list = (
             connectome_manager.batch_voxel_to_neuron_lookup(
                 cortical_id=dst_area_id,

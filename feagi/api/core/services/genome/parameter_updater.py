@@ -171,7 +171,8 @@ class CorticalParameterUpdater:
         if property_type == "consecutive_fire_count":
             # This is a cortical area-level parameter, not per-neuron
             # It sets the max consecutive fires allowed for the area
-            # NOTE: The ConnectomeManager update will be handled by GenomeService
+            #  NOTE: The ConnectomeManager update will be handled by
+            #  GenomeService
             self.logger.info(
                 f"[FAST-UPDATE] Updated cortical area consecutive fire limit to {value} "
                 f"(affects {len(neuron_ids)} neurons via area configuration)"
@@ -179,7 +180,8 @@ class CorticalParameterUpdater:
             return True
 
         elif property_type == "neuron_excitability":
-            # SPECIAL CASE: neuron_excitability needs to update the NeuronArray directly
+            #  SPECIAL CASE: neuron_excitability needs to update the
+            #  NeuronArray directly
             try:
                 # Get cortical area info
                 cortical_area = self.connectome_manager.get_cortical_area(
@@ -243,9 +245,12 @@ class CorticalParameterUpdater:
             "init_lifespan",
             "temporal_depth",
         ]:
-            # These are cortical area-level parameters that affect neuron behavior
-            # but are not direct neuron array properties - genome update handles them
-            # NOTE: The ConnectomeManager update will be handled by GenomeService
+            #  These are cortical area-level parameters that affect neuron
+            #  behavior
+            #  but are not direct neuron array properties - genome update
+            #  handles them
+            #  NOTE: The ConnectomeManager update will be handled by
+            #  GenomeService
             self.logger.info(
                 f"[FAST-UPDATE] Updated cortical area {property_type} to {value} "
                 f"(affects {len(neuron_ids)} neurons via area configuration)"

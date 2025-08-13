@@ -101,7 +101,8 @@ def check_dependencies():
             )
             return True
 
-        # Try to import the version checker - if it doesn't exist, just continue
+        #  Try to import the version checker - if it doesn't exist, just
+        #  continue
         try:
             from feagi.utils.version_checker import verify_dependencies
 
@@ -110,7 +111,8 @@ def check_dependencies():
                 Path(__file__).parent.parent / "requirements.txt"
             )
 
-            # Verify dependencies, don't raise an exception but return False if there's a mismatch
+            #  Verify dependencies, don't raise an exception but return False
+            #  if there's a mismatch
             is_compatible = verify_dependencies(
                 requirements_path, raise_exception=False
             )
@@ -160,7 +162,8 @@ def main():
         import asyncio
 
         try:
-            # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
+            #  Set the event loop policy to WindowsSelectorEventLoopPolicy for
+            #  ZMQ compatibility
             asyncio.set_event_loop_policy(
                 asyncio.WindowsSelectorEventLoopPolicy()
             )
@@ -533,7 +536,8 @@ def main():
 
     connectome = ConnectomeManager.instance()
 
-    # Set the connectome instance for FastAPI dependency injection (only in normal mode)
+    #  Set the connectome instance for FastAPI dependency injection (only in
+    #  normal mode)
     embedded_mode = config.get("system", {}).get("embedded", False)
     if not embedded_mode:
         from feagi.api.rest.dependencies import set_connectome_instance
@@ -549,7 +553,8 @@ def main():
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
-        # @cursor:critical-path - Signal handlers must be minimal and avoid logging/locking operations
+        #  @cursor:critical-path - Signal handlers must be minimal and avoid
+        #  logging/locking operations
         # Print directly to stderr instead of using logger to avoid deadlocks
         print("\nShutting down FEAGI servers...", file=sys.stderr, flush=True)
 
@@ -652,7 +657,8 @@ def main():
         logger.warning(f"Could not log startup summary: {e}")
 
     # CLI GENOME LOADING: Load genome if specified via --genome flag
-    # Use existing genome service infrastructure instead of duplicating functionality
+    #  Use existing genome service infrastructure instead of duplicating
+    #  functionality
     genome_path = args.genome or args.genome_path
     if genome_path:
         logger.info(f"🧬 CLI genome specified: {genome_path}")

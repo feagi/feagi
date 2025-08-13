@@ -66,7 +66,8 @@ class ZeroCopyRingBuffer:
             slot_size: Size of each slot in bytes
             use_shared_memory: Whether to use shared memory (for multi-process)
         """
-        # CRITICAL SAFETY CHECK: Prevent initialization during brain development
+        #  CRITICAL SAFETY CHECK: Prevent initialization during brain
+        #  development
         # Brain development should not initialize multiprocessing components
         import threading
 

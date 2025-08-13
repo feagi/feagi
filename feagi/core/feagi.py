@@ -148,8 +148,10 @@ class FEAGI:
         Returns:
             List of dictionaries containing cortical area information.
         """
-        # This should be implemented to return actual cortical areas from the connectome
-        # For now, return a placeholder implementation with sample cortical areas
+        #  This should be implemented to return actual cortical areas from the
+        #  connectome
+        #  For now, return a placeholder implementation with sample cortical
+        #  areas
         return [
             {
                 "id": "1",

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """Defines all supported sensors and actuator types and properties."""
 
 cortical_types = {
@@ -656,7 +656,8 @@ cortical_property_mappings = {
 
 
 # Structural properties required for cortical area brain development
-# These are not in cortical_template as they're about area placement, not neuron properties
+#  These are not in cortical_template as they're about area placement, not
+#  neuron properties
 cortical_structural_properties = {
     # Position coordinates (required for brain development)
     "rcordx": "cx-rcordx-i",
@@ -668,12 +669,15 @@ cortical_structural_properties = {
     "bbz": "cx-___bbz-i",
     # Name property (required for brain development)
     "name": "cx-__name-s",
-    # Note: dimensions (bbx, bby, bbz) are usually present but could add as fallback if needed
+    #  Note: dimensions (bbx, bby, bbz) are usually present but could add as
+    #  fallback if needed
 }
 
 
-# Default physiology template for auto-recovery when physiology section is missing or incomplete
-# This provides the essential system-level parameters required for FEAGI to function properly
+#  Default physiology template for auto-recovery when physiology section is
+#  missing or incomplete
+#  This provides the essential system-level parameters required for FEAGI to
+#  function properly
 physiology_template = {
     "simulation_timestep": 0.025,  # Neural simulation timestep (in seconds) - was burst_delay
     "max_age": 10000000,  # Maximum age for neurons before lifecycle management
@@ -682,9 +686,11 @@ physiology_template = {
     "plasticity_queue_depth": 3,  # Depth of plasticity processing queue
     "lifespan_mgmt_interval": 10,  # Interval for neuron lifespan management
     # Sleep triggering (inactivity-based maintenance)
-    # Number of bursts to accumulate activity for before evaluating sleep trigger
+    #  Number of bursts to accumulate activity for before evaluating sleep
+    #  trigger
     "sleep_trigger_inactivity_window": 1000,
-    # Maximum cumulative neurons fired within the window to qualify as "low activity"
+    #  Maximum cumulative neurons fired within the window to qualify as "low
+    #  activity"
     "sleep_trigger_neural_activity_max": 10000,
 }
 

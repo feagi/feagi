@@ -299,7 +299,8 @@ class ZmqServer:
         self._loop = None
         self._shutdown_event = threading.Event()
 
-        # Initialize sockets (will be created on start, may be None if stream disabled)
+        #  Initialize sockets (will be created on start, may be None if stream
+        #  disabled)
         self.sensory_socket = None
         self.motor_socket = None
         self.vis_socket = None
@@ -312,8 +313,10 @@ class ZmqServer:
         self.sensory_callback = None
 
         # Create connection manager only if control port is enabled
-        # NOTE: ConnectionManager now only handles control port - all other ports are handled by dedicated streams
-        # UPDATE: Control port is also handled by ControlStream, so ConnectionManager is not needed
+        #  NOTE: ConnectionManager now only handles control port - all other
+        #  ports are handled by dedicated streams
+        #  UPDATE: Control port is also handled by ControlStream, so
+        #  ConnectionManager is not needed
         self.connection_manager = None
         logger.info(
             "ConnectionManager disabled - all ports handled by dedicated streams"
@@ -353,14 +356,16 @@ class ZmqServer:
 
         logger.info(f"Starting ZMQ server on {self.host}")
         try:
-            # In synchronous mode, create a context and start the server in a background thread
+            #  In synchronous mode, create a context and start the server in a
+            #  background thread
             logger.info("Creating background thread for ZMQ server")
             self._thread = threading.Thread(
                 target=self._run_server_thread, daemon=True
             )
             self._thread.start()
 
-            # Wait briefly to allow the server to start or fail - use configurable timeout
+            #  Wait briefly to allow the server to start or fail - use
+            #  configurable timeout
             try:
                 from feagi.config.toml_loader import (
                     get_timeout_config,
@@ -380,7 +385,8 @@ class ZmqServer:
             time.sleep(startup_wait)
 
             if not self._running:
-                # If the server didn't start properly, the thread will have set _running to False
+                #  If the server didn't start properly, the thread will have
+                #  set _running to False
                 logger.error("ZMQ server failed to start")
                 return False
 
@@ -404,7 +410,8 @@ class ZmqServer:
 
         if platform.system() == "Windows":
             try:
-                # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
+                #  Set the event loop policy to WindowsSelectorEventLoopPolicy
+                #  for ZMQ compatibility
                 asyncio.set_event_loop_policy(
                     asyncio.WindowsSelectorEventLoopPolicy()
                 )
@@ -492,7 +499,8 @@ class ZmqServer:
                 logger.info("Sensory stream disabled")
 
             if self.motor_port is not None:
-                # Get motor FQ sampler from process manager (created on-demand when motor agents connect)
+                #  Get motor FQ sampler from process manager (created on-demand
+                #  when motor agents connect)
                 motor_fq_sampler = (
                     self._process_manager.get_motor_fq_sampler()
                     if self._process_manager
@@ -528,7 +536,8 @@ class ZmqServer:
                     else {}
                 )
 
-                # Get visualization FQ sampler from process manager (created on-demand when visualization agents connect)
+                #  Get visualization FQ sampler from process manager (created
+                #  on-demand when visualization agents connect)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,
@@ -549,8 +558,10 @@ class ZmqServer:
             else:
                 logger.info("Visualization stream disabled")
 
-            # Pass ZMQ server reference to REST stream for visualization endpoints
-            # IMPORTANT: This must happen AFTER visualization stream is created!
+            #  Pass ZMQ server reference to REST stream for visualization
+            #  endpoints
+            #  IMPORTANT: This must happen AFTER visualization stream is
+            #  created!
             if hasattr(self._rest, "set_zmq_server"):
                 self._rest.set_zmq_server(self)
                 logger.debug("ZMQ server reference passed to REST stream")
@@ -648,7 +659,8 @@ class ZmqServer:
             # Signal the monitor loop to stop
             self._shutdown_event.set()
 
-            # Create a new event loop for shutdown if we're not in the server thread
+            #  Create a new event loop for shutdown if we're not in the server
+            #  thread
             if threading.current_thread() != self._thread:
                 # We're in a different thread, create a new event loop
                 loop = asyncio.new_event_loop()
@@ -703,7 +715,8 @@ class ZmqServer:
         print("Stopping ZMQ services...", file=sys.stderr, flush=True)
 
         try:
-            # Collect async stop tasks for services that have async stop methods
+            #  Collect async stop tasks for services that have async stop
+            #  methods
             stop_tasks = []
 
             # Add pattern services (async stop methods)
@@ -739,7 +752,8 @@ class ZmqServer:
                         ) and asyncio.iscoroutinefunction(
                             self._visualization.stop
                         ):
-                            # If stop is async, we need to run it in the event loop
+                            #  If stop is async, we need to run it in the event
+                            #  loop
                             loop = asyncio_module.new_event_loop()
                             try:
                                 asyncio_module.set_event_loop(loop)
@@ -909,7 +923,8 @@ class ZmqServer:
             if self._loop:
                 try:
                     # Cancel any remaining tasks before closing the loop
-                    # Use qualified asyncio module import to avoid variable shadowing
+                    #  Use qualified asyncio module import to avoid variable
+                    #  shadowing
                     import asyncio as asyncio_module
 
                     pending_tasks = [
@@ -979,7 +994,8 @@ class ZmqServer:
                         flush=True,
                     )
 
-            # @cursor:critical-path - Signal-safe cleanup should minimize logging
+            #  @cursor:critical-path - Signal-safe cleanup should minimize
+            #  logging
             print(
                 "ZMQ server resources cleaned up", file=sys.stderr, flush=True
             )
@@ -1073,7 +1089,8 @@ class ZmqServer:
 
         # Create activity data message
         activity_data = self.translator.fvp_schema.ActivityData.new_message()
-        # In a real implementation, you would parse the data and fill in the fields
+        #  In a real implementation, you would parse the data and fill in the
+        #  fields
         # For this example, we'll assume data is pre-serialized ActivityData
         activity_data.ParseFromString(data)
 
@@ -1107,7 +1124,8 @@ class ZmqServer:
 
         # Create structure data message
         structure_data = self.translator.fvp_schema.StructureData.new_message()
-        # In a real implementation, you would parse the data and fill in the fields
+        #  In a real implementation, you would parse the data and fill in the
+        #  fields
         # For this example, we'll assume data is pre-serialized StructureData
         structure_data.ParseFromString(data)
 
@@ -1150,7 +1168,9 @@ class ZmqServer:
         """
         try:
             # Convert message to dictionary for easier handling
-            # message_dict = self.translator.handshake_message_to_dict(message)  # Unused variable removed
+            #  message_dict =
+            #  self.translator.handshake_message_to_dict(message) # Unused
+            #  variable removed
 
             # Handle different message types
             if message.type == message.type.hello:
@@ -1216,10 +1236,12 @@ class ZmqServer:
                 )
 
                 # Register client in connection manager
-                # Note: The HandshakeMessageHandler should have updated the ZMQ ID
+                #  Note: The HandshakeMessageHandler should have updated the
+                #  ZMQ ID
                 client_info = self.pending_clients.get(agent_id)
                 if client_info and self.connection_manager:
-                    # Get ZMQ ID from somewhere (needs to be passed from handler)
+                    #  Get ZMQ ID from somewhere (needs to be passed from
+                    #  handler)
                     zmq_id = client_info.get("zmq_id")
                     if zmq_id:
                         # Register client with connection manager

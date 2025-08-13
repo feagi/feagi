@@ -199,7 +199,8 @@ class ResourceManager:
                     ):
                         adapter = wgpu.gpu.request_adapter_sync()
                         if adapter:
-                            # In newer wgpu versions, adapter_info might not be available
+                            #  In newer wgpu versions, adapter_info might not
+                            #  be available
                             # Instead, just record that we have a valid adapter
                             resources["webgpu_info"] = {
                                 "name": "WebGPU Adapter",
@@ -541,7 +542,8 @@ class ResourceManager:
             self.logger.info("Initializing critical data structures...")
             try:
                 # Placeholder for actual initialization logic
-                # This will be implemented as the specific data structures are defined
+                #  This will be implemented as the specific data structures are
+                #  defined
                 return True
             except Exception as e:
                 self.logger.error(

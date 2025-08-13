@@ -33,14 +33,17 @@ class AgentsService(BaseService):
                 self.state_manager, "connected_agents", {}
             )
 
-            # Ensure connected_agents is a dictionary, not an integer or other type
+            #  Ensure connected_agents is a dictionary, not an integer or other
+            #  type
             if not isinstance(connected_agents, dict):
                 self.logger.warning(
                     f"connected_agents is not a dictionary, got type {type(connected_agents)}. Initializing as empty dict."
                 )
                 connected_agents = {}
-                # Note: connected_agents registry should be managed through proper state manager methods
-                # Direct assignment bypasses validation - this is a known limitation
+                #  Note: connected_agents registry should be managed through
+                #  proper state manager methods
+                #  Direct assignment bypasses validation - this is a known
+                #  limitation
 
             # Convert to list format for API
             agent_list = []
@@ -91,7 +94,8 @@ class AgentsService(BaseService):
                     "Initializing connected_agents as empty dictionary"
                 )
                 # TODO: Use proper state manager method when available
-                # self.state_manager.reset_agent_registry()  # Not implemented yet
+                #  self.state_manager.reset_agent_registry() # Not implemented
+                #  yet
 
             # Register the agent
             self.state_manager.connected_agents[agent_id] = {
@@ -240,7 +244,8 @@ class AgentsService(BaseService):
         """Send a message to a specific agent."""
         try:
             # This is a placeholder implementation
-            # In a real system, this would involve the actual messaging infrastructure
+            #  In a real system, this would involve the actual messaging
+            #  infrastructure
 
             if not self.state_manager:
                 return {

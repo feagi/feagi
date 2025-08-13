@@ -66,8 +66,10 @@ class FeagiTestRunner:
         # Test mode handlers
         self.mode_handler = None
 
-        # Burst engine will be started automatically by the genome loading process
-        # Test runner does not manage burst engine lifecycle - that's handled by the process manager
+        #  Burst engine will be started automatically by the genome loading
+        #  process
+        #  Test runner does not manage burst engine lifecycle - that's handled
+        #  by the process manager
 
         logger.info(
             "Test runner initialized - will use Core API Service for stimulation"
@@ -102,13 +104,15 @@ class FeagiTestRunner:
         try:
             logger.info("Loading essential genome for testing")
 
-            # Check initial brain readiness state - should be False when starting
+            #  Check initial brain readiness state - should be False when
+            #  starting
             initial_brain_ready = self.state_manager.get_brain_readiness()
             logger.info(
                 f"Initial brain readiness state: {initial_brain_ready}"
             )
 
-            # Use the single load_genome method to load the essential genome for consistency and dynamic sizing
+            #  Use the single load_genome method to load the essential genome
+            #  for consistency and dynamic sizing
             import json
             from pathlib import Path
 
@@ -131,7 +135,8 @@ class FeagiTestRunner:
             with open(essential_genome_path, "r") as f:
                 genome_data = json.load(f)
 
-            # Use the single load_genome method for consistency and dynamic sizing
+            #  Use the single load_genome method for consistency and dynamic
+            #  sizing
             result = self.core_api.load_genome(
                 genome_data, filename="essential_genome.json"
             )
@@ -278,7 +283,8 @@ class FeagiTestRunner:
                 # Convert to JSON string for the API
                 genome_json_string = json.dumps(genome_data)
 
-                # Use the core API service's load_genome method (same as /v1/genome/upload/string)
+                #  Use the core API service's load_genome method (same as
+                #  /v1/genome/upload/string)
                 result = self.core_api.load_genome(
                     genome_data, filename="test_genome_1.json"
                 )
@@ -294,10 +300,12 @@ class FeagiTestRunner:
                     )
                     return False
             else:
-                # For other test modes, load essential genome through the single load_genome method
+                #  For other test modes, load essential genome through the
+                #  single load_genome method
                 logger.info("Loading essential genome for non-mode-1 test")
 
-                # Load essential genome data and use the single load_genome method
+                #  Load essential genome data and use the single load_genome
+                #  method
                 import json
                 from pathlib import Path
 
@@ -320,7 +328,8 @@ class FeagiTestRunner:
                 with open(essential_genome_path, "r") as f:
                     genome_data = json.load(f)
 
-                # Use the single load_genome method for consistency and dynamic sizing
+                #  Use the single load_genome method for consistency and
+                #  dynamic sizing
                 result = self.core_api.load_genome(
                     genome_data, filename="essential_genome.json"
                 )
@@ -350,7 +359,8 @@ class FeagiTestRunner:
         self.initial_fcls = {}
 
         for cortical_id in self.connectome.cortical_areas:
-            # CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not cortical_id (str)
+            #  CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not
+            #  cortical_id (str)
             cortical_area = self.connectome.cortical_areas[cortical_id]
             cortical_idx = cortical_area.cortical_idx
             fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
@@ -524,7 +534,8 @@ class FeagiTestRunner:
         empty_fcl_count = 0
 
         for cortical_id in self.connectome.cortical_areas:
-            # CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not cortical_id (str)
+            #  CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not
+            #  cortical_id (str)
             cortical_area = self.connectome.cortical_areas[cortical_id]
             cortical_idx = cortical_area.cortical_idx
             current_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
@@ -535,8 +546,10 @@ class FeagiTestRunner:
                 empty_fcl_count += 1
                 continue
 
-            # FIXED: Check for ANY neural activity, not just changes from initial state
-            # Persistent firing (same neurons across timesteps) is NORMAL behavior
+            #  FIXED: Check for ANY neural activity, not just changes from
+            #  initial state
+            #  Persistent firing (same neurons across timesteps) is NORMAL
+            #  behavior
             if current_fcl_set:  # Any neurons firing = activity detected
                 activity_detected = True
                 active_fcls.append(cortical_id)
@@ -557,7 +570,8 @@ class FeagiTestRunner:
             )
 
             # CRITICAL BUG: FCL system not being updated despite neurons firing
-            # This indicates a serious issue with FCL update mechanism that needs investigation
+            #  This indicates a serious issue with FCL update mechanism that
+            #  needs investigation
             try:
                 # Check if burst engine has recent firing data
                 if hasattr(self.burst_engine, "get_last_burst_stats"):
@@ -596,8 +610,10 @@ class FeagiTestRunner:
         Returns:
             tuple: (activity_detected, list_of_active_areas)
         """
-        # PERFORMANCE OPTIMIZATION: Skip synchronization if burst engine is running fast enough
-        # For high-frequency burst engines (>50Hz), the injection will be processed within 20ms
+        #  PERFORMANCE OPTIMIZATION: Skip synchronization if burst engine is
+        #  running fast enough
+        #  For high-frequency burst engines (>50Hz), the injection will be
+        #  processed within 20ms
         # which is faster than our polling interval anyway
         try:
             burst_config = self.core_api.get_burst_engine_config()
@@ -618,13 +634,16 @@ class FeagiTestRunner:
         except Exception as e:
             logger.debug(f"Could not get burst frequency: {e}")
 
-        # PERFORMANCE: For standard frequency engines, use single burst interval wait
-        # This is RTOS-friendly as it aligns with the burst engine's natural timing
+        #  PERFORMANCE: For standard frequency engines, use single burst
+        #  interval wait
+        #  This is RTOS-friendly as it aligns with the burst engine's natural
+        #  timing
         try:
             burst_config = self.core_api.get_burst_engine_config()
             burst_interval = burst_config.get("burst_interval_seconds", 0.1)
 
-            # Wait for exactly one burst interval - this is deterministic and RTOS-friendly
+            #  Wait for exactly one burst interval - this is deterministic and
+            #  RTOS-friendly
             import time
 
             time.sleep(
@@ -680,7 +699,8 @@ class FeagiTestRunner:
             # Capture initial state
             self.capture_initial_state()
 
-            # Get all cortical areas from the connectome for activity monitoring
+            #  Get all cortical areas from the connectome for activity
+            #  monitoring
             all_areas = self.connectome.cortical_areas
             if not all_areas:
                 logger.error("No cortical areas found in the genome")

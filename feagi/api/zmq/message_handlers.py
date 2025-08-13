@@ -63,7 +63,8 @@ class MessageHandler:
         if protocol_type == "fcp":
             self.socket = connection_manager.control_socket
         elif protocol_type == "fsmp":
-            # Using sensory socket for FSMP as it's primarily for receiving data
+            #  Using sensory socket for FSMP as it's primarily for receiving
+            #  data
             # But sensory socket may be None if handled by dedicated stream
             self.socket = connection_manager.sensory_socket
             if self.socket is None:
@@ -142,7 +143,8 @@ class MessageHandler:
                     logger.warning(
                         f"Received message from unknown client: {client_id.hex()}"
                     )
-                    # We might want to handle new clients here, e.g., for initial handshake
+                    #  We might want to handle new clients here, e.g., for
+                    #  initial handshake
                     continue
 
                 # Update client activity

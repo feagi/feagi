@@ -81,7 +81,8 @@ class ConnectionManager:
         self.control_socket.bind(f"tcp://*:{control_port}")
         logger.info(f"Control socket (ROUTER) bound to port {control_port}")
 
-        # Create sensory socket (PULL) for receiving sensory data only if port is provided
+        #  Create sensory socket (PULL) for receiving sensory data only if port
+        #  is provided
         self.sensory_socket = None
         if sensory_port is not None:
             self.sensory_socket = self.context.socket(zmq.PULL)
@@ -95,7 +96,8 @@ class ConnectionManager:
                 "Sensory socket disabled (handled by dedicated stream)"
             )
 
-        # Create motor socket (PUB) for broadcasting motor commands only if port is provided
+        #  Create motor socket (PUB) for broadcasting motor commands only if
+        #  port is provided
         self.motor_socket = None
         if motor_port is not None:
             self.motor_socket = self.context.socket(zmq.PUB)
@@ -108,7 +110,8 @@ class ConnectionManager:
         else:
             logger.info("Motor socket disabled (handled by dedicated stream)")
 
-        # Create visualization socket (PUB) only if visualization port is provided
+        #  Create visualization socket (PUB) only if visualization port is
+        #  provided
         self.visualization_socket = None
         if visualization_port is not None:
             self.visualization_socket = self.context.socket(zmq.PUB)

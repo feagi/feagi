@@ -440,7 +440,8 @@ class GPUAcceleratedFCL:
                 "Backend does not support required bitmap operations for GPUAcceleratedFCL"
             )
 
-        # Create a CPU FCL manager as a delegate for operations that can't be accelerated
+        #  Create a CPU FCL manager as a delegate for operations that can't be
+        #  accelerated
         self.cpu_fcl = FCLManager(default_window_size=default_window_size)
 
         logger.info(
@@ -469,7 +470,8 @@ class GPUAcceleratedFCL:
             neurons_by_cortical: Dictionary mapping cortical indices to collections of firing neurons
         """
         # For now, delegate to CPU implementation
-        # A fully GPU-accelerated version would require more complex data structures
+        #  A fully GPU-accelerated version would require more complex data
+        #  structures
         # that match the FCL implementation
         self.cpu_fcl.update_fcl(current_timestep, neurons_by_cortical)
 

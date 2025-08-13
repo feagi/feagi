@@ -105,7 +105,8 @@ class SpecialAreaHandler:
                     f"   Neuron IDs: {power_neurons[:20]}..."
                 )  # Show first 20
 
-                # Check cortical area mapping - is cortical_idx=1 actually _power?
+                #  Check cortical area mapping - is cortical_idx=1 actually
+                #  _power?
                 try:
                     if hasattr(self.connectome_manager, "cortical_areas"):
                         logger.error("🔍 MAPPING VERIFICATION:")
@@ -176,12 +177,14 @@ class SpecialAreaHandler:
                         logger.error("🔍 NEURON ANALYSIS:")
                         neuron_array = self.connectome_manager.neuron_array
 
-                        # Sample first 10 neurons to check their actual cortical assignments
+                        #  Sample first 10 neurons to check their actual
+                        #  cortical assignments
                         sample_neurons = power_neurons[:10]
                         for neuron_id in sample_neurons:
                             try:
                                 if hasattr(neuron_array, "cortical_idxs"):
-                                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                                    #  CRITICAL FIX: Use proper neuron ID to
+                                    #  array index mapping
                                     index = self.connectome_manager.get_neuron_index(
                                         neuron_id
                                     )
@@ -262,7 +265,8 @@ class SpecialAreaHandler:
 
             return power_neurons if power_neurons else []
         except KeyError as e:
-            # cortical_idx=1 (_power area) doesn't exist - likely neurogenesis failed
+            #  cortical_idx=1 (_power area) doesn't exist - likely neurogenesis
+            #  failed
             # Use DEBUG level to avoid log spam, only warn once per minute
             if not hasattr(self, "_last_pwr_warning_time"):
                 self._last_pwr_warning_time = 0

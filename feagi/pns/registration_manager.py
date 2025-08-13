@@ -654,11 +654,14 @@ class RegistrationManager:
             or capabilities.get("neural_visualization", False)
         )
 
-        # Only count output as motor capability if it's not a visualization agent
+        #  Only count output as motor capability if it's not a visualization
+        #  agent
         has_output_control = has_output and not is_visualizer
 
-        # Sensorimotor should only count as motor capability if it explicitly includes motor control
-        # Brain visualizers might have sensorimotor for displaying both sensory and motor data
+        #  Sensorimotor should only count as motor capability if it explicitly
+        #  includes motor control
+        #  Brain visualizers might have sensorimotor for displaying both
+        #  sensory and motor data
         has_sensorimotor_control = (
             capabilities.get("sensorimotor", False)
             and not is_visualizer
@@ -707,7 +710,8 @@ class RegistrationManager:
                         )
 
                     # Use minimum of viz_frequency and FEAGI burst frequency
-                    # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
+                    #  STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst
+                    #  frequency
                     burst_frequency = None
                     original_viz_frequency = viz_frequency
 
@@ -744,7 +748,8 @@ class RegistrationManager:
                             "🎨 [ERROR] Failed to create visualization FQ sampler"
                         )
 
-                # CRITICAL: Notify ALL existing FQ samplers that visualization client connected
+                #  CRITICAL: Notify ALL existing FQ samplers that visualization
+                #  client connected
                 self._notify_existing_fq_samplers_visualization(True)
 
                 fq_results["visualization"] = self._fq_sampler_states[
@@ -777,7 +782,8 @@ class RegistrationManager:
                             "🚗 [ERROR] Failed to create motor FQ sampler"
                         )
 
-                # CRITICAL: Notify ALL existing FQ samplers that motor client connected
+                #  CRITICAL: Notify ALL existing FQ samplers that motor client
+                #  connected
                 self._notify_existing_fq_samplers_motor(True)
 
                 fq_results["motor"] = self._fq_sampler_states["motor_enabled"]
@@ -934,7 +940,8 @@ class RegistrationManager:
                 total_agents = len(self._agents)
                 self._state_manager.set_agent_count(total_agents)
 
-                # Note: Registration Manager maintains its own agent registry internally
+                #  Note: Registration Manager maintains its own agent registry
+                #  internally
                 # The state manager only tracks high-level counts and states
                 logger.debug(
                     f"🔄 State Manager updated: {total_agents} agents registered"

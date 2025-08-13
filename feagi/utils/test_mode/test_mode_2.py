@@ -57,7 +57,8 @@ class TestMode2Handler:
                 logger.error("Brain is not ready for neuron injection")
                 return False
 
-            # Get the genome data from the core API - should be test_genome.json for test mode 2
+            #  Get the genome data from the core API - should be
+            #  test_genome.json for test mode 2
             genome_data = self.test_runner.core_api.get_genome()
 
             if not genome_data:
@@ -122,7 +123,8 @@ class TestMode2Handler:
                 # Calculate volume for coordinate space
                 volume = dimensions[0] * dimensions[1] * dimensions[2]
 
-                # CRITICAL FIX: Count actual neurons in this area (same as test mode 1)
+                #  CRITICAL FIX: Count actual neurons in this area (same as
+                #  test mode 1)
                 neuron_count = len(area.get_all_neurons())
                 self.total_available_neurons += neuron_count
 
@@ -234,7 +236,8 @@ class TestMode2Handler:
                     dimensions = area_info["dimensions"]
                     width, height, depth = dimensions
 
-                    # Determine number of coordinates to activate - simple random within range
+                    #  Determine number of coordinates to activate - simple
+                    #  random within range
                     num_to_activate = np.random.randint(
                         self.neurons_per_area_min,
                         self.neurons_per_area_max + 1,
@@ -243,7 +246,8 @@ class TestMode2Handler:
                     if num_to_activate <= 0:
                         continue
 
-                    # Generate random coordinates within the cortical area bounds using numpy
+                    #  Generate random coordinates within the cortical area
+                    #  bounds using numpy
                     random_coordinates = []
                     for _ in range(num_to_activate):
                         x = np.random.randint(0, width)
@@ -264,7 +268,8 @@ class TestMode2Handler:
                     )
                     continue
 
-            # Submit coordinate activations via test runner (proper architecture)
+            #  Submit coordinate activations via test runner (proper
+            #  architecture)
             if coordinate_activations:
                 total_coordinates = sum(
                     len(coords) for coords in coordinate_activations.values()

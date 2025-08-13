@@ -34,7 +34,8 @@ class CorticalChangeClassifier:
     brain rebuilds for simple parameter or metadata changes.
     """
 
-    # Properties requiring full rebuild (affect neuron topology/count/connections)
+    #  Properties requiring full rebuild (affect neuron
+    #  topology/count/connections)
     STRUCTURAL_CHANGES = {
         "cortical_dimensions",  # Changes neuron count
         "coordinates_3d",  # Spatial repositioning may affect connections

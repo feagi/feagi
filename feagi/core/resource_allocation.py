@@ -119,7 +119,8 @@ class CPUAllocator:
             logger.warning(f"Error detecting physical cores: {e}")
             return self.core_ids
 
-        # Create a flattened list with physical cores first, then additional logical cores
+        #  Create a flattened list with physical cores first, then additional
+        #  logical cores
         physical_cores = []
         for _physical_id, logical_ids in physical_core_map.items():
             # Take one logical core from each physical core
@@ -320,10 +321,12 @@ class CPUAllocator:
                     and len(p.core_ids) > 1
                 ]
 
-                # If we have high utilization processes and low utilization processes,
+                #  If we have high utilization processes and low utilization
+                #  processes,
                 # redistribute cores from low to high
                 if high_util and low_util:
-                    # For each high utilization process, take one core from a low util process
+                    #  For each high utilization process, take one core from a
+                    #  low util process
                     for high_process in high_util:
                         if not low_util:
                             break
@@ -350,7 +353,8 @@ class CPUAllocator:
                             f"Rebalanced: moved core {core_to_move} from {low_process.process_name} to {high_process.process_name}"
                         )
 
-                        # If low process has only one core left, remove from candidates
+                        #  If low process has only one core left, remove from
+                        #  candidates
                         if len(low_process.core_ids) <= 1:
                             try:
                                 low_util.remove(low_process)

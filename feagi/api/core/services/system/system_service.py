@@ -34,7 +34,8 @@ class SystemService(BaseService):
     def __init__(self, connectome_manager, state_manager=None):
         """Initialize system service."""
         super().__init__(connectome_manager, state_manager)
-        # Ensure we have explicit access to connectome manager for health checks
+        #  Ensure we have explicit access to connectome manager for health
+        #  checks
         self._connectome_manager = connectome_manager
 
     async def get_health(self) -> Dict[str, Any]:
@@ -66,7 +67,8 @@ class SystemService(BaseService):
                     self.logger.info("State synchronization successful")
 
             # Basic health metrics
-            # REPORT ACTUAL STATE: Health check should only report current status, not change it
+            #  REPORT ACTUAL STATE: Health check should only report current
+            #  status, not change it
             genome_loaded = self.state_manager.is_genome_loaded()
             burst_state = self.state_manager.get_burst_engine_state()
 
@@ -90,7 +92,8 @@ class SystemService(BaseService):
                 ServiceState.ON_HOLD,
             ]
 
-            # Get connected agents count (not the dictionary itself) for health check response
+            #  Get connected agents count (not the dictionary itself) for
+            #  health check response
             connected_agents_dict = getattr(
                 self.state_manager, "connected_agents", {}
             )
@@ -117,12 +120,14 @@ class SystemService(BaseService):
                 self.state_manager, "changes_saved_externally", False
             )
 
-            # CRITICAL: Include genome_timestamp for downstream clients (Bridge/Godot)
+            #  CRITICAL: Include genome_timestamp for downstream clients
+            #  (Bridge/Godot)
             health["genome_timestamp"] = (
                 self.state_manager.get_genome_timestamp()
             )
 
-            # CRITICAL: Include genome_num for downstream clients (Bridge/Godot) to track genome counter increments
+            #  CRITICAL: Include genome_num for downstream clients
+            #  (Bridge/Godot) to track genome counter increments
             health["genome_num"] = self.state_manager.get_genome_counter()
 
             # Use the proper state manager method to check if genome is loaded
@@ -188,7 +193,8 @@ class SystemService(BaseService):
                 health["synapse_count"] = 0
                 health["estimated_brain_size_in_MB"] = 0.0
 
-            # CRITICAL: Ensure genome_validity is always a boolean for Godot compatibility
+            #  CRITICAL: Ensure genome_validity is always a boolean for Godot
+            #  compatibility
             genome_validity_raw = getattr(
                 self.state_manager, "genome_validity", None
             )
@@ -387,7 +393,8 @@ class SystemService(BaseService):
             if self.state_manager and hasattr(
                 self.state_manager, "influxdb_config"
             ):
-                # Use configuration system for host instead of hardcoded localhost
+                #  Use configuration system for host instead of hardcoded
+                #  localhost
                 from feagi.config.toml_loader import (
                     get_host_config,
                     load_feagi_config,
@@ -638,7 +645,8 @@ class SystemService(BaseService):
                 # Get visualization FQ sampler status
                 viz_sampler = getattr(process_manager, "_viz_fq_sampler", None)
                 if viz_sampler:
-                    # Check if sampler has visualization subscribers (enabled state)
+                    #  Check if sampler has visualization subscribers (enabled
+                    #  state)
                     has_subscribers = getattr(
                         viz_sampler, "_has_visualization_subscribers", False
                     )

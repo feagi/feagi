@@ -104,7 +104,8 @@ class RequestReplyServer:
                 # Wait for request
                 request_data = await self.socket.recv_multipart()
 
-                # Add compatibility layer for simple JSON messages (not multipart)
+                #  Add compatibility layer for simple JSON messages (not
+                #  multipart)
                 if len(request_data) == 1:
                     # Simple message format - try to parse as JSON
                     try:
@@ -145,7 +146,8 @@ class RequestReplyServer:
                         )
                         pass
 
-                # Standard processing - expecting [auth_token, content_type, request_data]
+                #  Standard processing - expecting [auth_token, content_type,
+                #  request_data]
                 if len(request_data) < 3:
                     logger.error(f"Invalid request format: {request_data}")
                     await self._send_error("Invalid request format")

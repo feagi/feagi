@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 
 import copy
 import json
@@ -663,7 +663,8 @@ def genome_physiology_updator(genome: dict):
     if "max_burst_count" in genome:
         genome.pop("max_burst_count")
 
-    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility
+    #  MIGRATION: Convert burst_delay to simulation_timestep for backward
+    #  compatibility
     if "burst_delay" in genome:
         genome["physiology"]["simulation_timestep"] = genome["burst_delay"]
         genome.pop("burst_delay")
@@ -901,7 +902,8 @@ def process_and_load_genome(genome_data, core_api_service):
         # Update state based on result
         if success:
             state_manager.set_genome_state(GenomeState.LOADED)
-            # Don't increment the counter here - core_api_service already does it
+            #  Don't increment the counter here - core_api_service already does
+            #  it
             # state_manager.increment_genome_counter()
         else:
             state_manager.set_genome_state(GenomeState.ERROR)
@@ -923,9 +925,9 @@ def process_and_load_genome(genome_data, core_api_service):
         raise
 
 
-# ==============================================================================
+#  ==============================================================================
 # MODERN OOP GENOME PROCESSOR ARCHITECTURE
-# ==============================================================================
+#  ==============================================================================
 
 
 class GenomeVersionError(Exception):
@@ -1176,7 +1178,8 @@ class GenomeV2Processor(BaseGenomeProcessor):
                         # Process each mapping specification
                         for spec in mapping_specs:
                             if isinstance(spec, list) and len(spec) >= 7:
-                                # Convert from legacy array format to object format
+                                #  Convert from legacy array format to object
+                                #  format
                                 mapping_obj = {
                                     "morphology_id": spec[0],
                                     "morphology_scalar": (

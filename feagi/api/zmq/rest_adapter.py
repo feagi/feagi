@@ -191,7 +191,8 @@ class ZMQRestAPIAdapter:
         This ensures identical behavior between HTTP and ZMQ transports.
         """
         # We need to extract the route and method from the current context
-        # Since this is called from _process_request, we can get it from the frame
+        #  Since this is called from _process_request, we can get it from the
+        #  frame
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_locals = caller_frame.f_locals
@@ -271,8 +272,10 @@ class ZMQRestAPIAdapter:
                     "ZMQ server reference not available - using fallback approach"
                 )
 
-                # For now, just register the client and assume the visualization stream will pick it up
-                # This ensures the registration call succeeds even if we can't immediately access the stream
+                #  For now, just register the client and assume the
+                #  visualization stream will pick it up
+                #  This ensures the registration call succeeds even if we can't
+                #  immediately access the stream
                 return {
                     "client_id": client_id,
                     "success": True,
@@ -461,7 +464,8 @@ class ZMQRestAPIAdapter:
 
             logger.error(f"[ERR] Full traceback: {traceback.format_exc()}")
 
-            # Instead of re-raising, return error response to prevent cascading failures
+            #  Instead of re-raising, return error response to prevent
+            #  cascading failures
             return {
                 "message": f"Heartbeat failed: {str(e)}",
                 "status": "error",
@@ -598,8 +602,10 @@ class ZMQRestAPIAdapter:
         # We need to be careful with how we handle parameters in the route
         route_with_params = route
 
-        # For parameterized routes like "/v1/connectome/cortical_area/123" where 123 is a parameter value
-        # We need the route key to be "/v1/connectome/cortical_area/{cortical_id}" for handler matching
+        #  For parameterized routes like "/v1/connectome/cortical_area/123"
+        #  where 123 is a parameter value
+        #  We need the route key to be
+        #  "/v1/connectome/cortical_area/{cortical_id}" for handler matching
 
         # Start with basic route segmentation
         route_segments = route.split("/")
@@ -611,8 +617,10 @@ class ZMQRestAPIAdapter:
             if not segment:
                 continue
 
-            # Check if this segment might be a parameter value (simple heuristic)
-            # A parameter value is often numeric or a UUID, but could be any string that's not a common API path
+            #  Check if this segment might be a parameter value (simple
+            #  heuristic)
+            #  A parameter value is often numeric or a UUID, but could be any
+            #  string that's not a common API path
             if segment.isdigit() or (
                 len(segment) > 1
                 and not segment.startswith("v")
@@ -640,7 +648,8 @@ class ZMQRestAPIAdapter:
                 # Try to find parameter name based on position in path
                 param_name = None
 
-                # This is a heuristic based on common route patterns - expand as needed
+                #  This is a heuristic based on common route patterns - expand
+                #  as needed
                 if (
                     "cortical_area" in route
                     and i > 0
@@ -654,7 +663,8 @@ class ZMQRestAPIAdapter:
                 ):
                     param_name = "neuron_id"
 
-                # If we identified a parameter, update both the route template and params
+                #  If we identified a parameter, update both the route template
+                #  and params
                 if param_name:
                     # Add to params if not already present
                     if param_name not in params:
@@ -736,11 +746,14 @@ class ZMQRestAPIAdapter:
                 for tp, ap in zip(template_parts, actual_parts):
                     # If template segment has a parameter (e.g., {cortical_id})
                     if "{" in tp and "}" in tp:
-                        # Always matches, but we need to check if the parameter name exists in params
+                        #  Always matches, but we need to check if the
+                        #  parameter name exists in params
                         param_name = tp.strip("{}")
                         if param_name not in params:
-                            # Parameter not provided, but should use route part as the parameter value
-                            # This handles cases where the client just includes the value in the route
+                            #  Parameter not provided, but should use route
+                            #  part as the parameter value
+                            #  This handles cases where the client just
+                            #  includes the value in the route
                             # but doesn't explicitly set it in params
                             logger.debug(
                                 f"Adding missing param {param_name} = {ap}"
@@ -798,8 +811,10 @@ class ZMQRestAPIAdapter:
 
     # ===== Architecture Notes =====
     #
-    # All endpoint handlers have been removed and delegated to the unified v1 API
-    # to maintain the single source of truth principle and ensure identical behavior
+    #  All endpoint handlers have been removed and delegated to the unified v1
+    #  API
+    #  to maintain the single source of truth principle and ensure identical
+    #  behavior
     # between HTTP and ZMQ transports.
     #
     # The _delegate_to_v1_api method ensures that:
@@ -808,5 +823,6 @@ class ZMQRestAPIAdapter:
     # 3. No endpoint duplication exists anywhere in the codebase
     # 4. All transport protocols remain in perfect sync
     #
-    # This architecture prevents the architectural violations that occurred with
+    #  This architecture prevents the architectural violations that occurred
+    #  with
     # custom handlers providing different responses for the same endpoints.

@@ -61,7 +61,8 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 if EMBEDDED_MODE:
-    # In embedded mode, provide a stub class that handles basic system endpoints
+    #  In embedded mode, provide a stub class that handles basic system
+    #  endpoints
     # but disables full REST API functionality
     class ZMQRestAdapter:
         def __init__(self, core_api_service):
@@ -76,7 +77,8 @@ if EMBEDDED_MODE:
                 route = request.get("route", "")
                 method = request.get("method", "GET")
 
-                # Handle basic system endpoints that should work in embedded mode
+                #  Handle basic system endpoints that should work in embedded
+                #  mode
                 if route == "/v1/system/health_check" and method == "GET":
                     return self._create_success_response(
                         {
@@ -344,14 +346,16 @@ else:
                         if len(template_parts) != len(actual_parts):
                             continue
 
-                        # Check if the pattern matches by comparing each segment
+                        #  Check if the pattern matches by comparing each
+                        #  segment
                         matches = True
                         extracted_params = {}
 
                         for template_part, actual_part in zip(
                             template_parts, actual_parts
                         ):
-                            # If template segment has a parameter (e.g., {cortical_id})
+                            #  If template segment has a parameter (e.g.,
+                            #  {cortical_id})
                             if "{" in template_part and "}" in template_part:
                                 param_name = template_part.strip("{}")
                                 extracted_params[param_name] = actual_part
@@ -568,14 +572,16 @@ else:
 
         async def _handle_get_genome(self, params, query, body, headers):
             """Handler for GET /v1/genome."""
-            # This endpoint doesn't exist in v1 API yet, delegate to core service
+            #  This endpoint doesn't exist in v1 API yet, delegate to core
+            #  service
             return self.core_api_service.get_genome()
 
         async def _handle_get_genome_blueprint(
             self, params, query, body, headers
         ):
             """Handler for GET /v1/genome/blueprint."""
-            # This endpoint doesn't exist in v1 API yet, delegate to core service
+            #  This endpoint doesn't exist in v1 API yet, delegate to core
+            #  service
             genome = self.core_api_service.get_genome()
             return genome.get("cortical_areas", {}) if genome else {}
 
@@ -664,7 +670,8 @@ else:
             self, params, query, body, headers
         ):
             """Handler for GET /v1/connectome/cortical_areas."""
-            # Use the working cortical area service method like the working endpoint
+            #  Use the working cortical area service method like the working
+            #  endpoint
             cortical_area_ids = (
                 self.cortical_area_api.get_cortical_area_id_list_legacy()
             )
@@ -725,10 +732,12 @@ else:
             self, params, query, body, headers
         ):
             """Handler for POST /v1/burst_engine/simulation_timestep."""
-            # Create SimulationTimestepRequest from the body using the new simplified format
+            #  Create SimulationTimestepRequest from the body using the new
+            #  simplified format
             from feagi.api.v1.burst_engine import SimulationTimestepRequest
 
-            # Create the request object by unpacking the body (expects {"simulation_timestep": 0.1})
+            #  Create the request object by unpacking the body (expects
+            #  {"simulation_timestep": 0.1})
             request = SimulationTimestepRequest(**body)
             return self.burst_engine_api.change_simulation_timestep(request)
 

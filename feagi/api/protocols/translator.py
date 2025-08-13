@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 """Protocol Translator Module for FEAGI.
 
 This module provides the translators for converting between FEAGI's
@@ -174,11 +174,13 @@ class ByteStructureTranslator:
                     neurons_z = np.asarray(z_vals, dtype=np.uint32)
                     neurons_p = np.asarray(p_vals, dtype=np.float32)
 
-                    # Create cortical ID using modern feagi-data-processing approach
+                    #  Create cortical ID using modern feagi-data-processing
+                    #  approach
                     area_str = str(cortical_id)
 
                     try:
-                        # Try to create cortical ID directly from string - handles all modern format IDs
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
                         cortical_id_obj = (
                             self.fdp.genome.CorticalID.try_new_from_string(
                                 area_str
@@ -200,13 +202,15 @@ class ByteStructureTranslator:
                                 f"c{area_str}"
                             )
 
-                    # Use high-performance NumPy approach to create neuron arrays
+                    #  Use high-performance NumPy approach to create neuron
+                    #  arrays
                     # (no cortical_id parameter)
                     neurons_array = self.fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                         neurons_x, neurons_y, neurons_z, neurons_p
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
                     generated_mapped_neuron_data.insert(
                         cortical_id_obj, neurons_array
                     )
@@ -435,7 +439,8 @@ class ByteStructureTranslator:
             return self._encode_json_message(message)
         else:
             # For raw binary data, use JSON header with base64 encoded data
-            # In a real implementation, you might use a specialized binary format
+            #  In a real implementation, you might use a specialized binary
+            #  format
             import base64
 
             if isinstance(data, bytes):
@@ -542,7 +547,8 @@ class ByteStructureTranslator:
                 structure_type = structure_info.get("structure_type", 0)
 
                 if structure_type == 11:  # NeuronCategoricalXYZP
-                    # Create CorticalMappedXYZPNeuronData from the byte structure
+                    #  Create CorticalMappedXYZPNeuronData from the byte
+                    #  structure
                     cortical_mapped = (
                         self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                     )
@@ -554,7 +560,8 @@ class ByteStructureTranslator:
                         cortical_id,
                         neuron_arrays,
                     ) in cortical_mapped.iter_full():
-                        # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
+                        #  neuron_arrays is a tuple: (x_coords, y_coords,
+                        #  z_coords, potentials)
                         x_coords, y_coords, z_coords, potentials = (
                             neuron_arrays
                         )

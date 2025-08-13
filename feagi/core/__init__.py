@@ -40,7 +40,8 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
         config = {}
 
     # Get GPU settings
-    # use_gpu = config.get("core", {}).get("use_gpu", False)  # Unused variable removed
+    #  use_gpu = config.get("core", {}).get("use_gpu", False) # Unused variable
+    #  removed
 
     # Create the CoreAPIService wrapper around the FEAGI core
     core_api = CoreAPIService(connectome, config=config)

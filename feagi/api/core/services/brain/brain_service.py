@@ -57,7 +57,8 @@ class BrainService(BaseService):
             # Get the actual burst engine instance to check its _running flag
             burst_engine = self._get_burst_engine()
             if burst_engine:
-                # Check the actual burst engine's _running flag (the correct source of truth)
+                #  Check the actual burst engine's _running flag (the correct
+                #  source of truth)
                 is_running = burst_engine._running
                 current_burst = getattr(burst_engine, "burst_count", 0)
             else:
@@ -140,7 +141,8 @@ class BrainService(BaseService):
                 self.logger.warning("Failed to clear exit condition")
                 # Continue anyway - this is not critical for startup
 
-            # CRITICAL: Actually start the burst engine main loop in a background thread
+            #  CRITICAL: Actually start the burst engine main loop in a
+            #  background thread
             import threading
 
             def run_burst_engine():
@@ -183,7 +185,8 @@ class BrainService(BaseService):
                 "BRAIN SERVICE: Background thread started, using event-based synchronization..."
             )
 
-            # RTOS-COMPATIBLE: Event-based synchronization instead of sleep polling
+            #  RTOS-COMPATIBLE: Event-based synchronization instead of sleep
+            #  polling
             startup_event = threading.Event()
             startup_success = False
 
@@ -210,7 +213,8 @@ class BrainService(BaseService):
 
                     # RTOS: Minimal CPU yield for cooperative multitasking
                     if iteration % 10 == 0:  # Every 10th iteration
-                        # Use os.sched_yield() for RTOS compatibility if available
+                        #  Use os.sched_yield() for RTOS compatibility if
+                        #  available
                         try:
                             import os
 
@@ -246,8 +250,10 @@ class BrainService(BaseService):
                     "Burst engine started successfully in background thread"
                 )
 
-                # CRITICAL: If there's already a genome loaded, update the burst engine with it
-                # This ensures injection service gets initialized for existing genomes
+                #  CRITICAL: If there's already a genome loaded, update the
+                #  burst engine with it
+                #  This ensures injection service gets initialized for existing
+                #  genomes
                 genome_loaded = (
                     self.state_manager
                     and self.state_manager.is_genome_loaded()
@@ -747,12 +753,14 @@ class BrainService(BaseService):
                         continue
 
                     # SIMD OPTIMIZATION 1: Vectorized coordinate processing
-                    # CRITICAL: Validate coordinate ranges before uint16 conversion to prevent silent data corruption
+                    #  CRITICAL: Validate coordinate ranges before uint16
+                    #  conversion to prevent silent data corruption
                     coords_x_array = np.asarray(coords_x)
                     coords_y_array = np.asarray(coords_y)
                     coords_z_array = np.asarray(coords_z)
 
-                    # Check for values that would be truncated by uint16 conversion
+                    #  Check for values that would be truncated by uint16
+                    #  conversion
                     if (
                         len(coords_x_array) > 0
                         and coords_x_array.max() > 65535
@@ -799,7 +807,8 @@ class BrainService(BaseService):
                     potentials = np.asarray(potentials, dtype=np.float32)
 
                     # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
-                    # Stack coordinates and find unique positions in one operation
+                    #  Stack coordinates and find unique positions in one
+                    #  operation
                     coordinate_matrix = np.column_stack(
                         (coords_x, coords_y, coords_z)
                     )
@@ -807,11 +816,13 @@ class BrainService(BaseService):
                         coordinate_matrix, axis=0, return_inverse=True
                     )
 
-                    # Convert to set for batch lookup (ConnectomeManager API requirement)
+                    #  Convert to set for batch lookup (ConnectomeManager API
+                    #  requirement)
                     candidate_positions = set(map(tuple, unique_coords))
 
                     # SIMD-optimized batch lookup: coordinates → neuron_ids
-                    # This uses the existing batch_voxel_to_neuron_lookup method
+                    #  This uses the existing batch_voxel_to_neuron_lookup
+                    #  method
                     neuron_weight_pairs = (
                         self._connectome_manager.batch_voxel_to_neuron_lookup(
                             cortical_id=cortical_id,
@@ -854,7 +865,8 @@ class BrainService(BaseService):
                                     neuron_id
                                 )
                     else:
-                        # Fallback to individual lookups (still better than original loops)
+                        #  Fallback to individual lookups (still better than
+                        #  original loops)
                         for neuron_id, _ in neuron_weight_pairs:
                             neuron_pos = (
                                 self._connectome_manager.get_neuron_position(
@@ -862,7 +874,8 @@ class BrainService(BaseService):
                                 )
                             )
                             if neuron_pos:
-                                # Convert from (area_id, x, y, z, idx) format to (x, y, z)
+                                #  Convert from (area_id, x, y, z, idx) format
+                                #  to (x, y, z)
                                 if len(neuron_pos) >= 4:
                                     pos_tuple = (
                                         neuron_pos[1],
@@ -879,7 +892,8 @@ class BrainService(BaseService):
                                 )
 
                     # SIMD OPTIMIZATION 4: Vectorized stimulation application
-                    # Group coordinates by unique positions and apply stimulation in batches
+                    #  Group coordinates by unique positions and apply
+                    #  stimulation in batches
                     area_stimulated = 0
                     area_failed = 0
 
@@ -887,7 +901,8 @@ class BrainService(BaseService):
                     for unique_idx, unique_coord in enumerate(unique_coords):
                         coord_tuple = tuple(unique_coord)
 
-                        # Find all original indices that map to this unique coordinate
+                        #  Find all original indices that map to this unique
+                        #  coordinate
                         coord_mask = inverse_indices == unique_idx
                         coord_potentials = potentials[coord_mask]
 
@@ -898,10 +913,12 @@ class BrainService(BaseService):
 
                         if neurons_at_coord and len(coord_potentials) > 0:
                             # Use the first potential value for this coordinate
-                            # (all coordinates at same position get same stimulation)
+                            #  (all coordinates at same position get same
+                            #  stimulation)
                             potential_value = float(coord_potentials[0])
 
-                            # SIMD OPTIMIZATION 5: Batch membrane potential update
+                            #  SIMD OPTIMIZATION 5: Batch membrane potential
+                            #  update
                             try:
                                 if hasattr(
                                     self._connectome_manager, "neuron_array"
@@ -984,7 +1001,8 @@ class BrainService(BaseService):
     def get_burst_engine_config(self) -> Dict[str, Any]:
         """Get burst engine configuration - RTOS-safe."""
         try:
-            # Get frequency directly from STATE MANAGER (single source of truth)
+            #  Get frequency directly from STATE MANAGER (single source of
+            #  truth)
             state_frequency = 10.0  # Emergency fallback
             if self.state_manager:
                 try:

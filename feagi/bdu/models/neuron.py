@@ -102,7 +102,8 @@ def simd_firing_check_with_excitability(
     Returns:
         Boolean mask of neurons that should fire
     """
-    # PERFORMANCE: Fast path - if ALL excitability values are >= 0.999, use original function
+    #  PERFORMANCE: Fast path - if ALL excitability values are >= 0.999, use
+    #  original function
     if np.all(excitability >= 0.999):
         return simd_firing_check(potentials, thresholds, can_fire_mask)
 
@@ -176,9 +177,12 @@ try:
                 if excitability[i] >= 0.999:
                     fired_mask[i] = True
                 else:
-                    # Use a simple LCG for determinism inside numba-compiled function
-                    # Note: Numba cannot use numpy Generator; this is a deterministic stub.
-                    # Parameters from Numerical Recipes: a=1664525, c=1013904223, m=2**32
+                    #  Use a simple LCG for determinism inside numba-compiled
+                    #  function
+                    #  Note: Numba cannot use numpy Generator; this is a
+                    #  deterministic stub.
+                    #  Parameters from Numerical Recipes: a=1664525,
+                    #  c=1013904223, m=2**32
                     # Seed derived from index for reproducibility per call
                     state = (1664525 * (i + 1) + 1013904223) % 4294967296
                     rand = state / 4294967296.0
@@ -298,14 +302,16 @@ class NeuronArray:
             self._use_rust = False
             self._init_optimized_backend(backend)
 
-        # ARCHITECTURAL CHANGE: Remove redundant mappings - use external provider
+        #  ARCHITECTURAL CHANGE: Remove redundant mappings - use external
+        #  provider
         # Common tracking regardless of backend
         self.cortical_id_to_indices: Dict[int, List[int]] = {}
         self.next_index = 0
         self.free_indices: Set[int] = set()
         self.neuron_count = 0
 
-        # Unique neuron ID generator - separate from array indices to prevent corruption
+        #  Unique neuron ID generator - separate from array indices to prevent
+        #  corruption
         self._next_neuron_id = 1  # Start from 1 (0 reserved for invalid)
 
         # Performance tracking
@@ -322,7 +328,8 @@ class NeuronArray:
         if self.mapping_provider:
             return self.mapping_provider.get_neuron_index(neuron_id)
         else:
-            # Fallback for backward compatibility - should not be used in new code
+            #  Fallback for backward compatibility - should not be used in new
+            #  code
             logger.warning(
                 "NeuronArray: No mapping provider, using internal fallback"
             )
@@ -333,7 +340,8 @@ class NeuronArray:
         if self.mapping_provider:
             return self.mapping_provider.get_neuron_id(index)
         else:
-            # Fallback for backward compatibility - should not be used in new code
+            #  Fallback for backward compatibility - should not be used in new
+            #  code
             logger.warning(
                 "NeuronArray: No mapping provider, using internal fallback"
             )
@@ -344,7 +352,8 @@ class NeuronArray:
         if self.mapping_provider:
             self.mapping_provider.set_neuron_mapping(neuron_id, index)
         else:
-            # Fallback for backward compatibility - should not be used in new code
+            #  Fallback for backward compatibility - should not be used in new
+            #  code
             logger.warning(
                 "NeuronArray: No mapping provider, using internal fallback"
             )
@@ -359,7 +368,8 @@ class NeuronArray:
         if self.mapping_provider:
             self.mapping_provider.remove_neuron_mapping(neuron_id)
         else:
-            # Fallback for backward compatibility - should not be used in new code
+            #  Fallback for backward compatibility - should not be used in new
+            #  code
             logger.warning(
                 "NeuronArray: No mapping provider, using internal fallback"
             )
@@ -375,7 +385,8 @@ class NeuronArray:
         if self.mapping_provider:
             return self.mapping_provider.has_neuron(neuron_id)
         else:
-            # Fallback for backward compatibility - should not be used in new code
+            #  Fallback for backward compatibility - should not be used in new
+            #  code
             logger.warning(
                 "NeuronArray: No mapping provider, using internal fallback"
             )
@@ -413,7 +424,8 @@ class NeuronArray:
             self.aligned_capacity, dtype=np.int32
         )
 
-        # MEMORY OPTIMIZATION: Coordinate arrays using uint16 (supports 0-65,535 per dimension)
+        #  MEMORY OPTIMIZATION: Coordinate arrays using uint16 (supports
+        #  0-65,535 per dimension)
         self.coordinates_x = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.coordinates_y = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.coordinates_z = np.zeros(self.aligned_capacity, dtype=np.uint16)
@@ -530,18 +542,22 @@ class NeuronArray:
         # PHASE 3: Refractory period updates (SIMD-optimized)
         simd_refractory_update(self.refractory_counters, valid_neurons)
 
-        # PHASE 4: Enhanced threshold checking and probabilistic firing (SIMD-optimized)
-        # PERFORMANCE OPTIMIZATION: Check if any cortical areas need probabilistic firing
+        #  PHASE 4: Enhanced threshold checking and probabilistic firing
+        #  (SIMD-optimized)
+        #  PERFORMANCE OPTIMIZATION: Check if any cortical areas need
+        #  probabilistic firing
         probabilistic_areas = self.get_probabilistic_areas()
 
         if not probabilistic_areas:
-            # Fast path: No areas use probabilistic firing - use original deterministic function
+            #  Fast path: No areas use probabilistic firing - use original
+            #  deterministic function
             fired_mask = simd_firing_check(
                 self.membrane_potentials, self.thresholds, can_update_mask
             )
         else:
             # Mixed path: Some areas need probabilistic firing, some don't
-            # Use enhanced function but it will automatically handle deterministic neurons efficiently
+            #  Use enhanced function but it will automatically handle
+            #  deterministic neurons efficiently
             if NUMBA_AVAILABLE:
                 fired_mask = simd_firing_check_with_excitability_numba(
                     self.membrane_potentials,
@@ -594,7 +610,8 @@ class NeuronArray:
                 fired_indices
             ]
 
-            # Set refractory counters to refractory periods (CRITICAL FOR REFRACTORY PERIOD ENFORCEMENT!)
+            #  Set refractory counters to refractory periods (CRITICAL FOR
+            #  REFRACTORY PERIOD ENFORCEMENT!)
             self.refractory_counters[fired_indices] = self.refractory_periods[
                 fired_indices
             ]
@@ -605,7 +622,8 @@ class NeuronArray:
                     f"   Refractory counters AFTER: {self.refractory_counters[fired_indices]}"
                 )
 
-                # CRITICAL DEBUG: Check if OTHER neurons in same cortical areas are affected
+                #  CRITICAL DEBUG: Check if OTHER neurons in same cortical
+                #  areas are affected
                 for cortical_idx, fired_in_area in cortical_areas.items():
                     if cortical_idx == "N/A":
                         continue
@@ -629,7 +647,8 @@ class NeuronArray:
                             f"      Non-fired refractory counters: {self.refractory_counters[non_fired_in_area[:5]]}"
                         )
 
-                        # BUG DETECTION: Check if non-fired neurons incorrectly became refractory
+                        #  BUG DETECTION: Check if non-fired neurons
+                        #  incorrectly became refractory
                         incorrect_refractory = (
                             self.refractory_counters[non_fired_in_area] > 0
                         )
@@ -647,7 +666,8 @@ class NeuronArray:
                                 "      This confirms AREA-WIDE REFRACTORY SUPPRESSION!"
                             )
 
-                            # Check memory addresses to see if they're sharing memory
+                            #  Check memory addresses to see if they're sharing
+                            #  memory
                             fired_addr = id(
                                 self.refractory_counters[fired_indices[0]]
                                 if fired_indices
@@ -1001,7 +1021,8 @@ class NeuronArray:
                 self.is_active[neuron_index] = bool(value)
             elif property_name == "position":
                 if isinstance(value, (tuple, list)) and len(value) >= 3:
-                    # MEMORY OPTIMIZATION: Use uint16 with range clamping (0-65535)
+                    #  MEMORY OPTIMIZATION: Use uint16 with range clamping
+                    #  (0-65535)
                     self.coordinates_x[neuron_index] = np.uint16(
                         max(0, min(65535, value[0]))
                     )

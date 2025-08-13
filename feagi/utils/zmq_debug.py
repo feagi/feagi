@@ -722,7 +722,8 @@ def log_rep_received(endpoint: str, frames: List[bytes], context: str = ""):
     )
 
 
-# Legacy compatibility functions (deprecated but maintained for backwards compatibility)
+#  Legacy compatibility functions (deprecated but maintained for backwards
+#  compatibility)
 
 
 def decode_zmq_data(data: bytes, max_preview: int = 200) -> str:

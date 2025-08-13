@@ -620,7 +620,8 @@ class SystemAPI:
             except Exception:
                 status["recent_global_counts"] = []
 
-            # Top-K corticals by current activity with recent counts (transient)
+            #  Top-K corticals by current activity with recent counts
+            #  (transient)
             try:
                 top_k = 8
                 gi = getattr(fclm, "current_window_index", 0)

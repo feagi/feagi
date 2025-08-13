@@ -90,7 +90,8 @@ class ProcessManager:
 
         logger.info("[SINGLETON] ProcessManager initialized")
 
-        # CRITICAL: Use ConnectomeManager singleton for mission-critical reliability
+        #  CRITICAL: Use ConnectomeManager singleton for mission-critical
+        #  reliability
         from feagi.bdu.connectome_manager import ConnectomeManager
 
         self._connectome_manager = ConnectomeManager.instance()
@@ -133,13 +134,15 @@ class ProcessManager:
             FeagiConfigurationError: If configuration loading fails
         """
         try:
-            # Load TOML configuration with all overrides applied, or use explicit config for testing
+            #  Load TOML configuration with all overrides applied, or use
+            #  explicit config for testing
             if explicit_config is not None:
                 config = explicit_config
             else:
                 config = load_feagi_config(cli_args=cli_args)
 
-            # Extract and validate host configuration (will fail if hosts not set)
+            #  Extract and validate host configuration (will fail if hosts not
+            #  set)
             host_config = get_host_config(config)
 
             # Extract port configuration
@@ -265,12 +268,15 @@ class ProcessManager:
                 config, backend=backend_name
             )
 
-            # Set connectome state to READY - it's operational even without genome
+            #  Set connectome state to READY - it's operational even without
+            #  genome
             state_manager.set_connectome_state(ConnectomeState.READY)
             logger.info("Connectome Manager initialized and ready")
 
-            # CORRECT: Initialize genome state to MISSING since no genome is loaded at startup
-            # The genome service will update this to LOADED when actual genomes are loaded
+            #  CORRECT: Initialize genome state to MISSING since no genome is
+            #  loaded at startup
+            #  The genome service will update this to LOADED when actual
+            #  genomes are loaded
             state_manager.set_genome_state(GenomeState.MISSING)
             logger.info(
                 "Genome state initialized as MISSING (no genome loaded at startup)"
@@ -291,11 +297,14 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
 
-                # Initialize burst engine in STANDBY mode for early FQ sampler registration
+                #  Initialize burst engine in STANDBY mode for early FQ sampler
+                #  registration
                 burst_engine = self._core_api.get_burst_engine()
                 if burst_engine:
-                    # CORRECT: Set burst engine state to UNAVAILABLE since no genome is loaded
-                    # It will transition to READY when a genome is loaded and auto-start is triggered
+                    #  CORRECT: Set burst engine state to UNAVAILABLE since no
+                    #  genome is loaded
+                    #  It will transition to READY when a genome is loaded and
+                    #  auto-start is triggered
                     state_manager.set_burst_engine_state(
                         ServiceState.UNAVAILABLE
                     )
@@ -316,7 +325,8 @@ class ProcessManager:
 
             # ===== CRITICAL SERVICE READINESS GATE =====
             # ZMQ services can start unless there are actual ERROR states
-            # MISSING genome and UNAVAILABLE burst engine are CORRECT states for fresh startup
+            #  MISSING genome and UNAVAILABLE burst engine are CORRECT states
+            #  for fresh startup
             try:
                 from feagi.core.state_manager import (
                     GenomeState,
@@ -329,7 +339,8 @@ class ProcessManager:
                 # Check for actual ERROR states that would block ZMQ services
                 critical_status = state_manager.get_critical_services_status()
 
-                # Only block on actual ERROR states, not on correct initial states
+                #  Only block on actual ERROR states, not on correct initial
+                #  states
                 error_states = []
                 for service, state in critical_status.items():
                     if service in [
@@ -392,8 +403,10 @@ class ProcessManager:
         logger.info("Initializing important (Priority 2) processes...")
 
         # ===== CRITICAL SERVICE READINESS GATE =====
-        # BLOCK ZMQ server (and agent connections) until ALL core critical services are ready
-        # Note: We don't check zmq_server and api_server since those are what we're starting here
+        #  BLOCK ZMQ server (and agent connections) until ALL core critical
+        #  services are ready
+        #  Note: We don't check zmq_server and api_server since those are what
+        #  we're starting here
         try:
             from feagi.core.state_manager import (
                 ServiceState,
@@ -402,7 +415,8 @@ class ProcessManager:
 
             state_manager = get_state_manager()
 
-            # Check only CORE critical services (not the ones we're about to start)
+            #  Check only CORE critical services (not the ones we're about to
+            #  start)
             core_critical_services = [
                 "burst_engine",
                 "connectome",
@@ -419,7 +433,8 @@ class ProcessManager:
             }
 
             # Only block on actual ERROR states, not on correct initial states
-            # MISSING genome and UNAVAILABLE burst engine are CORRECT for fresh startup
+            #  MISSING genome and UNAVAILABLE burst engine are CORRECT for
+            #  fresh startup
             error_states = []
             for service, state in core_status.items():
                 if state.value == "ERROR":
@@ -433,7 +448,8 @@ class ProcessManager:
                     logger.error(f"[ERR]   {error}")
                 return False
 
-            # Log current states (MISSING genome and UNAVAILABLE burst engine are correct for fresh startup)
+            #  Log current states (MISSING genome and UNAVAILABLE burst engine
+            #  are correct for fresh startup)
             logger.info(
                 "[OK] Core critical services healthy - proceeding with ZMQ server initialization"
             )
@@ -459,7 +475,8 @@ class ProcessManager:
             zmq_config = config.get("zmq", {})
             stream_config = zmq_config.get("streams", {})
 
-            # Check which streams are enabled (disable visualization in embedded mode)
+            #  Check which streams are enabled (disable visualization in
+            #  embedded mode)
             visualization_enabled = (
                 stream_config.get("visualization", {}).get("enabled", True)
                 and not embedded_mode
@@ -483,8 +500,10 @@ class ProcessManager:
             )
 
             # --- FQ Sampler Setup: On-Demand Creation Only ---
-            # FQ samplers are NOT created at startup. They are created on-demand by the
-            # Registration Manager when agents with specific capabilities connect.
+            #  FQ samplers are NOT created at startup. They are created
+            #  on-demand by the
+            #  Registration Manager when agents with specific capabilities
+            #  connect.
             self._motor_fq_sampler = None
             self._viz_fq_sampler = None
             self._motor_fq_thread = None
@@ -512,7 +531,8 @@ class ProcessManager:
                 # Get State Manager instance
                 state_manager = FeagiStateManager.instance()
 
-                # Create Registration Manager with references to State Manager and Process Manager
+                #  Create Registration Manager with references to State Manager
+                #  and Process Manager
                 registration_manager = create_registration_manager(
                     state_manager=state_manager,
                     process_manager=self,  # Pass self reference for FQ sampler control
@@ -529,7 +549,8 @@ class ProcessManager:
 
             except Exception as e:
                 logger.error(f"Failed to initialize Registration Manager: {e}")
-                # Non-critical error - system can continue without Registration Manager
+                #  Non-critical error - system can continue without
+                #  Registration Manager
 
             # --- ZMQ Message Broker Setup ---
             try:
@@ -544,13 +565,15 @@ class ProcessManager:
                 # Get port configuration from TOML config
                 port_config = get_port_config(config)
 
-                # Get host configuration with validation (no hardcoded fallbacks)
+                #  Get host configuration with validation (no hardcoded
+                #  fallbacks)
                 host_config = get_host_config(config)
                 zmq_host = host_config.zmq_host
 
                 # Windows-specific ZMQ binding fix: normalize host for binding
                 # On Windows, binding to 127.0.0.1 can cause permission issues
-                # Use "*" (all interfaces) for binding when host is loopback on Windows
+                #  Use "*" (all interfaces) for binding when host is loopback
+                #  on Windows
                 import platform
 
                 if platform.system() == "Windows" and zmq_host in [
@@ -562,7 +585,8 @@ class ProcessManager:
                     )
                     zmq_bind_host = "*"
                 else:
-                    # On non-Windows platforms, use the configured host directly
+                    #  On non-Windows platforms, use the configured host
+                    #  directly
                     # ZMQ will handle 0.0.0.0 appropriately on each platform
                     zmq_bind_host = zmq_host
 
@@ -595,7 +619,8 @@ class ProcessManager:
 
                 logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
 
-                # Initialize ZMQ server with configuration-based stream enablement
+                #  Initialize ZMQ server with configuration-based stream
+                #  enablement
                 zmq_server = ZmqServer(
                     core_api=self._core_api,
                     host=zmq_bind_host,
@@ -643,7 +668,8 @@ class ProcessManager:
 
             # --- Resource Manager ---
             # CRITICAL SAFETY: Skip ResourceManager during brain development
-            # ResourceManager uses multiprocessing which causes resource leaks and heap corruption
+            #  ResourceManager uses multiprocessing which causes resource leaks
+            #  and heap corruption
             # during neurogenesis when the heap is under stress
             skip_resource_manager = os.environ.get(
                 "FEAGI_SKIP_RESOURCE_MANAGER", ""
@@ -666,7 +692,8 @@ class ProcessManager:
 
                     if resource_manager.initialize_critical_structures():
                         self._processes["resource_manager"] = resource_manager
-                        # Resource manager doesn't have a specific state in FeagiStateManager
+                        #  Resource manager doesn't have a specific state in
+                        #  FeagiStateManager
                         logger.info(
                             "Resource Manager initialized successfully"
                         )
@@ -704,7 +731,8 @@ class ProcessManager:
                     "profile", False
                 )
 
-                # In embedded mode, only enable profiling if explicitly requested
+                #  In embedded mode, only enable profiling if explicitly
+                #  requested
                 if profile_enabled and (not embedded_mode or profile_enabled):
                     from feagi.utils.system_monitor import (
                         start_system_monitoring,
@@ -908,12 +936,14 @@ class ProcessManager:
                             logger.error(
                                 f"Full traceback: {traceback.format_exc()}"
                             )
-                            # Also log the exception type and context for debugging
+                            #  Also log the exception type and context for
+                            #  debugging
                             logger.error(f"Exception type: {type(e).__name__}")
                             logger.error(
                                 f"Host: {api_config['host']}, Port: {api_config['port']}"
                             )
-                            # Re-raise to ensure the thread actually exits with failure
+                            #  Re-raise to ensure the thread actually exits
+                            #  with failure
                             raise
 
                     # Start uvicorn in background thread
@@ -1021,8 +1051,10 @@ class ProcessManager:
             import asyncio
             import threading
 
-            # CRITICAL FIX: Ensure state synchronization between main process and FastAPI thread
-            # Set environment variable so FastAPI thread uses the same state file
+            #  CRITICAL FIX: Ensure state synchronization between main process
+            #  and FastAPI thread
+            #  Set environment variable so FastAPI thread uses the same state
+            #  file
             from feagi.core.state_manager import FeagiStateManager
 
             state_manager = FeagiStateManager.instance()
@@ -1060,7 +1092,8 @@ class ProcessManager:
                 finally:
                     loop.close()
 
-            # Start as daemon thread (in Rust: tokio::spawn with proper task management)
+            #  Start as daemon thread (in Rust: tokio::spawn with proper task
+            #  management)
             api_thread = threading.Thread(target=run_api_service, daemon=True)
             api_thread.start()
 
@@ -1114,7 +1147,8 @@ class ProcessManager:
         self._start_monitoring()
 
         # Transition from startup phase to runtime phase
-        # This allows FQ samplers to be created without critical service checks during runtime
+        #  This allows FQ samplers to be created without critical service
+        #  checks during runtime
         self._startup_phase = False
         logger.info(
             "🚀 FEAGI startup phase completed - transitioning to runtime phase"
@@ -1163,7 +1197,8 @@ class ProcessManager:
         """
         for name, service in self._processes.items():
             try:
-                # Determine service type based on the actual object type/attributes
+                #  Determine service type based on the actual object
+                #  type/attributes
                 if hasattr(service, "is_running") and callable(
                     service.is_running
                 ):
@@ -1204,7 +1239,8 @@ class ProcessManager:
                         )
                 else:
                     # Service type we can't monitor - silently skip
-                    # (Expected for HealthMonitor, ZmqServer, ResourceManager etc.)
+                    #  (Expected for HealthMonitor, ZmqServer, ResourceManager
+                    #  etc.)
                     pass
 
             except Exception as e:
@@ -1236,7 +1272,8 @@ class ProcessManager:
             # Import required modules for timeout handling
             import threading
 
-            # Load timeout configuration from TOML (use defaults if config unavailable during shutdown)
+            #  Load timeout configuration from TOML (use defaults if config
+            #  unavailable during shutdown)
             try:
                 config = load_feagi_config()
                 timeout_config = get_timeout_config(config)
@@ -1250,7 +1287,8 @@ class ProcessManager:
                     file=sys.stderr,
                     flush=True,
                 )
-                # Emergency fallback values only used if configuration is completely unavailable
+                #  Emergency fallback values only used if configuration is
+                #  completely unavailable
                 graceful_shutdown_timeout = (
                     8.0  # @architecture:acceptable - emergency fallback
                 )
@@ -1264,7 +1302,8 @@ class ProcessManager:
                 #     2.0  # @architecture:acceptable - emergency fallback
                 # )  # Unused variable removed
 
-            # Shutdown each service properly based on its type with configurable timeouts
+            #  Shutdown each service properly based on its type with
+            #  configurable timeouts
             for name, service in self._processes.items():
                 try:
                     print(
@@ -1557,7 +1596,8 @@ class ProcessManager:
                     "🎬 [FREQ-SYNC] No ZMQ server reference available"
                 )
 
-            # TODO: Add support for other visualization stream instances if needed
+            #  TODO: Add support for other visualization stream instances if
+            #  needed
             # (e.g., standalone streams, additional servers, etc.)
 
         except Exception as e:
@@ -1583,7 +1623,8 @@ class ProcessManager:
 
         # ===== EVENT-DRIVEN CRITICAL SERVICE READINESS =====
         # FEAGI operates on EVENTS and CONDITIONS, not timeouts!
-        # Check current state conditions and proceed based on actual system state
+        #  Check current state conditions and proceed based on actual system
+        #  state
         if self._startup_phase:
             logger.debug(
                 "🔄 Startup phase: Checking critical service state conditions for FQ sampler creation"
@@ -1593,10 +1634,12 @@ class ProcessManager:
 
                 state_manager = get_state_manager()
 
-                # EVENT-DRIVEN: Check actual service states, don't wait with timeouts
+                #  EVENT-DRIVEN: Check actual service states, don't wait with
+                #  timeouts
                 critical_status = state_manager.get_critical_services_status()
 
-                # Check for actual ERROR states that would prevent FQ sampler creation
+                #  Check for actual ERROR states that would prevent FQ sampler
+                #  creation
                 error_states = []
                 for service, state in critical_status.items():
                     if state.value == "ERROR":
@@ -1610,8 +1653,10 @@ class ProcessManager:
                         logger.error(f"🚨   {error}")
                     return False
                 else:
-                    # STATE-BASED: Services are in valid states (READY, UNAVAILABLE, MISSING are all valid)
-                    # UNAVAILABLE burst engine and MISSING genome are CORRECT for fresh startup
+                    #  STATE-BASED: Services are in valid states (READY,
+                    #  UNAVAILABLE, MISSING are all valid)
+                    #  UNAVAILABLE burst engine and MISSING genome are CORRECT
+                    #  for fresh startup
                     logger.debug(
                         f"✅ Critical services in valid states - proceeding with FQ sampler creation for mode '{mode}'"
                     )
@@ -1680,8 +1725,10 @@ class ProcessManager:
                 logger.warning(f"Unknown FQ sampler mode: {mode}")
                 return False
 
-            # [ARCHITECTURE FIX] Register with burst engine for data flow coordination
-            # The burst engine should always be available in STANDBY mode for registration
+            #  [ARCHITECTURE FIX] Register with burst engine for data flow
+            #  coordination
+            #  The burst engine should always be available in STANDBY mode for
+            #  registration
             logger.debug(
                 f"🔥 [DEBUG] Attempting to register FQ sampler [{fq_sampler.instance_id}] with burst engine"
             )
@@ -1721,7 +1768,8 @@ class ProcessManager:
                     logger.error(
                         f"🔥 Registration error traceback: {traceback.format_exc()}"
                     )
-                    # Continue anyway - FQ sampler can still function without registration
+                    #  Continue anyway - FQ sampler can still function without
+                    #  registration
             else:
                 logger.error(
                     f"🔥 Could not register FQ sampler [{fq_sampler.instance_id}] - burst engine not available"
@@ -1747,8 +1795,10 @@ class ProcessManager:
                         )
                 # Continue anyway - the system should still function
 
-            # CRITICAL FIX: DO NOT start internal run() thread for stream-based samplers
-            # Streams (visualization/motor) call sample() directly, so running internal thread
+            #  CRITICAL FIX: DO NOT start internal run() thread for
+            #  stream-based samplers
+            #  Streams (visualization/motor) call sample() directly, so running
+            #  internal thread
             # causes double execution and double logging
             logger.info(
                 f"🔥 FQ Sampler [{fq_sampler.instance_id}] created for {mode} mode"
@@ -1922,8 +1972,10 @@ class ProcessManager:
             logger.info("⚡ Starting burst engine after genome load...")
 
             try:
-                # Use the CoreAPIService start method (same as REST API) instead of brain service directly
-                # This ensures identical behavior between manual start and automatic genome start
+                #  Use the CoreAPIService start method (same as REST API)
+                #  instead of brain service directly
+                #  This ensures identical behavior between manual start and
+                #  automatic genome start
                 core_api = self.get_core_api()
                 if not core_api:
                     logger.error(
@@ -1949,7 +2001,8 @@ class ProcessManager:
 
         except Exception as e:
             logger.error(f"Error handling genome loaded event: {e}")
-            # Don't re-raise - event handling should not crash the process manager
+            #  Don't re-raise - event handling should not crash the process
+            #  manager
 
 
 # Global instance for the process manager
@@ -2204,7 +2257,8 @@ class SleepManager:
                         ):
                             physiology = self._cm.genome.get("physiology", {})
                         if not physiology:
-                            # Attempt to get via state manager genome cache if available in future
+                            #  Attempt to get via state manager genome cache if
+                            #  available in future
                             pass
                         if physiology:
                             window_bursts = int(
@@ -2281,7 +2335,8 @@ class SleepManager:
                                 )
                             )
                     if died:
-                        # Update global counts via MemoryProcessor helper if available
+                        #  Update global counts via MemoryProcessor helper if
+                        #  available
                         try:
                             if self._mp and hasattr(
                                 self._mp, "_update_state_manager_neuron_count"
@@ -2297,9 +2352,11 @@ class SleepManager:
                     self._last_aging_burst = current_ts
             except Exception as age_err:
                 logger.debug(f"Sleep Manager aging error: {age_err}")
-            # Consolidation: re-check long-term conversion under current thresholds
+            #  Consolidation: re-check long-term conversion under current
+            #  thresholds
             try:
-                # Derive thresholds from registered memory areas if memory processor exists
+                #  Derive thresholds from registered memory areas if memory
+                #  processor exists
                 if self._mp and hasattr(self._mp, "memory_area_properties"):
                     thresholds = set()
                     for props in self._mp.memory_area_properties.values():
@@ -2343,7 +2400,8 @@ class SleepManager:
                     and hasattr(self._mp, "_remove_neuron_from_cache")
                 ):
                     # Best effort: ensure caches drop any pruned indices
-                    # Note: indexes removed from mappings may still be present in cache if inactive; flush conservatively
+                    #  Note: indexes removed from mappings may still be present
+                    #  in cache if inactive; flush conservatively
                     pass  # Cache uses pattern keys; pruning mappings already reduces memory footprint
                 if pruned:
                     logger.info(

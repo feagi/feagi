@@ -32,7 +32,8 @@ import numpy as np
 from ..utils.simd_detection import get_backend_selector, get_simd_detector
 from ..utils.simd_profiler import profile_simd_operation
 
-# Suppress NumPy warnings for performance-critical code (compatible with all NumPy versions)
+#  Suppress NumPy warnings for performance-critical code (compatible with all
+#  NumPy versions)
 try:
     warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 except AttributeError:

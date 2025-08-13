@@ -71,7 +71,8 @@ def analyze_running_feagi(
 
         # Get neuron count from configuration
         # config = TomlLoader.get_default_config()  # Unused variable removed
-        # Estimate neuron count (this would need to be improved with actual neuron counting)
+        #  Estimate neuron count (this would need to be improved with actual
+        #  neuron counting)
         estimated_neurons = 13845  # From test data, would need real counting
 
         # Generate comprehensive report

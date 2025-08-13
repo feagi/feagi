@@ -185,7 +185,8 @@ class GenomeAPI:
             with open(essential_genome_path, "r") as f:
                 genome_data = json.load(f)
 
-            # Use the single load_genome method for consistency and dynamic sizing
+            #  Use the single load_genome method for consistency and dynamic
+            #  sizing
             result = self.core_api_service.load_genome(
                 genome_data, filename="essential_genome.json"
             )
@@ -461,7 +462,8 @@ class GenomeAPI:
                 raise ValueError("No genome data available")
 
             # Convert hierarchical format to flat format for export/download
-            # ARCHITECTURE: Hierarchical is for working, flat is for storage/export
+            #  ARCHITECTURE: Hierarchical is for working, flat is for
+            #  storage/export
             if "blueprint" in genome_data and isinstance(
                 genome_data["blueprint"], dict
             ):

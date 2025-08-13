@@ -296,7 +296,8 @@ def get_backend(
         if backend_type not in _BACKENDS:
             logger.warning(f"Backend {backend_type.value} is not registered")
 
-            # Check if user specifically requested this backend or it was auto-selected
+            #  Check if user specifically requested this backend or it was
+            #  auto-selected
             if backend_type in [BackendType.AUTO, BackendType.CPU]:
                 logger.warning("No fallback available, returning None")
                 return None

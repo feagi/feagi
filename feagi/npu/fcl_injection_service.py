@@ -85,7 +85,8 @@ class FCLInjectionService:
         self.special_area_handler = special_area_handler
 
         # Store reference to connectome manager for membrane potential access
-        # This is needed to set power neuron membrane potentials above threshold
+        #  This is needed to set power neuron membrane potentials above
+        #  threshold
         self.connectome_manager = None
         if hasattr(special_area_handler, "connectome_manager"):
             self.connectome_manager = special_area_handler.connectome_manager
@@ -139,7 +140,8 @@ class FCLInjectionService:
             self._injection_batches[timing].clear()
 
         try:
-            # Get all power areas (simplified approach returns only core power area)
+            #  Get all power areas (simplified approach returns only core power
+            #  area)
             power_neurons = self.special_area_handler.get_all_power_neurons()
 
             if not power_neurons:
@@ -172,7 +174,8 @@ class FCLInjectionService:
                     neuron_ids = power_neurons[cortical_id]
                     config = configs[idx]
 
-                    # Check if NPU debug is enabled for detailed injection logging
+                    #  Check if NPU debug is enabled for detailed injection
+                    #  logging
                     from feagi.core.state_manager import FeagiStateManager
 
                     state_manager = FeagiStateManager.instance()
@@ -195,7 +198,8 @@ class FCLInjectionService:
                         )
                         timing = InjectionTiming.PRE_BURST
 
-                    # Create single batch (simplified - no batch splitting needed for core power area)
+                    #  Create single batch (simplified - no batch splitting
+                    #  needed for core power area)
                     batch = InjectionBatch(
                         cortical_id=cortical_id,
                         neuron_ids=neuron_ids.copy(),
@@ -222,7 +226,8 @@ class FCLInjectionService:
 
         except Exception as e:
             logger.error(f"Error preparing injection batches: {e}")
-            # Continue with empty batches - injection will still work via direct method
+            #  Continue with empty batches - injection will still work via
+            #  direct method
 
     def inject_pre_burst(self, current_timestep: int) -> int:
         """Inject power area neurons into FCL with proper membrane potential.
@@ -293,11 +298,13 @@ class FCLInjectionService:
                         )
                 return 0
 
-            # FAST: Set membrane potential to PSP value from cortical area properties
+            #  FAST: Set membrane potential to PSP value from cortical area
+            #  properties
             if self.connectome_manager and hasattr(
                 self.connectome_manager, "neuron_array"
             ):
-                # Get PSP value from power area properties via connectome manager
+                #  Get PSP value from power area properties via connectome
+                #  manager
                 power_area = self.connectome_manager.get_cortical_area(
                     "_power"
                 )
@@ -310,12 +317,14 @@ class FCLInjectionService:
 
                 neuron_array = self.connectome_manager.neuron_array
                 for neuron_id in power_neurons:
-                    # For power neurons, set membrane potential to PSP value (use correct attribute name)
+                    #  For power neurons, set membrane potential to PSP value
+                    #  (use correct attribute name)
                     idx = self.connectome_manager.get_neuron_index(neuron_id)
                     if idx is not None:
                         neuron_array.membrane_potentials[idx] = psp_value
 
-            # Now inject power neurons into FCL (with proper membrane potentials set)
+            #  Now inject power neurons into FCL (with proper membrane
+            #  potentials set)
             # This happens EVERY BURST to provide constant power supply
             injected_count = self._inject_batch(
                 InjectionBatch(
@@ -449,13 +458,15 @@ class FCLInjectionService:
                 return 0
 
         try:
-            # Determine which neurons to inject (could be subset based on targeting)
+            #  Determine which neurons to inject (could be subset based on
+            #  targeting)
             neurons_to_inject = batch.neuron_ids
 
             # Extract cortical_id (remove batch suffix if present)
             cortical_id = batch.cortical_id.split("_batch_")[0]
 
-            # REQUIREMENT: FCL manager MUST have update_fcl method - no fallbacks allowed
+            #  REQUIREMENT: FCL manager MUST have update_fcl method - no
+            #  fallbacks allowed
             if not hasattr(self.fcl_manager, "update_fcl"):
                 raise RuntimeError(
                     "FCL manager does not have required update_fcl method. "
@@ -482,7 +493,8 @@ class FCLInjectionService:
                     f"FCL injection requires valid cortical area mapping."
                 )
 
-            # Use proper cortical area mapping so FQ sampler can filter correctly
+            #  Use proper cortical area mapping so FQ sampler can filter
+            #  correctly
             neurons_by_cortical = {cortical_idx: neurons_to_inject}
             self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
             logger.debug(
@@ -642,15 +654,18 @@ class FCLInjectionService:
                     continue
 
                 try:
-                    # CRITICAL FIX: Set membrane potential above threshold for external neurons
-                    # This ensures they can actually fire, just like power injection does
+                    #  CRITICAL FIX: Set membrane potential above threshold for
+                    #  external neurons
+                    #  This ensures they can actually fire, just like power
+                    #  injection does
                     membrane_potential_set_count = 0
                     if self.connectome_manager and hasattr(
                         self.connectome_manager, "neuron_array"
                     ):
                         neuron_array = self.connectome_manager.neuron_array
                         if hasattr(neuron_array, "set_neuron_property"):
-                            # Set membrane potential to 1.5 (above threshold of 1.0) for all external neurons
+                            #  Set membrane potential to 1.5 (above threshold
+                            #  of 1.0) for all external neurons
                             for neuron_id in neuron_ids:
                                 try:
                                     neuron_array.set_neuron_property(
@@ -734,7 +749,8 @@ class FCLInjectionService:
         Returns:
             True if ready to accept injections, False otherwise
         """
-        # PERFORMANCE: Cache the state manager reference to avoid repeated lookups
+        #  PERFORMANCE: Cache the state manager reference to avoid repeated
+        #  lookups
         if not hasattr(self, "_cached_state_manager"):
             try:
                 from feagi.core.state_manager import FeagiStateManager
@@ -743,7 +759,8 @@ class FCLInjectionService:
             except Exception:
                 self._cached_state_manager = None
 
-        # PERFORMANCE: Fast path - if no state manager, allow injection (fail-open for performance)
+        #  PERFORMANCE: Fast path - if no state manager, allow injection
+        #  (fail-open for performance)
         if not self._cached_state_manager:
             return True
 

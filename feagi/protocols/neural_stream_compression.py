@@ -122,7 +122,8 @@ class NeuralStreamCompressor:
                 {"neuron_count": 0},
             )
 
-        # Create Roaring bitmap (simulated - in real implementation use pyroaring)
+        #  Create Roaring bitmap (simulated - in real implementation use
+        #  pyroaring)
         # For now, use simple compression
         morton_array = np.array(morton_codes, dtype=np.uint64)
         morton_compressed = morton_array.tobytes()
