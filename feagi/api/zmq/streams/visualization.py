@@ -53,8 +53,9 @@ class VisualizationStream:
     """
     FEAGI Visualization Stream - UnifiedFQSampler Implementation.
 
-    This visualization stream only supports the new UnifiedFQSampler architecture
-    with cortical area-based data format. No legacy compatibility is maintained.
+    This visualization stream only supports the new UnifiedFQSampler
+    architecture with cortical area-based data format.
+    No legacy compatibility is maintained.
 
     Features:
     - UnifiedFQSampler integration with 'visualization' mode
@@ -341,7 +342,8 @@ class VisualizationStream:
                         )
                 else:
                     logger.debug(
-                        f"Thread {i}/{total_threads}: {thread.name} already stopped"
+                        f"Thread {i}/{total_threads}: {thread.name} "
+                        f"already stopped"
                     )
 
         # Close socket AFTER worker threads have stopped
@@ -533,8 +535,10 @@ class VisualizationStream:
                         if not all(valid_indices):
                             valid_count = sum(valid_indices)
                             logger.warning(
-                                f"[VIZ-ROBUST] Area {area_id}: {len(neuron_ids) - valid_count} of {len(neuron_ids)} "
-                                f"neurons have invalid coordinates (likely due to reconstruction). Filtering them out."
+                                f"[VIZ-ROBUST] Area {area_id}: "
+                                f"{len(neuron_ids) - valid_count} of {len(neuron_ids)} "
+                                f"neurons have invalid coordinates (likely due to reconstruction). "
+                                f"Filtering them out."
                             )
                             # Filter to only valid neurons
                             valid_neuron_ids = [
@@ -572,7 +576,8 @@ class VisualizationStream:
 
                             if len(neuron_ids) == 0:
                                 logger.info(
-                                    f"[VIZ-ROBUST] Area {area_id}: No valid neurons remaining, skipping area"
+                                    f"[VIZ-ROBUST] Area {area_id}: "
+                                    f"No valid neurons remaining, skipping area"
                                 )
                                 continue
                     else:
@@ -1199,7 +1204,8 @@ class VisualizationStream:
                         y_coords = [coord[1] for coord in provided_coordinates]
                         z_coords = [coord[2] for coord in provided_coordinates]
                         logger.info(
-                            f"[VIZ-DEBUG] Using provided coordinates for {area_id}: {provided_coordinates}"
+                            f"[VIZ-DEBUG] Using provided coordinates for {area_id}: "
+                            f"{provided_coordinates}"
                         )
                     else:
                         #  Use high-performance coordinate extraction - real
@@ -1212,7 +1218,8 @@ class VisualizationStream:
                             y_coords = coords_result["coordinates_y"]
                             z_coords = coords_result["coordinates_z"]
                             logger.info(
-                                f"[VIZ-DEBUG] Looked up coordinates for {area_id}: {len(x_coords)} coords"
+                                f"[VIZ-DEBUG] Looked up coordinates for {area_id}: "
+                                f"{len(x_coords)} coords"
                             )
                         else:
                             # ❌ NO FALLBACKS - Coordinates must exist
@@ -1257,7 +1264,9 @@ class VisualizationStream:
 
                     # DEBUG: Log NumPy array shapes
                     logger.info(
-                        f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, p.shape={neurons_p.shape}"
+                        f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, "
+                        f"y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, "
+                        f"p.shape={neurons_p.shape}"
                     )
 
                     #  Create cortical ID using modern feagi-data-processing

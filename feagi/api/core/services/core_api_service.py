@@ -3555,9 +3555,15 @@ class CoreAPIService:
                 # Check SIMD performance stats
                 stats = result['performance_stats']
                 print(f"SIMD Backend: {stats['backend']}")
-                print(f"Extraction method: {stats.get('extraction_method', 'unknown')}")
+                print(
+                    f"Extraction method: {stats.get('extraction_method',"
+                    f"'unknown')}"
+                )
                 if 'neurons_per_second' in stats:
-                    print(f"Performance: {stats['neurons_per_second']:.0f} neurons/sec")
+                    print(
+                        f"Performance: {stats['neurons_per_second']:.0f}"
+                        f"neurons/sec"
+                    )
 
             # Batch processing for large datasets
             large_batch = list(range(1000, 50000, 10))  # 5,000 neurons
@@ -3802,7 +3808,10 @@ class CoreAPIService:
                 # Efficient spatial analysis using SIMD
                 center_of_mass = np.mean(coords[:, 1:4], axis=0)
                 std_deviation = np.std(coords[:, 1:4], axis=0)
-                print(f"Spatial distribution: center={center_of_mass}, std={std_deviation}")
+                print(
+                    f"Spatial distribution: center={center_of_mass},"
+                    f"std={std_deviation}"
+                )
         """
         try:
             if not neuron_ids:

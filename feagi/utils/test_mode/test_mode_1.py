@@ -87,7 +87,8 @@ class TestMode1Handler:
                 return False
 
             logger.info(
-                f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas, {total_neurons} neurons total"
+                f"Genome validation successful: {len(self.connectome.cortical_areas)} "
+                f"cortical areas, {total_neurons} neurons total"
             )
             logger.info(
                 f"Areas with neurons: {areas_with_neurons}/{len(self.connectome.cortical_areas)}"

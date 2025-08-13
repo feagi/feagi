@@ -21,8 +21,9 @@ Provides real-time monitoring of system resources using absolute measurements:
 - GPU usage (wgpu-compatible, cross-platform)
 - Process-specific resource consumption
 
-Designed for profiling mode (--profile flag) to help developers track resource usage patterns
-and identify potential performance bottlenecks or memory leaks across different systems.
+Designed for profiling mode (--profile flag) to help developers
+track resource usage patterns and identify potential performance
+bottlenecks or memory leaks across different systems.
 """
 
 import threading
@@ -74,12 +75,15 @@ class ResourceSnapshot:
             gpu_summaries = []
             for i, gpu in enumerate(self.gpu_usage):
                 gpu_summaries.append(
-                    f"GPU{i}: {gpu.get('utilization', 0):.1f}% ({gpu.get('memory_used', 0):.1f}MB/{gpu.get('memory_total', 0):.1f}MB)"
+                    f"GPU{i}: {gpu.get('utilization', 0):.1f}% ("
+                    f"{gpu.get('memory_used', 0):.1f}MB/"
+                    f"{gpu.get('memory_total', 0):.1f}MB)"
                 )
             gpu_info = f" | {' | '.join(gpu_summaries)}"
 
         return (
-            f"System: CPU {self.cpu_cores_used:.2f} cores | RAM {self.memory_mb:.1f}MB{gpu_info} | "
+            f"System: CPU {self.cpu_cores_used:.2f} cores | "
+            f"RAM {self.memory_mb:.1f}MB{gpu_info} | "
             f"Threads: {self.thread_count}"
         )
 
@@ -132,7 +136,8 @@ class SystemResourceMonitor:
             self._initialize_gpu_monitoring()
 
         logger.info(
-            f"[CONFIG] System Resource Monitor initialized (interval: {monitoring_interval}s, GPU: {self.gpu_available})"
+            f"[CONFIG] System Resource Monitor initialized (interval: "
+            f"{monitoring_interval}s, GPU: {self.gpu_available})"
         )
 
     def _initialize_gpu_monitoring(self) -> None:
@@ -397,33 +402,42 @@ class SystemResourceMonitor:
             if current.gpu_usage:
                 print("[CTRL] GPU Usage:")
                 for gpu in current.gpu_usage:
-                    gpu_text = f"   GPU {gpu['index']}: {gpu['utilization']:.1f}% util, {gpu['memory_used']:.1f}/{gpu['memory_total']:.1f} MB"
+                    gpu_text = (
+                        f"   GPU {gpu['index']}: {gpu['utilization']:.1f}% util, "
+                        f"{gpu['memory_used']:.1f}/{gpu['memory_total']:.1f} MB"
+                    )
                     if gpu.get("temperature"):
                         gpu_text += f", {gpu['temperature']}°C"
                     print(gpu_text)
 
         if summary:
             print(
-                f"\n[UP] Recent Performance (last {summary['entries_analyzed']} snapshots, {summary['time_span_minutes']:.1f} min):"
+                f"\n[UP] Recent Performance (last {summary['entries_analyzed']} snapshots, "
+                f"{summary['time_span_minutes']:.1f} min):"
             )
             print(
-                f"   System CPU: avg {summary['system']['cpu_avg']:.2f} cores, peak {summary['system']['cpu_peak']:.2f} cores"
+                f"   System CPU: avg {summary['system']['cpu_avg']:.2f} cores, "
+                f"peak {summary['system']['cpu_peak']:.2f} cores"
             )
             print(
-                f"   System Memory: avg {summary['system']['memory_mb_avg']:.1f} MB, peak {summary['system']['memory_mb_peak']:.1f} MB"
+                f"   System Memory: avg {summary['system']['memory_mb_avg']:.1f} MB, "
+                f"peak {summary['system']['memory_mb_peak']:.1f} MB"
             )
             print(
-                f"   FEAGI CPU: avg {summary['process']['cpu_avg']:.2f} cores, peak {summary['process']['cpu_peak']:.2f} cores"
+                f"   FEAGI CPU: avg {summary['process']['cpu_avg']:.2f} cores, "
+                f"peak {summary['process']['cpu_peak']:.2f} cores"
             )
             print(
-                f"   FEAGI Memory: avg {summary['process']['memory_mb_avg']:.1f} MB, peak {summary['process']['memory_mb_peak']:.1f} MB"
+                f"   FEAGI Memory: avg {summary['process']['memory_mb_avg']:.1f} MB, "
+                f"peak {summary['process']['memory_mb_peak']:.1f} MB"
             )
 
             if "gpu" in summary:
                 print("   GPU Performance:")
                 for gpu_summary in summary["gpu"]:
                     print(
-                        f"      GPU {gpu_summary['index']}: avg {gpu_summary['utilization_avg']:.1f}%, peak {gpu_summary['utilization_peak']:.1f}%"
+                        f"      GPU {gpu_summary['index']}: avg {gpu_summary['utilization_avg']:.1f}%, "
+                        f"peak {gpu_summary['utilization_peak']:.1f}%"
                     )
 
         print("=" * 80 + "\n")
