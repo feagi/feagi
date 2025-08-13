@@ -166,4 +166,4 @@ To fix this, always use `python -m feagi.main` to start the complete system, whi
 │  │   - Monitoring  │  │    - Actuators │  │   - Cameras     │  │
 │  └─────────────────┘  └────────────────┘  └─────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
-``` 
+```

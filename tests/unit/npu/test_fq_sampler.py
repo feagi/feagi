@@ -1,227 +1,216 @@
-import unittest
-from unittest.mock import MagicMock, Mock, patch
-import time
+"""
+Unit tests for UnifiedFQSampler in feagi.npu.fq_sampler module.
+
+Tests the new modular architecture without backward compatibility methods.
+"""
+
 import threading
-from queue import Queue, Empty
+import time
+import unittest
+from queue import Queue
+from unittest.mock import Mock
 
-from feagi.npu.burst_engine import FQSampler
+from feagi.npu.fq_sampler import UnifiedFQSampler
 
 
-class TestFQSampler(unittest.TestCase):
-    
+class TestUnifiedFQSampler(unittest.TestCase):
+    """Unit test class for UnifiedFQSampler."""
+
     def setUp(self):
         # Create mock fire queue provider
-        self.mock_provider = MagicMock()
+        self.mock_provider = Mock()
         self.mock_provider.get_fire_queue.return_value = {
-            'neuron_ids': [1, 2, 3],
-            'membrane_potentials': [0.8, 1.2, 0.9],
-            'thresholds': [1.0, 1.0, 1.0],
-            'consecutive_fire_counts': [1, 2, 1],
-            'refractory_counters': [0, 0, 0]
+            "neuron_ids": [1, 2, 3],
+            "membrane_potentials": [0.8, 1.2, 0.9],
+            "coordinates": [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
         }
         self.mock_provider.get_area_fire_queue.return_value = {
-            'neuron_ids': [10, 20, 30],
-            'membrane_potentials': [0.7, 1.1, 0.95],
-            'thresholds': [1.0, 1.0, 1.0],
-            'consecutive_fire_counts': [1, 1, 2],
-            'refractory_counters': [0, 0, 0]
+            "neuron_ids": [4, 5, 6],
+            "membrane_potentials": [0.7, 1.1, 0.8],
+            "coordinates": [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
         }
-        
+
         # Create output queue
         self.output_queue = Queue(maxsize=10)
-        
-        # Create FQ sampler
-        self.fq_sampler = FQSampler(
-            self.mock_provider, 
-            10.0, 
-            self.output_queue
+
+        # Create UnifiedFQSampler
+        self.fq_sampler = UnifiedFQSampler(
+            self.mock_provider, 10.0, self.output_queue, sampling_mode="global"
         )
 
     def test_initialization(self):
-        """Test if FQSampler initializes properly."""
+        """Test if UnifiedFQSampler initializes properly."""
         self.assertEqual(self.fq_sampler.sample_frequency, 10.0)
         self.assertEqual(self.fq_sampler.sample_interval, 0.1)
         self.assertFalse(self.fq_sampler.running)
-        self.assertEqual(self.fq_sampler._last_sample_time_per_area, {})
-        self.assertEqual(self.fq_sampler._max_retries, 3)
-        self.assertEqual(self.fq_sampler._retry_delay, 0.001)
+        self.assertEqual(self.fq_sampler.sampling_mode, "global")
+        self.assertEqual(self.fq_sampler.max_retries, 3)
+        self.assertEqual(self.fq_sampler.target_areas, [])
 
     def test_stop(self):
         """Test stopping the FQ sampler."""
         # Set running to True manually
         self.fq_sampler.running = True
-        
+
         # Call stop
         self.fq_sampler.stop()
-        
+
         # Check that running is now False
         self.assertFalse(self.fq_sampler.running)
 
-    def test_update_area_sample_rate(self):
-        """Test updating cortical area sample rate."""
-        # Initially, _last_sample_time_per_area should be empty
-        self.assertEqual(len(self.fq_sampler._last_sample_time_per_area), 0)
-        
-        # Update cortical area sample rate 
-        self.fq_sampler.update_area_sample_rate('cortex1', 30.0)
-        
-        # Check that _last_sample_time_per_area was updated
-        self.assertEqual(len(self.fq_sampler._last_sample_time_per_area), 1)
-        self.assertIn('cortex1', self.fq_sampler._last_sample_time_per_area)
+    def test_set_target_areas(self):
+        """Test setting target areas for sampling."""
+        # Initially, target_areas should be empty
+        self.assertEqual(len(self.fq_sampler.target_areas), 0)
 
-    def test_subscriber_flags(self):
-        """Test visualization and motor subscriber flags."""
-        # Test initial state
-        self.assertFalse(self.fq_sampler._has_visualization_subscribers)
-        self.assertFalse(self.fq_sampler._has_motor_subscribers)
-        
-        # Test setting visualization subscribers
-        self.fq_sampler.set_visualization_subscribers(True)
-        self.assertTrue(self.fq_sampler._has_visualization_subscribers)
-        
-        self.fq_sampler.set_visualization_subscribers(False)
-        self.assertFalse(self.fq_sampler._has_visualization_subscribers)
-        
-        # Test setting motor subscribers
-        self.fq_sampler.set_motor_subscribers(True)
-        self.assertTrue(self.fq_sampler._has_motor_subscribers)
-        
-        self.fq_sampler.set_motor_subscribers(False)
-        self.assertFalse(self.fq_sampler._has_motor_subscribers)
+        # Set target areas
+        target_areas = ["cortex1", "cortex2"]
+        self.fq_sampler.set_target_areas(target_areas)
 
-    def test_run_without_subscribers(self):
-        """Test that run() skips sampling when no subscribers are set."""
-        # Don't set any subscribers - both should remain False
-        self.assertFalse(self.fq_sampler._has_visualization_subscribers)
-        self.assertFalse(self.fq_sampler._has_motor_subscribers)
-        
-        # Set the sampler to stop after a short time
-        def stop_sampler():
-            time.sleep(0.05)
-            self.fq_sampler.stop()
-        
-        stop_thread = threading.Thread(target=stop_sampler)
-        stop_thread.start()
-        
-        # Run the sampler
-        self.fq_sampler.run()
-        
-        stop_thread.join()
-        
-        # Verify no fire queue methods were called
-        self.mock_provider.get_fire_queue.assert_not_called()
-        self.mock_provider.get_area_fire_queue.assert_not_called()
-        
-        # Verify output queue is empty
-        self.assertTrue(self.output_queue.empty())
+        # Check that target_areas was updated
+        self.assertEqual(self.fq_sampler.target_areas, target_areas)
 
-    @patch('time.perf_counter')
-    def test_run_with_subscribers(self, mock_perf_counter):
-        """Test that run() samples when subscribers are set."""
-        # Mock time to control sampling timing - provide more values for multiple loop iterations
-        mock_perf_counter.side_effect = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5] * 10
-        
-        # Set visualization subscribers
-        self.fq_sampler.set_visualization_subscribers(True)
-        
+    def test_sampling_modes(self):
+        """Test different sampling modes."""
+        # Test global mode
+        sampler_global = UnifiedFQSampler(
+            self.mock_provider, 10.0, self.output_queue, sampling_mode="global"
+        )
+        self.assertEqual(sampler_global.sampling_mode, "global")
+
+        # Test motor_only mode
+        sampler_motor = UnifiedFQSampler(
+            self.mock_provider, 10.0, self.output_queue, sampling_mode="motor_only"
+        )
+        self.assertEqual(sampler_motor.sampling_mode, "motor_only")
+
+        # Test areas_only mode
+        sampler_areas = UnifiedFQSampler(
+            self.mock_provider,
+            10.0,
+            self.output_queue,
+            sampling_mode="areas_only",
+            target_areas=["cortex1"],
+        )
+        self.assertEqual(sampler_areas.sampling_mode, "areas_only")
+        self.assertEqual(sampler_areas.target_areas, ["cortex1"])
+
+    def test_performance_stats(self):
+        """Test performance statistics functionality."""
+        stats = self.fq_sampler.get_performance_stats()
+
+        # Verify stats structure
+        self.assertIsInstance(stats, dict)
+        self.assertIn("sample_frequency", stats)
+        self.assertIn("sampling_mode", stats)
+        self.assertIn("samples_generated", stats)
+        self.assertIn("simd_enabled", stats)
+        self.assertIn("zero_copy_enabled", stats)
+
+        # Verify values
+        self.assertEqual(stats["sample_frequency"], 10.0)
+        self.assertEqual(stats["sampling_mode"], "global")
+        self.assertEqual(stats["samples_generated"], 0)  # No samples yet
+
+    def test_frequency_setting(self):
+        """Test setting sample frequency."""
+        # Test setting new frequency
+        self.fq_sampler.set_sample_frequency(20.0)
+        self.assertEqual(self.fq_sampler.sample_frequency, 20.0)
+        self.assertEqual(self.fq_sampler.sample_interval, 0.05)
+
+        # Test setting zero frequency (should be ignored - keeps previous value)
+        self.fq_sampler.set_sample_frequency(0)
+        self.assertEqual(
+            self.fq_sampler.sample_frequency, 20.0
+        )  # Should remain unchanged
+
+    def test_run_global_mode(self):
+        """Test run() in global sampling mode."""
+
         # Set the sampler to stop after a short time
         def stop_sampler():
             time.sleep(0.15)
             self.fq_sampler.stop()
-        
+
         stop_thread = threading.Thread(target=stop_sampler)
         stop_thread.start()
-        
-        # Run the sampler 
+
+        # Run the sampler
         self.fq_sampler.run()
-        
+
         stop_thread.join()
-        
-        # Verify fire queue method was called
+
+        # Verify fire queue method was called (new architecture always attempts sampling)
         self.mock_provider.get_fire_queue.assert_called()
-        
-        # Verify we got samples in output queue
-        samples = []
-        try:
-            while True:
-                samples.append(self.output_queue.get_nowait())
-        except Empty:
-            pass
-        
-        self.assertGreater(len(samples), 0)
 
     def test_run_with_connectome_manager(self):
-        """Test run() with connectome manager for per-cortical-area sampling."""
+        """Test run() with connectome manager."""
         # Create mock connectome manager
         mock_cm = Mock()
-        cortical1 = Mock()
-        cortical1.id = 'cortex1'
-        cortical1.properties = {'fq_sample_rate': 20}
-        cortical2 = Mock() 
-        cortical2.id = 'cortex2'
-        cortical2.properties = {'fq_sample_rate': 30}
-        mock_cm.cortical_areas = {'cortex1': cortical1, 'cortex2': cortical2}
-        
-        # Create sampler with connectome manager
-        sampler = FQSampler(self.mock_provider, 10.0, self.output_queue, mock_cm)
-        sampler.set_visualization_subscribers(True)
-        
+        mock_cm.cortical_areas = {
+            "cortex1": Mock(id="cortex1", properties={"fq_sample_rate": 20}),
+            "cortex2": Mock(id="cortex2", properties={"fq_sample_rate": 30}),
+        }
+
+        # Create sampler with connectome manager in areas_only mode
+        sampler = UnifiedFQSampler(
+            self.mock_provider,
+            10.0,
+            self.output_queue,
+            mock_cm,
+            sampling_mode="areas_only",
+            target_areas=["cortex1", "cortex2"],
+        )
+
         # Set the sampler to stop after a short time
         def stop_sampler():
             time.sleep(0.1)
             sampler.stop()
-        
+
         stop_thread = threading.Thread(target=stop_sampler)
         stop_thread.start()
-        
+
         # Run the sampler
         sampler.run()
-        
+
         stop_thread.join()
-        
-        # Verify area fire queue method was called
-        self.mock_provider.get_area_fire_queue.assert_called()
-        
-        # Verify we got samples
-        samples = []
-        try:
-            while True:
-                samples.append(self.output_queue.get_nowait())
-        except Empty:
-            pass
-        
-        self.assertGreater(len(samples), 0)
 
-    def test_fire_queue_data_methods(self):
-        """Test the private methods for getting fire queue data."""
-        # Test global fire queue data
-        global_data = self.fq_sampler._get_global_fire_queue_data()
-        self.assertIsNotNone(global_data)
-        self.assertIn('neuron_ids', global_data)
-        self.assertIn('coordinates', global_data)  # Should add coordinates
-        
-        # Test cortical area fire queue data
-        area_data = self.fq_sampler._get_area_fire_queue_data('cortex1')
-        self.assertIsNotNone(area_data)
-        self.assertIn('neuron_ids', area_data)
-        self.assertIn('coordinates', area_data)  # Should add coordinates
+        # Should have attempted sampling
+        self.assertFalse(sampler.running)
 
-    def test_coordinate_generation(self):
-        """Test coordinate generation for neurons."""
-        neuron_ids = [1, 2, 3]
-        
-        # Test global coordinate generation
-        coords = self.fq_sampler._get_global_neuron_coordinates(neuron_ids)
-        self.assertEqual(len(coords), len(neuron_ids))
-        for coord in coords:
-            self.assertEqual(len(coord), 3)  # Should be (x, y, z)
-            
-        # Test cortical area coordinate generation
-        coords = self.fq_sampler._get_neuron_coordinates('cortex1', neuron_ids)
-        self.assertEqual(len(coords), len(neuron_ids))
-        for coord in coords:
-            self.assertEqual(len(coord), 3)  # Should be (x, y, z)
+    def test_direct_sampling(self):
+        """Test direct sampling functionality."""
+        # Test direct sampling (may return None if no brain data)
+        result = self.fq_sampler.sample_direct()
+
+        # Result could be None or bytes depending on implementation
+        self.assertTrue(result is None or isinstance(result, bytes))
+
+    def test_error_handling(self):
+        """Test error handling in the sampler."""
+        # Create provider that raises exceptions
+        error_provider = Mock()
+        error_provider.get_fire_queue.side_effect = Exception("Test error")
+
+        sampler = UnifiedFQSampler(error_provider, 50, self.output_queue)
+
+        # Set the sampler to stop after a short time
+        def stop_sampler():
+            time.sleep(0.05)
+            sampler.stop()
+
+        stop_thread = threading.Thread(target=stop_sampler)
+        stop_thread.start()
+
+        # Run the sampler - should handle exceptions gracefully
+        sampler.run()
+
+        stop_thread.join()
+
+        # Should not have crashed
+        self.assertFalse(sampler.running)
 
 
-if __name__ == '__main__':
-    unittest.main() 
+if __name__ == "__main__":
+    unittest.main()

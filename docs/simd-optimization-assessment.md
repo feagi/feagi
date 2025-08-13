@@ -62,7 +62,7 @@ The following NPU operations benefit most from SIMD optimization:
    membrane_potentials *= decay_rates
    fired_mask = membrane_potentials >= thresholds
    membrane_potentials[fired_mask] = 0.0
-   
+
    # Potential 4-8x speedup with AVX2/AVX512
    ```
 
@@ -189,7 +189,7 @@ python tests/npu/test_simd_compatibility.py
    // Add AVX512 support
    #[cfg(target_feature = "avx512f")]
    pub fn update_membrane_potentials_avx512(&mut self, decay_factor: f32)
-   
+
    // Add ARM SVE support
    #[cfg(target_feature = "sve")]
    pub fn update_membrane_potentials_sve(&mut self, decay_factor: f32)
@@ -284,13 +284,13 @@ python tests/npu/test_simd_compatibility.py
 def debug_simd_performance():
     import numpy as np
     from feagi.utils.profiler import SIMDProfiler
-    
+
     profiler = SIMDProfiler()
-    
+
     with profiler.measure("membrane_update"):
         # Your SIMD operation
         membrane_potentials *= decay_rates
-    
+
     profiler.report_simd_usage()
 ```
 
@@ -304,4 +304,4 @@ The FEAGI NPU module already has **good foundational SIMD support**, particularl
 
 By implementing the recommended SIMD compatibility testing and following the optimization roadmap, we can expect **2-10x performance improvements** in neural processing operations, especially on modern hardware with advanced SIMD capabilities.
 
-The testing framework provided will ensure SIMD optimizations work correctly across different platforms and help identify performance regressions, making it an essential addition to the NPU module's testing suite. 
+The testing framework provided will ensure SIMD optimizations work correctly across different platforms and help identify performance regressions, making it an essential addition to the NPU module's testing suite.

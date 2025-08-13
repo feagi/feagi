@@ -131,14 +131,14 @@ def load_genome(genome_path):
     try:
         # Signal genome loading has started
         state_mgr.set_genome_state(GenomeState.LOADING)
-        
+
         # Your existing genome loading logic
         # ...
-        
+
         # When loading completes successfully
         state_mgr.set_genome_state(GenomeState.LOADED)
         return True
-        
+
     except Exception as e:
         # If any error occurs during loading
         state_mgr.set_genome_state(GenomeState.ERROR)
@@ -191,21 +191,21 @@ impl StateManager {
             .create(true)
             .open(path)
             .unwrap();
-            
+
         // Ensure file is the right size
         let size = std::mem::size_of::<FeagiStateShared>();
         file.set_len(size as u64).unwrap();
-        
+
         let mapping = unsafe { MmapOptions::new().map_mut(&file).unwrap() };
-        
+
         Self { mapping }
     }
-    
+
     #[inline]
     pub fn state_ptr(&self) -> *mut FeagiStateShared {
         self.mapping.as_ptr() as *mut FeagiStateShared
     }
-    
+
     #[inline]
     pub fn get_genome_state(&self) -> GenomeState {
         unsafe {
@@ -219,7 +219,7 @@ impl StateManager {
             }
         }
     }
-    
+
     #[inline]
     pub fn set_genome_state(&mut self, state: GenomeState) {
         unsafe {
@@ -227,9 +227,9 @@ impl StateManager {
             (*self.state_ptr()).state_version = (*self.state_ptr()).state_version.wrapping_add(1);
         }
     }
-    
+
     // Implement getters/setters for other states...
-    
+
     #[inline]
     pub fn is_genome_loaded(&self) -> bool {
         self.get_genome_state() == GenomeState::Loaded
@@ -282,4 +282,4 @@ pub fn is_burst_engine_ready() -> bool {
 1. Examine file contents directly: `hexdump -C /tmp/feagi_state.bin`
 2. Add debug logging for state transitions in non-performance-critical code
 3. Use process monitoring tools to verify both Python and Rust are accessing the file
-4. Test state coherence by updating from one process and reading from another 
+4. Test state coherence by updating from one process and reading from another

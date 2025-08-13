@@ -1,12 +1,12 @@
 # Cortical Area Module Documentation
 
 ## Overview
-The **Cortical Area Module** manages CRUD operations against cortical area objects including the creation of cortical 
-areas, reading cortical properties, updating cortical properties, and deleting them. Creation of a cortical area entails 
-the initialization of neuron properties which will be inherited by neurons during neuron creation in the given cortical 
+The **Cortical Area Module** manages CRUD operations against cortical area objects including the creation of cortical
+areas, reading cortical properties, updating cortical properties, and deleting them. Creation of a cortical area entails
+the initialization of neuron properties which will be inherited by neurons during neuron creation in the given cortical
 area.
 
-This module also enables multi-cortical area actions where the above mentioned CRUD operations can be performed against 
+This module also enables multi-cortical area actions where the above mentioned CRUD operations can be performed against
 multiple cortical area at the same time.
 
 
@@ -17,21 +17,21 @@ There are 4 types of cortical areas:
 3. Interconnect
 4. Memory
 
-`templates.py` captures the unique properties for each cortical area type and subtype. 
+`templates.py` captures the unique properties for each cortical area type and subtype.
 
 ### Input Processing Unit (IPU) Area
-IPU cortical areas are synonymous to brain areas representing sensory neurons and responsible for feeding sensory information to the rest of the 
+IPU cortical areas are synonymous to brain areas representing sensory neurons and responsible for feeding sensory information to the rest of the
 brain.
 
 ### Output Processing Unit (OPU) Area
-OPU cortical areas are synonymous to brain areas representing motor neurons and responsible for taking motor commands from the brain to 
+OPU cortical areas are synonymous to brain areas representing motor neurons and responsible for taking motor commands from the brain to
 peripherals.
 
 ### Interconnect Area
 Interconnect cortical areas are generic and responsible for connecting various areas of the brain together.
 
 ### Memory Area
-Memory area is a special cortical area without any specific 3D topology and capable of storing information in the form of newly 
+Memory area is a special cortical area without any specific 3D topology and capable of storing information in the form of newly
 created neurons.
 
 
@@ -59,18 +59,18 @@ Cortical area properties:
 - dimensions (int32, int32, int32)
 - 3D location (int32, int32, int32)
 - 2D location (int32, int32)
-- neuron block capacity (int32) 
+- neuron block capacity (int32)
 - neuron firing threshold
 - neuron firing threshold increment (int8, int8, int8)
 - neuron firing threshold limit
-- neuron degeneracy constant (int32) 
+- neuron degeneracy constant (int32)
 - neuron psp (float)
 - neuron psp uniformity (bool)
 - neuron psp max (int32)
 - neuron refractory period (int16)
 - neuron refractory period overwrite
-- neuron leak coefficient 
-- neuron leak variability 
+- neuron leak coefficient
+- neuron leak variability
 - neuron consecutive fire count
 - neuron snooze period
 - neuron excitability
@@ -113,9 +113,9 @@ The implementation uses the following data structures:
 # Core neuron properties using Structure of Arrays pattern
 membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
 thresholds = np.zeros(max_neurons, dtype=np.float32)
-positions_x = np.zeros(max_neurons, dtype=np.uint32)
-positions_y = np.zeros(max_neurons, dtype=np.uint32)
-positions_z = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_x = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_y = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_z = np.zeros(max_neurons, dtype=np.uint32)
 neuron_indices = np.zeros(max_neurons, dtype=np.uint32)  # Index within voxel
 area_ids = np.zeros(max_neurons, dtype=np.uint32)
 is_active = np.zeros(max_neurons, dtype=bool)
@@ -203,24 +203,24 @@ def create_neuron(area_id, position, neuron_index=0):
     """Create a neuron at the specified position with the given index."""
     # 1. Find available array index
     array_index = get_next_available_index()
-    
+
     # 2. Generate a unique neuron ID (sequential or derived from a counter)
     neuron_id = next_neuron_id
     next_neuron_id += 1
-    
+
     # 3. Store neuron properties in the arrays
     store_neuron_properties(array_index, area_id, position, neuron_index)
-    
+
     # 4. Update mapping dictionaries
     neuron_id_to_index[neuron_id] = array_index
     index_to_neuron_id[array_index] = neuron_id
-    
+
     # 5. Update position tracking based on area type
     update_position_tracking(area_id, position, neuron_index, neuron_id)
-    
+
     # 6. Store reverse mapping
     neuron_to_position[neuron_id] = (area_id, *position, neuron_index)
-    
+
     return neuron_id
 ```
 
@@ -259,7 +259,7 @@ Let's analyze the memory requirements for a 1000×1000×1000 cortical area with 
 For 1 billion neurons:
 - `membrane_potentials`: 1B × 4 bytes = 4GB
 - `thresholds`: 1B × 4 bytes = 4GB
-- `positions_x/y/z`: 3 × 1B × 4 bytes = 12GB
+- `coordinates_x/y/z`: 3 × 1B × 4 bytes = 12GB
 - `neuron_indices`: 1B × 4 bytes = 4GB
 - `area_ids`: 1B × 4 bytes = 4GB
 - `is_active`: 1B × 1 byte = 1GB

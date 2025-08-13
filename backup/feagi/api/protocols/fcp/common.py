@@ -27,6 +27,7 @@ from typing import Tuple
 
 class FCPCommandType(IntEnum):
     """Command types for FCP."""
+
     REGISTER = 0x01
     DEREGISTER = 0x02
     CONFIGURE = 0x03
@@ -39,7 +40,7 @@ class FCPCommandType(IntEnum):
 class FCPMessageFormat:
     """
     FCP message format utilities.
-    
+
     Format:
     +-------------+-------------+-------------+----------------+------------------+
     | Protocol ID | Version     | Command     | Message Length | Message Payload  |
@@ -47,17 +48,19 @@ class FCPMessageFormat:
     |             |             | (1 byte)    |                |                  |
     +-------------+-------------+-------------+----------------+------------------+
     """
-    
+
     HEADER_FORMAT = "!BI"  # Command type (1 byte) + message length (4 bytes)
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-    
+
     @staticmethod
     def pack_header(command_type: FCPCommandType, payload_length: int) -> bytes:
         """Pack FCP header."""
         return struct.pack(FCPMessageFormat.HEADER_FORMAT, command_type, payload_length)
-    
+
     @staticmethod
     def unpack_header(data: bytes) -> Tuple[FCPCommandType, int]:
         """Unpack FCP header."""
-        command_type, payload_length = struct.unpack(FCPMessageFormat.HEADER_FORMAT, data)
-        return FCPCommandType(command_type), payload_length 
+        command_type, payload_length = struct.unpack(
+            FCPMessageFormat.HEADER_FORMAT, data
+        )
+        return FCPCommandType(command_type), payload_length

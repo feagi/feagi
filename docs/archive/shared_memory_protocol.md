@@ -86,4 +86,4 @@ The FEAGI shared memory protocol enables high-performance, low-latency inter-pro
 
 ## 8. References
 - See `feagi/api/shared_memory/feagi_gateway.py` for the Python reference implementation.
-- See `tests/api/core/test_shared_memory.py` for usage and test cases. 
+- See `tests/api/core/test_shared_memory.py` for usage and test cases.

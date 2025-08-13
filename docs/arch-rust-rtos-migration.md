@@ -46,7 +46,7 @@ state_manager = FeagiStateManager.instance()  # Shared memory across tasks
 ```python
 class ConnectomeManager:
     _instance = None
-    
+
     @classmethod
     def instance(cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
         if cls._instance is None:
@@ -98,13 +98,13 @@ impl FeagiStateManager {
             .write(true)
             .create(true)
             .open(path)?;
-        
+
         let mmap = unsafe {
             MmapOptions::new()
                 .len(TOTAL_SIZE)
                 .map_mut(&file)?
         };
-        
+
         Ok(FeagiStateManager { mmap })
     }
 }
@@ -124,7 +124,7 @@ def init_background_processes(self, config: Dict[str, Any]) -> bool:
         'host': api_host,
         'port': api_port
     }
-    
+
     # Create and start the API service as an async task (not subprocess)
     api_task = self._start_api_service_task(api_service_config)
 ```
@@ -139,7 +139,7 @@ async fn init_background_processes(&self, config: &Config) -> Result<(), Error> 
         host: config.api.host.clone(),
         port: config.api.port,
     };
-    
+
     // Spawn as async task
     tokio::spawn(run_api_service(api_config));
     Ok(())
@@ -164,7 +164,7 @@ async fn init_background_processes(&self, config: &Config) -> Result<(), Error> 
 Before: ~5000-20000 ns (IPC overhead)
 After:  ~5-20 ns (direct memory access)
 
-# Task communication latency  
+# Task communication latency
 Before: ~1-10 ms (subprocess boundaries)
 After:  ~1-10 μs (direct calls)
 
@@ -217,7 +217,7 @@ After:  ~250MB (singleton pattern)
 
 ### Phase 1: Python Optimization ✅ COMPLETE
 - ✅ Singleton ConnectomeManager implementation
-- ✅ Memory-mapped state management  
+- ✅ Memory-mapped state management
 - ✅ Direct task spawning architecture
 - ✅ Subprocess elimination
 - ✅ Environment variable IPC removal
@@ -328,4 +328,4 @@ This foundation enables FEAGI to achieve its mission-critical reliability requir
 - [Process Manager Documentation](archive/feagi_processes.md)
 - [IPC Architecture](arch-ipc.md)
 - [State Management](arch-state-manager.md)
-- [Core Module README](../feagi/core/README.md) 
+- [Core Module README](../feagi/core/README.md)

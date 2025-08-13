@@ -1,6 +1,23 @@
+"""
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 """Network service for managing FEAGI network operations."""
 
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, Optional
+
 from ..shared.base_service import BaseService
 
 
@@ -9,41 +26,37 @@ class NetworkService(BaseService):
     Network service handles network monitoring, bandwidth management,
     and communication coordination operations.
     """
-    
+
     def get_network_status(self) -> Dict[str, Any]:
         """Get current network status and health."""
         try:
             status = {
                 "status": "operational",
                 "timestamp": self._get_current_timestamp(),
-                "connections": {
-                    "active": 0,
-                    "idle": 0,
-                    "failed": 0
-                },
+                "connections": {"active": 0, "idle": 0, "failed": 0},
                 "bandwidth": {
                     "incoming_mbps": 0.0,
                     "outgoing_mbps": 0.0,
-                    "total_mbps": 0.0
+                    "total_mbps": 0.0,
                 },
                 "protocols": {
                     "zmq": {"status": "active", "connections": 0},
                     "websocket": {"status": "inactive", "connections": 0},
-                    "grpc": {"status": "inactive", "connections": 0}
-                }
+                    "grpc": {"status": "inactive", "connections": 0},
+                },
             }
-            
+
             # Check if state manager is available for agent connections
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, 'connected_agents', {})
+                connected_agents = getattr(self.state_manager, "connected_agents", {})
                 status["connections"]["active"] = len(connected_agents)
-                
+
                 # Count protocol usage
                 for agent_info in connected_agents.values():
                     protocol = agent_info.get("protocol", "zmq")
                     if protocol in status["protocols"]:
                         status["protocols"][protocol]["connections"] += 1
-            
+
             return status
         except Exception as e:
             self.logger.error(f"Error getting network status: {str(e)}")
@@ -60,18 +73,18 @@ class NetworkService(BaseService):
                 "incoming": {
                     "bytes_total": 0,
                     "bytes_per_second": 0.0,
-                    "peak_bytes_per_second": 0.0
+                    "peak_bytes_per_second": 0.0,
                 },
                 "outgoing": {
                     "bytes_total": 0,
                     "bytes_per_second": 0.0,
-                    "peak_bytes_per_second": 0.0
+                    "peak_bytes_per_second": 0.0,
                 },
                 "protocols": {
                     "zmq": {"incoming": 0, "outgoing": 0},
                     "websocket": {"incoming": 0, "outgoing": 0},
-                    "grpc": {"incoming": 0, "outgoing": 0}
-                }
+                    "grpc": {"incoming": 0, "outgoing": 0},
+                },
             }
         except Exception as e:
             self.logger.error(f"Error getting bandwidth usage: {str(e)}")
@@ -87,29 +100,34 @@ class NetworkService(BaseService):
                 "connection_duration": {
                     "average_seconds": 0.0,
                     "longest_seconds": 0.0,
-                    "shortest_seconds": 0.0
+                    "shortest_seconds": 0.0,
                 },
                 "error_rates": {
                     "connection_failures": 0,
                     "timeout_errors": 0,
-                    "protocol_errors": 0
-                }
+                    "protocol_errors": 0,
+                },
             }
-            
+
             # Get connected agents data if available
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, 'connected_agents', {})
+                connected_agents = getattr(self.state_manager, "connected_agents", {})
                 stats["total_connections"] = len(connected_agents)
-                stats["active_connections"] = len([
-                    agent for agent in connected_agents.values() 
-                    if agent.get("status") == "connected"
-                ])
-                
+                stats["active_connections"] = len(
+                    [
+                        agent
+                        for agent in connected_agents.values()
+                        if agent.get("status") == "connected"
+                    ]
+                )
+
                 # Count by type
                 for agent_info in connected_agents.values():
                     agent_type = agent_info.get("type", "unknown")
-                    stats["connection_types"][agent_type] = stats["connection_types"].get(agent_type, 0) + 1
-            
+                    stats["connection_types"][agent_type] = (
+                        stats["connection_types"].get(agent_type, 0) + 1
+                    )
+
             return stats
         except Exception as e:
             self.logger.error(f"Error getting connection statistics: {str(e)}")
@@ -121,30 +139,38 @@ class NetworkService(BaseService):
             results = {
                 "timestamp": self._get_current_timestamp(),
                 "overall_status": "healthy",
-                "tests": []
+                "tests": [],
             }
-            
+
             # Test internal components
             tests = [
-                {"component": "state_manager", "status": "pass" if self.state_manager else "fail"},
-                {"component": "connectome_manager", "status": "pass" if self._connectome_manager else "fail"}
+                {
+                    "component": "state_manager",
+                    "status": "pass" if self.state_manager else "fail",
+                },
+                {
+                    "component": "connectome_manager",
+                    "status": "pass" if self._connectome_manager else "fail",
+                },
             ]
-            
+
             # Test external connectivity if target specified
             if target:
                 # This would be replaced with actual connectivity tests
-                tests.append({
-                    "component": f"external_{target}",
-                    "status": "unknown",
-                    "message": "External connectivity testing not implemented"
-                })
-            
+                tests.append(
+                    {
+                        "component": f"external_{target}",
+                        "status": "unknown",
+                        "message": "External connectivity testing not implemented",
+                    }
+                )
+
             results["tests"] = tests
-            
+
             # Determine overall status
             if any(test["status"] == "fail" for test in tests):
                 results["overall_status"] = "degraded"
-            
+
             return results
         except Exception as e:
             self.logger.error(f"Error testing connectivity: {str(e)}")
@@ -159,39 +185,39 @@ class NetworkService(BaseService):
                     "version": "unknown",
                     "connections": 0,
                     "message_queue_size": 0,
-                    "error_count": 0
+                    "error_count": 0,
                 },
                 "websocket": {
                     "status": "inactive",
                     "version": "unknown",
                     "connections": 0,
                     "message_queue_size": 0,
-                    "error_count": 0
+                    "error_count": 0,
                 },
                 "grpc": {
                     "status": "inactive",
                     "version": "unknown",
                     "connections": 0,
                     "message_queue_size": 0,
-                    "error_count": 0
+                    "error_count": 0,
                 },
                 "rest": {
                     "status": "active",
                     "version": "1.1",
                     "connections": 0,
                     "message_queue_size": 0,
-                    "error_count": 0
-                }
+                    "error_count": 0,
+                },
             }
-            
+
             # Update with actual agent connections if available
             if self.state_manager:
-                connected_agents = getattr(self.state_manager, 'connected_agents', {})
+                connected_agents = getattr(self.state_manager, "connected_agents", {})
                 for agent_info in connected_agents.values():
                     protocol = agent_info.get("protocol", "zmq")
                     if protocol in protocols:
                         protocols[protocol]["connections"] += 1
-            
+
             return protocols
         except Exception as e:
             self.logger.error(f"Error getting protocol status: {str(e)}")
@@ -212,11 +238,11 @@ class NetworkService(BaseService):
         try:
             # This is a placeholder for bandwidth management
             self.logger.info(f"Bandwidth limits configuration requested: {limits}")
-            
+
             return {
                 "success": True,
                 "applied_limits": limits,
-                "message": "Bandwidth limits configured (placeholder implementation)"
+                "message": "Bandwidth limits configured (placeholder implementation)",
             }
         except Exception as e:
             self.logger.error(f"Error configuring bandwidth limits: {str(e)}")
@@ -230,25 +256,25 @@ class NetworkService(BaseService):
                     "incoming_queue_size": 0,
                     "outgoing_queue_size": 0,
                     "processed_messages": 0,
-                    "failed_messages": 0
+                    "failed_messages": 0,
                 },
                 "websocket": {
                     "incoming_queue_size": 0,
                     "outgoing_queue_size": 0,
                     "processed_messages": 0,
-                    "failed_messages": 0
+                    "failed_messages": 0,
                 },
                 "internal": {
                     "pending_operations": 0,
                     "completed_operations": 0,
-                    "failed_operations": 0
-                }
+                    "failed_operations": 0,
+                },
             }
-            
+
             return {
                 "timestamp": self._get_current_timestamp(),
                 "queues": queues,
-                "overall_health": "healthy"
+                "overall_health": "healthy",
             }
         except Exception as e:
             self.logger.error(f"Error getting message queue status: {str(e)}")
@@ -257,4 +283,5 @@ class NetworkService(BaseService):
     def _get_current_timestamp(self) -> float:
         """Get current timestamp."""
         import time
-        return time.time() 
+
+        return time.time()

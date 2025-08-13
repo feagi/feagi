@@ -47,10 +47,10 @@ SUPPORTED_VERSIONS = {
 Add a new private method for the new version:
 
 ```python
-def _encode_neuron_flat_v2(self, 
+def _encode_neuron_flat_v2(self,
                           cortical_ids: List[str],
                           x_coords: List[int],
-                          y_coords: List[int], 
+                          y_coords: List[int],
                           z_coords: List[int],
                           potentials: List[float],
                           # New parameters for version 2:
@@ -58,7 +58,7 @@ def _encode_neuron_flat_v2(self,
                           compression_type: int = 0) -> bytes:
     """
     Version 2 implementation of neuron flat format.
-    
+
     Adds:
     - Metadata section (optional JSON)
     - Compression type byte
@@ -74,7 +74,7 @@ Add a corresponding decoder method in `feagi/api/protocols/byte_structures/decod
 def _decode_neuron_flat_v2(self, data: bytes) -> Dict[str, Any]:
     """
     Decode version 2 of neuron flat format.
-    
+
     New features:
     - Metadata section
     - Compression type support
@@ -134,22 +134,22 @@ Example test case:
 def test_version_negotiation():
     # Create translator with client capabilities
     translator = ByteStructureTranslator()
-    
+
     # Register a client that only supports version 1
     translator.register_client_capabilities("old_client", {
         "structure_versions": {
             ByteStructureID.NEURON_FLAT: [1]
         }
     })
-    
+
     # Register a client that supports versions 1 and 2
     translator.register_client_capabilities("new_client", {
         "structure_versions": {
             ByteStructureID.NEURON_FLAT: [1, 2]
         }
     })
-    
+
     # Check version selection
     assert translator.get_supported_version("old_client", ByteStructureID.NEURON_FLAT) == 1
     assert translator.get_supported_version("new_client", ByteStructureID.NEURON_FLAT) == 2
-``` 
+```

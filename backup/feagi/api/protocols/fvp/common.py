@@ -27,6 +27,7 @@ from typing import Tuple
 
 class FVPFrameType(IntEnum):
     """Frame types for FVP."""
+
     NEURON_ACTIVATIONS = 0x01
     CONNECTION_STRENGTHS = 0x02
     AREA_SUMMARY = 0x03
@@ -38,7 +39,7 @@ class FVPFrameType(IntEnum):
 class FVPMessageFormat:
     """
     FVP message format utilities.
-    
+
     Format:
     +-------------+-------------+-------------+----------------+-------------+------------------+
     | Protocol ID | Version     | Frame       | Timestamp      | Data        | Data Payload     |
@@ -46,17 +47,25 @@ class FVPMessageFormat:
     |             |             | (1 byte)    |                | (4 bytes)   |                  |
     +-------------+-------------+-------------+----------------+-------------+------------------+
     """
-    
-    HEADER_FORMAT = "!BQI"  # Frame type (1 byte) + timestamp (8 bytes) + data length (4 bytes)
+
+    HEADER_FORMAT = (
+        "!BQI"  # Frame type (1 byte) + timestamp (8 bytes) + data length (4 bytes)
+    )
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-    
+
     @staticmethod
-    def pack_header(frame_type: FVPFrameType, timestamp_ms: int, payload_length: int) -> bytes:
+    def pack_header(
+        frame_type: FVPFrameType, timestamp_ms: int, payload_length: int
+    ) -> bytes:
         """Pack FVP header."""
-        return struct.pack(FVPMessageFormat.HEADER_FORMAT, frame_type, timestamp_ms, payload_length)
-    
+        return struct.pack(
+            FVPMessageFormat.HEADER_FORMAT, frame_type, timestamp_ms, payload_length
+        )
+
     @staticmethod
     def unpack_header(data: bytes) -> Tuple[FVPFrameType, int, int]:
         """Unpack FVP header."""
-        frame_type, timestamp_ms, payload_length = struct.unpack(FVPMessageFormat.HEADER_FORMAT, data)
-        return FVPFrameType(frame_type), timestamp_ms, payload_length 
+        frame_type, timestamp_ms, payload_length = struct.unpack(
+            FVPMessageFormat.HEADER_FORMAT, data
+        )
+        return FVPFrameType(frame_type), timestamp_ms, payload_length

@@ -51,4 +51,4 @@ From the code review, the following components are still in active use:
 ## Testing Plan
 - Run all tests after each removal to ensure functionality is preserved
 - Specifically test ZMQ client-server communication
-- Ensure Cap'n Proto message encoding/decoding works correctly 
+- Ensure Cap'n Proto message encoding/decoding works correctly

@@ -1,0 +1,240 @@
+# FEAGI 2.0 Architecture Compliance Rules
+
+Objective: Ensure FEAGI remains cross-platform, Rust/RTOS compatible, and maintainable with high reliability. Code must operate deterministically without fallbacks or ambiguity. No reliance on hardcoded values, and all configurations must come from centralized systems.
+
+---
+
+## 1. Project-Wide Architecture Principles
+
+- FEAGI must support execution across Docker, Kubernetes, cloud services, embedded systems, and desktop environments.
+- Code must be written to facilitate future migration to Rust or RTOS.
+- Cross-platform behavior and deterministic execution are mandatory.
+
+---
+
+## 2. Critical Violations – Never Allow
+
+### 2.1. Deletion of Methods (Forbidden)
+NEVER delete working methods unless all these conditions are met:
+- Confirm no internal usage: `grep -r "method_name" .`
+- Verify API endpoint dependencies
+- Confirm external integrations (e.g., clients, bridges)
+- If unsure, confirm with project leads before deletion
+
+Example of a past violation: Removal of `get_cortical_mapping()` caused runtime 500 errors.
+
+### 2.2. Network Hardcoding
+- Do not hardcode hostnames or IPs:
+  - `"127.0.0.1"`
+  - `"localhost"`
+  - `os.environ.get("HOST", "localhost")`
+- Use only: `get_host_config()` from `toml_loader.py`
+
+### 2.3. Timeout Hardcoding
+- Do not hardcode:
+  - `time.sleep(x)`
+  - `timeout=30`
+  - `join(timeout=2.0)`
+- Use: `get_timeout_config()`
+
+### 2.4. Root Folder Structure
+- No files or folders may be added to the project root.
+- All files must belong to one of the defined subprojects.
+
+---
+
+## 3. Enforced Best Practices
+
+### 3.1. Central Configuration Usage
+```python
+from feagi.config.toml_loader import get_host_config, get_timeout_config
+
+config = load_feagi_config()
+host_config = get_host_config(config)
+timeout_config = get_timeout_config(config)
+```
+
+### 3.2. Emergency Fallbacks – Explicit and Rare
+Only use fallback values if:
+- Inside `try/except Exception` blocks
+- During shutdown or critical failure
+- When marked with `# @architecture:acceptable - [reason]`
+
+Accepted reasons:
+- `emergency fallback`
+- `shutdown cleanup`
+- `test isolation`
+- `signal handler`
+
+Examples:
+```python
+try:
+    config = load_feagi_config()
+except Exception:
+    timeout = 8.0  # @architecture:acceptable - emergency fallback
+```
+
+```python
+def signal_handler(sig, frame):
+    time.sleep(0.1)  # @architecture:acceptable - signal handler
+    sys.exit(0)
+```
+
+---
+
+## 4. Component-Specific Rules
+
+### feagi_core/
+- Use config system exclusively.
+- No fallback values allowed in normal operation.
+- Run architecture compliance tests on changes.
+
+### feagi_bridge/
+- Must support dynamic host/port resolution.
+- No hardcoded or default values outside config system.
+
+### feagi_connector/
+- Client-side defaults allowed only with annotation.
+- Must support full configuration override.
+
+### feagi_sim/
+- Must support containerized and headless operation.
+- Defaults must be explicitly annotated if used.
+
+---
+
+## 5. Testing Requirements
+
+Before committing:
+```bash
+cd feagi_core
+pytest tests/system/test_architecture_compliance.py -v
+```
+
+These tests enforce:
+- No hardcoded hostnames/IPs
+- No hardcoded timeouts
+- Proper config resolution
+- Proper use of @architecture:acceptable annotations
+
+---
+
+## 6. Cursor Integration and Linting
+
+### Forbidden Patterns (Cursor must reject):
+- `host = "127.0.0.1"`
+- `timeout = 30`
+- `os.environ.get("HOST", "localhost")`
+- Emojis in code or commit messages
+
+### Cursor Review Prompts:
+- "Check this for architecture compliance"
+- "Verify all emergency fallbacks are annotated"
+- "Ensure configuration is used instead of hardcoded values"
+
+### Ruff Linting Requirements
+- Must pass `ruff check` with `--fix` and project `.ruff.toml` config
+- Enable `flake8`, `isort`, `pycodestyle`, `pylint` compatibility modes
+- No wildcard imports, no unused variables, no magic numbers
+
+---
+
+## 7. Maintainability and Performance Guidelines
+
+- No fallbacks in core logic: enforce strict configuration dependency.
+- Strict typing: use type hints and `mypy`.
+- No runtime ambiguity: all branching behavior must be testable and predictable.
+- Deterministic execution: behavior must not vary by platform or runtime.
+- No third-party implicit behavior: all third-party integrations must be documented.
+- Dependency injection for testable services.
+- Minimal and traceable error handling: use structured exceptions.
+
+---
+
+## 8. Deployment Targets (All Mandatory)
+
+- Docker containers with custom networks
+- Kubernetes pods using service discovery
+- Cloud platforms (AWS, GCP, Azure)
+- Embedded hardware (resource-constrained)
+- Local developer machines
+
+---
+
+## 9. Environment Variable Overrides
+
+Acceptable only for runtime config override (e.g., in CI/CD):
+```bash
+FEAGI_API_HOST=192.168.1.100
+FEAGI_ZMQ_HOST=0.0.0.0
+FEAGI_API_PORT=8080
+```
+
+---
+
+## 10. References
+
+- Configuration system: `feagi_core/feagi/config/toml_loader.py`
+- Architecture tests: `feagi_core/tests/system/test_architecture_compliance.py`
+- Sample config: `feagi_core/feagi_configuration.toml`
+- Contribution Guide: `CONTRIBUTING.md`
+- Cursor compliance rules: `.cursorrules`
+- Ruff config: `.ruff.toml`
+
+---
+
+## 11. Other
+- Always follow PEP8/Ruff rules
+- do not use --unsafe-fix option with ruff
+- do not commit with --no-verify
+
+## 12. Incremental Code Quality Improvement
+
+### 12.1. Mandatory Ruff Check on Module Edits
+**CRITICAL RULE**: Before editing ANY module, you MUST:
+
+1. **Run ruff check on the specific module**:
+   ```bash
+   ruff check path/to/module.py --statistics
+   ```
+
+2. **Fix ALL violations in that module** before making your intended changes:
+   - F841 (unused variables)
+   - F401 (unused imports)
+   - B007 (unused loop control variables)
+   - B904 (raise without from)
+   - E722 (bare except clauses)
+   - E712 (true/false comparisons)
+   - Any other violations found
+
+3. **Commit the ruff fixes separately** with descriptive message:
+   ```bash
+   git commit -m "Fix ruff violations in module_name.py before feature work"
+   ```
+
+4. **Then proceed with your intended changes**
+
+### 12.2. Module-Level Quality Gates
+- No module may be edited without first achieving zero ruff violations
+- This ensures incremental improvement of the entire codebase
+- New code will be built on a solid, clean foundation
+- Prevents accumulation of technical debt
+
+### 12.3. Exception Handling
+Only skip ruff fixes if:
+- Module has >100 violations (document and create separate cleanup task)
+- Critical production hotfix (must create follow-up cleanup task)
+- Mark exceptions with: `# @ruff-skip: [reason] - cleanup task: [task-id]`
+
+### 12.4. Benefits
+- Gradual codebase improvement without dedicated cleanup sprints
+- Ensures all touched code meets quality standards
+- Prevents regression of code quality
+- Makes future maintenance easier
+- Builds developer habits for clean code
+
+---
+
+## Final Reminder
+
+Every hardcoded value is a potential source of failure across platforms. No code may be merged unless it passes architecture compliance tests and adheres to all configuration rules.

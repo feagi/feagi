@@ -55,7 +55,7 @@ The Process Manager is responsible for:
 # Mission-critical singleton pattern (translates directly to Rust std::sync::Once)
 class ConnectomeManager:
     _instance = None
-    
+
     @classmethod
     def instance(cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
         if cls._instance is None:
@@ -91,7 +91,7 @@ FEAGI employs a dynamic resource management strategy optimized for Rust/RTOS:
 
 1. **CPU Allocation**:
    - Priority 1 tasks receive dedicated CPU cores
-   - Priority 2 tasks share remaining cores  
+   - Priority 2 tasks share remaining cores
    - Priority 3 tasks use opportunistic scheduling
 
 2. **Memory Allocation**:
@@ -170,7 +170,7 @@ The new architecture provides immediate benefits for Rust migration:
 
 ### Concurrency Model
 - **Python threads** → **Rust tokio tasks**
-- **Memory-mapped files** → **Rust memmap2 crate** 
+- **Memory-mapped files** → **Rust memmap2 crate**
 - **Singleton pattern** → **Rust std::sync::Once**
 
 ## Implementation Status
@@ -200,6 +200,6 @@ The Rust/RTOS compatible architecture is implemented in phases:
 ## Related Documentation
 
 - [Architecture Overview](../arch-system-overview.md)
-- [IPC Architecture](../arch-ipc.md)  
+- [IPC Architecture](../arch-ipc.md)
 - [GPU Architecture](../arch-gpu.md)
-- [State Management](../arch-state-manager.md) 
+- [State Management](../arch-state-manager.md)

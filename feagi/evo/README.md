@@ -35,4 +35,4 @@ Future plans include:
 - Enhanced mutation operators
 - Improved fitness evaluation metrics
 - Support for multi-objective optimization
-- Hierarchical evolutionary algorithms 
+- Hierarchical evolutionary algorithms

@@ -65,6 +65,11 @@ htmlcov/
 # Temp
 legacy_feagi/
 
+# Cache files (spatial hash, neural data, etc.)
+cache/
+*.pkl
+*.pickle
+
 # Docusaurus
 website/docs/.docusaurus/
 website/docs/build/

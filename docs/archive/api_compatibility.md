@@ -105,4 +105,4 @@ The following legacy endpoints are directly supported:
 
 ### Burst Engine
 
-- GET `/v1/burst_engine/config` - Get burst engine configuration 
+- GET `/v1/burst_engine/config` - Get burst engine configuration

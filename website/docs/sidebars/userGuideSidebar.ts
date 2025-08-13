@@ -27,4 +27,4 @@ const userGuideSidebar: SidebarsConfig = {
   ],
 };
 
-export default userGuideSidebar; 
+export default userGuideSidebar;

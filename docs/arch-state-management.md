@@ -15,6 +15,7 @@ The `FeagiStateManager` class is responsible for tracking and managing the state
 - Service states (API, ZMQ, Burst Engine, etc.)
 - Simulation state (running, paused, etc.)
 - Brain readiness
+- **Morton spatial hash integration (NEW)**: Tracks active Morton implementation and coordinate limits
 
 ### Notification System
 
@@ -31,9 +32,10 @@ def my_callback_function(old_state, new_state):
 
 Available notification categories:
 - `genome`: Notifies when genome state changes
-- `connectome`: Notifies when connectome state changes 
+- `connectome`: Notifies when connectome state changes
 - `burst_engine`: Notifies when burst engine state changes
 - `simulation`: Notifies when simulation state changes
+- `morton_spatial_hash`: Notifies when Morton spatial hash configuration changes
 
 ## Service States
 
@@ -47,6 +49,91 @@ Service components in FEAGI transition through these states:
 - `DEGRADED`: Component is running but with reduced functionality
 - `ERROR`: Component encountered an error during operation
 - `FAILED`: Component failed to initialize or encountered a critical error
+
+## Morton Spatial Hash Integration (NEW)
+
+The state manager now tracks Morton spatial hash information for system-wide coordination and validation:
+
+### Morton Spatial Hash Tracking
+
+The state manager maintains awareness of the active Morton spatial hash implementation:
+
+- **Morton Class Name**: Tracks the active implementation ("RoaringSpatialHash")
+- **Coordinate Limits**: Tracks maximum coordinate values (2,097,152 per dimension for 21-bit encoding)
+- **System Validation**: Provides coordinate validation for cortical area creation
+- **Integration Points**: ConnectomeManager, genome validation, spatial queries
+
+### State Manager Morton API
+
+```python
+from feagi.core.state_manager import get_state_manager
+
+state_manager = get_state_manager()
+
+# Get Morton coordinate limits
+limit = state_manager.get_morton_coordinate_limit()  # Returns 2,097,152
+
+# Get Morton class name
+morton_class = state_manager.get_morton_class_name()  # Returns "RoaringSpatialHash"
+
+# Check if Morton is registered
+has_morton = state_manager.has_morton_class_info()  # Returns True
+
+# Get comprehensive Morton info
+info = state_manager.get_morton_spatial_hash_info()
+# Returns: {"morton_class": "RoaringSpatialHash", "coordinate_limit": 2097152}
+
+# Register Morton implementation (done automatically by ConnectomeManager)
+state_manager.set_morton_class_info("RoaringSpatialHash", 2097152)
+```
+
+### Cortical Area Dimension Validation
+
+The ConnectomeManager uses state manager Morton information to validate cortical area dimensions:
+
+```python
+from feagi.bdu.connectome_manager import ConnectomeManager
+
+cm = ConnectomeManager(1000)
+
+# Get maximum allowable dimensions based on Morton limits
+max_dims = cm.get_max_allowable_cortical_area_dimensions()
+# Returns: (2097151, 2097151, 2097151)
+
+# Morton spatial hash info from state manager
+morton_info = cm.get_morton_spatial_hash_info()
+print(f"Active Morton class: {morton_info['morton_class']}")
+print(f"Coordinate limit: {morton_info['coordinate_limit']:,}")
+
+# Validation prevents oversized cortical areas
+try:
+    area_id = cm.add_cortical_area(
+        name="Valid Area", 
+        dimensions=(100, 100, 100),  # Within 21-bit limits
+        position=(0, 0, 0)
+    )
+    print(f"✅ Created area: {area_id}")
+except ValueError as e:
+    print(f"❌ Area blocked: {e}")
+
+# This will fail validation
+try:
+    cm.add_cortical_area(
+        name="Invalid Area", 
+        dimensions=(3000000, 100, 100),  # Exceeds 21-bit limit
+        position=(0, 0, 0)
+    )
+except ValueError as e:
+    print(f"✅ Correctly blocked oversized area: {e}")
+```
+
+### Morton Integration Benefits
+
+1. **Prevents Coordinate Overflow**: Validates cortical area dimensions against Morton encoding limits
+2. **System-Wide Awareness**: All components can query Morton capabilities through state manager
+3. **Future-Proof Design**: Easy to extend for dynamic bit-width selection (32-bit vs 64-bit Morton)
+4. **Consistent Validation**: Single source of truth for coordinate limits across the system
+5. **Error Prevention**: Blocks creation of cortical areas that would cause Morton encoding failures
 - `STOPPED`: Component was intentionally stopped
 - `SYNCING`: Component is synchronizing state with other components
 - `SYNC_COMPLETE`: Synchronization has completed successfully
@@ -145,4 +232,4 @@ When working with the state management system:
 
 - [System Overview](arch-system-overview.md)
 - [IPC Architecture](arch-ipc.md)
-- [API Refactoring](adr-api-refactoring.md) 
+- [API Refactoring](adr-api-refactoring.md)

@@ -1,3 +1,17 @@
+# Copyright 2025 Neuraville Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 [build-system]
 requires = ["setuptools>=42", "wheel", "setuptools-rust>=1.2.0"]
 build-backend = "setuptools.build_meta"
@@ -10,7 +24,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "FEAGI Team"}
+    {name = "Neuraville Inc.", email = "feagi@neuraville.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -21,6 +35,8 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Rust",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -28,40 +44,49 @@ dependencies = [
     "fastapi>=0.95.0",
     "uvicorn>=0.21.0",
     "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
     "numpy>=1.24.0",
+    "scipy>=1.10.0",
     "torch>=2.0.0",
     "httpx>=0.24.0",
     "PyYAML>=6.0.0",
+    "tomli>=2.0.0;python_version<'3.11'",
     "pyzmq>=26.0.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.5",
     "psutil>=5.8.0",
     "pyroaring>=1.0.0",
-    "pycapnp>=2.0.0",
+    "feagi-bytes>=0.1.0",
+    "feagi-data-processing>=0.0.35",
+    "packaging>=21.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+    "pytest-benchmark>=4.0.0",
+    "pytest-mock>=3.10.0",
     "black>=23.0.0",
     "isort>=5.12.0",
     "mypy>=1.0.0",
-    "ruff>=0.0.270",
+    "ruff>=0.1.0",
     "pre-commit>=3.0.0",
+    "memory-profiler>=0.60.0",
+    "dataclasses-json>=0.5.7",
 ]
 docs = [
-    "mkdocs>=1.4.0",
-    "mkdocs-material>=9.0.0",
-    "mkdocstrings>=0.20.0",
-    "mkdocstrings-python>=1.0.0",
+    # Documentation is now handled by Docusaurus (see /website folder)
+    # No Python dependencies needed for docs generation
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/feagi"
-"Bug Tracker" = "https://github.com/yourusername/feagi/issues"
-"Documentation" = "https://yourusername.github.io/feagi"
+"Homepage" = "https://github.com/neuraville/feagi"
+"Bug Tracker" = "https://github.com/neuraville/feagi/issues"
+"Documentation" = "https://feagi.neuraville.com"
+"Source Code" = "https://github.com/neuraville/feagi"
 
 [tool.setuptools]
 packages = ["feagi"]
@@ -87,5 +112,15 @@ target-version = ["py38"]
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+# Opt-in approach - only scan these specific directories
+include = [
+    "feagi/**/*.py",
+    "tests/**/*.py",
+    "scripts/**/*.py",
+    "tools/**/*.py",
+    "examples/**/*.py"
+]
+
+[tool.ruff.lint]
 select = ["E", "F", "B", "I"]
-ignore = [] 
+ignore = []

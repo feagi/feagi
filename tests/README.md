@@ -123,7 +123,7 @@ FEAGI provides specialized debugging flags that can be helpful during test devel
 # NPU debugging during tests
 FEAGI_DEBUG_NPU=1 python -m pytest tests/npu/ -v -s
 
-# API debugging during tests  
+# API debugging during tests
 FEAGI_DEBUG_API=1 python -m pytest tests/api/ -v -s
 
 # Combined debugging
@@ -174,4 +174,4 @@ pytest -m performance
 pytest -m "not slow"
 pytest -m "wgpu and not slow"
 pytest -m "binding and not cuda"
-``` 
+```

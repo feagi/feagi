@@ -69,4 +69,4 @@ When writing new code or modifying existing modules:
 3. Never use `area_id` or other variations for new code
 4. When modifying existing functions, add appropriate comments when backward compatibility requires keeping `area_id` parameter names
 
-By following these guidelines, we'll gradually achieve complete consistency throughout the codebase. 
+By following these guidelines, we'll gradually achieve complete consistency throughout the codebase.

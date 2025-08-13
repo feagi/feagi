@@ -45,7 +45,7 @@ async def get_health_check(self) -> HealthResponse:
     status = self.core_api_service.get_system_health()
     return HealthResponse(
         success=True,
-        status="healthy", 
+        status="healthy",
         message="System operational",
         services=status.get("services", {})
     )
@@ -160,9 +160,9 @@ $ python -m pytest tests/api/rest/v1/ -v
 
 ### Architecture Verification ✅
 ```bash
-Registered modules: ['burst_engine', 'connectome', 'cortical_area', 
-'cortical_mapping', 'evolution', 'feagi_agent', 'genome', 'inputs', 
-'insights', 'monitoring', 'morphology', 'network', 'neuroplasticity', 
+Registered modules: ['burst_engine', 'connectome', 'cortical_area',
+'cortical_mapping', 'evolution', 'feagi_agent', 'genome', 'inputs',
+'insights', 'monitoring', 'morphology', 'network', 'neuroplasticity',
 'outputs', 'region', 'simulation', 'system', 'training']
 
 Total: 18 modules, 130+ endpoints successfully registered
@@ -188,7 +188,7 @@ Total: 18 modules, 130+ endpoints successfully registered
 ### Service Layer Pattern (Completed)
 The previous service layer pattern successfully addressed the original architectural issues by:
 - Introducing CoreAPIService as central business logic layer
-- Eliminating direct ConnectomeManager access from endpoints  
+- Eliminating direct ConnectomeManager access from endpoints
 - Standardizing error handling and response formats
 - Improving separation of concerns
 
@@ -205,4 +205,4 @@ This phase provided the foundation for the current decorator-based approach by e
 
 **This ADR documents the evolution of FEAGI's API architecture from the original direct-access pattern through the service layer pattern to the current decorator-based architecture. The current implementation represents a major architectural achievement, providing perfect consistency, minimal maintenance overhead, and excellent developer experience.**
 
-*The decorator-based approach supersedes previous patterns while building upon their foundational improvements.* 
+*The decorator-based approach supersedes previous patterns while building upon their foundational improvements.*

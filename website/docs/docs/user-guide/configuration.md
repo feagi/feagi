@@ -19,12 +19,12 @@ feagi:
     backend: "cpu"
     debug_mode: false
     visualization: true
-    
+
   network:
     host: "0.0.0.0"
     api_port: 8000
     websocket_port: 9000
-    
+
   performance:
     burst_duration_ms: 50
     max_firing_rate: 100
@@ -160,4 +160,4 @@ python run_feagi.py --config profiles/high_performance.yaml
 ## Next Steps
 
 - Learn about [Visualization](/user-guide/visualization) to monitor your neural networks
-- Explore [Agent Connections](/user-guide/agents) to integrate external systems 
+- Explore [Agent Connections](/user-guide/agents) to integrate external systems

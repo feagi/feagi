@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 """
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+"""
 Test script for the Neuroembryogenesis module.
 
 This script demonstrates how to use the Neuroembryogenesis module to develop
@@ -8,30 +24,34 @@ a brain from a genome file.
 
 import os
 import sys
+
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger()
 import datetime
-from pathlib import Path
+import logging
 import traceback
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Add the project root to the path if needed
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
 # Try importing our dependencies, with helpful error messages
 try:
     from feagi.bdu.connectome_manager import ConnectomeManager
-    from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
+    from feagi.bdu.neuroembryogenesis import DevelopmentStage, Neuroembryogenesis
     from feagi.utils.config import FeagiConfig
 except ImportError as e:
     print(f"Error importing dependencies: {e}")
-    print("Make sure you're running this script from the FEAGI project root or that PYTHONPATH is set correctly.")
+    print(
+        "Make sure you're running this script from the FEAGI project root or that PYTHONPATH is set correctly."
+    )
     traceback.print_exc()
     sys.exit(1)
 
@@ -47,22 +67,19 @@ def find_genome_file():
     possible_paths = [
         # Direct path from current directory
         Path("feagi/evo/defaults/genome/essential_genome.json"),
-        
         # From project root
         Path(project_root) / "feagi/evo/defaults/genome/essential_genome.json",
-        
         # From one directory up
         Path("../feagi/evo/defaults/genome/essential_genome.json"),
-        
         # Other possible locations
         Path(project_root) / "evo/defaults/genome/essential_genome.json",
-        Path("./evo/defaults/genome/essential_genome.json")
+        Path("./evo/defaults/genome/essential_genome.json"),
     ]
-    
+
     for path in possible_paths:
         if path.exists():
             return path
-            
+
     return None
 
 
@@ -71,22 +88,24 @@ def main():
     # Create output directory for connectome data
     output_dir = Path("./output/connectome")
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Find the genome file
     genome_path = find_genome_file()
-    
+
     if genome_path is None:
-        print("Error: Could not find essential_genome.json file. Please specify the path manually.")
+        print(
+            "Error: Could not find essential_genome.json file. Please specify the path manually."
+        )
         return 1
-        
+
     print(f"Using genome: {genome_path}")
-    
+
     # Configure FEAGI
     config_dict = {
         "connectome_path": str(output_dir),
         "skip_memory_neurogenesis": False,  # Include memory areas in initial development
     }
-    
+
     try:
         # Try different ways to initialize FeagiConfig depending on its implementation
         try:
@@ -102,7 +121,7 @@ def main():
         print(f"Warning: Error creating FeagiConfig: {e}")
         print("Using default configuration.")
         config = None
-    
+
     # Create the connectome manager
     print("Creating connectome manager...")
     try:
@@ -111,24 +130,24 @@ def main():
         print(f"Error creating ConnectomeManager: {e}")
         traceback.print_exc()
         return 1
-    
+
     # Create the neuroembryogenesis instance
     print("Initializing neuroembryogenesis...")
     try:
         embryo = Neuroembryogenesis(
             connectome_manager=connectome_manager,
             config=config,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
         )
     except Exception as e:
         print(f"Error creating Neuroembryogenesis: {e}")
         traceback.print_exc()
         return 1
-    
+
     # Start timer
     start_time = datetime.datetime.now()
     print(f"Starting brain development at {start_time}")
-    
+
     # Develop the brain
     try:
         success = embryo.develop_brain(genome_path)
@@ -136,11 +155,11 @@ def main():
         print(f"Unhandled error during brain development: {e}")
         traceback.print_exc()
         return 1
-    
+
     # End timer
     end_time = datetime.datetime.now()
     duration = end_time - start_time
-    
+
     # Report results
     if success:
         stats = embryo.get_development_statistics()
@@ -149,7 +168,7 @@ def main():
         print(f"Created {stats['cortical_areas']} cortical areas")
         print(f"Created {stats['neurons']} neurons")
         print(f"Created {stats['synapses']} synapses")
-        
+
         # Save the connectome state
         save_path = output_dir / "brain_state.npz"
         print(f"Saving brain state to {save_path}")
@@ -159,7 +178,7 @@ def main():
         except Exception as e:
             print(f"Warning: Could not save brain state: {e}")
             traceback.print_exc()
-        
+
         return 0
     else:
         print(f"\nBrain development failed: {embryo.error}")
@@ -172,4 +191,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Unhandled exception: {e}")
         traceback.print_exc()
-        sys.exit(1) 
+        sys.exit(1)

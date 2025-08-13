@@ -83,9 +83,34 @@ async def get_health_check(self) -> HealthResponse:
     return self.core_api_service.get_system_health()
 ```
 
+### ⚡ SIMD-Optimized Neural Stimulation
+
+The API includes high-performance neural stimulation methods with SIMD optimizations:
+
+```python
+# Unified neural stimulation with coordinate-based data format
+neural_data = {
+    'cortical_area_1': {
+        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
+        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32), 
+        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+        'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
+    }
+}
+
+# SIMD-optimized stimulation eliminates Python for loops
+result = core_api_service.stimulate_neurons(neural_data)
+```
+
+**Performance Benefits:**
+- **Vectorized Operations**: Uses numpy SIMD instead of Python loops
+- **Batch Coordinate Lookup**: O(N) complexity instead of O(N×M)
+- **Cache-Aligned Memory**: Optimal memory access patterns
+- **Zero Data Conversion**: Direct format compatibility with ZMQ streams
+
 **Modules:**
 - **system.py**: System management (15 endpoints)
-- **genome.py**: Genome operations (18 endpoints)  
+- **genome.py**: Genome operations (18 endpoints)
 - **cortical_area.py**: Cortical area management (26 endpoints)
 - **connectome.py**: Connectome operations (17 endpoints)
 - **burst_engine.py**: Burst engine control (11 endpoints)
@@ -131,7 +156,7 @@ Transport-specific implementations are automatically generated:
 - Transport layers auto-generated
 - Changes propagate to all transports automatically
 
-### 2. **Perfect Transport Consistency**  
+### 2. **Perfect Transport Consistency**
 - Same business logic → identical responses across all protocols
 - No possibility of transport-specific inconsistencies
 - Guaranteed 1:1 compatibility
@@ -232,4 +257,4 @@ response = socket.recv_json()
 
 ---
 
-*This documentation reflects FEAGI's current decorator-based API architecture as of May 2025. The implementation provides a solid foundation for consistent, maintainable, and extensible API development.* 
+*This documentation reflects FEAGI's current decorator-based API architecture as of May 2025. The implementation provides a solid foundation for consistent, maintainable, and extensible API development.*

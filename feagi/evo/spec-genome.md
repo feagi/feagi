@@ -2,7 +2,7 @@
 
 ## Overview
 
-The FEAGI Genome is a structured representation of a brain's architecture, defining all cortical areas, connectivity patterns, and neuron properties. It serves as both a blueprint for brain initialization and a serializable record that can be saved, loaded, and evolved over time. 
+The FEAGI Genome is a structured representation of a brain's architecture, defining all cortical areas, connectivity patterns, and neuron properties. It serves as both a blueprint for brain initialization and a serializable record that can be saved, loaded, and evolved over time.
 
 The genome system consists of several components that work together to define, validate, process, and modify brain architectures through a structured genetic representation.
 
@@ -191,4 +191,4 @@ A vector-based morphology example:
 1. **Enhanced morphologies**: Support for more complex connection patterns
 2. **Learning parameters**: Additional properties for controlling neural plasticity
 3. **Template systems**: Pre-defined cortical area templates for common structures
-4. **Hierarchical organization**: Support for brain region groupings above cortical areas 
+4. **Hierarchical organization**: Support for brain region groupings above cortical areas

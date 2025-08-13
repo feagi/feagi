@@ -163,7 +163,7 @@ def _get_opu_cortical_areas(self) -> List[str]:
     opu_areas = []
     for area in self.connectome_manager.cortical_areas.values():
         area_type = area.properties.get('cortical_type', '').upper()
-        
+
         # Multiple detection methods
         is_opu = (
             area_type == 'OPU' or           # Explicit type
@@ -176,10 +176,10 @@ def _get_opu_cortical_areas(self) -> List[str]:
             area.id.startswith('motor_') or # Motor prefix
             area.id.startswith('output_')   # Output prefix
         )
-        
+
         if is_opu:
             opu_areas.append(area.id)
-    
+
     return opu_areas
 ```
 
@@ -333,7 +333,7 @@ motor_area = {
 
 | Stream Type | Latency Target | Data Volume | Update Frequency | Use Case |
 |-------------|---------------|-------------|------------------|----------|
-| Motor | <10ms | Low (OPU only) | Burst Rate (~100Hz) | Real-time control |
+| Motor | less than 10ms | Low (OPU only) | Burst Rate (~100Hz) | Real-time control |
 | Visualization | ~50ms | High (All areas) | Configurable (1-60Hz) | Monitoring/Analysis |
 | Analytics | ~100ms | Variable | On-demand | Research/Logging |
 
@@ -413,7 +413,7 @@ visualization_config = {
     'include_firing_history': True
 }
 
-# Motor stream configuration  
+# Motor stream configuration
 motor_config = {
     'auto_enable_on_subscribers': True,
     'subscriber_check_interval': 0.5,  # Faster detection
@@ -429,4 +429,4 @@ motor_config = {
 - [FCL Example](fcl_example.md)
 - [Burst Engine Details](burst_engine.md)
 - [ZMQ Streams Architecture](../../docs/arch-zmq.md)
-- [System Architecture](../../docs/arch-system-overview.md) 
+- [System Architecture](../../docs/arch-system-overview.md)

@@ -16,4 +16,4 @@ const feagiConnectorSidebar: SidebarsConfig = {
   ],
 };
 
-export default feagiConnectorSidebar; 
+export default feagiConnectorSidebar;

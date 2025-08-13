@@ -1,4 +1,20 @@
 """
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+"""
 Comprehensive test coverage for burst_engine.py to achieve 100% coverage.
 
 This module is specifically designed to test all the uncovered code paths
@@ -7,18 +23,19 @@ frequency measurement, sampling, and error handling.
 """
 
 import os
-import time
 import threading
+import time
+from queue import Queue
+from unittest.mock import Mock, patch
+
 import pytest
-import signal
-from unittest.mock import Mock, patch, MagicMock, call
-from queue import Queue, Empty, Full
-from feagi.npu.burst_engine import BurstEngine, FCLSampler, FQSampler, ServiceState
+
 from feagi.core.state_manager import SimulationState
+from feagi.npu.burst_engine import BurstEngine, ServiceState, UnifiedFQSampler
 
 
 # Test isolation
-@pytest.fixture(autouse=True) 
+@pytest.fixture(autouse=True)
 def reset_burst_engine_singleton():
     """Reset BurstEngine singleton before each test to prevent state pollution."""
     yield
@@ -31,15 +48,15 @@ def reset_burst_engine_singleton():
 class MockConnectomeManager:
     def __init__(self):
         self.cortical_areas = {
-            1: Mock(id=1, properties={'__shed': False}),
-            2: Mock(id=2, properties={'__shed': True}),
-            'power_area': Mock(id='power_area', properties={'__power_injection': True}),
+            1: Mock(id=1, properties={"__shed": False}),
+            2: Mock(id=2, properties={"__shed": True}),
+            "power_area": Mock(id="power_area", properties={"__power_injection": True}),
         }
         self.fcl_manager = Mock()
-        
+
     def update_membrane_potentials(self):
         return [1, 2, 3]
-    
+
     def get_optimized_core(self):
         return None
 
@@ -50,25 +67,25 @@ class MockStateManager:
         self.burst_engine_state = ServiceState.READY
         self.simulation_state = SimulationState.RUNNING
         self.test_visualization_mode = False
-    
+
     def set_burst_frequency(self, freq):
         self.burst_frequency = freq
-    
+
     def set_burst_engine_state(self, state):
         self.burst_engine_state = state
-    
+
     def get_burst_engine_state(self):
         return self.burst_engine_state
-    
+
     def get_simulation_state(self):
         return self.simulation_state
-    
+
     def set_simulation_state(self, state):
         self.simulation_state = state
-        
+
     def get_test_visualization_mode(self):
         return self.test_visualization_mode
-    
+
     def set_test_visualization_mode(self, enabled):
         self.test_visualization_mode = enabled
 
@@ -77,19 +94,20 @@ class MockStateManager:
 def test_burst_engine_debug_mode():
     """Test burst engine debug functionality with FEAGI_DEBUG_NPU environment variable."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch.dict(os.environ, {'FEAGI_DEBUG_NPU': '1'}):
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch.dict(os.environ, {"FEAGI_DEBUG_NPU": "1"}):
         cm = MockConnectomeManager()
-        
+
         # Test debug mode during initialization
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Test debug mode during _running setter
         engine._running = True  # This should trigger debug output
         assert engine._running == True
-        
+
         engine._running = False  # This should trigger debug output again
         assert engine._running == False
 
@@ -97,23 +115,23 @@ def test_burst_engine_debug_mode():
 def test_burst_engine_debug_process_burst():
     """Test _process_burst method with debug mode enabled."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch.dict(os.environ, {'FEAGI_DEBUG_NPU': '1'}):
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch.dict(os.environ, {"FEAGI_DEBUG_NPU": "1"}):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Mock injection service
-        engine.fcl_injection_service = Mock()
-        engine.power_injection_timing = 'pre_burst'
-        
+        engine.injection_service = Mock()
+
         # Test _process_burst with debug output
         result = engine._process_burst()
-        
+
         # Should have called injection service
-        engine.fcl_injection_service.inject_pre_burst.assert_called_once()
-        
+        engine.injection_service.inject_pre_burst.assert_called_once()
+
         # Should return fired neurons
         assert result == [1, 2, 3]
 
@@ -121,37 +139,43 @@ def test_burst_engine_debug_process_burst():
 def test_burst_engine_special_area_initialization():
     """Test special area services initialization."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('feagi.npu.burst_engine.SpecialAreaHandler') as mock_special_handler_class, \
-         patch('feagi.npu.burst_engine.FCLInjectionService') as mock_injection_service_class:
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch(
+        "feagi.npu.burst_engine.SpecialAreaHandler"
+    ) as mock_special_handler_class, patch(
+        "feagi.npu.burst_engine.FCLInjectionService"
+    ) as mock_injection_service_class:
         # Setup mocks
         mock_special_handler = Mock()
-        mock_special_handler.get_power_areas.return_value = {'power_area'}
+        mock_special_handler.get_power_areas.return_value = {"power_area"}
         mock_special_handler_class.return_value = mock_special_handler
-        
+
         mock_injection_service = Mock()
-        mock_injection_service.get_power_injection_preview.return_value = {'preview': 'data'}
+        mock_injection_service.get_power_injection_preview.return_value = {
+            "preview": "data"
+        }
         mock_injection_service_class.return_value = mock_injection_service
-        
+
         cm = MockConnectomeManager()
-        
-        # Test initialization with power injection enabled
+
+        # Test initialization with injection enabled
         engine = BurstEngine(
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "enable_power_injection": True,
+                "enable_injection": True,
                 "special_area_config": {"test": "config"},
-                "fcl_injection_config": {"injection": "config"}
-            }
+                "injection_config": {"injection": "config"},
+            },
         )
-        
+
         # Verify services were initialized
         assert engine.special_area_handler is not None
-        assert engine.fcl_injection_service is not None
-        
+        assert engine.injection_service is not None
+
         # Verify initialization calls
         mock_special_handler_class.assert_called_once()
         mock_special_handler.detect_special_areas.assert_called_once()
@@ -161,80 +185,81 @@ def test_burst_engine_special_area_initialization():
 def test_burst_engine_special_area_initialization_disabled():
     """Test special area services when power injection is disabled."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
-        
-        # Test initialization with power injection disabled
+
+        # Test initialization with injection disabled
         engine = BurstEngine(
             connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "enable_power_injection": False
-            }
+            config={"target_frequency": 100, "enable_injection": False},
         )
-        
+
         # Verify services were not initialized
         assert engine.special_area_handler is None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_special_area_initialization_error():
     """Test error handling during special area services initialization."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('feagi.npu.burst_engine.SpecialAreaHandler', side_effect=Exception("Init error")):
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch(
+        "feagi.npu.burst_engine.SpecialAreaHandler", side_effect=Exception("Init error")
+    ):
         cm = MockConnectomeManager()
-        
+
         # Test initialization with error
         engine = BurstEngine(
             connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "enable_power_injection": True
-            }
+            config={"target_frequency": 100, "enable_injection": True},
         )
-        
+
         # Should handle error gracefully
         assert engine.special_area_handler is None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_special_area_initialization_no_power_areas():
     """Test special area initialization when no power areas are detected."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('feagi.npu.burst_engine.SpecialAreaHandler') as mock_special_handler_class:
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch("feagi.npu.burst_engine.SpecialAreaHandler") as mock_special_handler_class:
         # Setup mock with no power areas
         mock_special_handler = Mock()
         mock_special_handler.get_power_areas.return_value = set()  # No power areas
         mock_special_handler_class.return_value = mock_special_handler
-        
+
         cm = MockConnectomeManager()
-        
+
         # Test initialization with no power areas
         engine = BurstEngine(
             connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "enable_power_injection": True
-            }
+            config={"target_frequency": 100, "enable_injection": True},
         )
-        
+
         # Special area handler should be initialized but not injection service
         assert engine.special_area_handler is not None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_frequency_measurement():
     """Test the measure_actual_frequency method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
 
@@ -248,7 +273,7 @@ def test_burst_engine_frequency_measurement():
 
         # Test that the method exists and can be called (but not the full implementation due to complex mocking)
         # Instead, just test that the method setup works
-        assert hasattr(engine, 'measure_actual_frequency')
+        assert hasattr(engine, "measure_actual_frequency")
         assert engine._burst_timing_buffer is not None
         assert engine._processing_timing_buffer is not None
 
@@ -256,27 +281,45 @@ def test_burst_engine_frequency_measurement():
 def test_burst_engine_frequency_measurement_not_running():
     """Test frequency measurement when engine is not running."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Set engine as not running
         engine._running = False
-        
+
         # Test frequency measurement should raise error
-        with pytest.raises(RuntimeError, match="Cannot measure frequency - burst engine is not running"):
+        with pytest.raises(
+            RuntimeError, match="Cannot measure frequency - burst engine is not running"
+        ):
             engine.measure_actual_frequency()
 
 
 def test_burst_engine_frequency_measurement_no_data():
     """Test frequency measurement when no timing data is collected."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('time.perf_counter', side_effect=[0.0, 0.1, 0.1, 0.1]), \
-         patch('time.sleep'):
 
+    # Create a cycling time generator that never runs out
+    def time_generator():
+        yield 0.0  # Start time
+        yield 0.1  # Initial check
+        t = 0.1
+        while True:  # Infinite generator to prevent StopIteration
+            t += 0.001
+            yield t
+
+    time_gen = time_generator()
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch("time.perf_counter", side_effect=lambda: next(time_gen)), patch(
+        "time.sleep"
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
 
@@ -289,32 +332,37 @@ def test_burst_engine_frequency_measurement_no_data():
         engine._processing_timing_buffer = []
 
         # Test frequency measurement should raise error
-        with pytest.raises(RuntimeError, match="No timing data collected during measurement period"):
+        with pytest.raises(
+            RuntimeError, match="No timing data collected during measurement period"
+        ):
             engine.measure_actual_frequency(duration_seconds=0.1, sample_count=10)
 
 
 def test_burst_engine_timing_recording():
     """Test burst timing recording methods."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Test timing recording when measurement is disabled
         engine._frequency_measurement_enabled = False
         engine._record_burst_timing(0.01)
         engine._record_processing_timing(0.005)
-        
+
         # Buffers should remain empty
         assert len(engine._burst_timing_buffer) == 0
         assert len(engine._processing_timing_buffer) == 0
-        
+
         # Test timing recording when measurement is enabled
         engine._frequency_measurement_enabled = True
         engine._record_burst_timing(0.01)
         engine._record_processing_timing(0.005)
-        
+
         # Buffers should contain data
         assert len(engine._burst_timing_buffer) == 1
         assert len(engine._processing_timing_buffer) == 1
@@ -325,24 +373,27 @@ def test_burst_engine_timing_recording():
 def test_burst_engine_timing_buffer_overflow():
     """Test timing buffer overflow handling."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Enable frequency measurement
         engine._frequency_measurement_enabled = True
         engine._timing_buffer_size = 3  # Small buffer for testing
-        
+
         # Add more data than buffer size
         for i in range(5):
             engine._record_burst_timing(0.01 + i * 0.001)
             engine._record_processing_timing(0.005 + i * 0.001)
-        
+
         # Buffers should be limited to buffer size
         assert len(engine._burst_timing_buffer) == 3
         assert len(engine._processing_timing_buffer) == 3
-        
+
         # Should contain the most recent data (approximately, allowing for floating point precision)
         assert abs(engine._burst_timing_buffer[-1] - 0.014) < 0.0001
         assert abs(engine._processing_timing_buffer[-1] - 0.009) < 0.0001
@@ -352,13 +403,16 @@ def test_burst_engine_get_instance():
     """Test BurstEngine.get_instance() class method."""
     # Initially should return None
     assert BurstEngine.get_instance() is None
-    
+
     # Create an instance
     mock_state_manager = MockStateManager()
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # get_instance should return the same instance
         assert BurstEngine.get_instance() is engine
 
@@ -366,78 +420,85 @@ def test_burst_engine_get_instance():
 def test_burst_engine_singleton_reinitialization():
     """Test that singleton prevents re-initialization."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
-        
+
         # Create first instance
         engine1 = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
         engine1.test_attribute = "first_instance"
-        
+
         # Create second instance - should return the same object
-        engine2 = BurstEngine(connectome_manager=Mock(), config={"target_frequency": 200})
-        
+        engine2 = BurstEngine(
+            connectome_manager=Mock(), config={"target_frequency": 200}
+        )
+
         # Should be the same instance
         assert engine1 is engine2
-        assert hasattr(engine2, 'test_attribute')
+        assert hasattr(engine2, "test_attribute")
         assert engine2.test_attribute == "first_instance"
 
 
-def test_burst_engine_power_injection_timing_variants():
-    """Test different power injection timing configurations."""
+def test_burst_engine_injection_timing_variants():
+    """Test different injection timing configurations through injection service."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
-        
-        # Test during-burst timing
-        BurstEngine.reset_singleton()
-        engine = BurstEngine(
-            connectome_manager=cm, 
-            config={
-                "target_frequency": 100,
-                "power_injection_timing": "during_burst"
-            }
-        )
-        
-        engine.fcl_injection_service = Mock()
-        result = engine._process_burst()
-        
-        # Should call during-burst injection
-        engine.fcl_injection_service.inject_during_burst.assert_called_once()
-        
-        # Test post-burst timing
+
+        # Test unified injection service calls all timing phases
         BurstEngine.reset_singleton()
         engine = BurstEngine(
             connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "power_injection_timing": "post_burst"
-            }
+            config={"target_frequency": 100, "enable_injection": True},
         )
-        
-        engine.fcl_injection_service = Mock()
+
+        engine.injection_service = Mock()
         result = engine._process_burst()
-        
-        # Should call post-burst injection
-        engine.fcl_injection_service.inject_post_burst.assert_called_once()
+
+        # Should call all injection phases (unified architecture)
+        engine.injection_service.inject_pre_burst.assert_called_once()
+        engine.injection_service.inject_during_burst.assert_called_once()
+        engine.injection_service.inject_post_burst.assert_called_once()
+
+        # Test without injection service
+        BurstEngine.reset_singleton()
+        engine = BurstEngine(
+            connectome_manager=cm,
+            config={"target_frequency": 100, "enable_injection": False},
+        )
+
+        engine.injection_service = None
+        result = engine._process_burst()
+
+        # Should not crash without injection service
+        assert result == [1, 2, 3]
 
 
 def test_burst_engine_update_with_genome():
     """Test update_with_genome method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Initially genome not loaded
         assert not engine.genome_loaded
-        
+
         # Mock the special area initialization
-        with patch.object(engine, '_initialize_special_area_services') as mock_init:
+        with patch.object(engine, "_initialize_injection_service") as mock_init:
             engine.update_with_genome()
-            
+
             # Should mark genome as loaded and initialize special areas
             assert engine.genome_loaded
             mock_init.assert_called_once()
@@ -446,17 +507,20 @@ def test_burst_engine_update_with_genome():
 def test_burst_engine_refresh_special_areas():
     """Test refresh_special_areas method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Mock special area handler
         engine.special_area_handler = Mock()
-        
+
         # Test refresh
         engine.refresh_special_areas()
-        
+
         # The actual method may call a different method - let's check if any method was called
         assert engine.special_area_handler.method_calls  # Should have some method calls
 
@@ -464,66 +528,75 @@ def test_burst_engine_refresh_special_areas():
 def test_burst_engine_refresh_special_areas_no_handler():
     """Test refresh_special_areas when no handler exists."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # No special area handler
         engine.special_area_handler = None
-        
+
         # Should not raise exception
         engine.refresh_special_areas()
 
 
-def test_burst_engine_power_injection_statistics():
-    """Test get_power_injection_statistics method."""
+def test_burst_engine_injection_statistics():
+    """Test get_injection_statistics method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Mock special area handler
+
+        # Mock injection service
         mock_stats = {"test": "data"}
-        engine.special_area_handler = Mock()
-        engine.special_area_handler.get_statistics.return_value = mock_stats
-        
-        # Test with handler
-        result = engine.get_power_injection_statistics()
-        
-        # The method wraps the statistics in additional fields
+        engine.injection_service = Mock()
+        engine.injection_service.get_statistics.return_value = mock_stats
+
+        # Test with service
+        result = engine.get_injection_statistics()
+
+        # The method returns statistics from injection service
         assert isinstance(result, dict)
         # Accept whatever the actual implementation returns
-        
-        # Test without handler
-        engine.special_area_handler = None
-        result = engine.get_power_injection_statistics()
-        assert isinstance(result, dict)  # Should return some dict, not necessarily empty
+
+        # Test without service
+        engine.injection_service = None
+        result = engine.get_injection_statistics()
+        assert isinstance(result, dict)  # Should return error dict
 
 
-def test_burst_engine_set_power_injection_enabled():
-    """Test set_power_injection_enabled method."""
+def test_burst_engine_set_injection_enabled():
+    """Test set_injection_enabled method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ):
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Mock injection service
-        engine.fcl_injection_service = Mock()
+        engine.injection_service = Mock()
         mock_method = Mock(return_value=True)
         # Find the correct method name from the actual implementation
-        engine.fcl_injection_service.set_injection_enabled = mock_method
-        
+        engine.injection_service.set_injection_enabled = mock_method
+
         # Test with service
-        result = engine.set_power_injection_enabled("test_area", True)
+        result = engine.set_injection_enabled("test_area", True)
         # Just check it returns something (implementation may vary)
         assert result is not None
-        
+
         # Test without service
-        engine.fcl_injection_service = None
-        result = engine.set_power_injection_enabled("test_area", True)
+        engine.injection_service = None
+        result = engine.set_injection_enabled("test_area", True)
         assert result is False
 
 
@@ -531,25 +604,27 @@ def test_fq_sampler_run_global_mode():
     """Test FQSampler run method in global mode (no connectome manager)."""
     fire_queue_provider = Mock()
     fire_queue_provider.get_fire_queue.return_value = {
-        'neuron_ids': [1, 2, 3, 4, 5],
-        'membrane_potentials': [0.8, 1.2, 0.9, 1.1, 0.7],
-        'thresholds': [1.0, 1.0, 1.0, 1.0, 1.0],
-        'consecutive_fire_counts': [1, 2, 1, 1, 3],
-        'refractory_counters': [0, 0, 0, 0, 0]
+        "neuron_ids": [1, 2, 3, 4, 5],
+        "membrane_potentials": [0.8, 1.2, 0.9, 1.1, 0.7],
+        "thresholds": [1.0, 1.0, 1.0, 1.0, 1.0],
+        "consecutive_fire_counts": [1, 2, 1, 1, 3],
+        "refractory_counters": [0, 0, 0, 0, 0],
     }
-    
+
     output_queue = Queue()
-    
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)  # No connectome manager
+
+    sampler = UnifiedFQSampler(
+        fire_queue_provider, 100, output_queue
+    )  # No connectome manager
     sampler.set_visualization_subscribers(True)
-    
+
     # Run for a short time
     t = threading.Thread(target=sampler.run)
     t.start()
     time.sleep(0.05)
     sampler.stop()
     t.join(timeout=1)
-    
+
     # Should have sampled data
     assert not output_queue.empty()
 
@@ -558,17 +633,17 @@ def test_fq_sampler_run_no_subscribers():
     """Test FQSampler run method with no subscribers."""
     fire_queue_provider = Mock()
     output_queue = Queue()
-    
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     # Don't set any subscribers
-    
+
     # Run for a short time
     t = threading.Thread(target=sampler.run)
     t.start()
     time.sleep(0.05)
     sampler.stop()
     t.join(timeout=1)
-    
+
     # Should not have sampled any data
     assert output_queue.empty()
 
@@ -577,27 +652,29 @@ def test_fq_sampler_queue_full_handling():
     """Test FQSampler handling of full output queue."""
     fire_queue_provider = Mock()
     fire_queue_provider.get_fire_queue.return_value = {
-        'neuron_ids': [1, 2, 3],
-        'membrane_potentials': [0.8, 1.2, 0.9],
-        'thresholds': [1.0, 1.0, 1.0],
-        'consecutive_fire_counts': [1, 2, 1],
-        'refractory_counters': [0, 0, 0]
+        "neuron_ids": [1, 2, 3],
+        "membrane_potentials": [0.8, 1.2, 0.9],
+        "thresholds": [1.0, 1.0, 1.0],
+        "consecutive_fire_counts": [1, 2, 1],
+        "refractory_counters": [0, 0, 0],
     }
-    
+
     # Create a small queue and fill it
     output_queue = Queue(maxsize=1)
     output_queue.put("blocking_item")
-    
-    sampler = FQSampler(fire_queue_provider, 1000, output_queue)  # High frequency
+
+    sampler = UnifiedFQSampler(
+        fire_queue_provider, 1000, output_queue
+    )  # High frequency
     sampler.set_visualization_subscribers(True)
-    
+
     # Run for a short time - should handle full queue gracefully
     t = threading.Thread(target=sampler.run)
     t.start()
     time.sleep(0.05)
     sampler.stop()
     t.join(timeout=1)
-    
+
     # Queue should still have the original item (not overwritten)
     assert output_queue.get() == "blocking_item"
 
@@ -606,12 +683,12 @@ def test_fq_sampler_update_area_sample_rate():
     """Test FQSampler.update_area_sample_rate method."""
     fire_queue_provider = Mock()
     output_queue = Queue()
-    
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
+
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+
     # Test updating sample rate
-    sampler.update_area_sample_rate('test_area', 75.0)
-    
+    sampler.update_area_sample_rate("test_area", 75.0)
+
     # Should update internal tracking (implementation detail may vary)
 
 
@@ -619,13 +696,13 @@ def test_fq_sampler_set_motor_subscribers():
     """Test FQSampler.set_motor_subscribers method."""
     fire_queue_provider = Mock()
     output_queue = Queue()
-    
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
+
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)
     assert sampler._has_motor_subscribers
-    
+
     sampler.set_motor_subscribers(False)
     assert not sampler._has_motor_subscribers
 
@@ -633,29 +710,29 @@ def test_fq_sampler_set_motor_subscribers():
 def test_fq_sampler_sample_area_fire_queue():
     """Test FQSampler._sample_area_fire_queue method."""
     fire_queue_provider = Mock()
-    fire_queue_provider.get_area_fire_queue.return_value = {'area_data': [1, 2, 3]}
-    
+    fire_queue_provider.get_area_fire_queue.return_value = {"area_data": [1, 2, 3]}
+
     output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+
     # Test area sampling
-    sampler._sample_area_fire_queue('test_area')
-    
+    sampler._sample_area_fire_queue("test_area")
+
     # Should have attempted to get area fire queue
-    fire_queue_provider.get_area_fire_queue.assert_called_with('test_area')
+    fire_queue_provider.get_area_fire_queue.assert_called_with("test_area")
 
 
 def test_fq_sampler_sample_global_fire_queue():
     """Test FQSampler._sample_global_fire_queue method."""
     fire_queue_provider = Mock()
-    fire_queue_provider.get_global_fire_queue.return_value = {'global_data': [1, 2, 3]}
-    
+    fire_queue_provider.get_global_fire_queue.return_value = {"global_data": [1, 2, 3]}
+
     output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+
     # Test global sampling
     sampler._sample_global_fire_queue()
-    
+
     # The method may handle errors and not call the provider - just verify no crash
     # fire_queue_provider.get_global_fire_queue.assert_called_once()
 
@@ -663,19 +740,20 @@ def test_fq_sampler_sample_global_fire_queue():
 def test_burst_engine_signal_handling():
     """Test BurstEngine signal handling in run method."""
     mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('signal.signal') as mock_signal:
-        
+
+    with patch(
+        "feagi.npu.burst_engine.FeagiStateManager.instance",
+        return_value=mock_state_manager,
+    ), patch("signal.signal") as mock_signal:
         cm = MockConnectomeManager()
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
+
         # Just test that the signal module is available to the engine
-        assert hasattr(engine, 'run')
+        assert hasattr(engine, "run")
         # The signal handling is internal to the run method
         # We've tested that signal.signal is available in the patch
         mock_signal.assert_not_called()  # Should not be called yet
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", __file__]) 
+    pytest.main(["-v", __file__])

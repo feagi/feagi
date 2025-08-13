@@ -25,12 +25,15 @@ Documents follow a standardized naming convention with prefixes indicating their
 ### Architecture
 - [System Overview](arch-system-overview.md) - Core FEAGI architecture
 - [API Decorator Architecture](arch-api-decorator-architecture.md) - **CRITICAL** - Single source of truth API design and architectural compliance
-- [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **NEW** - Burst engine state management and workflow
+- [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **UPDATED** - Burst engine state management, workflow, and agent coordination
+- [Embedded Mode Architecture](arch-embedded-mode.md) - **NEW** - FastAPI elimination and embedded device optimization
 - [Godot Bridge Integration](arch-godot-bridge-integration.md) - **NEW** - Godot visualization bridge architecture and data flow
+- [Morton Spatial Hash Architecture](arch-morton-spatial-hash.md) - **NEW** - High-performance spatial indexing with 95%+ memory savings
 - [GPU Architecture](arch-gpu.md) - GPU acceleration design
 - [IPC Architecture](arch-ipc.md) - Inter-process communication
 - [State Management](arch-state-management.md) - System state management
-- [ZMQ Architecture](arch-zmq.md) - ZeroMQ communication architecture
+- [ZMQ Architecture](arch-zmq.md) - **UPDATED** - ZeroMQ communication architecture with agent registration coordination
+- [Agent Registration & FQ Sampler Solution](AGENT_FQ_SAMPLER_SOLUTION.md) - **NEW** - Comprehensive solution for intelligent agent coordination
 
 ### Specifications
 - [Shared Memory Protocol](spec-shared-memory.md) - Memory protocol specification
@@ -56,4 +59,4 @@ Diagrams and other visual assets are stored in the `/docs/assets` directory.
 
 ## Documentation Standards
 
-Please follow the [Documentation Standards](guide-documentation-standards.md) when creating or updating documents. 
+Please follow the [Documentation Standards](guide-documentation-standards.md) when creating or updating documents.

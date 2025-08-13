@@ -63,4 +63,4 @@ For detailed API documentation, see the [API Reference](api_reference.md).
 
 ## Contributing
 
-Contributions are welcome! See the [Contributing Guide](contributing.md) for more information. 
+Contributions are welcome! See the [Contributing Guide](contributing.md) for more information.

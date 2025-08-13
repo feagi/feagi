@@ -16,4 +16,4 @@ const feagiByteSidebar: SidebarsConfig = {
   ],
 };
 
-export default feagiByteSidebar; 
+export default feagiByteSidebar;

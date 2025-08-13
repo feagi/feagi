@@ -1,1 +1,1 @@
-"""Tests for FEAGI.""" 
+"""Tests for FEAGI."""

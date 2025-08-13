@@ -46,7 +46,7 @@ The vision processing system is one of the most developed components in the PNS 
 1. **Central Vision**: High-resolution processing of the center of the visual field
    - Configurable resolution for detailed processing
    - Color vision support (RGB channels)
-   
+
 2. **Peripheral Vision**: Lower-resolution processing of the peripheral visual field
    - Divided into 8 peripheral regions (top-right, top-left, etc.)
    - Optimized for motion detection and large-scale features
@@ -93,7 +93,7 @@ The PNS module integrates with external systems using standardized protocols:
    - Binary message format for efficiency
    - Channel-based organization for different sensory modalities
    - Reliable delivery mechanisms
-   
+
 2. **ZeroMQ Transport**: For high-performance message passing
    - PUB/SUB pattern for sensor data broadcasts
    - REQ/REP pattern for command responses
@@ -185,4 +185,4 @@ The planned architectural extensions include:
 1. **Multi-modal Integration**: Cross-modal sensory integration
 2. **Predictive Processing**: Incorporating predictive models for sensorimotor anticipation
 3. **Adaptive Encoding**: Dynamically adjusting encoding parameters based on context
-4. **Distributed Sensory Processing**: Supporting distributed sensor networks 
+4. **Distributed Sensory Processing**: Supporting distributed sensor networks

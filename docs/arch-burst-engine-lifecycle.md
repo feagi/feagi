@@ -10,7 +10,7 @@ The FEAGI burst engine follows a strict lifecycle that enforces system integrity
 **Critical Design Rule**: The burst engine MUST be started before any genome can be loaded.
 
 - **FEAGI Launch**: Burst engine starts in `UNAVAILABLE` state
-- **Genome Load Request**: 
+- **Genome Load Request**:
   1. ✅ **First**: Start burst engine → `READY` state
   2. ✅ **If engine start succeeds**: Proceed with genome loading
   3. ❌ **If engine start fails**: Reject genome load with error
@@ -20,6 +20,9 @@ The state manager is the single source of truth for burst engine status across a
 
 ### 3. Fail-Fast Logic
 Operations that require the burst engine will fail immediately with clear error messages rather than hanging or producing inconsistent results.
+
+### 4. Automatic Startup & State Coordination
+The burst engine automatically starts during FEAGI initialization and coordinates with agent registration for seamless FQ sampler management.
 
 ## Burst Engine States
 
@@ -51,23 +54,45 @@ The `ON_HOLD` state represents a paused burst engine:
 ```mermaid
 graph TD
     A[FEAGI Launch] --> B[UNAVAILABLE]
-    B --> C{Genome Load Request}
+    B --> C[Process Manager Auto-Start]
     C --> D[Start Burst Engine]
     D --> E{Engine Start Success?}
     E -->|Yes| F[READY]
-    E -->|No| G[FAILED - Reject Genome Load]
-    F --> H[Load Genome]
-    H --> I{Genome Load Success?}
-    I -->|Yes| J[Engine READY + Genome Loaded]
-    I -->|No| K[ERROR - Engine remains READY]
-    J --> L{User Action}
-    L -->|Hold| M[ON_HOLD]
-    L -->|Stop| N[STOPPED]
-    L -->|Continue| J
-    M -->|Resume| J
-    M -->|Stop| N
-    N --> O[UNAVAILABLE]
+    E -->|No| G[FAILED - System Abort]
+    F --> H{Genome Load Request}
+    H --> I[Load Genome]
+    I --> J{Genome Load Success?}
+    J -->|Yes| K[Engine READY + Genome Loaded]
+    J -->|No| L[ERROR - Engine remains READY]
+    K --> M{User Action}
+    M -->|Hold| N[ON_HOLD]
+    M -->|Stop| O[STOPPED]
+    M -->|Continue| K
+    M -->|Agent Registration| P[Agent-Driven FQ Coordination]
+    N -->|Resume| K
+    N -->|Stop| O
+    O --> Q[UNAVAILABLE]
+    P --> K
 ```
+
+## Agent Integration & FQ Sampler Coordination
+
+### Automatic FQ Sampler Management
+
+The burst engine now coordinates with the agent registration system to provide automatic FQ sampler management:
+
+**Agent Registration Flow**:
+1. Agent registers with capabilities (visualization, motor, etc.)
+2. System detects required FQ samplers based on capabilities
+3. FQ samplers automatically enabled/disabled without manual intervention
+4. Data flows to appropriate ports based on agent needs
+
+**Coordination Logic**:
+- **Visualization Agents**: Auto-enable 30Hz visualization FQ sampler (port 5562)
+- **Motor Agents**: Auto-enable 100Hz motor FQ sampler (port 5564)
+- **Deregistration**: Auto-disable samplers when no agents of that type remain
+
+This integration eliminates the need for manual FQ sampler management while maintaining RUST/RTOS compatibility through enable/disable patterns rather than create/destroy operations.
 
 ## API Endpoints
 
@@ -80,7 +105,7 @@ POST /v1/burst_engine/start
 - Transitions: `UNAVAILABLE` → `READY`
 - **Required before genome loading**
 
-#### Stop Engine  
+#### Stop Engine
 ```http
 POST /v1/burst_engine/stop
 ```
@@ -144,7 +169,7 @@ async def check_burst_engine(request: Request):
     # Blocks all operations if engine not running
 ```
 
-### Configuration Operations Dependency  
+### Configuration Operations Dependency
 ```python
 async def check_burst_engine_or_allow_config_ops(request: Request):
     # Allows read-only config operations even when engine not READY
@@ -199,11 +224,11 @@ class BrainService:
     def start_burst_engine(self) -> bool:
         # Sets exit_condition = False
         # Sets burst_engine_state = ServiceState.READY
-        
+
     def hold_burst_engine(self) -> bool:
         # Sets burst_engine_state = ServiceState.ON_HOLD
         # Keeps process alive, pauses neural processing
-        
+
     def resume_burst_engine(self) -> bool:
         # Sets burst_engine_state = ServiceState.READY
         # Resumes neural processing
@@ -215,7 +240,7 @@ def load_genome(self, genome_data, filename):
     # STEP 1: Start burst engine FIRST
     if not brain_service.start_burst_engine():
         return {"success": False, "error": "Failed to start burst engine"}
-    
+
     # STEP 2: Proceed with genome loading
     # ... genome loading logic
 ```
@@ -285,7 +310,7 @@ fn set_burst_engine_state(state: ServiceState) {
 
 ### From Legacy System
 1. **Remove subprocess architecture**: Use async tasks
-2. **Eliminate environment variable IPC**: Use direct memory sharing  
+2. **Eliminate environment variable IPC**: Use direct memory sharing
 3. **Replace exit_condition logic**: Use explicit state management
 4. **Add hold/resume support**: Implement pause/resume capabilities
 
@@ -308,6 +333,6 @@ fn set_burst_engine_state(state: ServiceState) {
 
 ---
 
-**Last Updated**: 2025-05-23  
-**Version**: 2.0  
-**Authors**: FEAGI Development Team 
+**Last Updated**: 2025-05-23
+**Version**: 2.0
+**Authors**: FEAGI Development Team

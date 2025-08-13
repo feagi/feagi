@@ -1,4 +1,20 @@
 """
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+"""
 FastAPI Transport Adapter for FEAGI v1 API
 
 This adapter provides HTTP REST API access to FEAGI's v1 business logic.
@@ -8,21 +24,27 @@ The adapter ensures that HTTP clients get identical behavior to other
 transport protocols (ZMQ, etc.) by using the same underlying v1 business logic.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from typing import Dict, Any, Union
 
-from feagi.api.rest.dependencies import get_core_api_service
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
+
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.api.v1.system import create_system_api, SystemAPI
+from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.v1.schemas import (
-    UserPreferencesRequest, UserPreferencesResponse,
-    VersionsResponse, HealthCheckResponse, ConfigurationResponse,
-    InfluxDBTestResponse, CorticalAreaTypesResponse,
-    SuccessResponse, ErrorResponse,
-    RegistrationRequest, LogsRequest, SubscriberRequest,
-    CircuitLibraryPathRequest
+    CircuitLibraryPathRequest,
+    ConfigurationResponse,
+    CorticalAreaTypesResponse,
+    HealthCheckResponse,
+    InfluxDBTestResponse,
+    LogsRequest,
+    RegistrationRequest,
+    SubscriberRequest,
+    SuccessResponse,
+    UserPreferencesRequest,
+    UserPreferencesResponse,
+    VersionsResponse,
 )
+from feagi.api.v1.system import SystemAPI, create_system_api
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -31,7 +53,9 @@ logger = setup_logger(__name__)
 router = APIRouter()
 
 
-def _get_system_api(core_api_service: CoreAPIService = Depends(get_core_api_service)) -> SystemAPI:
+def _get_system_api(
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+) -> SystemAPI:
     """Dependency to get a SystemAPI instance."""
     return create_system_api(core_api_service)
 
@@ -40,18 +64,18 @@ def _handle_api_exception(e: Exception) -> JSONResponse:
     """Convert API exceptions to HTTP error responses."""
     if isinstance(e, ValueError):
         return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": str(e)}
+            status_code=400, content={"status": "error", "message": str(e)}
         )
     else:
         logger.error(f"Unexpected API error: {e}")
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "message": "Internal server error"}
+            content={"status": "error", "message": "Internal server error"},
         )
 
 
 # ===== User Preferences Endpoints =====
+
 
 @router.get("/user_preferences", response_model=UserPreferencesResponse)
 async def get_user_preferences(system_api: SystemAPI = Depends(_get_system_api)):
@@ -64,8 +88,7 @@ async def get_user_preferences(system_api: SystemAPI = Depends(_get_system_api))
 
 @router.put("/user_preferences", response_model=SuccessResponse)
 async def update_user_preferences(
-    request: UserPreferencesRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: UserPreferencesRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """Update user preferences."""
     try:
@@ -75,6 +98,7 @@ async def update_user_preferences(
 
 
 # ===== System Information Endpoints =====
+
 
 @router.get("/versions", response_model=VersionsResponse)
 def get_versions(system_api: SystemAPI = Depends(_get_system_api)):
@@ -105,6 +129,7 @@ async def get_configuration(system_api: SystemAPI = Depends(_get_system_api)):
 
 # ===== External Services Endpoints =====
 
+
 @router.get("/db/influxdb/test", response_model=InfluxDBTestResponse)
 async def test_influxdb(system_api: SystemAPI = Depends(_get_system_api)):
     """Test InfluxDB connection."""
@@ -116,10 +141,10 @@ async def test_influxdb(system_api: SystemAPI = Depends(_get_system_api)):
 
 # ===== System Configuration Endpoints =====
 
+
 @router.post("/circuit_library_path", response_model=SuccessResponse)
 async def set_circuit_library_path(
-    request: CircuitLibraryPathRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: CircuitLibraryPathRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """Set the circuit library path."""
     try:
@@ -139,6 +164,7 @@ async def get_cortical_area_types(system_api: SystemAPI = Depends(_get_system_ap
 
 # ===== System Control Endpoints =====
 
+
 @router.post("/fcl_reset", response_model=SuccessResponse)
 async def reset_fcl(system_api: SystemAPI = Depends(_get_system_api)):
     """Reset the Fire Candidate List."""
@@ -150,10 +176,10 @@ async def reset_fcl(system_api: SystemAPI = Depends(_get_system_api)):
 
 # ===== Legacy/Placeholder Endpoints =====
 
+
 @router.post("/register", response_model=SuccessResponse)
 async def register_system(
-    request: RegistrationRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: RegistrationRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """System registration (placeholder implementation)."""
     try:
@@ -164,8 +190,7 @@ async def register_system(
 
 @router.post("/logs", response_model=SuccessResponse)
 async def manage_logs(
-    request: LogsRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: LogsRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """Manage system logs."""
     try:
@@ -185,8 +210,7 @@ async def get_beacon_subscribers(system_api: SystemAPI = Depends(_get_system_api
 
 @router.post("/beacon/subscribe", response_model=SuccessResponse)
 async def subscribe_to_beacon(
-    request: SubscriberRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: SubscriberRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """Subscribe to beacon notifications."""
     try:
@@ -197,8 +221,7 @@ async def subscribe_to_beacon(
 
 @router.delete("/beacon/unsubscribe", response_model=SuccessResponse)
 async def unsubscribe_from_beacon(
-    request: SubscriberRequest,
-    system_api: SystemAPI = Depends(_get_system_api)
+    request: SubscriberRequest, system_api: SystemAPI = Depends(_get_system_api)
 ):
     """Unsubscribe from beacon notifications."""
     try:
@@ -209,6 +232,7 @@ async def unsubscribe_from_beacon(
 
 # ===== Version Compatibility =====
 
+
 @router.get("/version")
 async def get_version(system_api: SystemAPI = Depends(_get_system_api)):
     """Get FEAGI version (legacy endpoint)."""
@@ -216,4 +240,4 @@ async def get_version(system_api: SystemAPI = Depends(_get_system_api)):
         versions = system_api.get_versions()
         return {"version": versions.feagi_core}
     except Exception as e:
-        return _handle_api_exception(e) 
+        return _handle_api_exception(e)

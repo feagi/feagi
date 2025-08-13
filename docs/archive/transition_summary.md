@@ -75,4 +75,4 @@ Unit tests were created in `tests/api/protocols/test_byte_structures.py` to veri
 1. Complete integration testing with the full FEAGI system
 2. Implement client libraries for Python, JavaScript, and C++
 3. Benchmark performance against the previous Cap'n Proto implementation
-4. Document the byte structure formats for third-party developers 
+4. Document the byte structure formats for third-party developers

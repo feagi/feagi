@@ -2,4 +2,4 @@
 
 from .brain_service import BrainService
 
-__all__ = ["BrainService"] 
+__all__ = ["BrainService"]

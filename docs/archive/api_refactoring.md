@@ -77,4 +77,4 @@ async def endpoint():
 - Add comprehensive unit tests for CoreAPIService methods
 - Consider creating specialized service classes for different domains
 - Implement robust validation layers
-- Add permissions and authorization controls 
+- Add permissions and authorization controls

@@ -74,4 +74,4 @@ BDU tests should cover:
 - Correct serialization and deserialization
 - Array backend abstractions
 - GPU acceleration (when available)
-- Multi-GPU distribution (when available) 
+- Multi-GPU distribution (when available)

@@ -77,6 +77,18 @@ The PNS module integrates with other FEAGI components:
 - **ZMQ Interface**: Communicates with external agents using the FSMP protocol
 - **BDU**: Coordinates with the Brain Development Unit to create sensorimotor pathways
 - **NPU**: Sends encoded sensory data to the Neural Processing Unit
+- **Agent Registration**: Automatic coordination between connected agents and FQ samplers (see [agent-coordination.md](agent-coordination.md))
+
+### Agent Registration & Coordination System
+
+FEAGI 2.0 introduces an intelligent agent registration system that provides automatic coordination between connected agents and Fire Queue (FQ) samplers. This eliminates manual intervention for data flow management:
+
+- **Automatic FQ Sampler Management**: Samplers enable/disable based on agent capabilities
+- **Resource Efficiency**: CPU usage only when agents actually need data
+- **Zero Manual Intervention**: Agents register with capabilities, system handles coordination
+- **RUST/RTOS Compatibility**: Enable/disable patterns for embedded systems
+
+For detailed information, see the [Agent Coordination Documentation](agent-coordination.md).
 
 ## Development
 
@@ -105,4 +117,4 @@ Planned enhancements for the PNS module:
 - Advanced auditory processing
 - Tactile sensation support
 - Proprioception and balance systems
-- Enhanced temporal encoding for sensory data 
+- Enhanced temporal encoding for sensory data

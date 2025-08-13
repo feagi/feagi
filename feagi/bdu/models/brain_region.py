@@ -18,10 +18,12 @@
 Modern brain region management for FEAGI (inspired by legacy region.py).
 Uses FeagiStateManager for state and is compatible with the new connectome architecture.
 """
-import string
+
 import random
-from time import time
+import string
 from datetime import datetime
+from time import time
+
 from feagi.core.state_manager import FeagiStateManager
 
 # To break circular imports, don't import these at the module level
@@ -30,6 +32,7 @@ from feagi.core.state_manager import FeagiStateManager
 # from feagi.evo.genome_editor import generate_hash
 
 state = FeagiStateManager.instance()
+
 
 def region_id_2_title(region_id):
     """Return the title of a brain region by its ID."""
@@ -42,15 +45,17 @@ def region_id_2_title(region_id):
 def construct_genome_from_region(region_id):
     """Construct a genome payload for a given brain region ID."""
     from feagi.evo.genome_processor import genome_v1_v2_converter
+
     # Use our local implementation instead of importing
     # from feagi.evo.genome_editor import generate_hash
-    
+
     genome = state.genome
     brain_regions = genome.get("brain_regions", {})
     if region_id not in brain_regions:
         raise ValueError(f"Region ID {region_id} not found in genome.")
 
     region = brain_regions[region_id]
+
     # Gather all areas and subregions recursively
     def direct_region_cortical_areas(region_id):
         return brain_regions[region_id].get("areas", [])
@@ -66,7 +71,8 @@ def construct_genome_from_region(region_id):
             area_list.update(set(direct_region_cortical_areas(sub_region_id)))
         return area_list
 
-    region_cortical_list = direct_region_cortical_areas(region_id)
+    # region_cortical_list = direct_region_cortical_areas(region_id)
+    # Unused variable removed
     comprehensive_subregion_list = recursive_sub_regions(region_id)
     comprehensive_area_list = recursive_region_cortical_areas(region_id)
 
@@ -92,15 +98,17 @@ def construct_genome_from_region(region_id):
                 "areas": region.get("areas", []),
                 "regions": region.get("regions", []),
                 "inputs": [],
-                "outputs": []
+                "outputs": [],
             }
-        }
+        },
     }
 
     # Add blueprint for all areas in the region
     for cortical_area in comprehensive_area_list:
         if cortical_area in genome["blueprint"]:
-            genome_from_region["blueprint"][cortical_area] = genome["blueprint"][cortical_area].copy()
+            genome_from_region["blueprint"][cortical_area] = genome["blueprint"][
+                cortical_area
+            ].copy()
 
     # Add subregions
     genome_from_region["brain_regions"]["root"] = region.copy()
@@ -112,15 +120,24 @@ def construct_genome_from_region(region_id):
 
     # Set signatures
     genome_from_region["signatures"]["genome"] = generate_hash(genome_from_region)
-    genome_from_region["signatures"]["blueprint"] = generate_hash(genome_from_region["blueprint"])
-    genome_from_region["signatures"]["physiology"] = generate_hash(genome_from_region["physiology"])
+    genome_from_region["signatures"]["blueprint"] = generate_hash(
+        genome_from_region["blueprint"]
+    )
+    genome_from_region["signatures"]["physiology"] = generate_hash(
+        genome_from_region["physiology"]
+    )
 
     # Convert Genome to 2.0
-    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
+    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)[
+        "blueprint"
+    ]
 
-    return genome_from_region 
+    return genome_from_region
 
-def region_id_gen(size: int = 6, chars: str = string.ascii_uppercase + string.digits) -> str:
+
+def region_id_gen(
+    size: int = 6, chars: str = string.ascii_uppercase + string.digits
+) -> str:
     """
     Generate a unique region ID using timestamp and random characters.
     """
@@ -136,16 +153,28 @@ def change_cortical_area_parent(cortical_area_id: str, new_parent_id: str) -> No
     try:
         current_parent_id = state.cortical_area_region_association.get(cortical_area_id)
         if current_parent_id is None:
-            raise ValueError(f"Cortical area {cortical_area_id} has no current parent region.")
+            raise ValueError(
+                f"Cortical area {cortical_area_id} has no current parent region."
+            )
         state.cortical_area_region_association[cortical_area_id] = new_parent_id
         # Remove from old region
-        if cortical_area_id in state.genome["brain_regions"][current_parent_id]["areas"]:
-            state.genome["brain_regions"][current_parent_id]["areas"].remove(cortical_area_id)
+        if (
+            cortical_area_id
+            in state.genome["brain_regions"][current_parent_id]["areas"]
+        ):
+            state.genome["brain_regions"][current_parent_id]["areas"].remove(
+                cortical_area_id
+            )
         # Add to new region
-        if cortical_area_id not in state.genome["brain_regions"][new_parent_id]["areas"]:
-            state.genome["brain_regions"][new_parent_id]["areas"].append(cortical_area_id)
+        if (
+            cortical_area_id
+            not in state.genome["brain_regions"][new_parent_id]["areas"]
+        ):
+            state.genome["brain_regions"][new_parent_id]["areas"].append(
+                cortical_area_id
+            )
     except Exception as e:
-        raise RuntimeError(f"Failed to change cortical area parent: {e}")
+        raise RuntimeError(f"Failed to change cortical area parent: {e}") from e
 
 
 def change_brain_region_parent(region_id: str, new_parent_id: str) -> None:
@@ -179,20 +208,26 @@ def create_region(region_data) -> str:
         "regions": [],
         "inputs": [],
         "outputs": [],
-        "signature": ""
+        "signature": "",
     }
     # Add to parent's regions list
-    state.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
+    state.genome["brain_regions"][region_data.parent_region_id]["regions"].append(
+        region_id
+    )
     # Associate areas
     if hasattr(region_data, "areas") and region_data.areas:
         for associated_area in region_data.areas:
             if associated_area in state.cortical_list:
-                change_cortical_area_parent(cortical_area_id=associated_area, new_parent_id=region_id)
+                change_cortical_area_parent(
+                    cortical_area_id=associated_area, new_parent_id=region_id
+                )
     # Associate subregions
     if hasattr(region_data, "regions") and region_data.regions:
         for associated_region in region_data.regions:
             if associated_region in state.genome["brain_regions"]:
-                state.genome["brain_regions"][region_id]["regions"].append(associated_region)
+                state.genome["brain_regions"][region_id]["regions"].append(
+                    associated_region
+                )
     return region_id
 
 
@@ -207,7 +242,9 @@ def update_region(region_data: dict) -> None:
     for update in region_data:
         if update not in ["area", "region"]:
             if update == "parent_region_id":
-                change_brain_region_parent(region_id=region_id, new_parent_id=region_data["parent_region_id"])
+                change_brain_region_parent(
+                    region_id=region_id, new_parent_id=region_data["parent_region_id"]
+                )
             else:
                 state.genome["brain_regions"][region_id][update] = region_data[update]
         else:
@@ -222,7 +259,9 @@ def delete_region_with_members(region_id: str) -> None:
         parent_region = state.genome["brain_regions"][region_id]["parent_region_id"]
         # Move areas to parent
         for area in state.genome["brain_regions"][region_id]["areas"]:
-            change_cortical_area_parent(cortical_area_id=area, new_parent_id=parent_region)
+            change_cortical_area_parent(
+                cortical_area_id=area, new_parent_id=parent_region
+            )
         # Move subregions to parent
         for subregion in state.genome["brain_regions"][region_id]["regions"]:
             change_brain_region_parent(region_id=subregion, new_parent_id=parent_region)
@@ -241,36 +280,62 @@ def relocate_region_members(relocation_data: dict) -> None:
     for object_id in relocation_data:
         if object_id in state.genome["blueprint"]:
             if "coordinate_2d" in relocation_data[object_id]:
-                state.genome["blueprint"][object_id]["2d_coordinate"][0] = relocation_data[object_id]["coordinate_2d"][0]
-                state.genome["blueprint"][object_id]["2d_coordinate"][1] = relocation_data[object_id]["coordinate_2d"][1]
+                state.genome["blueprint"][object_id]["2d_coordinate"][0] = (
+                    relocation_data[object_id]["coordinate_2d"][0]
+                )
+                state.genome["blueprint"][object_id]["2d_coordinate"][1] = (
+                    relocation_data[object_id]["coordinate_2d"][1]
+                )
             if "parent_region_id" in relocation_data[object_id]:
-                change_cortical_area_parent(cortical_area_id=object_id, new_parent_id=relocation_data[object_id]["parent_region_id"])
+                change_cortical_area_parent(
+                    cortical_area_id=object_id,
+                    new_parent_id=relocation_data[object_id]["parent_region_id"],
+                )
         elif object_id in state.genome["brain_regions"]:
             if "coordinate_2d" in relocation_data[object_id]:
-                state.genome["brain_regions"][object_id]["coordinate_2d"][0] = relocation_data[object_id]["coordinate_2d"][0]
-                state.genome["brain_regions"][object_id]["coordinate_2d"][1] = relocation_data[object_id]["coordinate_2d"][1]
+                state.genome["brain_regions"][object_id]["coordinate_2d"][0] = (
+                    relocation_data[object_id]["coordinate_2d"][0]
+                )
+                state.genome["brain_regions"][object_id]["coordinate_2d"][1] = (
+                    relocation_data[object_id]["coordinate_2d"][1]
+                )
             if "parent_region_id" in relocation_data[object_id]:
-                if relocation_data[object_id]["parent_region_id"] in state.genome["brain_regions"]:
-                    change_brain_region_parent(region_id=object_id, new_parent_id=relocation_data[object_id]["parent_region_id"])
+                if (
+                    relocation_data[object_id]["parent_region_id"]
+                    in state.genome["brain_regions"]
+                ):
+                    change_brain_region_parent(
+                        region_id=object_id,
+                        new_parent_id=relocation_data[object_id]["parent_region_id"],
+                    )
                 else:
-                    raise ValueError(f"{relocation_data[object_id]['parent_region_id']} is not a valid region id")
+                    raise ValueError(
+                        f"{relocation_data[object_id]['parent_region_id']} "
+                        f"is not a valid region id"
+                    )
         else:
             raise ValueError(f"{object_id} is not a valid region nor cortical id")
-    # Optionally, update cached dimensions or other state as needed 
+    # Optionally, update cached dimensions or other state as needed
+
 
 class BrainRegion:
     """
     Represents a brain region containing multiple cortical areas.
-    
-    A brain region is a logical grouping of cortical areas that are 
+
+    A brain region is a logical grouping of cortical areas that are
     functionally related.
     """
-    
-    def __init__(self, region_id: str, name: str, region_type: str = "custom", 
-                 properties: dict = None):
+
+    def __init__(
+        self,
+        region_id: str,
+        name: str,
+        region_type: str = "custom",
+        properties: dict = None,
+    ):
         """
         Initialize a brain region.
-        
+
         Args:
             region_id: Unique identifier for the region
             name: Human-readable name of the region
@@ -282,23 +347,23 @@ class BrainRegion:
         self.region_type = region_type
         self.properties = properties or {}
         self.cortical_areas = set()  # Set of cortical area IDs
-        
+
     def add_area(self, area_id: str) -> None:
         """
         Add a cortical area to this region.
-        
+
         Args:
             area_id: ID of the cortical area to add
         """
         self.cortical_areas.add(area_id)
-        
+
     def remove_area(self, area_id: str) -> bool:
         """
         Remove a cortical area from this region.
-        
+
         Args:
             area_id: ID of the cortical area to remove
-            
+
         Returns:
             True if area was removed, False if area was not in the region
         """
@@ -306,32 +371,32 @@ class BrainRegion:
             self.cortical_areas.remove(area_id)
             return True
         return False
-        
+
     def contains_area(self, area_id: str) -> bool:
         """
         Check if the region contains a specific cortical area.
-        
+
         Args:
             area_id: ID of the cortical area to check
-            
+
         Returns:
             True if the area is in this region, False otherwise
         """
         return area_id in self.cortical_areas
-        
+
     def get_all_areas(self) -> list:
         """
         Get a list of all cortical area IDs in this region.
-        
+
         Returns:
             List of cortical area IDs
         """
         return list(self.cortical_areas)
-        
+
     def to_dict(self) -> dict:
         """
         Convert the brain region to a dictionary representation.
-        
+
         Returns:
             Dictionary representation of the brain region
         """
@@ -340,48 +405,50 @@ class BrainRegion:
             "name": self.name,
             "region_type": self.region_type,
             "cortical_areas": list(self.cortical_areas),
-            "properties": self.properties
+            "properties": self.properties,
         }
-        
+
     def update(self, updates: dict) -> None:
         """
         Update brain region properties.
-        
+
         Args:
             updates: Dictionary of properties to update
-            
+
         Raises:
             KeyError: If an invalid property is specified
         """
         valid_properties = {"name", "region_type", "properties"}
-        
+
         for key, value in updates.items():
             if key not in valid_properties:
                 raise KeyError(f"Invalid property: {key}")
-            
+
             if key == "properties":
                 self.properties.update(value)
             else:
                 setattr(self, key, value)
-                
+
     def clear_areas(self) -> None:
         """
         Remove all cortical areas from this region.
         """
-        self.cortical_areas.clear() 
+        self.cortical_areas.clear()
+
 
 def generate_hash(data):
     """Simple placeholder for the hash generation function.
-    This allows us to avoid importing the actual function and breaking the circular imports.
+    This allows us to avoid importing the actual function and breaking the
+    circular imports.
     """
     import hashlib
     import json
-    
+
     # Convert the data to a string representation
     if isinstance(data, (dict, list)):
         data_str = json.dumps(data, sort_keys=True)
     else:
         data_str = str(data)
-    
+
     # Generate a hash
-    return hashlib.md5(data_str.encode()).hexdigest() 
+    return hashlib.md5(data_str.encode()).hexdigest()

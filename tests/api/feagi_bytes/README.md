@@ -22,4 +22,4 @@ pytest tests/api/feagi_bytes/test_connection.py
 ## Requirements
 
 - A running FEAGI instance
-- The `feagi_bytes` Python package installed 
+- The `feagi_bytes` Python package installed

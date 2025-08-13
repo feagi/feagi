@@ -6,4 +6,4 @@ primarily for management operations and configuration.
 
 from feagi.api.rest.app import create_rest_app
 
-__all__ = ["create_rest_app"] 
+__all__ = ["create_rest_app"]
