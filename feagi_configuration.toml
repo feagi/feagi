@@ -10,7 +10,7 @@
 # System-level configuration
 max_cores = 0  # 0 = auto-detect
 debug = true
-log_level = "INFO"
+log_level = "WARNING"
 data_dir = ""  # Must be set via environment variable or configuration override
 
 [genome]
@@ -136,7 +136,7 @@ enable_health_check = true     # monitor process health
 
 [logging]
 # Logging configuration
-global_log_level = "INFO"
+global_log_level = "WARNING"
 print_debug_logs = false
 print_burst_info = true
 log_file = "feagi.log"

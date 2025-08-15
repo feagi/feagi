@@ -924,11 +924,26 @@ class ProcessManager:
 
                             import uvicorn
 
+                            # Determine Uvicorn log level based on debug flags
+                            import os
+                            
+                            # Check if API debugging is enabled
+                            debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+                            
+                            if debug_api_enabled:
+                                # API debug mode: show INFO level logs
+                                uvicorn_log_level = "info"
+                            else:
+                                # Use global log level from environment or config
+                                global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
+                                uvicorn_log_level = global_level.lower()
+                            
                             uvicorn.run(
                                 app,
                                 host=api_config["host"],
                                 port=api_config["port"],
                                 access_log=api_config.get("access_log", True),
+                                log_level=uvicorn_log_level,
                                 loop="asyncio",
                             )
                         except Exception as e:
@@ -1080,11 +1095,24 @@ class ProcessManager:
 
                     # Run uvicorn in the same process
                     import uvicorn
+                    import os
+                    
+                    # Determine Uvicorn log level based on debug flags
+                    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+                    
+                    if debug_api_enabled:
+                        # API debug mode: show INFO level logs
+                        uvicorn_log_level = "info"
+                    else:
+                        # Use global log level from environment or config
+                        global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
+                        uvicorn_log_level = global_level.lower()
 
                     uvicorn.run(
                         app,
                         host=config["host"],
                         port=config["port"],
+                        log_level=uvicorn_log_level,
                         loop="asyncio",
                     )
                 except Exception as e:
@@ -1280,7 +1308,7 @@ class ProcessManager:
                 graceful_shutdown_timeout = timeout_config.graceful_shutdown
                 thread_join_timeout = timeout_config.thread_join
                 process_join_timeout = timeout_config.process_join
-                fq_sampler_timeout = timeout_config.fq_sampler_shutdown
+                # fq_sampler_timeout = timeout_config.fq_sampler_shutdown  # Unused for now
             except Exception as e:
                 print(
                     f"Warning: Could not load timeout config during shutdown, using fallback values: {e}",

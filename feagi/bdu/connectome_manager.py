@@ -117,7 +117,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
             state_manager = get_state_manager()
             if state_manager.is_debug_bdu_enabled():
-                logger.info(
+                logger.debug(
                     "[BDU-DEBUG] Returning existing ConnectomeManager singleton",
                     status="[LINK]",
                 )
@@ -841,7 +841,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
             state_manager = get_state_manager()
             if state_manager.is_debug_bdu_enabled():
-                logger.info(
+                logger.debug(
                     f"[BDU-DEBUG] cortical_idx allocation: reserved={reserved_indices}, "
                     f"used={sorted(used_indices)}, next_available={next_idx}"
                 )
@@ -1100,7 +1100,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 #  DEBUG: Log fired neurons and mapping status (gated by
                 #  --debug-bdu flag)
                 if state_manager.is_debug_bdu_enabled():
-                    logger.info(
+                    logger.debug(
                         f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
                     )
 
@@ -1131,7 +1131,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     )
 
                 if state_manager.is_debug_bdu_enabled():
-                    logger.info(
+                    logger.debug(
                         f"[BDU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update"
                     )
 
@@ -1156,7 +1156,7 @@ class ConnectomeManager(NeuronMappingProvider):
                         ].tolist()
 
                     if state_manager.is_debug_bdu_enabled():
-                        logger.info(
+                        logger.debug(
                             f"[BDU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}"
                         )
                 else:
@@ -1165,7 +1165,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     )
             else:
                 if state_manager.is_debug_bdu_enabled():
-                    logger.info(
+                    logger.debug(
                         "[BDU-DEBUG] FCL UPDATE: No fired neurons to update"
                     )
 
@@ -1266,7 +1266,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
         state_manager = get_state_manager()
         if state_manager.is_debug_bdu_enabled():
-            logger.info(
+            logger.debug(
                 f"[BDU-DEBUG] Created neuron {neuron_id} in area {area.name} at position {position}"
             )
 
@@ -2549,7 +2549,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
         state_manager = get_state_manager()
         if state_manager.is_debug_bdu_enabled():
-            logger.info(
+            logger.debug(
                 f"[BDU-DEBUG] Maximum cortical area dimensions: {max_dims[0]}x{max_dims[1]}x{max_dims[2]}"
             )
         return tuple(max_dims)
@@ -3027,7 +3027,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
                     state_manager = get_state_manager()
                     if state_manager.is_debug_bdu_enabled():
-                        logger.info(
+                        logger.debug(
                             f"[BDU-DEBUG] Could not delete neuron {neuron_id}: {e}"
                         )
                     pass

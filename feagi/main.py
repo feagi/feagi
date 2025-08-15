@@ -73,84 +73,31 @@ def _update_all_logger_levels(log_level_str: str):
         # PlaceHolder objects don't need updating
 
 
-def _apply_module_specific_debug_levels(debug_flags: dict):
-    """Apply DEBUG level to specific module hierarchies when debug flags are enabled.
+def _set_global_level_from_config():
+    """Load log level from config file and set it globally.
     
-    This function implements the expected behavior where individual debug flags
-    override the global log level for their respective modules.
-    
-    Args:
-        debug_flags: Dictionary of debug flag names and their boolean values
+    This function ensures that the global log level from the config file
+    is properly set before module imports happen, fixing the caching issue.
     """
-    import logging
-    
-    # Define mappings between debug flags and their logger hierarchies
-    debug_flag_to_loggers = {
-        "debug_npu": [
-            "feagi.npu",
-            "feagi.npu.burst_engine",
-            "feagi.npu.fcl_manager", 
-            "feagi.npu.fcl_injection_service",
-            "feagi.npu.special_area_handler",
-            "feagi.npu.memory_processor",
-            "feagi.npu.fq_sampler"
-        ],
-        "debug_api": [
-            "feagi.api",
-            "feagi.api.rest",
-            "feagi.api.core",
-            "feagi.api.gateway",
-            "feagi.api.protocols",
-            "feagi.api.transport",
-            "feagi.api.zmq"
-        ],
-        "debug_bdu": [
-            "feagi.bdu",
-            "feagi.bdu.connectivity",
-            "feagi.bdu.embryogenesis",
-            "feagi.bdu.models",
-            "feagi.bdu.utils"
-        ],
-        "debug_zmq_inbound": [
-            "feagi.api.zmq",
-            "feagi.api.zmq.streams",
-            "feagi.api.zmq.neural",
-            "feagi.api.zmq.memory",
-            "feagi.api.zmq.patterns"
-        ],
-        "debug_zmq_outbound": [
-            "feagi.api.zmq",
-            "feagi.api.zmq.streams", 
-            "feagi.api.zmq.neural",
-            "feagi.api.zmq.memory",
-            "feagi.api.zmq.patterns"
-        ],
-        "debug_mem": [
-            "feagi.npu.memory_processor",
-            "feagi.bdu.models.memory",
-            "feagi.core.memory"
-        ]
-    }
-    
-    debug_level = logging.DEBUG
-    
-    for flag_name, logger_hierarchies in debug_flag_to_loggers.items():
-        if debug_flags.get(flag_name, False):
-            logger.info(f"[DEBUG] Enabling DEBUG level for {flag_name} modules")
-            
-            for logger_hierarchy in logger_hierarchies:
-                # Set level for the hierarchy logger
-                hierarchy_logger = logging.getLogger(logger_hierarchy)
-                hierarchy_logger.setLevel(debug_level)
-                
-                # Also update any existing child loggers in the registry
-                logger_dict = logging.Logger.manager.loggerDict
-                for existing_logger_name, existing_logger_obj in logger_dict.items():
-                    if (isinstance(existing_logger_obj, logging.Logger) and 
-                        existing_logger_name.startswith(logger_hierarchy + ".")):
-                        existing_logger_obj.setLevel(debug_level)
-                        
-            logger.info(f"[DEBUG] {flag_name} modules set to DEBUG level: {logger_hierarchies}")
+    try:
+        from feagi.config.toml_loader import load_feagi_config
+        
+        config = load_feagi_config()
+        config_log_level = config.get("system", {}).get("log_level", "INFO")
+        
+        # Set environment variable so setup_logger() will use this level
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = config_log_level
+        
+        # Update all existing loggers
+        _update_all_logger_levels(config_log_level)
+        
+        logger.info(f"Global log level set from config: {config_log_level}")
+        
+    except Exception as e:
+        # Fallback to INFO if config loading fails
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+        _update_all_logger_levels("INFO")
+        logger.warning(f"Failed to load config for log level, using INFO: {e}")
 
 
 def check_dependencies():
@@ -441,13 +388,17 @@ def main():
 
     args = parser.parse_args()
 
-    # CRITICAL: Update logger levels IMMEDIATELY after parsing CLI args
+    # CRITICAL: Set global log level IMMEDIATELY after parsing CLI args
     # This must happen before any logging occurs to respect --log-level
     if args.log_level is not None:
         # Set environment variable for future logger creation
         os.environ["FEAGI_CLI_LOG_LEVEL"] = args.log_level
         # Update all existing loggers immediately
         _update_all_logger_levels(args.log_level)
+    else:
+        # No CLI override - ensure config file level is loaded and set globally
+        # This fixes the caching issue by explicitly setting the global level early
+        _set_global_level_from_config()
 
     # Show deferred logger setup info now that CLI override is applied
     from feagi.utils.logger import show_deferred_setup_info
@@ -504,42 +455,37 @@ def main():
 
         if args.debug_npu:
             cli_overrides["debug_npu"] = True
+            os.environ["FEAGI_DEBUG_NPU"] = "1"
             logger.info(
                 "[DEBUG] NPU fire queue debugging enabled via --debug-npu flag"
             )
 
-        if args.debug_zmq_outbound:
-            cli_overrides["debug_zmq_outbound"] = True
-            logger.info(
-                "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
-            )
-
-        if args.debug_zmq_inbound:
-            cli_overrides["debug_zmq_inbound"] = True
-            logger.info(
-                "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
-            )
+        if args.debug_zmq_outbound or args.debug_zmq_inbound:
+            if args.debug_zmq_outbound:
+                cli_overrides["debug_zmq_outbound"] = True
+                logger.info(
+                    "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
+                )
+            if args.debug_zmq_inbound:
+                cli_overrides["debug_zmq_inbound"] = True
+                logger.info(
+                    "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
+                )
+            # Set common ZMQ debug environment variable for both
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1"
 
         if args.debug_bdu:
             cli_overrides["debug_bdu"] = True
+            os.environ["FEAGI_DEBUG_BDU"] = "1"
             logger.info("BDU debugging enabled via --debug-bdu flag")
 
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
+            os.environ["FEAGI_DEBUG_MEM"] = "1"
             logger.info("Memory debugging enabled via --debug-mem flag")
 
-        # Apply module-specific debug levels AFTER all debug flags are processed
-        # This implements the expected behavior where individual debug flags override
-        # the global log level for their respective modules
-        debug_flags = {
-            "debug_npu": args.debug_npu,
-            "debug_api": args.debug_api,
-            "debug_bdu": args.debug_bdu,
-            "debug_zmq_inbound": args.debug_zmq_inbound,
-            "debug_zmq_outbound": args.debug_zmq_outbound,
-            "debug_mem": args.debug_mem,
-        }
-        _apply_module_specific_debug_levels(debug_flags)
+        # Module-specific debug levels are now handled automatically by setup_logger()
+        # when each module creates its logger - no additional processing needed here
 
         if args.profile:
             cli_overrides["profile"] = True
