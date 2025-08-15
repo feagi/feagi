@@ -2118,7 +2118,7 @@ class CoreAPIService:
                 #  SPECIAL HANDLING: If key is "morphology_id", extract target
                 #  from context_key
                 if key == "morphology_id" and ":" in context_key:
-                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:co_mot"
+                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:o__mot"
                     parts = context_key.split(":")
                     if len(parts) >= 2:
                         target_area = parts[-1].split("[")[
@@ -2164,7 +2164,7 @@ class CoreAPIService:
                         #  format)
                         #  Original_area_id format:
                         #  "_____10c-CTGM4_-cx-dstmap-d"
-                        # Key format: "co_mot"
+                        # Key format: "o__mot"
                         source_area = self._extract_area_name_from_flat_format(
                             original_area_id
                         )

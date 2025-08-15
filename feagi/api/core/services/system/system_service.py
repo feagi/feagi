@@ -204,6 +204,17 @@ class SystemService(BaseService):
                 else False
             )
 
+            # Add simulation timestep (time between neural bursts)
+            try:
+                frequency = self.state_manager.get_burst_frequency()
+                if frequency > 0:
+                    health["simulation_timestep"] = 1.0 / frequency
+                else:
+                    health["simulation_timestep"] = 1.0  # Default 1 second period
+            except Exception as e:
+                self.logger.warning(f"Could not get simulation timestep: {e}")
+                health["simulation_timestep"] = 1.0  # Default fallback
+
             # Check for pending amalgamation
             if self._has_pending_amalgamation():
                 pending = getattr(

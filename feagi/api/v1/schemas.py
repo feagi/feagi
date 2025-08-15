@@ -77,6 +77,8 @@ class HealthCheckResponse(BaseModel):
     # Genome tracking fields for downstream clients (Bridge/Godot)
     genome_num: Optional[int] = None
     genome_timestamp: Optional[int] = None
+    # Simulation timing
+    simulation_timestep: Optional[float] = None  # Time between neural bursts in seconds
 
 
 class ConfigurationResponse(BaseModel):

@@ -1703,7 +1703,6 @@ def migrate_legacy_cortical_ids(genome):
 
     Legacy ID mappings:
     - ___pwr → _power (core power area)
-    - o__mot → co_mot (motor output)
     - iv00_C → iic400 (central vision)
     - iv00BL → iic000 (bottom-left vision)
     - iv00BM → iic100 (bottom-middle vision)
@@ -1733,8 +1732,6 @@ def migrate_legacy_cortical_ids(genome):
         # CORE areas
         "___pwr": "_power",  # Core power area
         "___dth": "_death",  # Core death area
-        # Motor/Output areas (OPU) - confirmed in templates.py
-        "o__mot": "co_mot",  # Motor output
         #  Vision areas (IPU) - peripheral camera mappings confirmed in
         #  templates.py
         "iv00_C": "iic400",  # Central vision (ImageCameraCenter)

@@ -162,6 +162,7 @@ class SystemAPI:
                 ),
                 genome_num=health.get("genome_num"),
                 genome_timestamp=health.get("genome_timestamp"),
+                simulation_timestep=health.get("simulation_timestep"),
             )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
