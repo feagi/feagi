@@ -297,14 +297,134 @@ class ArrayBackend:
 
             # Create device
             self.device = self.adapter.request_device_sync()
+            self.queue = self.device.queue
 
             logger.info(
                 f"Using wgpu device: {info['device']} with {info['backend_type']} backend"
             )
+            
+            # Initialize compute shaders for high-performance operations
+            self._init_wgpu_compute_shaders()
 
         except Exception as e:
             logger.error(f"Failed to initialize wgpu backend: {e}")
             raise RuntimeError(f"wgpu initialization failed: {e}") from e
+    
+    def _init_wgpu_compute_shaders(self):
+        """Initialize WGPU compute shaders for neural operations."""
+        # Matrix multiplication compute shader
+        matmul_shader_code = """
+        @group(0) @binding(0) var<storage, read> a: array<f32>;
+        @group(0) @binding(1) var<storage, read> b: array<f32>;
+        @group(0) @binding(2) var<storage, read_write> result: array<f32>;
+        @group(0) @binding(3) var<uniform> dims: vec3<u32>; // M, N, K
+        
+        @compute @workgroup_size(16, 16)
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            let row = global_id.x;
+            let col = global_id.y;
+            let M = dims.x;
+            let N = dims.y;
+            let K = dims.z;
+            
+            if (row >= M || col >= N) {
+                return;
+            }
+            
+            var sum = 0.0;
+            for (var k = 0u; k < K; k++) {
+                sum += a[row * K + k] * b[k * N + col];
+            }
+            result[row * N + col] = sum;
+        }
+        """
+        
+        self.matmul_shader = self.device.create_shader_module(code=matmul_shader_code)
+        logger.info("WGPU compute shaders initialized for high-performance neural operations")
+    
+    def _wgpu_matmul(self, a: Any, b: Any) -> Any:
+        """High-performance GPU matrix multiplication using compute shader."""
+        # Get dimensions
+        a_shape = getattr(a, '_feagi_shape', (1, 1))
+        b_shape = getattr(b, '_feagi_shape', (1, 1))
+        
+        if len(a_shape) != 2 or len(b_shape) != 2:
+            # Fallback to CPU for non-2D arrays
+            a_numpy = self._wgpu_to_numpy(a)
+            b_numpy = self._wgpu_to_numpy(b)
+            result = np.matmul(a_numpy, b_numpy)
+            return self._numpy_to_wgpu(result)
+        
+        M, K = a_shape
+        K2, N = b_shape
+        
+        if K != K2:
+            raise ValueError(f"Matrix dimension mismatch: {K} != {K2}")
+        
+        # Create result buffer
+        result_size = M * N
+        result_buffer = self.device.create_buffer(
+            size=result_size * 4,  # 4 bytes per float32
+            usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_SRC
+        )
+        result_buffer._feagi_shape = (M, N)
+        result_buffer._feagi_size = result_size
+        
+        # Create uniform buffer for dimensions
+        dims_data = np.array([M, N, K], dtype=np.uint32)
+        dims_buffer = self.device.create_buffer_with_data(
+            data=dims_data.tobytes(),
+            usage=wgpu.BufferUsage.UNIFORM
+        )
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, 
+                 "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE,
+                 "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE,
+                 "buffer": {"type": wgpu.BufferBindingType.storage}},
+                {"binding": 3, "visibility": wgpu.ShaderStage.COMPUTE,
+                 "buffer": {"type": wgpu.BufferBindingType.uniform}},
+            ]
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": a}},
+                {"binding": 1, "resource": {"buffer": b}},
+                {"binding": 2, "resource": {"buffer": result_buffer}},
+                {"binding": 3, "resource": {"buffer": dims_buffer}},
+            ]
+        )
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=self.device.create_pipeline_layout(
+                bind_group_layouts=[bind_group_layout]
+            ),
+            compute={"module": self.matmul_shader, "entry_point": "main"}
+        )
+        
+        # Dispatch compute shader
+        encoder = self.device.create_command_encoder()
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Calculate workgroup dispatch size (16x16 workgroups)
+        workgroups_x = (M + 15) // 16
+        workgroups_y = (N + 15) // 16
+        compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1)
+        
+        compute_pass.end()
+        self.queue.submit([encoder.finish()])
+        
+        return result_buffer
 
     def _get_dtype_for_precision(self, base_dtype: Any = None) -> Any:
         """Get the appropriate dtype for the current precision setting.
@@ -944,20 +1064,8 @@ class ArrayBackend:
             else:
                 return cp.matmul(a, b)
         elif self.backend_type == BackendType.WGPU:
-            #  For wgpu, we can use a precompiled shader for matrix
-            #  multiplication
-            #  This is a simplified example; in practice, you would need to
-            #  handle different shapes
-            a_numpy = self._wgpu_to_numpy(a)
-            b_numpy = self._wgpu_to_numpy(b)
-
-            if self.precision == PrecisionType.FP16:
-                a_numpy = a_numpy.astype(np.float16)
-                b_numpy = b_numpy.astype(np.float16)
-
-            # CPU fallback for now
-            result = np.matmul(a_numpy, b_numpy)
-            return self._numpy_to_wgpu(result)
+            # High-performance GPU matrix multiplication using compute shader
+            return self._wgpu_matmul(a, b)
 
     def get_device_stats(self) -> Dict[str, Any]:
         """Get statistics about the current device.

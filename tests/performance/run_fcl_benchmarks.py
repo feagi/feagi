@@ -48,6 +48,8 @@ sys.path.insert(0, str(project_root))
 
 from tests.performance.npu.test_fcl_performance import FCLPerformanceBenchmark
 from tests.performance.npu.test_burst_frequency_robustness import BurstFrequencyRobustnessTest
+from tests.performance.npu.test_stress_limits import StressTestSuite
+from tests.performance.npu.test_neural_propagation_benchmark import NeuralPropagationBenchmark
 from tests.performance.system.test_fcl_system_performance import FCLSystemPerformanceBenchmark
 from tests.performance.utils.performance_regression import (
     PerformanceRegressionDetector,
@@ -71,6 +73,8 @@ class FCLBenchmarkRunner:
         # Initialize benchmark suites
         self.fcl_benchmark = FCLPerformanceBenchmark()
         self.frequency_robustness = BurstFrequencyRobustnessTest()
+        self.stress_tester = StressTestSuite()
+        self.neural_propagation = NeuralPropagationBenchmark()
         self.system_benchmark = FCLSystemPerformanceBenchmark()
         self.regression_detector = PerformanceRegressionDetector()
         
@@ -198,6 +202,48 @@ class FCLBenchmarkRunner:
             'target_frequency': target_frequency,
             'metrics': [m.to_dict() for m in frequency_metrics],
             'breakdown_points': [bp.__dict__ for bp in breakdown_points],
+            'results_file': results_file,
+            'timestamp': time.time()
+        }
+    
+    def run_stress_test_suite(self) -> Dict[str, Any]:
+        """Run comprehensive stress testing to identify bottlenecks."""
+        self.logger.info("Running stress test suite to push system to limits...")
+        
+        print("🔥 FEAGI STRESS TEST SUITE - FINDING THE BREAKING POINTS")
+        print("=" * 60)
+        
+        # Run complete stress test suite
+        results_file = self.stress_tester.run_complete_stress_test_suite()
+        
+        return {
+            'test_type': 'stress_test_suite',
+            'results_file': results_file,
+            'timestamp': time.time()
+        }
+    
+    def run_neural_propagation_benchmark(self) -> Dict[str, Any]:
+        """Run comprehensive neural propagation benchmark with realistic synaptic connectivity."""
+        self.logger.info("Running neural propagation benchmark with real synaptic connections...")
+        
+        print("🧠 FEAGI NEURAL PROPAGATION BENCHMARK - REALISTIC NEURAL COMPUTATION")
+        print("=" * 70)
+        print("Testing 3-area neural network (A→B→C→A) with block_to_block connectivity")
+        print("Systematic parameter sweeps: M dimension, consecutive fires, timestep")
+        print("Extreme scenarios: M=2000, timestep=5ms")
+        print()
+        
+        # Run comprehensive neural propagation benchmark
+        metrics = self.neural_propagation.run_comprehensive_benchmark()
+        
+        # Save results
+        results_file = self.neural_propagation.save_benchmark_results(metrics)
+        
+        return {
+            'test_type': 'neural_propagation_benchmark',
+            'total_scenarios': len(metrics),
+            'successful_scenarios': len([m for m in metrics if not m.scenario_name.endswith('_FAILED')]),
+            'failed_scenarios': len([m for m in metrics if m.scenario_name.endswith('_FAILED')]),
             'results_file': results_file,
             'timestamp': time.time()
         }
@@ -379,6 +425,10 @@ def main():
                        help='Run burst frequency robustness test')
     parser.add_argument('--target-frequency', type=float, default=15.0,
                        help='Target frequency for robustness test (default: 15.0 Hz)')
+    parser.add_argument('--stress-test', action='store_true',
+                       help='Run comprehensive stress testing to find system limits')
+    parser.add_argument('--neural-propagation', action='store_true',
+                       help='Run neural propagation benchmark with realistic synaptic connectivity')
     parser.add_argument('--profile', action='store_true',
                        help='Include detailed profiling')
     parser.add_argument('--save-results', action='store_true',
@@ -387,7 +437,7 @@ def main():
     args = parser.parse_args()
     
     # Default to quick benchmark if no options specified
-    if not any([args.create_baseline, args.check_regression, args.full_suite, args.quick, args.frequency_robustness]):
+    if not any([args.create_baseline, args.check_regression, args.full_suite, args.quick, args.frequency_robustness, args.stress_test, args.neural_propagation]):
         args.quick = True
     
     runner = FCLBenchmarkRunner()
@@ -402,6 +452,10 @@ def main():
             results = runner.run_full_benchmark_suite(include_profiling=args.profile)
         elif args.frequency_robustness:
             results = runner.run_frequency_robustness_test(args.target_frequency)
+        elif args.stress_test:
+            results = runner.run_stress_test_suite()
+        elif args.neural_propagation:
+            results = runner.run_neural_propagation_benchmark()
         elif args.quick:
             results = runner.run_quick_benchmark()
         
