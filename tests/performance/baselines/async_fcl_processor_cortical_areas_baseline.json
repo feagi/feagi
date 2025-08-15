@@ -1,0 +1,15 @@
+{
+  "test_name": "async_fcl_processor",
+  "metric_name": "cortical_areas",
+  "baseline_value": 3,
+  "baseline_timestamp": 1755280650.597335,
+  "sample_count": 8,
+  "std_deviation": 2.138089935299395,
+  "confidence_interval": [
+    1.5183792658038293,
+    4.481620734196171
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59712
+  }
+}

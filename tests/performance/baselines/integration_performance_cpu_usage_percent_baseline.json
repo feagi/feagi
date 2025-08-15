@@ -1,0 +1,15 @@
+{
+  "test_name": "integration_performance",
+  "metric_name": "cpu_usage_percent",
+  "baseline_value": 98.23333333333333,
+  "baseline_timestamp": 1755280650.599708,
+  "sample_count": 3,
+  "std_deviation": 0.6350852961085851,
+  "confidence_interval": [
+    97.51466666666667,
+    98.952
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59954
+  }
+}

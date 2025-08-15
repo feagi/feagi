@@ -1,0 +1,15 @@
+{
+  "test_name": "rust_optimized_fcl",
+  "metric_name": "execution_time_ms",
+  "baseline_value": 4.230994643876329,
+  "baseline_timestamp": 1755280650.59846,
+  "sample_count": 8,
+  "std_deviation": 4.150981385213123,
+  "confidence_interval": [
+    1.3545112995342676,
+    7.10747798821839
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.598318
+  }
+}

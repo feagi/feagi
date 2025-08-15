@@ -1,0 +1,15 @@
+{
+  "test_name": "integration_performance",
+  "metric_name": "neuron_count",
+  "baseline_value": 2033.3333333333333,
+  "baseline_timestamp": 1755280650.599726,
+  "sample_count": 3,
+  "std_deviation": 2608.320021265284,
+  "confidence_interval": [
+    -918.2586288306632,
+    4984.92529549733
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59954
+  }
+}

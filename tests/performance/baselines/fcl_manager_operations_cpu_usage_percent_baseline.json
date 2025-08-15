@@ -1,0 +1,15 @@
+{
+  "test_name": "fcl_manager_operations",
+  "metric_name": "cpu_usage_percent",
+  "baseline_value": 92.35555555555555,
+  "baseline_timestamp": 1755280650.596098,
+  "sample_count": 54,
+  "std_deviation": 8.37689244553284,
+  "confidence_interval": [
+    90.12125223563378,
+    94.58985887547733
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.595694
+  }
+}

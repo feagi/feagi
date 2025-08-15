@@ -92,9 +92,9 @@ class CacheAlignedFCLBuffer:
     Designed for optimal cache performance and SIMD operations.
     """
     capacity: int
-    buffer: np.ndarray
     write_index: int = 0
     read_index: int = 0
+    buffer: Optional[np.ndarray] = None
     
     def __post_init__(self):
         # Create cache-aligned buffer
