@@ -11,26 +11,18 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""FEAGI Main Entry Point.
+FEAGI Main Entry Point.
 
 This module provides the single entry point for starting the complete FEAGI system.
 It uses the ProcessManager to handle process creation, monitoring, and shutdown
 according to the architecture described in feagi_processes.md.
 """
 
-import os
-import sys
-
-# CRITICAL: Check for embedded mode BEFORE any other imports
-# This prevents FastAPI modules from being imported in embedded mode
-if "--embedded" in sys.argv:
-    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
-    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
-
 import argparse
+import os
 import signal
+import sys
 import time
 from pathlib import Path
 
@@ -38,6 +30,12 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 from feagi.process_manager import get_process_manager
 from feagi.utils.logger import setup_logger
+
+# CRITICAL: Check for embedded mode BEFORE any other imports
+# This prevents FastAPI modules from being imported in embedded mode
+if "--embedded" in sys.argv:
+    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
+    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
 
 setup_feagi_logging()
 
@@ -625,7 +623,6 @@ def main():
             "mode_1": args.test_mode_1,
             "mode_2": args.test_mode_2,
             "duration": args.test_duration,
-            "frequency": args.test_frequency,
             "frequency": args.test_frequency,
         },
         "debug": {
