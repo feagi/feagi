@@ -411,17 +411,27 @@ class NeuroEmbryogenesis:
             return False
 
     def _extract_cortical_properties(self, cortical_id: str) -> Dict[str, Any]:
-        """Extract cortical area properties from hierarchical genome format.
+        """Extract cortical area properties from genome or ConnectomeManager.
 
-        ARCHITECTURE: Single source of truth - hierarchical genome format only.
-        No fallbacks, no format detection, one clean reliable path.
+        For core areas created from templates, properties are already stored in ConnectomeManager.
+        For genome areas, properties are extracted from the genome using GenomeProcessor.
 
         Args:
-            cortical_id: The ID of the cortical area in the genome
+            cortical_id: The ID of the cortical area
 
         Returns:
             Dictionary of properties for the cortical area
         """
+        # First check if area exists in ConnectomeManager with properties (e.g., core areas from templates)
+        if cortical_id in self.connectome_manager.cortical_areas:
+            area = self.connectome_manager.cortical_areas[cortical_id]
+            if hasattr(area, 'properties') and area.properties:
+                logger.debug(
+                    f"✅ [CONNECTOME-MGR] Using stored properties for {cortical_id}: {len(area.properties)} properties"
+                )
+                return area.properties
+
+        # Otherwise, extract from hierarchical genome blueprint
         blueprint = self.genome["blueprint"]
 
         if cortical_id not in blueprint:
@@ -447,9 +457,9 @@ class NeuroEmbryogenesis:
             "cortical_mapping_dst": "mapping",
             # Neural properties
             "synapse_attractivity": "synapse_attractivity",
-            "refractory_period": "refractory_period",
-            "firing_threshold": "firing_threshold",
-            "leak_coefficient": "leak_coefficient",
+            "refractory_period": "refrac",
+            "firing_threshold": "fire_t",
+            "leak_coefficient": "leak_c",
             "neuron_excitability": "neuron_excitability",
             "postsynaptic_current": "postsynaptic_current",
             "postsynaptic_current_max": "postsynaptic_current_max",
@@ -745,23 +755,33 @@ class NeuroEmbryogenesis:
             True if successful, False otherwise
         """
         try:
-            # Import cortical_types from templates
-            from feagi.evo.templates import cortical_types
+            # Import cortical_types and cortical_template from templates
+            from feagi.evo.templates import cortical_types, cortical_template
 
             core_devices = cortical_types["CORE"]["supported_devices"]
 
             # Create _death area (cortical_idx=0)
             death_template = core_devices["_death"]
+            
+            # Merge cortical_template properties with core-specific properties
+            death_properties = cortical_template.copy()
+            death_properties.update({
+                "template_source": "core",
+                "enabled": death_template["enabled"],
+                "structure": death_template["structure"],
+                # Map template properties to expected names
+                "neurons_per_voxel": death_properties["per_voxel_neuron_cnt"],
+                "fire_t": death_properties["firing_threshold"],
+                "leak_c": death_properties["leak_coefficient"],
+                "refrac": death_properties["refractory_period"],
+            })
+            
             death_id = self.connectome_manager.add_cortical_area(
                 name=death_template["cortical_name"],
                 dimensions=tuple(death_template["resolution"]),
                 position=tuple(death_template["coordinate_3d"]),
                 area_type="CORE",
-                properties={
-                    "template_source": "core",
-                    "enabled": death_template["enabled"],
-                    "structure": death_template["structure"],
-                },
+                properties=death_properties,
                 cortical_id="_death",
             )
 
@@ -782,16 +802,26 @@ class NeuroEmbryogenesis:
 
             # Create _power area (cortical_idx=1)
             pwr_template = core_devices["_power"]
+            
+            # Merge cortical_template properties with core-specific properties
+            pwr_properties = cortical_template.copy()
+            pwr_properties.update({
+                "template_source": "core",
+                "enabled": True,  # Always enable power area regardless of template default
+                "structure": pwr_template["structure"],
+                # Map template properties to expected names
+                "neurons_per_voxel": pwr_properties["per_voxel_neuron_cnt"],
+                "fire_t": pwr_properties["firing_threshold"],
+                "leak_c": pwr_properties["leak_coefficient"],
+                "refrac": pwr_properties["refractory_period"],
+            })
+            
             pwr_id = self.connectome_manager.add_cortical_area(
                 name=pwr_template["cortical_name"],
                 dimensions=tuple(pwr_template["resolution"]),
                 position=tuple(pwr_template["coordinate_3d"]),
                 area_type="CORE",
-                properties={
-                    "template_source": "core",
-                    "enabled": True,  # Always enable power area regardless of template default
-                    "structure": pwr_template["structure"],
-                },
+                properties=pwr_properties,
                 cortical_id="_power",
             )
 
@@ -978,7 +1008,10 @@ class NeuroEmbryogenesis:
                 # FAST: Set uniform properties with vectorized array slicing
                 base_threshold = properties.get("fire_t", 1.0)
                 base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
-                base_refractory = properties.get("refrac", 1)
+                # ARCHITECTURE COMPLIANCE: No fallbacks for required properties
+                if "refrac" not in properties:
+                    raise ValueError(f"ARCHITECTURE VIOLATION: Missing required property 'refrac' for area {cortical_id}")
+                base_refractory = properties["refrac"]
 
                 #  SoA OPTIMIZATION: Set all properties with single array
                 #  operations
