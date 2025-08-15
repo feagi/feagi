@@ -176,7 +176,26 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         )
 
         self.connectome_manager = connectome_manager
-        self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
+        
+        # NPU now owns the FCL manager - no longer dependent on BDU
+        if fcl_manager is not None:
+            self.fcl_manager = fcl_manager
+        else:
+            # Create our own FCL manager in NPU
+            from feagi.npu.fcl_manager import FCLManager
+            self.fcl_manager = FCLManager()
+            logger.info("[NPU] Created NPU-owned FCL manager instance")
+        
+        # Initialize async FCL processor for parallel processing
+        from feagi.npu.async_fcl_processor import AsyncFCLProcessor
+        self.async_fcl_processor = AsyncFCLProcessor(self.fcl_manager)
+        logger.info("[NPU] Created AsyncFCLProcessor for parallel FCL processing")
+        
+        # Set FCL manager reference in ConnectomeManager for backward compatibility
+        if hasattr(connectome_manager, 'fcl_manager'):
+            connectome_manager.fcl_manager = self.fcl_manager
+            logger.info("[NPU] Set FCL manager reference in ConnectomeManager for backward compatibility")
+        
         self.config = config or {}
 
         # Initialize MemoryProcessor for memory cortical areas
@@ -665,6 +684,12 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             f"Starting burst engine with frequency: {self.desired_frequency}Hz",
             status="[START]",
         )
+        
+        # Start async FCL processor for parallel processing
+        if hasattr(self, 'async_fcl_processor'):
+            self.async_fcl_processor.start()
+            logger.info("[NPU] Started AsyncFCLProcessor for parallel FCL processing")
+        
         self._running = True
 
         # State transition
@@ -773,6 +798,12 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         """Stop the Burst Engine gracefully."""
         logger.info("Stopping burst engine...", status="[STOP]")
         self._running = False
+        
+        # Stop async FCL processor
+        if hasattr(self, 'async_fcl_processor'):
+            self.async_fcl_processor.stop()
+            logger.info("[NPU] Stopped AsyncFCLProcessor")
+        
         self.state_manager.set_burst_engine_state(ServiceState.STOPPED)
 
     def run_test(self) -> List[int]:

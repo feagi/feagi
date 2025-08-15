@@ -275,11 +275,9 @@ class ConnectomeManager(NeuronMappingProvider):
             max_synapses=self.max_synapses, backend=backend
         )
 
-        #  Initialize FCL manager and other missing attributes for BurstEngine
-        #  compatibility
-        from feagi.npu.fcl_manager import FCLManager
-
-        self.fcl_manager = FCLManager()
+        #  FCL manager is now owned by NPU BurstEngine, not BDU ConnectomeManager
+        #  This maintains backward compatibility for any code that expects fcl_manager attribute
+        self.fcl_manager = None  # Will be set by NPU when BurstEngine is created
 
         # Initialize active neurons tracking
         self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
@@ -349,6 +347,48 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_all_neuron_ids(self) -> List[int]:
         """Get all neuron IDs."""
         return list(self._neuron_id_to_index_map.keys())
+
+    def _get_fcl_manager(self):
+        """Get FCL manager from NPU BurstEngine.
+        
+        Since FCL manager is now owned by NPU, we need to get it from BurstEngine.
+        This maintains backward compatibility for BDU code that needs FCL access.
+        
+        Returns:
+            FCL manager instance from NPU, or None if not available
+        """
+        if self.fcl_manager is not None:
+            return self.fcl_manager
+            
+        # Try to get FCL manager from BurstEngine
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine._instance
+            if burst_engine and hasattr(burst_engine, 'fcl_manager'):
+                # Cache the reference for performance
+                self.fcl_manager = burst_engine.fcl_manager
+                return self.fcl_manager
+        except Exception as e:
+            logger.warning(f"Could not get FCL manager from NPU: {e}")
+            
+        return None
+    
+    def _get_async_fcl_processor(self):
+        """Get async FCL processor from NPU BurstEngine.
+        
+        Returns:
+            AsyncFCLProcessor instance from NPU, or None if not available
+        """
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine._instance
+            if (burst_engine and 
+                hasattr(burst_engine, 'async_fcl_processor')):
+                return burst_engine.async_fcl_processor
+        except Exception as e:
+            logger.warning(f"Could not get async FCL processor from NPU: {e}")
+        
+        return None
 
     # ======================================================================
     # DYNAMIC SIZING METHODS - GENOME-BASED MEMORY OPTIMIZATION
@@ -1098,10 +1138,10 @@ class ConnectomeManager(NeuronMappingProvider):
             neurons_by_cortical = {}
             if fired_neuron_ids:
                 #  DEBUG: Log fired neurons and mapping status (gated by
-                #  --debug-bdu flag)
-                if state_manager.is_debug_bdu_enabled():
+                #  --debug-npu flag)
+                if state_manager.is_debug_npu_enabled():
                     logger.debug(
-                        f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
+                        f"[NPU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
                     )
 
                 # Vectorized grouping of fired neurons by cortical area
@@ -1130,9 +1170,9 @@ class ConnectomeManager(NeuronMappingProvider):
                         "FCL BUG: This indicates a critical mapping synchronization issue"
                     )
 
-                if state_manager.is_debug_bdu_enabled():
+                if state_manager.is_debug_npu_enabled():
                     logger.debug(
-                        f"[BDU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update"
+                        f"[NPU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update"
                     )
 
                 if len(valid_neurons) > 0:
@@ -1155,23 +1195,38 @@ class ConnectomeManager(NeuronMappingProvider):
                             mask
                         ].tolist()
 
-                    if state_manager.is_debug_bdu_enabled():
+                    if state_manager.is_debug_npu_enabled():
                         logger.debug(
-                            f"[BDU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}"
+                            f"[NPU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}"
                         )
                 else:
                     logger.warning(
                         "FCL UPDATE: No valid neurons to update in FCL"
                     )
             else:
-                if state_manager.is_debug_bdu_enabled():
+                if state_manager.is_debug_npu_enabled():
                     logger.debug(
-                        "[BDU-DEBUG] FCL UPDATE: No fired neurons to update"
+                        "[NPU-DEBUG] FCL UPDATE: No fired neurons to update"
                     )
 
-            self.fcl_manager.update_fcl(
-                self.current_timestep, neurons_by_cortical
-            )
+            # Use async FCL processor for parallel processing if available
+            async_fcl_processor = self._get_async_fcl_processor()
+            if async_fcl_processor:
+                # Create fired neuron event for async processing
+                from feagi.npu.interfaces import FiredNeuronEvent
+                if neurons_by_cortical:
+                    event = FiredNeuronEvent(
+                        timestep=self.current_timestep,
+                        neurons_by_cortical=neurons_by_cortical
+                    )
+                    async_fcl_processor.process_fired_neurons(event)
+            else:
+                # Fallback to synchronous FCL processing
+                fcl_manager = self._get_fcl_manager()
+                if fcl_manager:
+                    fcl_manager.update_fcl(
+                        self.current_timestep, neurons_by_cortical
+                    )
 
         # Increment timestep
         self.current_timestep += 1
@@ -1903,14 +1958,18 @@ class ConnectomeManager(NeuronMappingProvider):
             List of neuron IDs that fired
         """
         # Move to the next FCL window
-        self.fcl_manager.advance_timestep()
+        fcl_manager = self._get_fcl_manager()
+        if fcl_manager:
+            fcl_manager.advance_timestep()
 
         # Let the neuron array handle the update
         fired_indices = self.neuron_array.decay_and_check_firing()
 
         # Add fired neurons to the next FCL
         if len(fired_indices):
-            self.fcl_manager.add_to_current_fcl(fired_indices)
+            fcl_manager = self._get_fcl_manager()
+            if fcl_manager:
+                fcl_manager.add_to_current_fcl(fired_indices)
 
         #  Convert fired indices to neuron IDs - CRITICAL FIX: Use correct
         #  vectorized method
@@ -2230,16 +2289,20 @@ class ConnectomeManager(NeuronMappingProvider):
             #  FCL window size should be at least temporal_depth for pattern
             #  recognition
             # Use default FCL window size as minimum to avoid issues
-            fcl_window_size = max(
-                temporal_depth, self.fcl_manager.default_window_size
-            )
+            fcl_manager = self._get_fcl_manager()
+            default_window_size = 20  # Fallback if FCL manager not available
+            if fcl_manager and hasattr(fcl_manager, 'default_window_size'):
+                default_window_size = fcl_manager.default_window_size
+            
+            fcl_window_size = max(temporal_depth, default_window_size)
 
             logger.info(
                 f"[MEMORY-REG] Registering cortical_idx={cortical_idx} with FCL manager (window_size={fcl_window_size})"
             )
-            self.fcl_manager.register_memory_cortical(
-                cortical_idx, fcl_window_size
-            )
+            if fcl_manager:
+                fcl_manager.register_memory_cortical(
+                    cortical_idx, fcl_window_size
+                )
             logger.info(
                 f"[MEMORY-REG] Successfully registered cortical_idx={cortical_idx} with FCL manager"
             )
