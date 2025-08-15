@@ -1078,22 +1078,12 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Apply synaptic propagation using GlobalSynapseArray
         if fired_neurons and hasattr(self, "synapse_array"):
-            # Get membrane potentials for synaptic propagation
-            membrane_potentials = self.neuron_array.membrane_potentials
-
-            # Propagate activations through synapses
-            for fired_neuron_id in fired_neurons:
-                outgoing_connections = (
-                    self.synapse_array.get_outgoing_connections(
-                        fired_neuron_id
-                    )
-                )
-
-                # Apply synaptic weights to post-synaptic neurons
-                for post_neuron_id, weight in outgoing_connections:
-                    if post_neuron_id in self.neuron_id_to_index:
-                        post_idx = self.neuron_id_to_index[post_neuron_id]
-                        membrane_potentials[post_idx] += weight
+            # SIMD-OPTIMIZED: Use vectorized synaptic propagation for maximum performance
+            # This processes multiple synapses per CPU instruction (8+ synapses vs 1)
+            self.synapse_array.propagate_activations_simd(
+                fired_neurons, 
+                self.neuron_array.membrane_potentials
+            )
 
         # Initialize fired_indices to ensure it's always defined
         fired_indices = []

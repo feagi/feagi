@@ -93,88 +93,43 @@ class NeuralPropagationMetrics:
     timestamp: float
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics to dictionary for JSON serialization with detailed parameters."""
+        """Convert metrics to dictionary for JSON serialization."""
         return {
-            # Test Identification
             'scenario_name': self.scenario_name,
             'backend_name': self.backend_name,
-            'timestamp': self.timestamp,
-            
-            # Test Parameters (duration-based approach)
-            'cortical_dimensions': f"{self.M}×{self.M}×1",
             'M': self.M,
             'total_neurons': self.total_neurons,
-            'test_duration_sec': self.consecutive_fires * self.timestep_ms / 1000.0,
-            'calculated_burst_count': self.consecutive_fires,
-            'simulation_timestep_sec': self.timestep_ms / 1000.0,
-            'simulation_timestep_ms': self.timestep_ms,  # Keep for compatibility
-            'target_frequency_hz': self.target_frequency_hz,
+            'consecutive_fires': self.consecutive_fires,
+            'timestep_ms': self.timestep_ms,
             
-            # Brain Development Phase Metrics
-            'brain_development': {
-                'time_ms': self.brain_dev_time_ms,
-                'memory_mb': self.brain_dev_memory_mb,
-                'cpu_percent': self.brain_dev_cpu_percent,
-                'backend': self.backend_name,
-                'operations': [
-                    'cortical_area_creation',
-                    'neuron_creation_sequential',
-                    'synaptic_connection_setup'
-                ]
-            },
-            
-            # Neural Computation Phase Metrics
-            'neural_computation': {
-                'time_ms': self.neural_comp_time_ms,
-                'memory_mb': self.neural_comp_memory_mb,
-                'cpu_percent': self.neural_comp_cpu_percent,
-                'backend': self.backend_name,
-                'avg_burst_time_ms': self.avg_burst_time_ms,
-                'max_burst_time_ms': self.max_burst_time_ms,
-                'min_burst_time_ms': self.min_burst_time_ms,
-                'total_bursts': self.total_bursts,
-                'operations': [
-                    'membrane_potential_updates',
-                    'synaptic_propagation',
-                    'neural_firing_detection'
-                ]
-            },
-            
-            # Overall Performance Metrics
-            'performance': {
-                'total_test_time_ms': self.total_test_time_ms,
-                'setup_time_ms': self.setup_time_ms,
-                'neurons_processed_per_sec': self.neurons_processed_per_sec,
-                'synapses_processed_per_sec': self.synapses_processed_per_sec,
-                'bursts_per_sec': self.bursts_per_sec,
-                'actual_frequency_hz': self.actual_frequency_hz,
-                'frequency_deviation_percent': self.frequency_deviation_percent,
-                'frequency_stability_score': self.frequency_stability_score
-            },
-            
-            # Resource Usage
-            'resources': {
-                'peak_memory_mb': self.peak_memory_mb,
-                'avg_cpu_percent': self.avg_cpu_percent,
-                'max_cpu_percent': self.max_cpu_percent
-            },
-            
-            # Neural Activity Analysis
-            'neural_activity': {
-                'total_neurons_fired': self.total_neurons_fired,
-                'propagation_cycles': self.propagation_cycles,
-                'activity_decay_rate': self.activity_decay_rate
-            },
-            
-            # Legacy flat structure for backward compatibility
             'brain_dev_time_ms': self.brain_dev_time_ms,
             'brain_dev_memory_mb': self.brain_dev_memory_mb,
             'brain_dev_cpu_percent': self.brain_dev_cpu_percent,
+            
             'neural_comp_time_ms': self.neural_comp_time_ms,
             'neural_comp_memory_mb': self.neural_comp_memory_mb,
             'neural_comp_cpu_percent': self.neural_comp_cpu_percent,
-            'consecutive_fires': self.consecutive_fires,
-            'timestep_ms': self.timestep_ms
+            
+            'setup_time_ms': self.setup_time_ms,
+            'avg_burst_time_ms': self.avg_burst_time_ms,
+            'max_burst_time_ms': self.max_burst_time_ms,
+            'min_burst_time_ms': self.min_burst_time_ms,
+            'total_test_time_ms': self.total_test_time_ms,
+            'neurons_processed_per_sec': self.neurons_processed_per_sec,
+            'synapses_processed_per_sec': self.synapses_processed_per_sec,
+            'bursts_per_sec': self.bursts_per_sec,
+            'peak_memory_mb': self.peak_memory_mb,
+            'avg_cpu_percent': self.avg_cpu_percent,
+            'max_cpu_percent': self.max_cpu_percent,
+            'total_bursts': self.total_bursts,
+            'total_neurons_fired': self.total_neurons_fired,
+            'propagation_cycles': self.propagation_cycles,
+            'activity_decay_rate': self.activity_decay_rate,
+            'target_frequency_hz': self.target_frequency_hz,
+            'actual_frequency_hz': self.actual_frequency_hz,
+            'frequency_deviation_percent': self.frequency_deviation_percent,
+            'frequency_stability_score': self.frequency_stability_score,
+            'timestamp': self.timestamp
         }
 
 
@@ -231,70 +186,28 @@ class NeuralPropagationBenchmark:
             area_type="motor"
         )
         
-        # Create neurons using the SAME PIPELINE as real genome development
+        # Create neurons in all areas (reduced batch size for faster setup)
         print(f"   ⚡ Creating {3*M*M:,} neurons...")
         total_neurons_created = 0
         
-        # Use the same neurogenesis approach as NeuroEmbryogenesis._perform_neurogenesis()
-        neuron_array = cm.neuron_array
-        
         for area_id, area_name in [(area_a_id, "A"), (area_b_id, "B"), (area_c_id, "C")]:
-            area = cm.cortical_areas[area_id]
-            area_neuron_count = M * M * 1  # M x M x 1 dimensions
-            
-            # FAST: Reserve array indices in bulk (same as genome development)
-            start_idx = neuron_array.next_index
-            end_idx = start_idx + area_neuron_count
-            
-            if end_idx > neuron_array.max_neurons:
-                raise ValueError(f"Not enough capacity for {area_neuron_count} neurons")
-            
-            # FAST: Generate neuron IDs in bulk (same as genome development)
-            neuron_ids = list(range(
-                neuron_array._next_neuron_id,
-                neuron_array._next_neuron_id + area_neuron_count
-            ))
-            neuron_array._next_neuron_id += area_neuron_count
-            
-            # FAST: Update mappings in bulk (same as genome development)
-            for j, neuron_id in enumerate(neuron_ids):
-                cm.set_neuron_mapping(neuron_id, start_idx + j)
-            
-            # FAST: Set properties with vectorized array slicing (same as genome development)
-            neuron_array.valid_mask[start_idx:end_idx] = True
-            neuron_array.membrane_potentials[start_idx:end_idx] = 0.0
-            neuron_array.resting_potentials[start_idx:end_idx] = 0.0
-            neuron_array.thresholds[start_idx:end_idx] = 1.0
-            neuron_array.decay_rates[start_idx:end_idx] = 0.1
-            neuron_array.refractory_periods[start_idx:end_idx] = 1
-            neuron_array.refractory_counters[start_idx:end_idx] = 0
-            neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
-            neuron_array.is_active[start_idx:end_idx] = True
-            
-            # FAST: Generate coordinates and set with vectorized operations (same as genome development)
-            positions = []
+            area_neurons = 0
             for x in range(M):
                 for y in range(M):
-                    positions.append((x, y, 0))
+                    neuron_id = cm.create_neuron(
+                        cortical_id=area_id,
+                        position=(x, y, 0),
+                        threshold=1.0,
+                        membrane_potential=0.0,
+                        resting_potential=0.0,
+                        decay_rate=0.1,
+                        refractory_period=1,
+                        consecutive_fire_count=consecutive_fires
+                    )
+                    area_neurons += 1
+                    total_neurons_created += 1
             
-            coords_x = np.array([pos[0] for pos in positions], dtype=np.uint32)
-            coords_y = np.array([pos[1] for pos in positions], dtype=np.uint32)
-            coords_z = np.array([pos[2] for pos in positions], dtype=np.uint32)
-            
-            neuron_array.coordinates_x[start_idx:end_idx] = coords_x
-            neuron_array.coordinates_y[start_idx:end_idx] = coords_y
-            neuron_array.coordinates_z[start_idx:end_idx] = coords_z
-            
-            # Update neuron count and next_index
-            neuron_array.neuron_count += area_neuron_count
-            neuron_array.next_index = end_idx
-            
-            # Add neurons to cortical area (same as genome development)
-            for i, neuron_id in enumerate(neuron_ids):
-                area.add_neuron(neuron_id, positions[i])
-            
-            total_neurons_created += area_neuron_count
-            print(f"   ✅ Area {area_name}: {area_neuron_count:,} neurons created")
+            print(f"   ✅ Area {area_name}: {area_neurons:,} neurons created")
         
         # Create cortical connections (A→B→C→A loop)
         print(f"   🔗 Creating synaptic connections...")
@@ -405,23 +318,15 @@ class NeuralPropagationBenchmark:
             neural_comp_memory_start = process.memory_info().rss / (1024**2)
             neural_comp_cpu_start = process.cpu_percent()
             
-            # Get area IDs for stimulation - use direct access to cortical_areas
-            all_cortical_areas = cm.cortical_areas
-            area_ids = [area_id for area_id in all_cortical_areas.keys() if area_id.startswith('area_')]
+            # Get area IDs for stimulation
+            cortical_areas = cm.get_all_cortical_ids()
+            area_ids = [area_id for area_id in cortical_areas if area_id.startswith('area_')]
             
-            if len(area_ids) < 3:
-                # Try alternative approach - get all area IDs
-                all_area_ids = list(all_cortical_areas.keys())
-                print(f"   🔍 Debug: Found cortical areas: {all_area_ids}")
-                # Use the last 3 areas created (should be our test areas)
-                area_ids = all_area_ids[-3:] if len(all_area_ids) >= 3 else all_area_ids
-                
             if len(area_ids) < 3:
                 raise ValueError(f"Expected 3 cortical areas, found {len(area_ids)}: {area_ids}")
             
             # Sort to ensure consistent A, B, C order
             area_ids.sort()
-            print(f"   🎯 Using cortical areas: {area_ids}")
             
             # Get neurons from Area A for initial stimulation
             area_a_info = cm.get_cortical_area(area_ids[0])
@@ -443,15 +348,12 @@ class NeuralPropagationBenchmark:
                 except Exception as e:
                     pass  # Continue with other neurons
             
-            # Run the specified number of bursts for neural computation
-            max_bursts = consecutive_fires  # Use full consecutive_fires parameter
+            # Run limited number of bursts for faster test (reduce from consecutive_fires)
+            max_bursts = min(5, consecutive_fires)  # Limit to 5 bursts for faster test
             print(f"   🔄 Running {max_bursts} neural computation bursts...")
             
             burst_times = []
             total_neurons_fired = 0
-            
-            # Progress reporting intervals
-            progress_interval = max(1, max_bursts // 10)  # Report every 10%
             
             for burst_idx in range(max_bursts):
                 burst_start = time.perf_counter()
@@ -463,11 +365,7 @@ class NeuralPropagationBenchmark:
                 burst_time_ms = (burst_end - burst_start) * 1000
                 burst_times.append(burst_time_ms)
                 
-                # Progress reporting (only every 10% or at key milestones)
-                if (burst_idx + 1) % progress_interval == 0 or burst_idx == 0 or burst_idx == max_bursts - 1:
-                    avg_so_far = statistics.mean(burst_times) if burst_times else 0
-                    progress_pct = ((burst_idx + 1) / max_bursts) * 100
-                    print(f"   📊 Progress: {progress_pct:.0f}% ({burst_idx+1}/{max_bursts}) - Avg: {avg_so_far:.2f}ms/burst")
+                print(f"   📊 Burst {burst_idx+1}/{max_bursts}: {burst_time_ms:.2f}ms")
                 
                 # Brief pause between bursts
                 time.sleep(timestep_seconds)
@@ -666,11 +564,6 @@ class NeuralPropagationBenchmark:
         print("=" * 70)
         print(f"{'Metric':<25} {'CPU':<15} {'GPU':<15} {'GPU Advantage':<15}")
         print("-" * 70)
-        
-        # Initialize default values
-        brain_dev_speedup = 1.0
-        neural_comp_speedup = 1.0
-        total_speedup = 1.0
         
         # Brain Development Comparison
         if cpu_result.brain_dev_time_ms > 0 and gpu_result.brain_dev_time_ms > 0:

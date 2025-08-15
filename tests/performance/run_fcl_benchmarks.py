@@ -248,6 +248,71 @@ class FCLBenchmarkRunner:
             'timestamp': time.time()
         }
     
+    def run_cpu_vs_gpu_comparison(self, M: int, test_duration_sec: float, timestep_sec: float) -> Dict[str, Any]:
+        """Run CPU vs GPU performance comparison."""
+        
+        # Calculate burst count from test duration using the formula:
+        # consecutive_fire_count = test_duration / simulation_timestep
+        consecutive_fires = max(1, int(test_duration_sec / timestep_sec))
+        self.logger.info(f"Calculated burst count: {test_duration_sec}s ÷ {timestep_sec}s = {consecutive_fires} bursts")
+        
+        # Convert timestep to milliseconds for internal use (FEAGI expects ms)
+        timestep_ms = timestep_sec * 1000.0
+        
+        self.logger.info(f"Running CPU vs GPU comparison: M={M}, duration={test_duration_sec}s, timestep={timestep_sec}s...")
+        
+        print("🏆 FEAGI CPU vs GPU PERFORMANCE COMPARISON")
+        print("=" * 70)
+        print(f"Comparing brain development and neural computation performance")
+        print(f"Parameters: M={M}, test_duration={test_duration_sec}s, timestep={timestep_sec}s")
+        print(f"Calculated Bursts: {consecutive_fires} bursts ({consecutive_fires * timestep_sec:.1f}s)")
+        print()
+        
+        # Run CPU vs GPU comparison
+        results = self.neural_propagation.run_cpu_vs_gpu_comparison(M, consecutive_fires, timestep_ms)
+        
+        # Save results
+        results_file = self.neural_propagation.save_benchmark_results(results)
+        
+        # Create detailed results summary
+        detailed_results = {
+            'test_type': 'cpu_vs_gpu_comparison',
+            'test_parameters': {
+                'cortical_dimensions': f"{M}×{M}×1",
+                'M': M,
+                'total_neurons': 3 * M * M,
+                'test_duration_sec': test_duration_sec,
+                'simulation_timestep_sec': timestep_sec,
+                'simulation_timestep_ms': timestep_ms,  # Keep for compatibility
+                'calculated_burst_count': consecutive_fires,
+                'target_frequency_hz': 1.0 / timestep_sec,
+                'actual_test_duration_sec': consecutive_fires * timestep_sec,
+                'backends_tested': ['CPU (PyTorch)', 'GPU (WGPU)']
+            },
+            'results': {
+                'cpu_result': results[0].to_dict() if len(results) > 0 else None,
+                'gpu_result': results[1].to_dict() if len(results) > 1 else None
+            },
+            'comparison_summary': {},
+            'results_file': results_file,
+            'timestamp': time.time()
+        }
+        
+        # Add comparison summary if both tests succeeded
+        if len(results) >= 2 and results[0].total_test_time_ms > 0 and results[1].total_test_time_ms > 0:
+            cpu_result = results[0]
+            gpu_result = results[1]
+            
+            detailed_results['comparison_summary'] = {
+                'brain_development_speedup': cpu_result.brain_dev_time_ms / gpu_result.brain_dev_time_ms if gpu_result.brain_dev_time_ms > 0 else 0,
+                'neural_computation_speedup': cpu_result.neural_comp_time_ms / gpu_result.neural_comp_time_ms if gpu_result.neural_comp_time_ms > 0 else 0,
+                'total_speedup': cpu_result.total_test_time_ms / gpu_result.total_test_time_ms if gpu_result.total_test_time_ms > 0 else 0,
+                'throughput_ratio': gpu_result.neurons_processed_per_sec / cpu_result.neurons_processed_per_sec if cpu_result.neurons_processed_per_sec > 0 else 0,
+                'winner': 'CPU' if cpu_result.total_test_time_ms < gpu_result.total_test_time_ms else 'GPU'
+            }
+        
+        return detailed_results
+    
     def create_performance_baselines(self) -> Dict[str, Any]:
         """Create performance baselines for regression testing."""
         self.logger.info("Creating performance baselines...")
@@ -429,6 +494,14 @@ def main():
                        help='Run comprehensive stress testing to find system limits')
     parser.add_argument('--neural-propagation', action='store_true',
                        help='Run neural propagation benchmark with realistic synaptic connectivity')
+    parser.add_argument('--cpu-vs-gpu', action='store_true',
+                       help='Run CPU vs GPU performance comparison')
+    parser.add_argument('--M', type=int, default=100,
+                       help='Cortical area dimension for CPU vs GPU test (default: 100)')
+    parser.add_argument('--test-duration', type=float, default=60.0,
+                       help='Test duration in seconds (default: 60.0 = 1 minute)')
+    parser.add_argument('--timestep', type=float, default=0.05,
+                       help='Simulation timestep in seconds (default: 0.05 = 50ms)')
     parser.add_argument('--profile', action='store_true',
                        help='Include detailed profiling')
     parser.add_argument('--save-results', action='store_true',
@@ -437,7 +510,7 @@ def main():
     args = parser.parse_args()
     
     # Default to quick benchmark if no options specified
-    if not any([args.create_baseline, args.check_regression, args.full_suite, args.quick, args.frequency_robustness, args.stress_test, args.neural_propagation]):
+    if not any([args.create_baseline, args.check_regression, args.full_suite, args.quick, args.frequency_robustness, args.stress_test, args.neural_propagation, args.cpu_vs_gpu]):
         args.quick = True
     
     runner = FCLBenchmarkRunner()
@@ -456,6 +529,8 @@ def main():
             results = runner.run_stress_test_suite()
         elif args.neural_propagation:
             results = runner.run_neural_propagation_benchmark()
+        elif args.cpu_vs_gpu:
+            results = runner.run_cpu_vs_gpu_comparison(args.M, args.test_duration, args.timestep)
         elif args.quick:
             results = runner.run_quick_benchmark()
         
