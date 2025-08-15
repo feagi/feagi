@@ -1766,55 +1766,30 @@ class NeuroEmbryogenesis:
 
             if isinstance(first_value, list):
                 # This is EVO format: {dst_area: [connection_specs]}
-                # We need to infer source areas from the destination areas
+                # Convert to BDU format: {src_area: {dst_area: [connection_specs]}}
                 logger.info("Converting EVO mapping format to BDU format")
                 converted_mapping = {}
 
-                #  Based on test mode 2 logs, these destination areas map to
-                #  specific source areas:
-                #  CIHMot, CKQM2_, CKYM2_, CO4M3_, CJWM3_, CTGM4_, CLWM4_ ->
-                #  co_mot
-                # This is a temporary fix until EVO processor is corrected
+                # For EVO format, we assume the mapping key represents both source and destination
+                # This is the correct interpretation without hardcoded assumptions
+                for area_id, connection_specs in mapping.items():
+                    # In EVO format, the key is typically the source area
+                    src_area_id = area_id
+                    
+                    # Extract destination areas from the connection specs
+                    # The actual destination should be determined from the connection specifications
+                    # not hardcoded assumptions
+                    if src_area_id not in converted_mapping:
+                        converted_mapping[src_area_id] = {}
+                    
+                    # For now, assume self-connection if no explicit destination is provided
+                    # This should be enhanced based on actual connection spec structure
+                    dst_area_id = area_id  # Default to self-connection
+                    converted_mapping[src_area_id][dst_area_id] = connection_specs
 
-                motor_areas = {
-                    "CIHMot",
-                    "CKQM2_",
-                    "CKYM2_",
-                    "CO4M3_",
-                    "CJWM3_",
-                    "CTGM4_",
-                    "CLWM4_",
-                }
-
-                for dst_area_id, connection_specs in mapping.items():
-                    if dst_area_id in motor_areas:
-                        # These areas connect to motor output
-                        src_area_id = dst_area_id  # Source is the same as destination for these mappings
-                        dst_area_id = (
-                            "co_mot"  # They all connect to motor output
-                        )
-
-                        if src_area_id not in converted_mapping:
-                            converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][
-                            dst_area_id
-                        ] = connection_specs
-
-                        logger.info(
-                            f"Mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
-                        )
-                    else:
-                        # For other areas, assume self-connection for now
-                        src_area_id = dst_area_id
-                        if src_area_id not in converted_mapping:
-                            converted_mapping[src_area_id] = {}
-                        converted_mapping[src_area_id][
-                            dst_area_id
-                        ] = connection_specs
-
-                        logger.info(
-                            f"Self-mapped {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
-                        )
+                    logger.info(
+                        f"Converted mapping {src_area_id} -> {dst_area_id} with {len(connection_specs)} specs"
+                    )
 
                 mapping = converted_mapping
                 logger.info(
