@@ -1080,10 +1080,16 @@ class ConnectomeManager(NeuronMappingProvider):
         if fired_neurons and hasattr(self, "synapse_array"):
             # SIMD-OPTIMIZED: Use vectorized synaptic propagation for maximum performance
             # This processes multiple synapses per CPU instruction (8+ synapses vs 1)
+            logger.info(f"🔥 SYNAPTIC PROPAGATION: {len(fired_neurons)} fired neurons, calling propagate_activations_simd")
             self.synapse_array.propagate_activations_simd(
                 fired_neurons, 
                 self.neuron_array.membrane_potentials
             )
+        else:
+            if not fired_neurons:
+                logger.debug(f"⚠️ No synaptic propagation: no fired neurons")
+            elif not hasattr(self, "synapse_array"):
+                logger.warning(f"⚠️ No synaptic propagation: no synapse_array attribute")
 
         # Initialize fired_indices to ensure it's always defined
         fired_indices = []

@@ -265,7 +265,7 @@ class NeuralPropagationBenchmark:
             neuron_array.membrane_potentials[start_idx:end_idx] = 0.0
             neuron_array.resting_potentials[start_idx:end_idx] = 0.0
             neuron_array.thresholds[start_idx:end_idx] = 1.0
-            neuron_array.decay_rates[start_idx:end_idx] = 0.1
+            neuron_array.decay_rates[start_idx:end_idx] = 1.0  # NO DECAY - sustain activity
             neuron_array.refractory_periods[start_idx:end_idx] = 1
             neuron_array.refractory_counters[start_idx:end_idx] = 0
             neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
@@ -322,6 +322,51 @@ class NeuralPropagationBenchmark:
             target_area_id=area_a_id,
             properties={"morphology_name": "block_to_block"}
         )
+        
+        # CRITICAL: Actually create synapses between cortical areas
+        # The add_cortical_connection() calls above only store metadata, not actual synapses!
+        print(f"   🔗 Creating actual synapses between areas...")
+        
+        # Get neurons from each area
+        area_a_neurons = list(cm.cortical_areas[area_a_id].neurons)
+        area_b_neurons = list(cm.cortical_areas[area_b_id].neurons)
+        area_c_neurons = list(cm.cortical_areas[area_c_id].neurons)
+        
+        # Create synapses: A → B (block_to_block: each neuron in A connects to corresponding neuron in B)
+        synapse_specs = []
+        weight = 5.0  # Strong enough to ensure downstream neurons fire
+        
+        print(f"   🔗 Creating block_to_block connectivity as specified...")
+        
+        # A → B connections (block_to_block: 1:1 mapping)
+        for i, pre_neuron in enumerate(area_a_neurons):
+            if i < len(area_b_neurons):  # Ensure we don't exceed target area size
+                post_neuron = area_b_neurons[i]
+                synapse_specs.append((pre_neuron, post_neuron, weight))
+        
+        # B → C connections (block_to_block: 1:1 mapping)
+        for i, pre_neuron in enumerate(area_b_neurons):
+            if i < len(area_c_neurons):
+                post_neuron = area_c_neurons[i]
+                synapse_specs.append((pre_neuron, post_neuron, weight))
+        
+        # C → A connections (block_to_block: 1:1 mapping, completing the loop)
+        for i, pre_neuron in enumerate(area_c_neurons):
+            if i < len(area_a_neurons):
+                post_neuron = area_a_neurons[i]
+                synapse_specs.append((pre_neuron, post_neuron, weight))
+        
+        # Batch create all synapses
+        synapses_created = cm.batch_create_synapses(synapse_specs)
+        print(f"   ✅ Created {synapses_created:,} synapses")
+        
+        # DEBUG: Verify synapses were actually created
+        synapse_stats = cm.synapse_array.get_statistics()
+        print(f"   📊 Total synapses in array: {synapse_stats['synapse_count']:,}")
+        if synapse_stats['synapse_count'] == 0:
+            print(f"   ⚠️ WARNING: No synapses created! Neural propagation will not work.")
+        else:
+            print(f"   🎯 Synaptic connectivity established: A→B→C→A loop ready")
         
         # Create BurstEngine
         be = BurstEngine(cm)
@@ -430,9 +475,9 @@ class NeuralPropagationBenchmark:
             else:
                 area_a_neurons = list(range(M * M))
             
-            # Reduce stimulation for faster test (stimulate subset of neurons)
-            stimulation_count = min(1000, len(area_a_neurons))  # Limit to 1000 neurons for faster test
-            area_a_neurons = area_a_neurons[:stimulation_count]
+            # Fire ALL neurons in Area A for maximum GPU workload
+            stimulation_count = len(area_a_neurons)  # Fire ALL neurons in Area A
+            # area_a_neurons already contains all neurons - no need to slice
             
             print(f"   🔥 Initial stimulation: firing {len(area_a_neurons):,} neurons in Area A")
             
@@ -462,6 +507,25 @@ class NeuralPropagationBenchmark:
                 burst_end = time.perf_counter()
                 burst_time_ms = (burst_end - burst_start) * 1000
                 burst_times.append(burst_time_ms)
+                
+                # DEBUG: Check neural activity and count fired neurons
+                active_neurons = np.sum(cm.active_neurons)
+                
+                # Count neurons that actually fired (have membrane potential >= threshold)
+                fired_neurons_count = 0
+                if hasattr(cm, 'neuron_array') and cm.neuron_array.neuron_count > 0:
+                    potentials = cm.neuron_array.membrane_potentials[:cm.neuron_array.neuron_count]
+                    thresholds = cm.neuron_array.thresholds[:cm.neuron_array.neuron_count]
+                    fired_neurons_count = np.sum(potentials >= thresholds)
+                
+                if burst_idx % 50 == 0 or burst_idx < 5:
+                    # Check membrane potentials
+                    max_potential = np.max(cm.neuron_array.membrane_potentials[:cm.neuron_array.neuron_count])
+                    avg_potential = np.mean(cm.neuron_array.membrane_potentials[:cm.neuron_array.neuron_count])
+                    threshold_sample = cm.neuron_array.thresholds[0] if cm.neuron_array.neuron_count > 0 else 0
+                    print(f"   🧠 Burst {burst_idx+1}: {active_neurons} active neurons, {fired_neurons_count:,} fired neurons, max_potential={max_potential:.3f}, avg_potential={avg_potential:.3f}, threshold={threshold_sample:.3f}")
+                else:
+                    print(f"   🧠 Burst {burst_idx+1}: {active_neurons} active neurons, {fired_neurons_count:,} fired neurons")
                 
                 # Progress reporting (only every 10% or at key milestones)
                 if (burst_idx + 1) % progress_interval == 0 or burst_idx == 0 or burst_idx == max_bursts - 1:

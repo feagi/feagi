@@ -100,7 +100,23 @@ class GlobalSynapseArray:
         # Spatial indexing for fast lookup - CSR-style indices
         # This enables O(log N) synapse lookups instead of O(N) scans
         self.pre_neuron_index = {}  # neuron_id -> list of synapse indices
-        self.post_neuron_index = {}  # neuron_id -> list of synapse indices
+        self.post_neuron_index = {}
+        
+        # GPU backend for accelerated operations
+        self._gpu_backend = None
+        logger.info(f"🔍 BACKEND DEBUG: GlobalSynapseArray received backend='{backend}'")
+        if backend == "wgpu":
+            try:
+                from feagi.bdu.models.array_backend import ArrayBackend, BackendType
+                self._gpu_backend = ArrayBackend(BackendType.WGPU)
+                logger.info("✅ GPU backend initialized for synaptic propagation acceleration")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize GPU backend: {e}")
+                import traceback
+                logger.error(f"   📋 Full traceback: {traceback.format_exc()}")
+                self._gpu_backend = None
+        else:
+            logger.info(f"💻 CPU backend selected: '{backend}' (not 'wgpu')")  # neuron_id -> list of synapse indices
 
         # Free slot management for O(1) deletion
         self.free_slots = []  # Stack of available slots
@@ -381,7 +397,10 @@ class GlobalSynapseArray:
         if not firing_neurons:
             return
 
-        # Process each firing neuron
+        # Collect all synapses from all firing neurons for batch processing
+        all_target_neurons = []
+        all_synapse_weights = []
+        
         for neuron_id in firing_neurons:
             if neuron_id not in self.pre_neuron_index:
                 continue
@@ -397,10 +416,49 @@ class GlobalSynapseArray:
             # Get target neurons and weights in vectorized fashion
             target_neurons = self.post_neuron_ids[synapse_indices]
             synapse_weights = self.weights[synapse_indices]
+            
+            # Accumulate for batch processing
+            all_target_neurons.extend(target_neurons)
+            all_synapse_weights.extend(synapse_weights)
 
-            # Apply synaptic transmission (vectorized)
-            # This is SIMD-optimized by NumPy
-            np.add.at(target_potentials, target_neurons, synapse_weights)
+        if not all_target_neurons:
+            return
+            
+        # Convert to numpy arrays for processing
+        target_neurons_array = np.array(all_target_neurons, dtype=np.uint32)
+        synapse_weights_array = np.array(all_synapse_weights, dtype=np.float32)
+        
+        # Try GPU acceleration if available
+        if hasattr(self, '_gpu_backend') and self._gpu_backend is not None:
+            logger.info(f"🚀 AUTO-TUNED GPU: Attempting optimized GPU synaptic propagation for {len(all_target_neurons)} synapses")
+            try:
+                # AUTO-TUNED GPU-ACCELERATED SYNAPTIC PROPAGATION
+                # Use intelligent method selection based on workload and performance history
+                logger.info(f"   🎯 Using auto-tuned GPU optimization with performance profiling")
+                
+                # Execute auto-tuned GPU compute with optimal method selection
+                self._gpu_backend.wgpu_auto_tuned_synaptic_propagation(
+                    target_neurons_array, 
+                    synapse_weights_array, 
+                    target_potentials
+                )
+                
+                logger.info(f"✅ AUTO-TUNED GPU synaptic propagation SUCCESS: {len(all_target_neurons)} synapses processed with intelligent optimization")
+                return
+                
+            except Exception as e:
+                logger.error(f"❌ GPU synaptic propagation FAILED, falling back to CPU: {e}")
+                import traceback
+                logger.error(f"   📋 Full traceback: {traceback.format_exc()}")
+        else:
+            logger.info(f"💻 CPU FALLBACK: No GPU backend available, using CPU SIMD for {len(all_target_neurons)} synapses")
+        
+        # CPU FALLBACK: SIMD-optimized NumPy operations
+        # Apply synaptic transmission (vectorized)
+        # This is SIMD-optimized by NumPy
+        logger.debug(f"   🔧 Executing CPU SIMD synaptic propagation")
+        np.add.at(target_potentials, target_neurons_array, synapse_weights_array)
+        logger.debug(f"   ✅ CPU SIMD synaptic propagation completed")
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get performance and usage statistics."""
