@@ -23,6 +23,7 @@ not the browser-based 'WebGPU' web standard.
 
 import logging
 import time
+import threading
 from enum import Enum
 from typing import Any, Dict, Tuple, Union
 
@@ -140,6 +141,16 @@ class ArrayBackend:
         logger.info(
             f"Using array backend: {backend_name} with precision: {precision_name}"
         )
+        
+        # HYBRID CPU/GPU SYSTEM INITIALIZATION
+        self._load_hybrid_config()
+        self.cpu_backend_available = True
+        self.gpu_backend_available = (self.backend_type == BackendType.WGPU and hasattr(self, 'device'))
+        self.keepalive_manager = None
+        
+        # Initialize hybrid system if GPU is available
+        if self.gpu_backend_available and self.hybrid_enabled:
+            self._initialize_hybrid_system()
 
     def _resolve_backend_type(self, backend_type: BackendType) -> BackendType:
         """Resolve AUTO backend to a specific backend type.
@@ -2848,3 +2859,288 @@ class ArrayBackend:
             return True  # WGPU is GPU-based
         else:
             return False  # NumPy is CPU-only
+    
+    # ============================================================================
+    # HYBRID CPU/GPU SYSTEM
+    # ============================================================================
+    
+    def _load_hybrid_config(self):
+        """Load hybrid CPU/GPU configuration from FEAGI config."""
+        try:
+            from feagi.config.toml_loader import load_feagi_config
+            config = load_feagi_config()
+            
+            # Load hybrid configuration with defaults
+            hybrid_config = config.get("neural", {}).get("hybrid", {})
+            
+            self.hybrid_enabled = hybrid_config.get("enabled", True)
+            self.gpu_threshold = hybrid_config.get("gpu_threshold", 1_000_000)
+            self.keepalive_enabled = hybrid_config.get("keepalive_enabled", True)
+            self.keepalive_interval = hybrid_config.get("keepalive_interval", 30.0)
+            self.auto_tune_threshold = hybrid_config.get("auto_tune_threshold", False)
+            
+            logger.info(f"🔀 Hybrid config loaded: enabled={self.hybrid_enabled}, threshold={self.gpu_threshold:,}")
+            
+        except Exception as e:
+            # Fallback to defaults if config loading fails
+            logger.warning(f"⚠️ Failed to load hybrid config, using defaults: {e}")
+            self.hybrid_enabled = True
+            self.gpu_threshold = 1_000_000
+            self.keepalive_enabled = True
+            self.keepalive_interval = 30.0
+            self.auto_tune_threshold = False
+    
+    def _initialize_hybrid_system(self):
+        """Initialize hybrid CPU/GPU processing system."""
+        logger.info("🔀 Initializing hybrid CPU/GPU system...")
+        
+        # Check if brain is large enough for GPU keep-alive
+        brain_eligible = self._is_brain_eligible_for_gpu_keepalive()
+        
+        # Initialize GPU keep-alive manager
+        if self.gpu_backend_available and self.keepalive_enabled and brain_eligible:
+            self.keepalive_manager = GPUKeepAliveManager(self, self.keepalive_interval)
+            self.keepalive_manager.start_keepalive()
+            logger.info(f"   ✅ GPU keep-alive system started (interval: {self.keepalive_interval}s)")
+        elif self.gpu_backend_available and self.keepalive_enabled and not brain_eligible:
+            logger.info(f"   ⚠️ GPU keep-alive disabled: brain too small (will check again when brain grows)")
+        elif self.gpu_backend_available:
+            logger.info(f"   ⚠️ GPU keep-alive disabled by configuration")
+        
+        logger.info(f"   🎯 Hybrid system ready: CPU for <{self.gpu_threshold:,}, GPU for ≥{self.gpu_threshold:,} synapses")
+    
+    def _is_brain_eligible_for_gpu_keepalive(self) -> bool:
+        """Check if brain is large enough to warrant GPU keep-alive."""
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            return state_manager.is_gpu_keepalive_eligible()
+        except Exception as e:
+            logger.warning(f"Failed to check brain eligibility for GPU keep-alive: {e}")
+            return False
+    
+    def update_keepalive_based_on_brain_size(self):
+        """Update GPU keep-alive system based on current brain size.
+        
+        This should be called when brain structure changes to dynamically
+        start or stop the keep-alive system based on brain size.
+        """
+        if not self.gpu_backend_available or not self.keepalive_enabled:
+            return
+        
+        brain_eligible = self._is_brain_eligible_for_gpu_keepalive()
+        keepalive_running = self.keepalive_manager is not None and not self.keepalive_manager._shutdown
+        
+        if brain_eligible and not keepalive_running:
+            # Brain grew large enough - start keep-alive
+            logger.info("🔀 Brain size increased: starting GPU keep-alive system")
+            self.keepalive_manager = GPUKeepAliveManager(self, self.keepalive_interval)
+            self.keepalive_manager.start_keepalive()
+            logger.info(f"   ✅ GPU keep-alive system started (interval: {self.keepalive_interval}s)")
+            
+        elif not brain_eligible and keepalive_running:
+            # Brain shrunk too small - stop keep-alive
+            logger.info("🔀 Brain size decreased: stopping GPU keep-alive system")
+            self.keepalive_manager.shutdown()
+            self.keepalive_manager = None
+            logger.info("   ⚠️ GPU keep-alive system stopped (brain too small)")
+    
+    def should_use_gpu(self, workload_size: int) -> bool:
+        """Determine whether to use GPU based on workload size and system state.
+        
+        Args:
+            workload_size: Number of synapses to process
+            
+        Returns:
+            True if GPU should be used, False for CPU
+        """
+        if not self.hybrid_enabled:
+            return self.gpu_backend_available
+        
+        if not self.gpu_backend_available:
+            return False
+        
+        if workload_size < self.gpu_threshold:
+            return False
+        
+        return True
+    
+    def hybrid_synaptic_propagation(self, target_neurons: Any, synapse_weights: Any, membrane_potentials: Any) -> None:
+        """Intelligent CPU/GPU hybrid synaptic propagation.
+        
+        Automatically selects CPU or GPU based on workload size and system state.
+        
+        Args:
+            target_neurons: Target neuron indices
+            synapse_weights: Synaptic weights
+            membrane_potentials: Membrane potential array to update
+        """
+        workload_size = len(target_neurons) if hasattr(target_neurons, '__len__') else target_neurons.size
+        
+        use_gpu = self.should_use_gpu(workload_size)
+        
+        if use_gpu:
+            logger.info(f"🚀 HYBRID: Using GPU for {workload_size:,} synapses (≥{self.gpu_threshold:,} threshold)")
+            try:
+                # Notify keep-alive manager of GPU use
+                if self.keepalive_manager:
+                    self.keepalive_manager.notify_gpu_use()
+                
+                # Use GPU with auto-tuned optimization
+                self.wgpu_auto_tuned_synaptic_propagation(target_neurons, synapse_weights, membrane_potentials)
+                logger.info(f"   ✅ GPU processing completed successfully")
+                return
+                
+            except Exception as e:
+                logger.warning(f"   ⚠️ GPU processing failed, falling back to CPU: {e}")
+                # Fall through to CPU processing
+        else:
+            logger.info(f"💻 HYBRID: Using CPU for {workload_size:,} synapses (<{self.gpu_threshold:,} threshold)")
+        
+        # CPU processing (fallback or by design)
+        logger.debug(f"   🔧 Executing CPU SIMD synaptic propagation")
+        np.add.at(membrane_potentials, target_neurons, synapse_weights)
+        logger.debug(f"   ✅ CPU processing completed successfully")
+    
+    def update_gpu_threshold(self, new_threshold: int):
+        """Update GPU threshold for hybrid processing.
+        
+        Args:
+            new_threshold: New threshold in number of synapses
+        """
+        old_threshold = self.gpu_threshold
+        self.gpu_threshold = new_threshold
+        logger.info(f"🎯 GPU threshold updated: {old_threshold:,} → {new_threshold:,} synapses")
+    
+    def get_hybrid_stats(self) -> Dict[str, Any]:
+        """Get hybrid system statistics.
+        
+        Returns:
+            Dictionary with hybrid system statistics
+        """
+        stats = {
+            'hybrid_enabled': self.hybrid_enabled,
+            'gpu_threshold': self.gpu_threshold,
+            'cpu_available': self.cpu_backend_available,
+            'gpu_available': self.gpu_backend_available,
+            'keepalive_active': self.keepalive_manager is not None and not self.keepalive_manager._shutdown
+        }
+        
+        if self.keepalive_manager:
+            stats.update(self.keepalive_manager.get_stats())
+        
+        return stats
+    
+    def shutdown_hybrid_system(self):
+        """Shutdown hybrid system and cleanup resources."""
+        if self.keepalive_manager:
+            logger.info("🔄 Shutting down GPU keep-alive system...")
+            self.keepalive_manager.shutdown()
+            self.keepalive_manager = None
+            logger.info("   ✅ GPU keep-alive system shutdown complete")
+
+
+class GPUKeepAliveManager:
+    """Manages GPU keep-alive to prevent cold start overhead.
+    
+    This system runs a background thread that periodically executes minimal
+    GPU operations to keep the GPU device and drivers warm, preventing the
+    performance penalty of cold starts.
+    """
+    
+    def __init__(self, gpu_backend, keepalive_interval: float = 30.0):
+        """Initialize GPU keep-alive manager.
+        
+        Args:
+            gpu_backend: ArrayBackend instance with GPU support
+            keepalive_interval: Interval between keep-alive operations in seconds
+        """
+        self.gpu_backend = gpu_backend
+        self.last_gpu_use = time.time()
+        self.keepalive_interval = keepalive_interval
+        self.keepalive_workload = self._create_minimal_workload()
+        self._keepalive_thread = None
+        self._shutdown = False
+        self._stats = {
+            'keepalive_operations': 0,
+            'keepalive_failures': 0,
+            'total_gpu_uses': 0
+        }
+        
+    def _create_minimal_workload(self):
+        """Create minimal workload for keep-alive operations.
+        
+        Returns:
+            Dictionary with minimal test data
+        """
+        return {
+            'neurons': np.array([0, 1, 2], dtype=np.uint32),
+            'weights': np.array([0.001, 0.001, 0.001], dtype=np.float32),
+            'potentials': np.zeros(10, dtype=np.float32)
+        }
+    
+    def start_keepalive(self):
+        """Start background keep-alive thread."""
+        if self._keepalive_thread is None:
+            self._keepalive_thread = threading.Thread(
+                target=self._keepalive_loop, daemon=True, name="GPU-KeepAlive"
+            )
+            self._keepalive_thread.start()
+            logger.info("🔄 GPU keep-alive thread started")
+    
+    def _keepalive_loop(self):
+        """Background loop to keep GPU warm."""
+        while not self._shutdown:
+            time.sleep(1.0)  # Check every second
+            
+            time_since_use = time.time() - self.last_gpu_use
+            if time_since_use > self.keepalive_interval:
+                try:
+                    # Minimal GPU operation to keep it warm
+                    logger.debug("🔄 Executing GPU keep-alive operation...")
+                    self.gpu_backend.wgpu_synaptic_propagation(
+                        self.keepalive_workload['neurons'],
+                        self.keepalive_workload['weights'],
+                        self.keepalive_workload['potentials']
+                    )
+                    self.last_gpu_use = time.time()
+                    self._stats['keepalive_operations'] += 1
+                    logger.debug("   ✅ GPU keep-alive operation completed")
+                    
+                except Exception as e:
+                    self._stats['keepalive_failures'] += 1
+                    logger.debug(f"   ⚠️ GPU keep-alive operation failed: {e}")
+    
+    def notify_gpu_use(self):
+        """Notify that GPU was used (reset keep-alive timer).
+        
+        Call this whenever the GPU is used for actual work to reset
+        the keep-alive timer and avoid unnecessary operations.
+        """
+        self.last_gpu_use = time.time()
+        self._stats['total_gpu_uses'] += 1
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get keep-alive statistics.
+        
+        Returns:
+            Dictionary with keep-alive statistics
+        """
+        return {
+            'keepalive_interval': self.keepalive_interval,
+            'time_since_last_use': time.time() - self.last_gpu_use,
+            'keepalive_operations': self._stats['keepalive_operations'],
+            'keepalive_failures': self._stats['keepalive_failures'],
+            'total_gpu_uses': self._stats['total_gpu_uses']
+        }
+    
+    def shutdown(self):
+        """Shutdown keep-alive system."""
+        logger.debug("🔄 Shutting down GPU keep-alive manager...")
+        self._shutdown = True
+        if self._keepalive_thread:
+            self._keepalive_thread.join(timeout=2.0)
+            if self._keepalive_thread.is_alive():
+                logger.warning("   ⚠️ Keep-alive thread did not shutdown cleanly")
+            else:
+                logger.debug("   ✅ Keep-alive thread shutdown complete")

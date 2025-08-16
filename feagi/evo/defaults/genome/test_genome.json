@@ -1592,7 +1592,7 @@
     "_____10c-_power-cx-mem__t-i": 100,
     "_____10c-_power-cx-mem_gr-i": 1,
     "_____10c-_power-cx-mem_ls-i": 9,
-    "_____10c-_power-nx-excite-f": 100,
+    "_____10c-_power-nx-excite-f": 1,
     "_____10c-_power-cx-__name-t": "Brain_Power",
     "_____10c-_power-cx-_group-t": "CORE",
     "_____10c-iic400-cx-subgrp-t": "",
@@ -1628,7 +1628,7 @@
     "_____10c-iic400-cx-mem__t-i": 100,
     "_____10c-iic400-cx-mem_gr-i": 1,
     "_____10c-iic400-cx-mem_ls-i": 9,
-    "_____10c-iic400-nx-excite-f": 100,
+    "_____10c-iic400-nx-excite-f": 1,
     "_____10c-iic400-cx-__name-t": "vision_C",
     "_____10c-iic400-cx-_group-t": "IPU"
   }

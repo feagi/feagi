@@ -799,3 +799,6 @@ core_morphologies = {
         "class": "core",
     },
 }
+
+# Create supported_ipu_list for backward compatibility with genome validator
+supported_ipu_list = list(cortical_types["IPU"]["supported_devices"].keys())

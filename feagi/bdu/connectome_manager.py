@@ -28,6 +28,7 @@ import numpy as np
 import torch
 
 from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
+from feagi.core.state_manager import get_state_manager
 from feagi.bdu.models.cortical_area import CorticalArea
 from feagi.bdu.models.memory_neuron import MemoryNeuronArray
 
@@ -295,11 +296,13 @@ class ConnectomeManager(NeuronMappingProvider):
         self._spatial_hash = get_spatial_hash()
         self.logger.info("[CONNECTOME] Morton spatial hash system initialized")
 
+        # Initialize state manager for brain size tracking
+        self.state_manager = get_state_manager()
+        
         # Register Morton spatial hash with state manager
         try:
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
+            # Use already imported get_state_manager (no need to re-import)
+            state_manager = self.state_manager
 
             # Register current Morton implementation details
             morton_coordinate_limit = 1 << 21  # 21-bit Morton encoding limit
@@ -1329,6 +1332,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Failed to update cortical areas cache after adding {area.id}: {e}"
             )
 
+        # Update state manager with new neuron count (separate from GPU keep-alive logic)
+        self._update_neuron_count_only()
+
         return neuron_id
 
     def get_neuron(self, neuron_id: int) -> Dict[str, Any]:
@@ -1758,7 +1764,7 @@ class ConnectomeManager(NeuronMappingProvider):
             SynapseType.PLASTIC if is_plastic else SynapseType.EXCITATORY
         )
 
-        return self.synapse_array.create_synapse(
+        success = self.synapse_array.create_synapse(
             pre_neuron_id=pre_neuron_id,
             post_neuron_id=post_neuron_id,
             weight=weight,
@@ -1766,6 +1772,12 @@ class ConnectomeManager(NeuronMappingProvider):
             is_plastic=is_plastic,
             synapse_type=synapse_type,
         )
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if success:
+            self._update_synapse_count_only()
+        
+        return success
 
     def batch_create_synapses(
         self, synapse_specs: List[Tuple[int, int, float]]
@@ -1799,7 +1811,79 @@ class ConnectomeManager(NeuronMappingProvider):
             return 0
 
         # Use GlobalSynapseArray's vectorized batch creation
-        return self.synapse_array.batch_create_synapses(valid_specs)
+        created_count = self.synapse_array.batch_create_synapses(valid_specs)
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if created_count > 0:
+            self._update_synapse_count_only()
+        
+        return created_count
+
+    def _update_synapse_count_only(self):
+        """Update state manager with current synapse count only.
+        
+        Only synapse count affects GPU keep-alive eligibility, so we avoid
+        the overhead of updating neuron count unnecessarily.
+        """
+        try:
+            current_synapse_count = self.synapse_array.synapse_count
+            
+            # Only update synapse count - more efficient
+            self.state_manager.update_synapse_count(current_synapse_count)
+            
+            # Update GPU keep-alive system based on new synapse count
+            if hasattr(self.neuron_array, 'backend') and hasattr(self.neuron_array.backend, 'update_keepalive_based_on_brain_size'):
+                self.neuron_array.backend.update_keepalive_based_on_brain_size()
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to update synapse count in state manager: {e}")
+    
+    def _update_neuron_count_only(self):
+        """Update state manager with current neuron count only.
+        
+        This is separate from synapse updates to avoid unnecessary overhead.
+        """
+        try:
+            current_neuron_count = self.neuron_array.neuron_count
+            self.state_manager.update_neuron_count(current_neuron_count)
+        except Exception as e:
+            self.logger.warning(f"Failed to update neuron count in state manager: {e}")
+    
+    def _update_brain_statistics(self):
+        """Update state manager with comprehensive brain statistics.
+        
+        This includes cortical area count, neuron count, and synapse count.
+        Used when cortical areas are added/removed.
+        """
+        try:
+            # Get current counts
+            cortical_area_count = len(self.cortical_areas)
+            neuron_count = self.neuron_array.neuron_count
+            synapse_count = self.synapse_array.synapse_count
+            
+            # Update state manager with comprehensive brain stats
+            brain_stats = {
+                "cortical_area_count": cortical_area_count,
+                "neuron_count": neuron_count,
+                "synapse_count": synapse_count,
+            }
+            
+            result = self.state_manager.set_brain_stats(brain_stats)
+            if result.is_err:
+                self.logger.warning(f"Failed to set brain stats in state manager: {result.err}")
+            else:
+                self.logger.debug(f"Updated brain statistics: {brain_stats}")
+                
+            # Also update cortical list
+            cortical_ids = list(self.cortical_areas.keys())
+            cortical_result = self.state_manager.set_cortical_list(cortical_ids)
+            if cortical_result.is_err:
+                self.logger.warning(f"Failed to set cortical list in state manager: {cortical_result.err}")
+            else:
+                self.logger.debug(f"Updated cortical list: {len(cortical_ids)} areas")
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to update brain statistics in state manager: {e}")
 
     #  Legacy optimized method removed - GlobalSynapseArray is inherently
     #  optimized
@@ -1828,7 +1912,13 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         # Use GlobalSynapseArray for O(1) synapse deletion
-        return self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
+        success = self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if success:
+            self._update_synapse_count_only()
+        
+        return success
 
     def get_synapse_weight(
         self, pre_neuron_id: int, post_neuron_id: int
@@ -2129,12 +2219,12 @@ class ConnectomeManager(NeuronMappingProvider):
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
         )
 
-        # Update StateManager cortical areas cache
+        # Update state manager with current brain statistics
         try:
-            state_manager.update_cortical_areas_cache(area.id, "add")
+            self._update_brain_statistics()
         except Exception as e:
             logger.warning(
-                f"Failed to update cortical areas cache after adding {area.id}: {e}"
+                f"Failed to update brain statistics after adding {area.id}: {e}"
             )
 
         return area.id

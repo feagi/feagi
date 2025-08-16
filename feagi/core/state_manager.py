@@ -347,6 +347,7 @@ class FeagiStateManager:
         # Create atomic wrappers for frequently accessed fields
         self._atomic_genome = AtomicU8(self._state.genome_state)
         self._atomic_burst_engine = AtomicU8(self._state.burst_engine_state)
+        self._atomic_gpu_keepalive_eligible = AtomicU8(self._state.gpu_keepalive_eligible)
         self._atomic_fq_sampler = AtomicU8(self._state.fq_sampler_state)
         self._atomic_brain_ready = AtomicU8(self._state.brain_readiness)
         self._atomic_version = AtomicU8(0)
@@ -391,10 +392,97 @@ class FeagiStateManager:
         #  warnings
         self._resync_in_progress: bool = False
 
+        # Load GPU keep-alive configuration
+        self._gpu_keepalive_brain_threshold = self._load_gpu_keepalive_threshold()
+        
+        # Initialize GPU keep-alive eligibility based on current brain size
+        self._update_gpu_keepalive_eligibility()
+        
         logger.info("FeagiStateManager initialized")
         logger.info(
             f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}"
         )
+
+    # === GPU KEEP-ALIVE BRAIN SIZE MANAGEMENT ===
+    
+    def _load_gpu_keepalive_threshold(self) -> int:
+        """Load GPU keep-alive brain size threshold from configuration.
+        
+        Uses GPU threshold × 80% as the keep-alive threshold for efficiency.
+        """
+        try:
+            if load_feagi_config:
+                config = load_feagi_config()
+                hybrid_config = config.get("neural", {}).get("hybrid", {})
+                
+                # Get the main GPU threshold and calculate 80% of it
+                gpu_threshold = hybrid_config.get("gpu_threshold", 1_000_000)
+                keepalive_threshold = int(gpu_threshold * 0.8)  # 80% of GPU threshold
+                
+                logger.info(f"🔀 GPU keep-alive threshold: {keepalive_threshold:,} synapses (80% of GPU threshold: {gpu_threshold:,})")
+                return keepalive_threshold
+            else:
+                return 800_000  # Default: 80% of 1M
+        except Exception as e:
+            logger.warning(f"Failed to load GPU keep-alive threshold config: {e}")
+            return 800_000  # Default: 80% of 1M
+    
+    def _update_gpu_keepalive_eligibility(self):
+        """Update GPU keep-alive eligibility flag based on current brain size."""
+        try:
+            current_synapse_count = self._state.synapse_count
+            is_eligible = current_synapse_count >= self._gpu_keepalive_brain_threshold
+            
+            old_value = self._atomic_gpu_keepalive_eligible.load()
+            new_value = 1 if is_eligible else 0
+            
+            if old_value != new_value:
+                self._atomic_gpu_keepalive_eligible.store(new_value)
+                logger.info(f"🔀 GPU keep-alive eligibility updated: {bool(old_value)} → {bool(new_value)} "
+                           f"(synapses: {current_synapse_count:,}, threshold: {self._gpu_keepalive_brain_threshold:,})")
+                
+                # Update state version to notify observers
+                self._increment_version()
+                
+        except Exception as e:
+            logger.error(f"Failed to update GPU keep-alive eligibility: {e}")
+    
+    def is_gpu_keepalive_eligible(self) -> bool:
+        """Check if brain is large enough to warrant GPU keep-alive."""
+        return bool(self._atomic_gpu_keepalive_eligible.load())
+    
+    def get_gpu_keepalive_brain_threshold(self) -> int:
+        """Get the current GPU keep-alive brain size threshold."""
+        return self._gpu_keepalive_brain_threshold
+    
+    def update_synapse_count(self, synapse_count: int):
+        """Update synapse count and refresh GPU keep-alive eligibility.
+        
+        This should be called whenever synapses are added/removed.
+        Only synapse count affects GPU keep-alive eligibility.
+        
+        Args:
+            synapse_count: New total synapse count
+        """
+        with self._instance_lock:
+            self._state.synapse_count = synapse_count
+            
+            # Update GPU keep-alive eligibility based on synapse count only
+            self._update_gpu_keepalive_eligibility()
+            
+            # Persist state changes
+            self._storage.store_state(self._state)
+    
+    def update_neuron_count(self, neuron_count: int):
+        """Update neuron count without affecting GPU keep-alive eligibility.
+        
+        Args:
+            neuron_count: New total neuron count
+        """
+        with self._instance_lock:
+            self._state.neuron_count = neuron_count
+            # No GPU keep-alive update needed - only synapse count matters
+            self._storage.store_state(self._state)
 
     # === GENOME STATE MANAGEMENT ===
 

@@ -1142,7 +1142,7 @@ def sanitize_invalid_morphologies(genome):
 
         # Check for other validation criteria
         morph_type = morph_data.get("type", "")
-        if morph_type not in ["vectors", "patterns", "function"]:
+        if morph_type not in ["vectors", "patterns", "functions", "composite"]:
             invalid_morphologies.append(morph_name)
             continue
 

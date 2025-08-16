@@ -286,20 +286,20 @@ async def log_requests(request: Request, call_next):
     if not hasattr(log_requests, "_diagnostic_shown"):
         try:
             debug_config = getattr(state_manager, "_debug_config", {})
-            logger.error("[DIAGNOSTIC] API Debug Status Check:")
-            logger.error(
+            logger.debug("[DIAGNOSTIC] API Debug Status Check:")
+            logger.debug(
                 f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}"
             )
-            logger.error(
+            logger.debug(
                 f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}"
             )
-            logger.error(
+            logger.debug(
                 f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}"
             )
-            logger.error(
+            logger.debug(
                 f"[DIAGNOSTIC]   Final debug_api_enabled: {debug_api_enabled}"
             )
-            logger.error(f"[DIAGNOSTIC]   _debug_config: {debug_config}")
+            logger.debug(f"[DIAGNOSTIC]   _debug_config: {debug_config}")
         except Exception as e:
             logger.error(f"[DIAGNOSTIC] Error checking debug status: {e}")
         log_requests._diagnostic_shown = True
@@ -915,14 +915,14 @@ def create_rest_app(connectome: ConnectomeManager = None):
     state_manager.set_api_state(ServiceState.READY)
 
     # Log debug information about the created app
-    logger.error("[APP-CREATION] FastAPI app created successfully")
-    logger.error(
+    logger.info("[APP-CREATION] FastAPI app created successfully")
+    logger.debug(
         f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}"
     )
-    logger.error(
+    logger.debug(
         f"[APP-CREATION] App middleware count: {len(app.user_middleware)}"
     )
-    logger.error(
+    logger.debug(
         f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}"
     )
 

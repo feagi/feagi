@@ -428,30 +428,25 @@ class GlobalSynapseArray:
         target_neurons_array = np.array(all_target_neurons, dtype=np.uint32)
         synapse_weights_array = np.array(all_synapse_weights, dtype=np.float32)
         
-        # Try GPU acceleration if available
+        # HYBRID CPU/GPU PROCESSING: Intelligent workload-based selection
         if hasattr(self, '_gpu_backend') and self._gpu_backend is not None:
-            logger.info(f"🚀 AUTO-TUNED GPU: Attempting optimized GPU synaptic propagation for {len(all_target_neurons)} synapses")
+            logger.info(f"🔀 HYBRID: Analyzing workload for {len(all_target_neurons):,} synapses")
             try:
-                # AUTO-TUNED GPU-ACCELERATED SYNAPTIC PROPAGATION
-                # Use intelligent method selection based on workload and performance history
-                logger.info(f"   🎯 Using auto-tuned GPU optimization with performance profiling")
-                
-                # Execute auto-tuned GPU compute with optimal method selection
-                self._gpu_backend.wgpu_auto_tuned_synaptic_propagation(
+                # Use hybrid system for intelligent CPU/GPU selection
+                self._gpu_backend.hybrid_synaptic_propagation(
                     target_neurons_array, 
                     synapse_weights_array, 
                     target_potentials
                 )
-                
-                logger.info(f"✅ AUTO-TUNED GPU synaptic propagation SUCCESS: {len(all_target_neurons)} synapses processed with intelligent optimization")
+                logger.info(f"✅ HYBRID synaptic propagation SUCCESS: {len(all_target_neurons):,} synapses processed")
                 return
                 
             except Exception as e:
-                logger.error(f"❌ GPU synaptic propagation FAILED, falling back to CPU: {e}")
+                logger.error(f"❌ HYBRID synaptic propagation FAILED, falling back to CPU: {e}")
                 import traceback
                 logger.error(f"   📋 Full traceback: {traceback.format_exc()}")
         else:
-            logger.info(f"💻 CPU FALLBACK: No GPU backend available, using CPU SIMD for {len(all_target_neurons)} synapses")
+            logger.info(f"💻 CPU ONLY: No GPU backend available, using CPU SIMD for {len(all_target_neurons):,} synapses")
         
         # CPU FALLBACK: SIMD-optimized NumPy operations
         # Apply synaptic transmission (vectorized)

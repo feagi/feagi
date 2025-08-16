@@ -235,7 +235,8 @@ class RustCompatibleState(ctypes.Structure):
             "neuroembryogenesis_progress",
             ctypes.c_uint8,
         ),  # 33: Progress percentage
-        ("_reserved2", ctypes.c_uint16),  # 34-35: Reserved
+        ("gpu_keepalive_eligible", ctypes.c_uint8),  # 34: 0 or 1 - brain size sufficient for GPU keep-alive
+        ("_reserved2", ctypes.c_uint8),  # 35: Reserved
         ("development_duration", ctypes.c_uint32),  # 36-39: Duration in ms
         # Statistics (16 bytes)
         ("neuron_count", ctypes.c_uint32),  # 40-43: Total neurons
