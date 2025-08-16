@@ -188,8 +188,17 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         
         # Initialize async FCL processor for parallel processing
         from feagi.npu.async_fcl_processor import AsyncFCLProcessor
-        self.async_fcl_processor = AsyncFCLProcessor(self.fcl_manager)
-        logger.info("[NPU] Created AsyncFCLProcessor for parallel FCL processing")
+        
+        # Calculate appropriate FCL buffer size based on cortical area configurations
+        fcl_buffer_size = self._calculate_fcl_buffer_size()
+        self.async_fcl_processor = AsyncFCLProcessor(
+            self.fcl_manager, 
+            max_queue_size=fcl_buffer_size
+        )
+        logger.info(
+            f"[NPU] Created AsyncFCLProcessor with buffer size: {fcl_buffer_size} "
+            f"(calculated from cortical area configurations)"
+        )
         
         # Set FCL manager reference in ConnectomeManager for backward compatibility
         if hasattr(connectome_manager, 'fcl_manager'):
@@ -318,10 +327,81 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         self.scheduler = None
         self.fire_queue_provider = None
 
-        # WGPU-COMPATIBLE: Use logger instead of print for debug output
-        logger.info(
-            f"[DEBUG] BURST ENGINE: Instance {self._instance_id} initialization complete"
-        )
+    def _calculate_fcl_buffer_size(self) -> int:
+        """Calculate appropriate FCL buffer size based on cortical area configurations.
+        
+        This method analyzes the cortical areas to determine the maximum potential
+        firing activity and sets an appropriate buffer size to prevent overflow.
+        
+        Returns:
+            Calculated buffer size for FCL processing
+        """
+        try:
+            # Default minimum buffer size
+            min_buffer_size = 10000
+            default_buffer_size = 100000
+            
+            if not hasattr(self.connectome_manager, 'cortical_areas') or not self.connectome_manager.cortical_areas:
+                logger.info(
+                    f"[NPU] No cortical areas found, using default FCL buffer size: {default_buffer_size}"
+                )
+                return default_buffer_size
+            
+            # Calculate maximum neurons per cortical area
+            max_area_neurons = 0
+            total_neurons = 0
+            area_count = 0
+            
+            for cortical_id, area in self.connectome_manager.cortical_areas.items():
+                try:
+                    # Get area dimensions
+                    if hasattr(area, 'dimensions_3D'):
+                        dimensions = area.dimensions_3D
+                        if hasattr(dimensions, '__iter__') and len(dimensions) >= 3:
+                            area_neurons = dimensions[0] * dimensions[1] * dimensions[2]
+                        else:
+                            area_neurons = 1000  # fallback
+                    elif hasattr(area, 'get_all_neurons'):
+                        # Count actual neurons if available
+                        area_neurons = len(area.get_all_neurons())
+                    else:
+                        area_neurons = 1000  # fallback
+                    
+                    max_area_neurons = max(max_area_neurons, area_neurons)
+                    total_neurons += area_neurons
+                    area_count += 1
+                    
+                except Exception as e:
+                    logger.warning(f"[NPU] Error analyzing cortical area {cortical_id}: {e}")
+                    continue
+            
+            if area_count == 0:
+                logger.info(
+                    f"[NPU] No valid cortical areas found, using default FCL buffer size: {default_buffer_size}"
+                )
+                return default_buffer_size
+            
+            # Calculate buffer size based on maximum area size
+            # Use 10% of the largest cortical area as buffer size, with reasonable bounds
+            calculated_size = max(
+                min_buffer_size,
+                min(max_area_neurons // 10, 2_000_000)  # Cap at 2M to prevent excessive memory usage
+            )
+            
+            logger.info(
+                f"[NPU] FCL buffer size calculation: "
+                f"max_area_neurons={max_area_neurons}, "
+                f"total_neurons={total_neurons}, "
+                f"area_count={area_count}, "
+                f"calculated_buffer_size={calculated_size}"
+            )
+            
+            return calculated_size
+            
+        except Exception as e:
+            logger.error(f"[NPU] Error calculating FCL buffer size: {e}")
+            logger.info(f"[NPU] Falling back to default FCL buffer size: {default_buffer_size}")
+            return default_buffer_size
 
     @classmethod
     def get_instance(cls) -> Optional["BurstEngine"]:

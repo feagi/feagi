@@ -515,6 +515,42 @@ class FCLManager:
         self._cortical_window_sizes.clear()
         self.logger.info("Cleared all FCL window size caches")
 
+    def clear_all_fcl_history(self) -> None:
+        """Clear all FCL history data to prevent stale cortical indices.
+        
+        This method clears:
+        - Global FCL history
+        - Cortical-specific FCL history  
+        - Custom cortical history (memory areas)
+        - Window size caches
+        
+        Used during genome reload to prevent stale cortical index references.
+        """
+        try:
+            # Clear global FCL history
+            for bitmap in self.global_fcl_history:
+                bitmap.clear()
+            
+            # Clear cortical-specific FCL history
+            self.cortical_fcl_history.clear()
+            
+            # Clear custom cortical history (memory areas)
+            self.custom_cortical_history.clear()
+            self.memory_cortical_indices.clear()
+            
+            # Clear window size caches
+            self._cortical_window_sizes.clear()
+            
+            # Reset counters
+            self.total_neurons_fired = 0
+            self.current_window_index = 0
+            
+            self.logger.info("Cleared all FCL history data and caches")
+            
+        except Exception as e:
+            self.logger.error(f"Error clearing FCL history: {e}")
+            raise
+
     def register_memory_cortical(
         self, cortical_idx: CorticalIdx, window_size: int
     ) -> None:

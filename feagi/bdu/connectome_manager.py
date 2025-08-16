@@ -1090,9 +1090,9 @@ class ConnectomeManager(NeuronMappingProvider):
             )
         else:
             if not fired_neurons:
-                logger.debug(f"⚠️ No synaptic propagation: no fired neurons")
+                logger.debug("⚠️ No synaptic propagation: no fired neurons")
             elif not hasattr(self, "synapse_array"):
-                logger.warning(f"⚠️ No synaptic propagation: no synapse_array attribute")
+                logger.warning("⚠️ No synaptic propagation: no synapse_array attribute")
 
         # Initialize fired_indices to ensure it's always defined
         fired_indices = []
@@ -5112,6 +5112,67 @@ class ConnectomeManager(NeuronMappingProvider):
         if hasattr(self, "next_neuron_id"):
             self.next_neuron_id = 1  # Start from 1, not 0
 
+        # 7. CRITICAL FIX: Clear cortical mapping to prevent stale area references
+        if hasattr(self, "cortical_mapping"):
+            self.cortical_mapping.clear(preserve_core_areas=True)
+            logger.info(
+                "Cleared cortical mapping (preserved core areas _death and _power)",
+                status="[OK]",
+            )
+
+        # 8. Clear memory area tracking to prevent stale memory area references
+        memory_areas_cleared = 0
+        mappings_cleared = 0
+        if hasattr(self, "memory_areas"):
+            memory_areas_cleared = len(self.memory_areas)
+            self.memory_areas.clear()
+            logger.info(
+                f"Cleared {memory_areas_cleared} memory areas from tracking set",
+                status="[OK]",
+            )
+        if hasattr(self, "memory_area_upstream_mappings"):
+            mappings_cleared = len(self.memory_area_upstream_mappings)
+            self.memory_area_upstream_mappings.clear()
+            logger.info(
+                f"Cleared {mappings_cleared} memory area upstream mappings",
+                status="[OK]",
+            )
+
+        # 9. CRITICAL FIX: Clear FCL manager to prevent stale cortical indices
+        fcl_cleared = False
+        if hasattr(self, "fcl_manager") and self.fcl_manager:
+            try:
+                if hasattr(self.fcl_manager, "clear_all_fcl_history"):
+                    self.fcl_manager.clear_all_fcl_history()
+                    fcl_cleared = True
+                    logger.info(
+                        "Cleared FCL manager history and caches to prevent stale cortical indices",
+                        status="[OK]",
+                    )
+                elif hasattr(self.fcl_manager, "clear_all_window_caches"):
+                    # Fallback to partial clearing
+                    self.fcl_manager.clear_all_window_caches()
+                    # Also clear history manually
+                    if hasattr(self.fcl_manager, "global_fcl_history"):
+                        for bitmap in self.fcl_manager.global_fcl_history:
+                            bitmap.clear()
+                    if hasattr(self.fcl_manager, "cortical_fcl_history"):
+                        self.fcl_manager.cortical_fcl_history.clear()
+                    if hasattr(self.fcl_manager, "custom_cortical_history"):
+                        self.fcl_manager.custom_cortical_history.clear()
+                    fcl_cleared = True
+                    logger.info(
+                        "Manually cleared FCL manager history to prevent stale cortical indices",
+                        status="[OK]",
+                    )
+            except Exception as e:
+                logger.warning(f"Error clearing FCL manager: {e}")
+        
+        if not fcl_cleared and hasattr(self, "fcl_manager"):
+            logger.warning(
+                "FCL manager found but could not be cleared - may cause stale cortical index warnings"
+            )
+
         #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
         #  synchronized
         if hasattr(self, "neuron_array") and hasattr(
@@ -5155,6 +5216,10 @@ class ConnectomeManager(NeuronMappingProvider):
             "cortical_areas_cleared": cortical_areas_cleared,
             "neurons_cleared": neurons_cleared,
             "synapses_cleared": synapses_cleared,
+            "cortical_mapping_cleared": True,
+            "memory_areas_cleared": memory_areas_cleared,
+            "memory_mappings_cleared": mappings_cleared,
+            "fcl_manager_cleared": fcl_cleared,
         }
 
     def _ensure_brain_regions_structure(

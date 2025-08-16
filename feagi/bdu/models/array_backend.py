@@ -723,14 +723,14 @@ class ArrayBackend:
             synapse_weights: Array of synaptic weights (float32)
             membrane_potentials: Array of membrane potentials to update (atomic int32)
         """
-        logger.info(f"🚀 PERSISTENT GPU: Starting optimized synaptic propagation")
+        logger.debug("PERSISTENT GPU: Starting optimized synaptic propagation")
         
         if self.backend_type != BackendType.WGPU:
             raise RuntimeError("GPU synaptic propagation requires WGPU backend")
             
         num_synapses = len(target_neurons)
         num_neurons = len(membrane_potentials)
-        logger.info(f"   📈 Processing {num_synapses} synapses, {num_neurons} neurons")
+        logger.debug(f"Processing {num_synapses} synapses, {num_neurons} neurons")
         
         if num_synapses == 0:
             logger.warning("   ⚠️ No synapses to process, returning early")
@@ -756,7 +756,7 @@ class ArrayBackend:
         )
         
         # Only update changed data (massive performance gain)
-        logger.debug(f"   📤 Updating GPU buffers with new data...")
+        logger.debug("Updating GPU buffers with new data...")
         potentials_fixed = (membrane_potentials * 1000.0).astype(np.int32)
         
         self._update_persistent_data("target_neurons", target_neurons.astype(np.uint32))
@@ -771,15 +771,23 @@ class ArrayBackend:
         )
         self.queue.write_buffer(uniform_buffer, 0, uniform_data.tobytes())
         
-        # Create bind group layout first
-        bind_group_layout = self.device.create_bind_group_layout(entries=[
-            {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
-            {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
-            {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
-            {"binding": 3, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.uniform}}
-        ])
-        
-        # Create bind group with persistent buffers
+        # Cache bind group layout and pipeline to avoid per-burst recreation
+        if not hasattr(self, "_wgpu_pipeline_cache"):
+            self._wgpu_pipeline_cache = {}
+
+        cache = self._wgpu_pipeline_cache
+
+        if "bind_group_layout" not in cache:
+            cache["bind_group_layout"] = self.device.create_bind_group_layout(entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+                {"binding": 3, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.uniform}}
+            ])
+
+        bind_group_layout = cache["bind_group_layout"]
+
+        # Create (or update) bind group with persistent buffers
         bind_group = self.device.create_bind_group(
             layout=bind_group_layout,
             entries=[
@@ -789,12 +797,14 @@ class ArrayBackend:
                 {"binding": 3, "resource": {"buffer": uniform_buffer}}
             ]
         )
-        
-        # Create compute pipeline
-        compute_pipeline = self.device.create_compute_pipeline(
-            layout=self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout]),
-            compute={"module": self.synaptic_propagation_shader, "entry_point": "main"}
-        )
+
+        if "compute_pipeline" not in cache:
+            cache["compute_pipeline"] = self.device.create_compute_pipeline(
+                layout=self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout]),
+                compute={"module": self.synaptic_propagation_shader, "entry_point": "main"}
+            )
+
+        compute_pipeline = cache["compute_pipeline"]
         
         # Dispatch compute shader with optimized workgroup size
         encoder = self.device.create_command_encoder()
@@ -804,7 +814,7 @@ class ArrayBackend:
         
         # Optimized workgroup dispatch (256 threads per workgroup)
         workgroups = (num_synapses + 255) // 256
-        logger.debug(f"   ⚡ Dispatching {workgroups} workgroups (256 threads each)")
+        logger.debug(f"Dispatching {workgroups} workgroups (256 threads each)")
         compute_pass.dispatch_workgroups(workgroups, 1, 1)
         
         compute_pass.end()
@@ -832,8 +842,8 @@ class ArrayBackend:
         # Unmap the buffer
         staging_buffer.unmap()
         
-        logger.info(f"🎉 PERSISTENT GPU synaptic propagation COMPLETED: {num_synapses} synapses using {workgroups} workgroups")
-        logger.info(f"   ✅ Zero-copy persistent memory optimization active")
+        logger.debug(f"PERSISTENT GPU synaptic propagation completed: {num_synapses} synapses using {workgroups} workgroups")
+        logger.debug("Zero-copy persistent memory optimization active")
     
     def wgpu_batch_synaptic_propagation(self, batch_target_neurons: list, batch_synapse_weights: list, membrane_potentials: Any, num_timesteps: int) -> None:
         """BATCH GPU-accelerated synaptic propagation for multiple timesteps.
@@ -1931,23 +1941,21 @@ class ArrayBackend:
             synapse_weights: Array of synaptic weights (float32)
             membrane_potentials: Array of membrane potentials to update (atomic int32)
         """
-        logger.info(f"🔥 WGPU COMPUTE: Starting GPU synaptic propagation")
-        logger.debug(f"   📊 Backend type: {self.backend_type}")
+        logger.debug("WGPU COMPUTE: Starting GPU synaptic propagation")
+        logger.debug(f"Backend type: {self.backend_type}")
         
         if self.backend_type != BackendType.WGPU:
             raise RuntimeError("GPU synaptic propagation requires WGPU backend")
             
         num_synapses = len(target_neurons)
-        logger.info(f"   📈 Processing {num_synapses} synapses")
+        logger.debug(f"Processing {num_synapses} synapses")
         if num_synapses == 0:
             logger.warning("   ⚠️ No synapses to process, returning early")
             return
             
         # Create GPU buffers
-        logger.debug(f"   🔧 Creating GPU buffers...")
-        logger.debug(f"      Target neurons: {target_neurons.nbytes} bytes")
-        logger.debug(f"      Synapse weights: {synapse_weights.nbytes} bytes") 
-        logger.debug(f"      Membrane potentials: {membrane_potentials.nbytes} bytes")
+        logger.debug("Creating GPU buffers...")
+        logger.debug(f"Target neurons: {target_neurons.nbytes} bytes, Synapse weights: {synapse_weights.nbytes} bytes, Potentials: {membrane_potentials.nbytes} bytes")
         
         target_buffer = self.device.create_buffer(
             size=target_neurons.nbytes,
@@ -1971,15 +1979,15 @@ class ArrayBackend:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
         )
         
-        logger.debug(f"   ✅ GPU buffers created successfully")
+        logger.debug("GPU buffers created successfully")
         
         # Upload data to GPU
-        logger.debug(f"   📤 Uploading data to GPU...")
+        logger.debug("Uploading data to GPU...")
         self.queue.write_buffer(target_buffer, 0, target_neurons.tobytes())
         self.queue.write_buffer(weights_buffer, 0, synapse_weights.tobytes())
         self.queue.write_buffer(potentials_buffer, 0, membrane_potentials.tobytes())
         self.queue.write_buffer(uniform_buffer, 0, uniform_data.tobytes())
-        logger.debug(f"   ✅ Data uploaded to GPU successfully")
+        logger.debug("Data uploaded to GPU successfully")
         
         # Create bind group layout
         bind_group_layout = self.device.create_bind_group_layout(
@@ -2009,7 +2017,7 @@ class ArrayBackend:
         )
         
         # Dispatch compute shader
-        logger.debug(f"   🚀 Dispatching GPU compute shader...")
+        logger.debug("Dispatching GPU compute shader...")
         encoder = self.device.create_command_encoder()
         compute_pass = encoder.begin_compute_pass()
         compute_pass.set_pipeline(compute_pipeline)
@@ -2017,15 +2025,15 @@ class ArrayBackend:
         
         # Calculate workgroup dispatch size (256 threads per workgroup)
         workgroups = (num_synapses + 255) // 256
-        logger.info(f"   ⚡ Dispatching {workgroups} workgroups for {num_synapses} synapses (256 threads/workgroup)")
+        logger.debug(f"Dispatching {workgroups} workgroups for {num_synapses} synapses (256 threads/workgroup)")
         compute_pass.dispatch_workgroups(workgroups, 1, 1)
         
         compute_pass.end()
-        logger.debug(f"   📨 Submitting GPU command buffer...")
+        logger.debug("Submitting GPU command buffer...")
         self.queue.submit([encoder.finish()])
         
         # Read back results (membrane potentials are updated in-place)
-        logger.debug(f"   📥 Reading back updated membrane potentials from GPU...")
+        logger.debug("Reading back updated membrane potentials from GPU...")
         
         # Create staging buffer for readback
         staging_buffer = self.device.create_buffer(
@@ -2048,8 +2056,8 @@ class ArrayBackend:
         # Unmap the buffer
         staging_buffer.unmap()
         
-        logger.info(f"🎉 GPU synaptic propagation COMPLETED: {num_synapses} synapses using {workgroups} workgroups")
-        logger.debug(f"   ✅ Updated membrane potentials copied back to CPU")
+        logger.debug(f"GPU synaptic propagation completed: {num_synapses} synapses using {workgroups} workgroups")
+        logger.debug("Updated membrane potentials copied back to CPU")
 
     def _get_dtype_for_precision(self, base_dtype: Any = None) -> Any:
         """Get the appropriate dtype for the current precision setting.

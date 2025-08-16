@@ -104,19 +104,24 @@ class GlobalSynapseArray:
         
         # GPU backend for accelerated operations
         self._gpu_backend = None
-        logger.info(f"🔍 BACKEND DEBUG: GlobalSynapseArray received backend='{backend}'")
-        if backend == "wgpu":
-            try:
-                from feagi.bdu.models.array_backend import ArrayBackend, BackendType
-                self._gpu_backend = ArrayBackend(BackendType.WGPU)
-                logger.info("✅ GPU backend initialized for synaptic propagation acceleration")
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize GPU backend: {e}")
-                import traceback
-                logger.error(f"   📋 Full traceback: {traceback.format_exc()}")
-                self._gpu_backend = None
-        else:
-            logger.info(f"💻 CPU backend selected: '{backend}' (not 'wgpu')")  # neuron_id -> list of synapse indices
+        logger.debug(f"BACKEND DEBUG: GlobalSynapseArray received backend='{backend}'")
+        # Prefer WGPU for synaptic propagation when available. If caller passed
+        # 'auto', attempt WGPU first to avoid selecting a non-optimized path
+        # (e.g., PyTorch) for scatter-add.
+        try:
+            from feagi.bdu.models.array_backend import ArrayBackend, BackendType
+            if backend in ("wgpu", "auto"):
+                try:
+                    self._gpu_backend = ArrayBackend(BackendType.WGPU)
+                    logger.debug("GPU backend (WGPU) initialized for synaptic propagation acceleration")
+                except Exception as init_err:
+                    # If explicit WGPU fails under 'auto', fall back to CPU silently
+                    logger.debug(f"WGPU init failed under backend='{backend}': {init_err}")
+                    self._gpu_backend = None
+            # If caller explicitly requested a non-CPU backend other than WGPU,
+            # leave _gpu_backend as None (current GPU path is WGPU-optimized).
+        except Exception as e:
+            logger.debug(f"GPU backend import/init not available: {e}")
 
         # Free slot management for O(1) deletion
         self.free_slots = []  # Stack of available slots
