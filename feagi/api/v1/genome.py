@@ -450,8 +450,8 @@ class GenomeAPI:
             logger.error(f"Error getting genome number: {e}")
             raise ValueError(f"Failed to get genome number: {str(e)}") from e
 
-    @genome_endpoint("GET", "/download", response_model=GenomeDownloadResponse)
-    def download_genome(self) -> GenomeDownloadResponse:
+    @genome_endpoint("GET", "/download", response_model=dict)
+    def download_genome(self) -> dict:
         """Download the current genome."""
         try:
             # Get hierarchical genome from service
@@ -483,9 +483,9 @@ class GenomeAPI:
                         f"Converted to flat format with {len(flat_genome.get('blueprint', {}))} entries"
                     )
 
-            return GenomeDownloadResponse(
-                genome_data=genome_data, filename=filename
-            )
+            # CRITICAL FIX: Return the raw genome data, not wrapped in metadata
+            # This ensures downloaded genomes can be uploaded directly
+            return genome_data
         except Exception as e:
             logger.error(f"Error downloading genome: {e}")
             raise ValueError(f"Failed to download genome: {str(e)}") from e
