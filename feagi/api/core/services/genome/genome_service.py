@@ -1727,6 +1727,10 @@ class GenomeService(BaseService):
                     "cortical_dimensions": dimensions,
                     "cortical_type": area_type,
                     "parameters": parameters or {},
+                    # CRITICAL FIX: Add properties in the format expected by _extract_cortical_properties
+                    "relative_coordinate": [coordinates["x"], coordinates["y"], coordinates["z"]],
+                    "block_boundaries": [dimensions["width"], dimensions["height"], dimensions["depth"]],
+                    "2d_coordinate": parameters.get("coordinates_2d", [0, 0]) if parameters else [0, 0],
                 }
 
                 # Apply template defaults to the new area
@@ -1737,23 +1741,45 @@ class GenomeService(BaseService):
                 # Override with any provided parameters
                 if parameters:
                     new_area.update(parameters)
-
-                # Ensure memory areas have required properties with defaults
+                
+                # CRITICAL FIX: Ensure group_id is set for proper classification
+                if "group_id" not in new_area:
+                    if is_memory_area:
+                        new_area["group_id"] = "MEMORY"
+                    else:
+                        new_area["group_id"] = parameters.get("cortical_group", "CUSTOM") if parameters else "CUSTOM"
+                
+                # CRITICAL FIX: Only memory areas need memory properties
+                # Non-memory areas should not have memory properties
                 if is_memory_area:
                     memory_defaults = {
-                        "init_lifespan": new_area.get("init_lifespan", 9),
-                        "lifespan_growth_rate": new_area.get(
-                            "lifespan_growth_rate", 1.0
-                        ),
-                        "longterm_mem_threshold": new_area.get(
-                            "longterm_mem_threshold", 100
-                        ),
-                        "temporal_depth": new_area.get("temporal_depth", 1),
-                        "sub_group_id": "MEMORY",
+                        "is_mem_type": True,             # Boolean flag for memory areas
+                        "longterm_mem_threshold": 100,   # Default threshold
+                        "lifespan_growth_rate": 1,       # Default growth rate  
+                        "init_lifespan": 9,              # Default lifespan
                     }
-                    # Add memory properties to both top level and parameters
-                    new_area.update(memory_defaults)
-                    new_area["parameters"].update(memory_defaults)
+                    
+                    # Add memory properties to memory areas only
+                    for key, value in memory_defaults.items():
+                        if key not in new_area:
+                            new_area[key] = value
+
+                # Additional memory area configuration (already handled above)
+                if is_memory_area:
+                    # Ensure temporal_depth is set for memory areas
+                    if "temporal_depth" not in new_area:
+                        new_area["temporal_depth"] = 1
+                    # Ensure sub_group_id is set for memory areas
+                    if "sub_group_id" not in new_area:
+                        new_area["sub_group_id"] = "MEMORY"
+                    # Update parameters dict as well for consistency
+                    new_area["parameters"].update({
+                        "sub_group_id": "MEMORY",
+                        "temporal_depth": new_area.get("temporal_depth", 1),
+                        "init_lifespan": new_area.get("init_lifespan", 9),
+                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1),
+                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                    })
 
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
