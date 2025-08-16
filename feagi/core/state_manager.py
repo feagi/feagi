@@ -775,13 +775,16 @@ class FeagiStateManager:
         """Set brain statistics."""
         if not isinstance(stats, dict):
             return Result.err(StateError.VALIDATION_FAILED)
+        
+        # DEBUG: Removed detailed caller logging
 
         # Atomic update
         with self._instance_lock:
             # Extract incoming values
             in_total = stats.get("neuron_count")
             in_synapses = stats.get("synapse_count", 0)
-            in_areas = stats.get("cortical_area_count", 0)
+            # Preserve existing cortical_area_count if not provided
+            in_areas = stats.get("cortical_area_count", self._state.cortical_area_count)
             in_mem = stats.get("memory_neuron_count")
             in_non_mem = stats.get("non_memory_neuron_count")
 
@@ -809,6 +812,8 @@ class FeagiStateManager:
             self._state.neuron_count = total_cnt
             self._state.synapse_count = int(in_synapses)
             self._state.cortical_area_count = int(in_areas)
+            
+            # DEBUG: Removed cortical area count logging
 
             # Store in brain_stats dict
             stats["neuron_count"] = total_cnt

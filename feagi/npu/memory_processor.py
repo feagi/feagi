@@ -812,6 +812,16 @@ class MemoryProcessor:
             updated_stats["neuron_count"] = total_new
             updated_stats["memory_neuron_count"] = mem_new
             updated_stats["non_memory_neuron_count"] = reg_new
+            # Ensure cortical_area_count is preserved (don't override with 0)
+            if "cortical_area_count" not in updated_stats or updated_stats["cortical_area_count"] == 0:
+                # Get the current cortical area count from connectome if available
+                try:
+                    from feagi.bdu.connectome_manager import ConnectomeManager
+                    connectome = ConnectomeManager.instance()
+                    if hasattr(connectome, 'cortical_areas'):
+                        updated_stats["cortical_area_count"] = len(connectome.cortical_areas)
+                except Exception:
+                    pass  # Keep existing value or 0
 
             # Update StateManager
             result = state_manager.set_brain_stats(updated_stats)

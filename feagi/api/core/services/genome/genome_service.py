@@ -88,9 +88,12 @@ class GenomeService(BaseService):
                     self.state_manager.set_genome_state(GenomeState.LOADING)
                     self.state_manager.set_brain_readiness(False)
                     # Clear all brain stats during loading
+                    self.logger.debug("Clearing brain stats during genome loading")
                     result = self.state_manager.set_brain_stats({})
                     if result.is_err:
                         self.logger.warning("Failed to clear brain stats")
+                    else:
+                        self.logger.info("✅ Brain stats cleared successfully")
 
                     result = self.state_manager.set_cortical_list([])
                     if result.is_err:
@@ -843,17 +846,19 @@ class GenomeService(BaseService):
 
                         #  Update state manager with brain statistics (CRITICAL
                         #  for health check)
-                        stats_result = self.state_manager.set_brain_stats(
-                            {
-                                "neuron_count": total_neurons,
-                                "synapse_count": total_synapses,
-                                "cortical_area_count": cortical_area_count,
-                            }
-                        )
+                        brain_stats_to_set = {
+                            "neuron_count": total_neurons,
+                            "synapse_count": total_synapses,
+                            "cortical_area_count": cortical_area_count,
+                        }
+                        self.logger.debug(f"Setting brain stats after genome loading: {brain_stats_to_set}")
+                        stats_result = self.state_manager.set_brain_stats(brain_stats_to_set)
                         if stats_result.is_err:
                             self.logger.warning(
                                 f"Failed to set brain stats: {stats_result.unwrap_err()}"
                             )
+                        else:
+                            self.logger.info(f"Brain stats set successfully: {brain_stats_to_set}")
 
                         #  Create cortical list for health check compatibility
                         #  (CRITICAL)

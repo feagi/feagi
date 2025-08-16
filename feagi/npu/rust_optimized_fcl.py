@@ -137,7 +137,7 @@ class RustOptimizedFCLProcessor:
     - Rust-compatible interfaces
     """
     
-    def __init__(self, buffer_capacity: int = 10000):
+    def __init__(self, buffer_capacity: int = 100000):
         """
         Initialize Rust-optimized FCL processor.
         
