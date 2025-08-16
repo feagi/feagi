@@ -202,9 +202,14 @@ def genome_2_cortical_list(flat_genome):
         cortical_list = list()
         for key in flat_genome:
             if json_comment_catcher(key):
-                cortical_id = key[9:15]
-                if cortical_id not in cortical_list and key[7] == "c":
-                    cortical_list.append(cortical_id)
+                # CRITICAL FIX: Extract cortical ID properly by finding the area between dashes
+                # Format: _____10c-CORTICAL_ID-cx-property-type
+                if key.startswith("_____10c-") and key[7] == "c":
+                    parts = key.split("-")
+                    if len(parts) >= 3:
+                        cortical_id = parts[1]  # The cortical ID is the second part
+                        if cortical_id not in cortical_list:
+                            cortical_list.append(cortical_id)
         return cortical_list
     except Exception as e:
         logger.error(
@@ -260,10 +265,21 @@ def genome_2_1_convertor(flat_genome):
         try:
             for gene in flat_genome:
                 if json_comment_catcher(gene):
-                    cortical_id = cortical_area_id_update_checker(
-                        cortical_id=gene[9:15]
-                    )
-                    exon = gene[19:]
+                    # CRITICAL FIX: Extract cortical ID properly by splitting on dashes
+                    if gene.startswith("_____10c-"):
+                        parts = gene.split("-")
+                        if len(parts) >= 4:  # Need at least: _____10c, cortical_id, cx/nx, property
+                            raw_cortical_id = parts[1]
+                            cortical_id = cortical_area_id_update_checker(
+                                cortical_id=raw_cortical_id
+                            )
+                            # Extract the property part (skip the cx/nx part)
+                            # Format: _____10c-AREA1-cx-dstmap-d -> we want "dstmap-d"
+                            exon = "-".join(parts[3:])  # Skip _____10c, cortical_id, cx/nx
+                        else:
+                            continue  # Skip malformed keys
+                    else:
+                        continue  # Skip non-cortical keys
                     # gene_type = gene[16:18]  # Unused variable removed
                     if exon in genome_2_to_1:
                         if cortical_id == cortical_area:
@@ -303,7 +319,15 @@ def genome_2_1_convertor(flat_genome):
                                                     destination
                                                 ] = list()
 
+                                            # IMPROVED: More robust flat to hierarchical conversion
                                             temp_dict = dict()
+                                            
+                                            # Validate array has minimum required elements
+                                            if not isinstance(mapping_recipe, list) or len(mapping_recipe) < 4:
+                                                logger.warning(
+                                                    f"Invalid mapping recipe format in {cortical_area} -> {destination}: {mapping_recipe}"
+                                                )
+                                                continue
 
                                             temp_dict["morphology_id"] = (
                                                 mapping_recipe[0]
@@ -317,36 +341,17 @@ def genome_2_1_convertor(flat_genome):
                                             temp_dict["plasticity_flag"] = (
                                                 mapping_recipe[3]
                                             )
-                                            if mapping_recipe[3]:
-                                                try:
-                                                    temp_dict[
-                                                        "plasticity_constant"
-                                                    ] = mapping_recipe[4]
-                                                    temp_dict[
-                                                        "ltp_multiplier"
-                                                    ] = mapping_recipe[5]
-                                                    temp_dict[
-                                                        "ltd_multiplier"
-                                                    ] = mapping_recipe[6]
-                                                except Exception:
-                                                    temp_dict[
-                                                        "plasticity_constant"
-                                                    ] = 1
-                                                    temp_dict[
-                                                        "ltp_multiplier"
-                                                    ] = 1
-                                                    temp_dict[
-                                                        "ltd_multiplier"
-                                                    ] = 1
-                                            else:
-                                                temp_dict[
-                                                    "plasticity_flag"
-                                                ] = False
-                                                temp_dict[
-                                                    "plasticity_constant"
-                                                ] = 1
-                                                temp_dict["ltp_multiplier"] = 1
-                                                temp_dict["ltd_multiplier"] = 1
+                                            
+                                            # Handle optional plasticity parameters with defaults
+                                            temp_dict["plasticity_constant"] = (
+                                                mapping_recipe[4] if len(mapping_recipe) > 4 else 1
+                                            )
+                                            temp_dict["ltp_multiplier"] = (
+                                                mapping_recipe[5] if len(mapping_recipe) > 5 else 1
+                                            )
+                                            temp_dict["ltd_multiplier"] = (
+                                                mapping_recipe[6] if len(mapping_recipe) > 6 else 1
+                                            )
 
                                             genome["blueprint"][cortical_area][
                                                 genome_2_to_1[exon]
@@ -511,27 +516,49 @@ def genome_v1_v2_converter(genome_v1):
                     for entry in genome_v1["blueprint"][cortical_area][
                         "cortical_mapping_dst"
                     ][destination]:
-                        morphology_id = entry["morphology_id"]
-                        morphology_scalar = entry["morphology_scalar"]
-                        postSynapticCurrent_multiplier = entry[
-                            "postSynapticCurrent_multiplier"
-                        ]
-                        plasticity_flag = entry["plasticity_flag"]
+                        # CRITICAL FIX: Handle both dictionary and array formats
+                        if isinstance(entry, dict):
+                            # Dictionary format (expected hierarchical format)
+                            morphology_id = entry["morphology_id"]
+                            morphology_scalar = entry["morphology_scalar"]
+                            postSynapticCurrent_multiplier = entry[
+                                "postSynapticCurrent_multiplier"
+                            ]
+                            plasticity_flag = entry["plasticity_flag"]
 
-                        if "plasticity_constant" in entry:
-                            plasticity_constant = entry["plasticity_constant"]
-                        else:
-                            plasticity_constant = 1
+                            if "plasticity_constant" in entry:
+                                plasticity_constant = entry["plasticity_constant"]
+                            else:
+                                plasticity_constant = 1
 
-                        if "ltp_multiplier" in entry:
-                            ltp_multiplier = entry["ltp_multiplier"]
-                        else:
-                            ltp_multiplier = 1
+                            if "ltp_multiplier" in entry:
+                                ltp_multiplier = entry["ltp_multiplier"]
+                            else:
+                                ltp_multiplier = 1
 
-                        if "ltp_multiplier" in entry:
-                            ltd_multiplier = entry["ltd_multiplier"]
+                            if "ltd_multiplier" in entry:
+                                ltd_multiplier = entry["ltd_multiplier"]
+                            else:
+                                ltd_multiplier = 1
+                                
+                        elif isinstance(entry, list) and len(entry) >= 4:
+                            # Array format (flat genome format found in hierarchical)
+                            morphology_id = entry[0]
+                            morphology_scalar = entry[1]
+                            postSynapticCurrent_multiplier = entry[2]
+                            plasticity_flag = entry[3]
+                            
+                            # Handle optional plasticity parameters
+                            plasticity_constant = entry[4] if len(entry) > 4 else 1
+                            ltp_multiplier = entry[5] if len(entry) > 5 else 1
+                            ltd_multiplier = entry[6] if len(entry) > 6 else 1
+                            
                         else:
-                            ltd_multiplier = 1
+                            # Invalid format - skip this entry with warning
+                            logger.warning(
+                                f"Invalid cortical mapping entry format in {cortical_area} -> {destination}: {entry}"
+                            )
+                            continue
 
                         destination_map[destination].append(
                             [
