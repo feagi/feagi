@@ -532,6 +532,14 @@ class BatchSynapseCreationResponse(BaseModel):
     created_synapses: int
 
 
+class CorticalAreaSynapsesResponse(BaseModel):
+    """Response model for cortical area synapses."""
+
+    synapses: Dict[str, List[int]] = Field(
+        description="Dictionary where keys are destination cortical area IDs and values are lists of target neuron IDs"
+    )
+
+
 # ===== Burst Engine Schemas =====
 
 

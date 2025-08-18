@@ -48,16 +48,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-try:
-    import pyroaring
-
-    PYROARING_AVAILABLE = True
-except ImportError:
-    logging.warning(
-        "PyRoaring not found. FCL will use slower fallback implementation."
-    )
-    PYROARING_AVAILABLE = False
-    pyroaring = None
+import pyroaring
 
 # Type definitions to make migration to Rust more straightforward
 NeuronId = int
@@ -118,153 +109,73 @@ class BitMapProtocol(Protocol):
     def is_empty(self) -> bool: ...
 
 
-# Fallback implementation for environments without pyroaring
-class FallbackBitMap:
-    """Simple set-based fallback for environments without pyroaring."""
-
-    # WGPU-COMPATIBLE: Pre-allocate empty set to reduce dynamic allocation
-    _EMPTY_SET: Set[int] = set()
+# PyRoaring bitmap wrapper with consistent interface
+class RoaringBitmap:
+    """Wrapper for PyRoaring bitmap with consistent interface."""
 
     def __init__(self, elements=None):
-        # WGPU-COMPATIBLE: Optimize initialization to reduce dynamic allocation
-        if elements is None:
-            # Use pre-allocated empty set when possible
-            self.elements: Set[int] = (
-                FallbackBitMap._EMPTY_SET.copy()
-                if FallbackBitMap._EMPTY_SET
-                else set()
-            )
-        elif isinstance(elements, set):
-            self.elements = elements.copy()
-        elif hasattr(elements, "__iter__"):
-            self.elements = set(elements)
+        # WGPU-COMPATIBLE: Optimize initialization
+        if elements is not None:
+            self._bitmap = pyroaring.BitMap(elements)
         else:
-            self.elements = {elements}
+            self._bitmap = pyroaring.BitMap()
 
     def add(self, element: int) -> None:
-        self.elements.add(element)
+        self._bitmap.add(element)
 
     def clear(self) -> None:
-        self.elements.clear()
+        self._bitmap.clear()
 
-    def copy(self) -> "FallbackBitMap":
+    def copy(self) -> "RoaringBitmap":
         # WGPU-COMPATIBLE: Optimize copy operation
-        result = FallbackBitMap.__new__(FallbackBitMap)
-        result.elements = self.elements.copy()
+        result = RoaringBitmap.__new__(RoaringBitmap)
+        result._bitmap = self._bitmap.copy()
         return result
 
-    def __or__(self, other: "FallbackBitMap") -> "FallbackBitMap":
+    def __or__(self, other: "RoaringBitmap") -> "RoaringBitmap":
         # WGPU-COMPATIBLE: Optimize union operation
-        result = FallbackBitMap.__new__(FallbackBitMap)
-        result.elements = self.elements | other.elements
+        result = RoaringBitmap.__new__(RoaringBitmap)
+        result._bitmap = self._bitmap | other._bitmap
         return result
 
-    def __and__(self, other: "FallbackBitMap") -> "FallbackBitMap":
+    def __and__(self, other: "RoaringBitmap") -> "RoaringBitmap":
         # WGPU-COMPATIBLE: Optimize intersection operation
-        result = FallbackBitMap.__new__(FallbackBitMap)
-        result.elements = self.elements & other.elements
+        result = RoaringBitmap.__new__(RoaringBitmap)
+        result._bitmap = self._bitmap & other._bitmap
         return result
 
-    def __sub__(self, other: "FallbackBitMap") -> "FallbackBitMap":
+    def __sub__(self, other: "RoaringBitmap") -> "RoaringBitmap":
         # WGPU-COMPATIBLE: Optimize difference operation
-        result = FallbackBitMap.__new__(FallbackBitMap)
-        result.elements = self.elements - other.elements
+        result = RoaringBitmap.__new__(RoaringBitmap)
+        result._bitmap = self._bitmap - other._bitmap
         return result
 
-    def __xor__(self, other: "FallbackBitMap") -> "FallbackBitMap":
+    def __xor__(self, other: "RoaringBitmap") -> "RoaringBitmap":
         # WGPU-COMPATIBLE: Optimize symmetric difference operation
-        result = FallbackBitMap.__new__(FallbackBitMap)
-        result.elements = self.elements ^ other.elements
+        result = RoaringBitmap.__new__(RoaringBitmap)
+        result._bitmap = self._bitmap ^ other._bitmap
         return result
 
     def __len__(self) -> int:
-        return len(self.elements)
+        return len(self._bitmap)
 
     def __iter__(self) -> Iterator[int]:
-        return iter(self.elements)
+        return iter(self._bitmap)
 
     def __contains__(self, item: int) -> bool:
-        return item in self.elements
+        return item in self._bitmap
 
     def is_empty(self) -> bool:
-        return len(self.elements) == 0
+        return len(self._bitmap) == 0
+
+    def serialize(self) -> bytes:
+        """Serialize the bitmap to bytes for pattern storage."""
+        return self._bitmap.serialize()
 
     def __repr__(self) -> str:
-        return repr(self.elements)
+        return repr(self._bitmap)
 
-
-# Choose bitmap implementation based on availability
-# This makes it easier to create a Rust-specific implementation later
-if PYROARING_AVAILABLE:
-    # Wrapper to ensure PyRoaring matches our Protocol
-    class RoaringBitmap:
-        """Wrapper for PyRoaring bitmap with consistent interface."""
-
-        def __init__(self, elements=None):
-            # WGPU-COMPATIBLE: Optimize initialization
-            if elements is not None:
-                self._bitmap = pyroaring.BitMap(elements)
-            else:
-                self._bitmap = pyroaring.BitMap()
-
-        def add(self, element: int) -> None:
-            self._bitmap.add(element)
-
-        def clear(self) -> None:
-            self._bitmap.clear()
-
-        def copy(self) -> "RoaringBitmap":
-            # WGPU-COMPATIBLE: Optimize copy operation
-            result = RoaringBitmap.__new__(RoaringBitmap)
-            result._bitmap = self._bitmap.copy()
-            return result
-
-        def __or__(self, other: "RoaringBitmap") -> "RoaringBitmap":
-            # WGPU-COMPATIBLE: Optimize union operation
-            result = RoaringBitmap.__new__(RoaringBitmap)
-            result._bitmap = self._bitmap | other._bitmap
-            return result
-
-        def __and__(self, other: "RoaringBitmap") -> "RoaringBitmap":
-            # WGPU-COMPATIBLE: Optimize intersection operation
-            result = RoaringBitmap.__new__(RoaringBitmap)
-            result._bitmap = self._bitmap & other._bitmap
-            return result
-
-        def __sub__(self, other: "RoaringBitmap") -> "RoaringBitmap":
-            # WGPU-COMPATIBLE: Optimize difference operation
-            result = RoaringBitmap.__new__(RoaringBitmap)
-            result._bitmap = self._bitmap - other._bitmap
-            return result
-
-        def __xor__(self, other: "RoaringBitmap") -> "RoaringBitmap":
-            # WGPU-COMPATIBLE: Optimize symmetric difference operation
-            result = RoaringBitmap.__new__(RoaringBitmap)
-            result._bitmap = self._bitmap ^ other._bitmap
-            return result
-
-        def __len__(self) -> int:
-            return len(self._bitmap)
-
-        def __iter__(self) -> Iterator[int]:
-            return iter(self._bitmap)
-
-        def __contains__(self, item: int) -> bool:
-            return item in self._bitmap
-
-        def is_empty(self) -> bool:
-            return len(self._bitmap) == 0
-
-        def serialize(self) -> bytes:
-            """Serialize the bitmap to bytes for pattern storage."""
-            return self._bitmap.serialize()
-
-        def __repr__(self) -> str:
-            return repr(self._bitmap)
-
-    BitMap = RoaringBitmap
-else:
-    BitMap = FallbackBitMap
+BitMap = RoaringBitmap
 
 
 # Enum for neuron collections to enable static type checking
@@ -375,34 +286,22 @@ class FCLManager:
         # Logger
         self.logger = setup_logger("feagi.npu.fcl_manager")
 
-        # Initialize StateManager integration for dynamic window sizing
+        # Initialize StateManager integration
         self._initialize_state_manager_integration()
 
     def _initialize_state_manager_integration(self) -> None:
-        """Initialize integration with StateManager for dynamic window
-        sizing."""
-        try:
-            from feagi.core.state_manager import get_state_manager
+        """Initialize integration with StateManager for dynamic window sizing."""
+        from feagi.core.state_manager import get_state_manager
 
-            self._state_manager = get_state_manager()
-            self._dynamic_sizing_enabled = True
-            self.logger.info(
-                "FCL Manager: Dynamic window sizing enabled via StateManager"
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"FCL Manager: Could not initialize StateManager integration: {e}"
-            )
-            self._dynamic_sizing_enabled = False
+        self._state_manager = get_state_manager()
+        self._dynamic_sizing_enabled = True
+        self.logger.info(
+            "FCL Manager: Dynamic window sizing enabled via StateManager"
+        )
 
     def enable_dynamic_window_sizing(self, enabled: bool = True) -> None:
         """Enable or disable dynamic window sizing based on memory areas."""
-        if enabled and self._state_manager is None:
-            self._initialize_state_manager_integration()
-
-        self._dynamic_sizing_enabled = (
-            enabled and self._state_manager is not None
-        )
+        self._dynamic_sizing_enabled = enabled
         self.logger.info(
             f"FCL Manager: Dynamic window sizing {'enabled' if self._dynamic_sizing_enabled else 'disabled'}"
         )
@@ -458,29 +357,24 @@ class FCLManager:
         Returns:
             Window size for the specified cortical area
         """
-        # Check if dynamic sizing is enabled and we have a state manager
-        if self._dynamic_sizing_enabled and self._state_manager is not None:
-            try:
-                # First check cached value
-                if cortical_idx in self._cortical_window_sizes:
-                    return self._cortical_window_sizes[cortical_idx]
+        # Check if dynamic sizing is enabled
+        if self._dynamic_sizing_enabled:
+            # First check cached value
+            if cortical_idx in self._cortical_window_sizes:
+                return self._cortical_window_sizes[cortical_idx]
 
-                # Get cortical ID from index mapping
-                cortical_id = self._get_cortical_id_from_index(cortical_idx)
-                if cortical_id:
-                    # Query StateManager for dynamic window size
-                    dynamic_size = self._state_manager.get_fcl_window_size(
-                        cortical_id
-                    )
-                    # Cache the result
-                    self._cortical_window_sizes[cortical_idx] = dynamic_size
-                    return dynamic_size
-            except Exception as e:
-                self.logger.warning(
-                    f"Error getting dynamic window size for cortical_idx {cortical_idx}: {e}"
+            # Get cortical ID from index mapping
+            cortical_id = self._get_cortical_id_from_index(cortical_idx)
+            if cortical_id:
+                # Query StateManager for dynamic window size
+                dynamic_size = self._state_manager.get_fcl_window_size(
+                    cortical_id
                 )
+                # Cache the result
+                self._cortical_window_sizes[cortical_idx] = dynamic_size
+                return dynamic_size
 
-        # Fallback to legacy behavior
+        # Use custom cortical history or default window size
         if cortical_idx in self.custom_cortical_history:
             return self.custom_cortical_history[cortical_idx][0]
         return self.default_window_size
@@ -488,18 +382,11 @@ class FCLManager:
     def _get_cortical_id_from_index(
         self, cortical_idx: CorticalIdx
     ) -> Optional[str]:
-        """Convert cortical index to cortical ID using ConnectomeManager
-        mapping."""
-        try:
-            from feagi.bdu.connectome_manager import ConnectomeManager
+        """Convert cortical index to cortical ID using ConnectomeManager mapping."""
+        from feagi.bdu.connectome_manager import ConnectomeManager
 
-            connectome_manager = ConnectomeManager.instance()
-            return connectome_manager.get_cortical_id_by_idx(cortical_idx)
-        except Exception as e:
-            self.logger.debug(
-                f"Could not resolve cortical_idx {cortical_idx} to cortical_id: {e}"
-            )
-            return None
+        connectome_manager = ConnectomeManager.instance()
+        return connectome_manager.get_cortical_id_by_idx(cortical_idx)
 
     def invalidate_cortical_window_cache(
         self, cortical_idx: CorticalIdx
@@ -754,14 +641,11 @@ class FCLManager:
         self.current_window_index = standard_index
 
         # Update cumulative activity counters in StateManager for sleep trigger
-        try:
-            from feagi.core.state_manager import FeagiStateManager
+        from feagi.core.state_manager import FeagiStateManager
 
-            FeagiStateManager.instance().increment_cumulative_activity(
-                burst_total
-            )
-        except Exception:
-            pass
+        FeagiStateManager.instance().increment_cumulative_activity(
+            burst_total
+        )
 
         # Gate debug logging with --debug-npu flag
         from feagi.core.state_manager import FeagiStateManager

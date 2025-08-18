@@ -1084,6 +1084,23 @@ class ConnectomeManager(NeuronMappingProvider):
             # SIMD-OPTIMIZED: Use vectorized synaptic propagation for maximum performance
             # This processes multiple synapses per CPU instruction (8+ synapses vs 1)
             logger.info(f"🔥 SYNAPTIC PROPAGATION: {len(fired_neurons)} fired neurons, calling propagate_activations_simd")
+            
+            # COORDINATE DEBUG: Log fired neurons and check for neuron 2 (from _power)
+            if 2 in fired_neurons:
+                logger.info(f"[COORD-DEBUG] Neuron 2 (_power) is firing - should propagate to neuron 4495")
+                # Check if neuron 4495 has any incoming synapses from neuron 2
+                if hasattr(self.synapse_array, 'source_neurons') and hasattr(self.synapse_array, 'target_neurons'):
+                    # Find synapses from neuron 2
+                    source_mask = self.synapse_array.source_neurons == 2
+                    if np.any(source_mask):
+                        targets = self.synapse_array.target_neurons[source_mask]
+                        weights = self.synapse_array.weights[source_mask]
+                        logger.info(f"[COORD-DEBUG] Neuron 2 synapses: targets={targets.tolist()}, weights={weights.tolist()}")
+                        if 4495 in targets:
+                            logger.info(f"[COORD-DEBUG] Found synapse from neuron 2 to neuron 4495!")
+                        else:
+                            logger.info(f"[COORD-DEBUG] No synapse from neuron 2 to neuron 4495 found")
+            
             self.synapse_array.propagate_activations_simd(
                 fired_neurons, 
                 self.neuron_array.membrane_potentials
@@ -1142,6 +1159,13 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.debug(
                         f"[NPU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
                     )
+                
+                # COORDINATE DEBUG: Log all fired neurons (especially for iic200 area)
+                iic200_neurons = [nid for nid in fired_neuron_ids if nid in [4495, 4496]]
+                if iic200_neurons:
+                    logger.info(
+                        f"[COORD-DEBUG] Neurons 4495/4496 fired: {iic200_neurons}"
+                    )
 
                 # Vectorized grouping of fired neurons by cortical area
                 fired_neurons_array = np.array(
@@ -1193,6 +1217,12 @@ class ConnectomeManager(NeuronMappingProvider):
                         neurons_by_cortical[int(cortical_idx)] = valid_neurons[
                             mask
                         ].tolist()
+                        
+                        # COORDINATE DEBUG: Log which neurons are being added to FCL for each cortical area
+                        if int(cortical_idx) == 10:  # iic200 cortical_idx
+                            logger.info(
+                                f"[COORD-DEBUG] Adding neurons to FCL for cortical_idx {cortical_idx} (iic200): {valid_neurons[mask].tolist()}"
+                            )
 
                     if state_manager.is_debug_npu_enabled():
                         logger.debug(

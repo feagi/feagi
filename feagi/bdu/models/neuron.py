@@ -525,6 +525,9 @@ class NeuronArray:
         self, timestep: int, connectivity_matrix=None
     ) -> List[int]:
         """Ultra-optimized neural update for embedded single-core operation."""
+        # CRITICAL DEBUG: Test if this method is being called at all
+        logger.info(f"[COORD-DEBUG] *** NEURAL UPDATE CALLED *** timestep={timestep}")
+        print(f"[COORD-DEBUG] *** NEURAL UPDATE CALLED *** timestep={timestep}")  # Force output
         if self._use_rust:
             return self._rust_backend.embedded_neural_update(
                 timestep, connectivity_matrix
@@ -577,6 +580,21 @@ class NeuronArray:
         # PHASE 5: Process firing consequences (CRITICAL FIX!)
         fired_indices = np.where(fired_mask)[0]
         if len(fired_indices) > 0:
+            # COORDINATE DEBUG: Log fired neurons and their IDs
+            fired_neuron_ids = []
+            if hasattr(self, 'mapping_provider') and self.mapping_provider:
+                # Convert indices to neuron IDs
+                for idx in fired_indices:
+                    neuron_id = self.mapping_provider.get_neuron_id(idx)
+                    if neuron_id is not None:
+                        fired_neuron_ids.append(neuron_id)
+                        # Log specific neurons we're tracking
+                        if neuron_id in [4495, 4496]:
+                            logger.info(f"[COORD-DEBUG] FIRING DETECTED: Neuron {neuron_id} (index {idx}) fired - membrane_potential={self.membrane_potentials[idx]}, threshold={self.thresholds[idx]}")
+                
+                if fired_neuron_ids:
+                    logger.info(f"[COORD-DEBUG] Neural update detected {len(fired_neuron_ids)} firing neurons: {fired_neuron_ids}")
+            
             # DEBUG LOGGING FOR REFRACTORY PERIOD BUG INVESTIGATION
             # Check cortical areas of fired neurons (needed for debug analysis)
             cortical_areas = {}
@@ -1006,6 +1024,12 @@ class NeuronArray:
         # Set the property directly in the array based on property name
         try:
             if property_name == "membrane_potential":
+                # COORDINATE DEBUG: Log membrane potential changes for neurons 4495 and 4496
+                if neuron_id in [4495, 4496]:
+                    import traceback
+                    logger.info(f"[COORD-DEBUG] *** MEMBRANE POTENTIAL CHANGE *** Neuron {neuron_id}: {self.membrane_potentials[neuron_index]} → {value}")
+                    logger.info(f"[COORD-DEBUG] Call stack: {traceback.format_stack()[-3:-1]}")
+                    print(f"[COORD-DEBUG] *** MEMBRANE POTENTIAL CHANGE *** Neuron {neuron_id}: {self.membrane_potentials[neuron_index]} → {value}")  # Force output
                 self.membrane_potentials[neuron_index] = float(value)
             elif property_name == "threshold":
                 self.thresholds[neuron_index] = float(value)

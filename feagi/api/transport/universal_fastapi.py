@@ -780,6 +780,31 @@ else:
                                     ) from e
 
                             return fastapi_handler_with_snapshot_id
+                        elif param_name == "cortical_area_id":
+
+                            async def fastapi_handler_with_cortical_area_id(
+                                cortical_area_id: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    result = await original_handler(
+                                        api_instance, cortical_area_id
+                                    )
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(
+                                        status_code=400, detail=str(e)
+                                    ) from e
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail="Internal server error",
+                                    ) from e
+
+                            return fastapi_handler_with_cortical_area_id
                         else:
                             # Generic parameter handling
                             async def fastapi_handler_with_path_params(
@@ -994,6 +1019,31 @@ else:
                                     ) from e
 
                             return fastapi_handler_with_snapshot_id
+                        elif param_name == "cortical_area_id":
+
+                            def fastapi_handler_with_cortical_area_id(
+                                cortical_area_id: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    result = original_handler(
+                                        api_instance, cortical_area_id
+                                    )
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(
+                                        status_code=400, detail=str(e)
+                                    ) from e
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail="Internal server error",
+                                    ) from e
+
+                            return fastapi_handler_with_cortical_area_id
                         else:
                             # Generic parameter handling
                             def fastapi_handler_with_path_params(

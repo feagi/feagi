@@ -446,7 +446,18 @@ class VisualizationStream:
                 #  Get data from UnifiedFQSampler ONLY when enabled (clients
                 #  connected)
                 try:
+                    # COORDINATE DEBUG: Log that we're calling the FQ sampler
+                    logger.info("[COORD-DEBUG] Calling fq_sampler.sample()")
                     sample_data = self.fq_sampler.sample()
+                    logger.info(f"[COORD-DEBUG] FQ Sampler returned: {list(sample_data.keys()) if sample_data else 'None'}")
+                    
+                    # COORDINATE DEBUG: Log what the FQ sampler returns
+                    if sample_data:
+                        for area_id, area_data in sample_data.items():
+                            if area_data and area_data.get("coordinates"):
+                                logger.info(
+                                    f"[COORD-DEBUG] FQ Sampler returned for {area_id}: coordinates={area_data['coordinates']}"
+                                )
 
                     if sample_data:
                         #  Convert UnifiedFQSampler format to visualization
@@ -1196,6 +1207,18 @@ class VisualizationStream:
                     #  MEMORY AREA FIX: Check if coordinates are already
                     #  provided (for memory areas)
                     provided_coordinates = area_data.get("coordinates", [])
+                    
+                    # COORDINATE DEBUG: Log the source of area_data
+                    logger.info(
+                        f"[COORD-DEBUG] {area_id} area_data keys: {list(area_data.keys())}"
+                    )
+                    logger.info(
+                        f"[COORD-DEBUG] {area_id} neuron_ids: {neuron_ids}"
+                    )
+                    if provided_coordinates:
+                        logger.info(
+                            f"[COORD-DEBUG] {area_id} has provided coordinates: {provided_coordinates}"
+                        )
 
                     if provided_coordinates:
                         # Use pre-provided coordinates (memory areas)
@@ -1210,6 +1233,9 @@ class VisualizationStream:
                     else:
                         #  Use high-performance coordinate extraction - real
                         #  data only (regular areas)
+                        logger.info(
+                            f"[COORD-DEBUG] {area_id} using coordinate extraction for {len(neuron_ids)} neurons"
+                        )
                         coords_result = self.core_api.get_neuron_coordinates(
                             neuron_ids
                         )
@@ -1268,6 +1294,12 @@ class VisualizationStream:
                         f"y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, "
                         f"p.shape={neurons_p.shape}"
                     )
+                    
+                    # COORDINATE DEBUG: Log exact coordinates before FEAGI data processing
+                    logger.info(
+                        f"[COORD-DEBUG] {area_id} PRE-FDP coordinates: "
+                        f"x={neurons_x.tolist()}, y={neurons_y.tolist()}, z={neurons_z.tolist()}"
+                    )
 
                     #  Create cortical ID using modern feagi-data-processing
                     #  approach
@@ -1316,6 +1348,11 @@ class VisualizationStream:
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
+                    
+                    # COORDINATE DEBUG: Log coordinates after FEAGI data processing creation
+                    logger.info(
+                        f"[COORD-DEBUG] {area_id} POST-FDP neuron array created for cortical_id: {cortical_id_obj}"
+                    )
 
                     #  Insert the neuron array into the mapped data with its
                     #  cortical ID
@@ -1324,10 +1361,16 @@ class VisualizationStream:
                     )
 
             # Create the final byte structure from the mapped data
+            logger.info(
+                f"[COORD-DEBUG] Creating final byte structure from {len(for_visualization)} cortical areas"
+            )
             byte_structure = (
                 generated_mapped_neuron_data.as_new_feagi_byte_structure()
             )
             binary_data = byte_structure.copy_out_as_byte_vector()
+            logger.info(
+                f"[COORD-DEBUG] Final binary data created: {len(binary_data)} bytes"
+            )
 
             # Gate encoding logs with debug flag
             from feagi.core.state_manager import FeagiStateManager

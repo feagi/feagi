@@ -402,17 +402,26 @@ class GlobalSynapseArray:
         if not firing_neurons:
             return
 
+        # COORDINATE DEBUG: Log synaptic propagation entry
+        logger.info(f"[COORD-DEBUG] Synaptic propagation starting for {len(firing_neurons)} firing neurons: {firing_neurons}")
+
         # Collect all synapses from all firing neurons for batch processing
         all_target_neurons = []
         all_synapse_weights = []
         
         for neuron_id in firing_neurons:
             if neuron_id not in self.pre_neuron_index:
+                # COORDINATE DEBUG: Log missing neurons
+                if neuron_id == 2:
+                    logger.info(f"[COORD-DEBUG] Neuron 2 (_power) not found in pre_neuron_index!")
                 continue
 
             # Get all outgoing synapses for this neuron
             synapse_slots = self.pre_neuron_index[neuron_id]
             if not synapse_slots:
+                # COORDINATE DEBUG: Log neurons with no synapses
+                if neuron_id == 2:
+                    logger.info(f"[COORD-DEBUG] Neuron 2 (_power) has no outgoing synapses!")
                 continue
 
             # Vectorized processing of all synapses from this neuron
@@ -421,6 +430,12 @@ class GlobalSynapseArray:
             # Get target neurons and weights in vectorized fashion
             target_neurons = self.post_neuron_ids[synapse_indices]
             synapse_weights = self.weights[synapse_indices]
+            
+            # COORDINATE DEBUG: Log synapses for neuron 2
+            if neuron_id == 2:
+                logger.info(f"[COORD-DEBUG] Neuron 2 (_power) synapses: targets={target_neurons.tolist()}, weights={synapse_weights.tolist()}")
+                if 4495 in target_neurons:
+                    logger.info(f"[COORD-DEBUG] Found synapse from neuron 2 to neuron 4495 with weight {synapse_weights[target_neurons == 4495][0]}")
             
             # Accumulate for batch processing
             all_target_neurons.extend(target_neurons)
@@ -457,7 +472,31 @@ class GlobalSynapseArray:
         # Apply synaptic transmission (vectorized)
         # This is SIMD-optimized by NumPy
         logger.debug(f"   🔧 Executing CPU SIMD synaptic propagation")
+        
+        # COORDINATE DEBUG: Log membrane potential updates for neurons 4495 and 4496
+        if 4495 in target_neurons_array or 4496 in target_neurons_array:
+            logger.info(f"[COORD-DEBUG] Before synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
+            logger.info(f"[COORD-DEBUG] Before synaptic propagation - neuron 4496 potential: {target_potentials[4496] if 4496 < len(target_potentials) else 'N/A'}")
+            
+            # Check if neuron 4495 is receiving input
+            if 4495 in target_neurons_array:
+                mask_4495 = target_neurons_array == 4495
+                weights_to_4495 = synapse_weights_array[mask_4495]
+                logger.info(f"[COORD-DEBUG] Neuron 4495 receiving synaptic input: weights={weights_to_4495.tolist()}")
+            
+            # Check if neuron 4496 is receiving input (shouldn't be)
+            if 4496 in target_neurons_array:
+                mask_4496 = target_neurons_array == 4496
+                weights_to_4496 = synapse_weights_array[mask_4496]
+                logger.info(f"[COORD-DEBUG] Neuron 4496 receiving synaptic input: weights={weights_to_4496.tolist()}")
+        
         np.add.at(target_potentials, target_neurons_array, synapse_weights_array)
+        
+        # COORDINATE DEBUG: Log membrane potentials after propagation
+        if 4495 in target_neurons_array or 4496 in target_neurons_array:
+            logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
+            logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4496 potential: {target_potentials[4496] if 4496 < len(target_potentials) else 'N/A'}")
+        
         logger.debug(f"   ✅ CPU SIMD synaptic propagation completed")
 
     def get_statistics(self) -> Dict[str, Any]:

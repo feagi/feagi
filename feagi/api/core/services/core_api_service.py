@@ -774,6 +774,55 @@ class CoreAPIService:
             source_neuron, target_neuron, weight
         )
 
+    def get_cortical_area_synapses(
+        self, cortical_area_id: str
+    ) -> Optional[Dict[str, List[int]]]:
+        """Get synapses from a cortical area organized by destination area.
+        
+        Args:
+            cortical_area_id: ID of the source cortical area
+            
+        Returns:
+            Dictionary where keys are destination cortical area IDs and 
+            values are lists of destination neuron IDs
+        """
+        try:
+            # Get all neurons in the source area
+            source_neurons = self._connectome_manager.get_neurons_by_area(cortical_area_id)
+            if not source_neurons:
+                self.logger.warning(f"No neurons found in cortical area {cortical_area_id}")
+                return {}
+            
+            # Dictionary to store results: destination_area_id -> [neuron_ids]
+            synapses_by_area = {}
+            
+            # For each neuron in the source area, get its outgoing connections
+            for source_neuron_id in source_neurons:
+                outgoing_connections = self._connectome_manager.get_outgoing_connections(source_neuron_id)
+                
+                for target_neuron_id, weight in outgoing_connections:
+                    # Find which cortical area the target neuron belongs to
+                    try:
+                        target_area_id = self._connectome_manager.get_cortical_area_for_neuron(target_neuron_id)
+                    except KeyError:
+                        # Target neuron doesn't exist, skip
+                        continue
+                    
+                    if target_area_id and target_area_id != cortical_area_id:  # Skip self-connections
+                        if target_area_id not in synapses_by_area:
+                            synapses_by_area[target_area_id] = []
+                        synapses_by_area[target_area_id].append(target_neuron_id)
+            
+            # Remove duplicates while preserving order
+            for area_id in synapses_by_area:
+                synapses_by_area[area_id] = list(dict.fromkeys(synapses_by_area[area_id]))
+            
+            return synapses_by_area
+            
+        except Exception as e:
+            self.logger.error(f"Error getting synapses for cortical area {cortical_area_id}: {str(e)}")
+            return None
+
     def remove_connection(
         self, source_neuron: str, target_neuron: str
     ) -> bool:
@@ -3328,6 +3377,11 @@ class CoreAPIService:
                 self.logger.debug(
                     f"🔥 [FIRE QUEUE] Firing neuron IDs: {firing_neuron_ids}"
                 )
+                
+                # COORDINATE DEBUG: Log which neuron IDs are in the FCL
+                self.logger.info(
+                    f"[COORD-DEBUG] FCL contains neuron IDs: {firing_neuron_ids.tolist()}"
+                )
 
                 # CRITICAL FIX: Convert neuron IDs to indices for array access
                 firing_indices = []
@@ -3337,6 +3391,10 @@ class CoreAPIService:
                     )
                     if neuron_index is not None:
                         firing_indices.append(neuron_index)
+                        # COORDINATE DEBUG: Log neuron ID to index mapping
+                        self.logger.info(
+                            f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {neuron_index}"
+                        )
 
                 if len(firing_indices) == 0:
                     self.logger.debug(
@@ -3395,6 +3453,11 @@ class CoreAPIService:
                             area_firing_indices, filter_invalid=True
                         )
                     )
+                    
+                    # COORDINATE DEBUG: Log the final neuron IDs being returned
+                    self.logger.info(
+                        f"[COORD-DEBUG] Final neuron IDs for {cortical_id}: {final_neuron_ids.tolist()}"
+                    )
 
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] Converted {len(area_firing_indices)} indices to {len(final_neuron_ids)} neuron IDs"
@@ -3406,6 +3469,16 @@ class CoreAPIService:
                         )
                         return None
 
+                    # COORDINATE DEBUG: Log coordinates being extracted from neuron array
+                    extracted_x = neuron_array.coordinates_x[area_firing_indices]
+                    extracted_y = neuron_array.coordinates_y[area_firing_indices]
+                    extracted_z = neuron_array.coordinates_z[area_firing_indices]
+                    
+                    self.logger.info(
+                        f"[COORD-DEBUG] Neuron array extraction for {cortical_id}: "
+                        f"x={extracted_x.tolist()}, y={extracted_y.tolist()}, z={extracted_z.tolist()}"
+                    )
+
                     brain_data = np.column_stack(
                         (
                             final_neuron_ids.astype(
@@ -3414,19 +3487,13 @@ class CoreAPIService:
                             neuron_array.membrane_potentials[
                                 area_firing_indices
                             ],  # Keep float32 for potentials
-                            neuron_array.coordinates_x[
-                                area_firing_indices
-                            ].astype(
+                            extracted_x.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_y[
-                                area_firing_indices
-                            ].astype(
+                            extracted_y.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_z[
-                                area_firing_indices
-                            ].astype(
+                            extracted_z.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
                         )
@@ -3466,6 +3533,10 @@ class CoreAPIService:
             Dictionary with neuron_ids, membrane_potentials, coordinates, etc. or None if no data
         """
         try:
+            # COORDINATE DEBUG: Always log fire queue calls
+            self.logger.info(
+                f"[COORD-DEBUG] get_area_fire_queue called for area: {cortical_id}"
+            )
             if self.state_manager.is_debug_npu_enabled():
                 self.logger.debug(
                     f"🔥 [FIRE QUEUE API] get_area_fire_queue called for area: {cortical_id}"
@@ -3487,6 +3558,11 @@ class CoreAPIService:
             # Package coordinates as list of (x, y, z) tuples
             coordinates = list(
                 zip(coordinates_x, coordinates_y, coordinates_z)
+            )
+            
+            # COORDINATE DEBUG: Log coordinates being returned from fire queue
+            self.logger.info(
+                f"[COORD-DEBUG] Fire queue for {cortical_id}: extracted coordinates {coordinates}"
             )
 
             # CRITICAL FIX: Remove problematic neuron property extraction
