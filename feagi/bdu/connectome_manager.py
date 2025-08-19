@@ -279,6 +279,9 @@ class ConnectomeManager(NeuronMappingProvider):
         #  FCL manager is now owned by NPU BurstEngine, not BDU ConnectomeManager
         #  This maintains backward compatibility for any code that expects fcl_manager attribute
         self.fcl_manager = None  # Will be set by NPU when BurstEngine is created
+        
+        # NPU processor reference - NPU is PRIMARY OWNER of synaptic updates
+        self._npu_processor = None  # Will be set when NPU takes primary ownership
 
         # Initialize active neurons tracking
         self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
@@ -1039,6 +1042,15 @@ class ConnectomeManager(NeuronMappingProvider):
         self._init_multi_gpu(multi_gpu_config)
 
         return self
+    
+    def set_npu_processor(self, npu_processor):
+        """Set NPU processor as primary owner of synaptic updates.
+        
+        Args:
+            npu_processor: NeuralProcessor instance that will own synaptic updates
+        """
+        self._npu_processor = npu_processor
+        logger.info("✅ NPU processor set as primary owner of synaptic updates")
 
     def update_membrane_potentials(
         self, decay_factor=None, current_timestep=None
@@ -1079,32 +1091,19 @@ class ConnectomeManager(NeuronMappingProvider):
             timestep=self.current_timestep
         )
 
-        # Apply synaptic propagation using GlobalSynapseArray
-        if fired_neurons and hasattr(self, "synapse_array"):
-            # SIMD-OPTIMIZED: Use vectorized synaptic propagation for maximum performance
-            # This processes multiple synapses per CPU instruction (8+ synapses vs 1)
-            logger.info(f"🔥 SYNAPTIC PROPAGATION: {len(fired_neurons)} fired neurons, calling propagate_activations_simd")
+        # SYNAPTIC PROPAGATION IS 100% OWNED BY NPU
+        # BDU NO LONGER handles synaptic updates - NPU has exclusive ownership
+        if fired_neurons:
+            if not hasattr(self, '_npu_processor') or not self._npu_processor:
+                raise RuntimeError(
+                    "NPU processor required - NPU has 100% ownership of synaptic updates. "
+                    "BDU only handles synaptogenesis and synaptic pruning. "
+                    "Configure NPU processor before neural processing."
+                )
             
-            # COORDINATE DEBUG: Log fired neurons and check for neuron 2 (from _power)
-            if 2 in fired_neurons:
-                logger.info(f"[COORD-DEBUG] Neuron 2 (_power) is firing - should propagate to neuron 4495")
-                # Check if neuron 4495 has any incoming synapses from neuron 2
-                if hasattr(self.synapse_array, 'source_neurons') and hasattr(self.synapse_array, 'target_neurons'):
-                    # Find synapses from neuron 2
-                    source_mask = self.synapse_array.source_neurons == 2
-                    if np.any(source_mask):
-                        targets = self.synapse_array.target_neurons[source_mask]
-                        weights = self.synapse_array.weights[source_mask]
-                        logger.info(f"[COORD-DEBUG] Neuron 2 synapses: targets={targets.tolist()}, weights={weights.tolist()}")
-                        if 4495 in targets:
-                            logger.info(f"[COORD-DEBUG] Found synapse from neuron 2 to neuron 4495!")
-                        else:
-                            logger.info(f"[COORD-DEBUG] No synapse from neuron 2 to neuron 4495 found")
-            
-            self.synapse_array.propagate_activations_simd(
-                fired_neurons, 
-                self.neuron_array.membrane_potentials
-            )
+            logger.info("✅ Delegating ALL synaptic updates to NPU exclusive owner")
+            # NPU has 100% exclusive ownership of synaptic propagation
+            return self._npu_processor.process_neural_burst(self.current_timestep)
         else:
             if not fired_neurons:
                 logger.debug("⚠️ No synaptic propagation: no fired neurons")

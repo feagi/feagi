@@ -563,6 +563,19 @@ class BurstEngineStatsResponse(BaseModel):
     stats: Dict[str, Any]
 
 
+class FCLContentResponse(BaseModel):
+    """Response schema for complete FCL (Fire Candidate List) content."""
+    
+    timestep: int = Field(description="Current timestep when FCL was captured")
+    total_neurons: int = Field(description="Total number of neurons currently firing")
+    global_fcl: List[int] = Field(description="List of all neuron IDs currently firing")
+    cortical_areas: Dict[str, List[int]] = Field(
+        description="Mapping of cortical area ID to list of firing neuron IDs"
+    )
+    window_size: int = Field(description="FCL history window size")
+    active_cortical_count: int = Field(description="Number of cortical areas with active neurons")
+
+
 # ===== Region Schemas =====
 
 

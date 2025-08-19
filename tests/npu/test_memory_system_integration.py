@@ -327,11 +327,11 @@ class TestFCLWindowSizeCache:
     
     def setup_method(self):
         """Setup test fixtures."""
-        self.cache = FCLWindowSizeCache(default_window_size=20)
+        self.cache = FCLWindowSizeCache(window_size=20)
         
     def test_cache_initialization(self):
         """Test cache initialization."""
-        assert self.cache.default_window_size == 20
+        assert self.cache.window_size == 20
         assert len(self.cache.memory_areas) == 0
         assert len(self.cache.cortical_to_memory_mappings) == 0
 

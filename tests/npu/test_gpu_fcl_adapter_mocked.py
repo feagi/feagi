@@ -244,11 +244,11 @@ class TestGPUAcceleratedFCLMocked:
     @pytest.fixture
     def fcl(self, mock_backend):
         """Create a GPU-accelerated FCL."""
-        return GPUAcceleratedFCL(mock_backend, default_window_size=3)
+        return GPUAcceleratedFCL(mock_backend, window_size=3)
 
     def test_initialization(self, fcl, mock_backend):
         """Test initialization of GPU-accelerated FCL."""
-        assert fcl.cpu_fcl.default_window_size == 3
+        assert fcl.cpu_fcl.window_size == 3
         assert fcl.backend == mock_backend
 
     def test_update_fcl(self, fcl, mock_backend):
@@ -374,7 +374,7 @@ class TestCreateGPUAcceleratedFCLMocked:
 
         # Check result
         assert isinstance(fcl, GPUAcceleratedFCL)
-        assert fcl.cpu_fcl.default_window_size == 3
+        assert fcl.cpu_fcl.window_size == 3
         assert fcl.backend == backend
 
     def test_create_with_unsupported_backend(self, mock_get_backend):
@@ -392,7 +392,7 @@ class TestCreateGPUAcceleratedFCLMocked:
         from feagi.npu.fcl_manager import EnhancedFCLManager
 
         assert isinstance(fcl, EnhancedFCLManager)
-        assert fcl.default_window_size == 3
+        assert fcl.window_size == 3
 
     def test_create_with_no_backend(self, mock_get_backend):
         """Test creation with no backend available."""
@@ -406,7 +406,7 @@ class TestCreateGPUAcceleratedFCLMocked:
         from feagi.npu.fcl_manager import EnhancedFCLManager
 
         assert isinstance(fcl, EnhancedFCLManager)
-        assert fcl.default_window_size == 3
+        assert fcl.window_size == 3
 
 
 if __name__ == "__main__":

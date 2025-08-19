@@ -400,162 +400,19 @@ class GlobalSynapseArray:
     def propagate_activations_simd(
         self, firing_neurons: List[int], target_potentials: np.ndarray
     ) -> None:
+        """DEPRECATED: Synaptic propagation now 100% owned by NPU.
         
-        # CRITICAL DEBUG: Confirm this function is being called
-        logger.info(f"[COORD-DEBUG] *** PROPAGATE_ACTIVATIONS_SIMD CALLED *** with {len(firing_neurons)} firing neurons: {firing_neurons}")
-        print(f"[COORD-DEBUG] *** PROPAGATE_ACTIVATIONS_SIMD CALLED *** with {len(firing_neurons)} firing neurons: {firing_neurons}")
+        This method is deprecated. NPU has exclusive ownership of all synaptic updates.
+        BDU is only responsible for synaptogenesis and synaptic pruning.
         
-        # DEBUG: Check if we have any synapses at all
-        total_synapses = self.synapse_count
-        logger.info(f"[COORD-DEBUG] Total synapses in synapse array: {total_synapses}")
-        print(f"[COORD-DEBUG] Total synapses in synapse array: {total_synapses}")
-        
-        # DEBUG: Check array properties
-        logger.info(f"[COORD-DEBUG] Synapse array properties: max_synapses={self.max_synapses}, next_slot={self.next_slot}")
-        print(f"[COORD-DEBUG] Synapse array properties: max_synapses={self.max_synapses}, next_slot={self.next_slot}")
-        
-        if hasattr(self, 'pre_neuron_ids') and len(self.pre_neuron_ids) > 0:
-            non_zero_count = np.count_nonzero(self.pre_neuron_ids[:self.next_slot])
-            logger.info(f"[COORD-DEBUG] Non-zero pre_neuron_ids in first {self.next_slot} slots: {non_zero_count}")
-            print(f"[COORD-DEBUG] Non-zero pre_neuron_ids in first {self.next_slot} slots: {non_zero_count}")
-            
-            if self.next_slot > 0:
-                sample_pre_neurons = self.pre_neuron_ids[:min(10, self.next_slot)]
-                sample_post_neurons = self.post_neuron_ids[:min(10, self.next_slot)]
-                sample_weights = self.weights[:min(10, self.next_slot)]
-                logger.info(f"[COORD-DEBUG] Sample synapses: pre={sample_pre_neurons.tolist()}, post={sample_post_neurons.tolist()}, weights={sample_weights.tolist()}")
-                print(f"[COORD-DEBUG] Sample synapses: pre={sample_pre_neurons.tolist()}, post={sample_post_neurons.tolist()}, weights={sample_weights.tolist()}")
-        
-        if total_synapses == 0:
-            logger.info(f"[COORD-DEBUG] *** NO SYNAPSES FOUND *** - synaptic propagation will be skipped")
-            print(f"[COORD-DEBUG] *** NO SYNAPSES FOUND *** - synaptic propagation will be skipped")
-            return
-        """Propagate activations using SIMD-optimized operations.
-
-        This method processes synaptic transmission in vectorized batches
-        for maximum performance on modern CPUs and GPUs.
-
-        Args:
-            firing_neurons: List of neurons that fired
-            target_potentials: Array of target neuron membrane potentials
+        Use: NPU NeuralProcessor.process_neural_burst() instead
         """
-        if not firing_neurons:
-            return
-
-        # COORDINATE DEBUG: Log synaptic propagation entry
-        logger.info(f"[COORD-DEBUG] Synaptic propagation starting for {len(firing_neurons)} firing neurons: {firing_neurons}")
-
-        # Collect all synapses from all firing neurons for batch processing
-        all_target_neurons = []
-        all_synapse_weights = []
-        
-        for neuron_id in firing_neurons:
-            if neuron_id not in self.pre_neuron_index:
-                # COORDINATE DEBUG: Log missing neurons
-                if neuron_id == 2:
-                    logger.info(f"[COORD-DEBUG] Neuron 2 (_power) not found in pre_neuron_index!")
-                continue
-
-            # Get all outgoing synapses for this neuron
-            synapse_slots = self.pre_neuron_index[neuron_id]
-            if not synapse_slots:
-                # COORDINATE DEBUG: Log neurons with no synapses
-                if neuron_id == 2:
-                    logger.info(f"[COORD-DEBUG] Neuron 2 (_power) has no outgoing synapses!")
-                continue
-
-            # Vectorized processing of all synapses from this neuron
-            synapse_indices = np.array(synapse_slots, dtype=np.int32)
-
-            # Get target neurons and weights in vectorized fashion
-            target_neurons = self.post_neuron_ids[synapse_indices]
-            synapse_weights = self.weights[synapse_indices]
-            
-            # COORDINATE DEBUG: Log synapses for neuron 2
-            if neuron_id == 2:
-                logger.info(f"[COORD-DEBUG] Neuron 2 (_power) synapses: targets={target_neurons.tolist()}, weights={synapse_weights.tolist()}")
-                if 4495 in target_neurons:
-                    logger.info(f"[COORD-DEBUG] Found synapse from neuron 2 to neuron 4495 with weight {synapse_weights[target_neurons == 4495][0]}")
-            
-            # Accumulate for batch processing
-            all_target_neurons.extend(target_neurons)
-            all_synapse_weights.extend(synapse_weights)
-
-        if not all_target_neurons:
-            return
-            
-        # Convert to numpy arrays for processing
-        target_neurons_array = np.array(all_target_neurons, dtype=np.uint32)
-        synapse_weights_array = np.array(all_synapse_weights, dtype=np.float32)
-        
-        # HYBRID CPU/GPU PROCESSING: Intelligent workload-based selection
-        if hasattr(self, '_gpu_backend') and self._gpu_backend is not None:
-            logger.info(f"🔀 HYBRID: Analyzing workload for {len(all_target_neurons):,} synapses")
-            try:
-                # Use hybrid system for intelligent CPU/GPU selection
-                self._gpu_backend.hybrid_synaptic_propagation(
-                    target_neurons_array, 
-                    synapse_weights_array, 
-                    target_potentials
-                )
-                logger.info(f"✅ HYBRID synaptic propagation SUCCESS: {len(all_target_neurons):,} synapses processed")
-                return
-                
-            except Exception as e:
-                logger.error(f"❌ HYBRID synaptic propagation FAILED, falling back to CPU: {e}")
-                import traceback
-                logger.error(f"   📋 Full traceback: {traceback.format_exc()}")
-        else:
-            logger.info(f"💻 CPU ONLY: No GPU backend available, using CPU SIMD for {len(all_target_neurons):,} synapses")
-        
-        # CPU FALLBACK: SIMD-optimized NumPy operations
-        # Apply synaptic transmission (vectorized)
-        # This is SIMD-optimized by NumPy
-        logger.debug(f"   🔧 Executing CPU SIMD synaptic propagation")
-        
-        # COMPREHENSIVE SYNAPTIC UPDATE LOGGING
-        logger.info(f"[COORD-DEBUG] === SYNAPTIC PROPAGATION DETAILS ===")
-        logger.info(f"[COORD-DEBUG] Total target neurons receiving updates: {len(target_neurons_array)}")
-        logger.info(f"[COORD-DEBUG] All target neurons: {target_neurons_array.tolist()}")
-        logger.info(f"[COORD-DEBUG] All synaptic weights: {synapse_weights_array.tolist()}")
-        
-        # Log each individual synaptic update
-        for i, (target_neuron, weight) in enumerate(zip(target_neurons_array, synapse_weights_array)):
-            current_potential = target_potentials[target_neuron] if target_neuron < len(target_potentials) else 'N/A'
-            logger.info(f"[COORD-DEBUG] Synapse {i}: neuron {target_neuron} += {weight} (current: {current_potential})")
-            
-            # Special attention to our target neurons
-            if target_neuron in [4495, 4496]:
-                logger.info(f"[COORD-DEBUG] *** CRITICAL *** Target neuron {target_neuron} receiving synaptic input: weight={weight}")
-        
-        # COORDINATE DEBUG: Log membrane potential updates for neurons 4495 and 4496
-        if 4495 in target_neurons_array or 4496 in target_neurons_array:
-            logger.info(f"[COORD-DEBUG] Before synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
-            logger.info(f"[COORD-DEBUG] Before synaptic propagation - neuron 4496 potential: {target_potentials[4496] if 4496 < len(target_potentials) else 'N/A'}")
-            
-            # Check if neuron 4495 is receiving input
-            if 4495 in target_neurons_array:
-                mask_4495 = target_neurons_array == 4495
-                weights_to_4495 = synapse_weights_array[mask_4495]
-                logger.info(f"[COORD-DEBUG] Neuron 4495 receiving synaptic input: weights={weights_to_4495.tolist()}")
-            
-            # Check if neuron 4496 is receiving input (shouldn't be)
-            if 4496 in target_neurons_array:
-                mask_4496 = target_neurons_array == 4496
-                weights_to_4496 = synapse_weights_array[mask_4496]
-                logger.info(f"[COORD-DEBUG] Neuron 4496 receiving synaptic input: weights={weights_to_4496.tolist()}")
-        
-        # THE ACTUAL SYNAPTIC UPDATE - this is where membrane potentials get modified
-        np.add.at(target_potentials, target_neurons_array, synapse_weights_array)
-        
-        # COORDINATE DEBUG: Log membrane potentials after propagation
-        if 4495 in target_neurons_array or 4496 in target_neurons_array:
-            logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
-            logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4496 potential: {target_potentials[4496] if 4496 < len(target_potentials) else 'N/A'}")
-        
-        logger.info(f"[COORD-DEBUG] === END SYNAPTIC PROPAGATION DETAILS ===")
-        
-        logger.debug(f"   ✅ CPU SIMD synaptic propagation completed")
+        raise RuntimeError(
+            "DEPRECATED: BDU synaptic propagation is no longer allowed. "
+            "NPU has 100% exclusive ownership of synaptic updates. "
+            "BDU only handles synaptogenesis and synaptic pruning. "
+            "Use NPU NeuralProcessor.process_neural_burst() instead."
+        )
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get performance and usage statistics."""
@@ -586,68 +443,48 @@ class GlobalSynapseArray:
 
     def _estimate_memory_usage(self) -> float:
         """Estimate memory usage in MB."""
-        # Calculate size of all arrays
-        array_size = (
-            self.pre_neuron_ids.nbytes
-            + self.post_neuron_ids.nbytes
-            + self.weights.nbytes
-            + self.delays.nbytes
-            + self.types.nbytes
-            + self.plasticity_coeffs.nbytes
-            + self.conductances.nbytes
-            + self.is_plastic_flags.nbytes
-        )
-
-        # Add estimated index overhead
-        index_overhead = (
-            len(self.pre_neuron_index) * 100  # Rough estimate
-            + len(self.post_neuron_index) * 100
-        )
-
-        total_bytes = array_size + index_overhead
+        # Calculate memory for all arrays
+        arrays = [
+            self.pre_neuron_ids, self.post_neuron_ids, self.weights,
+            self.delays, self.types, self.plasticity_coeffs,
+            self.conductances, self.is_plastic_flags
+        ]
+        
+        total_bytes = sum(arr.nbytes for arr in arrays)
         return total_bytes / (1024 * 1024)  # Convert to MB
 
     def compact(self) -> int:
         """Compact the array by removing gaps from deleted synapses.
-
+        
         Returns:
-            Number of slots compacted
+            Number of synapses moved during compaction
         """
         if not self.free_slots:
-            return 0
-
-        # Sort free slots in descending order
-        self.free_slots.sort(reverse=True)
-
-        compacted_count = 0
-
-        # Move synapses from the end to fill gaps
-        for free_slot in self.free_slots:
-            if free_slot >= self.next_slot - 1:
-                continue
-
-            # Find the last used slot
-            last_slot = self.next_slot - 1
-            while last_slot in self.free_slots and last_slot > free_slot:
-                last_slot -= 1
-
-            if last_slot <= free_slot:
-                break
-
-            # Move synapse from last_slot to free_slot
-            self._move_synapse(last_slot, free_slot)
-            compacted_count += 1
-            self.next_slot = last_slot
-
-        # Clear free slots list
+            return 0  # No gaps to compact
+        
+        moved_count = 0
+        write_idx = 0
+        
+        # Find the first free slot
+        min_free_slot = min(self.free_slots) if self.free_slots else self.synapse_count
+        
+        # Compact by moving synapses from after gaps to fill gaps
+        for read_idx in range(min_free_slot, self.synapse_count):
+            if read_idx not in self.free_slots:
+                if write_idx != read_idx:
+                    self._move_synapse(read_idx, write_idx)
+                    moved_count += 1
+                write_idx += 1
+        
+        # Update synapse count and clear free slots
+        self.synapse_count = write_idx
         self.free_slots.clear()
-
-        logger.debug(f"Compacted {compacted_count} synapse slots")
-        return compacted_count
+        
+        return moved_count
 
     def _move_synapse(self, from_slot: int, to_slot: int) -> None:
         """Move a synapse from one slot to another."""
-        # Copy all properties
+        # Copy all synapse data
         self.pre_neuron_ids[to_slot] = self.pre_neuron_ids[from_slot]
         self.post_neuron_ids[to_slot] = self.post_neuron_ids[from_slot]
         self.weights[to_slot] = self.weights[from_slot]
@@ -656,26 +493,11 @@ class GlobalSynapseArray:
         self.plasticity_coeffs[to_slot] = self.plasticity_coeffs[from_slot]
         self.conductances[to_slot] = self.conductances[from_slot]
         self.is_plastic_flags[to_slot] = self.is_plastic_flags[from_slot]
-
+        
         # Update indices
-        pre_id = int(self.pre_neuron_ids[to_slot])
-        post_id = int(self.post_neuron_ids[to_slot])
-
-        # Update pre_neuron_index
-        if pre_id in self.pre_neuron_index:
-            idx_list = self.pre_neuron_index[pre_id]
-            if from_slot in idx_list:
-                idx_list.remove(from_slot)
-                idx_list.append(to_slot)
-
-        # Update post_neuron_index
-        if post_id in self.post_neuron_index:
-            idx_list = self.post_neuron_index[post_id]
-            if from_slot in idx_list:
-                idx_list.remove(from_slot)
-                idx_list.append(to_slot)
-
-        # Clear old slot
-        self.pre_neuron_ids[from_slot] = 0
-        self.post_neuron_ids[from_slot] = 0
-        self.weights[from_slot] = 0.0
+        pre_neuron = self.pre_neuron_ids[to_slot]
+        if pre_neuron in self.pre_neuron_index:
+            # Replace old slot index with new one
+            indices = self.pre_neuron_index[pre_neuron]
+            if from_slot in indices:
+                indices[indices.index(from_slot)] = to_slot

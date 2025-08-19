@@ -206,13 +206,13 @@ class TestConnectome:
         assert not numpy_connectome._use_rust
         assert numpy_connectome.neuron_count == 1000
         assert numpy_connectome.source_offsets.size == 1001  # neuron_count + 1
-        assert numpy_connectome.target_indices.size > 0  # Initial capacity
+        assert numpy_connectome.target_ids.size > 0  # Initial capacity
         assert numpy_connectome.weights.size > 0  # Initial capacity
         assert numpy_connectome.delays.size > 0  # Initial capacity
-        assert numpy_connectome.connection_types.size > 0  # Initial capacity
+        assert numpy_connectome.conductances.size > 0  # Initial capacity
         assert numpy_connectome.source_cortical_idxs.size > 0  # Initial capacity
         assert numpy_connectome.target_cortical_idxs.size > 0  # Initial capacity
-        assert numpy_connectome._connection_count == 0  # No connections yet
+        assert numpy_connectome.connection_count() == 0  # No connections yet
 
     @pytest.mark.skip(
         reason="create_connectome function not available in optimized_structures module"
@@ -230,7 +230,7 @@ class TestConnectome:
         # Since the Connectome uses CSR-like format, source neuron 1's connections start at source_offsets[1]
         idx = numpy_connectome.source_offsets[1]
 
-        assert numpy_connectome.target_indices[idx] == 2
+        assert numpy_connectome.target_ids[idx] == 2
         assert numpy_connectome.weights[idx] == 0.5
         assert numpy_connectome.connection_types[idx] == 1
         assert numpy_connectome.source_cortical_idxs[idx] == 10
@@ -264,7 +264,7 @@ class TestConnectome:
         numpy_connectome.add_connection(5, 15, 0.5)
 
         # Check that arrays were resized
-        assert numpy_connectome.target_indices.size >= 6
+        assert numpy_connectome.target_ids.size >= 6
         assert numpy_connectome.weights.size >= 6
         assert numpy_connectome.delays.size >= 6
         assert numpy_connectome._connection_count == 6

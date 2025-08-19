@@ -1076,6 +1076,36 @@ class CoreAPIService:
                     connectome_manager=self._connectome_manager,
                     config=engine_config,
                 )
+                
+                # ✅ CONFIGURE NPU AS PRIMARY OWNER OF SYNAPTIC UPDATES
+                self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates...")
+                from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
+                
+                # Get NPU configuration from config
+                npu_config = self._config.get("npu", {})
+                max_neurons = npu_config.get("max_neurons", 10_000_000)
+                max_synapses = npu_config.get("max_synapses", 100_000_000)
+                backend = npu_config.get("backend", "cpu")
+                
+                # Configure NPU with 100% ownership of synaptic updates
+                npu_success = configure_npu_burst_engine(
+                    singleton_instance,
+                    max_neurons=max_neurons,
+                    max_synapses=max_synapses,
+                    backend=backend,
+                    enable_immediately=True
+                )
+                
+                if npu_success:
+                    self.logger.info("✅ NPU configured as PRIMARY OWNER of synaptic updates")
+                    self.logger.info(f"   Backend: {backend}")
+                    self.logger.info(f"   Max neurons: {max_neurons:,}")
+                    self.logger.info(f"   Max synapses: {max_synapses:,}")
+                else:
+                    self.logger.error("❌ Failed to configure NPU - falling back to BDU")
+                    # Note: This will cause the RuntimeError we saw, which is correct behavior
+                    # NPU ownership is mandatory for synaptic updates
+                
             # Removed log spam: no longer log when using existing singleton
 
             return singleton_instance

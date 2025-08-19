@@ -142,7 +142,7 @@ def test_enhanced_fcl_manager_initialization():
     """Test Enhanced FCL manager initialization."""
     enhanced_fcl = EnhancedFCLManager()
 
-    assert enhanced_fcl.default_window_size == 20
+    assert enhanced_fcl.window_size == 20
     assert isinstance(enhanced_fcl.custom_cortical_history, dict)
 
 

@@ -515,7 +515,7 @@ def test_gpu_accelerated_fcl_initialization():
     """Test GPUAcceleratedFCL initialization with valid backend."""
     mock_backend = MockBackend()
 
-    fcl = GPUAcceleratedFCL(mock_backend, default_window_size=15)
+    fcl = GPUAcceleratedFCL(mock_backend, window_size=15)
 
     assert fcl.backend == mock_backend
     assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)
@@ -527,7 +527,7 @@ def test_gpu_accelerated_fcl_initialization_no_backend():
         mock_get_backend.return_value = None
 
         with pytest.raises(RuntimeError):
-            GPUAcceleratedFCL(None, default_window_size=15)
+            GPUAcceleratedFCL(None, window_size=15)
 
 
 def test_gpu_accelerated_fcl_initialization_incompatible_backend():
@@ -535,7 +535,7 @@ def test_gpu_accelerated_fcl_initialization_incompatible_backend():
     mock_backend = MockNoBackend()
 
     with pytest.raises(TypeError):
-        GPUAcceleratedFCL(mock_backend, default_window_size=15)
+        GPUAcceleratedFCL(mock_backend, window_size=15)
 
 
 def test_gpu_accelerated_fcl_getattr_delegation():
@@ -579,7 +579,7 @@ def test_gpu_accelerated_fcl_get_fcl_delta():
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30, 40]})
 
     # Compute delta
@@ -600,7 +600,7 @@ def test_gpu_accelerated_fcl_get_fcl_delta_with_cortical_filter():
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30], 2: [200, 300]})
 
     # Compute delta for cortical area 1 only
@@ -621,12 +621,12 @@ def test_gpu_accelerated_fcl_get_consistently_active_neurons():
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30, 40]})
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(2, {1: [30, 40, 50]})
 
     # Get consistently active neurons
@@ -648,7 +648,7 @@ def test_gpu_accelerated_fcl_get_consistently_active_neurons_with_cortical_filte
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30], 2: [200, 300]})
 
     # Get consistently active for area 2 only
@@ -669,12 +669,12 @@ def test_gpu_accelerated_fcl_get_consistently_active_neurons_early_termination()
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [30, 40]})
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(2, {1: [50, 60]})
 
     # Get consistently active neurons - should be empty
@@ -694,12 +694,12 @@ def test_gpu_accelerated_fcl_get_neurons_fired_in_last_n_steps():
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [30, 40]})
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(2, {1: [50, 60]})
 
     # Get neurons from last 2 steps
@@ -724,7 +724,7 @@ def test_gpu_accelerated_fcl_get_neurons_fired_in_last_n_steps_with_cortical_fil
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [30, 40], 2: [300, 400]})
 
     # Get recent neurons for area 1 only
@@ -928,7 +928,7 @@ def test_gpu_accelerated_fcl_initialization_get_backend_fallback():
         mock_get_backend.return_value = MockBackend()
 
         # Initialize without providing backend (should call get_backend)
-        fcl = GPUAcceleratedFCL(None, default_window_size=15)
+        fcl = GPUAcceleratedFCL(None, window_size=15)
 
         assert fcl.backend is not None
         assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)
@@ -943,7 +943,7 @@ def test_gpu_accelerated_fcl_backend_name_handling():
     mock_backend = MockBackendNoName()
     del mock_backend.name  # Ensure no name attribute
 
-    fcl = GPUAcceleratedFCL(mock_backend, default_window_size=15)
+    fcl = GPUAcceleratedFCL(mock_backend, window_size=15)
 
     assert fcl.backend == mock_backend
     assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)
@@ -959,7 +959,7 @@ def test_gpu_accelerated_fcl_get_fcl_delta_no_cortical_filter():
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30, 40]})
 
     # Compute delta without cortical filter
@@ -980,12 +980,12 @@ def test_gpu_accelerated_fcl_get_consistently_active_neurons_no_cortical_filter(
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [20, 30, 40]})
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(2, {1: [30, 40, 50]})
 
     # Get consistently active neurons without cortical filter
@@ -1007,12 +1007,12 @@ def test_gpu_accelerated_fcl_get_neurons_fired_in_last_n_steps_no_cortical_filte
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(1, {1: [30, 40]})
     fcl.cpu_fcl.current_timestep += 1  # Manually advance timestep
     fcl.cpu_fcl.current_window_index = (
         fcl.cpu_fcl.current_window_index + 1
-    ) % fcl.cpu_fcl.default_window_size
+    ) % fcl.cpu_fcl.window_size
     fcl.update_fcl(2, {1: [50, 60]})
 
     # Get neurons from last 2 steps without cortical filter

@@ -704,7 +704,7 @@ def test_connectome_add_connection_numpy(mock_rust_unavailable):
     )
 
     assert connectome._connection_count == 1
-    assert connectome.target_indices[0] == 1
+    assert connectome.target_ids[0] == 1
     assert connectome.weights[0] == 0.5
     assert connectome.delays[0] == 1
 
@@ -719,7 +719,7 @@ def test_connectome_add_connection_numpy_resize(mock_rust_unavailable):
         connectome.add_connection(0, i, 0.1 * i)
 
     assert connectome._connection_count == 5
-    assert len(connectome.target_indices) >= 5
+    assert len(connectome.target_ids) >= 5
 
 
 def test_connectome_get_connections_rust(mock_rust_available):
@@ -834,10 +834,10 @@ def test_connectome_resize_arrays(mock_rust_unavailable):
     connectome = Connectome(10, 2)
 
     # Access the resize method directly
-    original_size = len(connectome.target_indices)
+    original_size = len(connectome.target_ids)
     connectome._resize_arrays(10)
 
-    assert len(connectome.target_indices) == 10
+    assert len(connectome.target_ids) == 10
     assert len(connectome.weights) == 10
     assert len(connectome.delays) == 10
 

@@ -72,6 +72,11 @@ from .homeostatic import (
     homeostatic_update_batch
 )
 
+from .manager import (
+    PlasticityManager,
+    PlasticityConfig
+)
+
 __all__ = [
     # Core plasticity
     'PlasticityType',
@@ -94,5 +99,9 @@ __all__ = [
     'weight_normalization',
     'intrinsic_excitability_update',
     'activity_dependent_scaling',
-    'homeostatic_update_batch'
+    'homeostatic_update_batch',
+    
+    # Manager and configuration
+    'PlasticityManager',
+    'PlasticityConfig'
 ]

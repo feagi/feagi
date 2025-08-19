@@ -199,7 +199,7 @@ class Connectome:
             self._use_rust = False
 
             # Initialize CSR-like arrays
-            #  source_offsets[i] gives the starting index in target_indices for
+            #  source_offsets[i] gives the starting index in target_ids for
             #  source i's connections
             #  source_offsets[i+1] - source_offsets[i] gives the number of
             #  connections from source i
@@ -222,6 +222,9 @@ class Connectome:
             self.target_cortical_idxs = np.zeros(
                 estimated_connections, dtype=np.uint16
             )
+            
+            # Connection types (0=excitatory, 1=inhibitory, etc.)
+            self.connection_types = np.zeros(estimated_connections, dtype=np.uint8)
 
             # Track actual used size
             self._connection_count = 0
@@ -261,7 +264,7 @@ class Connectome:
             return
         else:
             # Check if we need to resize the arrays
-            if self._connection_count >= len(self.target_indices):
+            if self._connection_count >= len(self.target_ids):
                 # Double capacity (typical amortized growth strategy)
                 new_capacity = max(
                     self._connection_count * 2, self.initial_capacity
@@ -280,9 +283,9 @@ class Connectome:
             # Make space for new connection
             if self._connection_count > insert_pos:
                 # Move existing connections one position forward
-                self.target_indices[
+                self.target_ids[
                     insert_pos + 1 : self._connection_count + 1
-                ] = self.target_indices[insert_pos : self._connection_count]
+                ] = self.target_ids[insert_pos : self._connection_count]
                 self.weights[insert_pos + 1 : self._connection_count + 1] = (
                     self.weights[insert_pos : self._connection_count]
                 )
@@ -304,7 +307,7 @@ class Connectome:
                 ]
 
             # Insert new connection
-            self.target_indices[insert_pos] = target_id
+            self.target_ids[insert_pos] = target_id
             self.weights[insert_pos] = weight
             self.delays[insert_pos] = delay
             self.connection_types[insert_pos] = connection_type
@@ -323,7 +326,7 @@ class Connectome:
         Args:
             new_capacity: New capacity for arrays
         """
-        self.target_indices = np.resize(self.target_indices, new_capacity)
+        self.target_ids = np.resize(self.target_ids, new_capacity)
         self.weights = np.resize(self.weights, new_capacity)
         self.delays = np.resize(self.delays, new_capacity)
         self.connection_types = np.resize(self.connection_types, new_capacity)
@@ -358,7 +361,7 @@ class Connectome:
                 connections.append(
                     {
                         "source_id": neuron_id,
-                        "target_id": int(self.target_indices[i]),
+                        "target_id": int(self.target_ids[i]),
                         "weight": float(self.weights[i]),
                         "delay": int(self.delays[i]),
                         "connection_type": int(self.connection_types[i]),
@@ -412,7 +415,7 @@ class Connectome:
                     continue  # No connections
 
                 # Get target neurons and weights
-                targets = self.target_indices[start_idx:end_idx]
+                targets = self.target_ids[start_idx:end_idx]
                 conn_weights = self.weights[start_idx:end_idx]
 
                 # Calculate PSP contribution (activation * weight)

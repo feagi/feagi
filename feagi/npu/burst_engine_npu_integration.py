@@ -196,17 +196,28 @@ def patch_burst_engine_for_npu():
     if not hasattr(BurstEngine, '_original_process_burst_with_power_injection'):
         BurstEngine._original_process_burst_with_power_injection = BurstEngine._process_burst_with_power_injection
     
-    def _process_burst_with_npu_fallback(self, current_timestep: int) -> List[int]:
-        """NPU processing with fallback to BDU if NPU not available."""
-        if hasattr(self, '_use_npu_processing') and self._use_npu_processing and self.npu_processor:
-            # Use NPU processing
-            return self._process_burst_with_npu(current_timestep)
-        else:
-            # Fallback to original BDU processing
-            return self._original_process_burst_with_power_injection(current_timestep)
+    def _process_burst_with_npu_only(self, current_timestep: int) -> List[int]:
+        """NPU-ONLY processing - 100% NPU ownership of synaptic updates.
+        
+        NPU is the EXCLUSIVE OWNER of all synaptic updates. No fallback to BDU.
+        BDU is only responsible for synaptogenesis and synaptic pruning.
+        
+        Architecture:
+        - NPU: 100% ownership of synaptic updates (runtime)
+        - BDU: Synaptogenesis & pruning only (development time)
+        - Single SoA: NPUSynapseArray is the only synaptic data structure
+        """
+        if not hasattr(self, 'npu_processor') or not self.npu_processor:
+            raise RuntimeError(
+                "NPU processor not available - NPU has 100% ownership of synaptic updates. "
+                "Initialize NPU processor before processing neural bursts."
+            )
+        
+        # ✅ NPU EXCLUSIVE OWNERSHIP - no fallback, no BDU synaptic updates
+        return self._process_burst_with_npu(current_timestep)
     
-    # Apply the patch
-    BurstEngine._process_burst_with_power_injection = _process_burst_with_npu_fallback
+    # Apply the patch - NPU 100% ownership
+    BurstEngine._process_burst_with_power_injection = _process_burst_with_npu_only
     
     # Add NPU mixin methods
     for method_name in dir(BurstEngineNPUMixin):
@@ -250,6 +261,11 @@ def configure_npu_burst_engine(burst_engine,
         
         if not success:
             return False
+        
+        # Set NPU processor reference in ConnectomeManager for delegation
+        if hasattr(burst_engine, 'connectome_manager') and burst_engine.connectome_manager:
+            burst_engine.connectome_manager.set_npu_processor(burst_engine.npu_processor)
+            logger.info("✅ ConnectomeManager configured to delegate synaptic updates to NPU")
         
         # Enable NPU processing if requested
         if enable_immediately:

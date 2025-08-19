@@ -26,7 +26,7 @@ import os
 import threading
 import time
 from queue import Queue
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
@@ -53,8 +53,21 @@ class MockConnectomeManager:
             "power_area": Mock(id="power_area", properties={"__power_injection": True}),
         }
         self.fcl_manager = Mock()
+        
+        # Add neuron_array mock for NPU architecture
+        import numpy as np
+        self.neuron_array = MagicMock()
+        self.neuron_array.get_performance_summary.return_value = {"total_neurons": 1000}
+        self.neuron_array.neuron_count = 1000
+        self.neuron_array.valid_mask = np.ones(1000, dtype=bool)  # All neurons valid
+        self.neuron_array.membrane_potentials = np.zeros(1000, dtype=np.float32)
+        self.neuron_array.thresholds = np.ones(1000, dtype=np.float32)
+        
+        # Add neuron_id_to_index for genome updates
+        self.neuron_id_to_index = {i: i for i in range(1000)}  # Simple 1:1 mapping
 
-    def update_membrane_potentials(self):
+    def update_membrane_potentials(self, current_timestep=None):
+        """Updated to accept current_timestep parameter for NPU architecture."""
         return [1, 2, 3]
 
     def get_optimized_core(self):
@@ -76,6 +89,15 @@ class MockStateManager:
 
     def get_burst_engine_state(self):
         return self.burst_engine_state
+    
+    def is_debug_npu_enabled(self):
+        return False
+    
+    def get_burst_frequency(self):
+        return self.burst_frequency
+    
+    def get_simd_configuration(self):
+        return {"enabled": True, "backend": "cpu"}
 
     def get_simulation_state(self):
         return self.simulation_state
@@ -614,7 +636,7 @@ def test_fq_sampler_run_global_mode():
     output_queue = Queue()
 
     sampler = UnifiedFQSampler(
-        fire_queue_provider, 100, output_queue
+        fire_queue_provider, 100, "visualization", output_queue
     )  # No connectome manager
     sampler.set_visualization_subscribers(True)
 
@@ -634,7 +656,7 @@ def test_fq_sampler_run_no_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
     # Don't set any subscribers
 
     # Run for a short time
@@ -664,7 +686,7 @@ def test_fq_sampler_queue_full_handling():
     output_queue.put("blocking_item")
 
     sampler = UnifiedFQSampler(
-        fire_queue_provider, 1000, output_queue
+        fire_queue_provider, 1000, "visualization", output_queue
     )  # High frequency
     sampler.set_visualization_subscribers(True)
 
@@ -684,7 +706,7 @@ def test_fq_sampler_update_area_sample_rate():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
 
     # Test updating sample rate
     sampler.update_area_sample_rate("test_area", 75.0)
@@ -697,7 +719,7 @@ def test_fq_sampler_set_motor_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
 
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)
@@ -713,7 +735,7 @@ def test_fq_sampler_sample_area_fire_queue():
     fire_queue_provider.get_area_fire_queue.return_value = {"area_data": [1, 2, 3]}
 
     output_queue = Queue()
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
 
     # Test area sampling
     sampler._sample_area_fire_queue("test_area")
@@ -728,7 +750,7 @@ def test_fq_sampler_sample_global_fire_queue():
     fire_queue_provider.get_global_fire_queue.return_value = {"global_data": [1, 2, 3]}
 
     output_queue = Queue()
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
 
     # Test global sampling
     sampler._sample_global_fire_queue()

@@ -92,13 +92,21 @@ class NPUNeuronArray:
         logger.info(f"NPUNeuronArray initialized as PRIMARY OWNER: {max_neurons:,} max neurons, {backend} backend")
     
     def _init_backend(self):
-        """Initialize the computation backend."""
+        """Initialize the computation backend.
+        
+        Attempts to initialize the requested backend with graceful fallback to CPU.
+        This ensures FEAGI works across diverse hardware environments while maintaining
+        optimal performance where possible.
+        """
         if self.backend == "wgpu":
             try:
                 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
                 self._gpu_backend = ArrayBackend(BackendType.WGPU)
                 logger.info("NPU WGPU backend initialized")
             except Exception as e:
+                # @architecture:acceptable - hardware fallback for cross-platform compatibility
+                # Rationale: GPU/WGPU may not be available on all deployment targets (RTOS, embedded)
+                # Better to run on CPU than crash the entire neural simulation
                 logger.warning(f"WGPU backend failed, falling back to CPU: {e}")
                 self.backend = "cpu"
                 self._gpu_backend = None
@@ -131,22 +139,22 @@ class NPUNeuronArray:
         # PHASE 1: Create update mask (valid neurons not in refractory)
         can_update_mask = self.valid_mask & (self.refractory_counters == 0)
         
-        # PHASE 2: Membrane potential decay (SIMD-optimized)
+        # PHASE 2: Firing detection (BEFORE decay - critical!)
+        fired_mask = simd_firing_check(
+            self.membrane_potentials,
+            self.thresholds,
+            can_update_mask
+        )
+        
+        # PHASE 3: Membrane potential decay (SIMD-optimized)
         simd_membrane_decay(
             self.membrane_potentials, 
             self.decay_rates, 
             can_update_mask
         )
         
-        # PHASE 3: Refractory period updates (SIMD-optimized)
+        # PHASE 4: Refractory period updates (SIMD-optimized)
         simd_refractory_update(self.refractory_counters, self.valid_mask)
-        
-        # PHASE 4: Firing detection (SIMD-optimized)
-        fired_mask = simd_firing_check(
-            self.membrane_potentials,
-            self.thresholds,
-            can_update_mask
-        )
         
         # PHASE 5: Process fired neurons
         fired_indices = np.where(fired_mask)[0]
@@ -196,6 +204,11 @@ class NPUSynapseArray:
         self.target_neurons = np.zeros(max_synapses, dtype=np.uint32)
         self.weights = np.zeros(max_synapses, dtype=np.float32)
         self.delays = np.ones(max_synapses, dtype=np.uint8)
+        
+        # Compatibility with BDU GlobalSynapseArray for data transfer
+        self.types = np.zeros(max_synapses, dtype=np.uint8)  # Synapse types (excitatory/inhibitory)
+        self.conductances = np.ones(max_synapses, dtype=np.float32)  # Synaptic conductances
+        self.is_plastic_flags = np.zeros(max_synapses, dtype=np.bool_)  # Plasticity flags
         
         # Plasticity data structures (NPU-owned)
         self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)  # PlasticityType enum
@@ -338,6 +351,9 @@ class NeuralProcessor:
                 elif hasattr(self.connectome_manager, 'process_memory_neurons'):
                     memory_fired_neurons = self.connectome_manager.process_memory_neurons(timestep)
             except Exception as e:
+                # @architecture:acceptable - memory processing fallback
+                # Rationale: Memory neurons use different processing patterns than regular neurons
+                # Empty result allows main neural processing to continue uninterrupted
                 logger.warning(f"Memory neuron processing failed: {e}")
                 memory_fired_neurons = []
         
@@ -498,24 +514,53 @@ class NeuralProcessor:
             
             self.neurons.neuron_count = neuron_count
             
-            # Transfer synapses from BDU to NPU ownership
+            # Transfer synapses from BDU GlobalSynapseArray to NPU - SINGLE SoA ARCHITECTURE
             synapse_count = 0
-            for synapse_data in bdu_connectome_manager.get_all_synapses():
-                source_id = synapse_data['source_neuron_id']
-                target_id = synapse_data['target_neuron_id']
-                weight = synapse_data['weight']
+            if hasattr(bdu_connectome_manager, 'synapse_array'):
+                bdu_synapses = bdu_connectome_manager.synapse_array
+                bdu_synapse_count = bdu_synapses.synapse_count
+                logger.info(f"Transferring {bdu_synapse_count:,} synapses from BDU GlobalSynapseArray to NPU")
                 
-                # Store synapse in NPU arrays
-                self.synapses.source_neurons[synapse_count] = source_id
-                self.synapses.target_neurons[synapse_count] = target_id
-                self.synapses.weights[synapse_count] = weight
-                
-                # Update NPU index
-                if source_id not in self.synapses.source_neuron_index:
-                    self.synapses.source_neuron_index[source_id] = []
-                self.synapses.source_neuron_index[source_id].append(synapse_count)
-                
-                synapse_count += 1
+                if bdu_synapse_count > 0:
+                    # Direct array transfer for maximum performance
+                    self.synapses.source_neurons[:bdu_synapse_count] = bdu_synapses.pre_neuron_ids[:bdu_synapse_count]
+                    self.synapses.target_neurons[:bdu_synapse_count] = bdu_synapses.post_neuron_ids[:bdu_synapse_count]
+                    self.synapses.weights[:bdu_synapse_count] = bdu_synapses.weights[:bdu_synapse_count]
+                    self.synapses.delays[:bdu_synapse_count] = bdu_synapses.delays[:bdu_synapse_count]
+                    self.synapses.types[:bdu_synapse_count] = bdu_synapses.types[:bdu_synapse_count]
+                    self.synapses.plasticity_coeffs[:bdu_synapse_count] = bdu_synapses.plasticity_coeffs[:bdu_synapse_count]
+                    self.synapses.conductances[:bdu_synapse_count] = bdu_synapses.conductances[:bdu_synapse_count]
+                    self.synapses.is_plastic_flags[:bdu_synapse_count] = bdu_synapses.is_plastic_flags[:bdu_synapse_count]
+                    
+                    # Rebuild NPU synapse indices for fast lookup
+                    self.synapses.source_neuron_index.clear()
+                    for i in range(bdu_synapse_count):
+                        source_neuron = self.synapses.source_neurons[i]
+                        if source_neuron not in self.synapses.source_neuron_index:
+                            self.synapses.source_neuron_index[source_neuron] = []
+                        self.synapses.source_neuron_index[source_neuron].append(i)
+                    
+                    synapse_count = bdu_synapse_count
+                    logger.info(f"✅ Transferred {synapse_count:,} synapses to NPU primary ownership")
+            else:
+                # Fallback to legacy synapse iteration if GlobalSynapseArray not available
+                logger.warning("BDU GlobalSynapseArray not found, using legacy synapse transfer")
+                for synapse_data in bdu_connectome_manager.get_all_synapses():
+                    source_id = synapse_data['source_neuron_id']
+                    target_id = synapse_data['target_neuron_id']
+                    weight = synapse_data['weight']
+                    
+                    # Store synapse in NPU arrays
+                    self.synapses.source_neurons[synapse_count] = source_id
+                    self.synapses.target_neurons[synapse_count] = target_id
+                    self.synapses.weights[synapse_count] = weight
+                    
+                    # Update NPU index
+                    if source_id not in self.synapses.source_neuron_index:
+                        self.synapses.source_neuron_index[source_id] = []
+                    self.synapses.source_neuron_index[source_id].append(synapse_count)
+                    
+                    synapse_count += 1
             
             self.synapses.synapse_count = synapse_count
             

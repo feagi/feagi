@@ -442,7 +442,7 @@ class GPUAcceleratedFCL:
 
         #  Create a CPU FCL manager as a delegate for operations that can't be
         #  accelerated
-        self.cpu_fcl = FCLManager(default_window_size=default_window_size)
+        self.cpu_fcl = FCLManager(window_size=default_window_size)
 
         logger.info(
             f"Initialized GPU-accelerated FCL manager with {getattr(self.backend, 'name', type(self.backend).__name__)} backend"

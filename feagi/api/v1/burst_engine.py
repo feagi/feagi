@@ -34,6 +34,7 @@ from .schemas import (
     BurstEngineConfigRequest,
     BurstEngineStatsResponse,
     BurstEngineStatusResponse,
+    FCLContentResponse,
     SuccessResponse,
 )
 
@@ -226,6 +227,51 @@ class BurstEngineAPI:
             raise ValueError(
                 f"Failed to get burst engine stats: {str(e)}"
             ) from e
+
+    @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
+    async def get_fcl_content(self) -> FCLContentResponse:
+        """Get the complete FCL (Fire Candidate List) content at the current timestep.
+        
+        Returns all currently firing neurons organized by cortical areas,
+        providing a comprehensive snapshot of neural activity.
+        """
+        try:
+            fcl_manager = self.core_api_service.get_fcl_manager()
+            if not fcl_manager:
+                raise ValueError("FCL manager not available")
+            
+            # Get current timestep
+            current_timestep = fcl_manager.current_timestep
+            
+            # Get global FCL (all firing neurons)
+            global_fcl_bitmap = fcl_manager.get_global_fcl()
+            global_fcl_list = list(global_fcl_bitmap) if global_fcl_bitmap else []
+            
+            # Get FCL organized by cortical areas
+            cortical_fcl_dict = fcl_manager.get_fcl_by_cortical()
+            
+            # Convert cortical areas data to string keys and lists
+            cortical_areas = {}
+            for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            
+            # Get FCL manager statistics
+            window_size = fcl_manager.window_size
+            active_cortical_count = len(cortical_areas)
+            total_neurons = len(global_fcl_list)
+            
+            return FCLContentResponse(
+                timestep=current_timestep,
+                total_neurons=total_neurons,
+                global_fcl=global_fcl_list,
+                cortical_areas=cortical_areas,
+                window_size=window_size,
+                active_cortical_count=active_cortical_count
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting FCL content: {e}")
+            raise ValueError(f"Failed to get FCL content: {str(e)}") from e
 
     # ===== Burst Engine Configuration =====
 
