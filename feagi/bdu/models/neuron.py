@@ -323,74 +323,65 @@ class NeuronArray:
             # Create property accessors that delegate to the mapping provider
             pass
 
+    @property
+    def id_to_index_map(self) -> Dict[int, int]:
+        """Direct access to neuron ID to index mapping."""
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
+            )
+        if not hasattr(self.mapping_provider, '_neuron_id_to_index_map'):
+            raise RuntimeError(
+                "Mapping provider does not have _neuron_id_to_index_map attribute. "
+                "Ensure ConnectomeManager is properly initialized."
+            )
+        return self.mapping_provider._neuron_id_to_index_map
+
     def _get_neuron_index(self, neuron_id: int) -> Optional[int]:
         """Get the array index for a neuron ID."""
-        if self.mapping_provider:
-            return self.mapping_provider.get_neuron_index(neuron_id)
-        else:
-            #  Fallback for backward compatibility - should not be used in new
-            #  code
-            logger.warning(
-                "NeuronArray: No mapping provider, using internal fallback"
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
             )
-            return getattr(self, "_fallback_id_to_index", {}).get(neuron_id)
+        return self.mapping_provider.get_neuron_index(neuron_id)
 
     def _get_neuron_id(self, index: int) -> Optional[int]:
         """Get the neuron ID for an array index."""
-        if self.mapping_provider:
-            return self.mapping_provider.get_neuron_id(index)
-        else:
-            #  Fallback for backward compatibility - should not be used in new
-            #  code
-            logger.warning(
-                "NeuronArray: No mapping provider, using internal fallback"
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
             )
-            return getattr(self, "_fallback_index_to_id", {}).get(index)
+        return self.mapping_provider.get_neuron_id(index)
 
     def _set_neuron_mapping(self, neuron_id: int, index: int) -> None:
         """Set a neuron ID to index mapping."""
-        if self.mapping_provider:
-            self.mapping_provider.set_neuron_mapping(neuron_id, index)
-        else:
-            #  Fallback for backward compatibility - should not be used in new
-            #  code
-            logger.warning(
-                "NeuronArray: No mapping provider, using internal fallback"
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
             )
-            if not hasattr(self, "_fallback_id_to_index"):
-                self._fallback_id_to_index = {}
-                self._fallback_index_to_id = {}
-            self._fallback_id_to_index[neuron_id] = index
-            self._fallback_index_to_id[index] = neuron_id
+        self.mapping_provider.set_neuron_mapping(neuron_id, index)
 
     def _remove_neuron_mapping(self, neuron_id: int) -> None:
         """Remove a neuron mapping."""
-        if self.mapping_provider:
-            self.mapping_provider.remove_neuron_mapping(neuron_id)
-        else:
-            #  Fallback for backward compatibility - should not be used in new
-            #  code
-            logger.warning(
-                "NeuronArray: No mapping provider, using internal fallback"
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
             )
-            if hasattr(self, "_fallback_id_to_index"):
-                index = self._fallback_id_to_index.pop(neuron_id, None)
-                if index is not None and hasattr(
-                    self, "_fallback_index_to_id"
-                ):
-                    self._fallback_index_to_id.pop(index, None)
+        self.mapping_provider.remove_neuron_mapping(neuron_id)
 
     def _has_neuron(self, neuron_id: int) -> bool:
         """Check if a neuron ID exists."""
-        if self.mapping_provider:
-            return self.mapping_provider.has_neuron(neuron_id)
-        else:
-            #  Fallback for backward compatibility - should not be used in new
-            #  code
-            logger.warning(
-                "NeuronArray: No mapping provider, using internal fallback"
+        if not self.mapping_provider:
+            raise RuntimeError(
+                "NeuronArray requires a mapping provider. "
+                "Initialize with ConnectomeManager as mapping_provider."
             )
-            return neuron_id in getattr(self, "_fallback_id_to_index", {})
+        return self.mapping_provider.has_neuron(neuron_id)
 
     def _init_optimized_backend(self, backend: Optional[str]):
         """Initialize optimized backend with cache-aligned arrays."""
@@ -996,6 +987,87 @@ class NeuronArray:
 
         return np.array(neuron_ids, dtype=np.int64)
 
+    def get_neuron_property(
+        self, neuron_id: int, property_name: str
+    ) -> Any:
+        """Get a neuron property directly from the array.
+
+        Args:
+            neuron_id: ID of the neuron
+            property_name: Name of the property to get
+
+        Returns:
+            Property value or None if not found
+        """
+        # Get the neuron index using the internal method (which handles fallback)
+        neuron_index = self._get_neuron_index(neuron_id)
+        if neuron_index is None:
+            raise KeyError(f"Neuron {neuron_id} not found")
+
+        # Get the property directly from the array based on property name
+        try:
+            if property_name == "membrane_potential":
+                return float(self.membrane_potentials[neuron_index])
+            elif property_name == "threshold":
+                return float(self.thresholds[neuron_index])
+            elif property_name == "resting_potential":
+                return float(self.resting_potentials[neuron_index])
+            elif property_name == "decay_rate":
+                return float(self.decay_rates[neuron_index])
+            elif property_name == "refractory_period":
+                return int(self.refractory_periods[neuron_index])
+            elif property_name == "refractory_counter":
+                return int(self.refractory_counters[neuron_index])
+            elif property_name == "is_active":
+                return bool(self.is_active[neuron_index])
+            elif property_name == "position":
+                return (
+                    int(self.coordinates_x[neuron_index]),
+                    int(self.coordinates_y[neuron_index]),
+                    int(self.coordinates_z[neuron_index])
+                )
+            elif property_name == "cortical_idx":
+                return int(self.cortical_idxs[neuron_index])
+            elif property_name == "consecutive_fire_count":
+                return int(self.consecutive_fire_counts[neuron_index])
+            elif property_name == "excitability":
+                return float(self.excitabilities[neuron_index])
+            else:
+                raise KeyError(f"Unknown property: {property_name}")
+        except KeyError:
+            # Re-raise KeyError for non-existent properties
+            raise
+        except Exception as e:
+            logger.error(f"Error getting property {property_name} for neuron {neuron_id}: {e}")
+            raise RuntimeError(f"Failed to get property {property_name} for neuron {neuron_id}: {e}") from e
+
+    def get_neurons_by_cortical_area(self, cortical_idx: int) -> List[int]:
+        """Get all neuron IDs in a specific cortical area.
+
+        Args:
+            cortical_idx: Cortical area index
+
+        Returns:
+            List of neuron IDs in the cortical area
+        """
+        neuron_ids = []
+        try:
+            # Find all neurons with the specified cortical index
+            matching_indices = np.where(
+                (self.valid_mask == True) & (self.cortical_idxs == cortical_idx)
+            )[0]
+            
+            # Convert indices to neuron IDs
+            for idx in matching_indices:
+                neuron_id = self._get_neuron_id(idx)
+                if neuron_id is not None:
+                    neuron_ids.append(neuron_id)
+                    
+            return neuron_ids
+        except Exception as e:
+            logger.error(f"Error getting neurons by cortical area {cortical_idx}: {e}")
+            return []
+
     def set_neuron_property(
         self, neuron_id: int, property_name: str, value: Any
     ) -> bool:
@@ -1007,19 +1079,15 @@ class NeuronArray:
             value: Value to set
 
         Returns:
-            True if successful, False otherwise
+            True if successful
+            
+        Raises:
+            KeyError: If neuron or property doesn't exist
         """
-        # Get the neuron index from the mapping provider
-        if not self.mapping_provider:
-            logger.warning(
-                "No mapping provider available - cannot get neuron index"
-            )
-            return False
-
-        neuron_index = self.mapping_provider.get_neuron_index(neuron_id)
+        # Get the neuron index using the internal method (which handles fallback)
+        neuron_index = self._get_neuron_index(neuron_id)
         if neuron_index is None:
-            logger.warning(f"Neuron {neuron_id} not found in mapping")
-            return False
+            raise KeyError(f"Neuron {neuron_id} not found")
 
         # Set the property directly in the array based on property name
         try:
@@ -1057,23 +1125,20 @@ class NeuronArray:
                         max(0, min(65535, value[2]))
                     )
                 else:
-                    logger.error(
-                        f"Invalid position value for neuron {neuron_id}: {value}"
-                    )
-                    return False
+                    raise ValueError(f"Invalid position value: {value}. Expected tuple/list with 3 elements.")
             else:
-                logger.warning(
-                    f"Unknown property '{property_name}' for neuron {neuron_id}"
-                )
-                return False
+                raise KeyError(f"Unknown property: {property_name}")
 
             return True
 
+        except (KeyError, ValueError):
+            # Re-raise KeyError and ValueError for proper error handling
+            raise
         except Exception as e:
             logger.error(
                 f"Failed to set property {property_name} for neuron {neuron_id}: {e}"
             )
-            return False
+            raise RuntimeError(f"Failed to set property {property_name} for neuron {neuron_id}: {e}") from e
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """Get performance summary for monitoring and optimization.
