@@ -50,44 +50,56 @@ class SpecialAreaConfig:
 
 
 class SpecialAreaHandler:
-    """Handler for core power area injection.
+    """Handler for core power area injection using new NPU interface.
 
-    Simplified for 100kHz performance: Directly accesses the core power area
-    at cortical_idx=1 (_power) which is guaranteed to exist in every genome.
-    No detection or caching needed - direct access for maximum reliability.
+    Updated for new NPU architecture: Uses NPU interface for neuron access
+    while maintaining the same performance characteristics and API.
     """
 
     def __init__(
-        self, connectome_manager: Any, config: Optional[Dict[str, Any]] = None
+        self, connectome_manager: Any, config: Optional[Dict[str, Any]] = None, npu_interface: Any = None
     ):
         """Initialize the special area handler.
 
         Args:
-            connectome_manager: The connectome manager instance
+            connectome_manager: The connectome manager instance (for backward compatibility)
             config: Optional configuration parameters (unused but kept for compatibility)
+            npu_interface: NPU interface instance for new architecture
         """
         self.connectome_manager = connectome_manager
+        self.npu_interface = npu_interface
 
         # Statistics only
         self.injection_count = 0
         self.last_injection_time = 0.0
 
         logger.info(
-            "Special Area Handler initialized for core power area (cortical_idx=1)",
+            "Special Area Handler initialized for core power area (cortical_idx=1) with NPU interface",
             status="[FAST]",
         )
 
     def get_power_area_neurons(self) -> List[NeuronId]:
         """Get neurons from core power area (cortical_idx=1) for injection.
 
-        Direct access method optimized for 100kHz performance.
-        No lookup overhead - directly accesses guaranteed core area.
+        Uses NPU interface for direct access with fallback to ConnectomeManager.
+        Optimized for 100kHz performance with minimal overhead.
 
         Returns:
             List of neuron IDs from the core power area (_power)
         """
         try:
-            # Direct access to cortical_idx=1 (core power area _power)
+            # Try NPU interface first for better performance
+            if self.npu_interface:
+                try:
+                    result = self.npu_interface.get_neurons_by_area(cortical_idx=1)
+                    if result.get("success", False):
+                        power_neurons = result["data"]["neuron_ids"]
+                        logger.debug(f"NPU returned {len(power_neurons)} power neurons")
+                        return power_neurons
+                except Exception as e:
+                    logger.debug(f"NPU interface failed for power neurons: {e}, falling back to ConnectomeManager")
+            
+            # Fallback to ConnectomeManager for backward compatibility
             power_neurons = (
                 self.connectome_manager.get_neurons_by_cortical_idx(1)
             )

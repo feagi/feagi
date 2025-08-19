@@ -30,11 +30,11 @@ import torch
 from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
 from feagi.core.state_manager import get_state_manager
 from feagi.bdu.models.cortical_area import CorticalArea
-from feagi.bdu.models.memory_neuron import MemoryNeuronArray
+from feagi.npu.data_structures import MemoryNeuronArray
 
 # Import models
-from feagi.bdu.models.neuron import NeuronArray, NeuronMappingProvider
-from feagi.bdu.synapse_array import GlobalSynapseArray
+from feagi.bdu.models.neuron import NeuronMappingProvider
+from feagi.npu.data_structures import NeuronArray, SynapseArray
 
 # Import utility functions
 from feagi.utils.logger import setup_logger
@@ -152,7 +152,7 @@ class ConnectomeManager(NeuronMappingProvider):
         config_or_max_neurons: Union[Dict[str, Any], int],
         max_synapses: int = 100_000_000,
         backend: str = "cpu",
-        multi_gpu_config=None,
+
     ):
         """Initialize the ConnectomeManager.
 
@@ -160,7 +160,7 @@ class ConnectomeManager(NeuronMappingProvider):
             config_or_max_neurons: Either a configuration dictionary or maximum number of neurons
             max_synapses: Maximum number of synapses per neuron (default: 100M)
             backend: Backend to use for computations ("cpu" or "cuda")
-            multi_gpu_config: Configuration for multi-GPU setup (optional)
+
         """
         # Initialize logger
         self.logger = logging.getLogger(__name__)
@@ -189,8 +189,7 @@ class ConnectomeManager(NeuronMappingProvider):
         #  provider
         self.neuron_array = NeuronArray(
             max_neurons=self.max_neurons,
-            backend=backend,
-            mapping_provider=self,
+            backend=BackendType.CPU,
         )
 
         #  CRITICAL FIX: Initialize neuron ID counter properly to prevent
@@ -270,10 +269,10 @@ class ConnectomeManager(NeuronMappingProvider):
         # Neuron ID management - delegate to NeuronArray
         self.next_neuron_id = 1
 
-        # Initialize high-performance synapse storage using GlobalSynapseArray
+        # Initialize high-performance synapse storage using new NPU SynapseArray
         self.max_synapses = max_synapses
-        self.synapse_array = GlobalSynapseArray(
-            max_synapses=self.max_synapses, backend=backend
+        self.synapse_array = SynapseArray(
+            max_synapses=self.max_synapses
         )
 
         #  FCL manager is now owned by NPU BurstEngine, not BDU ConnectomeManager
@@ -287,10 +286,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
         self.current_timestep = 0
 
-        # Initialize multi-GPU manager
-        self.multi_gpu_manager = None
-        if multi_gpu_config:
-            self._init_multi_gpu(multi_gpu_config)
+
 
         #  Initialize global spatial hash system for ultra-fast coordinate
         #  lookups
@@ -487,8 +483,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 current_backend = getattr(self.neuron_array, "backend", "cpu")
 
                 # Reinitialize high-performance synapse storage with new size
-                self.synapse_array = GlobalSynapseArray(
-                    max_synapses=self.max_synapses, backend=current_backend
+                self.synapse_array = SynapseArray(
+                    max_synapses=self.max_synapses
                 )
 
                 # Reinitialize neuron array with new capacity
@@ -993,55 +989,7 @@ class ConnectomeManager(NeuronMappingProvider):
             status="[OK]",
         )
 
-    def _init_multi_gpu(self, multi_gpu_config):
-        """Initialize multi-GPU support.
 
-        Args:
-            multi_gpu_config: Configuration for multi-GPU operation
-        """
-        try:
-            # Import here to avoid circular imports
-            from feagi.bdu.multi_gpu import MultiGPUManager
-
-            # Create multi-GPU manager
-            self.multi_gpu_manager = MultiGPUManager(multi_gpu_config)
-
-            # Initialize with this connectome
-            self.multi_gpu_manager.initialize(self)
-
-            logger.info(
-                f"Initialized multi-GPU manager with {multi_gpu_config.num_devices} devices"
-            )
-        except ImportError:
-            logger.warning(
-                "Could not import MultiGPUManager. Multi-GPU support is disabled."
-            )
-            self.multi_gpu_manager = None
-        except Exception as e:
-            logger.error(f"Failed to initialize multi-GPU support: {e}")
-            self.multi_gpu_manager = None
-
-    def to_multi_gpu(self, multi_gpu_config=None):
-        """Convert the connectome to use multi-GPU processing.
-
-        Args:
-            multi_gpu_config: Configuration for multi-GPU operation (optional)
-                If None, will use automatic configuration
-
-        Returns:
-            Self (for method chaining)
-        """
-        if multi_gpu_config is None:
-            # Import here to avoid circular imports
-            from feagi.bdu.multi_gpu import MultiGPUConfig
-
-            # Auto-detect configuration
-            multi_gpu_config = MultiGPUConfig(enabled=True)
-
-        # Initialize multi-GPU support
-        self._init_multi_gpu(multi_gpu_config)
-
-        return self
     
     def set_npu_processor(self, npu_processor):
         """Set NPU processor as primary owner of synaptic updates.
@@ -1073,42 +1021,39 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs that fired
         """
-        # Handle backward compatibility for test cases
+        print(f"[CONNECTOME-DEBUG] === UPDATE_MEMBRANE_POTENTIALS CALLED ===")
+        print(f"[CONNECTOME-DEBUG] decay_factor: {decay_factor}")
+        print(f"[CONNECTOME-DEBUG] current_timestep: {current_timestep}")
+        print(f"[CONNECTOME-DEBUG] Has NPU processor: {hasattr(self, '_npu_processor') and self._npu_processor is not None}")
+        # NO BACKWARD COMPATIBILITY - NPU has 100% exclusive ownership
         if decay_factor is not None and isinstance(decay_factor, (int, float)):
-            # Legacy test compatibility mode
-            return self.neuron_array.update_membrane_potentials(
-                decay_factor=decay_factor
+            raise RuntimeError(
+                "Legacy BDU neural processing is prohibited. "
+                "NPU has 100% exclusive ownership of neural processing. "
+                "Update tests to use NPU-based neural processing."
             )
 
         # Set current timestep
         if current_timestep is not None:
             self.current_timestep = current_timestep
 
-        #  Perform high-performance neural update with GlobalSynapseArray
-        #  integration
-        # First update membrane potentials and get fired neurons
-        fired_neurons = self.neuron_array.update_membrane_potentials(
-            timestep=self.current_timestep
-        )
-
-        # SYNAPTIC PROPAGATION IS 100% OWNED BY NPU
-        # BDU NO LONGER handles synaptic updates - NPU has exclusive ownership
-        if fired_neurons:
-            if not hasattr(self, '_npu_processor') or not self._npu_processor:
-                raise RuntimeError(
-                    "NPU processor required - NPU has 100% ownership of synaptic updates. "
-                    "BDU only handles synaptogenesis and synaptic pruning. "
-                    "Configure NPU processor before neural processing."
-                )
-            
-            logger.info("✅ Delegating ALL synaptic updates to NPU exclusive owner")
-            # NPU has 100% exclusive ownership of synaptic propagation
-            return self._npu_processor.process_neural_burst(self.current_timestep)
-        else:
-            if not fired_neurons:
-                logger.debug("⚠️ No synaptic propagation: no fired neurons")
-            elif not hasattr(self, "synapse_array"):
-                logger.warning("⚠️ No synaptic propagation: no synapse_array attribute")
+        # CRITICAL: NPU has 100% exclusive ownership of neural processing
+        # NO FALLBACKS - NPU is REQUIRED for neural processing
+        if not hasattr(self, '_npu_processor') or not self._npu_processor:
+            raise RuntimeError(
+                "NPU processor required - NPU has 100% exclusive ownership of neural processing. "
+                "BDU only handles synaptogenesis and synaptic pruning. "
+                "Configure NPU processor before neural processing."
+            )
+        
+        print(f"[CONNECTOME-DEBUG] === DELEGATING TO NPU ===")
+        print(f"[CONNECTOME-DEBUG] Current timestep: {self.current_timestep}")
+        print(f"[CONNECTOME-DEBUG] NPU processor available: {self._npu_processor is not None}")
+        logger.debug("✅ NPU is primary owner - delegating ALL neural processing to NPU")
+        # NPU has 100% exclusive ownership of neural processing AND synaptic propagation
+        result = self._npu_processor.process_neural_burst(self.current_timestep)
+        print(f"[CONNECTOME-DEBUG] NPU returned fired neurons: {result}")
+        return result
 
         # Initialize fired_indices to ensure it's always defined
         fired_indices = []
@@ -1265,7 +1210,7 @@ class ConnectomeManager(NeuronMappingProvider):
     # Synapse Storage Methods
     # ----------------------------------------------------------------------
 
-    # Legacy sparse matrix methods removed - replaced with GlobalSynapseArray
+    # Legacy sparse matrix methods removed - replaced with NPU SynapseArray
 
     # ----------------------------------------------------------------------
     # Neuron CRUD Operations
@@ -1502,7 +1447,34 @@ class ConnectomeManager(NeuronMappingProvider):
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
 
-        return self.neuron_array.get_neuron_property(neuron_id, property_name)
+        # CRITICAL FIX: Read from NPU if it's the primary owner
+        if hasattr(self, '_npu_processor') and self._npu_processor is not None:
+            # NPU is primary owner - read from NPU arrays directly
+            if neuron_id in self._npu_processor.neurons.neuron_id_to_index:
+                idx = self._npu_processor.neurons.neuron_id_to_index[neuron_id]
+                
+                if property_name == "membrane_potential":
+                    return float(self._npu_processor.neurons.membrane_potentials[idx])
+                elif property_name == "threshold":
+                    return float(self._npu_processor.neurons.thresholds[idx])
+                elif property_name == "decay_rate":
+                    return float(self._npu_processor.neurons.decay_rates[idx])
+                elif property_name == "resting_potential":
+                    return float(self._npu_processor.neurons.resting_potentials[idx])
+                elif property_name == "refractory_period":
+                    return int(self._npu_processor.neurons.refractory_periods[idx])
+                elif property_name == "refractory_counter":
+                    return int(self._npu_processor.neurons.refractory_counters[idx])
+                else:
+                    raise RuntimeError(f"Unknown neuron property '{property_name}' - NPU does not support this property")
+            else:
+                raise RuntimeError(f"Neuron {neuron_id} not found in NPU - BDU fallback prohibited")
+        else:
+            # NPU not configured - NO FALLBACKS
+            raise RuntimeError(
+                "NPU processor required - NPU has 100% exclusive ownership of neuron properties. "
+                "Configure NPU processor before accessing neuron properties."
+            )
 
     def set_neuron_property(
         self,
@@ -1528,7 +1500,36 @@ class ConnectomeManager(NeuronMappingProvider):
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
 
-        self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+        # CRITICAL FIX: Synchronize with NPU if it's the primary owner
+        if hasattr(self, '_npu_processor') and self._npu_processor is not None:
+            # NPU is primary owner - update NPU arrays directly
+            if neuron_id in self._npu_processor.neurons.neuron_id_to_index:
+                idx = self._npu_processor.neurons.neuron_id_to_index[neuron_id]
+                
+                if property_name == "membrane_potential":
+                    self._npu_processor.neurons.membrane_potentials[idx] = float(value)
+                    logger.debug(f"[NPU-SYNC] Updated neuron {neuron_id} membrane_potential = {value}")
+                elif property_name == "threshold":
+                    self._npu_processor.neurons.thresholds[idx] = float(value)
+                elif property_name == "decay_rate":
+                    self._npu_processor.neurons.decay_rates[idx] = float(value)
+                elif property_name == "resting_potential":
+                    self._npu_processor.neurons.resting_potentials[idx] = float(value)
+                elif property_name == "refractory_period":
+                    self._npu_processor.neurons.refractory_periods[idx] = int(value)
+                elif property_name == "refractory_counter":
+                    self._npu_processor.neurons.refractory_counters[idx] = int(value)
+                else:
+                    logger.warning(f"Unknown property for NPU sync: {property_name}")
+                
+                # Also update BDU for backward compatibility
+                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+            else:
+                logger.warning(f"Neuron {neuron_id} not found in NPU - updating BDU only")
+                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+        else:
+            # NPU not configured - update BDU only
+            self.neuron_array.set_neuron_property(neuron_id, property_name, value)
 
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
         """Get all neurons in a specific cortical area using GPU/SIMD-optimized
@@ -1759,7 +1760,7 @@ class ConnectomeManager(NeuronMappingProvider):
         **kwargs,
     ) -> bool:
         """Create a synapse between two neurons using high-performance
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1786,20 +1787,15 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for O(1) synapse creation
-        from feagi.bdu.synapse_array import SynapseType
-
-        synapse_type = (
-            SynapseType.PLASTIC if is_plastic else SynapseType.EXCITATORY
-        )
+        # Use new NPU SynapseArray for O(1) synapse creation
+        synapse_type_int = 3 if is_plastic else 0  # 3=PLASTIC, 0=EXCITATORY
 
         success = self.synapse_array.create_synapse(
-            pre_neuron_id=pre_neuron_id,
-            post_neuron_id=post_neuron_id,
+            source_neuron_id=pre_neuron_id,
+            target_neuron_id=post_neuron_id,
             weight=weight,
-            plasticity_coeff=plasticity_coeff,
-            is_plastic=is_plastic,
-            synapse_type=synapse_type,
+            synapse_type=synapse_type_int,
+            plasticity_coeff=plasticity_coeff
         )
         
         # Update state manager with new synapse count (optimized - synapse count only)
@@ -1812,7 +1808,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self, synapse_specs: List[Tuple[int, int, float]]
     ) -> int:
         """Create multiple synapses using ultra-high-performance
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         This method achieves 300x+ performance improvement over legacy sparse matrices
         by using SIMD-friendly vectorized operations on the SoA structure.
@@ -1872,14 +1868,14 @@ class ConnectomeManager(NeuronMappingProvider):
             print(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
             return 0
 
-        # Use GlobalSynapseArray's vectorized batch creation
+        # Use new NPU SynapseArray's vectorized batch creation
         logger.info(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
         print(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
         
         created_count = self.synapse_array.batch_create_synapses(valid_specs)
         
-        logger.info(f"[COORD-DEBUG] GlobalSynapseArray created {created_count} synapses")
-        print(f"[COORD-DEBUG] GlobalSynapseArray created {created_count} synapses")
+        logger.info(f"[COORD-DEBUG] NPU SynapseArray created {created_count} synapses")
+        print(f"[COORD-DEBUG] NPU SynapseArray created {created_count} synapses")
         logger.info(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
         print(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
         
@@ -1955,11 +1951,11 @@ class ConnectomeManager(NeuronMappingProvider):
         except Exception as e:
             self.logger.warning(f"Failed to update brain statistics in state manager: {e}")
 
-    #  Legacy optimized method removed - GlobalSynapseArray is inherently
+    #  Legacy optimized method removed - NPU SynapseArray is inherently
     #  optimized
 
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
-        """Remove a synapse between two neurons using GlobalSynapseArray.
+        """Remove a synapse between two neurons using NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1981,7 +1977,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for O(1) synapse deletion
+        # Use NPU SynapseArray for O(1) synapse deletion
         success = self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
         
         # Update state manager with new synapse count (optimized - synapse count only)
@@ -1994,7 +1990,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self, pre_neuron_id: int, post_neuron_id: int
     ) -> float:
         """Get the weight of a synapse between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -2016,7 +2012,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for fast weight lookup
+        # Use NPU SynapseArray for fast weight lookup
         return self.synapse_array.get_synapse_weight(
             pre_neuron_id, post_neuron_id
         )
@@ -2025,7 +2021,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self, pre_neuron_id: int, post_neuron_id: int, new_weight: float
     ) -> bool:
         """Update the weight of a synapse between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -2048,7 +2044,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for fast weight updates
+        # Use NPU SynapseArray for fast weight updates
         return self.synapse_array.update_synapse_weight(
             pre_neuron_id, post_neuron_id, new_weight
         )
@@ -2056,7 +2052,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_outgoing_connections(
         self, neuron_id: int
     ) -> List[Tuple[int, float]]:
-        """Get all outgoing connections from a neuron using GlobalSynapseArray.
+        """Get all outgoing connections from a neuron using NPU SynapseArray.
 
         Args:
             neuron_id: ID of the neuron
@@ -2070,13 +2066,13 @@ class ConnectomeManager(NeuronMappingProvider):
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use GlobalSynapseArray for fast outgoing connection lookup
+        # Use NPU SynapseArray for fast outgoing connection lookup
         return self.synapse_array.get_outgoing_connections(neuron_id)
 
     def get_incoming_connections(
         self, neuron_id: int
     ) -> List[Tuple[int, float]]:
-        """Get all incoming connections to a neuron using GlobalSynapseArray.
+        """Get all incoming connections to a neuron using NPU SynapseArray.
 
         Args:
             neuron_id: ID of the neuron
@@ -2090,12 +2086,12 @@ class ConnectomeManager(NeuronMappingProvider):
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use GlobalSynapseArray for fast incoming connection lookup
+        # Use NPU SynapseArray for fast incoming connection lookup
         return self.synapse_array.get_incoming_connections(neuron_id)
 
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Returns:
             Number of synapses
@@ -4838,7 +4834,7 @@ class ConnectomeManager(NeuronMappingProvider):
     @property
     def synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
-        GlobalSynapseArray."""
+        NPU SynapseArray."""
         return self.synapse_array.synapse_count
 
     @property
@@ -4855,7 +4851,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
         """Check if a synapse exists between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron: ID of the pre-synaptic neuron
@@ -4871,7 +4867,7 @@ class ConnectomeManager(NeuronMappingProvider):
         ):
             return False
 
-        # Use GlobalSynapseArray for fast synapse existence check
+        # Use NPU SynapseArray for fast synapse existence check
         return self.synapse_array.has_synapse(pre_neuron, post_neuron)
 
     def update_neuron_property(
@@ -4935,49 +4931,25 @@ class ConnectomeManager(NeuronMappingProvider):
         return result
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
-        """Process firing neurons and update membrane potentials using
-        GlobalSynapseArray.
-
-        This method is provided for backward compatibility with the test suite.
+        """DEPRECATED: BDU neural processing is prohibited.
+        
+        NPU has 100% exclusive ownership of neural processing.
+        Update tests to use NPU-based neural processing.
 
         Args:
             firing_neurons: List of neuron IDs that are firing
 
         Returns:
             List of neuron IDs that will fire in the next timestep
+            
+        Raises:
+            RuntimeError: Always - BDU neural processing is prohibited
         """
-        if not firing_neurons:
-            return []
-
-        # Convert neuron IDs to indices
-        firing_indices = []
-        for nid in firing_neurons:
-            if nid in self.neuron_id_to_index:
-                firing_indices.append(self.neuron_id_to_index[nid])
-
-        # Set these neurons as active
-        for idx in firing_indices:
-            self.active_neurons[idx] = True
-
-        # Apply synaptic propagation manually for fired neurons
-        if hasattr(self, "synapse_array"):
-            membrane_potentials = self.neuron_array.membrane_potentials
-
-            for fired_neuron_id in firing_neurons:
-                outgoing_connections = (
-                    self.synapse_array.get_outgoing_connections(
-                        fired_neuron_id
-                    )
-                )
-
-                # Apply synaptic weights to post-synaptic neurons
-                for post_neuron_id, weight in outgoing_connections:
-                    if post_neuron_id in self.neuron_id_to_index:
-                        post_idx = self.neuron_id_to_index[post_neuron_id]
-                        membrane_potentials[post_idx] += weight
-
-        # Update membrane potentials
-        return self.update_membrane_potentials()
+        raise RuntimeError(
+            "BDU neural processing is prohibited. "
+            "NPU has 100% exclusive ownership of neural processing. "
+            "Update tests to use NPU-based neural processing."
+        )
 
     @property
     def next_neuron_index(self) -> int:

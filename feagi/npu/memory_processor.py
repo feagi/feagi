@@ -30,7 +30,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
-from feagi.bdu.models.memory_neuron import MemoryNeuronArray, MemoryPatternKey
+from feagi.npu.data_structures import MemoryNeuronArray, MemoryPatternKey
 from feagi.npu.fcl_manager import FCLManager
 
 logger = logging.getLogger(__name__)

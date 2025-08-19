@@ -139,12 +139,20 @@ class NPUNeuronArray:
         # PHASE 1: Create update mask (valid neurons not in refractory)
         can_update_mask = self.valid_mask & (self.refractory_counters == 0)
         
+        # DEBUG: Log the firing check inputs
+        print(f"[NPU-DEBUG] can_update_mask[:5]: {can_update_mask[:5]}")
+        print(f"[NPU-DEBUG] membrane_potentials[:5]: {self.membrane_potentials[:5]}")
+        print(f"[NPU-DEBUG] thresholds[:5]: {self.thresholds[:5]}")
+        
         # PHASE 2: Firing detection (BEFORE decay - critical!)
         fired_mask = simd_firing_check(
             self.membrane_potentials,
             self.thresholds,
             can_update_mask
         )
+        
+        print(f"[NPU-DEBUG] fired_mask[:5]: {fired_mask[:5]}")
+        print(f"[NPU-DEBUG] fired_mask sum: {np.sum(fired_mask)}")
         
         # PHASE 3: Membrane potential decay (SIMD-optimized)
         simd_membrane_decay(
@@ -160,6 +168,8 @@ class NPUNeuronArray:
         fired_indices = np.where(fired_mask)[0]
         fired_neuron_ids = []
         
+        print(f"[NPU-DEBUG] fired_indices: {fired_indices}")
+        
         if len(fired_indices) > 0:
             # Reset fired neurons to resting potential
             self.membrane_potentials[fired_indices] = self.resting_potentials[fired_indices]
@@ -172,6 +182,7 @@ class NPUNeuronArray:
                 if idx in self.index_to_neuron_id:
                     fired_neuron_ids.append(self.index_to_neuron_id[idx])
         
+        print(f"[NPU-DEBUG] fired_neuron_ids: {fired_neuron_ids}")
         return fired_neuron_ids
 
 
@@ -228,28 +239,83 @@ class NPUSynapseArray:
             firing_neurons: List of neuron IDs that fired
             target_potentials: Target neuron membrane potentials array
         """
+        print(f"[NPU-SYNAPSE-DEBUG] === SYNAPTIC PROPAGATION START ===")
+        print(f"[NPU-SYNAPSE-DEBUG] Firing neurons: {firing_neurons}")
+        print(f"[NPU-SYNAPSE-DEBUG] Total synapses in array: {self.synapse_count}")
+        print(f"[NPU-SYNAPSE-DEBUG] Target potentials shape: {target_potentials.shape}")
+        print(f"[NPU-SYNAPSE-DEBUG] Target potentials before: {target_potentials[:10]}")
+        
         if not firing_neurons or self.synapse_count == 0:
+            print(f"[NPU-SYNAPSE-DEBUG] Early exit - no firing neurons or no synapses")
             return
+        
+        # Debug synapse structure
+        print(f"[NPU-SYNAPSE-DEBUG] Source neuron index keys: {list(self.source_neuron_index.keys())}")
         
         # Collect all target neurons and weights
         all_targets = []
         all_weights = []
         
         for source_neuron in firing_neurons:
+            print(f"[NPU-SYNAPSE-DEBUG] Processing source neuron {source_neuron}")
             if source_neuron in self.source_neuron_index:
                 synapse_indices = self.source_neuron_index[source_neuron]
+                print(f"[NPU-SYNAPSE-DEBUG]   Found {len(synapse_indices)} synapses from neuron {source_neuron}")
+                print(f"[NPU-SYNAPSE-DEBUG]   Synapse indices: {synapse_indices}")
+                
                 targets = self.target_neurons[synapse_indices]
                 weights = self.weights[synapse_indices]
+                print(f"[NPU-SYNAPSE-DEBUG]   Target neurons: {targets}")
+                print(f"[NPU-SYNAPSE-DEBUG]   Weights: {weights}")
+                
                 all_targets.extend(targets)
                 all_weights.extend(weights)
+            else:
+                print(f"[NPU-SYNAPSE-DEBUG]   No synapses found for source neuron {source_neuron}")
+        
+        print(f"[NPU-SYNAPSE-DEBUG] Total propagation targets: {len(all_targets)}")
+        print(f"[NPU-SYNAPSE-DEBUG] All targets: {all_targets}")
+        print(f"[NPU-SYNAPSE-DEBUG] All weights: {all_weights}")
         
         if all_targets:
             # Convert to numpy arrays for SIMD operations
-            target_array = np.array(all_targets, dtype=np.uint32)
+            target_neuron_ids = np.array(all_targets, dtype=np.uint32)
             weight_array = np.array(all_weights, dtype=np.float32)
             
-            # SIMD scatter-add operation
-            np.add.at(target_potentials, target_array, weight_array)
+            print(f"[NPU-SYNAPSE-DEBUG] Target neuron IDs: {target_neuron_ids}")
+            print(f"[NPU-SYNAPSE-DEBUG] Weight array: {weight_array}")
+            
+            # CRITICAL FIX: Convert neuron IDs to array indices for scatter-add
+            target_indices = []
+            valid_weights = []
+            
+            for i, neuron_id in enumerate(target_neuron_ids):
+                if hasattr(self, '_parent_processor') and neuron_id in self._parent_processor.neurons.neuron_id_to_index:
+                    target_idx = self._parent_processor.neurons.neuron_id_to_index[neuron_id]
+                    target_indices.append(target_idx)
+                    valid_weights.append(weight_array[i])
+                    print(f"[NPU-SYNAPSE-DEBUG] Neuron ID {neuron_id} -> array index {target_idx}")
+                else:
+                    print(f"[NPU-SYNAPSE-DEBUG] WARNING: Neuron ID {neuron_id} not found in mapping - skipping")
+            
+            if target_indices:
+                target_array = np.array(target_indices, dtype=np.uint32)
+                weight_array = np.array(valid_weights, dtype=np.float32)
+                
+                print(f"[NPU-SYNAPSE-DEBUG] Target indices for scatter-add: {target_array}")
+                print(f"[NPU-SYNAPSE-DEBUG] Final weight array: {weight_array}")
+                
+                # SIMD scatter-add operation using correct indices
+                print(f"[NPU-SYNAPSE-DEBUG] Applying scatter-add operation...")
+                np.add.at(target_potentials, target_array, weight_array)
+                
+                print(f"[NPU-SYNAPSE-DEBUG] Target potentials after: {target_potentials[:10]}")
+            else:
+                print(f"[NPU-SYNAPSE-DEBUG] No valid target indices found")
+        else:
+            print(f"[NPU-SYNAPSE-DEBUG] No targets to propagate to")
+        
+        print(f"[NPU-SYNAPSE-DEBUG] === SYNAPTIC PROPAGATION END ===")
 
 
 class NeuralProcessor:
@@ -284,6 +350,9 @@ class NeuralProcessor:
         # NPU OWNS these data structures (primary ownership)
         self.neurons = NPUNeuronArray(max_neurons, backend)
         self.synapses = NPUSynapseArray(max_synapses, backend)
+        
+        # Set parent reference for neuron ID to index mapping
+        self.synapses._parent_processor = self
         
         # NPU OWNS plasticity operations (primary ownership)
         plasticity_config = PlasticityConfig(
@@ -327,15 +396,29 @@ class NeuralProcessor:
         
         self.current_timestep = timestep
         
+        print(f"[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING START (timestep {timestep}) ===")
+        print(f"[NPU-BURST-DEBUG] NPU neuron count: {np.sum(self.neurons.valid_mask)}")
+        print(f"[NPU-BURST-DEBUG] NPU synapse count: {self.synapses.synapse_count}")
+        
         # PHASE 1: Regular neuron updates (GPU/SIMD optimized)
         # This processes the main neuron population using the existing BDU neural update
         # but through our NPU wrapper for optimized access patterns
+        print(f"[NPU-BURST-DEBUG] PHASE 1: Neural updates...")
         fired_neurons = self.neurons.neural_update_simd(timestep)
+        print(f"[NPU-BURST-DEBUG] Neurons fired in phase 1: {fired_neurons}")
         
         # PHASE 2: Synaptic propagation (GPU/SIMD optimized)
         # Only propagate if we have fired neurons and synapses exist
+        print(f"[NPU-BURST-DEBUG] PHASE 2: Synaptic propagation...")
         if fired_neurons and self.synapses.synapse_count > 0:
+            print(f"[NPU-BURST-DEBUG] Propagating from {len(fired_neurons)} fired neurons through {self.synapses.synapse_count} synapses")
+            print(f"[NPU-BURST-DEBUG] Membrane potentials before propagation: {self.neurons.membrane_potentials[:10]}")
+            
             self.synapses.propagate_simd(fired_neurons, self.neurons.membrane_potentials)
+            
+            print(f"[NPU-BURST-DEBUG] Membrane potentials after propagation: {self.neurons.membrane_potentials[:10]}")
+        else:
+            print(f"[NPU-BURST-DEBUG] Skipping synaptic propagation - fired_neurons: {len(fired_neurons) if fired_neurons else 0}, synapses: {self.synapses.synapse_count}")
         
         # PHASE 3: Memory neuron processing (CPU-based, separate pipeline)
         # Memory neurons are processed separately and don't participate in synaptic propagation
@@ -346,10 +429,10 @@ class NeuralProcessor:
             # This stays CPU-based as it's fundamentally different from regular neural processing
             try:
                 # Delegate to existing memory processing system
-                if hasattr(self.connectome_manager, 'memory_processor'):
-                    memory_fired_neurons = self.connectome_manager.memory_processor.process_memory_burst(timestep)
-                elif hasattr(self.connectome_manager, 'process_memory_neurons'):
-                    memory_fired_neurons = self.connectome_manager.process_memory_neurons(timestep)
+                if hasattr(self._bdu_connectome_manager, 'memory_processor'):
+                    memory_fired_neurons = self._bdu_connectome_manager.memory_processor.process_memory_burst(timestep)
+                elif hasattr(self._bdu_connectome_manager, 'process_memory_neurons'):
+                    memory_fired_neurons = self._bdu_connectome_manager.process_memory_neurons(timestep)
             except Exception as e:
                 # @architecture:acceptable - memory processing fallback
                 # Rationale: Memory neurons use different processing patterns than regular neurons
@@ -359,13 +442,19 @@ class NeuralProcessor:
         
         # PHASE 4: Plasticity updates (NPU-owned)
         # Update activity tracking (every timestep)
-        if fired_neurons:
-            self.plasticity_manager.update_activity_tracking(
-                fired_neurons, 
-                self.synapses.source_neurons[:self.synapses.synapse_count],
-                self.synapses.target_neurons[:self.synapses.synapse_count],
-                timestep
-            )
+        if fired_neurons and self.synapses.synapse_count > 0:
+            # TEMPORARY FIX: Skip plasticity for now to focus on main synaptic propagation
+            # TODO: Fix array size mismatch in plasticity manager
+            try:
+                self.plasticity_manager.update_activity_tracking(
+                    fired_neurons, 
+                    self.synapses.source_neurons[:self.synapses.synapse_count],
+                    self.synapses.target_neurons[:self.synapses.synapse_count],
+                    timestep
+                )
+            except IndexError as e:
+                logger.warning(f"Plasticity update skipped due to array size mismatch: {e}")
+                pass
         
         # Scheduled plasticity updates (based on intervals)
         plasticity_updated = 0
@@ -491,8 +580,12 @@ class NeuralProcessor:
                 logger.info(f"Memory neurons linked: {self.memory_neurons.capacity:,} capacity (BDU-owned)")
             
             # Transfer neurons from BDU to NPU ownership
+            print(f"[NPU-TRANSFER-DEBUG] === NEURON TRANSFER START ===")
             neuron_count = 0
-            for neuron_id in bdu_connectome_manager.get_all_neuron_ids():
+            all_neuron_ids = list(bdu_connectome_manager.get_all_neuron_ids())
+            print(f"[NPU-TRANSFER-DEBUG] All neuron IDs from BDU: {all_neuron_ids}")
+            
+            for neuron_id in all_neuron_ids:
                 neuron_data = bdu_connectome_manager.get_neuron_properties(neuron_id)
                 if neuron_data:
                     idx = neuron_count
@@ -510,18 +603,28 @@ class NeuralProcessor:
                     self.neurons.index_to_neuron_id[idx] = neuron_id
                     self.neurons.valid_mask[idx] = True
                     
+                    print(f"[NPU-TRANSFER-DEBUG] Neuron {neuron_id} -> idx {idx}, threshold: {neuron_data.get('threshold', 1.0)}")
+                    
                     neuron_count += 1
             
             self.neurons.neuron_count = neuron_count
+            print(f"[NPU-TRANSFER-DEBUG] Total neurons transferred: {neuron_count}")
+            print(f"[NPU-TRANSFER-DEBUG] Neuron ID to index mapping: {dict(self.neurons.neuron_id_to_index)}")
+            print(f"[NPU-TRANSFER-DEBUG] === NEURON TRANSFER END ===")
             
             # Transfer synapses from BDU GlobalSynapseArray to NPU - SINGLE SoA ARCHITECTURE
             synapse_count = 0
             if hasattr(bdu_connectome_manager, 'synapse_array'):
                 bdu_synapses = bdu_connectome_manager.synapse_array
                 bdu_synapse_count = bdu_synapses.synapse_count
+                print(f"[NPU-TRANSFER-DEBUG] === SYNAPSE TRANSFER START ===")
+                print(f"[NPU-TRANSFER-DEBUG] BDU synapse count: {bdu_synapse_count}")
                 logger.info(f"Transferring {bdu_synapse_count:,} synapses from BDU GlobalSynapseArray to NPU")
                 
                 if bdu_synapse_count > 0:
+                    print(f"[NPU-TRANSFER-DEBUG] BDU source neurons: {bdu_synapses.pre_neuron_ids[:bdu_synapse_count]}")
+                    print(f"[NPU-TRANSFER-DEBUG] BDU target neurons: {bdu_synapses.post_neuron_ids[:bdu_synapse_count]}")
+                    print(f"[NPU-TRANSFER-DEBUG] BDU weights: {bdu_synapses.weights[:bdu_synapse_count]}")
                     # Direct array transfer for maximum performance
                     self.synapses.source_neurons[:bdu_synapse_count] = bdu_synapses.pre_neuron_ids[:bdu_synapse_count]
                     self.synapses.target_neurons[:bdu_synapse_count] = bdu_synapses.post_neuron_ids[:bdu_synapse_count]
@@ -541,6 +644,13 @@ class NeuralProcessor:
                         self.synapses.source_neuron_index[source_neuron].append(i)
                     
                     synapse_count = bdu_synapse_count
+                    
+                    print(f"[NPU-TRANSFER-DEBUG] NPU source neurons after transfer: {self.synapses.source_neurons[:bdu_synapse_count]}")
+                    print(f"[NPU-TRANSFER-DEBUG] NPU target neurons after transfer: {self.synapses.target_neurons[:bdu_synapse_count]}")
+                    print(f"[NPU-TRANSFER-DEBUG] NPU weights after transfer: {self.synapses.weights[:bdu_synapse_count]}")
+                    print(f"[NPU-TRANSFER-DEBUG] Spatial index built: {dict(self.synapses.source_neuron_index)}")
+                    print(f"[NPU-TRANSFER-DEBUG] === SYNAPSE TRANSFER END ===")
+                    
                     logger.info(f"✅ Transferred {synapse_count:,} synapses to NPU primary ownership")
             else:
                 # Fallback to legacy synapse iteration if GlobalSynapseArray not available

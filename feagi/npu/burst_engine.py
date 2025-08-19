@@ -428,11 +428,19 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # Import here to avoid circular dependencies
             from feagi.npu.fcl_injection_service import FCLInjectionService
             from feagi.npu.special_area_handler import SpecialAreaHandler
+            from feagi.npu.interface import NPUInterface
+            from feagi.npu.data_structures import BackendType
 
-            # Create special area handler
-            special_area_handler = SpecialAreaHandler(self.connectome_manager)
+            # Create NPU interface for SpecialAreaHandler
+            npu_interface = NPUInterface(BackendType.CPU)
+            
+            # Create special area handler with NPU interface
+            special_area_handler = SpecialAreaHandler(
+                connectome_manager=self.connectome_manager,
+                npu_interface=npu_interface
+            )
             logger.info(
-                f"[INJECTION INIT] Created SpecialAreaHandler for burst engine instance {self._instance_id}"
+                f"[INJECTION INIT] Created SpecialAreaHandler with NPU interface for burst engine instance {self._instance_id}"
             )
 
             # Create FCL injection service

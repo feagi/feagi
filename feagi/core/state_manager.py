@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Set
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
 from .state_storage import FileStorage, MemoryStorage, StateStorage
+from .cortical_locking import get_cortical_lock_manager, LockResult, GlobalLockInfo
 
 try:
     from feagi.config.toml_loader import get_agent_config, load_feagi_config
@@ -1239,6 +1240,226 @@ class FeagiStateManager:
             logger.error(f"Error setting debug config: {e}")
             # Don't fail startup for debug config issues
             self._debug_config = {"config_loaded": False, "error": str(e)}
+
+    # ===== CORTICAL AREA LOCKING METHODS =====
+    
+    def lock_cortical_area(self, cortical_idx: int, locked_by: str, operation: str = "unknown") -> bool:
+        """Lock a cortical area for exclusive BDU operations.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            locked_by: Component requesting the lock (e.g., "BDU", "SleepManager")
+            operation: Description of the operation requiring the lock
+            
+        Returns:
+            True if lock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.lock_area(cortical_idx, locked_by, operation)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to lock cortical area {cortical_idx}: {e}")
+            return False
+    
+    def unlock_cortical_area(self, cortical_idx: int, locked_by: str) -> bool:
+        """Unlock a cortical area.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            locked_by: Component that originally locked the area
+            
+        Returns:
+            True if unlock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.unlock_area(cortical_idx, locked_by)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to unlock cortical area {cortical_idx}: {e}")
+            return False
+    
+    def is_cortical_area_locked(self, cortical_idx: int) -> bool:
+        """Check if a cortical area is currently locked.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            
+        Returns:
+            True if the area is locked, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.is_area_locked(cortical_idx)
+        except Exception as e:
+            logger.error(f"Failed to check lock status for cortical area {cortical_idx}: {e}")
+            return False
+    
+    def get_locked_cortical_areas(self) -> List[int]:
+        """Get list of all currently locked cortical area indices.
+        
+        Returns:
+            List of cortical_idx values that are currently locked
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_locked_areas()
+        except Exception as e:
+            logger.error(f"Failed to get locked cortical areas: {e}")
+            return []
+    
+    def lock_multiple_cortical_areas(self, cortical_indices: List[int], locked_by: str, operation: str = "batch") -> bool:
+        """Lock multiple cortical areas atomically.
+        
+        Args:
+            cortical_indices: List of cortical area indices to lock
+            locked_by: Component requesting the locks
+            operation: Description of the operation requiring the locks
+            
+        Returns:
+            True if all areas were locked successfully, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            results = lock_manager.lock_multiple_areas(cortical_indices, locked_by, operation)
+            return all(result == LockResult.SUCCESS for result in results.values())
+        except Exception as e:
+            logger.error(f"Failed to lock multiple cortical areas {cortical_indices}: {e}")
+            return False
+    
+    def unlock_multiple_cortical_areas(self, cortical_indices: List[int], locked_by: str) -> bool:
+        """Unlock multiple cortical areas.
+        
+        Args:
+            cortical_indices: List of cortical area indices to unlock
+            locked_by: Component that originally locked the areas
+            
+        Returns:
+            True if all areas were unlocked successfully, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            results = lock_manager.unlock_multiple_areas(cortical_indices, locked_by)
+            return all(result == LockResult.SUCCESS for result in results.values())
+        except Exception as e:
+            logger.error(f"Failed to unlock multiple cortical areas {cortical_indices}: {e}")
+            return False
+    
+    def get_cortical_locking_statistics(self) -> Dict[str, int]:
+        """Get cortical area locking statistics for monitoring.
+        
+        Returns:
+            Dictionary with lock statistics
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_statistics()
+        except Exception as e:
+            logger.error(f"Failed to get cortical locking statistics: {e}")
+            return {"error": 1}
+    
+    def force_unlock_all_cortical_areas(self, locked_by: str) -> int:
+        """Force unlock all areas locked by a specific component.
+        
+        This is useful for cleanup when a component shuts down unexpectedly.
+        
+        Args:
+            locked_by: Component to unlock all areas for
+            
+        Returns:
+            Number of areas that were unlocked
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.force_unlock_all(locked_by)
+        except Exception as e:
+            logger.error(f"Failed to force unlock areas for {locked_by}: {e}")
+            return 0
+
+    # ===== GLOBAL BRAIN LOCKING METHODS =====
+    
+    def lock_global_brain(self, locked_by: str, operation: str = "global_operation", 
+                         affected_areas: Optional[List[int]] = None) -> bool:
+        """Lock the entire brain for global operations.
+        
+        This is much more efficient than locking individual cortical areas and provides
+        atomic global operations. Perfect for Sleep Manager maintenance operations.
+        
+        Args:
+            locked_by: Component requesting the global lock (e.g., "SleepManager")
+            operation: Description of the global operation
+            affected_areas: Optional list of specific areas affected (None = all areas)
+            
+        Returns:
+            True if global lock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.lock_global_brain(locked_by, operation, affected_areas)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to lock global brain for {locked_by}: {e}")
+            return False
+    
+    def unlock_global_brain(self, locked_by: str) -> bool:
+        """Unlock the global brain.
+        
+        Args:
+            locked_by: Component that originally locked the brain
+            
+        Returns:
+            True if unlock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.unlock_global_brain(locked_by)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to unlock global brain for {locked_by}: {e}")
+            return False
+    
+    def is_global_brain_locked(self) -> bool:
+        """Check if the global brain is currently locked.
+        
+        Returns:
+            True if global brain is locked, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.is_global_brain_locked()
+        except Exception as e:
+            logger.error(f"Failed to check global brain lock status: {e}")
+            return False
+    
+    def get_global_brain_lock_info(self) -> Optional[GlobalLockInfo]:
+        """Get information about the global brain lock.
+        
+        Returns:
+            GlobalLockInfo if global lock is active, None otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_global_lock_info()
+        except Exception as e:
+            logger.error(f"Failed to get global brain lock info: {e}")
+            return None
+    
+    def force_unlock_global_brain(self, locked_by: str) -> bool:
+        """Force unlock the global brain (emergency cleanup).
+        
+        Args:
+            locked_by: Component to force unlock for
+            
+        Returns:
+            True if global lock was cleared, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.force_unlock_global_brain(locked_by)
+        except Exception as e:
+            logger.error(f"Failed to force unlock global brain for {locked_by}: {e}")
+            return False
 
     def cleanup(self) -> None:
         """Cleanup state manager resources for graceful shutdown."""

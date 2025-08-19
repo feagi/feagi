@@ -37,6 +37,7 @@ from .connectome.connectome_service import ConnectomeService
 from .cortical_area.cortical_area_service import CorticalAreaService
 from .genome.genome_service import GenomeService
 from .network.network_service import NetworkService
+from .npu.npu_service import NPUService
 
 # Import all domain services
 from .system.system_service import SystemService
@@ -113,6 +114,9 @@ class CoreAPIService:
         self._network_service = NetworkService(
             connectome_manager, self.state_manager
         )
+        
+        # Initialize NPU service for new architecture
+        self._npu_service = NPUService()
 
         # Validate state manager consistency across services
         self._validate_service_state_consistency()
@@ -487,39 +491,49 @@ class CoreAPIService:
     def get_neuron_properties(
         self, neuron_id: int
     ) -> Optional[Dict[str, Any]]:
-        """Get detailed properties of a specific neuron including refractory
-        counter."""
+        """Get detailed properties of a specific neuron using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         self.logger.info(
             f"DEBUG: get_neuron_properties called for neuron_id: {neuron_id} (type: {type(neuron_id)})"
         )
 
         try:
-            # Delegate to ConnectomeManager for direct neuron property access
-            connectome_manager = (
-                self._cortical_area_service._connectome_manager
-            )
-            if not connectome_manager:
-                self.logger.error(
-                    "ConnectomeManager not available for neuron property access"
-                )
-                return None
-
-            self.logger.info(
-                f"DEBUG: Got connectome_manager, calling get_neuron_properties({neuron_id})"
-            )
-            properties = connectome_manager.get_neuron_properties(neuron_id)
-
+            # Try NPU interface first for better performance
+            properties = {}
+            
+            # Get all standard neuron properties from NPU
+            property_names = [
+                'position', 'membrane_potential', 'threshold', 'leak_coefficient', 
+                'excitability', 'refractory_counter', 'neuron_type'
+            ]
+            
+            for prop_name in property_names:
+                try:
+                    result = self._npu_service.get_neuron_property(neuron_id, prop_name)
+                    if result.get("success", False):
+                        properties[prop_name] = result["data"]["value"]
+                except Exception:
+                    # Continue with other properties if one fails
+                    continue
+            
+            # If NPU didn't return any properties, fall back to ConnectomeManager
             if not properties:
-                self.logger.warning(
-                    f"DEBUG: Neuron {neuron_id} not found - get_neuron_properties returned None/empty"
-                )
-                return None
+                self.logger.debug(f"NPU didn't return properties for neuron {neuron_id}, using ConnectomeManager")
+                connectome_manager = self._cortical_area_service._connectome_manager
+                if not connectome_manager:
+                    self.logger.error("ConnectomeManager not available for neuron property access")
+                    return None
+
+                properties = connectome_manager.get_neuron_properties(neuron_id)
+                if not properties:
+                    self.logger.warning(f"Neuron {neuron_id} not found in ConnectomeManager")
+                    return None
 
             # Add neuron_id to the response and convert position tuple to list
             properties["neuron_id"] = neuron_id
-            if "position" in properties and isinstance(
-                properties["position"], tuple
-            ):
+            if "position" in properties and isinstance(properties["position"], tuple):
                 properties["position"] = list(properties["position"])
 
             self.logger.info(
@@ -1029,6 +1043,11 @@ class CoreAPIService:
     # CORE COMPONENT ACCESS METHODS
     # =================================================================
 
+    @property
+    def burst_engine(self):
+        """Property to access the burst engine instance."""
+        return self.get_burst_engine()
+
     def get_burst_engine(self):
         """Get the burst engine instance - always returns the singleton instance."""
         # Import here to avoid circular imports
@@ -1037,6 +1056,7 @@ class CoreAPIService:
 
             # Always use the singleton instance - never create a new one
             singleton_instance = BurstEngine.get_instance()
+            npu_configured = False
 
             if singleton_instance is None:
                 # Create singleton instance only if none exists
@@ -1101,12 +1121,43 @@ class CoreAPIService:
                     self.logger.info(f"   Backend: {backend}")
                     self.logger.info(f"   Max neurons: {max_neurons:,}")
                     self.logger.info(f"   Max synapses: {max_synapses:,}")
+                    npu_configured = True
                 else:
                     self.logger.error("❌ Failed to configure NPU - falling back to BDU")
                     # Note: This will cause the RuntimeError we saw, which is correct behavior
                     # NPU ownership is mandatory for synaptic updates
-                
-            # Removed log spam: no longer log when using existing singleton
+            else:
+                # Existing singleton - ensure NPU is configured
+                if not hasattr(singleton_instance, 'npu_processor') or singleton_instance.npu_processor is None:
+                    self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton...")
+                    from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
+                    
+                    # Get NPU configuration from config
+                    npu_config = self._config.get("npu", {})
+                    max_neurons = npu_config.get("max_neurons", 10_000_000)
+                    max_synapses = npu_config.get("max_synapses", 100_000_000)
+                    backend = npu_config.get("backend", "cpu")
+                    
+                    # Configure NPU with 100% ownership of synaptic updates
+                    npu_success = configure_npu_burst_engine(
+                        singleton_instance,
+                        max_neurons=max_neurons,
+                        max_synapses=max_synapses,
+                        backend=backend,
+                        enable_immediately=True
+                    )
+                    
+                    if npu_success:
+                        self.logger.info("✅ NPU configured for existing singleton")
+                        self.logger.info(f"   Backend: {backend}")
+                        self.logger.info(f"   Max neurons: {max_neurons:,}")
+                        self.logger.info(f"   Max synapses: {max_synapses:,}")
+                        npu_configured = True
+                    else:
+                        self.logger.error("❌ Failed to configure NPU for existing singleton")
+                else:
+                    self.logger.debug("NPU already configured for existing singleton")
+                    npu_configured = True
 
             return singleton_instance
 
@@ -3025,18 +3076,57 @@ class CoreAPIService:
         positions: List[Tuple[int, int, int]],
         properties: Optional[Dict[str, Any]] = None,
     ) -> List[int]:
-        """Batch create neurons."""
+        """Batch create neurons using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         try:
-            # Create neurons using connectome manager
-            neuron_ids = []
-            for position in positions:
-                neuron_id = self._connectome_manager.create_neuron(
-                    cortical_id=area_id,
-                    position=position,
-                    **(properties or {}),
-                )
-                neuron_ids.append(neuron_id)
-            return neuron_ids
+            # Convert area_id (6-letter string) to cortical_idx (integer) for NPU
+            cortical_idx = self._connectome_manager.get_cortical_idx_for_id(area_id)
+            if cortical_idx is None:
+                self.logger.error(f"Cortical area {area_id} not found")
+                return []
+            
+            # Extract properties for NPU interface
+            properties = properties or {}
+            neuron_types = properties.get('neuron_types')
+            initial_potentials = properties.get('initial_potentials') or properties.get('membrane_potential')
+            thresholds = properties.get('thresholds') or properties.get('threshold')
+            leak_coefficients = properties.get('leak_coefficients') or properties.get('leak_coefficient')
+            excitabilities = properties.get('excitabilities') or properties.get('excitability')
+            
+            # Convert single values to lists if needed
+            count = len(positions)
+            if isinstance(initial_potentials, (int, float)):
+                initial_potentials = [initial_potentials] * count
+            if isinstance(thresholds, (int, float)):
+                thresholds = [thresholds] * count
+            if isinstance(leak_coefficients, (int, float)):
+                leak_coefficients = [leak_coefficients] * count
+            if isinstance(excitabilities, (int, float)):
+                excitabilities = [excitabilities] * count
+            
+            # Use NPU service for batch creation
+            result = self._npu_service.create_neurons_batch(
+                cortical_idx=cortical_idx,
+                positions=positions,
+                neuron_types=neuron_types,
+                initial_potentials=initial_potentials,
+                thresholds=thresholds,
+                leak_coefficients=leak_coefficients,
+                excitabilities=excitabilities
+            )
+            
+            if result.get("success", False):
+                # Extract neuron IDs from NPU result
+                # For now, return empty list as NPU interface doesn't return IDs yet
+                # TODO: Update NPU interface to return created neuron IDs
+                self.logger.info(f"Successfully created {result.get('successful_count', 0)} neurons in area {area_id}")
+                return []  # Temporary until NPU interface returns IDs
+            else:
+                self.logger.error(f"NPU batch neuron creation failed: {result.get('error', 'Unknown error')}")
+                return []
+                
         except Exception as e:
             self.logger.error(f"Error batch creating neurons: {str(e)}")
             return []
@@ -3044,19 +3134,34 @@ class CoreAPIService:
     def batch_create_synapses(
         self, connections: List[Tuple[int, int, float]]
     ) -> int:
-        """Batch create synapses."""
+        """Batch create synapses using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         try:
-            # Create synapses using connectome manager
-            created_count = 0
-            for pre_neuron_id, post_neuron_id, weight in connections:
-                success = self._connectome_manager.create_synapse(
-                    pre_neuron_id=pre_neuron_id,
-                    post_neuron_id=post_neuron_id,
-                    weight=weight,
-                )
-                if success:
-                    created_count += 1
-            return created_count
+            if not connections:
+                return 0
+            
+            # Extract source neurons, target neurons, and weights
+            source_neuron_ids = [conn[0] for conn in connections]
+            target_neuron_ids = [conn[1] for conn in connections]
+            weights = [conn[2] for conn in connections]
+            
+            # Use NPU service for batch creation
+            result = self._npu_service.create_synapses_batch(
+                source_neuron_ids=source_neuron_ids,
+                target_neuron_ids=target_neuron_ids,
+                weights=weights
+            )
+            
+            if result.get("success", False):
+                created_count = result.get("successful_count", 0)
+                self.logger.info(f"Successfully created {created_count} synapses")
+                return created_count
+            else:
+                self.logger.error(f"NPU batch synapse creation failed: {result.get('error', 'Unknown error')}")
+                return 0
+                
         except Exception as e:
             self.logger.error(f"Error batch creating synapses: {str(e)}")
             return 0

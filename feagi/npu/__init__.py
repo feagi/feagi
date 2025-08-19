@@ -32,9 +32,11 @@ Architecture:
 """
 
 # Core NPU components
-from .neural_processor import NeuralProcessor, NPUBackendType, NPUNeuralStats
 from .fcl_manager import FCLManager
-from .burst_engine_npu_integration import configure_npu_burst_engine
+
+# New NPU Interface and Data Structures (Single Source of Truth)
+from .interface import NPUInterface, OperationResult, BatchOperationResult
+from .data_structures import NeuronArray, MemoryNeuronArray, SynapseArray, BackendType
 
 # Plasticity system
 from .plasticity import (
@@ -43,8 +45,20 @@ from .plasticity import (
     PlasticityType
 )
 
-# BDU interfaces
-from .bdu_interfaces import BDUNeuronInterface, BDUSynapseInterface
+# Archived components (moved to archive/ folder)
+# These are kept for backward compatibility during transition
+try:
+    from .archive.neural_processor import NeuralProcessor, NPUBackendType, NPUNeuralStats
+    from .archive.burst_engine_npu_integration import configure_npu_burst_engine
+    from .archive.bdu_interfaces import BDUNeuronInterface, BDUSynapseInterface
+except ImportError:
+    # Graceful fallback if archived components not available
+    NeuralProcessor = None
+    NPUBackendType = None
+    NPUNeuralStats = None
+    configure_npu_burst_engine = None
+    BDUNeuronInterface = None
+    BDUSynapseInterface = None
 
 # SIMD operations
 from .simd_neural_ops import (
@@ -57,18 +71,27 @@ from .simd_neural_ops import (
 
 __all__ = [
     # Core NPU
-    'NeuralProcessor',
-    'NPUBackendType', 
-    'NPUNeuralStats',
     'FCLManager',
-    'configure_npu_burst_engine',
+    
+    # New NPU Interface and Data Structures (Single Source of Truth)
+    'NPUInterface',
+    'OperationResult',
+    'BatchOperationResult',
+    'NeuronArray',
+    'MemoryNeuronArray',
+    'SynapseArray',
+    'BackendType',
     
     # Plasticity system
     'PlasticityManager',
     'PlasticityConfig',
     'PlasticityType',
     
-    # BDU interfaces
+    # Archived components (backward compatibility)
+    'NeuralProcessor',
+    'NPUBackendType', 
+    'NPUNeuralStats',
+    'configure_npu_burst_engine',
     'BDUNeuronInterface',
     'BDUSynapseInterface',
     
