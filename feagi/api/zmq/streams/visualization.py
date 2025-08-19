@@ -451,13 +451,23 @@ class VisualizationStream:
                     sample_data = self.fq_sampler.sample()
                     logger.info(f"[COORD-DEBUG] FQ Sampler returned: {list(sample_data.keys()) if sample_data else 'None'}")
                     
-                    # COORDINATE DEBUG: Log what the FQ sampler returns
+                    # COORDINATE DEBUG: Log complete FCL content from FQ sampler
                     if sample_data:
                         for area_id, area_data in sample_data.items():
-                            if area_data and area_data.get("coordinates"):
-                                logger.info(
-                                    f"[COORD-DEBUG] FQ Sampler returned for {area_id}: coordinates={area_data['coordinates']}"
-                                )
+                            if area_data:
+                                # Log complete FCL content for this area
+                                logger.info(f"[COORD-DEBUG] === FCL CONTENT for {area_id} ===")
+                                logger.info(f"[COORD-DEBUG] {area_id} neuron_ids: {area_data.get('neuron_ids', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} coordinates: {area_data.get('coordinates', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} membrane_potentials: {area_data.get('membrane_potentials', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} thresholds: {area_data.get('thresholds', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} refractory_counters: {area_data.get('refractory_counters', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} consecutive_fire_counts: {area_data.get('consecutive_fire_counts', [])}")
+                                logger.info(f"[COORD-DEBUG] {area_id} timestamp: {area_data.get('timestamp', 'N/A')}")
+                                logger.info(f"[COORD-DEBUG] {area_id} all_keys: {list(area_data.keys())}")
+                                logger.info(f"[COORD-DEBUG] === END FCL CONTENT for {area_id} ===")
+                            else:
+                                logger.info(f"[COORD-DEBUG] {area_id}: No FCL data")
 
                     if sample_data:
                         #  Convert UnifiedFQSampler format to visualization

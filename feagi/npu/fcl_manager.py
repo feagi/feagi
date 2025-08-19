@@ -655,6 +655,45 @@ class FCLManager:
             self.logger.info(
                 f"[NPU-DEBUG] FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_cortical)} cortical areas, {neurons_by_cortical}"
             )
+            
+            # COORDINATE DEBUG: Log complete FCL content for each cortical area
+            self.logger.info(f"[COORD-DEBUG] === COMPLETE FCL CONTENT for timestep {current_timestep} ===")
+            for cortical_idx, neurons in neurons_by_cortical.items():
+                # Convert neurons to list for logging
+                if hasattr(neurons, '__iter__'):
+                    neuron_list = list(neurons)
+                else:
+                    neuron_list = [neurons]
+                
+                self.logger.info(f"[COORD-DEBUG] === FCL CORTICAL AREA {cortical_idx} ===")
+                self.logger.info(f"[COORD-DEBUG] cortical_idx_{cortical_idx} neuron_ids: {neuron_list}")
+                self.logger.info(f"[COORD-DEBUG] cortical_idx_{cortical_idx} neuron_count: {len(neuron_list)}")
+                self.logger.info(f"[COORD-DEBUG] cortical_idx_{cortical_idx} data_type: {type(neurons).__name__}")
+                
+                # Log bitmap details if it's a BitMap
+                if hasattr(neurons, 'is_empty'):
+                    self.logger.info(f"[COORD-DEBUG] cortical_idx_{cortical_idx} bitmap_empty: {neurons.is_empty()}")
+                    self.logger.info(f"[COORD-DEBUG] cortical_idx_{cortical_idx} bitmap_size: {len(neurons)}")
+                
+                # Log specific neurons of interest (4495, 4496)
+                if any(nid in [4495, 4496] for nid in neuron_list):
+                    target_neurons = [nid for nid in neuron_list if nid in [4495, 4496]]
+                    self.logger.info(f"[COORD-DEBUG] *** CRITICAL *** cortical_idx_{cortical_idx} contains target neurons: {target_neurons}")
+                
+                self.logger.info(f"[COORD-DEBUG] === END CORTICAL AREA {cortical_idx} ===")
+            
+            self.logger.info(f"[COORD-DEBUG] === END COMPLETE FCL CONTENT for timestep {current_timestep} ===")
+            
+            # Log global FCL state
+            global_fcl = self.global_fcl_history[standard_index]
+            global_neuron_list = list(global_fcl)
+            self.logger.info(f"[COORD-DEBUG] === GLOBAL FCL STATE ===")
+            self.logger.info(f"[COORD-DEBUG] global_fcl_neuron_ids: {global_neuron_list}")
+            self.logger.info(f"[COORD-DEBUG] global_fcl_total_count: {len(global_neuron_list)}")
+            if any(nid in [4495, 4496] for nid in global_neuron_list):
+                target_neurons = [nid for nid in global_neuron_list if nid in [4495, 4496]]
+                self.logger.info(f"[COORD-DEBUG] *** CRITICAL *** global_fcl contains target neurons: {target_neurons}")
+            self.logger.info(f"[COORD-DEBUG] === END GLOBAL FCL STATE ===")
 
     def get_global_fcl(self, timestep: Optional[int] = None) -> BitMap:
         """Get the complete FCL for a specific timestep.

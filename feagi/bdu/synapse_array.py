@@ -75,6 +75,16 @@ class GlobalSynapseArray:
             max_synapses: Maximum number of synapses to support
             backend: Computation backend ("cpu", "cuda", "metal", "webgpu")
         """
+        # CRITICAL DEBUG: Log GlobalSynapseArray initialization
+        import traceback
+        logger.info(f"[COORD-DEBUG] *** GLOBALSYNAPSEARRAY INIT *** max_synapses={max_synapses}, backend={backend}")
+        print(f"[COORD-DEBUG] *** GLOBALSYNAPSEARRAY INIT *** max_synapses={max_synapses}, backend={backend}")
+        logger.info(f"[COORD-DEBUG] GlobalSynapseArray init call stack:")
+        print(f"[COORD-DEBUG] GlobalSynapseArray init call stack:")
+        for line in traceback.format_stack()[-5:]:
+            logger.info(f"[COORD-DEBUG]   {line.strip()}")
+            print(f"[COORD-DEBUG]   {line.strip()}")
+        
         # Load configuration
         config = load_feagi_config()
 
@@ -390,6 +400,36 @@ class GlobalSynapseArray:
     def propagate_activations_simd(
         self, firing_neurons: List[int], target_potentials: np.ndarray
     ) -> None:
+        
+        # CRITICAL DEBUG: Confirm this function is being called
+        logger.info(f"[COORD-DEBUG] *** PROPAGATE_ACTIVATIONS_SIMD CALLED *** with {len(firing_neurons)} firing neurons: {firing_neurons}")
+        print(f"[COORD-DEBUG] *** PROPAGATE_ACTIVATIONS_SIMD CALLED *** with {len(firing_neurons)} firing neurons: {firing_neurons}")
+        
+        # DEBUG: Check if we have any synapses at all
+        total_synapses = self.synapse_count
+        logger.info(f"[COORD-DEBUG] Total synapses in synapse array: {total_synapses}")
+        print(f"[COORD-DEBUG] Total synapses in synapse array: {total_synapses}")
+        
+        # DEBUG: Check array properties
+        logger.info(f"[COORD-DEBUG] Synapse array properties: max_synapses={self.max_synapses}, next_slot={self.next_slot}")
+        print(f"[COORD-DEBUG] Synapse array properties: max_synapses={self.max_synapses}, next_slot={self.next_slot}")
+        
+        if hasattr(self, 'pre_neuron_ids') and len(self.pre_neuron_ids) > 0:
+            non_zero_count = np.count_nonzero(self.pre_neuron_ids[:self.next_slot])
+            logger.info(f"[COORD-DEBUG] Non-zero pre_neuron_ids in first {self.next_slot} slots: {non_zero_count}")
+            print(f"[COORD-DEBUG] Non-zero pre_neuron_ids in first {self.next_slot} slots: {non_zero_count}")
+            
+            if self.next_slot > 0:
+                sample_pre_neurons = self.pre_neuron_ids[:min(10, self.next_slot)]
+                sample_post_neurons = self.post_neuron_ids[:min(10, self.next_slot)]
+                sample_weights = self.weights[:min(10, self.next_slot)]
+                logger.info(f"[COORD-DEBUG] Sample synapses: pre={sample_pre_neurons.tolist()}, post={sample_post_neurons.tolist()}, weights={sample_weights.tolist()}")
+                print(f"[COORD-DEBUG] Sample synapses: pre={sample_pre_neurons.tolist()}, post={sample_post_neurons.tolist()}, weights={sample_weights.tolist()}")
+        
+        if total_synapses == 0:
+            logger.info(f"[COORD-DEBUG] *** NO SYNAPSES FOUND *** - synaptic propagation will be skipped")
+            print(f"[COORD-DEBUG] *** NO SYNAPSES FOUND *** - synaptic propagation will be skipped")
+            return
         """Propagate activations using SIMD-optimized operations.
 
         This method processes synaptic transmission in vectorized batches
@@ -473,6 +513,21 @@ class GlobalSynapseArray:
         # This is SIMD-optimized by NumPy
         logger.debug(f"   🔧 Executing CPU SIMD synaptic propagation")
         
+        # COMPREHENSIVE SYNAPTIC UPDATE LOGGING
+        logger.info(f"[COORD-DEBUG] === SYNAPTIC PROPAGATION DETAILS ===")
+        logger.info(f"[COORD-DEBUG] Total target neurons receiving updates: {len(target_neurons_array)}")
+        logger.info(f"[COORD-DEBUG] All target neurons: {target_neurons_array.tolist()}")
+        logger.info(f"[COORD-DEBUG] All synaptic weights: {synapse_weights_array.tolist()}")
+        
+        # Log each individual synaptic update
+        for i, (target_neuron, weight) in enumerate(zip(target_neurons_array, synapse_weights_array)):
+            current_potential = target_potentials[target_neuron] if target_neuron < len(target_potentials) else 'N/A'
+            logger.info(f"[COORD-DEBUG] Synapse {i}: neuron {target_neuron} += {weight} (current: {current_potential})")
+            
+            # Special attention to our target neurons
+            if target_neuron in [4495, 4496]:
+                logger.info(f"[COORD-DEBUG] *** CRITICAL *** Target neuron {target_neuron} receiving synaptic input: weight={weight}")
+        
         # COORDINATE DEBUG: Log membrane potential updates for neurons 4495 and 4496
         if 4495 in target_neurons_array or 4496 in target_neurons_array:
             logger.info(f"[COORD-DEBUG] Before synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
@@ -490,12 +545,15 @@ class GlobalSynapseArray:
                 weights_to_4496 = synapse_weights_array[mask_4496]
                 logger.info(f"[COORD-DEBUG] Neuron 4496 receiving synaptic input: weights={weights_to_4496.tolist()}")
         
+        # THE ACTUAL SYNAPTIC UPDATE - this is where membrane potentials get modified
         np.add.at(target_potentials, target_neurons_array, synapse_weights_array)
         
         # COORDINATE DEBUG: Log membrane potentials after propagation
         if 4495 in target_neurons_array or 4496 in target_neurons_array:
             logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4495 potential: {target_potentials[4495] if 4495 < len(target_potentials) else 'N/A'}")
             logger.info(f"[COORD-DEBUG] After synaptic propagation - neuron 4496 potential: {target_potentials[4496] if 4496 < len(target_potentials) else 'N/A'}")
+        
+        logger.info(f"[COORD-DEBUG] === END SYNAPTIC PROPAGATION DETAILS ===")
         
         logger.debug(f"   ✅ CPU SIMD synaptic propagation completed")
 

@@ -1824,24 +1824,65 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses successfully created
         """
+        # CRITICAL DEBUG: Log synapse creation attempts
+        logger.info(f"[COORD-DEBUG] *** BATCH_CREATE_SYNAPSES CALLED *** with {len(synapse_specs) if synapse_specs else 0} synapse specs")
+        print(f"[COORD-DEBUG] *** BATCH_CREATE_SYNAPSES CALLED *** with {len(synapse_specs) if synapse_specs else 0} synapse specs")
+        
+        if synapse_specs:
+            # Log the first few synapse specs for debugging
+            sample_specs = synapse_specs[:5]  # First 5 specs
+            logger.info(f"[COORD-DEBUG] Sample synapse specs: {sample_specs}")
+            print(f"[COORD-DEBUG] Sample synapse specs: {sample_specs}")
+            
+            # Check specifically for neuron 2 -> 4495 synapse
+            power_to_iic200 = [(pre, post, weight) for pre, post, weight in synapse_specs if pre == 2 and post == 4495]
+            if power_to_iic200:
+                logger.info(f"[COORD-DEBUG] *** FOUND POWER->IIC200 SYNAPSE *** {power_to_iic200}")
+                print(f"[COORD-DEBUG] *** FOUND POWER->IIC200 SYNAPSE *** {power_to_iic200}")
+        
         if not synapse_specs:
+            logger.info(f"[COORD-DEBUG] No synapse specs provided - returning 0")
+            print(f"[COORD-DEBUG] No synapse specs provided - returning 0")
             return 0
 
         # Validate that all neurons exist before batch creation
         valid_specs = []
+        invalid_specs = []
         for pre_id, post_id, weight in synapse_specs:
             if (
                 pre_id in self.neuron_id_to_index
                 and post_id in self.neuron_id_to_index
             ):
                 valid_specs.append((pre_id, post_id, weight))
+            else:
+                invalid_specs.append((pre_id, post_id, weight))
+                # Log missing neurons
+                if pre_id not in self.neuron_id_to_index:
+                    logger.info(f"[COORD-DEBUG] Pre-neuron {pre_id} not found in neuron_id_to_index")
+                    print(f"[COORD-DEBUG] Pre-neuron {pre_id} not found in neuron_id_to_index")
+                if post_id not in self.neuron_id_to_index:
+                    logger.info(f"[COORD-DEBUG] Post-neuron {post_id} not found in neuron_id_to_index")
+                    print(f"[COORD-DEBUG] Post-neuron {post_id} not found in neuron_id_to_index")
+
+        logger.info(f"[COORD-DEBUG] Validation results: {len(valid_specs)} valid, {len(invalid_specs)} invalid")
+        print(f"[COORD-DEBUG] Validation results: {len(valid_specs)} valid, {len(invalid_specs)} invalid")
 
         if not valid_specs:
             logger.warning("No valid synapse specifications found")
+            logger.info(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
+            print(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
             return 0
 
         # Use GlobalSynapseArray's vectorized batch creation
+        logger.info(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
+        print(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
+        
         created_count = self.synapse_array.batch_create_synapses(valid_specs)
+        
+        logger.info(f"[COORD-DEBUG] GlobalSynapseArray created {created_count} synapses")
+        print(f"[COORD-DEBUG] GlobalSynapseArray created {created_count} synapses")
+        logger.info(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
+        print(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
         
         # Update state manager with new synapse count (optimized - synapse count only)
         if created_count > 0:

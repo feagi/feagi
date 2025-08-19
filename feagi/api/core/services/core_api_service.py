@@ -3498,6 +3498,40 @@ class CoreAPIService:
                             ),  # ✅ FIXED: Use uint32 coordinates
                         )
                     )
+                    
+                    # COORDINATE DEBUG: Log complete fire queue contents
+                    self.logger.info(f"[COORD-DEBUG] === FIRE QUEUE CONTENTS for {cortical_id} ===")
+                    self.logger.info(f"[COORD-DEBUG] fire_queue_shape: {brain_data.shape}")
+                    self.logger.info(f"[COORD-DEBUG] fire_queue_neuron_count: {len(brain_data)}")
+                    
+                    for i, row in enumerate(brain_data):
+                        neuron_id = int(row[0])
+                        membrane_potential = float(row[1])
+                        x_coord = int(row[2])
+                        y_coord = int(row[3])
+                        z_coord = int(row[4])
+                        
+                        self.logger.info(f"[COORD-DEBUG] fire_queue_neuron_{i}: id={neuron_id}, potential={membrane_potential}, coords=({x_coord},{y_coord},{z_coord})")
+                        
+                        # Highlight target neurons
+                        if neuron_id in [4495, 4496]:
+                            self.logger.info(f"[COORD-DEBUG] *** CRITICAL *** fire_queue contains target neuron {neuron_id} at ({x_coord},{y_coord},{z_coord}) with potential {membrane_potential}")
+                    
+                    self.logger.info(f"[COORD-DEBUG] === END FIRE QUEUE CONTENTS for {cortical_id} ===")
+                    
+                    # Additional fire queue analysis
+                    neuron_ids_in_queue = brain_data[:, 0].astype(int)
+                    potentials_in_queue = brain_data[:, 1]
+                    coords_in_queue = brain_data[:, 2:5].astype(int)
+                    
+                    self.logger.info(f"[COORD-DEBUG] === FIRE QUEUE ANALYSIS for {cortical_id} ===")
+                    self.logger.info(f"[COORD-DEBUG] all_neuron_ids: {neuron_ids_in_queue.tolist()}")
+                    self.logger.info(f"[COORD-DEBUG] all_potentials: {potentials_in_queue.tolist()}")
+                    self.logger.info(f"[COORD-DEBUG] all_coordinates: {coords_in_queue.tolist()}")
+                    self.logger.info(f"[COORD-DEBUG] min_potential: {potentials_in_queue.min()}")
+                    self.logger.info(f"[COORD-DEBUG] max_potential: {potentials_in_queue.max()}")
+                    self.logger.info(f"[COORD-DEBUG] unique_coordinates: {len(set(map(tuple, coords_in_queue)))}")
+                    self.logger.info(f"[COORD-DEBUG] === END FIRE QUEUE ANALYSIS for {cortical_id} ===")
 
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] Successfully extracted {len(area_firing_indices)} firing neurons for area {cortical_id}"
