@@ -19,6 +19,7 @@ import numpy as np
 
 from feagi.config.toml_loader import load_feagi_config
 from .bdu_interfaces import BDUNeuronInterface, BDUSynapseInterface
+from .plasticity.manager import PlasticityManager, PlasticityConfig
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +197,12 @@ class NPUSynapseArray:
         self.weights = np.zeros(max_synapses, dtype=np.float32)
         self.delays = np.ones(max_synapses, dtype=np.uint8)
         
+        # Plasticity data structures (NPU-owned)
+        self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)  # PlasticityType enum
+        self.plasticity_coeffs = np.ones(max_synapses, dtype=np.float32)
+        self.decay_rates = np.full(max_synapses, 0.95, dtype=np.float32)
+        self.scaling_exponents = np.ones(max_synapses, dtype=np.float32)
+        
         # Spatial indexing for fast lookup (NPU owns this)
         self.source_neuron_index = {}  # neuron_id -> list of synapse indices
         
@@ -265,6 +272,14 @@ class NeuralProcessor:
         self.neurons = NPUNeuronArray(max_neurons, backend)
         self.synapses = NPUSynapseArray(max_synapses, backend)
         
+        # NPU OWNS plasticity operations (primary ownership)
+        plasticity_config = PlasticityConfig(
+            plasticity_update_interval=1,      # Update every timestep
+            pruning_update_interval=100,       # Prune every 100 timesteps
+            homeostatic_update_interval=1000   # Homeostatic every 1000 timesteps
+        )
+        self.plasticity_manager = PlasticityManager(max_synapses, plasticity_config)
+        
         # BDU access control
         self._bdu_access_enabled = True
         self._npu_processing_active = False
@@ -326,7 +341,31 @@ class NeuralProcessor:
                 logger.warning(f"Memory neuron processing failed: {e}")
                 memory_fired_neurons = []
         
-        # PHASE 4: Combine results
+        # PHASE 4: Plasticity updates (NPU-owned)
+        # Update activity tracking (every timestep)
+        if fired_neurons:
+            self.plasticity_manager.update_activity_tracking(
+                fired_neurons, 
+                self.synapses.source_neurons[:self.synapses.synapse_count],
+                self.synapses.target_neurons[:self.synapses.synapse_count],
+                timestep
+            )
+        
+        # Scheduled plasticity updates (based on intervals)
+        plasticity_updated = 0
+        if hasattr(self.synapses, 'plasticity_types'):
+            plasticity_updated = self.plasticity_manager.update_plasticity(
+                timestep,
+                self.synapses.weights[:self.synapses.synapse_count],
+                self.synapses.plasticity_types[:self.synapses.synapse_count],
+                self.synapses.plasticity_coeffs[:self.synapses.synapse_count],
+                self.plasticity_manager._activity_buffer[:self.synapses.synapse_count],
+                self.synapses.decay_rates[:self.synapses.synapse_count] if hasattr(self.synapses, 'decay_rates') else np.ones(self.synapses.synapse_count),
+                self.synapses.scaling_exponents[:self.synapses.synapse_count] if hasattr(self.synapses, 'scaling_exponents') else np.ones(self.synapses.synapse_count),
+                0.001  # dt = 1ms
+            )
+        
+        # PHASE 5: Combine results
         all_fired_neurons = fired_neurons + memory_fired_neurons
         
         # Update statistics
@@ -334,6 +373,10 @@ class NeuralProcessor:
         self.stats.neurons_fired = len(all_fired_neurons)
         self.stats.processing_time_ms = (time.time() - start_time) * 1000
         self.stats.backend_used = self.backend
+        
+        # Add plasticity statistics
+        if plasticity_updated > 0:
+            logger.debug(f"NPU plasticity: updated {plasticity_updated} synapses at timestep {timestep}")
         
         return all_fired_neurons
     
