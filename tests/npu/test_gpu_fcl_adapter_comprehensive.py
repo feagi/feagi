@@ -472,7 +472,7 @@ def test_create_gpu_accelerated_fcl_with_gpu_backend():
     with patch("feagi.npu.gpu_fcl_adapter.get_backend") as mock_get_backend:
         mock_get_backend.return_value = MockBackend()
 
-        fcl = create_gpu_accelerated_fcl(window_size=10)
+        fcl = create_gpu_accelerated_fcl(default_window_size=10)
 
         assert isinstance(fcl, GPUAcceleratedFCL)
 
@@ -482,7 +482,7 @@ def test_create_gpu_accelerated_fcl_no_backend():
     with patch("feagi.npu.gpu_fcl_adapter.get_backend") as mock_get_backend:
         mock_get_backend.return_value = None
 
-        fcl = create_gpu_accelerated_fcl(window_size=10)
+        fcl = create_gpu_accelerated_fcl(default_window_size=10)
 
         assert isinstance(fcl, EnhancedFCLManager)
         assert not isinstance(fcl, GPUAcceleratedFCL)
@@ -493,7 +493,7 @@ def test_create_gpu_accelerated_fcl_no_bitmap_support():
     with patch("feagi.npu.gpu_fcl_adapter.get_backend") as mock_get_backend:
         mock_get_backend.return_value = MockNoBackend()
 
-        fcl = create_gpu_accelerated_fcl(window_size=10)
+        fcl = create_gpu_accelerated_fcl(default_window_size=10)
 
         assert isinstance(fcl, EnhancedFCLManager)
         assert not isinstance(fcl, GPUAcceleratedFCL)
@@ -504,7 +504,7 @@ def test_create_gpu_accelerated_fcl_no_bitmap_operations_method():
     with patch("feagi.npu.gpu_fcl_adapter.get_backend") as mock_get_backend:
         mock_get_backend.return_value = MockBackendNoOps()
 
-        fcl = create_gpu_accelerated_fcl(window_size=10)
+        fcl = create_gpu_accelerated_fcl(default_window_size=10)
 
         assert isinstance(fcl, EnhancedFCLManager)
         assert not isinstance(fcl, GPUAcceleratedFCL)
@@ -515,7 +515,7 @@ def test_gpu_accelerated_fcl_initialization():
     """Test GPUAcceleratedFCL initialization with valid backend."""
     mock_backend = MockBackend()
 
-    fcl = GPUAcceleratedFCL(mock_backend, window_size=15)
+    fcl = GPUAcceleratedFCL(mock_backend, default_window_size=15)
 
     assert fcl.backend == mock_backend
     assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)
@@ -527,7 +527,7 @@ def test_gpu_accelerated_fcl_initialization_no_backend():
         mock_get_backend.return_value = None
 
         with pytest.raises(RuntimeError):
-            GPUAcceleratedFCL(None, window_size=15)
+            GPUAcceleratedFCL(None, default_window_size=15)
 
 
 def test_gpu_accelerated_fcl_initialization_incompatible_backend():
@@ -535,7 +535,7 @@ def test_gpu_accelerated_fcl_initialization_incompatible_backend():
     mock_backend = MockNoBackend()
 
     with pytest.raises(TypeError):
-        GPUAcceleratedFCL(mock_backend, window_size=15)
+        GPUAcceleratedFCL(mock_backend, default_window_size=15)
 
 
 def test_gpu_accelerated_fcl_getattr_delegation():
@@ -917,7 +917,7 @@ def test_create_gpu_accelerated_fcl_backend_name_handling():
     with patch("feagi.npu.gpu_fcl_adapter.get_backend") as mock_get_backend:
         mock_get_backend.return_value = mock_backend
 
-        fcl = create_gpu_accelerated_fcl(window_size=10)
+        fcl = create_gpu_accelerated_fcl(default_window_size=10)
 
         assert isinstance(fcl, GPUAcceleratedFCL)
 
@@ -928,7 +928,7 @@ def test_gpu_accelerated_fcl_initialization_get_backend_fallback():
         mock_get_backend.return_value = MockBackend()
 
         # Initialize without providing backend (should call get_backend)
-        fcl = GPUAcceleratedFCL(None, window_size=15)
+        fcl = GPUAcceleratedFCL(None, default_window_size=15)
 
         assert fcl.backend is not None
         assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)
@@ -943,7 +943,7 @@ def test_gpu_accelerated_fcl_backend_name_handling():
     mock_backend = MockBackendNoName()
     del mock_backend.name  # Ensure no name attribute
 
-    fcl = GPUAcceleratedFCL(mock_backend, window_size=15)
+    fcl = GPUAcceleratedFCL(mock_backend, default_window_size=15)
 
     assert fcl.backend == mock_backend
     assert isinstance(fcl.cpu_fcl, EnhancedFCLManager)

@@ -386,7 +386,7 @@ class FCLManager:
         from feagi.bdu.connectome_manager import ConnectomeManager
 
         connectome_manager = ConnectomeManager.instance()
-        return connectome_manager.get_cortical_id_by_idx(cortical_idx)
+        return connectome_manager.get_cortical_id_for_idx(cortical_idx)
 
     def invalidate_cortical_window_cache(
         self, cortical_idx: CorticalIdx

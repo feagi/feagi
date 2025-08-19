@@ -75,6 +75,9 @@ def config():
 @pytest.fixture
 def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
+    # Reset singleton to ensure clean state
+    ConnectomeManager.reset_singleton()
+    
     max_neurons = 10000
     max_synapses = config.get("connectome.max_synapses_per_neuron", 1000) * max_neurons
     return ConnectomeManager(

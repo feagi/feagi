@@ -244,7 +244,7 @@ class TestGPUAcceleratedFCLMocked:
     @pytest.fixture
     def fcl(self, mock_backend):
         """Create a GPU-accelerated FCL."""
-        return GPUAcceleratedFCL(mock_backend, window_size=3)
+        return GPUAcceleratedFCL(mock_backend, default_window_size=3)
 
     def test_initialization(self, fcl, mock_backend):
         """Test initialization of GPU-accelerated FCL."""
@@ -370,7 +370,7 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = backend
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Check result
         assert isinstance(fcl, GPUAcceleratedFCL)
@@ -386,7 +386,7 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = backend
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
         from feagi.npu.fcl_manager import EnhancedFCLManager
@@ -400,7 +400,7 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = None
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
         from feagi.npu.fcl_manager import EnhancedFCLManager

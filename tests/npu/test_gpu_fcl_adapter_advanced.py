@@ -252,7 +252,7 @@ class TestGPUAcceleratedFCLAdvanced:
             base_fcl = Mock()
 
             # Create GPU accelerated FCL with proper parameters
-            gpu_fcl = GPUAcceleratedFCL(mock_backend, window_size=20)
+            gpu_fcl = GPUAcceleratedFCL(mock_backend, default_window_size=20)
 
             # Mock the update_fcl method of the CPU FCL
             gpu_fcl.cpu_fcl.update_fcl = MagicMock()
@@ -274,7 +274,7 @@ class TestGPUAcceleratedFCLAdvanced:
             base_fcl.get_global_fcl.return_value = mock_bitmap
 
             # Create GPU accelerated FCL with proper parameters
-            gpu_fcl = GPUAcceleratedFCL(mock_backend, window_size=20)
+            gpu_fcl = GPUAcceleratedFCL(mock_backend, default_window_size=20)
 
             # Call the get_global_fcl method
             gpu_fcl.cpu_fcl.get_global_fcl = MagicMock(return_value=mock_bitmap)
@@ -293,7 +293,7 @@ class TestGPUAcceleratedFCLAdvanced:
             base_fcl.get_cortical_fcl.return_value = mock_bitmap
 
             # Create GPU accelerated FCL with proper parameters
-            gpu_fcl = GPUAcceleratedFCL(mock_backend, window_size=20)
+            gpu_fcl = GPUAcceleratedFCL(mock_backend, default_window_size=20)
 
             # Set up mock
             gpu_fcl.cpu_fcl.get_cortical_fcl = MagicMock(return_value=mock_bitmap)
@@ -312,7 +312,7 @@ class TestGPUAcceleratedFCLAdvanced:
             base_fcl = Mock()
 
             # Create GPU accelerated FCL with proper parameters
-            gpu_fcl = GPUAcceleratedFCL(mock_backend, window_size=20)
+            gpu_fcl = GPUAcceleratedFCL(mock_backend, default_window_size=20)
 
             # Set up mock
             gpu_fcl.cpu_fcl.add_to_current_fcl = MagicMock()
@@ -362,7 +362,7 @@ class TestGPUAcceleratedFCLAdvanced:
             base_fcl = Mock()
 
             # Create GPU accelerated FCL with proper parameters
-            gpu_fcl = GPUAcceleratedFCL(mock_backend, window_size=20)
+            gpu_fcl = GPUAcceleratedFCL(mock_backend, default_window_size=20)
 
             # Test returning a BitMap from the CPU FCL
             cpu_bitmap = BitMap([1, 2, 3])

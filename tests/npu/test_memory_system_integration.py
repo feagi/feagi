@@ -327,7 +327,7 @@ class TestFCLWindowSizeCache:
     
     def setup_method(self):
         """Setup test fixtures."""
-        self.cache = FCLWindowSizeCache(window_size=20)
+        self.cache = FCLWindowSizeCache(default_window_size=20)
         
     def test_cache_initialization(self):
         """Test cache initialization."""
