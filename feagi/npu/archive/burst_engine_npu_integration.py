@@ -12,7 +12,7 @@ import logging
 from typing import Any, Dict, List, Optional
 import time
 
-from feagi.npu.neural_processor import NeuralProcessor
+from .neural_processor import NeuralProcessor
 from feagi.core.state_manager import get_state_manager
 
 logger = logging.getLogger(__name__)

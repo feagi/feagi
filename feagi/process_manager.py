@@ -90,11 +90,9 @@ class ProcessManager:
 
         logger.info("[SINGLETON] ProcessManager initialized")
 
-        #  CRITICAL: Use ConnectomeManager singleton for mission-critical
-        #  reliability
-        from feagi.bdu.connectome_manager import ConnectomeManager
-
-        self._connectome_manager = ConnectomeManager.instance()
+        #  CRITICAL: ConnectomeManager will be initialized in init_critical_processes
+        #  with proper configuration and backend parameters
+        self._connectome_manager = None
 
         # Internal references for critical components
         self._fcl_manager = None

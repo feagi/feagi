@@ -26,7 +26,8 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
-from feagi.npu.optimized_structures import Connectome, OptimizedFeagiCore
+# Old optimized_structures module was removed during cleanup
+# from feagi.npu.optimized_structures import Connectome, OptimizedFeagiCore
 
 
 class MockRustGNA:

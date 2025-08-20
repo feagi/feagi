@@ -17,8 +17,9 @@ import numpy as np
 from typing import List, Dict, Any
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.npu.neural_processor import NeuralProcessor, NPUNeuronArray, NPUSynapseArray
-from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
+from feagi.npu.interface import NPUInterface
+from feagi.npu.data_structures import NeuronArray, SynapseArray, BackendType
+from feagi.npu.burst_engine import BurstEngine
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 

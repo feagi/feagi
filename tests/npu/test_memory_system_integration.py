@@ -28,7 +28,7 @@ import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Set, Any
 
-from feagi.bdu.models.memory_neuron import MemoryNeuronArray, MemoryPatternKey
+from feagi.npu.data_structures import MemoryNeuronArray, MemoryPatternKey
 from feagi.npu.memory_processor import MemoryProcessor
 from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.core.state_manager import FCLWindowSizeCache

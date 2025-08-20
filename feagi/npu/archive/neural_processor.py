@@ -19,7 +19,7 @@ import numpy as np
 
 from feagi.config.toml_loader import load_feagi_config
 from .bdu_interfaces import BDUNeuronInterface, BDUSynapseInterface
-from .plasticity.manager import PlasticityManager, PlasticityConfig
+from ..plasticity.manager import PlasticityManager, PlasticityConfig
 
 logger = logging.getLogger(__name__)
 
@@ -474,7 +474,7 @@ class NeuralProcessor:
         all_fired_neurons = fired_neurons + memory_fired_neurons
         
         # Update statistics
-        self.stats.neurons_processed = self.neurons.neuron_count + (self.memory_neurons.capacity if self.has_memory_neurons else 0)
+        self.stats.neurons_processed = self.neurons.neuron_count + (self.memory_neurons.max_memory_neurons if self.has_memory_neurons else 0)
         self.stats.neurons_fired = len(all_fired_neurons)
         self.stats.processing_time_ms = (time.time() - start_time) * 1000
         self.stats.backend_used = self.backend
@@ -577,7 +577,7 @@ class NeuralProcessor:
             if hasattr(bdu_connectome_manager, 'memory_neuron_array'):
                 self.memory_neurons = bdu_connectome_manager.memory_neuron_array
                 self.has_memory_neurons = True
-                logger.info(f"Memory neurons linked: {self.memory_neurons.capacity:,} capacity (BDU-owned)")
+                logger.info(f"Memory neurons linked: {self.memory_neurons.max_memory_neurons:,} capacity (BDU-owned)")
             
             # Transfer neurons from BDU to NPU ownership
             print(f"[NPU-TRANSFER-DEBUG] === NEURON TRANSFER START ===")

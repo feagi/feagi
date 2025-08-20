@@ -493,6 +493,76 @@ class NeuronArray:
             return (int(self.positions_x[idx]), int(self.positions_y[idx]), int(self.positions_z[idx]))
         else:
             return None
+    
+    def set_cortical_area_excitability(self, cortical_idx: int, start_idx: int, end_idx: int, excitability: float) -> None:
+        """Set excitability for all neurons in a cortical area range.
+        
+        Args:
+            cortical_idx: Cortical area index (for validation)
+            start_idx: Starting neuron index
+            end_idx: Ending neuron index (exclusive)
+            excitability: Excitability value to set
+        """
+        with self._lock:
+            # Validate range against array capacity, not current count
+            # (during neurogenesis, arrays are populated directly)
+            if start_idx < 0 or end_idx > self.max_neurons or start_idx >= end_idx:
+                raise ValueError(f"Invalid range: start_idx={start_idx}, end_idx={end_idx}, max_neurons={self.max_neurons}")
+            
+            # Set excitability for the range
+            self.excitability[start_idx:end_idx] = excitability
+            
+            # Update count if this extends beyond current count
+            if end_idx > self.count:
+                self.count = end_idx
+                self.neuron_count = end_idx
+    
+    def set_neuron_property(self, neuron_id: int, property_name: str, value: Union[float, int]) -> None:
+        """Set a property value for a specific neuron.
+        
+        Args:
+            neuron_id: ID of the neuron
+            property_name: Name of the property to set
+            value: Value to set
+        """
+        if neuron_id not in self.neuron_id_to_index:
+            raise KeyError(f"Neuron {neuron_id} not found")
+            
+        idx = self.neuron_id_to_index[neuron_id]
+        
+        with self._lock:
+            if property_name == "membrane_potential":
+                self.membrane_potentials[idx] = float(value)
+            elif property_name == "threshold":
+                self.thresholds[idx] = float(value)
+            elif property_name == "leak_coefficient":
+                self.leak_coefficients[idx] = float(value)
+            elif property_name == "excitability":
+                self.excitability[idx] = float(value)
+            elif property_name == "neuron_type":
+                self.neuron_types[idx] = int(value)
+            else:
+                raise ValueError(f"Property {property_name} cannot be set")
+    
+    def get_performance_summary(self) -> Dict[str, Any]:
+        """Get performance summary for the neuron array.
+        
+        Returns:
+            Dictionary with performance metrics
+        """
+        return {
+            "total_neurons": self.neuron_count,
+            "max_capacity": self.max_neurons,
+            "utilization": self.neuron_count / self.max_neurons if self.max_neurons > 0 else 0.0,
+            "backend": self.backend.value,
+            "simd_config": {
+                "vector_width": self.simd_config.vector_width,
+                "alignment_bytes": self.simd_config.alignment_bytes,
+                "optimal_batch_size": self.simd_config.optimal_batch_size
+            },
+            "memory_aligned": True,
+            "thread_safe": True
+        }
 
 
 class MemoryNeuronArray:

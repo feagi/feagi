@@ -390,7 +390,7 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
     backend = get_backend()
     if backend is None:
         logger.info("No backend available, falling back to CPU FCL manager")
-        return FCLManager(default_window_size=window_size)
+        return FCLManager(window_size=window_size)
 
     # Check if backend supports bitmap operations
     if not hasattr(backend, "bitmap_or") or not backend.supports_capability(
@@ -399,7 +399,7 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
         logger.info(
             f"Backend {getattr(backend, 'name', type(backend).__name__)} does not support bitmap operations, using CPU FCL manager"
         )
-        return FCLManager(default_window_size=window_size)
+        return FCLManager(window_size=window_size)
 
     # Create GPU-accelerated FCL manager
     logger.info(

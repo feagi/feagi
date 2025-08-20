@@ -45,20 +45,7 @@ from .plasticity import (
     PlasticityType
 )
 
-# Archived components (moved to archive/ folder)
-# These are kept for backward compatibility during transition
-try:
-    from .archive.neural_processor import NeuralProcessor, NPUBackendType, NPUNeuralStats
-    from .archive.burst_engine_npu_integration import configure_npu_burst_engine
-    from .archive.bdu_interfaces import BDUNeuronInterface, BDUSynapseInterface
-except ImportError:
-    # Graceful fallback if archived components not available
-    NeuralProcessor = None
-    NPUBackendType = None
-    NPUNeuralStats = None
-    configure_npu_burst_engine = None
-    BDUNeuronInterface = None
-    BDUSynapseInterface = None
+# Archived components removed - migration to new NPU Interface complete
 
 # SIMD operations
 from .simd_neural_ops import (
@@ -87,13 +74,7 @@ __all__ = [
     'PlasticityConfig',
     'PlasticityType',
     
-    # Archived components (backward compatibility)
-    'NeuralProcessor',
-    'NPUBackendType', 
-    'NPUNeuralStats',
-    'configure_npu_burst_engine',
-    'BDUNeuronInterface',
-    'BDUSynapseInterface',
+    # Archived components removed - migration complete
     
     # SIMD operations
     'simd_membrane_decay',

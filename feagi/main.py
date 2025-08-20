@@ -568,10 +568,16 @@ def main():
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
 
-    # Initialize the main connectome instance using singleton pattern
-    from feagi.bdu.connectome_manager import ConnectomeManager
-
-    connectome = ConnectomeManager.instance()
+    # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
+    process_manager = get_process_manager()
+    
+    # Initialize critical processes with proper configuration
+    if not process_manager.init_critical_processes(config):
+        logger.error("Failed to initialize critical processes")
+        return 1
+    
+    # Get the properly configured connectome instance from ProcessManager
+    connectome = process_manager._connectome_manager
 
     #  Set the connectome instance for FastAPI dependency injection (only in
     #  normal mode)
@@ -584,9 +590,6 @@ def main():
         logger.info(
             "[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup"
         )
-
-    # Initialize the ProcessManager with the connectome
-    process_manager = get_process_manager()
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):

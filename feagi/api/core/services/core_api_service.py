@@ -1099,62 +1099,68 @@ class CoreAPIService:
                 
                 # ✅ CONFIGURE NPU AS PRIMARY OWNER OF SYNAPTIC UPDATES
                 self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates...")
-                from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
                 
                 # Get NPU configuration from config
                 npu_config = self._config.get("npu", {})
-                max_neurons = npu_config.get("max_neurons", 10_000_000)
-                max_synapses = npu_config.get("max_synapses", 100_000_000)
-                backend = npu_config.get("backend", "cpu")
+                backend_str = npu_config.get("backend", "cpu")
                 
-                # Configure NPU with 100% ownership of synaptic updates
-                npu_success = configure_npu_burst_engine(
-                    singleton_instance,
-                    max_neurons=max_neurons,
-                    max_synapses=max_synapses,
-                    backend=backend,
-                    enable_immediately=True
-                )
+                # Convert backend string to BackendType enum
+                from feagi.npu.data_structures import BackendType
+                backend_map = {
+                    "cpu": BackendType.CPU,
+                    "cuda": BackendType.CUDA, 
+                    "wgpu": BackendType.WGPU
+                }
+                backend = backend_map.get(backend_str, BackendType.CPU)
                 
-                if npu_success:
-                    self.logger.info("✅ NPU configured as PRIMARY OWNER of synaptic updates")
-                    self.logger.info(f"   Backend: {backend}")
-                    self.logger.info(f"   Max neurons: {max_neurons:,}")
-                    self.logger.info(f"   Max synapses: {max_synapses:,}")
-                    npu_configured = True
-                else:
-                    self.logger.error("❌ Failed to configure NPU - falling back to BDU")
-                    # Note: This will cause the RuntimeError we saw, which is correct behavior
-                    # NPU ownership is mandatory for synaptic updates
+                # Create NPU Interface as single source of truth
+                from feagi.npu.interface import NPUInterface
+                npu_interface = NPUInterface(backend=backend)
+                
+                # Store NPU interface in burst engine for power injection
+                singleton_instance.npu_interface = npu_interface
+                
+                # Set NPU interface in ConnectomeManager as primary owner
+                self._connectome_manager.set_npu_interface(npu_interface)
+                
+                self.logger.info("✅ NPU configured as PRIMARY OWNER of synaptic updates")
+                self.logger.info(f"   Backend: {backend.value}")
+                self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
+                npu_configured = True
             else:
                 # Existing singleton - ensure NPU is configured
-                if not hasattr(singleton_instance, 'npu_processor') or singleton_instance.npu_processor is None:
+                if not hasattr(singleton_instance, 'npu_interface') or singleton_instance.npu_interface is None:
                     self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton...")
-                    from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
                     
                     # Get NPU configuration from config
                     npu_config = self._config.get("npu", {})
-                    max_neurons = npu_config.get("max_neurons", 10_000_000)
-                    max_synapses = npu_config.get("max_synapses", 100_000_000)
-                    backend = npu_config.get("backend", "cpu")
+                    backend_str = npu_config.get("backend", "cpu")
                     
-                    # Configure NPU with 100% ownership of synaptic updates
-                    npu_success = configure_npu_burst_engine(
-                        singleton_instance,
-                        max_neurons=max_neurons,
-                        max_synapses=max_synapses,
-                        backend=backend,
-                        enable_immediately=True
-                    )
+                    # Convert backend string to BackendType enum
+                    from feagi.npu.data_structures import BackendType
+                    backend_map = {
+                        "cpu": BackendType.CPU,
+                        "cuda": BackendType.CUDA, 
+                        "wgpu": BackendType.WGPU
+                    }
+                    backend = backend_map.get(backend_str, BackendType.CPU)
                     
-                    if npu_success:
-                        self.logger.info("✅ NPU configured for existing singleton")
-                        self.logger.info(f"   Backend: {backend}")
-                        self.logger.info(f"   Max neurons: {max_neurons:,}")
-                        self.logger.info(f"   Max synapses: {max_synapses:,}")
-                        npu_configured = True
-                    else:
-                        self.logger.error("❌ Failed to configure NPU for existing singleton")
+                    # Create NPU Interface as single source of truth
+                    from feagi.npu.interface import NPUInterface
+                    npu_interface = NPUInterface(backend=backend)
+                    
+                    # Store NPU interface in burst engine for power injection
+                    singleton_instance.npu_interface = npu_interface
+                    
+                    # Set NPU interface in ConnectomeManager as primary owner
+                    self._connectome_manager.set_npu_interface(npu_interface)
+                    
+                    self.logger.info("✅ NPU configured for existing singleton")
+                    self.logger.info(f"   Backend: {backend.value}")
+                    self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                    self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
+                    npu_configured = True
                 else:
                     self.logger.debug("NPU already configured for existing singleton")
                     npu_configured = True

@@ -186,19 +186,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.fcl_manager = FCLManager()
             logger.info("[NPU] Created NPU-owned FCL manager instance")
         
-        # Initialize async FCL processor for parallel processing
-        from feagi.npu.async_fcl_processor import AsyncFCLProcessor
-        
-        # Calculate appropriate FCL buffer size based on cortical area configurations
-        fcl_buffer_size = self._calculate_fcl_buffer_size()
-        self.async_fcl_processor = AsyncFCLProcessor(
-            self.fcl_manager, 
-            max_queue_size=fcl_buffer_size
-        )
-        logger.info(
-            f"[NPU] Created AsyncFCLProcessor with buffer size: {fcl_buffer_size} "
-            f"(calculated from cortical area configurations)"
-        )
+        # FCL processing is now handled synchronously in the main burst loop
+        # Async processing was removed during architecture cleanup
         
         # Set FCL manager reference in ConnectomeManager for backward compatibility
         if hasattr(connectome_manager, 'fcl_manager'):
@@ -431,10 +420,28 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             from feagi.npu.interface import NPUInterface
             from feagi.npu.data_structures import BackendType
 
-            # Create NPU interface for SpecialAreaHandler
-            npu_interface = NPUInterface(BackendType.CPU)
+            # CRITICAL: Use the SAME NPU interface instance that contains the neural data
+            # The NPU interface is injected by core_api_service during burst engine configuration
+            npu_interface = None
             
-            # Create special area handler with NPU interface
+            # Use the NPU interface that was injected during configuration
+            if hasattr(self, 'npu_interface') and self.npu_interface is not None:
+                npu_interface = self.npu_interface
+                logger.info(f"[INJECTION INIT] Using injected NPU interface (single source of truth)")
+            else:
+                # This should not happen with the new architecture
+                logger.error(f"[INJECTION INIT] CRITICAL: No NPU interface found on burst engine!")
+                logger.error(f"[INJECTION INIT] BurstEngine should have npu_interface injected by core_api_service")
+                logger.error(f"[INJECTION INIT] Available attributes: {[attr for attr in dir(self) if 'npu' in attr.lower()]}")
+                
+                # This is an architectural error - no fallback allowed
+                raise RuntimeError(
+                    "NPU interface not found on BurstEngine. "
+                    "This indicates incomplete NPU configuration during startup. "
+                    "Check core_api_service NPU initialization."
+                )
+            
+            # Create special area handler with shared NPU interface
             special_area_handler = SpecialAreaHandler(
                 connectome_manager=self.connectome_manager,
                 npu_interface=npu_interface
@@ -732,7 +739,44 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 )
             self.injection_service.inject_post_burst(current_timestep)
 
-        # 5. Memory processing for memory cortical areas
+        # 5. CRITICAL: Update FCL with fired neurons from NPU processing
+        #    This was missing - FCL manager needs to know which neurons fired!
+        if fired_neurons and self.fcl_manager:
+            try:
+                # Use NPU interface for efficient cortical area grouping
+                from feagi.npu.interface import NPUInterface
+                from feagi.npu.data_structures import BackendType
+                
+                # Create NPU interface if not available
+                if not hasattr(self, '_npu_interface'):
+                    self._npu_interface = NPUInterface(BackendType.CPU)
+                
+                # Group neurons by cortical area using NPU interface
+                neurons_by_cortical = self._npu_interface.get_firing_neurons_by_cortical_area(fired_neurons)
+                
+                # Update FCL with grouped neurons
+                if neurons_by_cortical:
+                    self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
+                    if state_manager.is_debug_npu_enabled():
+                        total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
+                        logger.info(f"[NPU-DEBUG] BURST ENGINE: Updated FCL with {total_neurons} fired neurons across {len(neurons_by_cortical)} cortical areas")
+                else:
+                    if state_manager.is_debug_npu_enabled():
+                        logger.warning(f"[NPU-DEBUG] BURST ENGINE: Could not group {len(fired_neurons)} fired neurons by cortical area")
+                        
+            except Exception as e:
+                if state_manager.is_debug_npu_enabled():
+                    logger.error(f"[NPU-DEBUG] BURST ENGINE: Error updating FCL with fired neurons: {e}")
+                # Fallback: try to update FCL with ungrouped neurons
+                try:
+                    self.fcl_manager.add_to_current_fcl(fired_neurons)
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(f"[NPU-DEBUG] BURST ENGINE: Fallback - added {len(fired_neurons)} neurons to FCL without cortical grouping")
+                except Exception as fallback_error:
+                    if state_manager.is_debug_npu_enabled():
+                        logger.error(f"[NPU-DEBUG] BURST ENGINE: Fallback FCL update also failed: {fallback_error}")
+
+        # 6. Memory processing for memory cortical areas
         #    Process temporal patterns and manage memory neuron lifecycle
         if self.memory_processor:
             if state_manager.is_debug_npu_enabled():
@@ -749,7 +793,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     "[NPU-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing"
                 )
 
-        # 6. Debug fire queue output if --debug-npu flag is enabled
+        # 7. Debug fire queue output if --debug-npu flag is enabled
         if self.debug_npu:
             self._debug_fire_queue_output()
 
@@ -773,10 +817,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             status="[START]",
         )
         
-        # Start async FCL processor for parallel processing
-        if hasattr(self, 'async_fcl_processor'):
-            self.async_fcl_processor.start()
-            logger.info("[NPU] Started AsyncFCLProcessor for parallel FCL processing")
+        # FCL processing is handled synchronously in the main burst loop
         
         self._running = True
 
@@ -887,10 +928,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         logger.info("Stopping burst engine...", status="[STOP]")
         self._running = False
         
-        # Stop async FCL processor
-        if hasattr(self, 'async_fcl_processor'):
-            self.async_fcl_processor.stop()
-            logger.info("[NPU] Stopped AsyncFCLProcessor")
+        # FCL processing cleanup handled in main loop
         
         self.state_manager.set_burst_engine_state(ServiceState.STOPPED)
 

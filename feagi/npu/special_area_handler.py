@@ -241,7 +241,6 @@ class SpecialAreaHandler:
                 # Write corruption report to file for detailed analysis
                 try:
                     import json
-                    import time
 
                     corruption_report = {
                         "timestamp": time.time(),
