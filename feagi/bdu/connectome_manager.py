@@ -1051,6 +1051,65 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info("✅ NPU interface confirmed as primary owner of synaptic updates")
         logger.info("✅ ConnectomeManager uses NPU Interface CRUD methods with cortical locking")
 
+    def sync_cortical_areas_to_npu(self) -> None:
+        """Synchronize cortical area registry into the active NPU interface.
+
+        Deterministic, no fallbacks. Copies minimal metadata required by NPU hot paths:
+        - cortical_idx (int)
+        - dimensions (tuple[int,int,int])
+        - area_type: "regular" | "memory"
+        - cortical_id (6-char string) for rare lookups (e.g., special areas)
+        """
+        if not hasattr(self, "_npu_interface") or self._npu_interface is None:
+            raise RuntimeError("NPU Interface not available for cortical area sync")
+
+        # Guard against missing cortical_areas structure
+        areas = getattr(self, "cortical_areas", None)
+        if not areas:
+            return
+
+        from feagi.npu.interface import OperationResult
+
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            debug_enabled = FeagiStateManager.instance().is_debug_npu_enabled()
+        except Exception:
+            debug_enabled = False
+
+        logger.info(
+            f"[NPU-SYNC] Starting cortical area sync: npu_id={id(self._npu_interface)}, areas={len(areas)}"
+        )
+
+        synced = 0
+        for cortical_id, area in areas.items():
+            try:
+                cortical_idx = getattr(area, "cortical_idx")
+                dimensions = getattr(area, "dimensions")
+                area_type = (
+                    "memory" if getattr(area, "area_type", "regular") == "memory" else "regular"
+                )
+
+                result = self._npu_interface.create_cortical_area(
+                    cortical_idx=cortical_idx,
+                    dimensions=dimensions,
+                    area_type=area_type,
+                    cortical_id=cortical_id,
+                )
+                # Treat INVALID_INPUT as already-registered
+                if result == OperationResult.SUCCESS:
+                    synced += 1
+                    if debug_enabled:
+                        logger.info(
+                            f"[NPU-SYNC] Registered area id='{cortical_id}' idx={cortical_idx} dims={dimensions} type={area_type}"
+                        )
+            except Exception as e:
+                logger.error(f"Failed to sync cortical area '{cortical_id}': {e}")
+                raise
+
+        logger.info(
+            f"[NPU-SYNC] Synchronized {synced}/{len(areas)} cortical areas into NPU registry"
+        )
+
     def update_membrane_potentials(
         self, decay_factor=None, current_timestep=None
     ) -> List[int]:

@@ -264,12 +264,15 @@ class FCLInjectionService:
 
             # Get power area neurons from special area handler (cortical_idx=1)
             # This happens EVERY burst to provide constant power supply
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info("[INJECTION-DEBUG] Fetching power neurons from SpecialAreaHandler.get_power_area_neurons()")
             power_neurons = self.special_area_handler.get_power_area_neurons()
 
             # Debug-only: record found neurons
             from feagi.core.state_manager import FeagiStateManager
 
             if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(f"[INJECTION-DEBUG] Retrieved power neurons: {power_neurons}")
                 import os
                 import tempfile
 
@@ -303,6 +306,8 @@ class FCLInjectionService:
             if self.connectome_manager and hasattr(
                 self.connectome_manager, "neuron_array"
             ):
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info("[INJECTION-DEBUG] Setting membrane potentials for power neurons")
                 #  Get PSP value from power area properties via connectome
                 #  manager
                 power_area = self.connectome_manager.get_cortical_area(
@@ -316,16 +321,34 @@ class FCLInjectionService:
                     psp_value = 500.0  # Fallback to essential genome default
 
                 neuron_array = self.connectome_manager.neuron_array
-                for neuron_id in power_neurons:
-                    #  For power neurons, set membrane potential to PSP value
-                    #  (use correct attribute name)
-                    idx = self.connectome_manager.get_neuron_index(neuron_id)
-                    if idx is not None:
-                        neuron_array.membrane_potentials[idx] = psp_value
+                # Prefer id-based property setter to avoid index mapping dependencies
+                if hasattr(neuron_array, "set_neuron_property"):
+                    for neuron_id in power_neurons:
+                        neuron_array.set_neuron_property(
+                            neuron_id, "membrane_potential", psp_value
+                        )
+                else:
+                    # Deterministic path: only use index if provided by CM
+                    for neuron_id in power_neurons:
+                        idx = self.connectome_manager.get_neuron_index(neuron_id)
+                        if idx is not None:
+                            neuron_array.membrane_potentials[idx] = psp_value
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(f"[INJECTION-DEBUG] Membrane potentials set to {psp_value} for {len(power_neurons)} power neurons")
 
             #  Now inject power neurons into FCL (with proper membrane
             #  potentials set)
-            # This happens EVERY BURST to provide constant power supply
+            # This happens EVERY burst to provide constant power supply
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info("[INJECTION-DEBUG] Adding power neurons to FCL via FCLManager.update_fcl()")
+            # Log FCLManager identity before update
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(f"[INJECTION-DEBUG] FCLManager id before update: {id(self.fcl_manager)}")
+            except Exception:
+                pass
+
             injected_count = self._inject_batch(
                 InjectionBatch(
                     cortical_id="_power",
@@ -335,6 +358,8 @@ class FCLInjectionService:
                 ),
                 current_timestep,
             )
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(f"[INJECTION-DEBUG] FCLManager.update_fcl() injected_count={injected_count}")
 
             if (
                 injected_count > 0 and current_timestep % 50 == 0

@@ -79,229 +79,79 @@ class SpecialAreaHandler:
         )
 
     def get_power_area_neurons(self) -> List[NeuronId]:
-        """Get neurons from core power area (cortical_idx=1) for injection.
+        """Get neurons from core power area (_power) for injection.
 
-        Uses NPU interface for direct access with fallback to ConnectomeManager.
-        Optimized for 100kHz performance with minimal overhead.
+        Deterministic: Requires NPU interface (single source of truth).
+        Uses cortical_idx resolved from NPU mapping of cortical_id.
+        No fallbacks.
 
         Returns:
-            List of neuron IDs from the core power area (_power)
+            List of neuron IDs from the power area
         """
+        if not self.npu_interface:
+            raise RuntimeError(
+                "NPU Interface required for power neuron retrieval (no fallbacks allowed)"
+            )
+
         try:
-            # Try NPU interface first for better performance
-            if self.npu_interface:
-                try:
-                    result = self.npu_interface.get_neurons_by_area(cortical_idx=1)
-                    if result.get("success", False):
-                        power_neurons = result["data"]["neuron_ids"]
-                        logger.debug(f"NPU returned {len(power_neurons)} power neurons")
-                        return power_neurons
-                except Exception as e:
-                    logger.debug(f"NPU interface failed for power neurons: {e}, falling back to ConnectomeManager")
-            
-            # Fallback to ConnectomeManager for backward compatibility
-            power_neurons = (
-                self.connectome_manager.get_neurons_by_cortical_idx(1)
-            )
-
-            # 🚨 CRITICAL DEBUG: Trace neuron corruption issue
-            if power_neurons and len(power_neurons) != 1:
-                logger.error("🚨 POWER NEURON CORRUPTION DETECTED!")
-                logger.error(
-                    "   Expected: 1 neuron (as per essential genome: 1 neuron/voxel × 1×1×1 voxels)"
+            # Resolve cortical_idx for '_power' using NPU mapping
+            cortical_idx = self.npu_interface.get_cortical_idx_by_id("_power")
+            if cortical_idx is None:
+                raise RuntimeError(
+                    "'_power' cortical_id not registered in NPUInterface.cortical_areas"
                 )
-                logger.error(
-                    f"   Found: {len(power_neurons)} neurons in cortical_idx=1"
-                )
-                logger.error(
-                    f"   Neuron IDs: {power_neurons[:20]}..."
-                )  # Show first 20
 
-                #  Check cortical area mapping - is cortical_idx=1 actually
-                #  _power?
-                try:
-                    if hasattr(self.connectome_manager, "cortical_areas"):
-                        logger.error("🔍 MAPPING VERIFICATION:")
-
-                        # Find what area cortical_idx=1 maps to
-                        for (
-                            area_id,
-                            area_obj,
-                        ) in self.connectome_manager.cortical_areas.items():
-                            if (
-                                hasattr(area_obj, "cortical_idx")
-                                and area_obj.cortical_idx == 1
-                            ):
-                                logger.error(
-                                    f"   cortical_idx=1 maps to area_id='{area_id}'"
-                                )
-                                logger.error(
-                                    f"   Area name: {getattr(area_obj, 'name', 'unknown')}"
-                                )
-                                logger.error(
-                                    f"   Area dimensions: {getattr(area_obj, 'dimensions', 'unknown')}"
-                                )
-                                logger.error(
-                                    f"   Area position: {getattr(area_obj, 'position', 'unknown')}"
-                                )
-
-                                # Check if this is really the power area
-                                if area_id != "_power":
-                                    logger.error(
-                                        f"🚨 CRITICAL: cortical_idx=1 maps to '{area_id}', NOT '_power'!"
-                                    )
-                                    logger.error(
-                                        "   This indicates severe cortical mapping corruption during neurogenesis"
-                                    )
-                                break
-                        else:
-                            logger.error(
-                                "🚨 CRITICAL: No area found with cortical_idx=1!"
-                            )
-
-                        # Also check where _power actually maps to
-                        for (
-                            area_id,
-                            area_obj,
-                        ) in self.connectome_manager.cortical_areas.items():
-                            if area_id == "_power":
-                                actual_cortical_idx = getattr(
-                                    area_obj, "cortical_idx", "unknown"
-                                )
-                                logger.error(
-                                    f"   '_power' area maps to cortical_idx={actual_cortical_idx}"
-                                )
-                                if actual_cortical_idx != 1:
-                                    logger.error(
-                                        f"🚨 CRITICAL: '_power' has wrong cortical_idx! Expected 1, got {actual_cortical_idx}"
-                                    )
-                                break
-                        else:
-                            logger.error(
-                                "🚨 CRITICAL: '_power' area not found in cortical_areas!"
-                            )
-
-                    # Check individual neuron cortical assignments
-                    if (
-                        hasattr(self.connectome_manager, "neuron_array")
-                        and len(power_neurons) > 0
-                    ):
-                        logger.error("🔍 NEURON ANALYSIS:")
-                        neuron_array = self.connectome_manager.neuron_array
-
-                        #  Sample first 10 neurons to check their actual
-                        #  cortical assignments
-                        sample_neurons = power_neurons[:10]
-                        for neuron_id in sample_neurons:
-                            try:
-                                if hasattr(neuron_array, "cortical_idxs"):
-                                    #  CRITICAL FIX: Use proper neuron ID to
-                                    #  array index mapping
-                                    index = self.connectome_manager.get_neuron_index(
-                                        neuron_id
-                                    )
-                                    if index is not None and index < len(
-                                        neuron_array.cortical_idxs
-                                    ):
-                                        actual_cortical_idx = (
-                                            neuron_array.cortical_idxs[index]
-                                        )
-                                    logger.error(
-                                        f"   Neuron {neuron_id}: cortical_idx={actual_cortical_idx}"
-                                    )
-                                    if actual_cortical_idx != 1:
-                                        logger.error(
-                                            f"🚨 Neuron {neuron_id} has wrong cortical_idx! Expected 1, got {actual_cortical_idx}"
-                                        )
-                            except Exception as e:
-                                logger.error(
-                                    f"   Error checking neuron {neuron_id}: {e}"
-                                )
-
-                        # Check for duplicate cortical_idx assignments
-                        if hasattr(neuron_array, "cortical_idxs"):
-                            idx_1_count = sum(
-                                1
-                                for idx in neuron_array.cortical_idxs
-                                if idx == 1
-                            )
-                            logger.error(
-                                f"   Total neurons with cortical_idx=1: {idx_1_count}"
-                            )
-                            if idx_1_count != len(power_neurons):
-                                logger.error(
-                                    f"🚨 MISMATCH: get_neurons_by_cortical_idx(1) returned {len(power_neurons)} but neuron_array has {idx_1_count} with cortical_idx=1"
-                                )
-
-                except Exception as debug_error:
-                    logger.error(
-                        f"Error during corruption debug: {debug_error}"
+            # Optional debug
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    cm_npu_id = (
+                        id(self.connectome_manager._npu_interface)
+                        if hasattr(self.connectome_manager, "_npu_interface")
+                        and self.connectome_manager._npu_interface is not None
+                        else None
                     )
-
-                # Write corruption report to file for detailed analysis
-                try:
-                    import json
-
-                    corruption_report = {
-                        "timestamp": time.time(),
-                        "expected_neurons": 1,
-                        "found_neurons": len(power_neurons),
-                        "neuron_ids": power_neurons,
-                        "issue": "Power area has wrong number of neurons - indicates neurogenesis corruption",
-                    }
-                    import os
-                    import tempfile
-
-                    report_path = os.path.join(
-                        tempfile.gettempdir(),
-                        "power_neuron_corruption_report--temp.json",
+                    logger.info(
+                        f"[INJECTION-DEBUG] NPU ids: handler={id(self.npu_interface)} vs CM={cm_npu_id}"
                     )
-                    with open(report_path, "w") as f:
-                        json.dump(corruption_report, f, indent=2)
-                    logger.error(
-                        f"🔍 Detailed corruption report written to {report_path}"
+                    logger.info(
+                        f"[INJECTION-DEBUG] '_power' resolved to cortical_idx={cortical_idx}"
                     )
-                except Exception as e:
-                    logger.error(f"Failed to write corruption report: {e}")
+            except Exception:
+                pass
 
-            # Normal logging for expected case
-            if power_neurons and len(power_neurons) == 1:
-                logger.debug(
-                    f"[POWER DETECTION] ✅ Found correct number of power neurons: {len(power_neurons)} (neuron IDs: {power_neurons})"
-                )
-            elif not power_neurons:
-                logger.debug(
-                    "[POWER DETECTION] No neurons found in core power area (cortical_idx=1)"
+            neuron_ids = self.npu_interface.get_neurons_by_area(cortical_idx)
+            if not isinstance(neuron_ids, list):
+                raise RuntimeError(
+                    "Invalid response from NPU Interface: expected List[int] for power neurons"
                 )
 
-            return power_neurons if power_neurons else []
-        except KeyError as e:
-            #  cortical_idx=1 (_power area) doesn't exist - likely neurogenesis
-            #  failed
-            # Use DEBUG level to avoid log spam, only warn once per minute
-            if not hasattr(self, "_last_pwr_warning_time"):
-                self._last_pwr_warning_time = 0
+            # Optional debug
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(
+                        f"[INJECTION-DEBUG] '_power' neurons (cortical_idx={cortical_idx}): {neuron_ids}"
+                    )
+                    if not neuron_ids:
+                        area_info = self.npu_interface.cortical_areas.get(
+                            cortical_idx, {}
+                        )
+                        logger.info(
+                            f"[INJECTION-DEBUG] Area stats: created={area_info.get('created')}, type={area_info.get('type')}, neuron_count={area_info.get('neuron_count')}, dimensions={area_info.get('dimensions')}"
+                        )
+                        logger.info(
+                            f"[INJECTION-DEBUG] Mapping sizes: neuron_to_area={len(self.npu_interface.neuron_to_area)}, area_neuron_ranges_present={cortical_idx in self.npu_interface.area_neuron_ranges}"
+                        )
+            except Exception:
+                pass
 
-            current_time = time.perf_counter()
-            if (
-                current_time - self._last_pwr_warning_time > 60.0
-            ):  # Only warn once per minute
-                logger.warning(
-                    "[POWER DETECTION] Core power area (_power) not found - neurogenesis may have failed"
-                )
-                self._last_pwr_warning_time = current_time
-            else:
-                logger.debug(
-                    f"[POWER DETECTION] Core power area (_power) not found: {e}"
-                )
-
-            return []
+            return neuron_ids
         except Exception as e:
-            # Other errors - reduce log spam by using debug level
-            logger.debug(
-                f"[POWER DETECTION] Error accessing core power area (cortical_idx=1): {e}"
+            # Deterministic failure: propagate with clear message
+            raise RuntimeError(
+                f"Failed to retrieve power neurons via NPU Interface: {e}"
             )
-            return []
 
     def get_all_power_neurons(self) -> Dict[CorticalId, List[NeuronId]]:
         """Get all power area neurons in dictionary format.

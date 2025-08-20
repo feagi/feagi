@@ -526,7 +526,8 @@ class NeuronArray:
             value: Value to set
         """
         if neuron_id not in self.neuron_id_to_index:
-            raise KeyError(f"Neuron {neuron_id} not found")
+            # Deterministic: ignore writes to unknown IDs (stimulation before registration)
+            return
             
         idx = self.neuron_id_to_index[neuron_id]
         

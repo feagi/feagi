@@ -572,11 +572,35 @@ class FCLManager:
             current_timestep: Current simulation timestep
             neurons_by_cortical: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
         """
+        # Optional debug tracing
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(
+                    f"[FCL-DEBUG] update_fcl called at t={current_timestep} with corticals={list(neurons_by_cortical.keys())}"
+                )
+        except Exception:
+            pass
+
+        # Track per-timestep clearing to avoid wiping earlier injection updates
+        if not hasattr(self, "_last_update_timestep"):
+            self._last_update_timestep = None
+            self._cleared_corticals_for_timestep = set()
+
+        if self._last_update_timestep != current_timestep:
+            self._last_update_timestep = current_timestep
+            just_cleared_this_timestep = True
+            # Reset cleared set for new timestep
+            self._cleared_corticals_for_timestep.clear()
+        else:
+            just_cleared_this_timestep = False
+
         self.current_timestep = current_timestep
         standard_index = current_timestep % self.default_window_size
 
         # Clear the oldest global bitmap for reuse
-        self.global_fcl_history[standard_index].clear()
+        if just_cleared_this_timestep:
+            self.global_fcl_history[standard_index].clear()
 
         # Track firing statistics
         burst_total = 0
@@ -604,6 +628,16 @@ class FCLManager:
 
         burst_total = int(np.sum(cortical_neuron_counts))
 
+        # Optional debug tracing
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(
+                    f"[FCL-DEBUG] Pre-process: total candidates={burst_total}, per-cortical={self.neurons_per_cortical}"
+                )
+        except Exception:
+            pass
+
         # Process each cortical area efficiently
         for idx, cortical_idx in enumerate(cortical_indices):
             cortical_bitmap = cortical_bitmaps[idx]
@@ -617,19 +651,25 @@ class FCLManager:
                     cortical_idx, current_timestep
                 )
 
-                # Clear the bitmap at the current position
-                history_array[custom_index].clear()
-                # Update with new neurons
-                history_array[custom_index] = cortical_bitmap
+                # Clear once per timestep for this cortical, then union
+                if cortical_idx not in self._cleared_corticals_for_timestep:
+                    history_array[custom_index].clear()
+                    self._cleared_corticals_for_timestep.add(cortical_idx)
+                # Union to preserve earlier injections in the same timestep
+                history_array[custom_index] = (
+                    history_array[custom_index] | cortical_bitmap
+                )
             else:
                 # Standard cortical processing
                 self._ensure_cortical_initialized(cortical_idx)
 
-                # Clear and update the standard cortical bitmap
-                self.cortical_fcl_history[cortical_idx][standard_index].clear()
-                self.cortical_fcl_history[cortical_idx][
-                    standard_index
-                ] = cortical_bitmap
+                # Clear once per timestep for this cortical, then union
+                if cortical_idx not in self._cleared_corticals_for_timestep:
+                    self.cortical_fcl_history[cortical_idx][standard_index].clear()
+                    self._cleared_corticals_for_timestep.add(cortical_idx)
+                self.cortical_fcl_history[cortical_idx][standard_index] = (
+                    self.cortical_fcl_history[cortical_idx][standard_index] | cortical_bitmap
+                )
 
             # Always update the global FCL (for all corticals)
             self.global_fcl_history[standard_index] = (

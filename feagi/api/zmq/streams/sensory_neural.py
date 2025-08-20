@@ -67,6 +67,7 @@ class SensoryNeuralStream:
             slot_size: Size of each slot in bytes
             cortical_config: Cortical area configuration for buffer pools
         """
+        logger.info("Initializing sensory stream.")
         self.core_api = core_api
         self.host = host
         self.port = port
@@ -398,7 +399,7 @@ class SensoryNeuralStream:
 
                 if result.get("success", False):
                     logger.info(
-                        f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data)} cortical areas (VECTORIZED)"
+                        f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data), neural_data} cortical areas (VECTORIZED)"
                     )
                     return StreamResult.SUCCESS
                 else:
@@ -452,6 +453,7 @@ class SensoryNeuralStream:
     ) -> StreamResult:
         """Handle dense neural array data."""
         try:
+            logger.info("Handling dense neural array data.")
             # Get buffer for this cortical area if available
             buffer = None
             if self.neural_buffers:
@@ -497,6 +499,7 @@ class SensoryNeuralStream:
 
             # Convert to unified neural data format with SAFE uint16 conversion
             try:
+                logger.info("Processing neural data.. .. ..")
                 #  CRITICAL FIX: Validate coordinate ranges before conversion
                 #  to uint16
                 if x_coords is not None:
@@ -545,6 +548,8 @@ class SensoryNeuralStream:
                         "membrane_potentials": firing_rates.astype(np.float32),
                     }
                 }
+
+                logger.info(f"About to stimulate sensory data: {neural_data}")
 
                 # Use unified stimulation method
                 result = self.core_api.stimulate_neurons(neural_data)

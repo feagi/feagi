@@ -240,7 +240,14 @@ class BurstEngineAPI:
             if not fcl_manager:
                 raise ValueError("FCL manager not available")
             
-            # Get current timestep
+            # Get current timestep and log manager identity when debug is on
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(f"[FCL-ENDPOINT-DEBUG] fcl_manager_id={id(fcl_manager)}, current_timestep={getattr(fcl_manager,'current_timestep',None)}")
+            except Exception:
+                pass
+
             current_timestep = fcl_manager.current_timestep
             
             # Get global FCL (all firing neurons)

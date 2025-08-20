@@ -49,6 +49,7 @@ class BatchOperationResult:
     successful_count: int
     failed_indices: List[int]
     error_message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
     
     @property
     def is_success(self) -> bool:

@@ -634,29 +634,31 @@ class BrainService(BaseService):
     def stimulate_neurons(
         self, neuron_ids: List[str], intensity: float = 1.0
     ) -> Dict[str, Any]:
-        """Stimulate specific neurons with given intensity."""
+        """Stimulate specific neurons with given intensity (deterministic NPU path).
+
+        Sets membrane_potential directly on the NPU-owned NeuronArray using
+        id-based API. No legacy index mapping or duplicate SoA writes.
+        """
         try:
             if not self._validate_genome_loaded():
                 return {"success": False, "error": "No genome loaded"}
+
+            # Deterministic single source of truth
+            if not hasattr(self._connectome_manager, "neuron_array") or self._connectome_manager.neuron_array is None:
+                return {"success": False, "error": "NPU neuron array not available"}
+
+            neuron_array = self._connectome_manager.neuron_array
+            if not hasattr(neuron_array, "set_neuron_property"):
+                return {"success": False, "error": "NeuronArray.set_neuron_property not supported"}
 
             stimulated_count = 0
             failed_count = 0
 
             for neuron_id in neuron_ids:
                 try:
-                    neuron_index = (
-                        self._connectome_manager._neuron_id_to_index.get(
-                            neuron_id
-                        )
+                    neuron_array.set_neuron_property(
+                        neuron_id, "membrane_potential", float(intensity)
                     )
-                    if neuron_index is None:
-                        failed_count += 1
-                        continue
-
-                    # Apply stimulation by setting membrane potential
-                    self._connectome_manager.membrane_potentials[
-                        neuron_index
-                    ] = intensity
                     stimulated_count += 1
                 except Exception as e:
                     self.logger.warning(
@@ -664,12 +666,21 @@ class BrainService(BaseService):
                     )
                     failed_count += 1
 
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    self.logger.info(
+                        f"[SENSORY-DEBUG] Stimulated {stimulated_count}/{len(neuron_ids)} neurons at MP={float(intensity)}"
+                    )
+            except Exception:
+                pass
+
             return {
                 "success": True,
                 "stimulated_count": stimulated_count,
                 "failed_count": failed_count,
                 "total_requested": len(neuron_ids),
-                "intensity": intensity,
+                "intensity": float(intensity),
             }
         except Exception as e:
             self.logger.error(f"Error stimulating neurons: {str(e)}")
@@ -897,6 +908,9 @@ class BrainService(BaseService):
                     area_stimulated = 0
                     area_failed = 0
 
+                    # Accumulate activations per area to feed FCL injection
+                    activations_for_area: List[int] = []
+
                     # Process each unique coordinate position
                     for unique_idx, unique_coord in enumerate(unique_coords):
                         coord_tuple = tuple(unique_coord)
@@ -930,7 +944,7 @@ class BrainService(BaseService):
                                         neuron_array,
                                         "batch_update_membrane_potentials",
                                     ):
-                                        # Use vectorized batch update
+                                        # Deterministic id-based batch update
                                         neuron_array.batch_update_membrane_potentials(
                                             neurons_at_coord,
                                             [potential_value]
@@ -940,7 +954,7 @@ class BrainService(BaseService):
                                             neurons_at_coord
                                         )
                                     else:
-                                        # Fallback to individual updates
+                                        # Deterministic id-based individual updates
                                         for neuron_id in neurons_at_coord:
                                             try:
                                                 neuron_array.set_neuron_property(
@@ -963,6 +977,10 @@ class BrainService(BaseService):
                                 )
                                 area_failed += len(neurons_at_coord)
 
+                            # Accumulate ids for FCL injection
+                            if neurons_at_coord:
+                                activations_for_area.extend(neurons_at_coord)
+
                     area_results[cortical_id] = {
                         "success": True,
                         "stimulated_count": area_stimulated,
@@ -975,6 +993,14 @@ class BrainService(BaseService):
                     total_stimulated += area_stimulated
                     total_failed += area_failed
 
+                    # Store per-area activations to inject later
+                    if activations_for_area:
+                        if "_pending_activations" not in locals():
+                            _pending_activations = {}
+                        _pending_activations[cortical_id] = list(
+                            dict.fromkeys(activations_for_area)
+                        )
+
                 except Exception as e:
                     self.logger.error(
                         f"Error processing area {cortical_id}: {str(e)}"
@@ -985,6 +1011,32 @@ class BrainService(BaseService):
                     }
                     continue
 
+            # After all areas processed, inject into FCL via injection service
+            injected_count = 0
+            try:
+                if "_pending_activations" in locals() and _pending_activations:
+                    burst_engine = self._get_burst_engine()
+                    if burst_engine and hasattr(burst_engine, "injection_service") and burst_engine.injection_service:
+                        current_timestep = getattr(
+                            self._connectome_manager, "current_timestep", 0
+                        )
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(
+                                    f"[SENSORY-DEBUG] Injecting activations into FCL at t={current_timestep}: areas={list(_pending_activations.keys())}"
+                                )
+                        except Exception:
+                            pass
+
+                        injected_count = burst_engine.injection_service.inject_external_activations(
+                            activations=_pending_activations,
+                            current_timestep=current_timestep,
+                            source="sensory_neural",
+                        )
+            except Exception as inj_err:
+                self.logger.error(f"Error injecting sensory activations: {inj_err}")
+
             return {
                 "success": True,
                 "total_stimulated": total_stimulated,
@@ -992,6 +1044,7 @@ class BrainService(BaseService):
                 "areas_processed": len(neural_data),
                 "area_results": area_results,
                 "method": "unified_coordinate_based_simd_optimized",
+                "injected_count": injected_count,
             }
 
         except Exception as e:

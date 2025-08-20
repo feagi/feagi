@@ -1181,6 +1181,15 @@ class CoreAPIService:
 
     def get_fcl_manager(self):
         """Get the FCL manager instance."""
+        try:
+            # Prefer the live BurstEngine singleton's FCL manager to avoid stale references
+            from feagi.npu.burst_engine import BurstEngine
+            be = BurstEngine.get_instance()
+            if be and hasattr(be, "fcl_manager") and be.fcl_manager:
+                return be.fcl_manager
+        except Exception:
+            pass
+        # Fallback to ConnectomeManager linkage if available
         if hasattr(self._connectome_manager, "fcl_manager"):
             return self._connectome_manager.fcl_manager
         return None

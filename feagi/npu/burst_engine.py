@@ -298,8 +298,20 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             if area.properties.get("__shed", False)
         )
 
-        # Initialize injection service if a genome is already loaded
+        # Minimal NPU registry sync and initialize injection if genome already loaded
         if self.cortical_areas:
+            try:
+                if hasattr(self.connectome_manager, "sync_cortical_areas_to_npu"):
+                    logger.info(
+                        f"[NPU-SYNC] BurstEngine init: syncing cortical areas to NPU (cm_npu_id={id(self.connectome_manager._npu_interface)})"
+                    )
+                    self.connectome_manager.sync_cortical_areas_to_npu()
+                else:
+                    logger.warning("[NPU-SYNC] ConnectomeManager lacks sync_cortical_areas_to_npu")
+            except Exception as e:
+                logger.error(f"[NPU-SYNC] Failed to sync cortical areas to NPU: {e}")
+                # Deterministic: do not proceed with injection init if sync fails
+                raise
             self._initialize_injection_service()
 
         #  Manually initialize mixins (not through super() to avoid multiple
@@ -413,6 +425,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         other special cortical areas that need to inject neurons into the FCL
         during burst processing.
         """
+        print("##" * 200)
+        print("@# Initializing FCL injection service  " * 3)
         try:
             # Import here to avoid circular dependencies
             from feagi.npu.fcl_injection_service import FCLInjectionService
@@ -1089,6 +1103,19 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.cortical_areas = new_cortical_areas
             self.shed_areas = new_shed_areas
 
+            #  Ensure NPU has cortical registry before initializing injection
+            try:
+                if hasattr(self.connectome_manager, "sync_cortical_areas_to_npu"):
+                    logger.info(
+                        f"[NPU-SYNC] BurstEngine genome update: syncing areas (cm_npu_id={id(self.connectome_manager._npu_interface)})"
+                    )
+                    self.connectome_manager.sync_cortical_areas_to_npu()
+                else:
+                    logger.warning("[NPU-SYNC] ConnectomeManager lacks sync_cortical_areas_to_npu")
+            except Exception as e:
+                logger.error(f"[NPU-SYNC] Failed during genome update sync: {e}")
+                raise
+
             #  Always initialize injection service to ensure proper special
             #  area detection
             state_manager = FeagiStateManager.instance()
@@ -1106,7 +1133,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             )
             if state_manager.is_debug_npu_enabled():
                 logger.info(
-                    f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
+                    f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}, fcl_manager_id={id(self.fcl_manager)}"
                 )
             # Debug-only file write
             try:
