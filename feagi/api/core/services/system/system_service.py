@@ -656,11 +656,13 @@ class SystemService(BaseService):
                 # Get visualization FQ sampler status
                 viz_sampler = getattr(process_manager, "_viz_fq_sampler", None)
                 if viz_sampler:
-                    #  Check if sampler has visualization subscribers (enabled
-                    #  state)
+                    # Determine active status for stream-based sampler
                     has_subscribers = getattr(
                         viz_sampler, "_has_visualization_subscribers", False
                     )
+                    thread_running = getattr(viz_sampler, "running", False)
+                    is_active = bool(has_subscribers or thread_running)
+
                     status["visualization"] = {
                         "enabled": has_subscribers,
                         "frequency_hz": getattr(
@@ -674,7 +676,8 @@ class SystemService(BaseService):
                             )
                             or "unknown"
                         ),
-                        "running": getattr(viz_sampler, "running", False),
+                        # Report running when sampler is active (subscribers or internal thread)
+                        "running": is_active,
                     }
                 else:
                     status["visualization"] = {
@@ -687,10 +690,13 @@ class SystemService(BaseService):
                     process_manager, "_motor_fq_sampler", None
                 )
                 if motor_sampler:
-                    # Check if sampler has motor subscribers (enabled state)
+                    # Determine active status for stream-based sampler
                     has_subscribers = getattr(
                         motor_sampler, "_has_motor_subscribers", False
                     )
+                    thread_running = getattr(motor_sampler, "running", False)
+                    is_active = bool(has_subscribers or thread_running)
+
                     status["motor"] = {
                         "enabled": has_subscribers,
                         "frequency_hz": getattr(
@@ -706,7 +712,8 @@ class SystemService(BaseService):
                             )
                             or "unknown"
                         ),
-                        "running": getattr(motor_sampler, "running", False),
+                        # Report running when sampler is active (subscribers or internal thread)
+                        "running": is_active,
                     }
                 else:
                     status["motor"] = {

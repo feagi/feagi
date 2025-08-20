@@ -3542,18 +3542,25 @@ class CoreAPIService:
                     f"[COORD-DEBUG] FCL contains neuron IDs: {firing_neuron_ids.tolist()}"
                 )
 
-                # CRITICAL FIX: Convert neuron IDs to indices for array access
+                # CRITICAL FIX: Convert neuron IDs to indices using NPU-owned mapping (single source of truth)
                 firing_indices = []
-                for neuron_id in firing_neuron_ids:
-                    neuron_index = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_index is not None:
-                        firing_indices.append(neuron_index)
-                        # COORDINATE DEBUG: Log neuron ID to index mapping
-                        self.logger.info(
-                            f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {neuron_index}"
-                        )
+                if hasattr(neuron_array, "neuron_id_to_index"):
+                    for neuron_id in firing_neuron_ids:
+                        idx = neuron_array.neuron_id_to_index.get(int(neuron_id))
+                        if idx is not None:
+                            firing_indices.append(idx)
+                            self.logger.info(
+                                f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {idx} via NPU mapping"
+                            )
+                else:
+                    # As a last resort, use ConnectomeManager mapping if present
+                    for neuron_id in firing_neuron_ids:
+                        neuron_index = self._connectome_manager.get_neuron_index(neuron_id)
+                        if neuron_index is not None:
+                            firing_indices.append(neuron_index)
+                            self.logger.info(
+                                f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {neuron_index} via CM mapping"
+                            )
 
                 if len(firing_indices) == 0:
                     self.logger.debug(
@@ -3607,11 +3614,19 @@ class CoreAPIService:
                 ):
                     # CRITICAL FIX: Convert firing indices to actual neuron IDs
                     # The FQ sampler expects neuron IDs, not array indices!
-                    final_neuron_ids = (
-                        neuron_array.vectorized_indices_to_neuron_ids(
+                    # Use NPU-owned vectorized conversion
+                    if hasattr(neuron_array, "indices_to_neuron_ids"):
+                        final_neuron_ids = neuron_array.indices_to_neuron_ids(
                             area_firing_indices, filter_invalid=True
                         )
-                    )
+                    else:
+                        # Fallback: map via index_to_neuron_id dict
+                        final_ids_list = []
+                        for idx in list(area_firing_indices):
+                            nid = neuron_array.index_to_neuron_id.get(int(idx))
+                            if nid is not None:
+                                final_ids_list.append(int(nid))
+                        final_neuron_ids = np.array(final_ids_list, dtype=np.int32)
                     
                     # COORDINATE DEBUG: Log the final neuron IDs being returned
                     self.logger.info(

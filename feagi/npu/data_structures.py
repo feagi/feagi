@@ -309,6 +309,36 @@ class NeuronArray:
             aligned_array.fill(0)
             
         return aligned_array
+
+    def indices_to_neuron_ids(self, indices: np.ndarray, *, filter_invalid: bool = True) -> np.ndarray:
+        """Convert array indices to neuron IDs using the NPU-owned mapping.
+
+        Args:
+            indices: NumPy array of integer indices
+            filter_invalid: Whether to filter out indices that have no neuron ID
+
+        Returns:
+            NumPy array of neuron IDs (dtype=int32). If filter_invalid is False,
+            invalid indices are mapped to -1.
+        """
+        if indices is None or len(indices) == 0:
+            return np.array([], dtype=np.int32)
+
+        # Fast path: build a vectorized map via an array if possible
+        # Build a temporary array filled with -1, then set known indices
+        max_index = int(np.max(indices)) if len(indices) > 0 else -1
+        if max_index < 0:
+            return np.array([], dtype=np.int32)
+
+        id_lookup = np.full(max_index + 1, -1, dtype=np.int32)
+        for idx, neuron_id in self.index_to_neuron_id.items():
+            if 0 <= idx <= max_index:
+                id_lookup[idx] = int(neuron_id)
+
+        mapped = id_lookup[indices]
+        if filter_invalid:
+            return mapped[mapped >= 0]
+        return mapped
     
     def get_optimal_batch_size(self) -> int:
         """Get optimal batch size for SIMD operations on this backend."""
