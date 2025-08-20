@@ -974,6 +974,14 @@ class NeuroEmbryogenesis:
                 neurons_per_voxel = properties.get("neurons_per_voxel", 1)
                 area_neuron_count = width * height * depth * neurons_per_voxel
 
+                # CRITICAL DEBUG: Log detailed info for power area
+                if cortical_id == "_power":
+                    logger.error(f"[POWER-DEBUG] _power area details:")
+                    logger.error(f"  Dimensions: {width}x{height}x{depth}")
+                    logger.error(f"  neurons_per_voxel: {neurons_per_voxel}")
+                    logger.error(f"  Calculated area_neuron_count: {area_neuron_count}")
+                    logger.error(f"  Properties: {properties}")
+
                 logger.debug(
                     f"[FAST-SoA] Creating {area_neuron_count} neurons for {cortical_id}"
                 )
@@ -994,7 +1002,8 @@ class NeuroEmbryogenesis:
                     result = npu_interface.create_cortical_area(
                         cortical_idx=area.cortical_idx,
                         dimensions=(width, height, depth),
-                        area_type="regular"  # Default to regular area
+                        area_type="regular",  # Default to regular area
+                        cortical_id=cortical_id  # Pass the string ID for API lookups
                     )
                     from feagi.npu.interface import OperationResult
                     if result != OperationResult.SUCCESS:
@@ -1048,7 +1057,13 @@ class NeuroEmbryogenesis:
                     )
                     
                     # Use NPU Interface CRUD method for batch creation
+                    if cortical_id == "_power":
+                        logger.error(f"[POWER-DEBUG] About to call create_neurons_batch for _power with {area_neuron_count} neurons")
+                    
                     result = npu_interface.create_neurons_batch(request)
+                    
+                    if cortical_id == "_power":
+                        logger.error(f"[POWER-DEBUG] create_neurons_batch result: success={result.is_success}, count={result.successful_count}")
                     
                     if not result.is_success:
                         raise RuntimeError(f"Failed to create neurons via NPU Interface: {result.result}")

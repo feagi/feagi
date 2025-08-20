@@ -139,7 +139,7 @@ class NPUInterface:
     # ===== CORTICAL AREA MANAGEMENT =====
     
     def create_cortical_area(self, cortical_idx: int, dimensions: Tuple[int, int, int], 
-                           area_type: str = "regular") -> OperationResult:
+                           area_type: str = "regular", cortical_id: str = None) -> OperationResult:
         """Create a new cortical area.
         
         Args:
@@ -158,6 +158,7 @@ class NPUInterface:
             return OperationResult.AREA_LOCKED
             
         self.cortical_areas[cortical_idx] = {
+            "cortical_id": cortical_id,
             "dimensions": dimensions,
             "type": area_type,
             "neuron_count": 0,
@@ -166,6 +167,68 @@ class NPUInterface:
         
         logger.info(f"🧠 Created cortical area idx={cortical_idx} ({area_type}): {dimensions}")
         return OperationResult.SUCCESS
+    
+    def get_cortical_idx_by_id(self, cortical_id: str) -> Optional[int]:
+        """Get cortical_idx by cortical_id string.
+        
+        Args:
+            cortical_id: String identifier (e.g., "_power")
+            
+        Returns:
+            cortical_idx if found, None otherwise
+        """
+        for cortical_idx, area_info in self.cortical_areas.items():
+            if area_info.get("cortical_id") == cortical_id:
+                return cortical_idx
+        return None
+    
+    def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
+        """Get all neuron IDs in a cortical area.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            
+        Returns:
+            List of neuron IDs in the area
+        """
+        neuron_ids = []
+        for neuron_id, area_idx in self.neuron_to_area.items():
+            if area_idx == cortical_idx:
+                neuron_ids.append(neuron_id)
+        
+        # Debug logging for power area
+        if cortical_idx in self.cortical_areas and self.cortical_areas[cortical_idx].get("cortical_id") == "_power":
+            logger.error(f"[NPU-POWER-DEBUG] get_neurons_by_area({cortical_idx}) for _power found {len(neuron_ids)} neurons: {neuron_ids}")
+            logger.error(f"[NPU-POWER-DEBUG] Total neuron_to_area mappings: {len(self.neuron_to_area)}")
+            logger.error(f"[NPU-POWER-DEBUG] Sample mappings: {dict(list(self.neuron_to_area.items())[:5])}")
+        
+        return neuron_ids
+    
+    def debug_cortical_areas(self) -> Dict[str, Any]:
+        """Debug method to show all cortical areas and their neuron counts.
+        
+        Returns:
+            Dictionary with area information for debugging
+        """
+        debug_info = {
+            "total_areas": len(self.cortical_areas),
+            "areas": {},
+            "neuron_to_area_mapping_count": len(self.neuron_to_area)
+        }
+        
+        for cortical_idx, area_info in self.cortical_areas.items():
+            cortical_id = area_info.get("cortical_id", f"idx_{cortical_idx}")
+            neuron_count = len(self.get_neurons_by_area(cortical_idx))
+            
+            debug_info["areas"][cortical_id] = {
+                "cortical_idx": cortical_idx,
+                "stored_neuron_count": area_info.get("neuron_count", 0),
+                "actual_neuron_count": neuron_count,
+                "type": area_info.get("type", "unknown"),
+                "dimensions": area_info.get("dimensions", "unknown")
+            }
+        
+        return debug_info
     
     def delete_cortical_area(self, cortical_idx: int) -> OperationResult:
         """Delete a cortical area and all its neurons/synapses.
@@ -262,6 +325,9 @@ class NPUInterface:
             # Update mappings
             for i, neuron_id in enumerate(neuron_ids):
                 self.neuron_to_area[neuron_id] = cortical_idx
+                # Debug logging for power area
+                if cortical_idx in self.cortical_areas and self.cortical_areas[cortical_idx].get("cortical_id") == "_power":
+                    logger.error(f"[NPU-POWER-DEBUG] Mapped neuron {neuron_id} to cortical_idx {cortical_idx} (_power)")
                 
             # Update area statistics
             self.cortical_areas[cortical_idx]["neuron_count"] += count

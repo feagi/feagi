@@ -5385,3 +5385,22 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Failed to update genome physiology: {e}")
             return False
+
+    async def get_system_health(self) -> Dict[str, Any]:
+        """Get comprehensive system health information.
+        
+        Delegates to SystemService to get health metrics for all FEAGI components.
+        
+        Returns:
+            Dictionary containing health metrics
+        """
+        try:
+            return await self._system_service.get_health()
+        except Exception as e:
+            self.logger.error(f"Failed to get system health: {e}")
+            return {
+                "error": f"Failed to get system health: {str(e)}",
+                "burst_engine": False,
+                "brain_readiness": False,
+                "genome_availability": False
+            }

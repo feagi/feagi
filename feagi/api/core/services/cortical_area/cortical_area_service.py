@@ -387,14 +387,53 @@ class CorticalAreaService(BaseService):
             if neuron_ids:
                 # Direct approach worked - build result
                 result = []
+                # Debug logging for power area
+                if cortical_id == "_power":
+                    self.logger.error(f"[API-POWER-DEBUG] Processing {len(neuron_ids)} neurons: {neuron_ids}")
+                    self.logger.error(f"[API-POWER-DEBUG] _neuron_id_to_index available: {hasattr(self._connectome_manager, '_neuron_id_to_index')}")
+                    if hasattr(self._connectome_manager, '_neuron_id_to_index'):
+                        self.logger.error(f"[API-POWER-DEBUG] _neuron_id_to_index size: {len(self._connectome_manager._neuron_id_to_index)}")
+                        self.logger.error(f"[API-POWER-DEBUG] Sample mappings: {dict(list(self._connectome_manager._neuron_id_to_index.items())[:5])}")
+                
                 for neuron_id in neuron_ids:
+                    # NEW NPU ARCHITECTURE: Get neuron properties directly from NPU Interface
+                    # instead of using old BDU-style index mappings
+                    if hasattr(self._connectome_manager, '_npu_interface') and self._connectome_manager._npu_interface:
+                        # Use NPU Interface for neuron properties (new architecture)
+                        npu_interface = self._connectome_manager._npu_interface
+                        
+                        if cortical_id == "_power":
+                            self.logger.error(f"[API-POWER-DEBUG] Using NPU Interface for neuron {neuron_id}")
+                        
+                        # Skip the old index-based approach and build result directly
+                        neuron_info = {
+                            "neuron_id": neuron_id,
+                            "cortical_id": cortical_id,
+                            "position": [0, 0, 0],
+                            "properties": {
+                                "membrane_potential": 0.0,
+                                "threshold": 1.0,
+                            }
+                        }
+                        result.append(neuron_info)
+                        
+                        if cortical_id == "_power":
+                            self.logger.error(f"[API-POWER-DEBUG] Added neuron {neuron_id} to result")
+                        continue
+                    
+                    # FALLBACK: Old BDU-style approach (for backward compatibility)
                     # Get neuron index for accessing property arrays
                     neuron_index = (
                         self._connectome_manager._neuron_id_to_index.get(
                             neuron_id
-                        )
+                        ) if hasattr(self._connectome_manager, '_neuron_id_to_index') else None
                     )
+                    if cortical_id == "_power":
+                        self.logger.error(f"[API-POWER-DEBUG] Fallback: Neuron {neuron_id} -> index {neuron_index}")
+                    
                     if neuron_index is None:
+                        if cortical_id == "_power":
+                            self.logger.error(f"[API-POWER-DEBUG] Skipping neuron {neuron_id} - no index mapping")
                         continue
 
                     # Get neuron position

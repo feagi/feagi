@@ -194,21 +194,22 @@ class ConnectomeManager(NeuronMappingProvider):
             return
 
         # Handle legacy parameter passing and dynamic sizing
+        # Store these values to pass to NPU Interface later
         if isinstance(config_or_max_neurons, dict):
             config = config_or_max_neurons
-            self.max_neurons = config.get("max_neurons", 10_000_000)
+            self._max_neurons_config = config.get("max_neurons", 10_000_000)
             max_synapses = config.get("max_synapses", max_synapses)
             backend = config.get("backend", backend)
         elif hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
             config = config_or_max_neurons
             # NEW: Dynamic sizing based on genome stats and configuration
-            self.max_neurons = self._calculate_neuron_space(config)
+            self._max_neurons_config = self._calculate_neuron_space(config)
             max_synapses = self._calculate_synapse_space(config, max_synapses)
             backend = config.get("connectome.backend", backend)
         else:
-            self.max_neurons = config_or_max_neurons
+            self._max_neurons_config = config_or_max_neurons
 
-        self.max_synapses = max_synapses
+        self._max_synapses_config = max_synapses
 
         #  CRITICAL: Do NOT create neuron array here - NPU Interface owns it
         #  ConnectomeManager will get reference to NPU Interface's neuron array
@@ -6712,3 +6713,92 @@ class ConnectomeManager(NeuronMappingProvider):
                 "max_cortical_area_dimensions": (1023, 1023, 1023),
                 "error": str(e),
             }
+
+    def get_synapse_count(self) -> int:
+        """Get total synapse count from NPU Interface.
+        
+        Returns:
+            Total number of synapses
+        """
+        if self._npu_interface:
+            return self._npu_interface.synapse_array.count
+        return 0
+    
+    def get_neuron_count(self) -> int:
+        """Get total neuron count from NPU Interface.
+        
+        Returns:
+            Total number of neurons (regular + memory)
+        """
+        if self._npu_interface:
+            regular_count = self._npu_interface.neuron_array.count
+            memory_count = self._npu_interface.memory_neuron_array.count
+            return regular_count + memory_count
+        return 0
+
+    @property
+    def max_neurons(self) -> int:
+        """Get maximum neuron capacity from NPU Interface.
+        
+        Returns:
+            Maximum number of neurons that can be stored
+        """
+        if self._npu_interface:
+            return self._npu_interface.neuron_array.max_neurons
+        return 0
+
+    @property
+    def max_synapses(self) -> int:
+        """Get maximum synapse capacity from NPU Interface.
+        
+        Returns:
+            Maximum number of synapses that can be stored
+        """
+        if self._npu_interface:
+            return self._npu_interface.synapse_array.max_synapses
+        return 0
+
+    def get_neurons_by_area(self, cortical_id: str) -> Optional[List[int]]:
+        """Get all neuron IDs in a cortical area by cortical_id.
+        
+        Args:
+            cortical_id: String identifier (e.g., "_power")
+            
+        Returns:
+            List of neuron IDs in the area, or None if area not found
+        """
+        # Debug logging for power area
+        if cortical_id == "_power":
+            logger.error(f"[CONNECTOME-POWER-DEBUG] get_neurons_by_area called for _power")
+            logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface available: {self._npu_interface is not None}")
+        
+        if not self._npu_interface:
+            if cortical_id == "_power":
+                logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface is None, returning None")
+            return None
+            
+        # Map cortical_id to cortical_idx
+        cortical_idx = self._npu_interface.get_cortical_idx_by_id(cortical_id)
+        if cortical_id == "_power":
+            logger.error(f"[CONNECTOME-POWER-DEBUG] Mapped _power to cortical_idx: {cortical_idx}")
+        
+        if cortical_idx is None:
+            if cortical_id == "_power":
+                logger.error(f"[CONNECTOME-POWER-DEBUG] cortical_idx is None, returning None")
+            return None
+            
+        # Get neurons by cortical_idx
+        result = self._npu_interface.get_neurons_by_area(cortical_idx)
+        if cortical_id == "_power":
+            logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface returned: {result}")
+        return result
+
+    def debug_cortical_areas(self) -> Dict[str, Any]:
+        """Debug method to show all cortical areas and their neuron counts.
+        
+        Returns:
+            Dictionary with area information for debugging
+        """
+        if not self._npu_interface:
+            return {"error": "NPU Interface not available"}
+        return self._npu_interface.debug_cortical_areas()

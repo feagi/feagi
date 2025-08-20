@@ -767,3 +767,30 @@ class SystemService(BaseService):
             "suggested_frequency_scale": suggested_frequency_scale,
             "performance_tier": performance_tier,
         }
+
+    def _get_neuron_count_breakdown(self) -> Dict[str, int]:
+        """Get breakdown of neuron counts by type.
+        
+        Returns:
+            Dictionary with total, regular, and memory neuron counts
+        """
+        try:
+            if not self._connectome_manager or not hasattr(self._connectome_manager, '_npu_interface'):
+                return {"total": 0, "regular": 0, "memory": 0}
+            
+            npu_interface = self._connectome_manager._npu_interface
+            if not npu_interface:
+                return {"total": 0, "regular": 0, "memory": 0}
+            
+            regular_count = npu_interface.neuron_array.count
+            memory_count = npu_interface.memory_neuron_array.count
+            total_count = regular_count + memory_count
+            
+            return {
+                "total": total_count,
+                "regular": regular_count,
+                "memory": memory_count
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting neuron count breakdown: {e}")
+            return {"total": 0, "regular": 0, "memory": 0}
