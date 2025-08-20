@@ -801,38 +801,63 @@ class CoreAPIService:
             values are lists of destination neuron IDs
         """
         try:
-            # Get all neurons in the source area
-            source_neurons = self._connectome_manager.get_neurons_by_area(cortical_area_id)
+            cm = self._connectome_manager
+            if cm is None:
+                self.logger.error("ConnectomeManager not available in CoreAPIService")
+                return None
+
+            # Ensure CM is wired to the live NPU arrays (authoritative)
+            npu = getattr(cm, "_npu_interface", None)
+            if (not hasattr(cm, "synapse_array") or cm.synapse_array is None) and npu is not None:
+                try:
+                    cm.set_npu_interface(npu)
+                except Exception as wire_err:
+                    self.logger.error(f"Failed to wire NPU interface to ConnectomeManager: {wire_err}")
+                    return None
+
+            # Get all neurons in the source area (cortical_id -> cortical_idx under the hood)
+            source_neurons = cm.get_neurons_by_area(cortical_area_id)
             if not source_neurons:
                 self.logger.warning(f"No neurons found in cortical area {cortical_area_id}")
                 return {}
-            
-            # Dictionary to store results: destination_area_id -> [neuron_ids]
-            synapses_by_area = {}
-            
-            # For each neuron in the source area, get its outgoing connections
+
+            # Use authoritative synapse array directly to avoid stale CM methods
+            syn_array = getattr(cm, "synapse_array", None) or (npu.synapse_array if npu else None)
+            if syn_array is None:
+                self.logger.error("SynapseArray not available from ConnectomeManager or NPUInterface")
+                return {}
+
+            synapses_by_area: Dict[str, List[int]] = {}
+
             for source_neuron_id in source_neurons:
-                outgoing_connections = self._connectome_manager.get_outgoing_connections(source_neuron_id)
-                
-                for target_neuron_id, weight in outgoing_connections:
-                    # Find which cortical area the target neuron belongs to
+                try:
+                    outgoing_connections = syn_array.get_outgoing_connections(source_neuron_id)
+                except Exception as conn_err:
+                    self.logger.debug(f"Skipping neuron {source_neuron_id} (synapse lookup error): {conn_err}")
+                    continue
+
+                for target_neuron_id, _ in outgoing_connections:
+                    # Map target neuron to cortical_id using NPU-owned mapping path
                     try:
-                        target_area_id = self._connectome_manager.get_cortical_area_for_neuron(target_neuron_id)
-                    except KeyError:
-                        # Target neuron doesn't exist, skip
+                        target_area_id = cm.get_cortical_area_for_neuron(target_neuron_id)
+                    except Exception:
                         continue
-                    
-                    if target_area_id and target_area_id != cortical_area_id:  # Skip self-connections
-                        if target_area_id not in synapses_by_area:
-                            synapses_by_area[target_area_id] = []
-                        synapses_by_area[target_area_id].append(target_neuron_id)
-            
-            # Remove duplicates while preserving order
-            for area_id in synapses_by_area:
-                synapses_by_area[area_id] = list(dict.fromkeys(synapses_by_area[area_id]))
-            
+                    if target_area_id and target_area_id != cortical_area_id:
+                        bucket = synapses_by_area.setdefault(target_area_id, [])
+                        bucket.append(target_neuron_id)
+
+            # Deduplicate while preserving order
+            for area_id, ids in synapses_by_area.items():
+                seen = set()
+                deduped = []
+                for nid in ids:
+                    if nid not in seen:
+                        seen.add(nid)
+                        deduped.append(nid)
+                synapses_by_area[area_id] = deduped
+
             return synapses_by_area
-            
+
         except Exception as e:
             self.logger.error(f"Error getting synapses for cortical area {cortical_area_id}: {str(e)}")
             return None

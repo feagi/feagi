@@ -182,7 +182,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
         logger.info(f"🔧 ConnectomeManager.__init__ called with backend: '{backend}'")
         logger.info(f"🔧 _initialized flag: {ConnectomeManager._initialized}")
-        
+
         if ConnectomeManager._initialized:
             logger.info(f"🔧 ConnectomeManager already initialized, but checking NPU Interface...")
             # Even if already initialized, ensure NPU Interface is set up if it wasn't before
@@ -320,7 +320,23 @@ class ConnectomeManager(NeuronMappingProvider):
     #  ============================================================================
 
     def get_neuron_index(self, neuron_id: int) -> Optional[int]:
-        """Get the array index for a neuron ID."""
+        """Get the array index for a neuron ID.
+
+        NPU NeuronArray is the single source of truth for ID↔index mappings.
+        """
+        # Prefer NPU-owned mapping
+        try:
+            if hasattr(self, "neuron_array") and self.neuron_array:
+                idx = self.neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is not None:
+                    return idx
+            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
+                idx = self.memory_neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is not None:
+                    return idx
+        except Exception:
+            pass
+        # Legacy mapping (may be empty in new architecture)
         return self._neuron_id_to_index_map.get(neuron_id)
 
     def get_neuron_id(self, index: int) -> Optional[int]:
@@ -339,7 +355,16 @@ class ConnectomeManager(NeuronMappingProvider):
             self._index_to_neuron_id_map.pop(index, None)
 
     def has_neuron(self, neuron_id: int) -> bool:
-        """Check if a neuron ID exists."""
+        """Check if a neuron ID exists (NPU mapping authoritative)."""
+        try:
+            if hasattr(self, "neuron_array") and self.neuron_array:
+                if neuron_id in self.neuron_array.neuron_id_to_index:
+                    return True
+            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
+                if neuron_id in self.memory_neuron_array.neuron_id_to_index:
+                    return True
+        except Exception:
+            pass
         return neuron_id in self._neuron_id_to_index_map
 
     def get_all_neuron_ids(self) -> List[int]:
@@ -1000,7 +1025,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def _initialize_npu_interface(self, backend: str):
         """Initialize NPU Interface with the specified backend.
-        
+
         Args:
             backend: Backend string ("cpu", "cuda", "wgpu", etc.) or None
         """
@@ -1041,15 +1066,25 @@ class ConnectomeManager(NeuronMappingProvider):
         
         This method is now mainly for backward compatibility since NPU Interface
         is initialized during ConnectomeManager creation.
-        
+
         Args:
             npu_interface: NPUInterface instance that will own synaptic updates
         """
-        if self._npu_interface is not npu_interface:
-            logger.warning("NPU Interface already initialized - ignoring duplicate assignment")
-        
-        logger.info("✅ NPU interface confirmed as primary owner of synaptic updates")
-        logger.info("✅ ConnectomeManager uses NPU Interface CRUD methods with cortical locking")
+        try:
+            # Always adopt the provided NPU interface to ensure single source of truth
+            self._npu_interface = npu_interface
+            # Wire arrays from NPU (authoritative owners)
+            if hasattr(npu_interface, "neuron_array"):
+                self.neuron_array = npu_interface.neuron_array
+            if hasattr(npu_interface, "synapse_array"):
+                self.synapse_array = npu_interface.synapse_array
+            if hasattr(npu_interface, "memory_neuron_array"):
+                self.memory_neuron_array = npu_interface.memory_neuron_array
+
+            logger.info("✅ NPU interface set as PRIMARY owner of synaptic updates")
+            logger.info("✅ ConnectomeManager arrays now reference NPU-owned arrays")
+        except Exception as e:
+            logger.error(f"Failed to set NPU interface on ConnectomeManager: {e}")
 
     def sync_cortical_areas_to_npu(self) -> None:
         """Synchronize cortical area registry into the active NPU interface.
@@ -1427,7 +1462,7 @@ class ConnectomeManager(NeuronMappingProvider):
             
             # Create neuron creation request
             request = NeuronCreationRequest(
-                cortical_idx=cortical_idx,
+            cortical_idx=cortical_idx,
                 positions=[position],
                 thresholds=[threshold],
                 initial_potentials=[membrane_potential],
@@ -1780,13 +1815,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if not self.has_neuron(neuron_id):
+        # Resolve array index via NPU mapping
+        index = self.get_neuron_index(neuron_id)
+        if index is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Get index from ConnectomeManager mapping
-        index = self.get_neuron_index(neuron_id)
-
-        # Get the cortical_idx from the neuron array
+        # Get the cortical_idx from the authoritative neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
 
         # Use cortical mapping to find cortical_id
@@ -1909,17 +1943,25 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        # Use NPU-owned mapping as authoritative
+        index = self.get_neuron_index(neuron_id)
+        if index is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        index = self.neuron_id_to_index[neuron_id]
-
-        # Get position from neuron array
-        return (
-            int(self.neuron_array.coordinates_x[index]),
-            int(self.neuron_array.coordinates_y[index]),
-            int(self.neuron_array.coordinates_z[index]),
-        )
+        # Get position from NPU neuron arrays
+        try:
+            if hasattr(self.neuron_array, "coordinates_x"):
+                x = int(self.neuron_array.coordinates_x[index])
+                y = int(self.neuron_array.coordinates_y[index])
+                z = int(self.neuron_array.coordinates_z[index])
+            else:
+                x = int(self.neuron_array.positions_x[index])
+                y = int(self.neuron_array.positions_y[index])
+                z = int(self.neuron_array.positions_z[index])
+            return (x, y, z)
+        except Exception as e:
+            logger.error(f"Error getting position for neuron {neuron_id}: {e}")
+            raise
 
     # ----------------------------------------------------------------------
     # Synapse Management Methods
@@ -2239,7 +2281,8 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        # Validate existence using NPU mapping
+        if self.get_neuron_index(neuron_id) is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Use NPU SynapseArray for fast outgoing connection lookup
@@ -5108,7 +5151,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
         """DEPRECATED: BDU neural processing is prohibited.
-        
+
         NPU has 100% exclusive ownership of neural processing.
         Update tests to use NPU-based neural processing.
 
@@ -5294,8 +5337,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     neuron_array = self._npu_interface.neuron_array
                     neuron_array.next_index = 0
                     neuron_array.free_indices = set()
-                    #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
-                    #  prevent ID instability
+                #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
+                #  prevent ID instability
                     neuron_array._next_neuron_id = 1
 
                 # Clear mappings that track neuron relationships
@@ -5316,8 +5359,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     neuron_array.neuron_count = 0
                     neuron_array.next_index = 0
                     neuron_array.free_indices = set()
-                    #  CRITICAL FIX: Also reset the neuron ID counter during force
-                    #  reset
+                #  CRITICAL FIX: Also reset the neuron ID counter during force
+                #  reset
                     neuron_array._next_neuron_id = 1
                 logger.info(
                     "Force-reset critical neuron array counters", status="[OK]"
@@ -6693,37 +6736,56 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup of neurons at given voxel positions within a cortical
-        area.
+        """Batch lookup using NPU SoA only (no BDU caches).
 
-        Args:
-            cortical_id: ID of the cortical area to search in
-            candidate_positions: Set of (x, y, z) positions to check
-            post_synaptic_current: Current to assign to found neurons
-
-        Returns:
-            List of (neuron_id, current) tuples for neurons found at the positions
+        Deterministically finds neurons in `cortical_id` whose
+        (coordinates_x, coordinates_y, coordinates_z) match any in
+        `candidate_positions`.
         """
-        found_neurons = []
-
         try:
-            area = self.cortical_areas.get(cortical_id)
-            if not area:
-                return found_neurons
+            npu = getattr(self, "_npu_interface", None)
+            if npu is None:
+                raise RuntimeError("NPU Interface required for voxel lookup")
 
-            # Batch lookup using cortical area's position mapping
-            for position in candidate_positions:
-                neurons_at_pos = area.get_neurons_at_position(position)
-                for nid in neurons_at_pos:
-                    #  FIXED: Use ConnectomeManager's mapping instead of
-                    #  neuron_array.id_to_index_map
-                    if nid in self._neuron_id_to_index_map:
-                        found_neurons.append((nid, post_synaptic_current))
+            # Resolve to cortical_idx (authoritative key)
+            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            if cortical_idx is None:
+                return []
+
+            na = npu.neuron_array
+            if na is None or na.neuron_count == 0:
+                return []
+
+            import numpy as np
+
+            # Select indices belonging to this cortical_idx
+            valid_count = int(na.neuron_count)
+            cort_mask = (na.cortical_idxs[:valid_count] == cortical_idx)
+            if not np.any(cort_mask):
+                return []
+
+            idxs = np.nonzero(cort_mask)[0]
+            xs = na.coordinates_x[idxs]
+            ys = na.coordinates_y[idxs]
+            zs = na.coordinates_z[idxs]
+
+            # Build a hash set of target positions for O(1) membership checks
+            targets = set(candidate_positions)
+            if not targets:
+                return []
+
+            found: List[Tuple[int, float]] = []
+            for i, idx in enumerate(idxs):
+                pos = (int(xs[i]), int(ys[i]), int(zs[i]))
+                if pos in targets:
+                    nid = npu.neuron_array.index_to_neuron_id.get(int(idx))
+                    if nid is not None:
+                        found.append((int(nid), float(post_synaptic_current)))
+            return found
 
         except Exception as e:
-            logger.error(f"Error in batch voxel lookup: {e}")
-
-        return found_neurons
+            logger.error(f"Error in NPU voxel lookup: {e}")
+            return []
 
     # ======================================================================
     # CORTICAL AREA DIMENSION VALIDATION

@@ -2889,6 +2889,12 @@ class NeuroEmbryogenesis:
             min_z = max(0, target_z - region_d // 2)
             max_z = min(dst_d - 1, target_z + region_d // 2)
 
+            # If source depth is 1 but destination depth > 1, expand across full depth
+            # This ensures 2D→3D projections connect to any depth layer deterministically
+            if src_d == 1 and dst_d > 1 and region_d == 1:
+                min_z = 0
+                max_z = dst_d - 1
+
             return ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
         except Exception as e:
