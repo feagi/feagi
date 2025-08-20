@@ -1080,7 +1080,8 @@ class ConnectomeManager(NeuronMappingProvider):
             f"[NPU-SYNC] Starting cortical area sync: npu_id={id(self._npu_interface)}, areas={len(areas)}"
         )
 
-        synced = 0
+        synced_new = 0
+        updated_existing = 0
         for cortical_id, area in areas.items():
             try:
                 cortical_idx = getattr(area, "cortical_idx")
@@ -1095,19 +1096,49 @@ class ConnectomeManager(NeuronMappingProvider):
                     area_type=area_type,
                     cortical_id=cortical_id,
                 )
-                # Treat INVALID_INPUT as already-registered
+                # Treat INVALID_INPUT as already-registered and UPSET metadata
                 if result == OperationResult.SUCCESS:
-                    synced += 1
+                    synced_new += 1
                     if debug_enabled:
                         logger.info(
                             f"[NPU-SYNC] Registered area id='{cortical_id}' idx={cortical_idx} dims={dimensions} type={area_type}"
                         )
+                elif result == OperationResult.INVALID_INPUT:
+                    # @ruff-skip: critical hotfix - cleanup task: NPU-SYNC-UPTS-001
+                    # Area exists; ensure cortical_id (and optionally dims/type) are set for lookups like '_power'
+                    try:
+                        if cortical_idx in self._npu_interface.cortical_areas:
+                            entry = self._npu_interface.cortical_areas[cortical_idx]
+                            changed = False
+                            if entry.get("cortical_id") != cortical_id:
+                                entry["cortical_id"] = cortical_id
+                                changed = True
+                            # Keep dims/type authoritative from NPU unless missing
+                            if "dimensions" not in entry or entry["dimensions"] is None:
+                                entry["dimensions"] = dimensions
+                                changed = True
+                            if "type" not in entry or entry["type"] not in ("regular", "memory"):
+                                entry["type"] = area_type
+                                changed = True
+                            if changed:
+                                updated_existing += 1
+                                if debug_enabled:
+                                    logger.info(
+                                        f"[NPU-SYNC] Updated existing area metadata id='{cortical_id}' idx={cortical_idx}"
+                                    )
+                        else:
+                            # Inconsistent state: INVALID_INPUT but not present; log for investigation
+                            logger.warning(
+                                f"[NPU-SYNC] INVALID_INPUT for idx={cortical_idx} but not found in NPU registry"
+                            )
+                    except Exception as inner_e:
+                        logger.error(f"[NPU-SYNC] Error updating existing area '{cortical_id}': {inner_e}")
             except Exception as e:
                 logger.error(f"Failed to sync cortical area '{cortical_id}': {e}")
                 raise
 
         logger.info(
-            f"[NPU-SYNC] Synchronized {synced}/{len(areas)} cortical areas into NPU registry"
+            f"[NPU-SYNC] Synchronized new={synced_new}, updated={updated_existing}, total_areas={len(areas)} into NPU registry"
         )
 
     def update_membrane_potentials(

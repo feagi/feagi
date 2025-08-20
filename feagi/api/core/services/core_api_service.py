@@ -1098,66 +1098,74 @@ class CoreAPIService:
                 )
                 
                 # ✅ CONFIGURE NPU AS PRIMARY OWNER OF SYNAPTIC UPDATES
-                self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates...")
-                
-                # Get NPU configuration from config
-                npu_config = self._config.get("npu", {})
-                backend_str = npu_config.get("backend", "cpu")
-                
-                # Convert backend string to BackendType enum
-                from feagi.npu.data_structures import BackendType
-                backend_map = {
-                    "cpu": BackendType.CPU,
-                    "cuda": BackendType.CUDA, 
-                    "wgpu": BackendType.WGPU
-                }
-                backend = backend_map.get(backend_str, BackendType.CPU)
-                
-                # Create NPU Interface as single source of truth
-                from feagi.npu.interface import NPUInterface
-                npu_interface = NPUInterface(backend=backend)
-                
-                # Store NPU interface in burst engine for power injection
+                # @ruff-skip: critical hotfix to enforce single NPUInterface instance - cleanup task: NPU-UNIFY-001
+                self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates (unified instance)...")
+
+                # Use the existing NPU interface from ConnectomeManager to avoid duplication
+                npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
+                if npu_interface is None:
+                    # If ConnectomeManager has not initialized NPU yet, initialize via its API
+                    try:
+                        # Read desired backend from config and initialize through ConnectomeManager
+                        npu_config = self._config.get("npu", {})
+                        backend_str = npu_config.get("backend", "cpu")
+                        from feagi.npu.data_structures import BackendType
+                        backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
+                        backend = backend_map.get(backend_str, BackendType.CPU)
+                        # Create directly and set on CM to ensure single source
+                        from feagi.npu.interface import NPUInterface
+                        npu_interface = NPUInterface(backend=backend)
+                        # Ensure CM adopts this instance and exposes arrays
+                        if hasattr(self._connectome_manager, "_npu_interface"):
+                            self._connectome_manager._npu_interface = npu_interface
+                            if hasattr(self._connectome_manager, "neuron_array"):
+                                self._connectome_manager.neuron_array = npu_interface.neuron_array
+                            if hasattr(self._connectome_manager, "synapse_array"):
+                                self._connectome_manager.synapse_array = npu_interface.synapse_array
+                            if hasattr(self._connectome_manager, "memory_neuron_array"):
+                                self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
+                    except Exception as init_err:
+                        self.logger.error(f"Failed to initialize NPU interface via ConnectomeManager: {init_err}")
+                        raise
+
+                # Inject the SAME instance into the BurstEngine
                 singleton_instance.npu_interface = npu_interface
-                
-                # Set NPU interface in ConnectomeManager as primary owner
-                self._connectome_manager.set_npu_interface(npu_interface)
-                
-                self.logger.info("✅ NPU configured as PRIMARY OWNER of synaptic updates")
-                self.logger.info(f"   Backend: {backend.value}")
+
+                self.logger.info("✅ NPU unified: BurstEngine and ConnectomeManager share the same NPUInterface instance")
+                self.logger.info(f"   NPU id: {id(npu_interface)}")
                 self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
                 self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                 npu_configured = True
             else:
                 # Existing singleton - ensure NPU is configured
                 if not hasattr(singleton_instance, 'npu_interface') or singleton_instance.npu_interface is None:
-                    self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton...")
-                    
-                    # Get NPU configuration from config
-                    npu_config = self._config.get("npu", {})
-                    backend_str = npu_config.get("backend", "cpu")
-                    
-                    # Convert backend string to BackendType enum
-                    from feagi.npu.data_structures import BackendType
-                    backend_map = {
-                        "cpu": BackendType.CPU,
-                        "cuda": BackendType.CUDA, 
-                        "wgpu": BackendType.WGPU
-                    }
-                    backend = backend_map.get(backend_str, BackendType.CPU)
-                    
-                    # Create NPU Interface as single source of truth
-                    from feagi.npu.interface import NPUInterface
-                    npu_interface = NPUInterface(backend=backend)
-                    
-                    # Store NPU interface in burst engine for power injection
+                    self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton (unified instance)...")
+
+                    # Reuse the ConnectomeManager's NPU interface
+                    npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
+                    if npu_interface is None:
+                        # Initialize if missing
+                        try:
+                            npu_config = self._config.get("npu", {})
+                            backend_str = npu_config.get("backend", "cpu")
+                            from feagi.npu.data_structures import BackendType
+                            backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
+                            backend = backend_map.get(backend_str, BackendType.CPU)
+                            from feagi.npu.interface import NPUInterface
+                            npu_interface = NPUInterface(backend=backend)
+                            # Attach to CM
+                            self._connectome_manager._npu_interface = npu_interface
+                            self._connectome_manager.neuron_array = npu_interface.neuron_array
+                            self._connectome_manager.synapse_array = npu_interface.synapse_array
+                            self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
+                        except Exception as init_err:
+                            self.logger.error(f"Failed to initialize NPU interface for existing singleton: {init_err}")
+                            raise
+
                     singleton_instance.npu_interface = npu_interface
-                    
-                    # Set NPU interface in ConnectomeManager as primary owner
-                    self._connectome_manager.set_npu_interface(npu_interface)
-                    
-                    self.logger.info("✅ NPU configured for existing singleton")
-                    self.logger.info(f"   Backend: {backend.value}")
+
+                    self.logger.info("✅ NPU unified for existing singleton")
+                    self.logger.info(f"   NPU id: {id(npu_interface)}")
                     self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
                     self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                     npu_configured = True
@@ -1187,8 +1195,9 @@ class CoreAPIService:
             be = BurstEngine.get_instance()
             if be and hasattr(be, "fcl_manager") and be.fcl_manager:
                 return be.fcl_manager
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.error(f"Error getting FCL manager: {str(e)}")
+            # pass
         # Fallback to ConnectomeManager linkage if available
         if hasattr(self._connectome_manager, "fcl_manager"):
             return self._connectome_manager.fcl_manager

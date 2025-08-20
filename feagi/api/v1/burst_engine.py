@@ -254,13 +254,32 @@ class BurstEngineAPI:
             global_fcl_bitmap = fcl_manager.get_global_fcl()
             global_fcl_list = list(global_fcl_bitmap) if global_fcl_bitmap else []
             
-            # Get FCL organized by cortical areas
+            # Get FCL organized by cortical areas (keys are cortical_idx)
             cortical_fcl_dict = fcl_manager.get_fcl_by_cortical()
-            
-            # Convert cortical areas data to string keys and lists
+
+            # Map cortical_idx -> cortical_id using NPU interface via CoreAPIService
             cortical_areas = {}
-            for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
-                cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            try:
+                # Resolve the live NPU interface
+                npu = None
+                cm = self.core_api_service.get_connectome_manager()
+                if cm and hasattr(cm, "_npu_interface") and cm._npu_interface:
+                    npu = cm._npu_interface
+
+                if npu is not None and hasattr(npu, "cortical_areas"):
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        area_info = npu.cortical_areas.get(cortical_idx, {})
+                        cortical_id = area_info.get("cortical_id", str(cortical_idx))
+                        cortical_areas[cortical_id] = list(neuron_bitmap)
+                else:
+                    # Fallback: keep indices as strings if mapping unavailable
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            except Exception as map_err:
+                logger.error(f"[FCL-ENDPOINT-DEBUG] Error mapping cortical_idx to cortical_id: {map_err}")
+                # Safe fallback to indices as strings
+                for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                    cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
             
             # Get FCL manager statistics
             window_size = fcl_manager.window_size
