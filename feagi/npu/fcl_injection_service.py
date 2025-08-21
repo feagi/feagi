@@ -246,136 +246,114 @@ class FCLInjectionService:
         Returns:
             Number of power neurons injected
         """
-        try:
-            # Debug-only proof logging
-            from feagi.core.state_manager import FeagiStateManager
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
+        # Get power area neurons from special area handler (cortical_idx=1)
+        # This happens EVERY burst to provide constant power supply
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info("[INJECTION-DEBUG] Fetching power neurons from SpecialAreaHandler.get_power_area_neurons()")
+        power_neurons = self.special_area_handler.get_power_area_neurons()
 
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                import os
-                import tempfile
+        # Debug-only: record found neurons
+        from feagi.core.state_manager import FeagiStateManager
 
-                log_path = os.path.join(
-                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
-                )
-                with open(log_path, "a") as f:
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info(f"[INJECTION-DEBUG] Retrieved power neurons: {power_neurons}")
+            import os
+            import tempfile
+
+            log_path = os.path.join(
+                tempfile.gettempdir(), "feagi_injection_proof--temp.log"
+            )
+            with open(log_path, "a") as f:
+                if power_neurons:
                     f.write(
-                        f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
+                        f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
+                    )
+                else:
+                    f.write(
+                        f"[{current_timestep}] NO POWER NEURONS FOUND\n"
                     )
 
-            # Get power area neurons from special area handler (cortical_idx=1)
-            # This happens EVERY burst to provide constant power supply
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                logger.info("[INJECTION-DEBUG] Fetching power neurons from SpecialAreaHandler.get_power_area_neurons()")
-            power_neurons = self.special_area_handler.get_power_area_neurons()
-
-            # Debug-only: record found neurons
-            from feagi.core.state_manager import FeagiStateManager
-
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                logger.info(f"[INJECTION-DEBUG] Retrieved power neurons: {power_neurons}")
-                import os
-                import tempfile
-
-                log_path = os.path.join(
-                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
-                )
-                with open(log_path, "a") as f:
-                    if power_neurons:
-                        f.write(
-                            f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
-                        )
-                    else:
-                        f.write(
-                            f"[{current_timestep}] NO POWER NEURONS FOUND\n"
-                        )
-
-            if not power_neurons:
-                # Only log this occasionally to avoid spam
-                if current_timestep % 100 == 0:
-                    from feagi.core.state_manager import FeagiStateManager
-
-                    state_manager = FeagiStateManager.instance()
-                    if state_manager.is_debug_npu_enabled():
-                        logger.info(
-                            f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
-                        )
-                return 0
-
-            #  FAST: Set membrane potential ABOVE threshold for power neurons
-            if self.connectome_manager and hasattr(
-                self.connectome_manager, "neuron_array"
-            ):
-                if FeagiStateManager.instance().is_debug_npu_enabled():
-                    logger.info("[INJECTION-DEBUG] Setting membrane potentials for power neurons")
-                neuron_array = self.connectome_manager.neuron_array
-                for neuron_id in power_neurons:
-                    idx = neuron_array.neuron_id_to_index.get(neuron_id)
-                    if idx is None:
-                        continue
-                    # Compute the next representable float above threshold (epsilon step)
-                    thr32 = np.float32(neuron_array.thresholds[idx])
-                    mp = np.nextafter(thr32, np.float32(np.inf))
-                    if hasattr(neuron_array, "set_neuron_property"):
-                        neuron_array.set_neuron_property(
-                            neuron_id, "membrane_potential", float(mp)
-                        )
-                    else:
-                        neuron_array.membrane_potentials[idx] = mp
-                if FeagiStateManager.instance().is_debug_npu_enabled():
-                    # Log a small sample of MP/Thr after setting
-                    sample = power_neurons[:5]
-                    samples = []
-                    for nid in sample:
-                        sidx = neuron_array.neuron_id_to_index.get(nid)
-                        if sidx is not None:
-                            samples.append({
-                                "id": int(nid),
-                                "V": float(neuron_array.membrane_potentials[sidx]),
-                                "Thr": float(neuron_array.thresholds[sidx]),
-                                "Refr": int(neuron_array.refractory_counters[sidx]),
-                            })
-                    logger.info(f"[INJECTION-DEBUG] Raised MPs for {len(power_neurons)} power neurons; sample={samples}")
-
-            #  Now inject power neurons into FCL (with proper membrane
-            #  potentials set)
-            # This happens EVERY burst to provide constant power supply
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                logger.info("[INJECTION-DEBUG] Adding power neurons to FCL via FCLManager.update_fcl()")
-            # Log FCLManager identity before update
-            try:
+        if not power_neurons:
+            # Only log this occasionally to avoid spam
+            if current_timestep % 100 == 0:
                 from feagi.core.state_manager import FeagiStateManager
-                if FeagiStateManager.instance().is_debug_npu_enabled():
-                    logger.info(f"[INJECTION-DEBUG] FCLManager id before update: {id(self.fcl_manager)}")
-            except Exception:
-                pass
 
-            injected_count = self._inject_batch(
-                InjectionBatch(
-                    cortical_id="_power",
-                    neuron_ids=power_neurons,
-                    timing=InjectionTiming.PRE_BURST,
-                    probability=1.0,  # Always inject power neurons
-                ),
-                current_timestep,
-            )
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                logger.info(f"[INJECTION-DEBUG] FCLManager.update_fcl() injected_count={injected_count}")
-
-            if (
-                injected_count > 0 and current_timestep % 50 == 0
-            ):  # Log occasionally
-                logger.debug(
-                    f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
-                )
-
-            return injected_count
-
-        except Exception as e:
-            if current_timestep % 100 == 0:  # Log occasionally
-                logger.error(
-                    f"Error in power area injection at timestep {current_timestep}: {e}"
-                )
+                state_manager = FeagiStateManager.instance()
+                if state_manager.is_debug_npu_enabled():
+                    logger.info(
+                        f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
+                    )
             return 0
+
+        #  FAST: Set membrane potential ABOVE threshold for power neurons
+        if self.connectome_manager and hasattr(
+            self.connectome_manager, "neuron_array"
+        ):
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info("[INJECTION-DEBUG] Setting membrane potentials for power neurons")
+            neuron_array = self.connectome_manager.neuron_array
+            for neuron_id in power_neurons:
+                idx = neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is None:
+                    continue
+                # Compute the next representable float above threshold (epsilon step)
+                thr32 = np.float32(neuron_array.thresholds[idx])
+                mp = np.nextafter(thr32, np.float32(np.inf))
+                if hasattr(neuron_array, "set_neuron_property"):
+                    neuron_array.set_neuron_property(
+                        neuron_id, "membrane_potential", float(mp)
+                    )
+                else:
+                    neuron_array.membrane_potentials[idx] = mp
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                # Log a small sample of MP/Thr after setting
+                sample = power_neurons[:5]
+                samples = []
+                for nid in sample:
+                    sidx = neuron_array.neuron_id_to_index.get(nid)
+                    if sidx is not None:
+                        samples.append({
+                            "id": int(nid),
+                            "V": float(neuron_array.membrane_potentials[sidx]),
+                            "Thr": float(neuron_array.thresholds[sidx]),
+                            "Refr": int(neuron_array.refractory_counters[sidx]),
+                        })
+                logger.info(f"[INJECTION-DEBUG] Raised MPs for {len(power_neurons)} power neurons; sample={samples}")
+
+        #  Now inject power neurons into FCL (with proper membrane
+        #  potentials set)
+        # This happens EVERY burst to provide constant power supply
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info("[INJECTION-DEBUG] Adding power neurons to FCL via FCLManager.update_fcl()")
+        # Log FCLManager identity before update
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(f"[INJECTION-DEBUG] FCLManager id before update: {id(self.fcl_manager)}")
+        except Exception:
+            pass
+
+        injected_count = self._inject_batch(
+            InjectionBatch(
+                cortical_id="_power",
+                neuron_ids=power_neurons,
+                timing=InjectionTiming.PRE_BURST,
+                probability=1.0,  # Always inject power neurons
+            ),
+            current_timestep,
+        )
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info(f"[INJECTION-DEBUG] FCLManager.update_fcl() injected_count={injected_count}")
+
+        if (
+            injected_count > 0 and current_timestep % 50 == 0
+        ):  # Log occasionally
+            logger.debug(
+                f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
+            )
+
+        return injected_count
 
     def inject_during_burst(self, current_timestep: int) -> int:
         """
@@ -384,6 +362,7 @@ class FCLInjectionService:
         Returns:
             Always 0 (no injection performed)
         """
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
         return 0
 
     def inject_post_burst(self, current_timestep: int) -> int:
@@ -393,6 +372,7 @@ class FCLInjectionService:
         Returns:
             Always 0 (no injection performed)
         """
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
         return 0
 
     def _execute_injection_phase(

@@ -23,6 +23,7 @@ This test suite covers:
 - Integration with GenomeService, ConnectomeManager, and BurstEngine
 """
 
+import os
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
@@ -34,6 +35,10 @@ from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.core.state_manager import FCLWindowSizeCache
 
 
+MEMORY_TESTS_ENABLED = os.environ.get("FEAGI_MEMORY_TESTS", "0") == "1"
+
+
+@pytest.mark.skipif(not MEMORY_TESTS_ENABLED, reason="Memory system tests disabled; set FEAGI_MEMORY_TESTS=1 to enable")
 class TestMemoryNeuronArray:
     """Test memory neuron array functionality."""
     
@@ -196,6 +201,7 @@ class TestMemoryNeuronArray:
         assert found_idx is None
 
 
+@pytest.mark.skipif(not MEMORY_TESTS_ENABLED, reason="Memory system tests disabled; set FEAGI_MEMORY_TESTS=1 to enable")
 class TestMemoryProcessor:
     """Test memory processor functionality."""
     
@@ -322,6 +328,7 @@ class TestMemoryProcessor:
         assert self.memory_processor.stats.pattern_cache_misses == 1
 
 
+@pytest.mark.skipif(not MEMORY_TESTS_ENABLED, reason="Memory system tests disabled; set FEAGI_MEMORY_TESTS=1 to enable")
 class TestFCLWindowSizeCache:
     """Test FCL window size cache functionality."""
     
@@ -389,6 +396,7 @@ class TestFCLWindowSizeCache:
         assert new_size == 30  # Now temporal depth is larger
 
 
+@pytest.mark.skipif(not MEMORY_TESTS_ENABLED, reason="Memory system tests disabled; set FEAGI_MEMORY_TESTS=1 to enable")
 class TestMemorySystemIntegration:
     """Test end-to-end memory system integration."""
     

@@ -12,12 +12,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Refactored CoreAPIService using domain-based service architecture.
-
-This is the new facade implementation that delegates to specialized services
-while maintaining complete backward compatibility with the existing API.
-"""
+# Refactored CoreAPIService using domain-based service architecture.
+#
+# This is the new facade implementation that delegates to specialized services
+# while maintaining complete backward compatibility with the existing API.
 
 import os
 import tempfile
@@ -1624,14 +1622,19 @@ class CoreAPIService:
     ) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
         try:
-            # Get membrane potentials from connectome manager
-            potentials = {}
+            potentials: Dict[int, float] = {}
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                return potentials
+            na = self._connectome_manager.neuron_array
+            id_to_idx = getattr(na, "neuron_id_to_index", {})
+            mem = getattr(na, "membrane_potentials", None)
+            if mem is None:
+                return potentials
             for neuron_id in neuron_ids:
-                if neuron_id in self._connectome_manager.neurons:
-                    neuron = self._connectome_manager.neurons[neuron_id]
-                    potentials[neuron_id] = neuron.get(
-                        "membrane_potential", 0.0
-                    )
+                idx = id_to_idx.get(neuron_id)
+                if idx is None or idx < 0 or idx >= na.neuron_count:
+                    continue
+                potentials[neuron_id] = float(mem[idx])
             return potentials
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
@@ -1642,12 +1645,18 @@ class CoreAPIService:
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
         try:
-            # Update membrane potentials in connectome manager
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                return False
+            na = self._connectome_manager.neuron_array
+            id_to_idx = getattr(na, "neuron_id_to_index", {})
+            mem = getattr(na, "membrane_potentials", None)
+            if mem is None:
+                return False
             for neuron_id, potential in potentials.items():
-                if neuron_id in self._connectome_manager.neurons:
-                    self._connectome_manager.neurons[neuron_id][
-                        "membrane_potential"
-                    ] = potential
+                idx = id_to_idx.get(neuron_id)
+                if idx is None or idx < 0 or idx >= na.neuron_count:
+                    continue
+                mem[idx] = float(potential)
             return True
         except Exception as e:
             self.logger.error(f"Error updating membrane potentials: {str(e)}")
@@ -2757,7 +2766,7 @@ class CoreAPIService:
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
-            duration = stimulation_payload.get("duration", 10)
+            _ = stimulation_payload.get("duration", 10)
             coordinates = stimulation_payload.get("coordinates", None)
 
             if cortical_id:

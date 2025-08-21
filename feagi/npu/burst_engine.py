@@ -35,6 +35,8 @@ from feagi.utils.logger import setup_logger
 # Import the new modular components
 from .burst_engine_debug import BurstEngineDebugMixin
 from .burst_engine_performance import BurstEnginePerformanceMixin
+from .fq_sampler import UnifiedFQSampler  # Backward-compatible export for tests
+from feagi.core.state_manager import ServiceState  # Re-export for tests
 
 logger = setup_logger()
 
@@ -701,25 +703,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         # CRITICAL FIX: Initialize state_manager to prevent NameError
         state_manager = FeagiStateManager.instance()
 
-        # Debug-only proof of execution
-        try:
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                import datetime
-                import os
-                import tempfile
-
-                log_dir = tempfile.gettempdir()
-                log_path = os.path.join(
-                    log_dir, "feagi_enhanced_burst--temp.log"
-                )
-                with open(log_path, "a") as f:
-                    f.write(
-                        f"{datetime.datetime.now()}: _process_burst_with_power_injection called, "
-                        f"timestep={current_timestep}, injection_service="
-                        f"{type(self.injection_service).__name__ if self.injection_service else 'None'}\n"
-                    )
-        except Exception:
-            pass
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
         # Debug logging if --debug-npu is enabled
         if state_manager.is_debug_npu_enabled():
             logger.info(
@@ -813,15 +797,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         
             except Exception as e:
                 if state_manager.is_debug_npu_enabled():
-                    logger.error(f"[NPU-DEBUG] BURST ENGINE: Error updating FCL with fired neurons: {e}")
-                # Fallback: try to update FCL with ungrouped neurons
-                try:
-                    self.fcl_manager.add_to_current_fcl(fired_neurons)
-                    if state_manager.is_debug_npu_enabled():
-                        logger.info(f"[NPU-DEBUG] BURST ENGINE: Fallback - added {len(fired_neurons)} neurons to FCL without cortical grouping")
-                except Exception as fallback_error:
-                    if state_manager.is_debug_npu_enabled():
-                        logger.error(f"[NPU-DEBUG] BURST ENGINE: Fallback FCL update also failed: {fallback_error}")
+                    logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
 
         # 6. Memory processing for memory cortical areas
         #    Process temporal patterns and manage memory neuron lifecycle
@@ -1022,24 +998,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         network.
         """
         logger.info("Updating burst engine with new genome", status="[CONFIG]")
-        # Debug-only file write for development tracking
-        try:
-            from feagi.core.state_manager import FeagiStateManager
-
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                import datetime
-                import os
-                import tempfile
-
-                log_path = os.path.join(
-                    tempfile.gettempdir(), "feagi_injection_debug--temp.log"
-                )
-                with open(log_path, "a") as f:
-                    f.write(
-                        f"{datetime.datetime.now()}: update_with_genome() called\n"
-                    )
-        except Exception:
-            pass
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
 
         try:
             #  CRITICAL FIX: Synchronize neuron array data to prevent size
@@ -1168,25 +1127,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 logger.info(
                     f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}, fcl_manager_id={id(self.fcl_manager)}"
                 )
-            # Debug-only file write
-            try:
-                from feagi.core.state_manager import FeagiStateManager
-
-                if FeagiStateManager.instance().is_debug_npu_enabled():
-                    import datetime
-                    import os
-                    import tempfile
-
-                    log_path = os.path.join(
-                        tempfile.gettempdir(),
-                        "feagi_injection_debug--temp.log",
-                    )
-                    with open(log_path, "a") as f:
-                        f.write(
-                            f"{datetime.datetime.now()}: Injection service after init: {service_type}\n"
-                        )
-            except Exception:
-                pass
+            # Removed file I/O debug writes for RTOS/WGPU compatibility
 
             # Mark genome as loaded
             self.genome_loaded = True
@@ -1351,15 +1292,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         try:
             # Unconditional proof that run_with_fire_queue is being called
-            try:
-                with open("/tmp/feagi_fire_queue.log", "a") as f:
-                    import datetime
-
-                    f.write(
-                        f"{datetime.datetime.now()}: run_with_fire_queue called, about to call _process_burst_with_power_injection\n"
-                    )
-            except Exception:
-                pass
+            # Removed file I/O debug writes for RTOS/WGPU compatibility
 
             #  Derive current timestep from FCL manager if available; otherwise
             #  start at 0
@@ -1594,4 +1527,4 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
 
 # Public API
-__all__ = ["BurstEngine"]
+__all__ = ["BurstEngine", "UnifiedFQSampler", "ServiceState"]

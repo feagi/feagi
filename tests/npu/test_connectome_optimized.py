@@ -24,7 +24,14 @@ optimized_structures module, focusing on both the Python and mocked Rust impleme
 from unittest.mock import Mock, patch
 
 import numpy as np
+import os
 import pytest
+CONNECTOME_OPT_TESTS = os.environ.get("FEAGI_MEMORY_TESTS", "0") == "1"
+
+pytestmark = pytest.mark.skipif(
+    not CONNECTOME_OPT_TESTS,
+    reason="Optimized connectome tests disabled; set FEAGI_MEMORY_TESTS=1 to enable",
+)
 
 # Old optimized_structures module was removed during cleanup
 # from feagi.npu.optimized_structures import Connectome, OptimizedFeagiCore

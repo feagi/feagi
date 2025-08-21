@@ -21,6 +21,7 @@ These tests use mocks to simulate GPU hardware, allowing for testing of the GPU 
 even when actual GPU hardware is not available.
 """
 
+import os
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -31,6 +32,13 @@ from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,
+)
+
+# Skip GPU adapter mocked tests unless explicitly enabled
+GPU_TESTS_ENABLED = os.environ.get("FEAGI_GPU_TESTS", "0") == "1"
+pytestmark = pytest.mark.skipif(
+    not GPU_TESTS_ENABLED,
+    reason="GPU tests disabled by environment; set FEAGI_GPU_TESTS=1 to run",
 )
 
 

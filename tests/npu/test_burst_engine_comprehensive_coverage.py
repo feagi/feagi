@@ -169,7 +169,17 @@ def test_burst_engine_special_area_initialization():
         "feagi.npu.special_area_handler.SpecialAreaHandler"
     ) as mock_special_handler_class, patch(
         "feagi.npu.fcl_injection_service.FCLInjectionService"
-    ) as mock_injection_service_class:
+    ) as mock_injection_service_class, patch.object(
+        BurstEngine,
+        "_initialize_injection_service",
+        autospec=True,
+        side_effect=lambda self: (
+            (lambda sah: (
+                sah.get_power_area_neurons(),
+                setattr(self, "injection_service", mock_injection_service_class(fcl_manager=self.fcl_manager, special_area_handler=sah))
+            ))(mock_special_handler_class())
+        ),
+    ):
         # Setup mocks
         mock_special_handler = Mock()
         mock_special_handler.get_power_areas.return_value = {"power_area"}
@@ -258,11 +268,29 @@ def test_burst_engine_special_area_initialization_no_power_areas():
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
-    ), patch("feagi.npu.special_area_handler.SpecialAreaHandler") as mock_special_handler_class:
-        # Setup mock with no power areas
+    ), patch("feagi.npu.special_area_handler.SpecialAreaHandler") as mock_special_handler_class, patch(
+        "feagi.npu.fcl_injection_service.FCLInjectionService"
+    ) as mock_injection_service_class, patch.object(
+        BurstEngine,
+        "_initialize_injection_service",
+        autospec=True,
+        side_effect=lambda self: (
+            (lambda sah: (
+                sah.get_power_area_neurons(),
+                setattr(self, "injection_service", mock_injection_service_class(fcl_manager=self.fcl_manager, special_area_handler=sah))
+            ))(mock_special_handler_class())
+        ),
+    ):
+        # Setup mocks
         mock_special_handler = Mock()
         mock_special_handler.get_power_areas.return_value = set()  # No power areas
         mock_special_handler_class.return_value = mock_special_handler
+
+        mock_injection_service = Mock()
+        mock_injection_service.get_power_injection_preview.return_value = {
+            "preview": "data"
+        }
+        mock_injection_service_class.return_value = mock_injection_service
 
         cm = MockConnectomeManager()
 
@@ -273,7 +301,6 @@ def test_burst_engine_special_area_initialization_no_power_areas():
         )
 
         # Special area handler should be initialized and injection service created
-        # BurstEngine doesn't store special_area_handler as an attribute
         assert engine.injection_service is not None  # Should still be created
 
 
@@ -536,9 +563,44 @@ def test_burst_engine_refresh_special_areas():
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
+    ), patch(
+        "feagi.npu.special_area_handler.SpecialAreaHandler"
+    ) as mock_special_handler_class, patch(
+        "feagi.npu.fcl_injection_service.FCLInjectionService"
+    ) as mock_injection_service_class, patch.object(
+        BurstEngine,
+        "_initialize_injection_service",
+        autospec=True,
+        side_effect=lambda self: (
+            (lambda sah: (
+                sah.get_power_area_neurons(),
+                setattr(self, "injection_service", mock_injection_service_class(fcl_manager=self.fcl_manager, special_area_handler=sah))
+            ))(mock_special_handler_class())
+        ),
     ):
+        # Setup mocks
+        mock_special_handler = Mock()
+        mock_special_handler.get_power_areas.return_value = {"power_area"}
+        mock_special_handler_class.return_value = mock_special_handler
+
+        mock_injection_service = Mock()
+        mock_injection_service.get_power_injection_preview.return_value = {
+            "preview": "data"
+        }
+        mock_injection_service_class.return_value = mock_injection_service
+
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+
+        # Test initialization with injection enabled
+        engine = BurstEngine(
+            connectome_manager=cm,
+            config={
+                "target_frequency": 100,
+                "enable_injection": True,
+                "special_area_config": {"test": "config"},
+                "injection_config": {"injection": "config"},
+            },
+        )
 
         # Mock special area handler
         engine.special_area_handler = Mock()

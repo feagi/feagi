@@ -22,8 +22,7 @@ high code coverage, including GPU bitmap operations, accelerated FCL operations,
 and backend integration.
 """
 
-from unittest.mock import patch
-
+import os
 import numpy as np
 import pytest
 
@@ -32,6 +31,13 @@ from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,
+)
+
+# Skip GPU adapter tests unless explicitly enabled
+GPU_TESTS_ENABLED = os.environ.get("FEAGI_GPU_TESTS", "0") == "1"
+pytestmark = pytest.mark.skipif(
+    not GPU_TESTS_ENABLED,
+    reason="GPU backend not available or disabled; set FEAGI_GPU_TESTS=1 to enable",
 )
 
 
