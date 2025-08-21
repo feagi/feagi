@@ -431,8 +431,6 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # Import here to avoid circular dependencies
             from feagi.npu.fcl_injection_service import FCLInjectionService
             from feagi.npu.special_area_handler import SpecialAreaHandler
-            from feagi.npu.interface import NPUInterface
-            from feagi.npu.data_structures import BackendType
 
             # CRITICAL: Use the SAME NPU interface instance that contains the neural data
             # The NPU interface is injected by core_api_service during burst engine configuration
@@ -441,11 +439,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # Use the NPU interface that was injected during configuration
             if hasattr(self, 'npu_interface') and self.npu_interface is not None:
                 npu_interface = self.npu_interface
-                logger.info(f"[INJECTION INIT] Using injected NPU interface (single source of truth)")
+                logger.info("[INJECTION INIT] Using injected NPU interface (single source of truth)")
             else:
                 # This should not happen with the new architecture
-                logger.error(f"[INJECTION INIT] CRITICAL: No NPU interface found on burst engine!")
-                logger.error(f"[INJECTION INIT] BurstEngine should have npu_interface injected by core_api_service")
+                logger.error("[INJECTION INIT] CRITICAL: No NPU interface found on burst engine!")
+                logger.error("[INJECTION INIT] BurstEngine should have npu_interface injected by core_api_service")
                 logger.error(f"[INJECTION INIT] Available attributes: {[attr for attr in dir(self) if 'npu' in attr.lower()]}")
                 
                 # This is an architectural error - no fallback allowed
@@ -610,11 +608,40 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 self.injection_service.inject_during_burst(self.burst_count)
                 self.injection_service.inject_post_burst(self.burst_count)
 
-            # 4. Debug output if enabled
+            # 4. CRITICAL: Add ONLY next-burst candidates (from NPU propagation) to FCL for t+1
+            if self.fcl_manager:
+                try:
+                    npu_if = getattr(self, 'npu_interface', None)
+                    if npu_if is None:
+                        npu_if = getattr(self.connectome_manager, '_npu_interface', None)
+                    if npu_if is None:
+                        raise RuntimeError("NPU interface not configured on BurstEngine")
+
+                    # Collect next-burst candidates computed during Phase 2
+                    candidate_ids = list(set(getattr(npu_if, '_next_burst_candidate_ids', []) or []))
+                    # Clear candidate buffer for next cycle
+                    if hasattr(npu_if, '_next_burst_candidate_ids'):
+                        npu_if._next_burst_candidate_ids = []
+
+                    if candidate_ids:
+                        neurons_by_cortical = npu_if.get_firing_neurons_by_cortical_area(candidate_ids)
+                        # Update FCL for next timestep (t+1)
+                        next_timestep = self.burst_count + 1
+                        self.fcl_manager.update_fcl(next_timestep, neurons_by_cortical)
+                        if state_manager.is_debug_npu_enabled():
+                            total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
+                            logger.info(
+                                f"[NPU-DEBUG] BURST ENGINE: Scheduled {total_neurons} next-burst candidates for t={next_timestep}"
+                            )
+                except Exception as e:
+                    if state_manager.is_debug_npu_enabled():
+                        logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
+
+            # 5. Debug output if enabled
             if self.debug_npu:
                 self._debug_fire_queue_output()
 
-            # 5. Performance tracking for embedded optimization
+            # 6. Performance tracking for embedded optimization
             burst_time = time.perf_counter() - burst_start_time
 
             # Log performance periodically for embedded systems
@@ -754,19 +781,25 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.injection_service.inject_post_burst(current_timestep)
 
         # 5. CRITICAL: Update FCL with fired neurons from NPU processing
-        #    This was missing - FCL manager needs to know which neurons fired!
+        #    Ensure we use the same NPU interface instance and log grouping details
         if fired_neurons and self.fcl_manager:
             try:
-                # Use NPU interface for efficient cortical area grouping
-                from feagi.npu.interface import NPUInterface
-                from feagi.npu.data_structures import BackendType
-                
-                # Create NPU interface if not available
-                if not hasattr(self, '_npu_interface'):
-                    self._npu_interface = NPUInterface(BackendType.CPU)
-                
-                # Group neurons by cortical area using NPU interface
-                neurons_by_cortical = self._npu_interface.get_firing_neurons_by_cortical_area(fired_neurons)
+                # Use the unified NPU interface instance shared with ConnectomeManager
+                npu_if = getattr(self, 'npu_interface', None)
+                if npu_if is None:
+                    npu_if = getattr(self.connectome_manager, '_npu_interface', None)
+                if npu_if is None:
+                    raise RuntimeError("NPU interface not configured on BurstEngine")
+
+                # Group neurons by cortical area using shared NPU interface
+                neurons_by_cortical = npu_if.get_firing_neurons_by_cortical_area(fired_neurons)
+                if state_manager.is_debug_npu_enabled():
+                    logger.info(
+                        f"[NPU-DEBUG] BURST ENGINE: Fired IDs={fired_neurons[:8]} (len={len(fired_neurons)})"
+                    )
+                    logger.info(
+                        f"[NPU-DEBUG] BURST ENGINE: Grouped by cortical={ {k: len(v) for k,v in neurons_by_cortical.items()} }"
+                    )
                 
                 # Update FCL with grouped neurons
                 if neurons_by_cortical:
@@ -1560,8 +1593,5 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return None
 
 
-# Export the main class and import UnifiedFQSampler from the dedicated module
-from .fq_sampler import UnifiedFQSampler
-
 # Public API
-__all__ = ["BurstEngine", "UnifiedFQSampler"]
+__all__ = ["BurstEngine"]

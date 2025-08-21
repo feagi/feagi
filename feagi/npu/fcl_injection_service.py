@@ -301,40 +301,40 @@ class FCLInjectionService:
                         )
                 return 0
 
-            #  FAST: Set membrane potential to PSP value from cortical area
-            #  properties
+            #  FAST: Set membrane potential ABOVE threshold for power neurons
             if self.connectome_manager and hasattr(
                 self.connectome_manager, "neuron_array"
             ):
                 if FeagiStateManager.instance().is_debug_npu_enabled():
                     logger.info("[INJECTION-DEBUG] Setting membrane potentials for power neurons")
-                #  Get PSP value from power area properties via connectome
-                #  manager
-                power_area = self.connectome_manager.get_cortical_area(
-                    "_power"
-                )
-                if power_area and power_area.properties:
-                    psp_value = power_area.properties.get(
-                        "postsynaptic_current", 500.0
-                    )
-                else:
-                    psp_value = 500.0  # Fallback to essential genome default
-
                 neuron_array = self.connectome_manager.neuron_array
-                # Prefer id-based property setter to avoid index mapping dependencies
-                if hasattr(neuron_array, "set_neuron_property"):
-                    for neuron_id in power_neurons:
+                for neuron_id in power_neurons:
+                    idx = neuron_array.neuron_id_to_index.get(neuron_id)
+                    if idx is None:
+                        continue
+                    # Compute the next representable float above threshold (epsilon step)
+                    thr32 = np.float32(neuron_array.thresholds[idx])
+                    mp = np.nextafter(thr32, np.float32(np.inf))
+                    if hasattr(neuron_array, "set_neuron_property"):
                         neuron_array.set_neuron_property(
-                            neuron_id, "membrane_potential", psp_value
+                            neuron_id, "membrane_potential", float(mp)
                         )
-                else:
-                    # Deterministic path: only use index if provided by CM
-                    for neuron_id in power_neurons:
-                        idx = self.connectome_manager.get_neuron_index(neuron_id)
-                        if idx is not None:
-                            neuron_array.membrane_potentials[idx] = psp_value
+                    else:
+                        neuron_array.membrane_potentials[idx] = mp
                 if FeagiStateManager.instance().is_debug_npu_enabled():
-                    logger.info(f"[INJECTION-DEBUG] Membrane potentials set to {psp_value} for {len(power_neurons)} power neurons")
+                    # Log a small sample of MP/Thr after setting
+                    sample = power_neurons[:5]
+                    samples = []
+                    for nid in sample:
+                        sidx = neuron_array.neuron_id_to_index.get(nid)
+                        if sidx is not None:
+                            samples.append({
+                                "id": int(nid),
+                                "V": float(neuron_array.membrane_potentials[sidx]),
+                                "Thr": float(neuron_array.thresholds[sidx]),
+                                "Refr": int(neuron_array.refractory_counters[sidx]),
+                            })
+                    logger.info(f"[INJECTION-DEBUG] Raised MPs for {len(power_neurons)} power neurons; sample={samples}")
 
             #  Now inject power neurons into FCL (with proper membrane
             #  potentials set)

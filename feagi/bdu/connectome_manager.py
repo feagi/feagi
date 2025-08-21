@@ -6950,36 +6950,14 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs in the area, or None if area not found
         """
-        # Debug logging for power area (info level and behind debug flag)
-        try:
-            from feagi.core.state_manager import FeagiStateManager
-            debug_enabled = FeagiStateManager.instance().is_debug_bdu_enabled()
-        except Exception:
-            debug_enabled = False
-        if cortical_id == "_power" and debug_enabled:
-            logger.info("[CONNECTOME-POWER-DEBUG] get_neurons_by_area called for _power")
-            logger.info(f"[CONNECTOME-POWER-DEBUG] NPU Interface available: {self._npu_interface is not None}")
-        
         if not self._npu_interface:
-            if cortical_id == "_power" and debug_enabled:
-                logger.info("[CONNECTOME-POWER-DEBUG] NPU Interface is None, returning None")
             return None
-            
-        # Map cortical_id to cortical_idx
+
         cortical_idx = self._npu_interface.get_cortical_idx_by_id(cortical_id)
-        if cortical_id == "_power" and debug_enabled:
-            logger.info(f"[CONNECTOME-POWER-DEBUG] Mapped _power to cortical_idx: {cortical_idx}")
-        
         if cortical_idx is None:
-            if cortical_id == "_power" and debug_enabled:
-                logger.info("[CONNECTOME-POWER-DEBUG] cortical_idx is None, returning None")
             return None
-            
-        # Get neurons by cortical_idx
-        result = self._npu_interface.get_neurons_by_area(cortical_idx)
-        if cortical_id == "_power" and debug_enabled:
-            logger.info(f"[CONNECTOME-POWER-DEBUG] NPU Interface returned: {result}")
-        return result
+
+        return self._npu_interface.get_neurons_by_area(cortical_idx)
 
     def debug_cortical_areas(self) -> Dict[str, Any]:
         """Debug method to show all cortical areas and their neuron counts.

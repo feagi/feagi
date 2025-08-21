@@ -4438,9 +4438,7 @@ class GenomeService(BaseService):
 
         # 🔍 CHECKPOINT 0: Initial state before expansion
         initial_synapse_count = self._connectome_manager.get_synapse_count()
-        initial_neuron_count = (
-            self._connectome_manager.neuron_array.get_neuron_count()
-        )
+        initial_neuron_count = self._connectome_manager.get_neuron_count()
 
         self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 0 - Initial State:")
         self.logger.info(
@@ -4796,9 +4794,7 @@ class GenomeService(BaseService):
 
             # 🔍 CHECKPOINT 8: Final results
             final_synapse_count = self._connectome_manager.get_synapse_count()
-            final_neuron_count = (
-                self._connectome_manager.neuron_array.get_neuron_count()
-            )
+            final_neuron_count = self._connectome_manager.get_neuron_count()
             synapses_added = final_synapse_count - initial_synapse_count
             neurons_added = final_neuron_count - initial_neuron_count
 

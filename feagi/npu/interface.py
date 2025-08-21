@@ -20,11 +20,10 @@ Architecture:
 - State Manager tracks locking state
 """
 
-from typing import Dict, List, Tuple, Optional, Set, Any, Union
+from typing import Dict, List, Tuple, Optional, Any, Union
 from enum import Enum
 import numpy as np
 from dataclasses import dataclass
-import logging
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.data_structures import NeuronArray, MemoryNeuronArray, SynapseArray, BackendType
@@ -60,16 +59,7 @@ class BatchOperationResult:
         return self.successful_count > 0 and len(self.failed_indices) > 0
 
 
-@dataclass
-class NeuronCreationRequest:
-    """Request for creating neurons."""
-    cortical_idx: int  # Fast integer index for NPU operations
-    positions: List[Tuple[int, int, int]]
-    neuron_types: Optional[List[int]] = None
-    initial_potentials: Optional[List[float]] = None
-    thresholds: Optional[List[float]] = None
-    leak_coefficients: Optional[List[float]] = None
-    excitabilities: Optional[List[float]] = None
+# NOTE: NeuronCreationRequest is defined later in this file (single canonical definition)
 
 
 @dataclass
@@ -85,7 +75,10 @@ class SynapseCreationRequest:
 
 @dataclass
 class NeuronCreationRequest:
-    """Request for batch neuron creation."""
+    """Request for batch neuron creation.
+
+    Note: This definition supersedes the earlier lightweight `NeuronCreationRequest` above.
+    """
     cortical_idx: int
     positions: List[Tuple[int, int, int]]
     neuron_types: Optional[List[int]] = None
@@ -136,6 +129,10 @@ class NPUInterface:
         logger.info(f"   Max neurons: {self.neuron_array.max_neurons:,}")
         logger.info(f"   Max memory neurons: {self.memory_neuron_array.max_memory_neurons:,}")
         logger.info(f"   Max synapses: {self.synapse_array.max_synapses:,}")
+        
+        # Track next-burst candidates computed during Phase 2 (post-synaptic propagation)
+        # These should not fire within the same burst; they are added to FCL for t+1
+        self._next_burst_candidate_ids: List[int] = []
     
     # ===== CORTICAL AREA MANAGEMENT =====
     
@@ -192,18 +189,7 @@ class NPUInterface:
         Returns:
             List of neuron IDs in the area
         """
-        neuron_ids = []
-        for neuron_id, area_idx in self.neuron_to_area.items():
-            if area_idx == cortical_idx:
-                neuron_ids.append(neuron_id)
-        
-        # Debug logging for power area
-        if cortical_idx in self.cortical_areas and self.cortical_areas[cortical_idx].get("cortical_id") == "_power":
-            logger.error(f"[NPU-POWER-DEBUG] get_neurons_by_area({cortical_idx}) for _power found {len(neuron_ids)} neurons: {neuron_ids}")
-            logger.error(f"[NPU-POWER-DEBUG] Total neuron_to_area mappings: {len(self.neuron_to_area)}")
-            logger.error(f"[NPU-POWER-DEBUG] Sample mappings: {dict(list(self.neuron_to_area.items())[:5])}")
-        
-        return neuron_ids
+        return [nid for nid, aidx in self.neuron_to_area.items() if aidx == cortical_idx]
     
     def debug_cortical_areas(self) -> Dict[str, Any]:
         """Debug method to show all cortical areas and their neuron counts.
@@ -312,7 +298,7 @@ class NPUInterface:
                                   target_array._next_neuron_id + count))
             
             # SIMD-optimized batch creation
-            indices = target_array.add_neurons_batch(
+            target_array.add_neurons_batch(
                 neuron_ids=neuron_ids,
                 positions=positions,
                 neuron_types=neuron_types,
@@ -608,16 +594,7 @@ class NPUInterface:
         
         return target_array.get_property(neuron_id, property_name)
     
-    def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
-        """Get all neuron IDs in a cortical area.
-        
-        Args:
-            cortical_idx: Fast integer index for the cortical area
-            
-        Returns:
-            List of neuron IDs in the area
-        """
-        return [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
+    # NOTE: get_neurons_by_area is defined earlier in this class.
     
     def get_area_statistics(self, cortical_idx: int) -> Optional[Dict[str, Any]]:
         """Get statistics for a cortical area.
@@ -652,7 +629,7 @@ class NPUInterface:
                 logger.debug(f"🔒 Area {cortical_idx} lock check: {result}")
                 return result
             else:
-                logger.warning(f"🔒 State manager doesn't have is_cortical_area_locked method - assuming unlocked")
+                logger.warning("🔒 State manager doesn't have is_cortical_area_locked method - assuming unlocked")
                 return False
         except Exception as e:
             logger.error(f"🔒 Error checking area lock for {cortical_idx}: {e}")
@@ -725,7 +702,7 @@ class NPUInterface:
             logger.info(f"[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING START (timestep {timestep}) ===")
             logger.info(f"[NPU-BURST-DEBUG] NPU neuron count: {self.neuron_array.neuron_count}")
             logger.info(f"[NPU-BURST-DEBUG] NPU synapse count: {self.synapse_array.synapse_count}")
-            logger.info(f"[NPU-BURST-DEBUG] PHASE 1: Neural updates...")
+            logger.info("[NPU-BURST-DEBUG] PHASE 1: Neural updates...")
         
         # Phase 1: Neural updates using SIMD operations
         from feagi.npu.simd_neural_ops import simd_batch_neural_update
@@ -735,8 +712,30 @@ class NPUInterface:
         
         if valid_range == 0:
             if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-BURST-DEBUG] No neurons to process - returning empty list")
+                logger.info("[NPU-BURST-DEBUG] No neurons to process - returning empty list")
             return []
+
+        # Debug precheck: how many neurons are above threshold and not refractory
+        if state_manager.is_debug_npu_enabled():
+            pots = self.neuron_array.membrane_potentials[:valid_range]
+            thrs = self.neuron_array.thresholds[:valid_range]
+            refr = self.neuron_array.refractory_counters[:valid_range]
+            above_mask = pots >= thrs
+            can_fire_mask = refr == 0
+            ready_mask = above_mask & can_fire_mask
+            above_cnt = int(np.count_nonzero(above_mask))
+            ready_cnt = int(np.count_nonzero(ready_mask))
+            logger.info(f"[NPU-BURST-DEBUG] PHASE 1 PRECHECK: above_threshold={above_cnt}, ready_to_fire={ready_cnt}")
+            if ready_cnt > 0:
+                sample_idx = np.where(ready_mask)[0][:5]
+                try:
+                    sample_ids = self.neuron_array.indices_to_neuron_ids(sample_idx, filter_invalid=True).tolist()
+                except Exception:
+                    sample_ids = []
+                sample_pots = pots[sample_idx].astype(float).tolist()
+                sample_thrs = thrs[sample_idx].astype(float).tolist()
+                sample_refr = refr[sample_idx].astype(int).tolist()
+                logger.info(f"[NPU-BURST-DEBUG] PHASE 1 PRECHECK SAMPLE: idx={sample_idx.tolist()}, ids={sample_ids}, V={sample_pots}, Thr={sample_thrs}, Refr={sample_refr}")
         
         # Perform SIMD neural updates
         # Create output mask for fired neurons
@@ -754,27 +753,139 @@ class NPUInterface:
             output_firing_mask=output_firing_mask
         )
         
-        # Extract fired neuron IDs from the firing mask
-        fired_neurons = np.where(output_firing_mask)[0].tolist()
+        # Extract fired array indices from the firing mask
+        fired_indices = np.where(output_firing_mask)[0]
+        # Map indices to neuron IDs (authoritative mapping owned by NPU)
+        fired_id_array = self.neuron_array.indices_to_neuron_ids(
+            fired_indices, filter_invalid=True
+        )
+        fired_neurons = fired_id_array.tolist()
         
         if state_manager.is_debug_npu_enabled():
             fired_count = len(fired_neurons) if fired_neurons else 0
             logger.info(f"[NPU-BURST-DEBUG] PHASE 1 COMPLETE: {fired_count} neurons fired")
+            if fired_count > 0:
+                logger.info(f"[NPU-BURST-DEBUG] PHASE 1 FIRED SAMPLE: {fired_neurons[:5]}")
         
         # Phase 2: Synaptic propagation (if we have synapses and fired neurons)
         if fired_neurons and self.synapse_array.synapse_count > 0:
             if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 2: Synaptic propagation...")
+                logger.info(
+                    f"[NPU-BURST-DEBUG] PHASE 2: Synaptic propagation... fired={len(fired_neurons)}, synapses={self.synapse_array.synapse_count}, npu_id={id(self)}"
+                )
             
-            # TODO: Add synaptic propagation logic here
-            # This would update membrane potentials of target neurons based on fired neurons
-            # For now, we return the fired neurons from Phase 1
-            
+            # Gather all outgoing synapses for fired neurons
+            all_syn_indices: List[int] = []
+            src_counts = 0
+            for src_id in fired_neurons:
+                syn_list = self.synapse_array.source_neuron_index.get(src_id)
+                if syn_list:
+                    all_syn_indices.extend(syn_list)
+                    src_counts += 1
             if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 2 COMPLETE: Synaptic propagation processed")
+                logger.info(
+                    f"[NPU-BURST-DEBUG] PHASE 2: Aggregated synapses from {src_counts} sources, total_edges={len(all_syn_indices)}"
+                )
+
+            if all_syn_indices:
+                syn_indices = np.array(all_syn_indices, dtype=np.int32)
+                # Filter valid synapses
+                valid_mask = self.synapse_array.valid_mask[syn_indices]
+                if np.any(valid_mask):
+                    syn_indices = syn_indices[valid_mask]
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(
+                            f"[NPU-BURST-DEBUG] PHASE 2: Valid edges after mask={syn_indices.size}"
+                        )
+                    # Fetch targets and weights
+                    target_ids = self.synapse_array.target_neuron_ids[syn_indices].astype(np.int32)
+                    weights = self.synapse_array.weights[syn_indices].astype(np.float32)
+                    # Apply synapse type (excitatory/inhibitory) and conductance
+                    syn_types = self.synapse_array.types[syn_indices].astype(np.int32)
+                    conductances = self.synapse_array.conductances[syn_indices].astype(np.float32)
+                    sign = np.where(syn_types == 0, 1.0, -1.0).astype(np.float32)
+                    contributions = weights * conductances * sign
+                    # Map target neuron IDs to array indices
+                    # Vectorized mapping via dictionary (deterministic, no fallbacks)
+                    target_indices = np.fromiter(
+                        (self.neuron_array.neuron_id_to_index.get(int(tid), -1) for tid in target_ids.tolist()),
+                        dtype=np.int32,
+                        count=target_ids.size,
+                    )
+                    valid_targets = target_indices >= 0
+                    if np.any(valid_targets):
+                        target_indices = target_indices[valid_targets]
+                        contributions = contributions[valid_targets]
+                        if state_manager.is_debug_npu_enabled():
+                            logger.info(
+                                f"[NPU-BURST-DEBUG] PHASE 2: Valid target indices={target_indices.size} (sample={target_indices[:5].tolist() if target_indices.size>0 else []})"
+                            )
+                        # Accumulate post-synaptic current into membrane potentials
+                        np.add.at(
+                            self.neuron_array.membrane_potentials,
+                            target_indices,
+                            contributions,
+                        )
+                        # Ensure these targets are marked non-refractory for next-cycle eligibility only
+                        # (RTOS deterministic: refractory only set on actual firing)
+                        if state_manager.is_debug_npu_enabled():
+                            logger.info(
+                                f"[NPU-BURST-DEBUG] PHASE 2: Applied {contributions.size} synaptic updates from {src_counts} sources"
+                            )
+
+                        # Determine next-burst eligible targets (do NOT fire in current burst)
+                        # Deterministic and vectorized; limited to affected targets only
+                        unique_targets = np.unique(target_indices)
+                        # Clip to valid neuron range
+                        valid_target_mask = unique_targets < min(self.neuron_array.neuron_count, self.neuron_array.max_neurons)
+                        unique_targets = unique_targets[valid_target_mask]
+                        if unique_targets.size > 0:
+                            from feagi.npu.simd_neural_ops import simd_firing_check
+                            # Build can-fire mask (not in refractory)
+                            can_fire_mask = self.neuron_array.refractory_counters[unique_targets] == 0
+                            if np.any(can_fire_mask):
+                                eligible_mask = simd_firing_check(
+                                    self.neuron_array.membrane_potentials[unique_targets],
+                                    self.neuron_array.thresholds[unique_targets],
+                                    can_fire_mask,
+                                )
+                                if np.any(eligible_mask):
+                                    eligible_global = unique_targets[eligible_mask]
+                                    # Map eligible target indices back to neuron IDs
+                                    eligible_ids = self.neuron_array.indices_to_neuron_ids(
+                                        eligible_global, filter_invalid=True
+                                    ).tolist()
+                                    if eligible_ids:
+                                        # Accumulate next-burst candidates (dedup later)
+                                        self._next_burst_candidate_ids.extend(eligible_ids)
+                                        if state_manager.is_debug_npu_enabled():
+                                            logger.info(
+                                                f"[NPU-BURST-DEBUG] PHASE 2: Next-burst eligible targets: {len(eligible_ids)} (sample={eligible_ids[:5]})"
+                                            )
+                                else:
+                                    if state_manager.is_debug_npu_enabled():
+                                        logger.info(
+                                            f"[NPU-BURST-DEBUG] PHASE 2: No next-burst eligible targets (targets={unique_targets.size})"
+                                        )
+                            else:
+                                if state_manager.is_debug_npu_enabled():
+                                    logger.info(
+                                        "[NPU-BURST-DEBUG] PHASE 2: No neurons can be eligible (all refractory or below threshold)"
+                                    )
+                    else:
+                        if state_manager.is_debug_npu_enabled():
+                            logger.info(
+                                f"[NPU-BURST-DEBUG] PHASE 2: 0 valid target indices (mapped from {target_ids.size} target IDs)"
+                            )
+            else:
+                if state_manager.is_debug_npu_enabled():
+                    logger.info("[NPU-BURST-DEBUG] PHASE 2: No outgoing synapses from current fired set")
+        
+            if state_manager.is_debug_npu_enabled():
+                logger.info("[NPU-BURST-DEBUG] PHASE 2 COMPLETE: Synaptic propagation processed")
         
         if state_manager.is_debug_npu_enabled():
-            logger.info(f"[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING END ===")
+            logger.info("[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING END ===")
             logger.info(f"[NPU-BURST-DEBUG] Total fired neurons: {len(fired_neurons) if fired_neurons else 0}")
         
         return fired_neurons if fired_neurons else []

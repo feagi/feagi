@@ -438,12 +438,13 @@ def setup_logger(
 
     logger = logging.getLogger(name)
 
-    # CRITICAL FIX: Only configure logger if not already configured
-    #  This prevents duplicate handlers when setup_logger is called multiple
-    #  times
+    # Always apply the computed level to the logger, even if handlers exist
+    # This ensures CLI/config updates affect existing module loggers reliably
+    logger.setLevel(final_level)
+    logger.propagate = False
+
+    # Only create handlers once to prevent duplication
     if not logger.handlers or len(logger.handlers) == 0:
-        logger.setLevel(final_level)
-        logger.propagate = False
 
         formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -573,11 +574,9 @@ def setup_logger(
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
     else:
-        # Logger already configured - just update level if provided explicitly
-        if level is not None:
-            logger.setLevel(level)
-            for handler in logger.handlers:
-                handler.setLevel(level)
+        # Logger already configured - update handler levels to match final_level
+        for handler in logger.handlers:
+            handler.setLevel(final_level)
 
     return StatusAdapter(logger, {"label": tag or name})
 
