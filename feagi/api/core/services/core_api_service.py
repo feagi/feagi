@@ -518,23 +518,64 @@ class CoreAPIService:
                     # Continue with other properties if one fails
                     continue
             
-            # If NPU didn't return any properties, fall back to ConnectomeManager
-            if not properties:
-                self.logger.debug(f"NPU didn't return properties for neuron {neuron_id}, using ConnectomeManager")
-                connectome_manager = self._cortical_area_service._connectome_manager
-                if not connectome_manager:
-                    self.logger.error("ConnectomeManager not available for neuron property access")
-                    return None
+            # Build full response strictly from NPU + mappings (no legacy fallbacks)
+            cm = self._connectome_manager
+            npu = getattr(cm, "_npu_interface", None)
+            if not npu or not hasattr(npu, "neuron_array"):
+                return None
+            na = npu.neuron_array
+            if neuron_id not in na.neuron_id_to_index:
+                return None
+            idx = na.neuron_id_to_index[neuron_id]
+            cortical_idx = int(na.cortical_idxs[idx])
+            # cortical_id via NPU registry
+            cortical_id = None
+            try:
+                area_info = npu.cortical_areas.get(cortical_idx)
+                if area_info:
+                    cortical_id = area_info.get("cortical_id")
+            except Exception:
+                cortical_id = None
 
-                properties = connectome_manager.get_neuron_properties(neuron_id)
-                if not properties:
-                    self.logger.warning(f"Neuron {neuron_id} not found in ConnectomeManager")
-                    return None
+            # Populate required fields (override any partial/None values)
+            properties["position"] = [
+                int(na.coordinates_x[idx]),
+                int(na.coordinates_y[idx]),
+                int(na.coordinates_z[idx]),
+            ]
+            properties["threshold"] = float(na.thresholds[idx])
+            properties["membrane_potential"] = float(na.membrane_potentials[idx])
+            properties["resting_potential"] = float(na.resting_potentials[idx]) if hasattr(na, "resting_potentials") else 0.0
+            properties["decay_rate"] = float(na.decay_rates[idx])
+            properties["refractory_period"] = int(na.refractory_periods[idx])
+            properties["refractory_counter"] = int(na.refractory_counters[idx])
+            if "properties" not in properties or properties["properties"] is None:
+                properties["properties"] = {}
 
-            # Add neuron_id to the response and convert position tuple to list
+            # Synapses via NPU SynapseArray
+            sa = getattr(cm, "synapse_array", None)
+            if sa is None and hasattr(npu, "synapse_array"):
+                sa = npu.synapse_array
+            outgoing = sa.get_outgoing_connections(neuron_id) if sa else []
+            incoming = sa.get_incoming_connections(neuron_id) if sa else []
+            properties["outgoing_synapses"] = [
+                {"target_neuron_id": int(t), "weight": float(w)} for (t, w) in outgoing
+            ]
+            properties["incoming_synapses"] = [
+                {"source_neuron_id": int(s), "weight": float(w)} for (s, w) in incoming
+            ]
+            properties["synapse_counts"] = {
+                "outgoing": len(outgoing),
+                "incoming": len(incoming),
+                "total": len(outgoing) + len(incoming),
+            }
+
+            # Add neuron_id to the response
             properties["neuron_id"] = neuron_id
-            if "position" in properties and isinstance(properties["position"], tuple):
-                properties["position"] = list(properties["position"])
+            # Add cortical identifiers
+            if cortical_id is not None:
+                properties["cortical_id"] = cortical_id
+            properties["cortical_idx"] = cortical_idx
 
             self.logger.info(
                 f"DEBUG: Successfully got properties for neuron {neuron_id}: {list(properties.keys())}"

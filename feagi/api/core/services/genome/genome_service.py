@@ -4933,18 +4933,35 @@ class GenomeService(BaseService):
         width, height, depth = area.dimensions
         positions = []
 
-        # Find all voxels that DON'T have neurons yet (the expanded regions)
+        # Find all voxels that DON'T have neurons yet (NPU SoA authoritative)
         empty_voxels = []
-        for x in range(width):
-            for y in range(height):
-                for z in range(depth):
-                    position = (x, y, z)
-                    # Check if this voxel already has neurons
-                    existing_neurons = area.get_neurons_at_position(position)
-                    if (
-                        not existing_neurons
-                    ):  # This is an empty voxel in the expanded area
-                        empty_voxels.append(position)
+        try:
+            npu = getattr(self._connectome_manager, "_npu_interface", None)
+            if npu is None:
+                raise RuntimeError("NPU Interface required for expansion position generation")
+            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            if cortical_idx is None:
+                raise RuntimeError(f"Unknown cortical_id: {cortical_id}")
+
+            na = npu.neuron_array
+            import numpy as np
+            total = int(na.neuron_count)
+            if total > 0:
+                mask = (na.cortical_idxs[:total] == cortical_idx)
+                ix = np.nonzero(mask)[0]
+                occ = set(zip(na.coordinates_x[ix].tolist(), na.coordinates_y[ix].tolist(), na.coordinates_z[ix].tolist()))
+            else:
+                occ = set()
+
+            for x in range(width):
+                for y in range(height):
+                    for z in range(depth):
+                        position = (x, y, z)
+                        if position not in occ:
+                            empty_voxels.append(position)
+        except Exception as e:
+            self.logger.error(f"[EXPANSION] NPU position scan failed for {cortical_id}: {e}")
+            # If NPU scan fails, proceed with no empty voxels
 
         self.logger.info(
             f"[EXPANSION] Found {len(empty_voxels)} empty voxels in expanded area {cortical_id}"

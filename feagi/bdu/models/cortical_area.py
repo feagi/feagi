@@ -16,10 +16,13 @@ import random
 import string
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-"""Cortical area data model for the BDU.
+"""Cortical area data model for the BDU (metadata only).
 
-This module provides the data model for representing cortical areas,
-which are 3D regions containing populations of neurons.
+Runtime architecture note:
+- NPU is the single source of truth for neurons/synapses (SoA arrays)
+- This model is not used for runtime lookups or mapping decisions
+- Any voxel→neuron queries must go through NPU-backed ConnectomeManager
+  helpers (e.g., batch_voxel_to_neuron_lookup) instead of local caches
 """
 
 
@@ -89,10 +92,10 @@ class CorticalArea:
         # Track neuron indices within this area
         self._neuron_indices: Set[int] = set()
 
-        # Cache for neuron positions
+        # Cache for neuron positions (metadata only; NPU SoA is authoritative)
         self._position_map: Dict[int, Tuple[int, int, int]] = {}
 
-        # Map positions to neuron IDs
+        # Map positions to neuron IDs (deprecated for runtime; not authoritative)
         self._position_to_neurons: Dict[Tuple[int, int, int], List[int]] = {}
 
         # Region this area belongs to (if any)
@@ -301,13 +304,17 @@ class CorticalArea:
     def get_neurons_at_position(
         self, position: Tuple[int, int, int]
     ) -> List[int]:
-        """Get all neurons at a specific position.
+        """Get all neurons at a specific position (metadata cache).
 
         Args:
             position: 3D coordinates to check
 
         Returns:
-            List of neuron IDs at the specified position
+            List of neuron IDs at the specified position (if cached)
+
+        Warning:
+            This cache is not used by the runtime. Use NPU-backed
+            ConnectomeManager utilities for authoritative queries.
         """
         return self._position_to_neurons.get(position, [])
 

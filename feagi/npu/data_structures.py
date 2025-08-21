@@ -912,9 +912,9 @@ class SynapseArray:
         self.source_neuron_ids[start_idx:end_idx] = np.array(source_neuron_ids, dtype=np.int32)
         self.target_neuron_ids[start_idx:end_idx] = np.array(target_neuron_ids, dtype=np.int32)
         self.weights[start_idx:end_idx] = np.array(weights, dtype=np.float32)
-        self.delays[start_idx:end_idx] = np.array(delays, dtype=np.int32)
-        self.plasticity_types[start_idx:end_idx] = np.array(plasticity_types, dtype=np.int32)
-        self.plasticity_coefficients[start_idx:end_idx] = np.array(plasticity_coefficients, dtype=np.float32)
+        self.delays[start_idx:end_idx] = np.array(delays, dtype=np.uint8)
+        self.plasticity_types[start_idx:end_idx] = np.array(plasticity_types, dtype=np.uint8)
+        self.plasticity_coeffs[start_idx:end_idx] = np.array(plasticity_coefficients, dtype=np.float32)
         
         # Mark as active
         self.is_active[start_idx:end_idx] = True

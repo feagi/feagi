@@ -1012,15 +1012,11 @@ class ConnectomeManager(NeuronMappingProvider):
     @property
     def _npu_interface(self):
         """Property to track access to NPU interface."""
-        import sys
-        print(f"🔧 _npu_interface accessed on {id(self)}: {self._npu_interface_internal}", file=sys.stderr, flush=True)
         return self._npu_interface_internal
     
     @_npu_interface.setter
     def _npu_interface(self, value):
         """Property to track setting of NPU interface."""
-        import sys
-        print(f"🔧 _npu_interface set on {id(self)} to: {value}", file=sys.stderr, flush=True)
         self._npu_interface_internal = value
 
     def _initialize_npu_interface(self, backend: str):
@@ -1794,10 +1790,20 @@ class ConnectomeManager(NeuronMappingProvider):
         if len(valid_indices) == 0:
             return []
 
-        # Use the existing vectorized method from NeuronArray
-        neuron_ids_array = self.neuron_array.vectorized_indices_to_neuron_ids(
+        # Use the NPU-owned vectorized conversion
+        if hasattr(self.neuron_array, "indices_to_neuron_ids"):
+            neuron_ids_array = self.neuron_array.indices_to_neuron_ids(
             valid_indices, filter_invalid=True
         )
+        else:
+            # Fallback to dict mapping without removing SoA dependency
+            ids = []
+            for idx in list(valid_indices):
+                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
+                if nid is not None:
+                    ids.append(int(nid))
+            import numpy as np
+            neuron_ids_array = np.array(ids, dtype=np.int32)
 
         # Convert NumPy array to list for API compatibility
         return neuron_ids_array.tolist()
@@ -1996,11 +2002,11 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If either neuron doesn't exist
         """
         # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2039,63 +2045,51 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         # CRITICAL DEBUG: Log synapse creation attempts
         logger.info(f"[COORD-DEBUG] *** BATCH_CREATE_SYNAPSES CALLED *** with {len(synapse_specs) if synapse_specs else 0} synapse specs")
-        print(f"[COORD-DEBUG] *** BATCH_CREATE_SYNAPSES CALLED *** with {len(synapse_specs) if synapse_specs else 0} synapse specs")
         
         if synapse_specs:
             # Log the first few synapse specs for debugging
             sample_specs = synapse_specs[:5]  # First 5 specs
             logger.info(f"[COORD-DEBUG] Sample synapse specs: {sample_specs}")
-            print(f"[COORD-DEBUG] Sample synapse specs: {sample_specs}")
             
             # Check specifically for neuron 2 -> 4495 synapse
             power_to_iic200 = [(pre, post, weight) for pre, post, weight in synapse_specs if pre == 2 and post == 4495]
             if power_to_iic200:
                 logger.info(f"[COORD-DEBUG] *** FOUND POWER->IIC200 SYNAPSE *** {power_to_iic200}")
-                print(f"[COORD-DEBUG] *** FOUND POWER->IIC200 SYNAPSE *** {power_to_iic200}")
         
         if not synapse_specs:
             logger.info(f"[COORD-DEBUG] No synapse specs provided - returning 0")
-            print(f"[COORD-DEBUG] No synapse specs provided - returning 0")
             return 0
 
-        # Validate that all neurons exist before batch creation
+        # Validate that all neurons exist using NPU-owned mapping before batch creation
         valid_specs = []
         invalid_specs = []
         for pre_id, post_id, weight in synapse_specs:
-            if (
-                pre_id in self.neuron_id_to_index
-                and post_id in self.neuron_id_to_index
-            ):
+            pre_exists = self.get_neuron_index(pre_id) is not None
+            post_exists = self.get_neuron_index(post_id) is not None
+            if pre_exists and post_exists:
                 valid_specs.append((pre_id, post_id, weight))
             else:
                 invalid_specs.append((pre_id, post_id, weight))
                 # Log missing neurons
-                if pre_id not in self.neuron_id_to_index:
-                    logger.info(f"[COORD-DEBUG] Pre-neuron {pre_id} not found in neuron_id_to_index")
-                    print(f"[COORD-DEBUG] Pre-neuron {pre_id} not found in neuron_id_to_index")
-                if post_id not in self.neuron_id_to_index:
-                    logger.info(f"[COORD-DEBUG] Post-neuron {post_id} not found in neuron_id_to_index")
-                    print(f"[COORD-DEBUG] Post-neuron {post_id} not found in neuron_id_to_index")
+                if not pre_exists:
+                    logger.info(f"[COORD-DEBUG] Pre-neuron {pre_id} not found (NPU mapping)")
+                if not post_exists:
+                    logger.info(f"[COORD-DEBUG] Post-neuron {post_id} not found (NPU mapping)")
 
         logger.info(f"[COORD-DEBUG] Validation results: {len(valid_specs)} valid, {len(invalid_specs)} invalid")
-        print(f"[COORD-DEBUG] Validation results: {len(valid_specs)} valid, {len(invalid_specs)} invalid")
 
         if not valid_specs:
             logger.warning("No valid synapse specifications found")
             logger.info(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
-            print(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
             return 0
 
         # Use new NPU SynapseArray's vectorized batch creation
         logger.info(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
-        print(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
         
         created_count = self.synapse_array.batch_create_synapses(valid_specs)
         
         logger.info(f"[COORD-DEBUG] NPU SynapseArray created {created_count} synapses")
-        print(f"[COORD-DEBUG] NPU SynapseArray created {created_count} synapses")
         logger.info(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
-        print(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
         
         # Update state manager with new synapse count (optimized - synapse count only)
         if created_count > 0:
@@ -2185,12 +2179,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2220,12 +2214,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2252,12 +2246,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2286,7 +2280,17 @@ class ConnectomeManager(NeuronMappingProvider):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Use NPU SynapseArray for fast outgoing connection lookup
-        return self.synapse_array.get_outgoing_connections(neuron_id)
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            # Rewire from NPU interface if not already set (no fallback, same NPU instance)
+            try:
+                self.synapse_array = self._npu_interface.synapse_array
+                syn_array = self.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
+        return syn_array.get_outgoing_connections(neuron_id)
 
     def get_incoming_connections(
         self, neuron_id: int
@@ -2306,7 +2310,16 @@ class ConnectomeManager(NeuronMappingProvider):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Use NPU SynapseArray for fast incoming connection lookup
-        return self.synapse_array.get_incoming_connections(neuron_id)
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            try:
+                self.synapse_array = self._npu_interface.synapse_array
+                syn_array = self.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
+        return syn_array.get_incoming_connections(neuron_id)
 
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
@@ -5718,13 +5731,26 @@ class ConnectomeManager(NeuronMappingProvider):
 
     @property
     def neuron_id_to_index(self):
-        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
-        return self._neuron_id_to_index_map
+        """Return NPU-owned neuron_id->index mapping for compatibility.
+
+        Prefer the NPU NeuronArray mapping; legacy map kept only as last resort.
+        """
+        try:
+            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
+                return self._npu_interface.neuron_array.neuron_id_to_index
+        except Exception:
+            pass
+        return getattr(self, "_neuron_id_to_index_map", {})
 
     @property
     def index_to_neuron_id(self):
-        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
-        return self._index_to_neuron_id_map
+        """Return NPU-owned index->neuron_id mapping for compatibility."""
+        try:
+            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
+                return self._npu_interface.neuron_array.index_to_neuron_id
+        except Exception:
+            pass
+        return getattr(self, "_index_to_neuron_id_map", {})
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
@@ -5744,18 +5770,23 @@ class ConnectomeManager(NeuronMappingProvider):
             Single neuron ID (int) or array of neuron IDs (np.ndarray)
         """
         if isinstance(indices, (int, np.integer)):
-            # Single index lookup
-            return self.neuron_array.index_to_id_map.get(indices, -1)
+            # Single index lookup via NPU map
+            return self.neuron_array.index_to_neuron_id.get(indices, -1)
         else:
-            #  Batch lookup using vectorized method - CRITICAL: Ensure proper
-            #  data types
-            result = self.neuron_array.vectorized_indices_to_neuron_ids(
-                np.asarray(indices),
-                filter_invalid=True,  # Only return valid IDs
-            )
-            #  CRITICAL: Convert to Python integers to prevent segfault in FCL
-            #  processing
+            # Batch lookup using NPU-owned conversion
+            if hasattr(self.neuron_array, "indices_to_neuron_ids"):
+                result = self.neuron_array.indices_to_neuron_ids(
+                    np.asarray(indices), filter_invalid=True
+                )
             return result.astype(np.int64)
+            # Fallback to dict mapping without touching BDU arrays
+            mapped = []
+            for idx in list(np.asarray(indices)):
+                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
+                if nid is not None:
+                    mapped.append(int(nid))
+            import numpy as np
+            return np.array(mapped, dtype=np.int64)
 
     # ======================================================================
     # QUERY METHODS FOR TESTS
@@ -6919,30 +6950,35 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs in the area, or None if area not found
         """
-        # Debug logging for power area
-        if cortical_id == "_power":
-            logger.error(f"[CONNECTOME-POWER-DEBUG] get_neurons_by_area called for _power")
-            logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface available: {self._npu_interface is not None}")
+        # Debug logging for power area (info level and behind debug flag)
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            debug_enabled = FeagiStateManager.instance().is_debug_bdu_enabled()
+        except Exception:
+            debug_enabled = False
+        if cortical_id == "_power" and debug_enabled:
+            logger.info("[CONNECTOME-POWER-DEBUG] get_neurons_by_area called for _power")
+            logger.info(f"[CONNECTOME-POWER-DEBUG] NPU Interface available: {self._npu_interface is not None}")
         
         if not self._npu_interface:
-            if cortical_id == "_power":
-                logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface is None, returning None")
+            if cortical_id == "_power" and debug_enabled:
+                logger.info("[CONNECTOME-POWER-DEBUG] NPU Interface is None, returning None")
             return None
             
         # Map cortical_id to cortical_idx
         cortical_idx = self._npu_interface.get_cortical_idx_by_id(cortical_id)
-        if cortical_id == "_power":
-            logger.error(f"[CONNECTOME-POWER-DEBUG] Mapped _power to cortical_idx: {cortical_idx}")
+        if cortical_id == "_power" and debug_enabled:
+            logger.info(f"[CONNECTOME-POWER-DEBUG] Mapped _power to cortical_idx: {cortical_idx}")
         
         if cortical_idx is None:
-            if cortical_id == "_power":
-                logger.error(f"[CONNECTOME-POWER-DEBUG] cortical_idx is None, returning None")
+            if cortical_id == "_power" and debug_enabled:
+                logger.info("[CONNECTOME-POWER-DEBUG] cortical_idx is None, returning None")
             return None
             
         # Get neurons by cortical_idx
         result = self._npu_interface.get_neurons_by_area(cortical_idx)
-        if cortical_id == "_power":
-            logger.error(f"[CONNECTOME-POWER-DEBUG] NPU Interface returned: {result}")
+        if cortical_id == "_power" and debug_enabled:
+            logger.info(f"[CONNECTOME-POWER-DEBUG] NPU Interface returned: {result}")
         return result
 
     def debug_cortical_areas(self) -> Dict[str, Any]:
