@@ -35,6 +35,7 @@ from .schemas import (
     BurstEngineStatsResponse,
     BurstEngineStatusResponse,
     FCLContentResponse,
+    FireQueueResponse,
     SuccessResponse,
 )
 
@@ -298,6 +299,21 @@ class BurstEngineAPI:
         except Exception as e:
             logger.error(f"Error getting FCL content: {e}")
             raise ValueError(f"Failed to get FCL content: {str(e)}") from e
+
+    @burst_engine_endpoint("GET", "/fire_queue", response_model=FireQueueResponse)
+    async def get_fire_queue(self) -> FireQueueResponse:
+        """Get the current contents of the fire queue (global FCL snapshot).
+
+        Returns the current timestep's global fire queue as a structured dict
+        with real neuron IDs, membrane potentials, thresholds, refractory counters,
+        consecutive fire counts, and coordinates.
+        """
+        try:
+            fire_queue = self.core_api_service.get_fire_queue()
+            return FireQueueResponse(fire_queue=fire_queue)
+        except Exception as e:
+            logger.error(f"Error getting fire queue: {e}")
+            raise ValueError(f"Failed to get fire queue: {str(e)}") from e
 
     # ===== Burst Engine Configuration =====
 

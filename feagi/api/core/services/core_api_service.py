@@ -1279,135 +1279,101 @@ class CoreAPIService:
     # =================================================================
 
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data for FQSampler from FCL with real
-        neuron coordinates."""
+        """Get the global fire queue data from FCL using NPU SoA (no placeholders)."""
         try:
-            if (
-                hasattr(self._connectome_manager, "fcl_manager")
-                and self._connectome_manager.fcl_manager
-            ):
-                fcl_manager = self._connectome_manager.fcl_manager
+            # Prefer the live FCL manager from the running burst engine
+            fcl_manager = self.get_fcl_manager()
+            if not fcl_manager:
+                return None
 
-                # Get global firing neurons from FCL
-                global_fcl = fcl_manager.get_fcl()
+            # Get current-timestep global FCL
+            global_fcl = fcl_manager.get_fcl()
+            if not global_fcl or global_fcl.is_empty():
+                self.logger.debug("🔥 [CORE API] Global FCL is empty - no neurons firing globally")
+                return {
+                    "neuron_ids": [],
+                    "membrane_potentials": [],
+                    "thresholds": [],
+                    "consecutive_fire_counts": [],
+                    "refractory_counters": [],
+                    "coordinates": [],
+                }
 
-                if global_fcl and not global_fcl.is_empty():
-                    global_firing_neurons = list(global_fcl)
-                    self.logger.debug(
-                        f"🔥 [CORE API] Global fire queue has {len(global_firing_neurons)} firing neurons"
+            firing_ids = list(global_fcl)
+            self.logger.debug(
+                f"🔥 [CORE API] Global fire queue has {len(firing_ids)} firing neurons"
+            )
+
+            # Access the authoritative NPU neuron array (SoA)
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                # No neuron array available
+                return {
+                    "neuron_ids": [],
+                    "membrane_potentials": [],
+                    "thresholds": [],
+                    "consecutive_fire_counts": [],
+                    "refractory_counters": [],
+                    "coordinates": [],
+                }
+
+            neuron_array = self._connectome_manager.neuron_array
+            # Validate required SoA fields
+            required_attrs = [
+                "neuron_id_to_index",
+                "membrane_potentials",
+                "thresholds",
+                "refractory_counters",
+                "coordinates_x",
+                "coordinates_y",
+                "coordinates_z",
+            ]
+            if not all(hasattr(neuron_array, attr) for attr in required_attrs):
+                # Missing SoA fields
+                return {
+                    "neuron_ids": [],
+                    "membrane_potentials": [],
+                    "thresholds": [],
+                    "consecutive_fire_counts": [],
+                    "refractory_counters": [],
+                    "coordinates": [],
+                }
+
+            neuron_ids: List[int] = []
+            membrane_potentials: List[float] = []
+            thresholds: List[float] = []
+            refractory_counters: List[int] = []
+            coordinates: List[tuple] = []
+
+            # Map IDs to indices and extract real SoA data
+            id_to_idx = neuron_array.neuron_id_to_index
+            for nid in firing_ids:
+                idx = id_to_idx.get(nid)
+                if idx is None:
+                    continue
+                # Bounds guard
+                if idx < 0 or idx >= neuron_array.neuron_count:
+                    continue
+                neuron_ids.append(nid)
+                membrane_potentials.append(float(neuron_array.membrane_potentials[idx]))
+                thresholds.append(float(neuron_array.thresholds[idx]))
+                refractory_counters.append(int(neuron_array.refractory_counters[idx]))
+                coordinates.append(
+                    (
+                        int(neuron_array.coordinates_x[idx]),
+                        int(neuron_array.coordinates_y[idx]),
+                        int(neuron_array.coordinates_z[idx]),
                     )
+                )
 
-                    if global_firing_neurons:
-                        # Get real neuron coordinates instead of placeholders
-                        neuron_coordinates = []
-                        neuron_ids = []
-
-                        if hasattr(self._connectome_manager, "neuron_array"):
-                            neuron_array = (
-                                self._connectome_manager.neuron_array
-                            )
-                            for neuron_id in global_firing_neurons:
-                                try:
-                                    #  CRITICAL FIX: Use proper neuron ID to
-                                    #  array index mapping
-                                    index = self._connectome_manager.get_neuron_index(
-                                        neuron_id
-                                    )
-                                    if index is not None:
-                                        neuron = neuron_array[index]
-                                        #  Only extract coordinates if they
-                                        #  actually exist - NO FALLBACKS
-                                        if (
-                                            "coordinate_3d_x" in neuron
-                                            and "coordinate_3d_y" in neuron
-                                            and "coordinate_3d_z" in neuron
-                                        ):
-                                            x = int(neuron["coordinate_3d_x"])
-                                            y = int(neuron["coordinate_3d_y"])
-                                            z = int(neuron["coordinate_3d_z"])
-                                            neuron_coordinates.append(
-                                                (x, y, z)
-                                            )
-                                            neuron_ids.append(neuron_id)
-                                except (IndexError, KeyError, TypeError):
-                                    # Skip invalid neurons
-                                    continue
-
-                        if neuron_ids:
-                            # Extract REAL neuron data - NO FAKE DATA ALLOWED
-                            membrane_potentials = []
-                            thresholds = []
-                            consecutive_fire_counts = []
-                            refractory_counters = []
-
-                            for _i, neuron_id in enumerate(neuron_ids):
-                                #  CRITICAL FIX: Use proper neuron ID to array
-                                #  index mapping
-                                index = (
-                                    self._connectome_manager.get_neuron_index(
-                                        neuron_id
-                                    )
-                                )
-                                if index is not None:
-                                    neuron = neuron_array[index]
-                                    #  Only extract exact properties that exist
-                                    #  - NO FALLBACKS AT ALL
-                                    if "membrane_potential" in neuron:
-                                        membrane_potentials.append(
-                                            float(neuron["membrane_potential"])
-                                        )
-                                    if "firing_threshold" in neuron:
-                                        thresholds.append(
-                                            float(neuron["firing_threshold"])
-                                        )
-                                    if "consecutive_fire_count" in neuron:
-                                        consecutive_fire_counts.append(
-                                            int(
-                                                neuron[
-                                                    "consecutive_fire_count"
-                                                ]
-                                            )
-                                        )
-                                    if "refractory_counter" in neuron:
-                                        refractory_counters.append(
-                                            int(neuron["refractory_counter"])
-                                        )
-
-                            result = {
-                                "neuron_ids": neuron_ids,
-                                "membrane_potentials": membrane_potentials,  # REAL data
-                                "thresholds": thresholds,  # REAL data
-                                "consecutive_fire_counts": consecutive_fire_counts,  # REAL data
-                                "refractory_counters": refractory_counters,  # REAL data
-                                "coordinates": neuron_coordinates,  # REAL coordinates
-                            }
-                            self.logger.debug(
-                                f"🔥 [CORE API] Returning global fire queue: {len(result['neuron_ids'])} neurons with REAL data (no placeholders)"
-                            )
-                            return result
-
-                    # No valid neurons found
-                    return {
-                        "neuron_ids": [],
-                        "membrane_potentials": [],
-                        "thresholds": [],
-                        "consecutive_fire_counts": [],
-                        "refractory_counters": [],
-                        "coordinates": [],
-                    }
-                else:
-                    self.logger.debug(
-                        "🔥 [CORE API] Global FCL is empty - no neurons firing globally"
-                    )
-                    return {
-                        "neuron_ids": [],
-                        "membrane_potentials": [],
-                        "thresholds": [],
-                        "consecutive_fire_counts": [],
-                        "refractory_counters": [],
-                        "coordinates": [],
-                    }
-            return None
+            return {
+                "neuron_ids": neuron_ids,
+                "membrane_potentials": membrane_potentials,
+                "thresholds": thresholds,
+                # Not tracked in NPU SoA yet; omitted rather than fabricating values
+                "consecutive_fire_counts": [],
+                "refractory_counters": refractory_counters,
+                "coordinates": coordinates,
+            }
         except Exception as e:
             self.logger.error(f"Error getting global fire queue: {str(e)}")
             return None
