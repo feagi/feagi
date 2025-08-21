@@ -447,18 +447,18 @@ class VisualizationStream:
                 #  connected)
                 try:
                     # COORDINATE DEBUG: Log that we're calling the FQ sampler
-                    logger.info("[COORD-DEBUG] Calling fq_sampler.sample()")
+                    logger.debug("[COORD-DEBUG] Calling fq_sampler.sample()")
                     sample_data = self.fq_sampler.sample()
-                    logger.info(f"[COORD-DEBUG] FQ Sampler returned: {list(sample_data.keys()) if sample_data else 'None'}")
+                    logger.debug(f"[COORD-DEBUG] FQ Sampler returned: {list(sample_data.keys()) if sample_data else 'None'}")
                     
                     # COORDINATE DEBUG: Log complete FCL content from FQ sampler
                     if sample_data:
                         for area_id, area_data in sample_data.items():
                             if area_data:
                                 # Log complete FCL content for this area
-                                logger.info(f"[COORD-DEBUG] === FCL CONTENT for {area_id} ===")
-                                logger.info(f"[COORD-DEBUG] {area_id} neuron_ids: {area_data.get('neuron_ids', [])}")
-                                logger.info(f"[COORD-DEBUG] {area_id} coordinates: {area_data.get('coordinates', [])}")
+                                logger.debug(f"[COORD-DEBUG] === FCL CONTENT for {area_id} ===")
+                                logger.debug(f"[COORD-DEBUG] {area_id} neuron_ids: {area_data.get('neuron_ids', [])}")
+                                logger.debug(f"[COORD-DEBUG] {area_id} coordinates: {area_data.get('coordinates', [])}")
                                 logger.info(f"[COORD-DEBUG] {area_id} membrane_potentials: {area_data.get('membrane_potentials', [])}")
                                 logger.info(f"[COORD-DEBUG] {area_id} thresholds: {area_data.get('thresholds', [])}")
                                 logger.info(f"[COORD-DEBUG] {area_id} refractory_counters: {area_data.get('refractory_counters', [])}")

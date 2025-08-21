@@ -314,7 +314,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 logger.error(f"[NPU-SYNC] Failed to sync cortical areas to NPU: {e}")
                 # Deterministic: do not proceed with injection init if sync fails
                 raise
-            self._initialize_injection_service()
+            # Prevent duplicate initialization
+            if getattr(self, "_injection_initialized", False) is not True:
+                self._initialize_injection_service()
+                self._injection_initialized = True
 
         #  Manually initialize mixins (not through super() to avoid multiple
         #  inheritance issues)
@@ -427,8 +430,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         other special cortical areas that need to inject neurons into the FCL
         during burst processing.
         """
-        print("##" * 200)
-        print("@# Initializing FCL injection service  " * 3)
+
         try:
             # Import here to avoid circular dependencies
             from feagi.npu.fcl_injection_service import FCLInjectionService
@@ -1116,7 +1118,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     "[NPU-DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
                 )
 
-            self._initialize_injection_service()
+            if getattr(self, "_injection_initialized", False) is not True:
+                self._initialize_injection_service()
+                self._injection_initialized = True
 
             service_type = (
                 type(self.injection_service).__name__
@@ -1158,7 +1162,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 self.injection_service.refresh_injection_batches()
             else:
                 # Re-initialize injection service if not already initialized
-                self._initialize_injection_service()
+                if getattr(self, "_injection_initialized", False) is not True:
+                    self._initialize_injection_service()
+                    self._injection_initialized = True
 
         except Exception as e:
             logger.error(f"Error refreshing injection service: {e}")

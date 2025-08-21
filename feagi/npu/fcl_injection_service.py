@@ -37,6 +37,7 @@ import numpy as np
 
 from feagi.npu.special_area_handler import CorticalId, NeuronId
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 logger = setup_logger()
 
@@ -176,8 +177,6 @@ class FCLInjectionService:
 
                     #  Check if NPU debug is enabled for detailed injection
                     #  logging
-                    from feagi.core.state_manager import FeagiStateManager
-
                     state_manager = FeagiStateManager.instance()
                     if state_manager.is_debug_npu_enabled():
                         logger.info(
@@ -254,8 +253,6 @@ class FCLInjectionService:
         power_neurons = self.special_area_handler.get_power_area_neurons()
 
         # Debug-only: record found neurons
-        from feagi.core.state_manager import FeagiStateManager
-
         if FeagiStateManager.instance().is_debug_npu_enabled():
             logger.info(f"[INJECTION-DEBUG] Retrieved power neurons: {power_neurons}")
             import os
@@ -277,8 +274,6 @@ class FCLInjectionService:
         if not power_neurons:
             # Only log this occasionally to avoid spam
             if current_timestep % 100 == 0:
-                from feagi.core.state_manager import FeagiStateManager
-
                 state_manager = FeagiStateManager.instance()
                 if state_manager.is_debug_npu_enabled():
                     logger.info(
@@ -328,7 +323,6 @@ class FCLInjectionService:
             logger.info("[INJECTION-DEBUG] Adding power neurons to FCL via FCLManager.update_fcl()")
         # Log FCLManager identity before update
         try:
-            from feagi.core.state_manager import FeagiStateManager
             if FeagiStateManager.instance().is_debug_npu_enabled():
                 logger.info(f"[INJECTION-DEBUG] FCLManager id before update: {id(self.fcl_manager)}")
         except Exception:
@@ -387,8 +381,6 @@ class FCLInjectionService:
         Returns:
             Number of neurons injected
         """
-        from feagi.core.state_manager import FeagiStateManager
-
         state_manager = FeagiStateManager.instance()
 
         if not self._injection_batches[timing]:
@@ -771,8 +763,6 @@ class FCLInjectionService:
 
         # PERFORMANCE: Single state check - avoid multiple API calls
         try:
-            from feagi.core.state_manager import ServiceState
-
             burst_state = self._cached_state_manager.get_burst_engine_state()
 
             # RTOS-FRIENDLY: Simple state comparison, no complex logic

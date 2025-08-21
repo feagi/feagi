@@ -268,9 +268,14 @@ class CoreAPIService:
             "[DEBUG] CORE API SERVICE: load_barebones_genome called, delegating to genome service"
         )
         result = self._genome_service.load_default_genome("barebones")
-        print(
-            f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}"
-        )
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                self.logger.debug(
+                    f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}"
+                )
+        except Exception:
+            pass
         return result
 
     def load_test_genome(self) -> Dict[str, Any]:
@@ -3579,7 +3584,7 @@ class CoreAPIService:
                 )
                 
                 # COORDINATE DEBUG: Log which neuron IDs are in the FCL
-                self.logger.info(
+                self.logger.debug(
                     f"[COORD-DEBUG] FCL contains neuron IDs: {firing_neuron_ids.tolist()}"
                 )
 
@@ -3590,7 +3595,7 @@ class CoreAPIService:
                         idx = neuron_array.neuron_id_to_index.get(int(neuron_id))
                         if idx is not None:
                             firing_indices.append(idx)
-                            self.logger.info(
+                            self.logger.debug(
                                 f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {idx} via NPU mapping"
                             )
                 else:
@@ -3599,7 +3604,7 @@ class CoreAPIService:
                         neuron_index = self._connectome_manager.get_neuron_index(neuron_id)
                         if neuron_index is not None:
                             firing_indices.append(neuron_index)
-                            self.logger.info(
+                            self.logger.debug(
                                 f"[COORD-DEBUG] Neuron ID {neuron_id} mapped to array index {neuron_index} via CM mapping"
                             )
 
@@ -3670,7 +3675,7 @@ class CoreAPIService:
                         final_neuron_ids = np.array(final_ids_list, dtype=np.int32)
                     
                     # COORDINATE DEBUG: Log the final neuron IDs being returned
-                    self.logger.info(
+                    self.logger.debug(
                         f"[COORD-DEBUG] Final neuron IDs for {cortical_id}: {final_neuron_ids.tolist()}"
                     )
 
@@ -3689,7 +3694,7 @@ class CoreAPIService:
                     extracted_y = neuron_array.coordinates_y[area_firing_indices]
                     extracted_z = neuron_array.coordinates_z[area_firing_indices]
                     
-                    self.logger.info(
+                    self.logger.debug(
                         f"[COORD-DEBUG] Neuron array extraction for {cortical_id}: "
                         f"x={extracted_x.tolist()}, y={extracted_y.tolist()}, z={extracted_z.tolist()}"
                     )
@@ -3715,9 +3720,9 @@ class CoreAPIService:
                     )
                     
                     # COORDINATE DEBUG: Log complete fire queue contents
-                    self.logger.info(f"[COORD-DEBUG] === FIRE QUEUE CONTENTS for {cortical_id} ===")
-                    self.logger.info(f"[COORD-DEBUG] fire_queue_shape: {brain_data.shape}")
-                    self.logger.info(f"[COORD-DEBUG] fire_queue_neuron_count: {len(brain_data)}")
+                    self.logger.debug(f"[COORD-DEBUG] === FIRE QUEUE CONTENTS for {cortical_id} ===")
+                    self.logger.debug(f"[COORD-DEBUG] fire_queue_shape: {brain_data.shape}")
+                    self.logger.debug(f"[COORD-DEBUG] fire_queue_neuron_count: {len(brain_data)}")
                     
                     for i, row in enumerate(brain_data):
                         neuron_id = int(row[0])
@@ -3726,27 +3731,27 @@ class CoreAPIService:
                         y_coord = int(row[3])
                         z_coord = int(row[4])
                         
-                        self.logger.info(f"[COORD-DEBUG] fire_queue_neuron_{i}: id={neuron_id}, potential={membrane_potential}, coords=({x_coord},{y_coord},{z_coord})")
+                        self.logger.debug(f"[COORD-DEBUG] fire_queue_neuron_{i}: id={neuron_id}, potential={membrane_potential}, coords=({x_coord},{y_coord},{z_coord})")
                         
                         # Highlight target neurons
                         if neuron_id in [4495, 4496]:
-                            self.logger.info(f"[COORD-DEBUG] *** CRITICAL *** fire_queue contains target neuron {neuron_id} at ({x_coord},{y_coord},{z_coord}) with potential {membrane_potential}")
+                            self.logger.debug(f"[COORD-DEBUG] *** CRITICAL *** fire_queue contains target neuron {neuron_id} at ({x_coord},{y_coord},{z_coord}) with potential {membrane_potential}")
                     
-                    self.logger.info(f"[COORD-DEBUG] === END FIRE QUEUE CONTENTS for {cortical_id} ===")
+                    self.logger.debug(f"[COORD-DEBUG] === END FIRE QUEUE CONTENTS for {cortical_id} ===")
                     
                     # Additional fire queue analysis
                     neuron_ids_in_queue = brain_data[:, 0].astype(int)
                     potentials_in_queue = brain_data[:, 1]
                     coords_in_queue = brain_data[:, 2:5].astype(int)
                     
-                    self.logger.info(f"[COORD-DEBUG] === FIRE QUEUE ANALYSIS for {cortical_id} ===")
-                    self.logger.info(f"[COORD-DEBUG] all_neuron_ids: {neuron_ids_in_queue.tolist()}")
-                    self.logger.info(f"[COORD-DEBUG] all_potentials: {potentials_in_queue.tolist()}")
-                    self.logger.info(f"[COORD-DEBUG] all_coordinates: {coords_in_queue.tolist()}")
-                    self.logger.info(f"[COORD-DEBUG] min_potential: {potentials_in_queue.min()}")
-                    self.logger.info(f"[COORD-DEBUG] max_potential: {potentials_in_queue.max()}")
-                    self.logger.info(f"[COORD-DEBUG] unique_coordinates: {len(set(map(tuple, coords_in_queue)))}")
-                    self.logger.info(f"[COORD-DEBUG] === END FIRE QUEUE ANALYSIS for {cortical_id} ===")
+                    self.logger.debug(f"[COORD-DEBUG] === FIRE QUEUE ANALYSIS for {cortical_id} ===")
+                    self.logger.debug(f"[COORD-DEBUG] all_neuron_ids: {neuron_ids_in_queue.tolist()}")
+                    self.logger.debug(f"[COORD-DEBUG] all_potentials: {potentials_in_queue.tolist()}")
+                    self.logger.debug(f"[COORD-DEBUG] all_coordinates: {coords_in_queue.tolist()}")
+                    self.logger.debug(f"[COORD-DEBUG] min_potential: {potentials_in_queue.min()}")
+                    self.logger.debug(f"[COORD-DEBUG] max_potential: {potentials_in_queue.max()}")
+                    self.logger.debug(f"[COORD-DEBUG] unique_coordinates: {len(set(map(tuple, coords_in_queue)))}")
+                    self.logger.debug(f"[COORD-DEBUG] === END FIRE QUEUE ANALYSIS for {cortical_id} ===")
 
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] Successfully extracted {len(area_firing_indices)} firing neurons for area {cortical_id}"
@@ -3783,7 +3788,7 @@ class CoreAPIService:
         """
         try:
             # COORDINATE DEBUG: Always log fire queue calls
-            self.logger.info(
+            self.logger.debug(
                 f"[COORD-DEBUG] get_area_fire_queue called for area: {cortical_id}"
             )
             if self.state_manager.is_debug_npu_enabled():
@@ -3810,7 +3815,7 @@ class CoreAPIService:
             )
             
             # COORDINATE DEBUG: Log coordinates being returned from fire queue
-            self.logger.info(
+            self.logger.debug(
                 f"[COORD-DEBUG] Fire queue for {cortical_id}: extracted coordinates {coordinates}"
             )
 

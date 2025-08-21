@@ -1193,10 +1193,16 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs that fired
         """
-        print(f"[CONNECTOME-DEBUG] === UPDATE_MEMBRANE_POTENTIALS CALLED ===")
-        print(f"[CONNECTOME-DEBUG] decay_factor: {decay_factor}")
-        print(f"[CONNECTOME-DEBUG] current_timestep: {current_timestep}")
-        print(f"[CONNECTOME-DEBUG] Has NPU interface: {hasattr(self, '_npu_interface') and self._npu_interface is not None}")
+        # Debug-only block gated by state manager
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug("[CONNECTOME-DEBUG] === UPDATE_MEMBRANE_POTENTIALS CALLED ===")
+                logger.debug(f"[CONNECTOME-DEBUG] decay_factor: {decay_factor}")
+                logger.debug(f"[CONNECTOME-DEBUG] current_timestep: {current_timestep}")
+                logger.debug(f"[CONNECTOME-DEBUG] Has NPU interface: {hasattr(self, '_npu_interface') and self._npu_interface is not None}")
+        except Exception:
+            pass
         # NO BACKWARD COMPATIBILITY - NPU has 100% exclusive ownership
         if decay_factor is not None and isinstance(decay_factor, (int, float)):
             raise RuntimeError(
@@ -1218,13 +1224,23 @@ class ConnectomeManager(NeuronMappingProvider):
                 "Configure NPU interface before neural processing."
             )
         
-        print(f"[CONNECTOME-DEBUG] === DELEGATING TO NPU ===")
-        print(f"[CONNECTOME-DEBUG] Current timestep: {self.current_timestep}")
-        print(f"[CONNECTOME-DEBUG] NPU interface available: {self._npu_interface is not None}")
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug("[CONNECTOME-DEBUG] === DELEGATING TO NPU ===")
+                logger.debug(f"[CONNECTOME-DEBUG] Current timestep: {self.current_timestep}")
+                logger.debug(f"[CONNECTOME-DEBUG] NPU interface available: {self._npu_interface is not None}")
+        except Exception:
+            pass
         logger.debug("✅ NPU is primary owner - delegating ALL neural processing to NPU")
         # NPU has 100% exclusive ownership of neural processing AND synaptic propagation
         result = self._npu_interface.process_neural_burst(self.current_timestep)
-        print(f"[CONNECTOME-DEBUG] NPU returned fired neurons: {result}")
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug(f"[CONNECTOME-DEBUG] NPU returned fired neurons: {result}")
+        except Exception:
+            pass
         return result
 
         # Initialize fired_indices to ensure it's always defined
@@ -3085,6 +3101,11 @@ class ConnectomeManager(NeuronMappingProvider):
                         )
                         dimensions.append(1)  # Fallback to 1
 
+                # Safe neuron count (handle None from NPU variant)
+                _neuron_ids_for_count = self.get_neurons_by_area(cortical_id)
+                if _neuron_ids_for_count is None:
+                    _neuron_ids_for_count = []
+
                 properties = {
                     "id": cortical_id,
                     "cortical_idx": (
@@ -3097,9 +3118,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     "parameters": (
                         area.properties.copy() if area.properties else {}
                     ),
-                    "neuron_count": int(
-                        len(self.get_neurons_by_area(cortical_id))
-                    ),
+                    "neuron_count": int(len(_neuron_ids_for_count)),
                 }
             except Exception as conversion_error:
                 self.logger.error(
@@ -3946,21 +3965,53 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
 
-        # Create neurons in batch using NeuronArray's batch method
-        #  Let NeuronArray generate and manage its own IDs to prevent mapping
-        #  conflicts
-        created_neuron_ids = self.neuron_array.batch_create_neurons(
-            cortical_idx=cortical_idx,
-            positions=positions,
-            thresholds=threshold,
-            membrane_potentials=membrane_potential,
-            resting_potentials=resting_potential,
-            decay_rates=decay_rate,
-            refractory_periods=refractory_period,
+        # Create neurons in batch using NPU NeuronArray API (single source of truth)
+        # Generate neuron IDs deterministically via NPU-owned counter
+        npu_neurons = self.neuron_array
+        count = len(positions)
+        start_id = npu_neurons._next_neuron_id
+        neuron_ids = list(range(start_id, start_id + count))
+
+        # Normalize per-neuron lists
+        thresholds_list = (
+            [threshold] * count if isinstance(threshold, (int, float)) else list(threshold)
+        )
+        mp_list = (
+            [membrane_potential] * count if isinstance(membrane_potential, (int, float)) else list(membrane_potential)
+        )
+        rp_list = (
+            [resting_potential] * count if isinstance(resting_potential, (int, float)) else list(resting_potential)
+        )
+        decay_list = (
+            [decay_rate] * count if isinstance(decay_rate, (int, float)) else list(decay_rate)
+        )
+        refr_list = (
+            [refractory_period] * count if isinstance(refractory_period, int) else list(refractory_period)
         )
 
-        # Use the IDs generated by NeuronArray directly - no separate ID system
-        neuron_ids = created_neuron_ids
+        # Use add_neurons_batch to create entries (neuron_types/excitabilities defaults)
+        indices = npu_neurons.add_neurons_batch(
+            neuron_ids=neuron_ids,
+            positions=positions,
+            neuron_types=[0] * count,
+            initial_potentials=mp_list,
+            thresholds=thresholds_list,
+            leak_coefficients=decay_list,
+            excitabilities=[1.0] * count,
+            cortical_idx=cortical_idx,
+        )
+
+        # Apply refractory periods vector if available
+        # Note: current NeuronArray stores refractory_periods array; set for new indices
+        if hasattr(npu_neurons, "refractory_periods"):
+            for off, idx in enumerate(indices):
+                try:
+                    npu_neurons.refractory_periods[idx] = int(refr_list[off])
+                except Exception:
+                    pass
+
+        # Use the IDs generated above - authoritative NPU IDs
+        neuron_ids = neuron_ids
 
         # Update for test compatibility
         for i, neuron_id in enumerate(neuron_ids):
@@ -3975,8 +4026,14 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         # Store neuron-area relationship for each created neuron
+        # Update NPU interface mapping immediately for downstream operations
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
+            try:
+                if hasattr(self, "_npu_interface") and self._npu_interface:
+                    self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
+            except Exception:
+                pass
 
         #  CRITICAL FIX: Register neurons in Morton spatial hash for
         #  coordinate-based lookups
