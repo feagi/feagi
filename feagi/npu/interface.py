@@ -276,7 +276,15 @@ class NPUInterface:
         
         # Determine target array based on area type
         is_memory_area = self.cortical_areas[cortical_idx]["type"] == "memory"
-        target_array = self.memory_neuron_array if is_memory_area else self.neuron_array
+        if is_memory_area:
+            # Memory areas do not accept regular neuron creation via this path
+            return BatchOperationResult(
+                result=OperationResult.INVALID_INPUT,
+                successful_count=0,
+                failed_indices=list(range(count)),
+                error_message="Cannot create regular neurons in memory area via create_neurons_batch"
+            )
+        target_array = self.neuron_array
         
         # Check capacity
         if target_array.count + count > target_array.max_neurons:

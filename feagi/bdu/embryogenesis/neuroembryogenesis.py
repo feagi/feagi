@@ -970,13 +970,9 @@ class NeuroEmbryogenesis:
             ):
                 properties = self._extract_cortical_properties(cortical_id)
 
-                # Skip memory areas if configured
-                if area.area_type == "memory" and self.config.get(
-                    "skip_memory_neurogenesis", False
-                ):
-                    logger.info(
-                        f"Skipping neurogenesis for memory area {area.name}"
-                    )
+                # Always skip neurogenesis for memory areas (they are empty; memory neurons are separate)
+                if area.area_type == "memory":
+                    logger.info(f"Skipping neurogenesis for memory area {area.name}")
                     continue
 
                 # Calculate neuron count for this area
@@ -1016,7 +1012,7 @@ class NeuroEmbryogenesis:
                     result = npu_interface.create_cortical_area(
                         cortical_idx=area.cortical_idx,
                         dimensions=(width, height, depth),
-                        area_type="regular",  # Default to regular area
+                        area_type=("memory" if area.area_type == "memory" else "regular"),
                         cortical_id=cortical_id  # Pass the string ID for API lookups
                     )
                     from feagi.npu.interface import OperationResult

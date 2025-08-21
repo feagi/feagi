@@ -4579,20 +4579,21 @@ class GenomeService(BaseService):
                     removed_neuron_indices = area.resize(new_dimensions)
 
                     if removed_neuron_indices:
-                        #  Use proper FEAGI neuron deletion method with free
-                        #  pool management
-                        self.logger.info(
-                            f"[LOCALIZED-REBUILD] Properly deleting {len(removed_neuron_indices)} neurons (FEAGI-compliant)"
-                        )
+                        # Map indices to neuron IDs and perform batch logical removal (no compaction)
+                        neuron_ids_to_remove = []
                         for neuron_idx in removed_neuron_indices:
-                            neuron_id = self._connectome_manager.index_to_neuron_id.get(
-                                neuron_idx
-                            )
-                            if neuron_id:
-                                #  Use FEAGI's proper deletion method - handles
-                                #  all cleanup and free pool management
-                                self._connectome_manager.neuron_array.delete_neuron(
-                                    neuron_id
+                            nid = self._connectome_manager.index_to_neuron_id.get(neuron_idx)
+                            if nid is not None:
+                                neuron_ids_to_remove.append(nid)
+                        if neuron_ids_to_remove:
+                            try:
+                                removed = self._connectome_manager.neuron_array.remove_neurons_batch(neuron_ids_to_remove)
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] Marked {removed} neurons as deleted (logical removal)"
+                                )
+                            except Exception as rm_err:
+                                self.logger.warning(
+                                    f"[LOCALIZED-REBUILD] Failed logical removal for {len(neuron_ids_to_remove)} neurons: {rm_err}"
                                 )
 
                     # Calculate if we need more neurons
