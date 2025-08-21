@@ -1799,16 +1799,20 @@ class GenomeService(BaseService):
                     #  properties
                     enhanced_properties = new_area.get("parameters", {})
 
+                    # Enforce memory-area semantics
+                    if is_memory_area:
+                        create_dims = (1, 1, 1)
+                    else:
+                        create_dims = (
+                            dimensions["width"],
+                            dimensions["height"],
+                            dimensions["depth"],
+                        )
+
                     created_cortical_id = (
                         self._connectome_manager.add_cortical_area(
                             name=name,
-                            dimensions=tuple(
-                                [
-                                    dimensions["width"],
-                                    dimensions["height"],
-                                    dimensions["depth"],
-                                ]
-                            ),
+                            dimensions=tuple(create_dims),
                             position=tuple(
                                 [
                                     coordinates["x"],
@@ -1822,16 +1826,85 @@ class GenomeService(BaseService):
                         )
                     )
 
-                    #  Extract proper neuron properties from the cortical area
-                    #  template
+                    # MEMORY AREA: Do not create regular neurons; register with memory systems only
+                    if is_memory_area:
+                        temporal_depth = new_area.get("temporal_depth", 1)
+                        memory_registered = (
+                            self._connectome_manager.register_memory_area(
+                                cortical_id=cortical_id,
+                                temporal_depth=temporal_depth,
+                            )
+                        )
+                        if memory_registered:
+                            self.logger.info(
+                                f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}"
+                            )
+
+                            # Register with BurstEngine MemoryProcessor as well
+                            try:
+                                from feagi.npu.burst_engine import BurstEngine
+
+                                burst_engine = BurstEngine.get_instance()
+                                if burst_engine:
+                                    memory_properties = {
+                                        "temporal_depth": temporal_depth,
+                                        "init_lifespan": new_area.get(
+                                            "init_lifespan", 9
+                                        ),
+                                        "lifespan_growth_rate": new_area.get(
+                                            "lifespan_growth_rate", 1.0
+                                        ),
+                                        "longterm_mem_threshold": new_area.get(
+                                            "longterm_mem_threshold", 100
+                                        ),
+                                    }
+                                    processor_registered = burst_engine.register_memory_area_with_processor(
+                                        cortical_id, memory_properties
+                                    )
+                                    if processor_registered:
+                                        self.logger.info(
+                                            f"✅ Registered memory area {cortical_id} with MemoryProcessor"
+                                        )
+                                    else:
+                                        self.logger.warning(
+                                            f"⚠️  Failed to register memory area {cortical_id} with MemoryProcessor"
+                                        )
+                                else:
+                                    self.logger.warning(
+                                        "⚠️  BurstEngine instance not available for memory area registration"
+                                    )
+                            except Exception as burst_error:
+                                self.logger.warning(
+                                    f"Failed to register memory area with BurstEngine: {burst_error}"
+                                )
+
+                        # Prepare return payload for memory area (no regular neurons)
+                        success = True
+                        if success and transaction:
+                            transaction.commit()
+                        elif transaction:
+                            transaction.rollback()
+                            return None
+
+                        return {
+                            "cortical_id": cortical_id,
+                            "name": name,
+                            "coordinates": coordinates,
+                            "dimensions": {"width": 1, "height": 1, "depth": 1},
+                            "type": area_type,
+                            "parameters": parameters or {},
+                            "neuron_count": 0,
+                            "excitability": None,
+                        }
+
+                    # NON-MEMORY AREA: proceed with regular neuron creation
+                    #  Extract proper neuron properties from the cortical area template
                     area = self._connectome_manager.cortical_areas[cortical_id]
                     width, height, depth = area.dimensions
                     neurons_per_voxel = new_area.get("per_voxel_neuron_cnt", 1)
-                    area_neuron_count = (
-                        width * height * depth * neurons_per_voxel
-                    )
+                    area_neuron_count = width * height * depth * neurons_per_voxel
 
-                    # Generate positions for all neurons in the cortical area
+                    # Generate positions
                     positions = []
                     for z in range(depth):
                         for y in range(height):
@@ -1839,12 +1912,8 @@ class GenomeService(BaseService):
                                 for _ in range(neurons_per_voxel):
                                     positions.append((x, y, z))
 
-                    #  Extract neuron properties from template (following
-                    #  NeuroEmbryogenesis pattern)
                     base_threshold = new_area.get("firing_threshold", 1.0)
-                    base_decay_rate = 1.0 - (
-                        new_area.get("leak_coefficient", 0) / 100.0
-                    )
+                    base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
                     base_refractory = new_area.get("refractory_period", 1)
                     excitability = new_area.get("neuron_excitability", 1.0)
 
@@ -1852,8 +1921,6 @@ class GenomeService(BaseService):
                         f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}"
                     )
 
-                    #  Create neurons using ConnectomeManager's batch creation
-                    #  (which handles position mapping)
                     neuron_ids = self._connectome_manager.batch_create_neurons(
                         cortical_id=cortical_id,
                         positions=positions,
@@ -1864,22 +1931,13 @@ class GenomeService(BaseService):
                         refractory_period=base_refractory,
                     )
 
-                    # CRITICAL FIX: Set excitability for all created neurons
-                    #  Since batch_create_neurons doesn't support excitability
-                    #  parameter,
-                    # we need to set it manually on the neuron array
+                    # Set excitability
                     neuron_array = self._connectome_manager.neuron_array
                     for neuron_id in neuron_ids:
                         try:
-                            neuron_idx = (
-                                self._connectome_manager.get_neuron_index(
-                                    neuron_id
-                                )
-                            )
+                            neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
                             if neuron_idx is not None:
-                                neuron_array.excitability[neuron_idx] = (
-                                    excitability
-                                )
+                                neuron_array.excitability[neuron_idx] = excitability
                         except Exception as e:
                             self.logger.warning(
                                 f"Could not set excitability for neuron {neuron_id}: {e}"
@@ -4968,6 +5026,13 @@ class GenomeService(BaseService):
 
         #  Distribute neurons across the empty voxels (the newly expanded
         #  regions)
+        if len(empty_voxels) == 0:
+            # No empty voxels available in the expanded region; return no positions
+            self.logger.warning(
+                f"[EXPANSION] No empty voxels available for {cortical_id}; generated 0 positions"
+            )
+            return positions
+
         for i in range(neuron_count):
             if i < len(empty_voxels):
                 positions.append(empty_voxels[i])

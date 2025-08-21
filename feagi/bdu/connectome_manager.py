@@ -2497,22 +2497,43 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"cortical_idx collision: cortical_idx={cortical_idx} already assigned to '{existing_area_with_same_idx}'"
             )
 
-        # Create the cortical area with assigned cortical_idx
-        area = CorticalArea(
-            name=name,
-            dimensions=dimensions,
-            position=position,
-            area_type=area_type,
-            properties=properties or {},
-            cortical_id=cortical_id,
-            cortical_idx=cortical_idx,  # Now we assign reserved or next available index
-        )
+        # Lock this cortical area index during creation to prevent concurrent reads/writes
+        lock_acquired = False
+        try:
+            try:
+                lock_acquired = state_manager.lock_cortical_area(
+                    cortical_idx, "BDU", operation="corticogenesis:add_area"
+                )
+            except Exception as lock_e:
+                logger.warning(
+                    f"[LOCK] Failed to acquire lock for cortical_idx={cortical_idx}: {lock_e}"
+                )
 
-        # Add to cortical areas dict
-        self.cortical_areas[area.id] = area
+            # Create the cortical area with assigned cortical_idx
+            area = CorticalArea(
+                name=name,
+                dimensions=dimensions,
+                position=position,
+                area_type=area_type,
+                properties=properties or {},
+                cortical_id=cortical_id,
+                cortical_idx=cortical_idx,  # Now we assign reserved or next available index
+            )
 
-        # Synchronize bidirectional cortical mapping
-        self._sync_cortical_mapping(area.id, cortical_idx)
+            # Add to cortical areas dict
+            self.cortical_areas[area.id] = area
+
+            # Synchronize bidirectional cortical mapping
+            self._sync_cortical_mapping(area.id, cortical_idx)
+        finally:
+            # Always release the lock
+            try:
+                if lock_acquired:
+                    state_manager.unlock_cortical_area(cortical_idx, "BDU")
+            except Exception as unlock_e:
+                logger.warning(
+                    f"[LOCK] Failed to release lock for cortical_idx={cortical_idx}: {unlock_e}"
+                )
 
         # Expand spatial hash cache if needed for new cortical area
         if hasattr(self, "_spatial_hash") and self._spatial_hash:
@@ -2540,6 +2561,13 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.warning(
                 f"Failed to update brain statistics after adding {area.id}: {e}"
             )
+
+        # Ensure NPU registry is synced so lookups by cortical_id work immediately
+        try:
+            if hasattr(self, "sync_cortical_areas_to_npu") and hasattr(self, "_npu_interface") and self._npu_interface is not None:
+                self.sync_cortical_areas_to_npu()
+        except Exception as sync_err:
+            logger.warning(f"[NPU-SYNC] Failed to sync cortical areas after add_cortical_area({area.id}): {sync_err}")
 
         return area.id
 

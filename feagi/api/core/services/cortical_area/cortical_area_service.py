@@ -374,12 +374,28 @@ class CorticalAreaService(BaseService):
             f"DEBUG: get_area_neurons called for cortical_id: {cortical_id}"
         )
 
+        # Enforce cortical-area lock for read operations
+        try:
+            cortical_idx_for_lock = self._get_cortical_idx_for_id(cortical_id)
+            if (
+                cortical_idx_for_lock is not None
+                and self.state_manager
+                and self.state_manager.is_cortical_area_locked(cortical_idx_for_lock)
+            ):
+                raise ValueError(
+                    f"Cortical area '{cortical_id}' is locked for update"
+                )
+        except Exception:
+            # If lock check fails, proceed without blocking; other checks below will handle not-found
+            pass
+
         # CRITICAL FIX: Try direct approach first, then fallback to mapping
         try:
             # Method 1: Try direct neuron retrieval (bypasses mapping issues)
-            neuron_ids = self._connectome_manager.get_neurons_by_area(
-                cortical_id
-            )
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
+            if neuron_ids is None:
+                # Treat None as empty for robustness; area exists but no neurons yet
+                neuron_ids = []
             self.logger.info(
                 f"DEBUG: Direct neuron retrieval for {cortical_id} returned: {len(neuron_ids) if neuron_ids else 0} neurons"
             )
@@ -389,11 +405,16 @@ class CorticalAreaService(BaseService):
                 result = []
                 # Debug logging for power area
                 if cortical_id == "_power":
-                    self.logger.error(f"[API-POWER-DEBUG] Processing {len(neuron_ids)} neurons: {neuron_ids}")
-                    self.logger.error(f"[API-POWER-DEBUG] _neuron_id_to_index available: {hasattr(self._connectome_manager, '_neuron_id_to_index')}")
-                    if hasattr(self._connectome_manager, '_neuron_id_to_index'):
-                        self.logger.error(f"[API-POWER-DEBUG] _neuron_id_to_index size: {len(self._connectome_manager._neuron_id_to_index)}")
-                        self.logger.error(f"[API-POWER-DEBUG] Sample mappings: {dict(list(self._connectome_manager._neuron_id_to_index.items())[:5])}")
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
+                            self.logger.info(f"[API-POWER-DEBUG] Processing {len(neuron_ids)} neurons: {neuron_ids}")
+                            self.logger.info(f"[API-POWER-DEBUG] _neuron_id_to_index available: {hasattr(self._connectome_manager, '_neuron_id_to_index')}")
+                            if hasattr(self._connectome_manager, '_neuron_id_to_index'):
+                                self.logger.info(f"[API-POWER-DEBUG] _neuron_id_to_index size: {len(self._connectome_manager._neuron_id_to_index)}")
+                                self.logger.info(f"[API-POWER-DEBUG] Sample mappings: {dict(list(self._connectome_manager._neuron_id_to_index.items())[:5])}")
+                    except Exception:
+                        pass
                 
                 for neuron_id in neuron_ids:
                     # NEW NPU ARCHITECTURE: Get neuron properties directly from NPU Interface
@@ -403,7 +424,12 @@ class CorticalAreaService(BaseService):
                         npu_interface = self._connectome_manager._npu_interface
                         
                         if cortical_id == "_power":
-                            self.logger.error(f"[API-POWER-DEBUG] Using NPU Interface for neuron {neuron_id}")
+                            try:
+                                from feagi.core.state_manager import FeagiStateManager
+                                if FeagiStateManager.instance().is_debug_npu_enabled():
+                                    self.logger.info(f"[API-POWER-DEBUG] Using NPU Interface for neuron {neuron_id}")
+                            except Exception:
+                                pass
                         
                         # Skip the old index-based approach and build result directly
                         neuron_info = {
@@ -418,7 +444,12 @@ class CorticalAreaService(BaseService):
                         result.append(neuron_info)
                         
                         if cortical_id == "_power":
-                            self.logger.error(f"[API-POWER-DEBUG] Added neuron {neuron_id} to result")
+                            try:
+                                from feagi.core.state_manager import FeagiStateManager
+                                if FeagiStateManager.instance().is_debug_npu_enabled():
+                                    self.logger.info(f"[API-POWER-DEBUG] Added neuron {neuron_id} to result")
+                            except Exception:
+                                pass
                         continue
                     
                     # FALLBACK: Old BDU-style approach (for backward compatibility)
@@ -429,11 +460,21 @@ class CorticalAreaService(BaseService):
                         ) if hasattr(self._connectome_manager, '_neuron_id_to_index') else None
                     )
                     if cortical_id == "_power":
-                        self.logger.error(f"[API-POWER-DEBUG] Fallback: Neuron {neuron_id} -> index {neuron_index}")
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(f"[API-POWER-DEBUG] Fallback: Neuron {neuron_id} -> index {neuron_index}")
+                        except Exception:
+                            pass
                     
                     if neuron_index is None:
                         if cortical_id == "_power":
-                            self.logger.error(f"[API-POWER-DEBUG] Skipping neuron {neuron_id} - no index mapping")
+                            try:
+                                from feagi.core.state_manager import FeagiStateManager
+                                if FeagiStateManager.instance().is_debug_npu_enabled():
+                                    self.logger.info(f"[API-POWER-DEBUG] Skipping neuron {neuron_id} - no index mapping")
+                            except Exception:
+                                pass
                         continue
 
                     # Get neuron position
@@ -498,9 +539,10 @@ class CorticalAreaService(BaseService):
             return None
 
         try:
-            if cortical_idx not in self._connectome_manager.cortical_areas:
+            # ConnectomeManager.cortical_areas is keyed by cortical_id (string), not cortical_idx
+            if cortical_id not in self._connectome_manager.cortical_areas:
                 self.logger.warning(
-                    f"DEBUG: cortical_idx {cortical_idx} not in connectome_manager.cortical_areas"
+                    f"DEBUG: cortical_id {cortical_id} not in connectome_manager.cortical_areas"
                 )
                 return None
 
@@ -578,8 +620,21 @@ class CorticalAreaService(BaseService):
             )
             return None
 
+        # Enforce cortical-area lock for read operations
         try:
-            if cortical_idx not in self._connectome_manager.cortical_areas:
+            if (
+                self.state_manager
+                and self.state_manager.is_cortical_area_locked(cortical_idx)
+            ):
+                raise ValueError(
+                    f"Cortical area '{cortical_id}' is locked for update"
+                )
+        except Exception:
+            pass
+
+        try:
+            # ConnectomeManager.cortical_areas is keyed by cortical_id (string)
+            if cortical_id not in self._connectome_manager.cortical_areas:
                 return None
 
             # Get all neurons in this area
@@ -664,13 +719,22 @@ class CorticalAreaService(BaseService):
                     f"Invalid direction: {direction}. Must be 'incoming', 'outgoing', or 'both'"
                 )
 
-            # Check if the cortical area exists
+            # Enforce cortical-area lock for read operations
             if (
-                not hasattr(self._connectome_manager, "cortical_areas")
-                or cortical_idx not in self._connectome_manager.cortical_areas
+                self.state_manager
+                and self.state_manager.is_cortical_area_locked(cortical_idx)
             ):
                 raise ValueError(
-                    f"Cortical area with cortical_idx {cortical_idx} not found in connectome"
+                    f"Cortical area '{cortical_id}' is locked for update"
+                )
+
+            # Check if the cortical area exists (keyed by cortical_id)
+            if (
+                not hasattr(self._connectome_manager, "cortical_areas")
+                or cortical_id not in self._connectome_manager.cortical_areas
+            ):
+                raise ValueError(
+                    f"Cortical area with cortical_id '{cortical_id}' not found in connectome"
                 )
 
             # Get neurons in the area

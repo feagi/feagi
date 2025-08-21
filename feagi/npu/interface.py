@@ -151,9 +151,7 @@ class NPUInterface:
         if cortical_idx in self.cortical_areas:
             return OperationResult.INVALID_INPUT
             
-        # Check if area is locked
-        if self._is_area_locked(cortical_idx):
-            return OperationResult.AREA_LOCKED
+        # Allow creation during BDU-held locks; reads/writes will be blocked appropriately
             
         self.cortical_areas[cortical_idx] = {
             "cortical_id": cortical_id,
@@ -312,9 +310,18 @@ class NPUInterface:
             # Update mappings
             for i, neuron_id in enumerate(neuron_ids):
                 self.neuron_to_area[neuron_id] = cortical_idx
-                # Debug logging for power area
-                if cortical_idx in self.cortical_areas and self.cortical_areas[cortical_idx].get("cortical_id") == "_power":
-                    logger.error(f"[NPU-POWER-DEBUG] Mapped neuron {neuron_id} to cortical_idx {cortical_idx} (_power)")
+                # Debug logging for power area (gated)
+                try:
+                    if (
+                        cortical_idx in self.cortical_areas
+                        and self.cortical_areas[cortical_idx].get("cortical_id") == "_power"
+                        and FeagiStateManager.instance().is_debug_npu_enabled()
+                    ):
+                        logger.info(
+                            f"[NPU-POWER-DEBUG] Mapped neuron {neuron_id} to cortical_idx {cortical_idx} (_power)"
+                        )
+                except Exception:
+                    pass
                 
             # Update area statistics
             self.cortical_areas[cortical_idx]["neuron_count"] += count

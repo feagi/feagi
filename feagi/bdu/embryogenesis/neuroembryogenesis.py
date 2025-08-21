@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import FeagiStateManager
 
 logger = setup_logger(__name__)
 """
@@ -654,6 +655,15 @@ class NeuroEmbryogenesis:
                         f"CRITICAL: Area {cortical_id} was not properly created in connectome_manager"
                     )
 
+                # Immediately sync the new area into NPU registry to keep mappings consistent
+                try:
+                    if hasattr(self.connectome_manager, "sync_cortical_areas_to_npu"):
+                        self.connectome_manager.sync_cortical_areas_to_npu()
+                except Exception as sync_e:
+                    logger.error(
+                        f"[NPU-SYNC] Failed to sync cortical areas after creating {cortical_id}: {sync_e}"
+                    )
+
                 #  Get the created area from connectome_manager (single source
                 #  of truth)
                 area = self.connectome_manager.get_cortical_area(
@@ -974,13 +984,17 @@ class NeuroEmbryogenesis:
                 neurons_per_voxel = properties.get("neurons_per_voxel", 1)
                 area_neuron_count = width * height * depth * neurons_per_voxel
 
-                # CRITICAL DEBUG: Log detailed info for power area
+                # CRITICAL DEBUG: Log detailed info for power area (gated)
                 if cortical_id == "_power":
-                    logger.error(f"[POWER-DEBUG] _power area details:")
-                    logger.error(f"  Dimensions: {width}x{height}x{depth}")
-                    logger.error(f"  neurons_per_voxel: {neurons_per_voxel}")
-                    logger.error(f"  Calculated area_neuron_count: {area_neuron_count}")
-                    logger.error(f"  Properties: {properties}")
+                    try:
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
+                            logger.info(f"[POWER-DEBUG] _power area details:")
+                            logger.info(f"  Dimensions: {width}x{height}x{depth}")
+                            logger.info(f"  neurons_per_voxel: {neurons_per_voxel}")
+                            logger.info(f"  Calculated area_neuron_count: {area_neuron_count}")
+                            logger.info(f"  Properties: {properties}")
+                    except Exception:
+                        pass
 
                 logger.debug(
                     f"[FAST-SoA] Creating {area_neuron_count} neurons for {cortical_id}"
@@ -1056,14 +1070,22 @@ class NeuroEmbryogenesis:
                         excitabilities=[1.0] * area_neuron_count
                     )
                     
-                    # Use NPU Interface CRUD method for batch creation
+                    # Use NPU Interface CRUD method for batch creation (gated debug)
                     if cortical_id == "_power":
-                        logger.error(f"[POWER-DEBUG] About to call create_neurons_batch for _power with {area_neuron_count} neurons")
+                        try:
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                logger.info(f"[POWER-DEBUG] About to call create_neurons_batch for _power with {area_neuron_count} neurons")
+                        except Exception:
+                            pass
                     
                     result = npu_interface.create_neurons_batch(request)
                     
                     if cortical_id == "_power":
-                        logger.error(f"[POWER-DEBUG] create_neurons_batch result: success={result.is_success}, count={result.successful_count}")
+                        try:
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                logger.info(f"[POWER-DEBUG] create_neurons_batch result: success={result.is_success}, count={result.successful_count}")
+                        except Exception:
+                            pass
                     
                     if not result.is_success:
                         raise RuntimeError(f"Failed to create neurons via NPU Interface: {result.result}")
