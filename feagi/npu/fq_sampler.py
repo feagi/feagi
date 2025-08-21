@@ -226,9 +226,6 @@ class UnifiedFQSampler:
         start_time = time.perf_counter()
 
         try:
-            # COORDINATE DEBUG: Log sample method entry
-            logger.info(f"[COORD-DEBUG] FQ Sampler sample() method called")
-            
             # Get target areas based on strategy
             target_areas = self._get_target_areas()
             if not target_areas:
@@ -236,9 +233,6 @@ class UnifiedFQSampler:
                     "🔥 FQ SAMPLER: No target areas found for sampling"
                 )
                 return None
-
-            # COORDINATE DEBUG: Log target areas
-            logger.info(f"[COORD-DEBUG] FQ Sampler target areas: {target_areas}")
 
             # High-performance sampling with zero-copy operations
             logger.debug(
@@ -258,13 +252,7 @@ class UnifiedFQSampler:
                     for area, data in result.items()
                 }
                 total_neurons = sum(area_counts.values())
-                
-                # COORDINATE DEBUG: Log final result summary
-                logger.info(f"[COORD-DEBUG] FQ Sampler returning result with {len(result)} areas: {list(result.keys())}")
-                for area_id, area_data in result.items():
-                    if area_data.get("neuron_ids") and area_data.get("coordinates"):
-                        logger.info(f"[COORD-DEBUG] FQ Sampler final result for {area_id}: neuron_ids={area_data['neuron_ids']}, coordinates={area_data['coordinates']}")
-                
+
                 if total_neurons > 0:
                     if self._is_debug_npu_enabled():
                         logger.info(
@@ -574,50 +562,28 @@ class UnifiedFQSampler:
                     f"🔥 PIPELINE [{self.instance_id}]: Area '{area_id}' identified as REGULAR area"
                 )
 
-                # REGULAR AREAS: Use existing fire queue lookup logic
-                area_data = None
-                
-                # COORDINATE DEBUG: Log fire queue provider type and available methods
-                logger.info(
-                    f"[COORD-DEBUG] Fire queue provider type: {type(self.fire_queue_provider)}"
-                )
-                logger.info(
-                    f"[COORD-DEBUG] Available methods: zerocopy={hasattr(self.fire_queue_provider, 'get_area_fire_queue_zerocopy')}, standard={hasattr(self.fire_queue_provider, 'get_area_fire_queue')}"
-                )
                 if hasattr(
                     self.fire_queue_provider, "get_area_fire_queue_zerocopy"
                 ):
                     logger.info(
                         f"🔥 PIPELINE [{self.instance_id}]: Using zerocopy method for '{area_id}'"
                     )
-                    logger.info(
-                        f"[COORD-DEBUG] FQ Sampler calling get_area_fire_queue_zerocopy for {area_id}"
-                    )
+
                     area_data = (
                         self.fire_queue_provider.get_area_fire_queue_zerocopy(
                             area_id
                         )
                     )
-                    # COORDINATE DEBUG: Log what we got back immediately
-                    if area_data:
-                        logger.info(
-                            f"[COORD-DEBUG] FQ Sampler got zerocopy area_data for {area_id}: neuron_ids={area_data.get('neuron_ids', [])}, coordinates={area_data.get('coordinates', [])}"
-                        )
+
                 elif hasattr(self.fire_queue_provider, "get_area_fire_queue"):
                     logger.info(
                         f"🔥 PIPELINE [{self.instance_id}]: Using standard method for '{area_id}'"
                     )
-                    logger.info(
-                        f"[COORD-DEBUG] FQ Sampler calling get_area_fire_queue for {area_id}"
-                    )
+
                     area_data = self.fire_queue_provider.get_area_fire_queue(
                         area_id
                     )
-                    # COORDINATE DEBUG: Log what we got back immediately
-                    if area_data:
-                        logger.info(
-                            f"[COORD-DEBUG] FQ Sampler got area_data for {area_id}: neuron_ids={area_data.get('neuron_ids', [])}, coordinates={area_data.get('coordinates', [])}"
-                        )
+
                 else:
                     logger.warning(
                         f"🔥 PIPELINE [{self.instance_id}]: No fire queue method available for '{area_id}'"
@@ -629,12 +595,6 @@ class UnifiedFQSampler:
                         f"🔥 PIPELINE [{self.instance_id}]: No data or no neuron_ids for regular area '{area_id}'"
                     )
                     continue
-                
-                # COORDINATE DEBUG: Log coordinates returned from fire queue provider
-                if area_data.get("coordinates"):
-                    logger.info(
-                        f"[COORD-DEBUG] FQ Sampler received coordinates for {area_id}: {area_data['coordinates']}"
-                    )
 
                 #  Direct reference to data (zero-copy) with fallback to view
                 #  creation

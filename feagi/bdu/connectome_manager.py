@@ -1291,13 +1291,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.debug(
                         f"[NPU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
                     )
-                
-                # COORDINATE DEBUG: Log all fired neurons (especially for iic200 area)
-                iic200_neurons = [nid for nid in fired_neuron_ids if nid in [4495, 4496]]
-                if iic200_neurons:
-                    logger.info(
-                        f"[COORD-DEBUG] Neurons 4495/4496 fired: {iic200_neurons}"
-                    )
+
 
                 # Vectorized grouping of fired neurons by cortical area
                 fired_neurons_array = np.array(
@@ -1349,26 +1343,12 @@ class ConnectomeManager(NeuronMappingProvider):
                         neurons_by_cortical[int(cortical_idx)] = valid_neurons[
                             mask
                         ].tolist()
-                        
-                        # COORDINATE DEBUG: Log which neurons are being added to FCL for each cortical area
-                        if int(cortical_idx) == 10:  # iic200 cortical_idx
-                            logger.info(
-                                f"[COORD-DEBUG] Adding neurons to FCL for cortical_idx {cortical_idx} (iic200): {valid_neurons[mask].tolist()}"
-                            )
 
-                    if state_manager.is_debug_npu_enabled():
-                        logger.debug(
-                            f"[NPU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}"
-                        )
                 else:
                     logger.warning(
                         "FCL UPDATE: No valid neurons to update in FCL"
                     )
-            else:
-                if state_manager.is_debug_npu_enabled():
-                    logger.debug(
-                        "[NPU-DEBUG] FCL UPDATE: No fired neurons to update"
-                    )
+
 
             # Use async FCL processor for parallel processing if available
             async_fcl_processor = self._get_async_fcl_processor()
@@ -2059,22 +2039,6 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses successfully created
         """
-        # CRITICAL DEBUG: Log synapse creation attempts
-        logger.info(f"[COORD-DEBUG] *** BATCH_CREATE_SYNAPSES CALLED *** with {len(synapse_specs) if synapse_specs else 0} synapse specs")
-        
-        if synapse_specs:
-            # Log the first few synapse specs for debugging
-            sample_specs = synapse_specs[:5]  # First 5 specs
-            logger.info(f"[COORD-DEBUG] Sample synapse specs: {sample_specs}")
-            
-            # Check specifically for neuron 2 -> 4495 synapse
-            power_to_iic200 = [(pre, post, weight) for pre, post, weight in synapse_specs if pre == 2 and post == 4495]
-            if power_to_iic200:
-                logger.info(f"[COORD-DEBUG] *** FOUND POWER->IIC200 SYNAPSE *** {power_to_iic200}")
-        
-        if not synapse_specs:
-            logger.info(f"[COORD-DEBUG] No synapse specs provided - returning 0")
-            return 0
 
         # Validate that all neurons exist using NPU-owned mapping before batch creation
         valid_specs = []
@@ -2086,27 +2050,14 @@ class ConnectomeManager(NeuronMappingProvider):
                 valid_specs.append((pre_id, post_id, weight))
             else:
                 invalid_specs.append((pre_id, post_id, weight))
-                # Log missing neurons
-                if not pre_exists:
-                    logger.info(f"[COORD-DEBUG] Pre-neuron {pre_id} not found (NPU mapping)")
-                if not post_exists:
-                    logger.info(f"[COORD-DEBUG] Post-neuron {post_id} not found (NPU mapping)")
-
-        logger.info(f"[COORD-DEBUG] Validation results: {len(valid_specs)} valid, {len(invalid_specs)} invalid")
 
         if not valid_specs:
             logger.warning("No valid synapse specifications found")
-            logger.info(f"[COORD-DEBUG] *** NO VALID SYNAPSES *** - all {len(synapse_specs)} specs were invalid")
             return 0
 
-        # Use new NPU SynapseArray's vectorized batch creation
-        logger.info(f"[COORD-DEBUG] Calling synapse_array.batch_create_synapses with {len(valid_specs)} valid specs")
-        
+
         created_count = self.synapse_array.batch_create_synapses(valid_specs)
-        
-        logger.info(f"[COORD-DEBUG] NPU SynapseArray created {created_count} synapses")
-        logger.info(f"[COORD-DEBUG] Total synapses in array now: {self.synapse_array.synapse_count}")
-        
+
         # Update state manager with new synapse count (optimized - synapse count only)
         if created_count > 0:
             self._update_synapse_count_only()
