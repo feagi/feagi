@@ -1204,10 +1204,7 @@ class VisualizationStream:
                         x_coords = [coord[0] for coord in provided_coordinates]
                         y_coords = [coord[1] for coord in provided_coordinates]
                         z_coords = [coord[2] for coord in provided_coordinates]
-                        logger.info(
-                            f"[VIZ-DEBUG] Using provided coordinates for {area_id}: "
-                            f"{provided_coordinates}"
-                        )
+
                     else:
                         #  Use high-performance coordinate extraction - real
                         #  data only (regular areas)
@@ -1219,10 +1216,7 @@ class VisualizationStream:
                             x_coords = coords_result["coordinates_x"]
                             y_coords = coords_result["coordinates_y"]
                             z_coords = coords_result["coordinates_z"]
-                            logger.info(
-                                f"[VIZ-DEBUG] Looked up coordinates for {area_id}: "
-                                f"{len(x_coords)} coords"
-                            )
+
                         else:
                             # ❌ NO FALLBACKS - Coordinates must exist
                             raise ValueError(
@@ -1235,12 +1229,6 @@ class VisualizationStream:
                     if max_len == 0:
                         continue
 
-                    # DEBUG: Log array lengths before processing
-                    logger.info(
-                        f"[VIZ-DEBUG] {area_id}: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, "
-                        f"x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}"
-                    )
-
                     # Pad membrane potentials if needed
                     if len(membrane_potentials) < max_len:
                         membrane_potentials.extend(
@@ -1249,12 +1237,6 @@ class VisualizationStream:
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
 
-                    # DEBUG: Log final array lengths
-                    logger.info(
-                        f"[VIZ-DEBUG] {area_id} FINAL: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, "
-                        f"x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}"
-                    )
-
                     # Create NumPy arrays with proper dtypes for performance
                     # (following neuron_c example)
                     neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
@@ -1262,13 +1244,6 @@ class VisualizationStream:
                     neurons_z = np.asarray(z_coords[:max_len], dtype=np.uint32)
                     neurons_p = np.asarray(
                         membrane_potentials[:max_len], dtype=np.float32
-                    )
-
-                    # DEBUG: Log NumPy array shapes
-                    logger.info(
-                        f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, "
-                        f"y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, "
-                        f"p.shape={neurons_p.shape}"
                     )
 
                     #  Create cortical ID using modern feagi-data-processing

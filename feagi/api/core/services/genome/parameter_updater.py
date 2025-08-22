@@ -7,6 +7,7 @@ massive performance improvements for parameter-only changes.
 
 import time
 from typing import Any, Dict, List, Union
+import numpy as np  # Required for any vectorized conversions or clamps
 
 from feagi.api.core.services.genome.change_classifier import (
     CorticalChangeClassifier,
@@ -50,10 +51,22 @@ class CorticalParameterUpdater:
         start_time = time.time()
 
         try:
-            # Get all neurons in the cortical area
-            neuron_ids = self.connectome_manager.get_neurons_by_cortical_area(
-                cortical_id
-            )
+            # Fetch neuron IDs via NPU interface to avoid legacy paths and ensure SoA source of truth
+            npu = getattr(self.connectome_manager, "_npu_interface", None)
+            if not npu or not getattr(npu, "neuron_array", None):
+                self.logger.error(
+                    "NPU Interface is not available on ConnectomeManager; fast parameter update requires NPU"
+                )
+                return False
+
+            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            if cortical_idx is None:
+                self.logger.info(
+                    f"Cortical area {cortical_id} not registered in NPU yet - skipping parameter updates"
+                )
+                return True
+
+            neuron_ids = npu.get_neurons_by_area(cortical_idx) or []
             if not neuron_ids:
                 self.logger.info(
                     f"No neurons found in cortical area {cortical_id} - skipping parameter updates"
