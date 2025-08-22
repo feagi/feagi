@@ -270,6 +270,10 @@ class NeuronArray:
         # Free index management for O(1) allocation
         self.free_indices: List[int] = []
         self.next_free_index = 0
+
+        # Legacy/compat cursor for used range scanning in various services
+        # Many components iterate up to next_index when aggregating per-area stats
+        self.next_index = 0
         
         logger.info(f"NeuronArray initialized: {max_neurons:,} max neurons, {backend.value} backend")
         logger.info(f"SIMD config: {self.simd_config.vector_width} vector width, {self.simd_config.optimal_batch_size} optimal batch size")
@@ -407,6 +411,9 @@ class NeuronArray:
         self.count += count
         self.neuron_count += count  # Keep both in sync
         self._next_neuron_id = max(self._next_neuron_id, max(neuron_ids) + 1)
+        # Advance next_index to cover the newly written range
+        if end_idx > getattr(self, "next_index", 0):
+            self.next_index = end_idx
         
         return indices
     
@@ -543,6 +550,9 @@ class NeuronArray:
             if end_idx > self.count:
                 self.count = end_idx
                 self.neuron_count = end_idx
+            # Ensure next_index also covers this range for downstream scanners
+            if end_idx > getattr(self, "next_index", 0):
+                self.next_index = end_idx
     
     def set_neuron_property(self, neuron_id: int, property_name: str, value: Union[float, int]) -> None:
         """Set a property value for a specific neuron.
@@ -667,6 +677,15 @@ class MemoryNeuronArray:
         self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         
         logger.info(f"MemoryNeuronArray initialized: {max_memory_neurons:,} max memory neurons")
+
+    def _is_mem_debug_enabled(self) -> bool:
+        """Check memory debug flag from state manager (safe, no hard dependency)."""
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            return FeagiStateManager.instance().is_mem_debug_enabled()
+        except Exception:
+            return False
     
     def add_neurons_batch(self, neuron_ids: List[int], patterns: List[str],
                          initial_potentials: List[float], thresholds: List[float],
@@ -840,6 +859,18 @@ class MemoryNeuronArray:
         # Maintain counts
         self.count = max(self.count, idx + 1)
 
+        if self._is_mem_debug_enabled():
+            try:
+                non_empty = sum(1 for p in pattern_key.pattern_data if p)
+                logger.info(
+                    f"🧠 [MEMORY] CREATE: idx={idx}, id={neuron_id}, area={cortical_area_id}, "
+                    f"life={self.lifespan_current[idx]}/{self.lifespan_initial[idx]}, "
+                    f"temporal_depth={pattern_key.temporal_depth}, non_empty_steps={non_empty}, "
+                    f"digest={int(self.pattern_digests[idx]) if self.pattern_digests[idx] is not None else -1}"
+                )
+            except Exception:
+                pass
+
         return idx
 
     def reactivate_memory_neuron(self, neuron_idx: int, current_burst: int) -> bool:
@@ -862,6 +893,15 @@ class MemoryNeuronArray:
         # If current is already higher due to prior growth, keep the max
         self.lifespan_current[neuron_idx] = max(int(self.lifespan_current[neuron_idx]), grown)
         self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
+        if self._is_mem_debug_enabled():
+            try:
+                nid = self.index_to_neuron_id.get(neuron_idx, -1)
+                logger.info(
+                    f"🧠 [MEMORY] REACTIVATE: idx={neuron_idx}, id={nid}, last_burst={current_burst}, "
+                    f"life_now={int(self.lifespan_current[neuron_idx])}"
+                )
+            except Exception:
+                pass
         return True
 
     def age_memory_neurons(self, current_burst: int) -> List[int]:

@@ -44,6 +44,59 @@ class GenomeService(BaseService):
             "GENOME SERVICE: Initialized with clean architecture"
         )
 
+    def _ensure_core_areas_in_blueprint(self, genome: Dict[str, Any]) -> None:
+        """Ensure core cortical areas ('_death', '_power') exist in the genome blueprint.
+
+        This uses FEAGI templates as the single source of truth to create minimal
+        hierarchical definitions when missing. This keeps genome and connectome
+        mapping consistent without introducing hardcoded values.
+
+        Args:
+            genome: The working genome dictionary (hierarchical format expected)
+        """
+        try:
+            if not isinstance(genome, dict) or "blueprint" not in genome:
+                return
+
+            blueprint = genome["blueprint"]
+            if not isinstance(blueprint, dict):
+                return
+
+            from feagi.evo.templates import cortical_types
+
+            core_devices = (
+                cortical_types.get("CORE", {}).get("supported_devices", {})
+            )
+
+            for area_id in ("_death", "_power"):
+                if area_id in blueprint:
+                    continue
+
+                area_template = core_devices.get(area_id, {})
+
+                # Build minimal hierarchical area definition
+                coord3d = area_template.get("coordinate_3d", [0, 0, 0])
+                res = area_template.get("resolution", [1, 1, 1])
+
+                area_def = {
+                    "cortical_name": area_template.get(
+                        "cortical_name", area_id
+                    ),
+                    "coordinates": {"x": coord3d[0], "y": coord3d[1], "z": coord3d[2]},
+                    "dimensions": {"x": res[0], "y": res[1], "z": res[2]},
+                    "parameters": {},
+                }
+
+                blueprint[area_id] = area_def
+                self.logger.info(
+                    f"Added core cortical area '{area_id}' to genome blueprint from templates"
+                )
+        except Exception as e:
+            # Non-fatal: keep loader deterministic while logging context
+            self.logger.warning(
+                f"Could not ensure core areas in genome blueprint: {e}"
+            )
+
     def load_genome(
         self, genome_data: Dict[str, Any], filename: str = "genome.json"
     ) -> Dict[str, Any]:
@@ -76,7 +129,6 @@ class GenomeService(BaseService):
                 }
 
             # CRITICAL: Start timing for performance monitoring
-            start_time = time.time()
 
             try:
                 self.logger.info("Step 1: Initializing genome load process")
@@ -435,6 +487,9 @@ class GenomeService(BaseService):
                 else:
                     # No blueprint section or not dict - store as-is
                     self._current_genome = genome_data
+
+                # Ensure core areas are present in the hierarchical blueprint
+                self._ensure_core_areas_in_blueprint(self._current_genome)
 
                 #  ARCHITECTURE IMPROVEMENT: Stage sanitized genome in state
                 #  manager FIRST
@@ -1742,22 +1797,27 @@ class GenomeService(BaseService):
                 # Override with any provided parameters
                 if parameters:
                     new_area.update(parameters)
-                
+                # Initialize embryogenesis for subsequent operations
+                from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                    NeuroEmbryogenesis,
+                )
+                embryogenesis = NeuroEmbryogenesis(
+                    self._connectome_manager, self.state_manager
+                )
                 # CRITICAL FIX: Ensure group_id is set for proper classification
                 if "group_id" not in new_area:
                     if is_memory_area:
                         new_area["group_id"] = "MEMORY"
                     else:
                         new_area["group_id"] = parameters.get("cortical_group", "CUSTOM") if parameters else "CUSTOM"
-                
                 # CRITICAL FIX: Only memory areas need memory properties
                 # Non-memory areas should not have memory properties
                 if is_memory_area:
                     memory_defaults = {
-                        "is_mem_type": True,             # Boolean flag for memory areas
-                        "longterm_mem_threshold": 100,   # Default threshold
-                        "lifespan_growth_rate": 1,       # Default growth rate  
-                        "init_lifespan": 9,              # Default lifespan
+                        "is_mem_type": True,
+                        "longterm_mem_threshold": 100,
+                        "lifespan_growth_rate": 1,
+                        "init_lifespan": 9,
                     }
                     
                     # Add memory properties to memory areas only
@@ -1810,8 +1870,7 @@ class GenomeService(BaseService):
                             dimensions["depth"],
                         )
 
-                    created_cortical_id = (
-                        self._connectome_manager.add_cortical_area(
+                    self._connectome_manager.add_cortical_area(
                             name=name,
                             dimensions=tuple(create_dims),
                             position=tuple(
@@ -1825,7 +1884,6 @@ class GenomeService(BaseService):
                             properties=enhanced_properties,
                             cortical_id=cortical_id,
                         )
-                    )
 
                     # MEMORY AREA: Do not create regular neurons; register with memory systems only
                     if is_memory_area:
@@ -2928,6 +2986,7 @@ class GenomeService(BaseService):
                 self.logger.info(
                     "🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance..."
                 )
+                
                 embryogenesis = NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
@@ -4947,6 +5006,7 @@ class GenomeService(BaseService):
         )
 
         try:
+            # Access area via connectome manager (used below for dimensions)
             area = self._connectome_manager.cortical_areas[cortical_id]
 
             #  Generate positions for additional neurons distributed across

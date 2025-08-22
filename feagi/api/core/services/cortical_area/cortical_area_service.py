@@ -877,20 +877,39 @@ class CorticalAreaService(BaseService):
             List of cortical area ID strings
         """
         try:
-            #  ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source
-            #  of truth
-            cortical_ids = self._connectome_manager.get_all_cortical_ids()
-            self.logger.debug(
-                f"Retrieved {len(cortical_ids)} cortical area IDs from ConnectomeManager"
-            )
-            return cortical_ids
+            # Source of truth: hierarchical genome blueprint
+            if not self._genome_service or not hasattr(self._genome_service, "_current_genome"):
+                raise ValueError("GenomeService unavailable or genome not loaded")
+
+            genome = getattr(self._genome_service, "_current_genome", None)
+            if not genome or "blueprint" not in genome or not isinstance(genome["blueprint"], dict):
+                raise ValueError("Genome blueprint missing or invalid")
+
+            genome_ids = sorted(list(genome["blueprint"].keys()))
+
+            # Optional consistency check against ConnectomeManager mapping (must not introduce IDs not in genome)
+            mapping_ids: List[str] = []
+            if hasattr(self._connectome_manager, "cortical_mapping") and self._connectome_manager.cortical_mapping:
+                try:
+                    mapping_ids = sorted(list(self._connectome_manager.cortical_mapping.get_all_mappings().keys()))
+                except Exception:
+                    mapping_ids = []
+
+            # Detect inconsistencies
+            extra_in_mapping = [cid for cid in mapping_ids if cid not in genome_ids]
+            if extra_in_mapping:
+                raise ValueError(
+                    f"Mapping contains IDs not present in genome: {extra_in_mapping}"
+                )
+
+            return genome_ids
 
         except Exception as e:
             self.logger.error(f"Error getting cortical area ID list: {str(e)}")
             import traceback
-
             self.logger.error(traceback.format_exc())
-            return []
+            # Surface strict error per policy (no fallbacks)
+            raise
 
     def get_index_list(self) -> List[int]:
         """Get a list of all cortical area indices (integers) used by the

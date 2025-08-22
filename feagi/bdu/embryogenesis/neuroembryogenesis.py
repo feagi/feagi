@@ -22,7 +22,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import numpy as np
+import numpy as np  # noqa: F401
 
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager
@@ -865,6 +865,34 @@ class NeuroEmbryogenesis:
             logger.info(
                 "Core areas created successfully with correct cortical_idx reservation"
             )
+
+            # Ensure genome blueprint also contains core areas if missing
+            try:
+                if hasattr(self, "genome") and isinstance(self.genome, dict):
+                    blueprint = self.genome.get("blueprint")
+                    if isinstance(blueprint, dict):
+                        def _add_core_to_genome(core_id: str, template: dict) -> None:
+                            if core_id in blueprint:
+                                return
+                            res = template.get("resolution", [1, 1, 1])
+                            coord = template.get("coordinate_3d", [0, 0, 0])
+                            area_def = {
+                                "cortical_name": template.get("cortical_name", core_id),
+                                "coordinates": {"x": coord[0], "y": coord[1], "z": coord[2]},
+                                "dimensions": {"x": res[0], "y": res[1], "z": res[2]},
+                                "parameters": {},
+                            }
+                            blueprint[core_id] = area_def
+                            logger.info(
+                                f"Added missing core area '{core_id}' to genome blueprint from templates"
+                            )
+
+                        _add_core_to_genome("_death", death_template)
+                        _add_core_to_genome("_power", pwr_template)
+            except Exception as genome_sync_error:
+                logger.warning(
+                    f"Could not sync core areas into genome blueprint: {genome_sync_error}"
+                )
             return True
 
         except Exception as e:
@@ -984,7 +1012,7 @@ class NeuroEmbryogenesis:
                 if cortical_id == "_power":
                     try:
                         if FeagiStateManager.instance().is_debug_npu_enabled():
-                            logger.info(f"[POWER-DEBUG] _power area details:")
+                            logger.info("[POWER-DEBUG] _power area details:")
                             logger.info(f"  Dimensions: {width}x{height}x{depth}")
                             logger.info(f"  neurons_per_voxel: {neurons_per_voxel}")
                             logger.info(f"  Calculated area_neuron_count: {area_neuron_count}")
@@ -1030,7 +1058,7 @@ class NeuroEmbryogenesis:
                 # ARCHITECTURE COMPLIANCE: No fallbacks for required properties
                 if "refrac" not in properties:
                     raise ValueError(f"ARCHITECTURE VIOLATION: Missing required property 'refrac' for area {cortical_id}")
-                base_refractory = properties["refrac"]
+                refractory_period = properties["refrac"]
 
                 # Generate all positions for this cortical area
                 positions = []
@@ -2436,7 +2464,7 @@ class NeuroEmbryogenesis:
                     # Import global spatial hash system
                     from feagi.bdu.spatial_hash import get_spatial_hash
 
-                    spatial_hash = get_spatial_hash()
+                    _ = get_spatial_hash()
 
                     # Extract neuron IDs from the pairs
                     found_neuron_ids = [

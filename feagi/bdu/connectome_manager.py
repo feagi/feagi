@@ -2929,9 +2929,15 @@ class ConnectomeManager(NeuronMappingProvider):
             - neuron_count: Number of neurons in the area
         """
         try:
+            # Enforce mapping↔area consistency first
+            idx_from_map = self.cortical_mapping.get_idx(cortical_id)
+            if idx_from_map is None:
+                raise KeyError(f"Cortical ID '{cortical_id}' not found in mapping")
             area = self.get_cortical_area(cortical_id)
             if not area:
-                return {}
+                raise KeyError(
+                    f"Cortical area object not found for '{cortical_id}' (idx={idx_from_map})"
+                )
 
             # Get cortical_idx through the mapping
             cortical_idx = self.cortical_mapping.get_idx(cortical_id)
@@ -3262,6 +3268,58 @@ class ConnectomeManager(NeuronMappingProvider):
                 elif prop_name == "cortical_name":
                     area.name = str(new_value)
                     updated_properties.append(f"name='{new_value}'")
+                elif prop_name == "neuron_fire_threshold":
+                    # Legacy key used across API/clients
+                    area.properties["fire_t"] = float(new_value)
+                    updated_properties.append(f"fire_t={float(new_value)}")
+                elif prop_name == "neuron_fire_threshold_increment":
+                    try:
+                        inc = list(new_value)
+                        x = float(inc[0]) if len(inc) > 0 else 0.0
+                        y = float(inc[1]) if len(inc) > 1 else 0.0
+                        z = float(inc[2]) if len(inc) > 2 else 0.0
+                        area.properties["ftincx"] = x
+                        area.properties["ftincy"] = y
+                        area.properties["ftincz"] = z
+                        updated_properties.append(f"ftincx={x}, ftincy={y}, ftincz={z}")
+                    except Exception:
+                        pass
+                elif prop_name == "neuron_firing_threshold_limit":
+                    area.properties["fthlim"] = int(new_value)
+                    updated_properties.append(f"fthlim={int(new_value)}")
+                elif prop_name == "neuron_refractory_period":
+                    area.properties["refrac"] = int(new_value)
+                    updated_properties.append(f"refrac={int(new_value)}")
+                elif prop_name == "neuron_leak_coefficient":
+                    # Stored as leak_c (percent-based in legacy); keep raw float
+                    area.properties["leak_c"] = float(new_value)
+                    updated_properties.append(f"leak_c={float(new_value)}")
+                elif prop_name == "neuron_leak_variability":
+                    area.properties["leak_v"] = float(new_value)
+                    updated_properties.append(f"leak_v={float(new_value)}")
+                elif prop_name == "neuron_snooze_period":
+                    area.properties["snooze"] = int(new_value)
+                    updated_properties.append(f"snooze={int(new_value)}")
+                elif prop_name == "neuron_post_synaptic_potential":
+                    area.properties["pstcr"] = float(new_value)
+                    updated_properties.append(f"pstcr={float(new_value)}")
+                elif prop_name == "neuron_post_synaptic_potential_max":
+                    area.properties["pstcrm"] = float(new_value)
+                    updated_properties.append(f"pstcrm={float(new_value)}")
+                elif prop_name == "neuron_psp_uniform_distribution":
+                    area.properties["pspuni"] = bool(new_value)
+                    updated_properties.append(f"pspuni={bool(new_value)}")
+                elif prop_name == "neuron_mp_charge_accumulation":
+                    area.properties["mp_acc"] = bool(new_value)
+                    updated_properties.append(f"mp_acc={bool(new_value)}")
+                elif prop_name == "neuron_mp_driven_psp":
+                    area.properties["mp_psp"] = bool(new_value)
+                    updated_properties.append(f"mp_psp={bool(new_value)}")
+                elif prop_name == "neuron_excitability":
+                    # Area-level default; keep in legacy 'excite' for API consumers
+                    ex = max(0.0, min(1.0, float(new_value)))
+                    area.properties["excite"] = ex
+                    updated_properties.append(f"excite={ex}")
                 else:
                     # Direct property update
                     area.properties[prop_name] = new_value

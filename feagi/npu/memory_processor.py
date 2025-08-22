@@ -159,6 +159,14 @@ class MemoryProcessor:
             logger.info(
                 f"🧠 [MEMORY] Registered memory area {cortical_id} with temporal_depth={temporal_depth}"
             )
+            if self._is_mem_debug_enabled():
+                try:
+                    idx = self._get_cortical_idx_for_area(cortical_id)
+                    logger.info(
+                        f"🧠 [MEMORY] Registration details: cortical_idx={idx}, upstream_areas={upstream_areas or set()}"
+                    )
+                except Exception:
+                    pass
             return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
@@ -188,6 +196,10 @@ class MemoryProcessor:
             self.memory_area_properties[cortical_id][
                 "upstream_areas"
             ] = upstream_areas
+            if self._is_mem_debug_enabled():
+                logger.info(
+                    f"🧠 [MEMORY] Updated upstream areas for {cortical_id}: {upstream_areas}"
+                )
 
     def process_memory_areas_batch(self, current_burst: int) -> Dict[str, Any]:
         """Process all registered memory areas for current burst cycle.
@@ -495,6 +507,13 @@ class MemoryProcessor:
                 logger.info(
                     f"🔍 [MEMORY] Pattern serialized: {temporal_pattern.serialize() if hasattr(temporal_pattern, 'serialize') else 'No serialize method'}"
                 )
+                try:
+                    non_empty = sum(1 for p in temporal_pattern.pattern_data if p)
+                    logger.info(
+                        f"🧠 [MEMORY] PATTERN SUMMARY: area={memory_area_id}, depth={temporal_depth}, non_empty_steps={non_empty}, sources={temporal_pattern.source_cortical_areas}"
+                    )
+                except Exception:
+                    pass
 
             # 2. Find or create memory neuron for this pattern
             existing_neuron_idx = self._find_or_cache_pattern(temporal_pattern)
@@ -554,6 +573,15 @@ class MemoryProcessor:
                         logger.info(
                             "⭐ [MEMORY] This is a COMPLETELY NEW pattern - neuron count should increase!"
                         )
+                        try:
+                            nid = self.memory_neuron_array.index_to_neuron_id.get(
+                                new_neuron_idx, -1
+                            )
+                            logger.info(
+                                f"🧠 [MEMORY] CREATE SUMMARY: idx={new_neuron_idx}, id={nid}, area={memory_area_id}"
+                            )
+                        except Exception:
+                            pass
 
                     # CRITICAL FIX: Update StateManager neuron count
                     self._update_state_manager_neuron_count(increment=1)
@@ -730,6 +758,10 @@ class MemoryProcessor:
                                 logger.info(
                                     f"🧠 [MEMORY] Timestep {timestep}: area {upstream_area_id} has {neuron_count} firing neurons"
                                 )
+                        elif mem_debug:
+                            logger.info(
+                                f"🧠 [MEMORY] Timestep {timestep}: area {upstream_area_id} has no firing neurons"
+                            )
                     except Exception as area_error:
                         if mem_debug:
                             logger.warning(
@@ -754,6 +786,10 @@ class MemoryProcessor:
                     pattern_bitmaps.append(
                         b""
                     )  # Empty pattern for this timestep
+                    if mem_debug:
+                        logger.info(
+                            f"🧠 [MEMORY] Timestep {timestep}: no upstream activity combined"
+                        )
 
             # Check if we have any meaningful pattern
             non_empty_patterns = [p for p in pattern_bitmaps if p]
@@ -1084,21 +1120,46 @@ class MemoryProcessor:
         neuron_indices: List[int],
         current_burst: int,
     ) -> None:
-        """Inject a signal into the FCL to mark a memory area as active.
-
-        This uses a conservative approach that avoids overwriting per-area FCL
-        structures. We avoid injecting synthetic neuron IDs to keep FCL semantics
-        strict until a dedicated mapping for memory neurons is established.
+        """Inject memory neuron activations into FCL for the memory cortical area.
 
         Args:
             memory_area_id: Memory cortical area ID
-            neuron_indices: Memory neuron indices
+            neuron_indices: Memory neuron indices (array indices)
             current_burst: Current burst number
         """
-        # Intentionally left as a no-op to maintain strict FCL semantics.
-        #  Memory neuron to FCL integration will use proper ID mapping in
-        #  future work.
-        return
+        try:
+            # Resolve cortical_idx for memory area
+            cortical_idx = self._get_cortical_idx_for_area(memory_area_id)
+            if cortical_idx is None:
+                return
+
+            # Map indices to memory neuron IDs; include only active/valid neurons
+            ids: List[int] = []
+            for idx in neuron_indices:
+                if idx < 0:
+                    continue
+                if (
+                    idx < self.memory_neuron_array.count
+                    and bool(self.memory_neuron_array.valid_mask[idx])
+                    and bool(self.memory_neuron_array.is_active[idx])
+                ):
+                    nid = self.memory_neuron_array.index_to_neuron_id.get(idx)
+                    if nid is not None:
+                        ids.append(int(nid))
+
+            if not ids:
+                return
+
+            # Update FCL for memory cortical area at current timestep
+            self.fcl_manager.update_fcl(current_burst, {int(cortical_idx): ids})
+
+            if self._is_mem_debug_enabled():
+                logger.info(
+                    f"🧠 [MEMORY] Injected {len(ids)} memory neurons into FCL for area {memory_area_id} (idx={cortical_idx})"
+                )
+        except Exception as e:
+            if self._is_mem_debug_enabled():
+                logger.info(f"[MEMORY] Injection skipped due to error: {e}")
 
     def _debug_log_memory_area_snapshot(
         self,

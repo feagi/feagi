@@ -804,12 +804,17 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         # 6. Memory processing for memory cortical areas
         #    Process temporal patterns and manage memory neuron lifecycle
         if self.memory_processor:
-            if state_manager.is_debug_npu_enabled():
+            mem_debug = (
+                getattr(state_manager, "is_mem_debug_enabled", lambda: False)()
+                if state_manager
+                else False
+            )
+            if state_manager.is_debug_npu_enabled() or mem_debug:
                 logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Processing memory areas for temporal patterns"
+                    "🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns (pre-call)"
                 )
                 logger.info(
-                    f"[NPU-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
+                    f"🧠 [MEMORY] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
                 )
             self._process_memory_areas(current_timestep)
         else:
