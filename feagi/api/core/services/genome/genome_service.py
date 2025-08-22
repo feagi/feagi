@@ -1561,6 +1561,7 @@ class GenomeService(BaseService):
             self.logger.debug(
                 f"GENOME SERVICE: load_genome returned: {result.get('success', 'unknown')}"
             )
+
             return result
 
         except Exception as e:
@@ -4330,6 +4331,28 @@ class GenomeService(BaseService):
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
 
+            # Preserve existing coordinates if not explicitly changed
+            preserved_coords_3d = None
+            preserved_coords_2d = None
+            # Try multiple known fields to preserve existing coordinates
+            try:
+                preserved_coords_3d = area_def.get("coordinates_3d")
+                if preserved_coords_3d is None:
+                    preserved_coords_3d = area_def.get("coordinates")
+                if preserved_coords_3d is None:
+                    preserved_coords_3d = area_def.get("relative_coordinate")
+            except Exception:
+                preserved_coords_3d = None
+            try:
+                # Stored as top-level '2d_coordinate' or under parameters
+                preserved_coords_2d = area_def.get("2d_coordinate")
+                if preserved_coords_2d is None:
+                    preserved_coords_2d = (
+                        area_def.get("parameters", {}).get("coordinates_2d")
+                    )
+            except Exception:
+                preserved_coords_2d = None
+
             # Apply all changes to area definition
             for key, value in changes.items():
                 if key in [
@@ -4344,6 +4367,16 @@ class GenomeService(BaseService):
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
                     area_def["parameters"][key] = value
+
+            # Restore coordinates if not provided in this update
+            if "coordinates_3d" not in changes and preserved_coords_3d is not None:
+                area_def["coordinates_3d"] = preserved_coords_3d
+            if (
+                preserved_coords_2d is not None
+                and "2d_coordinate" not in area_def
+            ):
+                # Keep existing 2D coordinate when present
+                area_def["2d_coordinate"] = preserved_coords_2d
 
             # Commit genome changes to both internal cache and state manager
             self._current_genome = current_genome
@@ -4761,7 +4794,8 @@ class GenomeService(BaseService):
                 # Update properties in-place - preserves neuron assignments
                 if "name" in properties:
                     area.name = properties["name"]
-                if "position" in properties:
+                # Only update runtime position if caller explicitly changed coordinates
+                if "coordinates_3d" in changes and "position" in properties:
                     area.position = tuple(properties["position"])
                 if "area_type" in properties:
                     area.area_type = properties["area_type"]
@@ -5054,10 +5088,16 @@ class GenomeService(BaseService):
         try:
             area_def = genome["blueprint"][cortical_id]
 
-            return {
+            # Build base properties
+            props = {
                 "name": area_def.get("cortical_name", cortical_id),
                 "dimensions": area_def.get("cortical_dimensions", [1, 1, 1]),
-                "position": area_def.get("coordinates_3d", [0, 0, 0]),
+                "position": (
+                    area_def.get("coordinates_3d")
+                    or area_def.get("coordinates")
+                    or area_def.get("relative_coordinate")
+                    or [0, 0, 0]
+                ),
                 "area_type": area_def.get("cortical_type", "custom"),
                 "neurons_per_voxel": area_def.get("parameters", {}).get(
                     "per_voxel_neuron_cnt", 1
@@ -5078,6 +5118,13 @@ class GenomeService(BaseService):
                     "leak_variability", 0.0
                 ),
             }
+            # Include 2D coordinates if available to preserve UI placement
+            coords_2d = area_def.get("2d_coordinate")
+            if coords_2d is None:
+                coords_2d = area_def.get("parameters", {}).get("coordinates_2d")
+            if coords_2d is not None:
+                props["coordinates_2d"] = coords_2d
+            return props
         except KeyError as e:
             raise ValueError(
                 f"Missing required property in genome for area {cortical_id}: {e}"

@@ -130,7 +130,7 @@ class SystemService(BaseService):
             #  (Bridge/Godot) to track genome counter increments
             health["genome_num"] = self.state_manager.get_genome_counter()
 
-            # Use the proper state manager method to check if genome is loaded
+            # Determine genome loaded state via StateManager only (single source of truth)
             if self.state_manager.is_genome_loaded():
                 health["genome_availability"] = True
                 health["brain_readiness"] = (
@@ -144,7 +144,7 @@ class SystemService(BaseService):
                     fitness_raw if fitness_raw is not None else 0.0
                 )
 
-                # Get data from connectome manager (now properly singleton)
+                # Report current counts if connectome is ready per existing validator
                 if self._validate_connectome_ready():
                     health["cortical_area_count"] = len(
                         self._connectome_manager.cortical_areas

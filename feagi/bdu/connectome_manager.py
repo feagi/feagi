@@ -184,7 +184,7 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(f"🔧 _initialized flag: {ConnectomeManager._initialized}")
 
         if ConnectomeManager._initialized:
-            logger.info(f"🔧 ConnectomeManager already initialized, but checking NPU Interface...")
+            logger.info("🔧 ConnectomeManager already initialized, but checking NPU Interface...")
             # Even if already initialized, ensure NPU Interface is set up if it wasn't before
             if not hasattr(self, '_npu_interface') or self._npu_interface is None:
                 logger.info(f"🔧 NPU Interface not set, initializing with backend: '{backend}'")
@@ -1031,7 +1031,7 @@ class ConnectomeManager(NeuronMappingProvider):
         # Handle None backend (use CPU as default)
         if backend is None:
             backend = "cpu"
-            logger.info(f"🔧 Backend was None, defaulting to 'cpu'")
+            logger.info("🔧 Backend was None, defaulting to 'cpu'")
         
         # Create NPU Interface as single source of truth for neural data
         backend_map = {
@@ -1232,7 +1232,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.debug(f"[CONNECTOME-DEBUG] NPU interface available: {self._npu_interface is not None}")
         except Exception:
             pass
-        logger.debug("✅ NPU is primary owner - delegating ALL neural processing to NPU")
+
         # NPU has 100% exclusive ownership of neural processing AND synaptic propagation
         result = self._npu_interface.process_neural_burst(self.current_timestep)
         try:
@@ -1242,137 +1242,6 @@ class ConnectomeManager(NeuronMappingProvider):
         except Exception:
             pass
         return result
-
-        # Initialize fired_indices to ensure it's always defined
-        fired_indices = []
-
-        # Update active neurons tracking
-        if len(fired_neurons) > 0:
-            # Convert neuron IDs to indices for active neurons mask
-            fired_indices = [
-                self.neuron_id_to_index.get(nid)
-                for nid in fired_neurons
-                if nid in self.neuron_id_to_index
-            ]
-            fired_indices = [idx for idx in fired_indices if idx is not None]
-
-            if fired_indices:
-                self.active_neurons[:] = False  # Reset
-                self.active_neurons[fired_indices] = True
-        else:
-            self.active_neurons[:] = False
-
-        #  Convert fired indices to neuron IDs FIRST - CRITICAL FIX: Use
-        #  correct vectorized method
-        if fired_indices:
-            fired_neuron_ids = self._vectorized_index_to_neuron_id(
-                np.array(fired_indices)
-            )
-            # Convert to Python list of integers for FCL compatibility
-            fired_neuron_ids = fired_neuron_ids.tolist()
-        else:
-            fired_neuron_ids = []
-
-        # Update FCL manager with fired neurons
-        if hasattr(self, "fcl_manager") and self.fcl_manager:
-            #  CRITICAL FIX: Initialize state_manager outside if block to
-            #  ensure scope
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
-
-            # Convert fired neurons to the format expected by FCL manager
-            # FCL expects current_timestep first, then neurons_by_cortical
-            neurons_by_cortical = {}
-            if fired_neuron_ids:
-                #  DEBUG: Log fired neurons and mapping status (gated by
-                #  --debug-npu flag)
-                if state_manager.is_debug_npu_enabled():
-                    logger.debug(
-                        f"[NPU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
-                    )
-
-
-                # Vectorized grouping of fired neurons by cortical area
-                fired_neurons_array = np.array(
-                    fired_neuron_ids, dtype=np.int32
-                )
-
-                #  All fired_neuron_ids should be valid since they came from
-                #  indices
-                # But verify the mapping exists for safety
-                valid_mask = np.array(
-                    [
-                        nid in self.neuron_id_to_index
-                        for nid in fired_neurons_array
-                    ]
-                )
-                valid_neurons = fired_neurons_array[valid_mask]
-                invalid_neurons = fired_neurons_array[~valid_mask]
-
-                # DEBUG: Log mapping issues
-                if len(invalid_neurons) > 0:
-                    logger.error(
-                        f"FCL BUG: {len(invalid_neurons)} fired neurons not in neuron_id_to_index mapping: {invalid_neurons[:10]}..."
-                    )
-                    logger.error(
-                        "FCL BUG: This indicates a critical mapping synchronization issue"
-                    )
-
-                if state_manager.is_debug_npu_enabled():
-                    logger.debug(
-                        f"[NPU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update"
-                    )
-
-                if len(valid_neurons) > 0:
-                    # Vectorized index lookup
-                    indices = np.array(
-                        [self.neuron_id_to_index[nid] for nid in valid_neurons]
-                    )
-
-                    # Vectorized cortical_idx extraction
-                    cortical_indices = self.neuron_array.cortical_idxs[
-                        indices
-                    ].astype(np.int32)
-
-                    #  Group neurons by cortical area using vectorized
-                    #  operations
-                    unique_cortical_indices = np.unique(cortical_indices)
-                    for cortical_idx in unique_cortical_indices:
-                        mask = cortical_indices == cortical_idx
-                        neurons_by_cortical[int(cortical_idx)] = valid_neurons[
-                            mask
-                        ].tolist()
-
-                else:
-                    logger.warning(
-                        "FCL UPDATE: No valid neurons to update in FCL"
-                    )
-
-
-            # Use async FCL processor for parallel processing if available
-            async_fcl_processor = self._get_async_fcl_processor()
-            if async_fcl_processor:
-                # Create fired neuron event for async processing
-                from feagi.npu.interfaces import FiredNeuronEvent
-                if neurons_by_cortical:
-                    event = FiredNeuronEvent(
-                        timestep=self.current_timestep,
-                        neurons_by_cortical=neurons_by_cortical
-                    )
-                    async_fcl_processor.process_fired_neurons(event)
-            else:
-                # Fallback to synchronous FCL processing
-                fcl_manager = self._get_fcl_manager()
-                if fcl_manager:
-                    fcl_manager.update_fcl(
-                        self.current_timestep, neurons_by_cortical
-                    )
-
-        # Increment timestep
-        self.current_timestep += 1
-
-        return fired_neuron_ids
 
     # ----------------------------------------------------------------------
     # Synapse Storage Methods
@@ -1880,16 +1749,13 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.get_neurons_by_cortical_area(cortical_id)
 
     def get_neuron_count(self) -> int:
-        """Get the total number of neurons in the connectome.
-
-        Returns:
-            Number of neurons
-        """
-        # Use NPU Interface to get neuron count
+        """Get the total number of neurons in the connectome (regular + memory)."""
         if self._npu_interface:
-            return self._npu_interface.neuron_array.neuron_count
-        else:
-            return 0  # No NPU interface configured yet
+            return (
+                int(getattr(self._npu_interface.neuron_array, "count", 0))
+                + int(getattr(self._npu_interface.memory_neuron_array, "count", 0))
+            )
+        return 0
 
     def delete_neuron(self, neuron_id: int) -> None:
         """Delete a neuron and all its connections.
@@ -2295,7 +2161,20 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses
         """
-        return self.synapse_array.synapse_count
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            try:
+                syn_array = self._npu_interface.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            return 0
+        # Prefer explicit attribute; fall back to generic count
+        if hasattr(syn_array, "synapse_count"):
+            return int(getattr(syn_array, "synapse_count", 0))
+        if hasattr(syn_array, "count"):
+            return int(getattr(syn_array, "count", 0))
+        return 0
 
     def _update_without_firing(self) -> List[int]:
         """Update membrane potentials when no neurons are firing.
@@ -3060,25 +2939,62 @@ class ConnectomeManager(NeuronMappingProvider):
             # Build complete properties dictionary with safe type conversion
             try:
                 # Safely convert coordinates and dimensions to integers
+                # Treat placeholder strings (e.g., 'x','y','z') as absent without error logs
                 coordinates = []
                 for i, x in enumerate(area.position):
                     try:
-                        coordinates.append(int(x))
-                    except (ValueError, TypeError) as e:
-                        self.logger.error(
-                            f"Invalid position[{i}] value '{x}' for area {cortical_id}: {e}"
-                        )
-                        coordinates.append(0)  # Fallback to 0
+                        if isinstance(x, (int, float)):
+                            coordinates.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in ("x", "y", "z", "", "none"):
+                            coordinates.append(0)
+                        else:
+                            coordinates.append(int(float(value_str)))
+                    except Exception:
+                        # Downgrade noisy logs; placeholders are common from clients
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] position[{i}]='{x}' for area {cortical_id} -> 0"
+                                )
+                        except Exception:
+                            pass
+                        coordinates.append(0)
 
                 dimensions = []
                 for i, x in enumerate(area.dimensions):
                     try:
-                        dimensions.append(int(x))
-                    except (ValueError, TypeError) as e:
-                        self.logger.error(
-                            f"Invalid dimensions[{i}] value '{x}' for area {cortical_id}: {e}"
-                        )
-                        dimensions.append(1)  # Fallback to 1
+                        if isinstance(x, (int, float)):
+                            dimensions.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in (
+                            "w",
+                            "h",
+                            "d",
+                            "width",
+                            "height",
+                            "depth",
+                            "",
+                            "none",
+                        ):
+                            dimensions.append(1)
+                        else:
+                            dimensions.append(int(float(value_str)))
+                    except Exception:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] dimensions[{i}]='{x}' for area {cortical_id} -> 1"
+                                )
+                        except Exception:
+                            pass
+                        dimensions.append(1)
 
                 # Safe neuron count (handle None from NPU variant)
                 _neuron_ids_for_count = self.get_neurons_by_area(cortical_id)
@@ -6933,15 +6849,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 "error": str(e),
             }
 
-    def get_synapse_count(self) -> int:
-        """Get total synapse count from NPU Interface.
-        
-        Returns:
-            Total number of synapses
-        """
-        if self._npu_interface:
-            return self._npu_interface.synapse_array.count
-        return 0
+    # Removed duplicate get_synapse_count/get_neuron_count/get_neurons_by_area at end of file (consolidated above)
     
     def get_neuron_count(self) -> int:
         """Get total neuron count from NPU Interface.
