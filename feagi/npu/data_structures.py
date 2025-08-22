@@ -17,13 +17,11 @@ Copyright 2025 Neuraville Inc.
 Licensed under the Apache License, Version 2.0
 """
 
-import logging
-from typing import Dict, List, Optional, Set, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 import threading
-import time
 
 from feagi.utils.logger import setup_logger
 from feagi.config.toml_loader import load_feagi_config
@@ -253,7 +251,7 @@ class NeuronArray:
         # Firing and refractory properties
         self.refractory_periods = self._create_aligned_array(np.uint8, alignment_bytes, default_value=1)
         self.refractory_counters = self._create_aligned_array(np.uint8, alignment_bytes)
-        self.excitability = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
+        self.excitabilities = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
         
         # Spatial and organizational properties
         self.cortical_idxs = self._create_aligned_array(np.uint16, alignment_bytes)
@@ -288,7 +286,6 @@ class NeuronArray:
             Cache-aligned numpy array
         """
         # Create array with extra space for alignment
-        size_bytes = self.aligned_capacity * np.dtype(dtype).itemsize
         extra_bytes = alignment_bytes - 1
         
         # Allocate raw memory
@@ -382,7 +379,7 @@ class NeuronArray:
         self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
         self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
         self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
-        self.excitability[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
+        self.excitabilities[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
         self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
         
         # Set cortical_idx for fast area lookups
@@ -486,7 +483,7 @@ class NeuronArray:
         elif property_name == "leak_coefficient":
             self.leak_coefficients[indices_array] = values_array.astype(np.float32)
         elif property_name == "excitability":
-            self.excitability[indices_array] = values_array.astype(np.float32)
+            self.excitabilities[indices_array] = values_array.astype(np.float32)
         elif property_name == "neuron_type":
             self.neuron_types[indices_array] = values_array.astype(np.int32)
         else:
@@ -516,7 +513,7 @@ class NeuronArray:
         elif property_name == "leak_coefficient":
             return float(self.leak_coefficients[idx])
         elif property_name == "excitability":
-            return float(self.excitability[idx])
+            return float(self.excitabilities[idx])
         elif property_name == "neuron_type":
             return int(self.neuron_types[idx])
         elif property_name == "position":
@@ -540,7 +537,7 @@ class NeuronArray:
                 raise ValueError(f"Invalid range: start_idx={start_idx}, end_idx={end_idx}, max_neurons={self.max_neurons}")
             
             # Set excitability for the range
-            self.excitability[start_idx:end_idx] = excitability
+            self.excitabilities[start_idx:end_idx] = excitability
             
             # Update count if this extends beyond current count
             if end_idx > self.count:
@@ -569,7 +566,7 @@ class NeuronArray:
             elif property_name == "leak_coefficient":
                 self.leak_coefficients[idx] = float(value)
             elif property_name == "excitability":
-                self.excitability[idx] = float(value)
+                self.excitabilities[idx] = float(value)
             elif property_name == "neuron_type":
                 self.neuron_types[idx] = int(value)
             else:
@@ -639,6 +636,8 @@ class MemoryNeuronArray:
         self.cortical_idxs = np.zeros(max_memory_neurons, dtype=np.uint16)  # Fast integer cortical area indices
         self.pattern_digests = np.empty(max_memory_neurons, dtype=object)  # Pattern hash digests
         self.patterns: Dict[int, str] = {}  # neuron_id -> pattern_string
+        # Store cortical area string IDs for diagnostics/compat (not on hot path)
+        self.cortical_area_id = np.empty(max_memory_neurons, dtype=object)
         
         # Memory neuron state
         self.is_active = np.zeros(max_memory_neurons, dtype=np.bool_)
@@ -659,6 +658,13 @@ class MemoryNeuronArray:
         # Free index management
         self.free_indices: List[int] = []
         self.next_free_index = 0
+
+        # Compatibility/diagnostics fields expected by some tests/tools
+        self.capacity = max_memory_neurons
+        self.next_available_index = 0
+        self.deleted_indices: List[int] = []
+        # Cache from pattern key to index for O(1) lookup
+        self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         
         logger.info(f"MemoryNeuronArray initialized: {max_memory_neurons:,} max memory neurons")
     
@@ -774,6 +780,137 @@ class MemoryNeuronArray:
         else:
             return None
 
+    # --- Memory-specific high-level operations used by MemoryProcessor ---
+
+    def create_memory_neuron(
+        self,
+        pattern_key: MemoryPatternKey,
+        cortical_area_id: str,
+        current_burst: int,
+        initial_lifespan: int = 9,
+        lifespan_growth_rate: float = 1.0,
+    ) -> int:
+        """Create a single memory neuron representing a temporal pattern.
+
+        Args:
+            pattern_key: Unique key representing the temporal pattern
+            cortical_area_id: String ID of the memory cortical area
+            current_burst: Current burst index at creation
+            initial_lifespan: Initial lifespan value
+            lifespan_growth_rate: Growth multiplier applied on reactivation
+
+        Returns:
+            Index of the created memory neuron
+        """
+        # Reuse deleted slot if available to keep layout dense
+        if self.deleted_indices:
+            idx = self.deleted_indices.pop()
+        else:
+            idx = self.next_available_index
+            if idx >= self.max_memory_neurons:
+                raise ValueError("Cannot create memory neuron: capacity reached")
+            self.next_available_index += 1
+
+        # Assign a new neuron_id for bookkeeping (separate from index)
+        neuron_id = self._next_neuron_id
+        self._next_neuron_id += 1
+        self.neuron_id_to_index[neuron_id] = idx
+        self.index_to_neuron_id[idx] = neuron_id
+
+        # Initialize properties
+        self.is_active[idx] = True
+        self.valid_mask[idx] = True
+        self.lifespan_initial[idx] = int(initial_lifespan)
+        self.lifespan_current[idx] = int(initial_lifespan)
+        self.lifespan_growth_rate[idx] = float(lifespan_growth_rate)
+        self.is_longterm_memory[idx] = False
+        self.creation_burst[idx] = int(current_burst)
+        self.last_activation_burst[idx] = int(current_burst)
+        self.activation_count[idx] = 1
+
+        # Store cortical area identifiers
+        self.cortical_area_id[idx] = str(cortical_area_id)
+        # Note: caller should also set cortical_idxs[idx] if available; keep 0 as default otherwise
+
+        # Store pattern mapping for fast lookup
+        self.pattern_to_index[pattern_key] = idx
+        # Optional digest for quick diagnostics (last 4 bytes of hash)
+        self.pattern_digests[idx] = hash(pattern_key) & 0xFFFF
+
+        # Maintain counts
+        self.count = max(self.count, idx + 1)
+
+        return idx
+
+    def reactivate_memory_neuron(self, neuron_idx: int, current_burst: int) -> bool:
+        """Reactivate an existing memory neuron and apply lifespan growth.
+
+        Returns True if reactivation succeeded, False otherwise.
+        """
+        if neuron_idx < 0 or neuron_idx >= self.count:
+            return False
+        if not self.valid_mask[neuron_idx]:
+            return False
+
+        # Mark active and increase lifespan deterministically
+        self.is_active[neuron_idx] = True
+        self.last_activation_burst[neuron_idx] = int(current_burst)
+        # Grow lifespan multiplicatively from initial
+        base = int(self.lifespan_initial[neuron_idx])
+        growth = float(self.lifespan_growth_rate[neuron_idx])
+        grown = int(round(base * growth))
+        # If current is already higher due to prior growth, keep the max
+        self.lifespan_current[neuron_idx] = max(int(self.lifespan_current[neuron_idx]), grown)
+        self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
+        return True
+
+    def age_memory_neurons(self, current_burst: int) -> List[int]:
+        """Age memory neurons by one burst; return indices that died this cycle."""
+        died: List[int] = []
+        # Vectorized where possible, but keep clarity
+        for idx in range(self.count):
+            if not self.valid_mask[idx] or not self.is_active[idx]:
+                continue
+            if self.is_longterm_memory[idx]:
+                continue  # Long-term memories do not decay
+            if self.lifespan_current[idx] > 0:
+                self.lifespan_current[idx] = int(self.lifespan_current[idx]) - 1
+            if self.lifespan_current[idx] <= 0:
+                # Logical deletion
+                self.is_active[idx] = False
+                self.valid_mask[idx] = False
+                died.append(idx)
+                self.deleted_indices.append(idx)
+        return died
+
+    def check_longterm_conversion(self, longterm_threshold: int) -> List[int]:
+        """Convert qualifying neurons to long-term memory; return converted indices."""
+        converted: List[int] = []
+        threshold = int(longterm_threshold)
+        for idx in range(self.count):
+            if not self.valid_mask[idx]:
+                continue
+            if self.is_longterm_memory[idx]:
+                continue
+            if int(self.lifespan_initial[idx]) >= threshold:
+                self.is_longterm_memory[idx] = True
+                converted.append(idx)
+        return converted
+
+    def find_memory_neuron_by_pattern(self, pattern_key: MemoryPatternKey) -> Optional[int]:
+        """Find an existing memory neuron by pattern key; returns index or None."""
+        return self.pattern_to_index.get(pattern_key)
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Return basic statistics for diagnostics and health checks."""
+        total_active = int(np.count_nonzero(self.is_active[: self.count]))
+        return {
+            "total_active_neurons": total_active,
+            "total_neurons": int(self.count),
+            "capacity": int(self.max_memory_neurons),
+            "longterm_count": int(np.count_nonzero(self.is_longterm_memory[: self.count])),
+        }
+
 
 class SynapseArray:
     """Single source of truth for synapses - NPU owned.
@@ -856,7 +993,6 @@ class SynapseArray:
     def _create_aligned_array(self, dtype: type, alignment_bytes: int, default_value: Any = None) -> np.ndarray:
         """Create cache-aligned numpy array for optimal SIMD performance."""
         # Same implementation as NeuronArray._create_aligned_array
-        size_bytes = self.aligned_capacity * np.dtype(dtype).itemsize
         extra_bytes = alignment_bytes - 1
         
         raw_array = np.empty(self.aligned_capacity + extra_bytes // np.dtype(dtype).itemsize, dtype=dtype)

@@ -453,7 +453,6 @@ class MemoryProcessor:
         temporal_depth = area_properties.get("temporal_depth", 1)
         initial_lifespan = area_properties.get("initial_lifespan", 9)
         lifespan_growth_rate = area_properties.get("lifespan_growth_rate", 1.0)
-        longterm_threshold = area_properties.get("longterm_threshold", 100)
         upstream_areas = area_properties.get("upstream_areas", set())
 
         # CRITICAL FIX: If upstream_areas is empty, discover them dynamically
@@ -475,6 +474,10 @@ class MemoryProcessor:
         if mem_debug:
             logger.info(
                 f"🧠 [MEMORY] Memory area {memory_area_id}: temporal_depth={temporal_depth}, upstream_areas={upstream_areas}"
+            )
+            # Diagnostic: summarize upstream activity counts over the temporal window
+            self._diagnostic_log_upstream_activity(
+                upstream_areas, temporal_depth, current_burst
             )
 
         # 1. Extract temporal pattern from upstream areas
@@ -523,6 +526,10 @@ class MemoryProcessor:
                         logger.info(
                             "🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created"
                         )
+                    # Inject the reactivated memory neuron into FCL for visibility
+                    self._inject_memory_neurons_into_fcl(
+                        memory_area_id, [existing_neuron_idx], current_burst
+                    )
             else:
                 # NO existing neuron - create a new one
                 try:
@@ -556,6 +563,11 @@ class MemoryProcessor:
                         temporal_pattern, new_neuron_idx
                     )
 
+                    # Inject the newly created memory neuron into FCL for visibility
+                    self._inject_memory_neurons_into_fcl(
+                        memory_area_id, [new_neuron_idx], current_burst
+                    )
+
                 except Exception as e:
                     logger.error(
                         f"🚨 [MEMORY] CRITICAL ERROR: Failed to create memory neuron for {memory_area_id}: {e}"
@@ -571,20 +583,7 @@ class MemoryProcessor:
                     #  Don't let memory neuron creation failure block the
                     #  entire process
 
-            #  3. CRITICAL FIX: Inject active memory neurons into FCL for
-            #  visualization
-            # Memory neurons must fire to be visible to FQ Sampler
-            if mem_debug:
-                logger.info(
-                    f"�� [MEMORY] Injecting reactivated memory neurons into FCL for {memory_area_id}"
-                )
-
-            #  For now, inject a single representative neuron (index 0) -
-            #  proper implementation would
-            # get actual memory neuron indices from the pattern cache
-            self._inject_memory_neurons_into_fcl(
-                memory_area_id, [0], current_burst
-            )
+            # Injection is handled above per created/reactivated neuron
         else:
             if mem_debug:
                 logger.info(
@@ -595,6 +594,55 @@ class MemoryProcessor:
         #  lifecycle processing
 
         return stats
+
+    def _diagnostic_log_upstream_activity(
+        self, upstream_areas: Set[str], temporal_depth: int, current_burst: int
+    ) -> None:
+        """Log upstream FCL activity counts for diagnostics when mem debug is enabled.
+
+        Args:
+            upstream_areas: Set of upstream cortical area IDs
+            temporal_depth: Number of timesteps to inspect (current_burst backwards)
+            current_burst: Current burst/timestep index
+        """
+        try:
+            if not self._is_mem_debug_enabled():
+                return
+
+            for upstream_area_id in sorted(upstream_areas):
+                try:
+                    cortical_idx = self._get_cortical_idx_for_area(
+                        upstream_area_id
+                    )
+                    if cortical_idx is None:
+                        logger.info(
+                            f"🧠 [MEMORY] Upstream {upstream_area_id}: no cortical_idx (skipping)"
+                        )
+                        continue
+
+                    counts: List[int] = []
+                    for offset in range(temporal_depth):
+                        timestep = current_burst - offset
+                        if timestep < 0:
+                            counts.append(0)
+                            continue
+                        try:
+                            bm = self.fcl_manager.get_cortical_fcl(
+                                cortical_idx, timestep
+                            )
+                            counts.append(len(bm) if bm else 0)
+                        except Exception:
+                            counts.append(0)
+
+                    logger.info(
+                        f"🧠 [MEMORY] Upstream {upstream_area_id}: recent_firing_counts={counts} (t={current_burst}..{max(0, current_burst - (temporal_depth - 1))})"
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"[MEMORY] Upstream diagnostic error for {upstream_area_id}: {e}"
+                    )
+        except Exception as e:
+            logger.debug(f"[MEMORY] Upstream diagnostic logging failed: {e}")
 
     def _extract_temporal_pattern(
         self, upstream_areas: Set[str], temporal_depth: int, current_burst: int

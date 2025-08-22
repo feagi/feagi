@@ -1938,7 +1938,7 @@ class GenomeService(BaseService):
                         try:
                             neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
                             if neuron_idx is not None:
-                                neuron_array.excitability[neuron_idx] = excitability
+                                neuron_array.excitabilities[neuron_idx] = excitability
                         except Exception as e:
                             self.logger.warning(
                                 f"Could not set excitability for neuron {neuron_id}: {e}"
@@ -4976,7 +4976,7 @@ class GenomeService(BaseService):
                         neuron_id
                     )
                     if neuron_idx is not None:
-                        neuron_array.excitability[neuron_idx] = excitability
+                        neuron_array.excitabilities[neuron_idx] = excitability
                 except Exception as e:
                     self.logger.warning(
                         f"Could not set excitability for neuron {neuron_id}: {e}"
@@ -5212,7 +5212,7 @@ class GenomeService(BaseService):
                         neuron_id
                     )
                     if neuron_idx is not None:
-                        neuron_array.excitability[neuron_idx] = excitability
+                        neuron_array.excitabilities[neuron_idx] = excitability
                 except Exception as e:
                     self.logger.warning(
                         f"Could not set excitability for neuron {neuron_id}: {e}"

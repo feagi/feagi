@@ -37,9 +37,9 @@ class TestNeuronExcitabilityBasics:
         
         # Check array exists and has correct default values
         assert hasattr(neuron_array, 'excitability')
-        assert neuron_array.excitability.shape[0] >= 1000
-        assert np.all(neuron_array.excitability[:100] == 1.0)
-        assert neuron_array.excitability.dtype == np.float32
+        assert neuron_array.excitabilities.shape[0] >= 1000
+        assert np.all(neuron_array.excitabilities[:100] == 1.0)
+        assert neuron_array.excitabilities.dtype == np.float32
         
     def test_cortical_area_excitability_setting(self):
         """Test setting excitability for cortical areas."""
@@ -51,8 +51,8 @@ class TestNeuronExcitabilityBasics:
         )
         
         # Verify values
-        assert np.all(neuron_array.excitability[0:500] == 0.8)
-        assert np.all(neuron_array.excitability[500:1000] == 1.0)  # Unchanged
+        assert np.all(neuron_array.excitabilities[0:500] == 0.8)
+        assert np.all(neuron_array.excitabilities[500:1000] == 1.0)  # Unchanged
         
         # Verify area tracking
         probabilistic_areas = neuron_array.get_probabilistic_areas()
@@ -67,9 +67,9 @@ class TestNeuronExcitabilityBasics:
         neuron_array.set_cortical_area_excitability(1, 25, 50, -0.5)  # < 0.0
         neuron_array.set_cortical_area_excitability(2, 50, 75, 0.5)  # Valid
         
-        assert np.all(neuron_array.excitability[0:25] == 1.0)  # Clamped to 1.0
-        assert np.all(neuron_array.excitability[25:50] == 0.0)  # Clamped to 0.0
-        assert np.all(neuron_array.excitability[50:75] == 0.5)  # Unchanged
+        assert np.all(neuron_array.excitabilities[0:25] == 1.0)  # Clamped to 1.0
+        assert np.all(neuron_array.excitabilities[25:50] == 0.0)  # Clamped to 0.0
+        assert np.all(neuron_array.excitabilities[50:75] == 0.5)  # Unchanged
 
 
 class TestProbabilisticFiring:

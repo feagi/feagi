@@ -3164,7 +3164,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     and neuron_array.cortical_idxs[idx] == cortical_idx
                 ):
                     excitability_values.append(
-                        float(neuron_array.excitability[idx])
+                        float(neuron_array.excitabilities[idx])
                     )
                     threshold_values.append(
                         float(neuron_array.thresholds[idx])

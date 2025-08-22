@@ -763,7 +763,7 @@ class NPUInterface:
             resting_potentials=self.neuron_array.resting_potentials[:valid_range],
             refractory_periods=self.neuron_array.refractory_periods[:valid_range],
             refractory_counters=self.neuron_array.refractory_counters[:valid_range],
-            excitability=self.neuron_array.excitability[:valid_range],
+            excitability=self.neuron_array.excitabilities[:valid_range],
             valid_mask=np.ones(valid_range, dtype=bool),  # All neurons in range are valid
             output_firing_mask=output_firing_mask
         )
