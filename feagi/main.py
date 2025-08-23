@@ -475,7 +475,6 @@ def main():
             )
             # Ensure StateManager debug flag reflects CLI immediately
             try:
-                from feagi.core.state_manager import FeagiStateManager
                 sm = FeagiStateManager.instance()
                 if not hasattr(sm, "_debug_config"):
                     sm._debug_config = {}
@@ -498,7 +497,6 @@ def main():
             os.environ["FEAGI_DEBUG_ZMQ"] = "1"
             # Reflect in StateManager
             try:
-                from feagi.core.state_manager import FeagiStateManager
                 sm = FeagiStateManager.instance()
                 if not hasattr(sm, "_debug_config"):
                     sm._debug_config = {}
@@ -514,7 +512,6 @@ def main():
             os.environ["FEAGI_DEBUG_BDU"] = "1"
             logger.info("BDU debugging enabled via --debug-bdu flag")
             try:
-                from feagi.core.state_manager import FeagiStateManager
                 sm = FeagiStateManager.instance()
                 if not hasattr(sm, "_debug_config"):
                     sm._debug_config = {}
