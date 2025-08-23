@@ -503,25 +503,34 @@ class MotorStream:
                 )
                 return
 
-            #  Debug logging for outbound motor data (zero-overhead when
-            #  disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel.encode("utf-8"), binary_data],
-                message_type=MessageType.MOTOR,
-                topic=channel,
-                context="motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel.encode("utf-8"), binary_data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel,
+                        context="motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send data on specified motor channel
             await self.socket.send_multipart(
                 [channel.encode("utf-8"), binary_data]
             )
 
-            logger.debug(
-                f"Sent {len(binary_data)} bytes of motor data on channel {channel}"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(binary_data)} bytes on channel {channel}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(f"Error sending motor binary data: {e}")
@@ -554,16 +563,20 @@ class MotorStream:
                 )
                 return
 
-            #  Debug logging for outbound motor data (zero-overhead when
-            #  disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel_id.encode("utf-8"), data],
-                message_type=MessageType.MOTOR,
-                topic=channel_id,
-                context="external_motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel_id.encode("utf-8"), data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel_id,
+                        context="external_motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send multipart message with topic (channel_id) and data
             await self.socket.send_multipart(
@@ -573,9 +586,14 @@ class MotorStream:
                 ]
             )
 
-            logger.debug(
-                f"Sent {len(data)} bytes of motor data on channel {channel_id}"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(data)} bytes on channel {channel_id}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(

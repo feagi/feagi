@@ -127,7 +127,7 @@ def simd_firing_check_with_excitability(
     potentials: np.ndarray,
     thresholds: np.ndarray,
     can_fire_mask: np.ndarray,
-    excitability: np.ndarray,
+    excitability,
     rng: np.random.Generator = None
 ) -> np.ndarray:
     """SIMD-optimized firing check with probabilistic excitability.
@@ -149,9 +149,18 @@ def simd_firing_check_with_excitability(
         Fast path when all excitability >= 0.999 (bypasses random generation).
         Uses vectorized random number generation for efficiency.
     """
-    # Fast path: if all excitability values are >= 0.999, use standard function
-    if np.all(excitability >= 0.999):
-        return simd_firing_check(potentials, thresholds, can_fire_mask)
+    # Fast path decision: when excitability is provided as per-area cache tuple
+    # excitability may be either:
+    # - a numpy array of per-neuron values (legacy), or
+    # - a tuple: (area_ex_map: Dict[int,float], cortical_idxs: np.ndarray[uint16], any_low_flag: bool)
+    if isinstance(excitability, tuple):
+        area_ex_map, cortical_idxs, any_low_flag = excitability
+        if not any_low_flag:
+            return simd_firing_check(potentials, thresholds, can_fire_mask)
+    else:
+        # Legacy array path
+        if np.all(excitability >= 0.999):
+            return simd_firing_check(potentials, thresholds, can_fire_mask)
     
     # Standard threshold check
     threshold_met = (potentials >= thresholds) & can_fire_mask
@@ -162,10 +171,20 @@ def simd_firing_check_with_excitability(
     
     # Find neurons that need probabilistic check
     threshold_indices = np.where(threshold_met)[0]
-    relevant_excitability = excitability[threshold_indices]
+    
+    # Build area excitability values for the ready indices
+    if isinstance(excitability, tuple):
+        area_ex_map, cortical_idxs, any_low_flag = excitability
+        relevant_ex_values = np.fromiter(
+            (area_ex_map.get(int(cidx), 1.0) for cidx in cortical_idxs[threshold_indices].tolist()),
+            dtype=np.float32,
+            count=threshold_indices.size,
+        )
+    else:
+        relevant_ex_values = excitability[threshold_indices]
     
     # Fast path for neurons with excitability >= 0.999
-    certain_fire_mask = relevant_excitability >= 0.999
+    certain_fire_mask = relevant_ex_values >= 0.999
     
     # Probabilistic check for neurons with excitability < 0.999
     uncertain_mask = ~certain_fire_mask
@@ -174,15 +193,10 @@ def simd_firing_check_with_excitability(
         if rng is None:
             rng = np.random.default_rng()
         
-        # Generate random numbers for uncertain neurons
-        uncertain_count = np.sum(uncertain_mask)
+        uncertain_count = int(np.sum(uncertain_mask))
         random_values = rng.random(uncertain_count)
-        uncertain_excitability = relevant_excitability[uncertain_mask]
-        
-        # Probabilistic firing decision
-        probabilistic_fire = random_values < uncertain_excitability
-        
-        # Update firing decisions
+        uncertain_ex_vals = relevant_ex_values[uncertain_mask]
+        probabilistic_fire = random_values < uncertain_ex_vals
         firing_decisions = np.copy(certain_fire_mask)
         firing_decisions[uncertain_mask] = probabilistic_fire
     else:

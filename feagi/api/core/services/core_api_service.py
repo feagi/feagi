@@ -403,9 +403,13 @@ class CoreAPIService:
     ) -> bool:
         """Update properties of an existing cortical area with intelligent
         routing."""
-        self.logger.info(
-            f"[CORTICAL-UPDATE] CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}"
-        )
+        try:
+            if self.state_manager.is_debug_api_enabled():
+                self.logger.info(
+                    f"[API-DEBUG] update_cortical_area_properties cortical_id={cortical_id}, properties={properties}"
+                )
+        except Exception:
+            pass
         try:
             #  ARCHITECTURE COMPLIANCE: Route through GenomeService for
             #  intelligent routing
@@ -436,11 +440,14 @@ class CoreAPIService:
             if not parameters:
                 parameters = None
 
-            self.logger.info(
-                f"[CORTICAL-UPDATE] Routing to GenomeService with intelligent classification: "
-                f"name={name}, coordinates={coordinates}, dimensions={dimensions}, "
-                f"area_type={area_type}, parameters={parameters}"
-            )
+            try:
+                if self.state_manager.is_debug_api_enabled():
+                    self.logger.debug(
+                        f"[API-DEBUG] Routing to GenomeService: name={name}, coordinates={coordinates}, dimensions={dimensions}, "
+                        f"area_type={area_type}, parameters={parameters}"
+                    )
+            except Exception:
+                pass
 
             #  Route through GenomeService for intelligent routing (STRUCTURAL
             #  vs PARAMETER vs METADATA)
@@ -454,9 +461,13 @@ class CoreAPIService:
             )
 
             success = result is not None
-            self.logger.info(
-                f"[CORTICAL-UPDATE] GenomeService.update_cortical_area returned success={success}"
-            )
+            try:
+                if self.state_manager.is_debug_api_enabled():
+                    self.logger.info(
+                        f"[API-DEBUG] GenomeService.update_cortical_area returned success={success}"
+                    )
+            except Exception:
+                pass
             return success
 
         except Exception as e:

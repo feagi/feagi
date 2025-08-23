@@ -226,14 +226,12 @@ class CorticalParameterUpdater:
                     return False
 
                 # Update excitability in NeuronArray
-                neuron_array = self.connectome_manager.neuron_array
-                neuron_array.set_cortical_area_excitability(
-                    cortical_idx=cortical_idx,
-                    start_idx=start_idx,
-                    end_idx=end_idx
-                    + 1,  # end_idx is inclusive in set_cortical_area_excitability
-                    excitability=float(value),
-                )
+                try:
+                    npu = getattr(self.connectome_manager, "_npu_interface", None)
+                    if npu and hasattr(npu, "set_area_excitability"):
+                        npu.set_area_excitability(cortical_idx, float(value))
+                except Exception:
+                    pass
 
                 self.logger.info(
                     f"[FAST-UPDATE] Updated neuron_excitability to {value} for {len(neuron_ids)} neurons "

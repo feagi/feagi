@@ -1091,7 +1091,6 @@ class NeuroEmbryogenesis:
                         thresholds=[base_threshold] * area_neuron_count,
                         initial_potentials=[0.0] * area_neuron_count,
                         leak_coefficients=[base_decay_rate] * area_neuron_count,
-                        excitabilities=[1.0] * area_neuron_count
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)

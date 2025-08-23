@@ -217,14 +217,31 @@ class NeuronArray:
             max_neurons = npu_config["max_neurons"]
             
         self.max_neurons = max_neurons
-        self.backend = backend
+        # Normalize backend to enum
+        if isinstance(backend, str):
+            b = backend.strip().lower()
+            if b in ("cpu", "numpy"):
+                backend_enum = BackendType.CPU
+            elif b == "cuda":
+                backend_enum = BackendType.CUDA
+            elif b == "metal":
+                backend_enum = BackendType.METAL
+            elif b == "wgpu":
+                backend_enum = BackendType.WGPU
+            elif b == "rust":
+                backend_enum = BackendType.RUST
+            else:
+                backend_enum = BackendType.CPU
+            self.backend = backend_enum
+        else:
+            self.backend = backend
         self.neuron_count = 0
         
         # Alias for consistency with other arrays
         self.count = 0
         
         # Detect optimal SIMD configuration
-        self.simd_config = SIMDDetector.detect_simd_config(backend)
+        self.simd_config = SIMDDetector.detect_simd_config(self.backend)
         
         # Align capacity to SIMD boundaries for optimal performance
         alignment = self.simd_config.vector_width
@@ -251,7 +268,6 @@ class NeuronArray:
         # Firing and refractory properties
         self.refractory_periods = self._create_aligned_array(np.uint8, alignment_bytes, default_value=1)
         self.refractory_counters = self._create_aligned_array(np.uint8, alignment_bytes)
-        self.excitabilities = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
         
         # Spatial and organizational properties
         self.cortical_idxs = self._create_aligned_array(np.uint16, alignment_bytes)
@@ -275,7 +291,7 @@ class NeuronArray:
         # Many components iterate up to next_index when aggregating per-area stats
         self.next_index = 0
         
-        logger.info(f"NeuronArray initialized: {max_neurons:,} max neurons, {backend.value} backend")
+        logger.info(f"NeuronArray initialized: {max_neurons:,} max neurons, {self.backend.value} backend")
         logger.info(f"SIMD config: {self.simd_config.vector_width} vector width, {self.simd_config.optimal_batch_size} optimal batch size")
     
     def _create_aligned_array(self, dtype: type, alignment_bytes: int, default_value: Any = None) -> np.ndarray:
@@ -352,7 +368,7 @@ class NeuronArray:
     def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
                          neuron_types: List[int], initial_potentials: List[float],
                          thresholds: List[float], leak_coefficients: List[float],
-                         excitabilities: List[float], cortical_idx: int) -> List[int]:
+                         cortical_idx: int) -> List[int]:
         """Add multiple neurons in batch with SIMD optimization.
         
         Args:
@@ -383,7 +399,6 @@ class NeuronArray:
         self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
         self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
         self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
-        self.excitabilities[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
         self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
         
         # Set cortical_idx for fast area lookups
@@ -489,8 +504,6 @@ class NeuronArray:
             self.thresholds[indices_array] = values_array.astype(np.float32)
         elif property_name == "leak_coefficient":
             self.leak_coefficients[indices_array] = values_array.astype(np.float32)
-        elif property_name == "excitability":
-            self.excitabilities[indices_array] = values_array.astype(np.float32)
         elif property_name == "neuron_type":
             self.neuron_types[indices_array] = values_array.astype(np.int32)
         else:

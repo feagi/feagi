@@ -736,14 +736,19 @@ class VisualizationStream:
                 return
 
             # Debug logging for outbound visualization data
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[b"activity", final_data],  # PUB/SUB multipart message
-                message_type=MessageType.VISUALIZATION,
-                topic="activity",
-                context=f"vis_msg_{self.stats['data_sent'] + 1}",
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[b"activity", final_data],  # PUB/SUB multipart message
+                        message_type=MessageType.VISUALIZATION,
+                        topic="activity",
+                        context=f"vis_msg_{self.stats['data_sent'] + 1}",
+                    )
+            except Exception:
+                pass
 
             # Use synchronous send operations
             socket_ref.send(b"activity", zmq.SNDMORE)
@@ -756,7 +761,8 @@ class VisualizationStream:
             )  # Track actual bytes sent (compressed size)
 
             # Periodic status logging (every 100 messages)
-            if self.stats["data_sent"] % 100 == 0:
+            from feagi.core.state_manager import FeagiStateManager
+            if self.stats["data_sent"] % 100 == 0 and FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
                 total_saved = self.stats["bytes_saved_compression"]
                 avg_compression_time = self.stats["compression_time_ms"] / max(
                     self.stats["data_sent"], 1
@@ -768,15 +774,15 @@ class VisualizationStream:
                     f"avg {avg_compression_time:.1f}ms/msg)"
                 )
 
-            # Log first few messages to confirm publishing is working
-            if self.stats["data_sent"] <= 3:
+            # Log first few messages to confirm publishing is working (gated)
+            if self.stats["data_sent"] <= 3 and FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
                 savings_info = (
                     f", saved {len(data) - len(final_data)} bytes"
                     if len(final_data) < len(data)
                     else ""
                 )
                 logger.info(
-                    f"Successfully published message #{self.stats['data_sent']} "
+                    f"[ZMQ-OUT-DEBUG] Published message #{self.stats['data_sent']} "
                     f"({len(final_data)} bytes{savings_info})"
                 )
 

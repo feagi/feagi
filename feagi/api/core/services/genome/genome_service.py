@@ -1990,20 +1990,19 @@ class GenomeService(BaseService):
                         refractory_period=base_refractory,
                     )
 
-                    # Set excitability
-                    neuron_array = self._connectome_manager.neuron_array
-                    for neuron_id in neuron_ids:
-                        try:
-                            neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
-                            if neuron_idx is not None:
-                                neuron_array.excitabilities[neuron_idx] = excitability
-                        except Exception as e:
-                            self.logger.warning(
-                                f"Could not set excitability for neuron {neuron_id}: {e}"
-                            )
+                    # Update per-area excitability cache in NPU (per-area, not per-neuron)
+                    area_ex = float(new_area.get("neuron_excitability", 1.0))
+                    try:
+                        npu = getattr(self._connectome_manager, "_npu_interface", None)
+                        if npu and hasattr(npu, "set_area_excitability"):
+                            cidx = self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+                            if cidx is not None:
+                                npu.set_area_excitability(cidx, area_ex)
+                    except Exception:
+                        pass
 
                     self.logger.info(
-                        f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}"
+                        f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={area_ex}"
                     )
 
                     # Register as memory area if needed
@@ -2237,12 +2236,16 @@ class GenomeService(BaseService):
                         cortical_id, changes, transaction
                     )
 
-                # Log performance metrics
+                # Log performance metrics (API debug only)
                 duration = time.time() - start_time
-                self.logger.info(
-                    f"[CORTICAL-UPDATE] {cortical_id} updated via {change_type.value} "
-                    f"path in {duration * 1000:.1f}ms"
-                )
+                try:
+                    if self.state_manager.is_debug_api_enabled():
+                        self.logger.info(
+                            f"[API-DEBUG] {cortical_id} updated via {change_type.value} "
+                            f"path in {duration * 1000:.1f}ms"
+                        )
+                except Exception:
+                    pass
 
                 return result
 
@@ -5027,20 +5030,16 @@ class GenomeService(BaseService):
                 refractory_period=properties.get("refrac", 1),
             )
 
-            # CRITICAL FIX: Set excitability for all created neurons
+            # Update per-area excitability cache in NPU
             excitability = properties.get("neuron_excitability", 1.0)
-            neuron_array = self._connectome_manager.neuron_array
-            for neuron_id in neuron_ids:
-                try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_idx is not None:
-                        neuron_array.excitabilities[neuron_idx] = excitability
-                except Exception as e:
-                    self.logger.warning(
-                        f"Could not set excitability for neuron {neuron_id}: {e}"
-                    )
+            try:
+                npu = getattr(self._connectome_manager, "_npu_interface", None)
+                if npu and hasattr(npu, "set_area_excitability"):
+                    cidx = self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+                    if cidx is not None:
+                        npu.set_area_excitability(cidx, float(excitability))
+            except Exception:
+                pass
 
             self.logger.info(
                 f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}"
@@ -5266,17 +5265,7 @@ class GenomeService(BaseService):
             # CRITICAL FIX: Set excitability for all created neurons
             excitability = properties.get("neuron_excitability", 1.0)
             neuron_array = self._connectome_manager.neuron_array
-            for neuron_id in neuron_ids:
-                try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_idx is not None:
-                        neuron_array.excitabilities[neuron_idx] = excitability
-                except Exception as e:
-                    self.logger.warning(
-                        f"Could not set excitability for neuron {neuron_id}: {e}"
-                    )
+            # Per-neuron excitability removed; handled via per-area cache
 
             self.logger.info(
                 f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}"

@@ -124,15 +124,36 @@ class NPUInterface:
         self.cortical_areas: Dict[int, Dict[str, Any]] = {}  # cortical_idx -> area_info
         self.neuron_to_area: Dict[int, int] = {}  # neuron_id -> cortical_idx
         self.area_neuron_ranges: Dict[int, Tuple[int, int]] = {}  # cortical_idx -> (start_idx, end_idx)
-        
-        logger.info(f"🧠 NPU Interface initialized with {backend.value} backend")
-        logger.info(f"   Max neurons: {self.neuron_array.max_neurons:,}")
-        logger.info(f"   Max memory neurons: {self.memory_neuron_array.max_memory_neurons:,}")
-        logger.info(f"   Max synapses: {self.synapse_array.max_synapses:,}")
-        
+        # Per-area excitability cache (default 1.0)
+        self._area_excitability: Dict[int, float] = {}
+        self._low_ex_areas: Dict[int, bool] = {}
+
         # Track next-burst candidates computed during Phase 2 (post-synaptic propagation)
         # These should not fire within the same burst; they are added to FCL for t+1
         self._next_burst_candidate_ids: List[int] = []
+
+    # ===== EXCITABILITY CACHE (PER-AREA) =====
+    def set_area_excitability(self, cortical_idx: int, value: float) -> None:
+        """Set per-area neuron_excitability (0..1) for the cortical area.
+
+        Args:
+            cortical_idx: Area index
+            value: Probability in [0.0, 1.0]
+        """
+        v = float(value)
+        if v < 0.0:
+            v = 0.0
+        elif v > 1.0:
+            v = 1.0
+        self._area_excitability[cortical_idx] = v
+        self._low_ex_areas[cortical_idx] = v < 0.999
+
+    def get_area_excitability(self, cortical_idx: int) -> float:
+        return self._area_excitability.get(cortical_idx, 1.0)
+
+    def any_low_ex_area(self) -> bool:
+        # Fast path check
+        return any(self._low_ex_areas.values())
     
     # ===== CORTICAL AREA MANAGEMENT =====
     
@@ -296,7 +317,6 @@ class NPUInterface:
             initial_potentials = request.initial_potentials or [0.0] * count
             thresholds = request.thresholds or [1.0] * count
             leak_coefficients = request.leak_coefficients or [0.1] * count
-            excitabilities = request.excitabilities or [1.0] * count
             
             # Get starting indices for new neurons
             start_idx = target_array.count
@@ -311,7 +331,6 @@ class NPUInterface:
                 initial_potentials=initial_potentials,
                 thresholds=thresholds,
                 leak_coefficients=leak_coefficients,
-                excitabilities=excitabilities,
                 cortical_idx=cortical_idx
             )
             
@@ -751,11 +770,24 @@ class NPUInterface:
                 sample_thrs = thrs[sample_idx].astype(float).tolist()
                 sample_refr = refr[sample_idx].astype(int).tolist()
                 logger.info(f"[NPU-BURST-DEBUG] PHASE 1 PRECHECK SAMPLE: idx={sample_idx.tolist()}, ids={sample_ids}, V={sample_pots}, Thr={sample_thrs}, Refr={sample_refr}")
+                # Temporary detailed logs: ready counts per area and excitability
+                try:
+                    ready_idx = np.where(ready_mask)[0]
+                    areas = self.neuron_array.cortical_idxs[ready_idx].astype(np.int32) if ready_idx.size > 0 else np.array([], dtype=np.int32)
+                    if areas.size > 0:
+                        uniq, cnts = np.unique(areas, return_counts=True)
+                        logger.info(f"[NPU-BURST-DEBUG] any_low_ex_area={self.any_low_ex_area()}")
+                        for a, c in zip(uniq.tolist(), cnts.tolist()):
+                            ex = float(self._area_excitability.get(int(a), 1.0))
+                            logger.info(f"[NPU-BURST-DEBUG] READY BY AREA: idx={int(a)} ex={ex} count={int(c)}")
+                except Exception as dbg_e:
+                    logger.warning(f"[NPU-BURST-DEBUG] Ready-per-area debug failed: {dbg_e}")
         
         # Perform SIMD neural updates
         # Create output mask for fired neurons
         output_firing_mask = np.zeros(valid_range, dtype=bool)
         
+        # Decide fast path: if all areas have excitability ~1.0, skip RNG path
         fired_count = simd_batch_neural_update(
             potentials=self.neuron_array.membrane_potentials[:valid_range],
             thresholds=self.neuron_array.thresholds[:valid_range],
@@ -763,7 +795,8 @@ class NPUInterface:
             resting_potentials=self.neuron_array.resting_potentials[:valid_range],
             refractory_periods=self.neuron_array.refractory_periods[:valid_range],
             refractory_counters=self.neuron_array.refractory_counters[:valid_range],
-            excitability=self.neuron_array.excitabilities[:valid_range],
+            # Pass a callable to fetch area excitability by neuron index
+            excitability=(self._area_excitability, self.neuron_array.cortical_idxs[:valid_range], self.any_low_ex_area()),
             valid_mask=np.ones(valid_range, dtype=bool),  # All neurons in range are valid
             output_firing_mask=output_firing_mask
         )
@@ -775,6 +808,17 @@ class NPUInterface:
             fired_indices, filter_invalid=True
         )
         fired_neurons = fired_id_array.tolist()
+        # Temporary detailed logs: fired counts per area and excitability
+        if state_manager.is_debug_npu_enabled():
+            try:
+                if fired_indices.size > 0:
+                    fired_areas = self.neuron_array.cortical_idxs[fired_indices].astype(np.int32)
+                    uniq_f, cnts_f = np.unique(fired_areas, return_counts=True)
+                    for a, c in zip(uniq_f.tolist(), cnts_f.tolist()):
+                        ex = float(self._area_excitability.get(int(a), 1.0))
+                        logger.info(f"[NPU-BURST-DEBUG] FIRED BY AREA: idx={int(a)} ex={ex} count={int(c)}")
+            except Exception as dbg_e:
+                logger.warning(f"[NPU-BURST-DEBUG] Fired-per-area debug failed: {dbg_e}")
         
         if state_manager.is_debug_npu_enabled():
             fired_count = len(fired_neurons) if fired_neurons else 0

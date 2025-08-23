@@ -171,8 +171,7 @@ class NPUService:
                            neuron_types: Optional[List[int]] = None,
                            initial_potentials: Optional[List[float]] = None,
                            thresholds: Optional[List[float]] = None,
-                           leak_coefficients: Optional[List[float]] = None,
-                           excitabilities: Optional[List[float]] = None) -> Dict[str, Any]:
+                           leak_coefficients: Optional[List[float]] = None) -> Dict[str, Any]:
         """Create multiple neurons in a cortical area.
         
         Args:
@@ -182,7 +181,6 @@ class NPUService:
             initial_potentials: Optional list of initial membrane potentials
             thresholds: Optional list of firing thresholds
             leak_coefficients: Optional list of leak coefficients
-            excitabilities: Optional list of excitability values
             
         Returns:
             API response with batch operation result
@@ -198,7 +196,6 @@ class NPUService:
                 initial_potentials=initial_potentials,
                 thresholds=thresholds,
                 leak_coefficients=leak_coefficients,
-                excitabilities=excitabilities
             )
             
             result = self._npu_interface.create_neurons_batch(request)

@@ -400,6 +400,20 @@ def main():
         # This fixes the caching issue by explicitly setting the global level early
         _set_global_level_from_config()
 
+        # If any module-specific debug flag is set, elevate global level to INFO
+        # so gated debug logs (typically INFO-level) are emitted without requiring
+        # an explicit --log-level override.
+        if (
+            getattr(args, "debug_npu", False)
+            or getattr(args, "debug_api", False)
+            or getattr(args, "debug_bdu", False)
+            or getattr(args, "debug_zmq_outbound", False)
+            or getattr(args, "debug_zmq_inbound", False)
+            or getattr(args, "debug_mem", False)
+        ):
+            os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+            _update_all_logger_levels("INFO")
+
     # Show deferred logger setup info now that CLI override is applied
     from feagi.utils.logger import show_deferred_setup_info
 
@@ -459,6 +473,15 @@ def main():
             logger.info(
                 "[DEBUG] NPU fire queue debugging enabled via --debug-npu flag"
             )
+            # Ensure StateManager debug flag reflects CLI immediately
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_npu"] = True
+            except Exception:
+                pass
 
         if args.debug_zmq_outbound or args.debug_zmq_inbound:
             if args.debug_zmq_outbound:
@@ -473,11 +496,31 @@ def main():
                 )
             # Set common ZMQ debug environment variable for both
             os.environ["FEAGI_DEBUG_ZMQ"] = "1"
+            # Reflect in StateManager
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                if args.debug_zmq_outbound:
+                    sm._debug_config["debug_zmq_outbound"] = True
+                if args.debug_zmq_inbound:
+                    sm._debug_config["debug_zmq_inbound"] = True
+            except Exception:
+                pass
 
         if args.debug_bdu:
             cli_overrides["debug_bdu"] = True
             os.environ["FEAGI_DEBUG_BDU"] = "1"
             logger.info("BDU debugging enabled via --debug-bdu flag")
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_bdu"] = True
+            except Exception:
+                pass
 
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
@@ -567,6 +610,24 @@ def main():
 
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
+    # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
+    try:
+        if not hasattr(state_manager, "_debug_config"):
+            state_manager._debug_config = {}
+        if args.debug_npu:
+            state_manager._debug_config["debug_npu"] = True
+        if args.debug_api:
+            state_manager._debug_config["debug_api"] = True
+        if args.debug_bdu:
+            state_manager._debug_config["debug_bdu"] = True
+        if args.debug_zmq_outbound:
+            state_manager._debug_config["debug_zmq_outbound"] = True
+        if args.debug_zmq_inbound:
+            state_manager._debug_config["debug_zmq_inbound"] = True
+        if args.debug_mem:
+            state_manager._debug_config["mem_debug"] = True
+    except Exception:
+        pass
 
     # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
     process_manager = get_process_manager()
