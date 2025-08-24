@@ -402,6 +402,19 @@ class VisualizationStream:
                                 f"🎨 Visualization FQ sampler dependency resolved: "
                                 f"{viz_fq_sampler.instance_id}"
                             )
+                            # Ensure sampler samples when clients are connected
+                            try:
+                                with self._client_lock:
+                                    has_clients = len(self.client_last_heartbeat) > 0
+                                if hasattr(self.fq_sampler, "set_visualization_subscribers"):
+                                    self.fq_sampler.set_visualization_subscribers(has_clients)
+                                    logger.debug(
+                                        f"Visualization sampler subscriber flag set to {has_clients}"
+                                    )
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to set visualization subscribers on sampler: {e}"
+                                )
                         else:
                             # RTOS: Log dependency failure but continue
                             # (fail gracefully). Only log once to prevent spam
@@ -950,6 +963,20 @@ class VisualizationStream:
                     f"Heartbeat from visualization client: {client_id}"
                 )
 
+            # Ensure FQ sampler starts sampling when clients are present
+            if self.fq_sampler and hasattr(
+                self.fq_sampler, "set_visualization_subscribers"
+            ):
+                try:
+                    self.fq_sampler.set_visualization_subscribers(True)
+                    logger.debug(
+                        "Visualization sampler subscriber flag set to True (heartbeat)"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to set visualization subscribers on sampler: {e}"
+                    )
+
     def get_connected_client_count(self) -> int:
         """Get the number of connected visualization clients."""
         with self._client_lock:  # Thread-safe access
@@ -1078,6 +1105,20 @@ class VisualizationStream:
                         logger.info(
                             f"💡 Remaining heartbeat clients: {total_clients}"
                         )
+
+                    # Update sampler subscriber flag when last client disconnects
+                    if total_clients == 0 and self.fq_sampler and hasattr(
+                        self.fq_sampler, "set_visualization_subscribers"
+                    ):
+                        try:
+                            self.fq_sampler.set_visualization_subscribers(False)
+                            logger.debug(
+                                "Visualization sampler subscriber flag set to False (no clients)"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to clear visualization subscribers on sampler: {e}"
+                            )
 
             except Exception as e:
                 logger.error(f"Error cleaning up clients: {e}")

@@ -122,7 +122,7 @@ auto_tune_threshold = false  # Automatically adjust threshold based on performan
 # Connectome sizing and memory allocation
 # These values determine the minimum reserved space for neurons and synapses
 # regardless of genome requirements
-min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
+min_neuron_space = 1000000      # Minimum neuron slots to reserve (default safety margin)
 min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
 min_memory_neuron_space = 50000 # Minimum memory neuron slots to reserve (separate SoA)
 

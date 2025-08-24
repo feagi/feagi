@@ -386,7 +386,10 @@ class NeuronArray:
         """
         count = len(neuron_ids)
         if self.count + count > self.max_neurons:
-            raise ValueError(f"Cannot add {count} neurons: would exceed capacity")
+            available = int(self.max_neurons - self.count)
+            raise ValueError(
+                f"Cannot add {count} neurons: would exceed capacity (current={int(self.count)}, max={int(self.max_neurons)}, available={available})"
+            )
         
         # Get batch of indices
         start_idx = self.count
@@ -707,7 +710,10 @@ class MemoryNeuronArray:
         """Add multiple memory neurons in batch with SIMD optimization."""
         count = len(neuron_ids)
         if self.count + count > self.max_memory_neurons:
-            raise ValueError(f"Cannot add {count} memory neurons: would exceed capacity")
+            available = int(self.max_memory_neurons - self.count)
+            raise ValueError(
+                f"Cannot add {count} memory neurons: would exceed capacity (current={int(self.count)}, max={int(self.max_memory_neurons)}, available={available})"
+            )
         
         start_idx = self.count
         indices = list(range(start_idx, start_idx + count))
@@ -1092,7 +1098,10 @@ class SynapseArray:
             raise ValueError("All input lists must have same length")
             
         if self.count + count > self.max_synapses:
-            raise ValueError(f"Cannot add {count} synapses: would exceed capacity")
+            available = int(self.max_synapses - self.count)
+            raise ValueError(
+                f"Cannot add {count} synapses: would exceed capacity (current={int(self.count)}, max={int(self.max_synapses)}, available={available})"
+            )
         
         start_idx = self.count
         end_idx = start_idx + count
