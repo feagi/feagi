@@ -40,6 +40,7 @@ from feagi.api.v1.schemas import (
     CorticalLocationResponse,
     CorticalNameRequest,
     CorticalPropertiesUpdateRequest,
+    AddCoreCorticalAreaRequest,
     CustomCorticalAreaRequest,
     MappingRestrictionsRequest,
     MappingRestrictionsResponse,
@@ -382,10 +383,10 @@ class CorticalAreaAPI:
             raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
-        "POST", "/cortical_area", response_model=Dict[str, str]
+        "POST", "/cortical_area", request_model=AddCoreCorticalAreaRequest, response_model=Dict[str, str]
     )
     def add_cortical_area(
-        self, new_cortical_properties: Dict[str, Any]
+        self, new_cortical_properties: AddCoreCorticalAreaRequest
     ) -> Dict[str, str]:
         """Add a new core cortical area."""
         try:
@@ -395,11 +396,137 @@ class CorticalAreaAPI:
             if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            cortical_id = new_cortical_properties.get("cortical_id")
-            message = {"add_core_cortical_area": new_cortical_properties}
-            connectome.add_core_cortical_area(message)
+            payload = new_cortical_properties.model_dump()
 
-            return {"cortical_id": cortical_id}
+            # Map request to ConnectomeManager.add_cortical_area signature
+            cortical_id = payload.get("cortical_id")
+            name = cortical_id or payload.get("name") or "cortical_area"
+
+            coords3 = payload.get("coordinates_3d")
+            if not coords3 or len(coords3) != 3:
+                raise ValueError("coordinates_3d must be a 3-element list [x, y, z]")
+            position = (int(coords3[0]), int(coords3[1]), int(coords3[2]))
+
+            dims = payload.get("cortical_dimensions")
+            template_resolution = None
+            try:
+                # If a core template exists for this cortical_id, use its per-device resolution
+                if cortical_id:
+                    from feagi.evo.templates import cortical_template
+
+                    if cortical_id in cortical_template:
+                        template_resolution = cortical_template[cortical_id].get(
+                            "resolution"
+                        )
+            except Exception:
+                template_resolution = None
+
+            if dims and len(dims) == 3:
+                dimensions = (int(dims[0]), int(dims[1]), int(dims[2]))
+            elif template_resolution and len(template_resolution) == 3:
+                # Compute total grid from per-device resolution × device_count (width-wise)
+                device_count = int(payload.get("device_count", 1))
+                if device_count <= 0:
+                    raise ValueError("device_count must be > 0")
+                dimensions = (
+                    int(template_resolution[0]) * device_count,
+                    int(template_resolution[1]),
+                    int(template_resolution[2]),
+                )
+            else:
+                # Final fallback: device_count as Nx1x1 if no template found
+                device_count = payload.get("device_count")
+                if device_count is None:
+                    raise ValueError(
+                        "cortical_dimensions or device_count (or template resolution) is required"
+                    )
+                n = int(device_count)
+                if n <= 0:
+                    raise ValueError("device_count must be > 0")
+                dimensions = (n, 1, 1)
+
+            area_type = str(payload.get("cortical_type") or "custom")
+
+            # Pass remaining fields as properties (excluding ones already mapped)
+            properties: Dict[str, Any] = {
+                k: v
+                for k, v in payload.items()
+                if k
+                not in {
+                    "cortical_id",
+                    "name",
+                    "coordinates_3d",
+                    "cortical_dimensions",
+                    "device_count",
+                    "cortical_type",
+                }
+            }
+
+            # Preserve per-device resolution in properties if available
+            if template_resolution and len(template_resolution) == 3:
+                properties["resolution"] = [
+                    int(template_resolution[0]),
+                    int(template_resolution[1]),
+                    int(template_resolution[2]),
+                ]
+
+            # Create area through GenomeService to ensure genome blueprint sync
+            try:
+                genome_service = getattr(self.core_api_service, "_genome_service", None)
+                if genome_service and hasattr(genome_service, "create_cortical_area"):
+                    created = genome_service.create_cortical_area(
+                        name=name,
+                        coordinates={"x": position[0], "y": position[1], "z": position[2]},
+                        dimensions={
+                            "width": dimensions[0],
+                            "height": dimensions[1],
+                            "depth": dimensions[2],
+                        },
+                        area_type=area_type,
+                        parameters=properties,
+                    )
+                    if not created or not isinstance(created, dict) or not created.get("cortical_id"):
+                        raise ValueError("Genome service did not return created cortical area info")
+                else:
+                    # Fallback: create directly in connectome (should be rare)
+                    connectome.add_cortical_area(
+                        name=name,
+                        dimensions=dimensions,
+                        position=position,
+                        area_type=area_type,
+                        properties=properties,
+                        cortical_id=cortical_id,
+                    )
+            except Exception as e:
+                raise ValueError(f"Failed to create cortical area via genome service: {e}") from e
+
+            # Deterministic readiness gate: ensure area is visible in connectome and mapping
+            try:
+                from feagi.config.toml_loader import load_feagi_config, get_timeout_config
+
+                cfg = load_feagi_config()
+                tcfg = get_timeout_config(cfg)
+                # Use a short, bounded wait (<= service_startup seconds)
+                import time
+
+                deadline = time.time() + float(tcfg.service_startup)
+                target_id = (created.get("cortical_id") if isinstance(created, dict) else None) or cortical_id or name
+                while time.time() < deadline:
+                    area_obj = connectome.get_cortical_area(target_id)
+                    mapped_idx = None
+                    try:
+                        mapped_idx = connectome.cortical_mapping.get_idx(target_id)
+                    except Exception:
+                        mapped_idx = None
+
+                    if area_obj is not None and mapped_idx is not None:
+                        break
+                    time.sleep(0.01)
+            except Exception:
+                # Non-fatal; proceed even if readiness check fails
+                pass
+
+            return {"cortical_id": target_id}
         except Exception as e:
             raise ValueError(f"Error adding cortical area: {str(e)}") from e
 

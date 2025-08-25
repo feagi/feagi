@@ -1574,8 +1574,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Use the NPU-owned vectorized conversion
         if hasattr(self.neuron_array, "indices_to_neuron_ids"):
             neuron_ids_array = self.neuron_array.indices_to_neuron_ids(
-            valid_indices, filter_invalid=True
-        )
+                valid_indices, filter_invalid=True
+            )
         else:
             # Fallback to dict mapping without removing SoA dependency
             ids = []
@@ -3086,15 +3086,59 @@ class ConnectomeManager(NeuronMappingProvider):
                         int(neuron_array.refractory_periods[idx])
                     )
 
-            # If no neurons found, return zeros
             # Report neuron_excitability from area properties
-            area_props_ex = area.properties.get("neuron_excitability", 1.0) if hasattr(area, "properties") and area.properties else 1.0
+            area_props_ex = (
+                area.properties.get("neuron_excitability", 1.0)
+                if hasattr(area, "properties") and area.properties
+                else 1.0
+            )
 
-            # Calculate averages of neuron properties
+            # Calculate averages of neuron properties (guard against empty samples)
+            if threshold_values:
+                avg_threshold = sum(threshold_values) / len(threshold_values)
+            else:
+                # Use configured property if present, else 0.0
+                if hasattr(area, "properties") and area.properties:
+                    avg_threshold = float(
+                        area.properties.get(
+                            "firing_threshold",
+                            area.properties.get("fire_t", 0.0),
+                        )
+                    )
+                else:
+                    avg_threshold = 0.0
+
+            if decay_rate_values:
+                avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
+            else:
+                # If leak_coefficient configured, convert to decay_rate; else assume 1.0 (no leak)
+                if hasattr(area, "properties") and area.properties:
+                    leak_c = area.properties.get(
+                        "leak_coefficient", area.properties.get("leak_c")
+                    )
+                    if leak_c is not None:
+                        try:
+                            avg_decay_rate = 1.0 - (float(leak_c) / 100.0)
+                        except Exception:
+                            avg_decay_rate = 1.0
+                    else:
+                        avg_decay_rate = 1.0
+                else:
+                    avg_decay_rate = 1.0
+
+            if refractory_values:
+                avg_refractory = sum(refractory_values) / len(refractory_values)
+            else:
+                if hasattr(area, "properties") and area.properties:
+                    avg_refractory = float(
+                        area.properties.get(
+                            "refractory_period", area.properties.get("refrac", 0)
+                        )
+                    )
+                else:
+                    avg_refractory = 0.0
+
             avg_excitability = float(area_props_ex)
-            avg_threshold = sum(threshold_values) / len(threshold_values)
-            avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
-            avg_refractory = sum(refractory_values) / len(refractory_values)
 
             #  Convert decay_rate back to leak_coefficient (reverse the
             #  calculation)
@@ -5253,9 +5297,9 @@ class ConnectomeManager(NeuronMappingProvider):
                     else:
                         # NumPy arrays use fill() method
                         neuron_array.valid_mask.fill(False)
-                    neuron_array.neuron_count = 0
+                        neuron_array.neuron_count = 0
                 else:
-                    # NumPy arrays use fill() method
+                    # NumPy arrays use fill() method on local neuron_array if present
                     if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "valid_mask"):
                         self.neuron_array.valid_mask.fill(False)
                         self.neuron_array.neuron_count = 0
@@ -5694,7 +5738,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 result = self.neuron_array.indices_to_neuron_ids(
                     np.asarray(indices), filter_invalid=True
                 )
-                return result.astype(np.int64)
+            return result.astype(np.int64)
             # Fallback to dict mapping without touching BDU arrays
             mapped = []
             for idx in list(np.asarray(indices)):

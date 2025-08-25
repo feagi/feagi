@@ -337,6 +337,22 @@ class CorticalPropertiesUpdateRequest(BaseModel):
         extra = "allow"  # Allow additional fields for dynamic properties
 
 
+class AddCoreCorticalAreaRequest(BaseModel):
+    """Request model for adding a core cortical area.
+
+    Accepts core cortical fields and allows additional properties.
+    """
+
+    cortical_id: Optional[str] = None
+    cortical_type: Optional[str] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    device_count: Optional[int] = None
+
+    class Config:
+        extra = "allow"  # Allow extensibility without breaking
+
+
 class CustomCorticalAreaRequest(BaseModel):
     """Request model for creating custom cortical areas."""
 
