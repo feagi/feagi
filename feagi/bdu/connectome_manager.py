@@ -2854,59 +2854,58 @@ class ConnectomeManager(NeuronMappingProvider):
                 # Treat placeholder strings (e.g., 'x','y','z') as absent without error logs
                 coordinates = []
                 for i, x in enumerate(area.position):
+                    # Strict: reject invalid coordinates, do not coerce
+                    if isinstance(x, (int, float)):
+                        coordinates.append(int(x))
+                        continue
+                    value_str = str(x).strip().lower()
+                    if value_str in ("x", "y", "z", "", "none"):
+                        raise ValueError(
+                            f"Invalid coordinate value at index {i} for area {cortical_id}: '{x}'"
+                        )
                     try:
-                        if isinstance(x, (int, float)):
-                            coordinates.append(int(x))
-                            continue
-                        value_str = str(x).strip().lower()
-                        if value_str in ("x", "y", "z", "", "none"):
-                            coordinates.append(0)
-                        else:
-                            coordinates.append(int(float(value_str)))
-                    except Exception:
-                        # Downgrade noisy logs; placeholders are common from clients
-                        try:
-                            from feagi.core.state_manager import FeagiStateManager
-
-                            if FeagiStateManager.instance().is_debug_npu_enabled():
-                                self.logger.debug(
-                                    f"[SANITIZE] position[{i}]='{x}' for area {cortical_id} -> 0"
-                                )
-                        except Exception:
-                            pass
-                        coordinates.append(0)
+                        coordinates.append(int(float(value_str)))
+                    except Exception as conv_err:
+                        raise ValueError(
+                            f"Invalid coordinate value at index {i} for area {cortical_id}: '{x}' ({conv_err})"
+                        )
 
                 dimensions = []
                 for i, x in enumerate(area.dimensions):
+                    # Strict: reject invalid dimensions, do not coerce
+                    if isinstance(x, (int, float)):
+                        xi = int(x)
+                        if xi <= 0:
+                            raise ValueError(
+                                f"Invalid non-positive dimension at index {i} for area {cortical_id}: {xi}"
+                            )
+                        dimensions.append(xi)
+                        continue
+                    value_str = str(x).strip().lower()
+                    if value_str in (
+                        "w",
+                        "h",
+                        "d",
+                        "width",
+                        "height",
+                        "depth",
+                        "",
+                        "none",
+                    ):
+                        raise ValueError(
+                            f"Invalid dimension placeholder at index {i} for area {cortical_id}: '{x}'"
+                        )
                     try:
-                        if isinstance(x, (int, float)):
-                            dimensions.append(int(x))
-                            continue
-                        value_str = str(x).strip().lower()
-                        if value_str in (
-                            "w",
-                            "h",
-                            "d",
-                            "width",
-                            "height",
-                            "depth",
-                            "",
-                            "none",
-                        ):
-                            dimensions.append(1)
-                        else:
-                            dimensions.append(int(float(value_str)))
-                    except Exception:
-                        try:
-                            from feagi.core.state_manager import FeagiStateManager
-
-                            if FeagiStateManager.instance().is_debug_npu_enabled():
-                                self.logger.debug(
-                                    f"[SANITIZE] dimensions[{i}]='{x}' for area {cortical_id} -> 1"
-                                )
-                        except Exception:
-                            pass
-                        dimensions.append(1)
+                        xi = int(float(value_str))
+                        if xi <= 0:
+                            raise ValueError(
+                                f"Invalid non-positive dimension at index {i} for area {cortical_id}: {xi}"
+                            )
+                        dimensions.append(xi)
+                    except Exception as conv_err:
+                        raise ValueError(
+                            f"Invalid dimension value at index {i} for area {cortical_id}: '{x}' ({conv_err})"
+                        )
 
                 # Safe neuron count (handle None from NPU variant)
                 _neuron_ids_for_count = self.get_neurons_by_area(cortical_id)
