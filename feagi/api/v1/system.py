@@ -38,6 +38,8 @@ from .schemas import (
     UserPreferencesRequest,
     UserPreferencesResponse,
     VersionsResponse,
+    DebugLoggingRequest,
+    DebugLoggingResponse,
 )
 
 logger = setup_logger(__name__)
@@ -123,6 +125,144 @@ class SystemAPI:
         except Exception as e:
             logger.error(f"Error getting versions: {e}")
             raise ValueError(f"Failed to get versions: {str(e)}")
+
+    @system_endpoint(
+        "POST",
+        "/debug_logging",
+        request_model=DebugLoggingRequest,
+        response_model=SuccessResponse,
+    )
+    def set_debug_logging(self, request: DebugLoggingRequest) -> SuccessResponse:
+        """Enable/disable debug logging flags live.
+
+        Keys mirror CLI switches; unspecified keys are left unchanged.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            # Read current flags via API to avoid internal key coupling
+            cur_api = sm.is_debug_api_enabled()
+            cur_npu = sm.is_debug_npu_enabled()
+            cur_bdu = sm.is_debug_bdu_enabled()
+            cur_zmq_in = sm.is_debug_zmq_inbound_enabled()
+            cur_zmq_out = sm.is_debug_zmq_outbound_enabled()
+            cur_mem = sm.is_mem_debug_enabled()
+
+            # Compute new desired state (unspecified keys remain unchanged)
+            new_api = cur_api if request.api is None else bool(request.api)
+            new_npu = cur_npu if request.npu is None else bool(request.npu)
+            new_bdu = cur_bdu if request.bdu is None else bool(request.bdu)
+            new_zmq_in = cur_zmq_in if request.zmq_inbound is None else bool(request.zmq_inbound)
+            new_zmq_out = cur_zmq_out if request.zmq_outbound is None else bool(request.zmq_outbound)
+            new_mem = cur_mem if request.mem is None else bool(request.mem)
+
+            # Update StateManager using its public mapping format
+            sm.set_debug_config(
+                {
+                    "debug": {
+                        "api": new_api,
+                        "npu": new_npu,
+                        "bdu": new_bdu,
+                        "zmq_inbound": new_zmq_in,
+                        "zmq_outbound": new_zmq_out,
+                        "mem_debug": new_mem,
+                    }
+                }
+            )
+
+            # Also adjust module logger levels without changing global level
+            import logging
+
+            def _set_level(hierarchies, enabled):
+                logger_dict = logging.Logger.manager.loggerDict
+                for name, log_obj in logger_dict.items():
+                    if isinstance(log_obj, logging.Logger):
+                        for h in hierarchies:
+                            if name == h or name.startswith(h + "."):
+                                log_obj.setLevel(
+                                    logging.DEBUG if enabled else logging.WARNING
+                                )
+                                break
+
+            _set_level(["feagi.api"], new_api)
+            _set_level(
+                [
+                    "feagi.npu",
+                    "feagi.npu.burst_engine",
+                    "feagi.npu.fcl_manager",
+                    "feagi.npu.fcl_injection_service",
+                    "feagi.npu.special_area_handler",
+                    "feagi.npu.memory_processor",
+                    "feagi.npu.fq_sampler",
+                ],
+                new_npu,
+            )
+            _set_level(
+                [
+                    "feagi.bdu",
+                    "feagi.bdu.connectivity",
+                    "feagi.bdu.embryogenesis",
+                    "feagi.bdu.models",
+                    "feagi.bdu.utils",
+                ],
+                new_bdu,
+            )
+            _set_level(
+                [
+                    "feagi.api.zmq",
+                    "feagi.api.zmq.streams",
+                    "feagi.api.zmq.neural",
+                    "feagi.api.zmq.memory",
+                    "feagi.api.zmq.patterns",
+                ],
+                new_zmq_in or new_zmq_out,
+            )
+            _set_level(
+                [
+                    "feagi.npu.memory_processor",
+                    "feagi.bdu.models.memory",
+                    "feagi.core.memory",
+                ],
+                new_mem,
+            )
+
+            # Keep module-specific env overrides in sync for any new loggers
+            import os
+            os.environ["FEAGI_DEBUG_API"] = "1" if new_api else "0"
+            os.environ["FEAGI_DEBUG_NPU"] = "1" if new_npu else "0"
+            os.environ["FEAGI_DEBUG_BDU"] = "1" if new_bdu else "0"
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1" if (new_zmq_in or new_zmq_out) else "0"
+            os.environ["FEAGI_DEBUG_MEM"] = "1" if new_mem else "0"
+
+            return SuccessResponse(message="Debug logging flags updated")
+        except Exception as e:
+            logger.error(f"Error updating debug logging flags: {e}")
+            raise ValueError(f"Failed to update debug logging flags: {str(e)}")
+
+    @system_endpoint(
+        "GET",
+        "/debug_logging",
+        response_model=DebugLoggingResponse,
+    )
+    def get_debug_logging(self) -> DebugLoggingResponse:
+        """Get current debug logging flags from the state manager."""
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            cfg = getattr(sm, "_debug_config", {}) or {}
+            return DebugLoggingResponse(
+                api=bool(cfg.get("debug_api", False)),
+                npu=bool(cfg.get("debug_npu", False)),
+                bdu=bool(cfg.get("debug_bdu", False)),
+                zmq_inbound=bool(cfg.get("debug_zmq_inbound", False)),
+                zmq_outbound=bool(cfg.get("debug_zmq_outbound", False)),
+                mem=bool(cfg.get("mem_debug", False)),
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving debug logging flags: {e}")
+            raise ValueError(f"Failed to get debug logging flags: {str(e)}")
 
     @system_endpoint(
         "GET", "/health_check", response_model=HealthCheckResponse

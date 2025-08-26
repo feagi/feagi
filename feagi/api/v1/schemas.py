@@ -413,6 +413,37 @@ class CorticalAreaInfoResponse(BaseModel):
     area_info: Dict[str, Any]
 
 
+# ===== System Debug Logging Schema =====
+
+class DebugLoggingRequest(BaseModel):
+    """Request to set live debug logging flags via API.
+
+    Keys mirror CLI debug flags.
+    """
+
+    api: Optional[bool] = None
+    npu: Optional[bool] = None
+    bdu: Optional[bool] = None
+    zmq_inbound: Optional[bool] = None
+    zmq_outbound: Optional[bool] = None
+    mem: Optional[bool] = None
+
+    class Config:
+        extra = "forbid"
+
+
+class DebugLoggingResponse(BaseModel):
+    """Response with current debug logging flags."""
+
+    api: bool
+    npu: bool
+    bdu: bool
+    zmq_inbound: bool
+    zmq_outbound: bool
+    mem: bool
+
+
+
 class FireQueueResponse(BaseModel):
     """Response schema for fire queue data."""
 
