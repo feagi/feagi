@@ -5607,6 +5607,26 @@ class ConnectomeManager(NeuronMappingProvider):
             status="[OK]",
         )
 
+        # STEP 4.1: RESET BRAIN STATS IN STATE MANAGER (DETERMINISTIC ZERO)
+        try:
+            if hasattr(self, "state_manager") and self.state_manager:
+                zero_stats = {
+                    "neuron_count": 0,
+                    "synapse_count": 0,
+                    "cortical_area_count": 0,
+                    "memory_neuron_count": 0,
+                    "non_memory_neuron_count": 0,
+                }
+                result = self.state_manager.set_brain_stats(zero_stats)
+                if getattr(result, "is_err", False):
+                    logger.warning("Failed to reset brain stats to zero during genome preparation")
+
+                clr_result = self.state_manager.set_cortical_list([])
+                if getattr(clr_result, "is_err", False):
+                    logger.warning("Failed to clear cortical list during genome preparation")
+        except Exception as e:
+            logger.warning(f"Error resetting brain stats during genome preparation: {e}")
+
         # STEP 5: ENSURE BRAIN REGIONS STRUCTURE EXISTS
         logger.info("Step 5: Ensuring brain regions structure exists")
         self._ensure_brain_regions_structure(genome_data)
