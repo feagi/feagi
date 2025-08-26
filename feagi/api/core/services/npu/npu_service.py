@@ -36,7 +36,7 @@ from feagi.npu.interface import (
 from feagi.npu.data_structures import BackendType
 from feagi.core.state_manager import FeagiStateManager
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class NPUService:

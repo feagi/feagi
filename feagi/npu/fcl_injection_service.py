@@ -39,7 +39,7 @@ from feagi.npu.special_area_handler import CorticalId, NeuronId
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class InjectionTiming(Enum):

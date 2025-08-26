@@ -19,7 +19,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 # -----------------------------------------------------------------------------
 # ASCII Status Indicators for Embedded System Compatibility
@@ -579,6 +579,96 @@ def setup_logger(
             handler.setLevel(final_level)
 
     return StatusAdapter(logger, {"label": tag or name})
+
+
+# -----------------------------------------------------------------------------
+# Subsystem logger application (runtime level sync for loggers and handlers)
+# -----------------------------------------------------------------------------
+
+# Centralized subsystem -> logger hierarchies mapping
+SUBSYSTEM_LOGGER_HIERARCHIES: Dict[str, List[str]] = {
+    "api": [
+        "feagi.api",
+        "feagi.api.rest",
+        "feagi.api.core",
+        "feagi.api.gateway",
+        "feagi.api.protocols",
+        "feagi.api.transport",
+        "feagi.api.zmq",
+    ],
+    "npu": [
+        "feagi.npu",
+        "feagi.npu.burst_engine",
+        "feagi.npu.fcl_manager",
+        "feagi.npu.fcl_injection_service",
+        "feagi.npu.special_area_handler",
+        "feagi.npu.memory_processor",
+        "feagi.npu.fq_sampler",
+    ],
+    "bdu": [
+        "feagi.bdu",
+        "feagi.bdu.connectivity",
+        "feagi.bdu.embryogenesis",
+        "feagi.bdu.models",
+        "feagi.bdu.utils",
+    ],
+    "evo": [
+        "feagi.evo",
+    ],
+    "zmq": [
+        "feagi.api.zmq",
+        "feagi.api.zmq.streams",
+        "feagi.api.zmq.neural",
+        "feagi.api.zmq.memory",
+        "feagi.api.zmq.patterns",
+    ],
+    "mem": [
+        "feagi.npu.memory_processor",
+        "feagi.bdu.models.memory",
+        "feagi.core.memory",
+    ],
+}
+
+
+def apply_subsystem_log_levels(debug_cfg: Dict[str, Any], baseline_level: int) -> None:
+    """Apply subsystem log levels live by updating logger and handler levels.
+
+    Args:
+        debug_cfg: StateManager debug config dict; expects keys like
+                   {'debug_api': bool, 'debug_npu': bool, ...}
+        baseline_level: logging.INFO/DEBUG/WARNING/etc for subsystems that are off
+    """
+    import logging
+
+    # Build subsystem -> enabled map from debug_cfg
+    enabled_by_subsystem = {
+        "api": bool(debug_cfg.get("debug_api", False)),
+        "npu": bool(debug_cfg.get("debug_npu", False)),
+        "bdu": bool(debug_cfg.get("debug_bdu", False)),
+        "evo": bool(debug_cfg.get("debug_evo", False)),
+        "zmq": bool(debug_cfg.get("debug_zmq_inbound", False) or debug_cfg.get("debug_zmq_outbound", False)),
+        "mem": bool(debug_cfg.get("mem_debug", False)),
+    }
+
+    logger_dict = logging.Logger.manager.loggerDict
+
+    # Helper to set both logger and all handler levels
+    def _set_logger_and_handlers(_logger: logging.Logger, level: int) -> None:
+        try:
+            _logger.setLevel(level)
+            for h in getattr(_logger, "handlers", []) or []:
+                h.setLevel(level)
+        except Exception:
+            pass
+
+    for subsystem, hierarchies in SUBSYSTEM_LOGGER_HIERARCHIES.items():
+        target_level = logging.DEBUG if enabled_by_subsystem.get(subsystem, False) else baseline_level
+        for name, log_obj in logger_dict.items():
+            if isinstance(log_obj, logging.Logger):
+                for h in hierarchies:
+                    if name == h or name.startswith(h + "."):
+                        _set_logger_and_handlers(log_obj, target_level)
+                        break
 
 
 # Backward compatibility alias

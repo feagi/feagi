@@ -32,7 +32,7 @@ import zmq.asyncio
 from feagi.utils.logger import setup_logger
 
 # Set up logger early so it's available for imports
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 # Core dependencies

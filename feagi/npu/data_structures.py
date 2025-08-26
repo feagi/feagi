@@ -26,7 +26,7 @@ import threading
 from feagi.utils.logger import setup_logger
 from feagi.config.toml_loader import load_feagi_config
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 @dataclass

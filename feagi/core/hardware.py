@@ -26,7 +26,7 @@ import platform
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import logging
 from typing import Any, Dict, Tuple
 

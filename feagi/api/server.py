@@ -28,7 +28,7 @@ from feagi.utils.logger import setup_logger
 
 setup_feagi_logging()
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 def main():

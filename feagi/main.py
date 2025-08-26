@@ -412,78 +412,36 @@ def main():
             os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
             _update_all_logger_levels("INFO")
 
-    # Apply module-specific debug levels without changing global level for ALL flags.
+    # Apply subsystem levels (logger + handlers) using centralized mapping
     try:
-        import logging  # Local import to avoid impacting global import order
+        from feagi.utils.logger import apply_subsystem_log_levels
+        import logging
 
-        # Helper to bump logger hierarchies to DEBUG
-        def _set_loggers_debug(hierarchies):
-            logger_dict = logging.Logger.manager.loggerDict
-            for _name, _logger in logger_dict.items():
-                if isinstance(_logger, logging.Logger):
-                    for h in hierarchies:
-                        if _name == h or _name.startswith(h + "."):
-                            _logger.setLevel(logging.DEBUG)
-                            break
+        debug_cfg = {
+            "debug_api": bool(getattr(args, "debug_api", False)),
+            "debug_npu": bool(getattr(args, "debug_npu", False)),
+            "debug_bdu": bool(getattr(args, "debug_bdu", False)),
+            "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
+            "debug_zmq_outbound": bool(getattr(args, "debug_zmq_outbound", False)),
+            "mem_debug": bool(getattr(args, "debug_mem", False)),
+        }
 
-        # API
-        if getattr(args, "debug_api", False):
+        # Keep env vars for newly created loggers
+        if debug_cfg["debug_api"]:
             os.environ["FEAGI_DEBUG_API"] = "1"
-            _set_loggers_debug([
-                "feagi.api",
-                "feagi.api.rest",
-                "feagi.api.core",
-                "feagi.api.gateway",
-                "feagi.api.protocols",
-                "feagi.api.transport",
-                "feagi.api.zmq",
-            ])
-
-        # NPU
-        if getattr(args, "debug_npu", False):
+        if debug_cfg["debug_npu"]:
             os.environ["FEAGI_DEBUG_NPU"] = "1"
-            _set_loggers_debug([
-                "feagi.npu",
-                "feagi.npu.burst_engine",
-                "feagi.npu.fcl_manager",
-                "feagi.npu.fcl_injection_service",
-                "feagi.npu.special_area_handler",
-                "feagi.npu.memory_processor",
-                "feagi.npu.fq_sampler",
-            ])
-
-        # BDU
-        if getattr(args, "debug_bdu", False):
+        if debug_cfg["debug_bdu"]:
             os.environ["FEAGI_DEBUG_BDU"] = "1"
-            _set_loggers_debug([
-                "feagi.bdu",
-                "feagi.bdu.connectivity",
-                "feagi.bdu.embryogenesis",
-                "feagi.bdu.models",
-                "feagi.bdu.utils",
-            ])
-
-        # ZMQ (either inbound or outbound implies ZMQ debug)
-        if getattr(args, "debug_zmq_outbound", False) or getattr(args, "debug_zmq_inbound", False):
+        if debug_cfg["debug_zmq_inbound"] or debug_cfg["debug_zmq_outbound"]:
             os.environ["FEAGI_DEBUG_ZMQ"] = "1"
-            _set_loggers_debug([
-                "feagi.api.zmq",
-                "feagi.api.zmq.streams",
-                "feagi.api.zmq.neural",
-                "feagi.api.zmq.memory",
-                "feagi.api.zmq.patterns",
-            ])
-
-        # Memory system
-        if getattr(args, "debug_mem", False):
+        if debug_cfg["mem_debug"]:
             os.environ["FEAGI_DEBUG_MEM"] = "1"
-            _set_loggers_debug([
-                "feagi.npu.memory_processor",
-                "feagi.bdu.models.memory",
-                "feagi.core.memory",
-            ])
+
+        baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
+        baseline_level = getattr(logging, baseline.upper(), logging.INFO)
+        apply_subsystem_log_levels(debug_cfg, baseline_level)
     except Exception:
-        # Non-fatal; continue startup even if logger adjustment fails
         pass
 
     # Show deferred logger setup info now that CLI override is applied

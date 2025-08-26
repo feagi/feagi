@@ -21,7 +21,7 @@ allowing settings to be loaded from files or environment variables.
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any, Dict, Optional
 
 

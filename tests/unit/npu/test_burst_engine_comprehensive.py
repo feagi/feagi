@@ -105,8 +105,7 @@ class TestBurstEngineComprehensive(unittest.TestCase):
             # Set running flag
             self.burst_engine._running = True
 
-            # Use optimized path by setting optimized_available to True
-            optimized_available = True
+            # Use optimized path
 
             # Main loop (just one iteration for testing)
             while self.burst_engine._running:
@@ -233,7 +232,6 @@ class TestBurstEngineComprehensive(unittest.TestCase):
                 # Process bursts using fire queue
                 if optimized_available:
                     # New architecture: treat missing core deterministically
-                    core = None
                     # Fall back to standard process immediately when no core
                     self.burst_engine._process_burst()
 
@@ -331,8 +329,7 @@ class TestBurstEngineComprehensive(unittest.TestCase):
             # Set running flag
             self.burst_engine._running = True
 
-            # Use fallback path by setting optimized_available to False
-            optimized_available = False
+            # Use fallback path
 
             # Main loop (just one iteration for testing)
             while self.burst_engine._running:

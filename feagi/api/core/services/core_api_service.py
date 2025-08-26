@@ -40,7 +40,7 @@ from .npu.npu_service import NPUService
 # Import all domain services
 from .system.system_service import SystemService
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class CoreAPIService:

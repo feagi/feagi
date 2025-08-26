@@ -171,61 +171,22 @@ class SystemAPI:
                 }
             )
 
-            # Also adjust module logger levels without changing global level
+            # Apply subsystem levels live (logger + handler thresholds)
+            from feagi.utils.logger import apply_subsystem_log_levels
             import logging
-
-            def _set_level(hierarchies, enabled):
-                logger_dict = logging.Logger.manager.loggerDict
-                for name, log_obj in logger_dict.items():
-                    if isinstance(log_obj, logging.Logger):
-                        for h in hierarchies:
-                            if name == h or name.startswith(h + "."):
-                                log_obj.setLevel(
-                                    logging.DEBUG if enabled else logging.WARNING
-                                )
-                                break
-
-            _set_level(["feagi.api"], new_api)
-            _set_level(
-                [
-                    "feagi.npu",
-                    "feagi.npu.burst_engine",
-                    "feagi.npu.fcl_manager",
-                    "feagi.npu.fcl_injection_service",
-                    "feagi.npu.special_area_handler",
-                    "feagi.npu.memory_processor",
-                    "feagi.npu.fq_sampler",
-                ],
-                new_npu,
-            )
-            _set_level(
-                [
-                    "feagi.bdu",
-                    "feagi.bdu.connectivity",
-                    "feagi.bdu.embryogenesis",
-                    "feagi.bdu.models",
-                    "feagi.bdu.utils",
-                ],
-                new_bdu,
-            )
-            _set_level(
-                [
-                    "feagi.api.zmq",
-                    "feagi.api.zmq.streams",
-                    "feagi.api.zmq.neural",
-                    "feagi.api.zmq.memory",
-                    "feagi.api.zmq.patterns",
-                ],
-                new_zmq_in or new_zmq_out,
-            )
-            _set_level(
-                [
-                    "feagi.npu.memory_processor",
-                    "feagi.bdu.models.memory",
-                    "feagi.core.memory",
-                ],
-                new_mem,
-            )
+            # Build a unified debug_cfg snapshot
+            debug_cfg = {
+                "debug_api": new_api,
+                "debug_npu": new_npu,
+                "debug_bdu": new_bdu,
+                "debug_zmq_inbound": new_zmq_in,
+                "debug_zmq_outbound": new_zmq_out,
+                "mem_debug": new_mem,
+            }
+            # Baseline comes from FEAGI_CLI_LOG_LEVEL or defaults to INFO
+            baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
+            baseline_level = getattr(logging, baseline.upper(), logging.INFO)
+            apply_subsystem_log_levels(debug_cfg, baseline_level)
 
             # Keep module-specific env overrides in sync for any new loggers
             import os

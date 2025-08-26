@@ -29,7 +29,7 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.data_structures import NeuronArray, MemoryNeuronArray, SynapseArray, BackendType
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class OperationResult(Enum):

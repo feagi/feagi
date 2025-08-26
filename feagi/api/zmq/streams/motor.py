@@ -51,7 +51,7 @@ from feagi.utils.zmq_debug import MessageType, log_outbound
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class MotorStream:

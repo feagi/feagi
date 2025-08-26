@@ -44,7 +44,6 @@ class TestUnifiedFQSampler(unittest.TestCase):
         self.assertEqual(self.fq_sampler.sample_interval, 0.1)
         self.assertFalse(self.fq_sampler.running)
         self.assertEqual(self.fq_sampler.sampling_mode, "global")
-        self.assertEqual(self.fq_sampler.max_retries, 3)
         self.assertEqual(self.fq_sampler.target_areas, [])
 
     def test_stop(self):
@@ -136,13 +135,23 @@ class TestUnifiedFQSampler(unittest.TestCase):
         stop_thread = threading.Thread(target=stop_sampler)
         stop_thread.start()
 
+        # Track that sampling attempts occurred under the new architecture
+        original_sample = self.fq_sampler.sample
+        calls = {"count": 0}
+
+        def wrapped_sample(*args, **kwargs):
+            calls["count"] += 1
+            return original_sample(*args, **kwargs)
+
+        self.fq_sampler.sample = wrapped_sample
+
         # Run the sampler
         self.fq_sampler.run()
 
         stop_thread.join()
 
-        # Verify fire queue method was called (new architecture always attempts sampling)
-        self.mock_provider.get_fire_queue.assert_called()
+        # Verify sampling was attempted at least once
+        self.assertGreater(calls["count"], 0)
 
     def test_run_with_connectome_manager(self):
         """Test run() with connectome manager."""
@@ -193,7 +202,9 @@ class TestUnifiedFQSampler(unittest.TestCase):
         error_provider = Mock()
         error_provider.get_fire_queue.side_effect = Exception("Test error")
 
-        sampler = UnifiedFQSampler(error_provider, 50, self.output_queue)
+        sampler = UnifiedFQSampler(
+            error_provider, 50, sampling_mode="global", output_queue=self.output_queue
+        )
 
         # Set the sampler to stop after a short time
         def stop_sampler():

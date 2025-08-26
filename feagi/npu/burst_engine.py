@@ -38,7 +38,7 @@ from .burst_engine_performance import BurstEnginePerformanceMixin
 from .fq_sampler import UnifiedFQSampler  # Backward-compatible export for tests
 from feagi.core.state_manager import ServiceState  # Re-export for tests
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 # RTOS-COMPATIBLE: Use deterministic pseudo-random for instance IDs
