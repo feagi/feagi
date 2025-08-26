@@ -23,6 +23,7 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 """
 
 from typing import Any, Dict, List
+import os
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -189,7 +190,6 @@ class SystemAPI:
             apply_subsystem_log_levels(debug_cfg, baseline_level)
 
             # Keep module-specific env overrides in sync for any new loggers
-            import os
             os.environ["FEAGI_DEBUG_API"] = "1" if new_api else "0"
             os.environ["FEAGI_DEBUG_NPU"] = "1" if new_npu else "0"
             os.environ["FEAGI_DEBUG_BDU"] = "1" if new_bdu else "0"
