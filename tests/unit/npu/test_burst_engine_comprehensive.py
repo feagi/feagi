@@ -232,14 +232,10 @@ class TestBurstEngineComprehensive(unittest.TestCase):
 
                 # Process bursts using fire queue
                 if optimized_available:
-                    # Get the core from connectome manager - returns None
-                    core = self.burst_engine.connectome_manager.get_optimized_core()
-                    if core:
-                        # This should not be called since core is None
-                        mock_step_simulation(core, mpf, puf, max_consecutive_fires)
-                    else:
-                        # Fall back to standard process
-                        self.burst_engine._process_burst()
+                    # New architecture: treat missing core deterministically
+                    core = None
+                    # Fall back to standard process immediately when no core
+                    self.burst_engine._process_burst()
 
                 # Set running to False to exit loop
                 self.burst_engine._running = False

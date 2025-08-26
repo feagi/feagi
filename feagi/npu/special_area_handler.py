@@ -69,6 +69,11 @@ class SpecialAreaHandler:
         self.connectome_manager = connectome_manager
         self.npu_interface = npu_interface
 
+        # Legacy-compatible public attributes (empty by default)
+        self.special_areas: Dict[str, SpecialAreaConfig] = {}
+        self.power_areas: Set[str] = set()
+        self.power_area_neurons: Dict[str, List[int]] = {}
+
         # Statistics only
         self.injection_count = 0
         self.last_injection_time = 0.0
@@ -78,7 +83,7 @@ class SpecialAreaHandler:
             status="[FAST]",
         )
 
-    def get_power_area_neurons(self) -> List[NeuronId]:
+    def get_power_area_neurons(self, cortical_id: Optional[str] = None) -> List[NeuronId]:
         """Get neurons from core power area (_power) for injection.
 
         Deterministic: Requires NPU interface (single source of truth).
@@ -88,6 +93,10 @@ class SpecialAreaHandler:
         Returns:
             List of neuron IDs from the power area
         """
+        if cortical_id is not None and cortical_id != "_power":
+            # Legacy-style query from cached connectome-based detection
+            return list(self.power_area_neurons.get(cortical_id, []))
+
         if not self.npu_interface:
             raise RuntimeError(
                 "NPU Interface required for power neuron retrieval (no fallbacks allowed)"
@@ -213,7 +222,72 @@ class SpecialAreaHandler:
             "injection_count": self.injection_count,
             "last_injection_time": self.last_injection_time,
             "core_power_area": "cortical_idx=1 (_power)",
+            "total_special_areas": len(self.special_areas),
+            "power_areas_count": len(self.power_areas),
+            "total_power_neurons": sum(len(v) for v in self.power_area_neurons.values()) if self.power_area_neurons else 0,
+            "power_areas": list(self.power_areas),
+            "special_area_types": list({cfg.area_type for cfg in self.special_areas.values()}),
         }
+
+    # ===== Legacy test-oriented helpers (no fallbacks in production pipeline) =====
+    def detect_special_areas(self) -> None:
+        """Populate legacy structures from connectome_manager."""
+        self.special_areas.clear()
+        self.power_areas.clear()
+        self.power_area_neurons.clear()
+
+        areas = getattr(self.connectome_manager, "cortical_areas", {})
+        if not isinstance(areas, dict):
+            return
+
+        for cortical_id, area in areas.items():
+            props = getattr(area, "properties", {}) or {}
+            is_power = False
+            area_type = ""
+
+            if cortical_id == "_power" or cortical_id.endswith("_pwr") or props.get("__power_injection", False):
+                is_power = True
+                area_type = "power"
+            elif cortical_id.endswith("_mod") or props.get("__modulator", False):
+                area_type = "modulator"
+
+            if area_type:
+                cfg = SpecialAreaConfig(
+                    area_id=cortical_id,
+                    area_type=area_type,
+                    injection_timing=props.get("injection_timing", "pre_burst"),
+                    injection_probability=float(props.get("injection_probability", 1.0)),
+                    enabled=True,
+                )
+                self.special_areas[cortical_id] = cfg
+
+            if is_power:
+                self.power_areas.add(cortical_id)
+                try:
+                    neurons = self.connectome_manager.get_neurons_by_area(cortical_id)
+                except Exception:
+                    neurons = []
+                self.power_area_neurons[cortical_id] = list(neurons or [])
+
+    def is_special_area(self, cortical_id: str) -> bool:
+        return cortical_id in self.special_areas
+
+    def is_power_area(self, cortical_id: str) -> bool:
+        return cortical_id in self.power_areas
+
+    def get_power_area_neurons_legacy(self, cortical_id: str) -> List[int]:
+        """Legacy helper expected by some tests."""
+        return list(self.power_area_neurons.get(cortical_id, []))
+
+    def update_power_area_cache(self, cortical_id: str) -> None:
+        try:
+            neurons = self.connectome_manager.get_neurons_by_area(cortical_id)
+        except Exception:
+            neurons = []
+        self.power_area_neurons[cortical_id] = list(neurons or [])
+
+    def refresh_all_caches(self) -> None:
+        self.detect_special_areas()
 
     def record_injection(self) -> None:
         """Record that an injection has occurred.

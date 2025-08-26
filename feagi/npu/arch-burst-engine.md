@@ -1401,3 +1401,39 @@ Key points:
 - Visualization/FQ sampler must read FCL "t-1" (historical fired), not "t".
 
 # ... rest of documentation ...
+
+## Buffered External Injection and Burst-Paced Drain
+
+To decouple agent submit rates from burst cadence and ensure deterministic operation across CPU/GPU/RTOS targets, external activations are buffered and drained only at burst boundaries:
+
+- Bounded per-area and global buffers with deterministic capacity from configuration.
+- Per-burst global and per-area drain budgets enforce fixed work per burst.
+- Fairness policy is round-robin by default to prevent starvation.
+- Duplicate neuron IDs are coalesced for efficiency and determinism.
+- Pre-burst drain submits drained IDs to the FCL for the current timestep.
+
+### Configuration (feagi_configuration.toml)
+
+```toml
+[injection.buffer]
+capacity_total = 65536
+capacity_per_area = 8192
+coalesce_duplicates = true
+
+[injection.drain]
+per_burst_max_total = 8192
+per_burst_max_per_area = 2048
+fairness = "round_robin"   # or "weighted"
+drop_policy = "newest"     # or "oldest" | "per_area"
+
+[injection.metrics]
+enabled = true
+window_seconds = 5.0
+```
+
+### Monitoring
+
+- Endpoint: GET `/v1/burst_engine/injection/status`
+- Returns buffer capacities, current depths, and last-drain stats.
+
+This mechanism guarantees deterministic, burst-paced ingestion and small, predictable GPU transfers (single batch per burst when GPU is active).

@@ -35,7 +35,7 @@ class TestUnifiedFQSampler(unittest.TestCase):
 
         # Create UnifiedFQSampler
         self.fq_sampler = UnifiedFQSampler(
-            self.mock_provider, 10.0, self.output_queue, sampling_mode="global"
+            self.mock_provider, 10.0, sampling_mode="global", output_queue=self.output_queue
         )
 
     def test_initialization(self):
@@ -74,13 +74,13 @@ class TestUnifiedFQSampler(unittest.TestCase):
         """Test different sampling modes."""
         # Test global mode
         sampler_global = UnifiedFQSampler(
-            self.mock_provider, 10.0, self.output_queue, sampling_mode="global"
+            self.mock_provider, 10.0, sampling_mode="global", output_queue=self.output_queue
         )
         self.assertEqual(sampler_global.sampling_mode, "global")
 
         # Test motor_only mode
         sampler_motor = UnifiedFQSampler(
-            self.mock_provider, 10.0, self.output_queue, sampling_mode="motor_only"
+            self.mock_provider, 10.0, sampling_mode="motor_only", output_queue=self.output_queue
         )
         self.assertEqual(sampler_motor.sampling_mode, "motor_only")
 
@@ -88,8 +88,8 @@ class TestUnifiedFQSampler(unittest.TestCase):
         sampler_areas = UnifiedFQSampler(
             self.mock_provider,
             10.0,
-            self.output_queue,
             sampling_mode="areas_only",
+            output_queue=self.output_queue,
             target_areas=["cortex1"],
         )
         self.assertEqual(sampler_areas.sampling_mode, "areas_only")
@@ -157,9 +157,9 @@ class TestUnifiedFQSampler(unittest.TestCase):
         sampler = UnifiedFQSampler(
             self.mock_provider,
             10.0,
-            self.output_queue,
-            mock_cm,
             sampling_mode="areas_only",
+            output_queue=self.output_queue,
+            connectome_manager=mock_cm,
             target_areas=["cortex1", "cortex2"],
         )
 

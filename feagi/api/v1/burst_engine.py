@@ -229,6 +229,17 @@ class BurstEngineAPI:
                 f"Failed to get burst engine stats: {str(e)}"
             ) from e
 
+    @burst_engine_endpoint("GET", "/injection/status", response_model=Dict[str, Any])
+    async def get_injection_status(self) -> Dict[str, Any]:
+        """Get injection buffering/draining status for monitoring."""
+        try:
+            return self.core_api_service.get_injection_status()
+        except Exception as e:
+            logger.error(f"Error getting injection status: {e}")
+            raise ValueError(
+                f"Failed to get injection status: {str(e)}"
+            ) from e
+
     @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
     async def get_fcl_content(self) -> FCLContentResponse:
         """Get the complete FCL (Fire Candidate List) content at the current timestep.

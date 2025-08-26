@@ -733,19 +733,38 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.injection_service.inject_pre_burst(current_timestep)
 
         # 2. Core neural computation (synaptic propagation)
-        #  Process ALL FCL candidates (internal + external) in one unified
-        #  sweep
+        #  Process ALL FCL candidates (internal + external) in one unified sweep
         if state_manager.is_debug_npu_enabled():
             logger.info(
                 "[NPU-DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
             )
 
+        # Measure FCL size (t window) before processing
+        try:
+            fcl_count_before = 0
+            if self.fcl_manager:
+                current_fcl = self.fcl_manager.get_fcl(0)
+                fcl_count_before = 0 if (not current_fcl or current_fcl.is_empty()) else len(list(current_fcl))
+        except Exception:
+            fcl_count_before = 0
+
+        t0 = time.perf_counter()
         fired_neurons = self.connectome_manager.update_membrane_potentials()
+        t1 = time.perf_counter()
 
         if state_manager.is_debug_npu_enabled():
             fired_count = len(fired_neurons) if fired_neurons else 0
             logger.info(
                 f"[NPU-DEBUG] BURST ENGINE: Enhanced processing - {fired_count} neurons fired from FCL"
+            )
+
+            # Compute per-second throughputs
+            process_ms = max((t1 - t0) * 1000.0, 1e-6)
+            fcl_per_sec = (fcl_count_before * 1000.0) / process_ms
+            fire_per_sec = (fired_count * 1000.0) / process_ms
+            logger.info(
+                f"[NPU-DEBUG] THROUGHPUT: FCL_t candidates={fcl_count_before} ({fcl_per_sec:.1f}/s), "
+                f"fired={fired_count} ({fire_per_sec:.1f}/s), dt={process_ms:.2f}ms"
             )
 
         # 3. Additional external injections (during-burst phase)

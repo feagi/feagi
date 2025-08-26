@@ -200,3 +200,28 @@ zip_compression = "deflate"  # "deflate" or "store"
 default_format = "zip"
 # fc_compression can be "store" (uncompressed) or "deflate" (zlib)
 fc_compression = "store"
+
+# Injection buffering and draining configuration
+[injection]
+
+[injection.buffer]
+# Total buffered neuron IDs allowed across all areas per FEAGI instance
+capacity_total = 65536
+# Maximum buffered neuron IDs per cortical area
+capacity_per_area = 8192
+# Whether to coalesce duplicate neuron IDs within the buffer
+coalesce_duplicates = true
+
+[injection.drain]
+# Maximum neuron IDs to drain from the buffer each burst (global budget)
+per_burst_max_total = 8192
+# Maximum neuron IDs to drain per cortical area each burst
+per_burst_max_per_area = 2048
+# Fairness policy across areas: "round_robin" or "weighted"
+fairness = "round_robin"
+# Drop policy when buffers are full: "oldest", "newest", or "per_area"
+drop_policy = "newest"
+
+[injection.metrics]
+enabled = true
+window_seconds = 5.0

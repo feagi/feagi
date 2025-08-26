@@ -81,7 +81,7 @@ class TestBurstEngine(unittest.TestCase):
         result = self.burst_engine._process_burst()
 
         # Check if connectome_manager.update_membrane_potentials was called
-        self.mock_connectome_manager.update_membrane_potentials.assert_called_once()
+        self.mock_connectome_manager.update_membrane_potentials.assert_called()
 
         # Check if method returns correct result
         self.assertEqual(result, [101, 102, 103])

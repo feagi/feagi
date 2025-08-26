@@ -1283,6 +1283,53 @@ class CoreAPIService:
             return self._connectome_manager.fcl_manager
         return None
 
+    def get_injection_status(self) -> Dict[str, Any]:
+        """Get current injection buffering/draining status.
+
+        Returns a dictionary with buffer capacities, current depths, and
+        last drain statistics from the injection service. If the injection
+        service is unavailable, returns an empty default structure.
+        """
+        try:
+            be = self.get_burst_engine()
+            inj = getattr(be, "injection_service", None) if be else None
+            status: Dict[str, Any] = {
+                "available": bool(inj is not None),
+                "buffer": {
+                    "capacity_total": 0,
+                    "capacity_per_area": 0,
+                    "buffered_total": 0,
+                    "areas": {},
+                },
+                "last_drain": {"drained_total": 0, "time_ms": 0},
+                "statistics": {},
+            }
+            if inj and hasattr(inj, "get_buffer_status"):
+                buf = inj.get_buffer_status()
+                status["buffer"] = {
+                    "capacity_total": int(buf.get("capacity_total", 0)),
+                    "capacity_per_area": int(buf.get("capacity_per_area", 0)),
+                    "buffered_total": int(buf.get("buffered_total", 0)),
+                    "areas": buf.get("areas", {}),
+                }
+                last = buf.get("last_drain") or {}
+                status["last_drain"] = {
+                    "drained_total": int(last.get("drained_total", 0)),
+                    "time_ms": int(last.get("time_ms", 0)),
+                }
+            if inj and hasattr(inj, "get_statistics"):
+                status["statistics"] = inj.get_statistics()
+            return status
+        except Exception as e:
+            self.logger.error(f"Error getting injection status: {str(e)}")
+            return {
+                "available": False,
+                "error": str(e),
+                "buffer": {"capacity_total": 0, "capacity_per_area": 0, "buffered_total": 0, "areas": {}},
+                "last_drain": {"drained_total": 0, "time_ms": 0},
+                "statistics": {},
+            }
+
     def get_memory_manager(self):
         """Get the memory manager instance."""
         # Return the connectome manager as it manages memory
@@ -1303,7 +1350,16 @@ class CoreAPIService:
             # Get current-timestep global FCL
             global_fcl = fcl_manager.get_fcl()
             if not global_fcl or global_fcl.is_empty():
-                self.logger.debug("🔥 [CORE API] Global FCL is empty - no neurons firing globally")
+                # Peg this diagnostic to --debug-npu (use npu logger hierarchy)
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    import logging
+
+                    if FeagiStateManager.instance().is_debug_npu_enabled():
+                        npu_logger = logging.getLogger("feagi.npu.fire_queue")
+                        npu_logger.info("[NPU-DEBUG] FIRE QUEUE: Global FCL is empty - no neurons firing globally")
+                except Exception:
+                    pass
                 return {
                     "neuron_ids": [],
                     "membrane_potentials": [],
@@ -1314,9 +1370,19 @@ class CoreAPIService:
                 }
 
             firing_ids = list(global_fcl)
-            self.logger.debug(
-                f"🔥 [CORE API] Global fire queue has {len(firing_ids)} firing neurons"
-            )
+            total_fcl_ids = len(firing_ids)
+            # Peg to --debug-npu (use npu logger hierarchy)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                import logging
+
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    npu_logger = logging.getLogger("feagi.npu.fire_queue")
+                    npu_logger.info(
+                        f"[NPU-DEBUG] FIRE QUEUE: Global FCL size (t) = {total_fcl_ids}"
+                    )
+            except Exception:
+                pass
 
             # Access the authoritative NPU neuron array (SoA)
             if not hasattr(self._connectome_manager, "neuron_array"):
@@ -1360,13 +1426,26 @@ class CoreAPIService:
 
             # Map IDs to indices and extract real SoA data
             id_to_idx = neuron_array.neuron_id_to_index
+
+            mapped_count = 0
+            missing_map_count = 0
+            out_of_bounds_count = 0
+            missing_samples: List[int] = []
+
             for nid in firing_ids:
                 idx = id_to_idx.get(nid)
                 if idx is None:
+                    missing_map_count += 1
+                    if len(missing_samples) < 10:
+                        missing_samples.append(int(nid))
                     continue
                 # Bounds guard
                 if idx < 0 or idx >= neuron_array.neuron_count:
+                    out_of_bounds_count += 1
+                    if len(missing_samples) < 10:
+                        missing_samples.append(int(nid))
                     continue
+                mapped_count += 1
                 neuron_ids.append(nid)
                 membrane_potentials.append(float(neuron_array.membrane_potentials[idx]))
                 thresholds.append(float(neuron_array.thresholds[idx]))
@@ -1378,6 +1457,26 @@ class CoreAPIService:
                         int(neuron_array.coordinates_z[idx]),
                     )
                 )
+
+            # Optional debug-npu diagnostics for mapping losses
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    import logging
+                    npu_logger = logging.getLogger("feagi.npu.fire_queue")
+                    dropped = missing_map_count + out_of_bounds_count
+                    if dropped > 0:
+                        npu_logger.info(
+                            f"[NPU-DEBUG] FIRE QUEUE MAPPING: FCL={total_fcl_ids}, mapped={mapped_count}, "
+                            f"missing_map={missing_map_count}, out_of_bounds={out_of_bounds_count}"
+                        )
+                        if missing_samples:
+                            npu_logger.info(
+                                f"[NPU-DEBUG] FIRE QUEUE MAPPING: sample_failed_ids={missing_samples}"
+                            )
+            except Exception:
+                pass
 
             return {
                 "neuron_ids": neuron_ids,
