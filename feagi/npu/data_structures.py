@@ -813,8 +813,8 @@ class MemoryNeuronArray:
                 result = state_manager.update_memory_area_neuron_count(
                     cortical_area_id, delta, operation
                 )
-                if not result.is_ok():
-                    logger.warning(f"Failed to update StateManager memory count for {cortical_area_id}: {result}")
+                if not result.is_ok:
+                    logger.warning(f"Failed to update StateManager memory count for {cortical_area_id}: {result.unwrap_err()}")
         except Exception as e:
             logger.warning(f"Error updating StateManager memory count: {e}")
     

@@ -493,7 +493,7 @@ class CorticalAreaAPI:
 
             # Generate proper cortical ID using FEAGI's standard format
             cortical_id = generate_cortical_id(
-                prefix="M" if is_memory else "C", seed=temp_name[:3]
+                prefix="m" if is_memory else "c", seed=temp_name[:3]
             )
 
             #  ARCHITECTURE COMPLIANCE: Route through GenomeService instead of

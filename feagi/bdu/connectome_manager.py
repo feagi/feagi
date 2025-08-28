@@ -7001,7 +7001,7 @@ class ConnectomeManager(NeuronMappingProvider):
         MEMORY AREA SUPPORT: Now checks both regular and memory neurons.
         
         Args:
-            cortical_id: String identifier (e.g., "_power", "MVPmem")
+            cortical_id: String identifier (e.g., "_power", "mVPmem")
             
         Returns:
             List of neuron IDs in the area (regular + memory neurons), or None if area not found

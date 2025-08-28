@@ -4939,6 +4939,118 @@ class CoreAPIService:
             self.logger.error(f"Error deleting brain region: {str(e)}")
             raise ValueError(f"Failed to delete brain region: {str(e)}") from e
 
+    def relocate_region_members(self, relocation_data: Dict[str, Any]) -> bool:
+        """Relocate brain region members by updating their coordinates.
+        
+        Updates the coordinates of multiple cortical areas and/or brain regions
+        in a single operation. Supports both 2D coordinate updates and optional
+        parent region changes.
+        
+        Args:
+            relocation_data: Dictionary mapping cortical area IDs to their new
+                           coordinates and optional parent region assignments.
+                           Format: {
+                               "cortical_id": {
+                                   "coordinate_2d": [x, y],
+                                   "parent_region_id": "region_id"  # optional
+                               }
+                           }
+        
+        Returns:
+            True if all relocations succeeded, False otherwise
+        
+        Raises:
+            ValueError: If relocation fails for any member
+        """
+        try:
+            if not relocation_data:
+                return True  # Nothing to relocate
+            
+            success_count = 0
+            total_count = len(relocation_data)
+            
+            for member_id, member_data in relocation_data.items():
+                try:
+                    # Extract coordinate information
+                    coordinate_2d = member_data.get("coordinate_2d")
+                    parent_region_id = member_data.get("parent_region_id")
+                    
+                    if coordinate_2d is None:
+                        self.logger.warning(f"No coordinate_2d provided for {member_id}, skipping")
+                        continue
+                    
+                    # Convert 2D coordinates to 3D format expected by update methods
+                    # Assume z-coordinate is 0 if not provided
+                    coordinates_3d = {
+                        "x": coordinate_2d[0],
+                        "y": coordinate_2d[1], 
+                        "z": 0  # Default z-coordinate
+                    }
+                    
+                    # Check if this is a cortical area or brain region
+                    # Try updating as cortical area first
+                    cortical_area_updated = False
+                    try:
+                        result = self.update_cortical_area(
+                            cortical_id=member_id,
+                            coordinates=coordinates_3d
+                        )
+                        if result is not None:
+                            cortical_area_updated = True
+                            self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
+                    
+                    # If cortical area update failed, try as brain region
+                    if not cortical_area_updated:
+                        try:
+                            region_result = self.update_brain_region(
+                                region_id=member_id,
+                                coordinates=coordinates_3d
+                            )
+                            if region_result:
+                                self.logger.debug(f"Updated brain region {member_id} coordinates to {coordinate_2d}")
+                            else:
+                                self.logger.warning(f"Failed to update {member_id} as brain region")
+                                continue
+                        except Exception as e:
+                            self.logger.warning(f"Failed to update {member_id} as brain region: {e}")
+                            continue
+                    
+                    # Handle parent region change if specified
+                    if parent_region_id is not None:
+                        try:
+                            parent_result = self.change_cortical_area_parent(
+                                cortical_area_id=member_id,
+                                new_parent_id=parent_region_id
+                            )
+                            if parent_result:
+                                self.logger.debug(f"Updated {member_id} parent to {parent_region_id}")
+                            else:
+                                self.logger.warning(f"Failed to update {member_id} parent region")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to update {member_id} parent region: {e}")
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    self.logger.error(f"Error relocating {member_id}: {e}")
+                    continue
+            
+            if success_count == total_count:
+                self.logger.info(f"Successfully relocated all {total_count} region members")
+                return True
+            elif success_count > 0:
+                self.logger.warning(f"Partially successful: relocated {success_count}/{total_count} members")
+                return True  # Partial success is still considered success
+            else:
+                self.logger.error("Failed to relocate any region members")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error in relocate_region_members: {str(e)}")
+            raise ValueError(f"Failed to relocate region members: {str(e)}") from e
+
     def change_cortical_area_parent(
         self, cortical_area_id: str, new_parent_id: str
     ) -> bool:

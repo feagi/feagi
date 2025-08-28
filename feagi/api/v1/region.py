@@ -24,7 +24,7 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -34,6 +34,7 @@ from .schemas import (
     CreateRegionRequest,
     RegionInfoResponse,
     RegionListResponse,
+    RegionMemberRelocationRequest,
     SuccessResponse,
     UpdateRegionRequest,
 )
@@ -54,11 +55,13 @@ class RegionAssociation(BaseModel):
 class NewRegionProperties(BaseModel):
     """Request model for creating a new region."""
 
-    region_id: str
-    region_title: str
-    parent_region_id: str
-    coordinate_2d: List[int]
-    coordinate_3d: List[int]
+    title: str = Field(description="Region title/name")
+    parent_region_id: str = Field(description="Parent region ID (use 'root' for top-level)")
+    coordinates_2d: List[int] = Field(description="2D coordinates [x, y]")
+    coordinates_3d: List[float] = Field(description="3D coordinates [x, y, z]")
+    areas: Optional[List[str]] = Field(default=[], description="List of cortical area IDs in this region")
+    regions: Optional[List[str]] = Field(default=[], description="List of child region IDs")
+    region_id: Optional[str] = Field(default=None, description="Optional region ID (auto-generated if not provided)")
 
 
 class UpdateRegionProperties(BaseModel):
@@ -137,10 +140,40 @@ class RegionAPI:
                         f"{region_data.parent_region_id} is not a valid region id"
                     )
 
+            # Generate region_id if not provided
+            region_id = region_data.region_id
+            if not region_id:
+                import uuid
+                region_id = f"region_{uuid.uuid4().hex[:8]}"
+            
+            # Convert coordinates to the expected format
+            coordinates = None
+            if region_data.coordinates_3d:
+                coordinates = {
+                    "x": int(region_data.coordinates_3d[0]),
+                    "y": int(region_data.coordinates_3d[1]),
+                    "z": int(region_data.coordinates_3d[2])
+                }
+            
+            # Prepare additional parameters
+            parameters = {
+                "coordinates_2d": region_data.coordinates_2d,
+                "areas": region_data.areas,
+                "regions": region_data.regions
+            }
+            
             # Create the region using core API service
-            region_id = self.core_api_service.create_brain_region(
-                region_data.dict()
+            success = self.core_api_service.create_brain_region(
+                region_id=region_id,
+                region_name=region_data.title,
+                parent_region_id=region_data.parent_region_id,
+                coordinates=coordinates,
+                parameters=parameters
             )
+            
+            if not success:
+                raise ValueError("Failed to create brain region")
+            
             return {"region_id": region_id}
         except Exception as e:
             logger.error(f"Error creating brain region: {e}")
@@ -298,18 +331,46 @@ class RegionAPI:
 
     @region_endpoint("GET", "/regions_members")
     def list_all_regions_and_members(self) -> Dict[str, Any]:
-        """List all brain regions and their members (returns legacy format)."""
-        # Get cortical area IDs and return in legacy format
-        try:
-            cortical_area_ids = (
-                self.core_api_service.get_cortical_area_id_list()
-            )
-        except Exception:
-            cortical_area_ids = []
-
-        # Return exact legacy format
-        return {
-            "root": {
+        """List all brain regions and their members from genome data."""
+        # Get brain regions from genome through proper architecture
+        genome_service = self.core_api_service._genome_service
+        if not genome_service or not genome_service.is_genome_loaded():
+            raise ValueError("Genome not loaded - cannot retrieve brain regions")
+        
+        current_genome = genome_service.get_genome()
+        if not current_genome:
+            raise ValueError("Genome data not available")
+        
+        # Get brain regions from genome
+        brain_regions = current_genome.get("brain_regions", {})
+        
+        # Get cortical area IDs for regions that don't have explicit areas
+        cortical_area_ids = self.core_api_service.get_cortical_area_id_list()
+        
+        # Build response with actual brain regions
+        result = {}
+        
+        # Add actual brain regions from genome
+        for region_id, region_data in brain_regions.items():
+            result[region_id] = {
+                "title": region_data.get("region_name", region_id),
+                "description": region_data.get("parameters", {}).get("description"),
+                "parent_region_id": region_data.get("parent_region_id"),
+                "coordinate_2d": region_data.get("parameters", {}).get("coordinates_2d", [0, 0]),
+                "coordinate_3d": [
+                    region_data.get("coordinates", {}).get("x", 0),
+                    region_data.get("coordinates", {}).get("y", 0),
+                    region_data.get("coordinates", {}).get("z", 0)
+                ],
+                "areas": region_data.get("cortical_areas", []),
+                "regions": region_data.get("child_regions", []),
+                "inputs": [],  # Maintained for legacy compatibility
+                "outputs": [], # Maintained for legacy compatibility
+            }
+        
+        # If no brain regions exist, create root region with all cortical areas
+        if not result:
+            result["root"] = {
                 "title": "Genome's root brain region",
                 "description": None,
                 "parent_region_id": None,
@@ -320,7 +381,8 @@ class RegionAPI:
                 "inputs": [],
                 "outputs": [],
             }
-        }
+        
+        return result
 
     @region_endpoint("GET", "/region_titles")
     def list_all_region_titles(self) -> List[tuple]:
@@ -435,10 +497,12 @@ class RegionAPI:
             raise ValueError(f"Failed to update brain region parent: {str(e)}")
 
     @region_endpoint(
-        "PUT", "/relocate_members", response_model=SuccessResponse
+        "PUT", "/relocate_members", 
+        request_model=RegionMemberRelocationRequest,
+        response_model=SuccessResponse
     )
     def brain_region_member_relocation(
-        self, relocation_data: Dict[str, Any]
+        self, relocation_data: RegionMemberRelocationRequest
     ) -> SuccessResponse:
         """Brain region member relocation.
 
@@ -461,8 +525,10 @@ class RegionAPI:
         }
         """
         try:
+            # Extract the dictionary data from the Pydantic RootModel
+            relocation_dict = relocation_data.root
             success = self.core_api_service.relocate_region_members(
-                relocation_data
+                relocation_dict
             )
             if not success:
                 raise ValueError("Failed to relocate region members")

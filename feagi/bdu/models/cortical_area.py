@@ -83,7 +83,7 @@ class CorticalArea:
         self.properties = properties or {}
 
         # Generate cortical_id if not provided
-        prefix = "M" if area_type == "memory" else "C"
+        prefix = "m" if area_type == "memory" else "c"
         self.cortical_id = cortical_id or generate_cortical_id(prefix)
 
         # cortical_idx is assigned by ConnectomeManager

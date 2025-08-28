@@ -3716,6 +3716,18 @@ class GenomeService(BaseService):
                         f"Brain region '{region_id}' already exists"
                     )
 
+                # Extract areas and regions from parameters for proper storage
+                areas = []
+                regions = []
+                clean_parameters = {}
+                
+                if parameters:
+                    areas = parameters.get("areas", [])
+                    regions = parameters.get("regions", [])
+                    # Store other parameters excluding areas/regions (to avoid duplication)
+                    clean_parameters = {k: v for k, v in parameters.items() 
+                                      if k not in ["areas", "regions"]}
+                
                 # Create new brain region definition
                 new_region = {
                     "region_id": region_id,
@@ -3724,9 +3736,9 @@ class GenomeService(BaseService):
                     "coordinates": coordinates or {"x": 0, "y": 0, "z": 0},
                     "dimensions": dimensions
                     or {"width": 1, "height": 1, "depth": 1},
-                    "parameters": parameters or {},
-                    "child_regions": [],
-                    "cortical_areas": [],
+                    "parameters": clean_parameters,
+                    "child_regions": regions,
+                    "cortical_areas": areas,
                 }
 
                 # Add to genome structure
@@ -3746,6 +3758,11 @@ class GenomeService(BaseService):
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
+
+                # CRITICAL FIX: Update genome in state manager (single source of truth)
+                # This ensures brain regions follow the same architectural pattern as cortical areas
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
                 # Trigger NeuroEmbryogenesis to update ConnectomeManager
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (

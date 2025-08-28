@@ -692,6 +692,30 @@ class UpdateRegionRequest(BaseModel):
     updates: Dict[str, Any]
 
 
+class RegionMemberRelocationRequest(RootModel):
+    """Request model for relocating brain region members.
+    
+    Accepts a dictionary where keys are cortical area IDs and values contain
+    coordinate information and optional parent region assignments.
+    
+    Example:
+    {
+        "iic300": {
+            "coordinate_2d": [-514, 114],
+            "parent_region_id": "region_1"  # optional
+        },
+        "iic400": {
+            "coordinate_2d": [-490, -82]
+        }
+    }
+    """
+    
+    # Use RootModel for Pydantic v2 compatibility
+    root: Dict[str, Dict[str, Any]] = Field(
+        description="Dictionary mapping cortical area IDs to their new coordinates and optional parent region"
+    )
+
+
 # ===== Morphology Schemas =====
 
 
