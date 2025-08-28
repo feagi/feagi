@@ -389,6 +389,9 @@ class FeagiStateManager:
             # Key: 6-letter memory cortical_id (e.g., "MVPmem")
             # Value: Dict with neuron_count and other stats
             self.memory_area_stats: Dict[str, Dict[str, Any]] = {}
+        if not hasattr(self, "global_logging_level"):
+            # Global logging level for runtime adjustment
+            self.global_logging_level: str = "WARNING"  # Default level
         if not hasattr(self, "changes_saved_externally"):
             self.changes_saved_externally: bool = False
         if not hasattr(self, "exit_condition"):
@@ -884,6 +887,61 @@ class FeagiStateManager:
             if cortical_id in self.memory_area_stats:
                 del self.memory_area_stats[cortical_id]
                 logger.info(f"Unregistered memory area {cortical_id} from tracking")
+            
+            return Result.ok(None)
+
+    def get_global_logging_level(self) -> str:
+        """Get the current global logging level.
+        
+        Returns:
+            Current global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        """
+        with self._instance_lock:
+            return getattr(self, 'global_logging_level', 'WARNING')
+
+    def set_global_logging_level(self, level: str) -> Result[None]:
+        """Set the global logging level and apply it to all loggers.
+        
+        Args:
+            level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            
+        Returns:
+            Result indicating success or failure
+        """
+        import logging
+        
+        # Validate logging level
+        valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        if level not in valid_levels:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            old_level = getattr(self, 'global_logging_level', 'WARNING')
+            self.global_logging_level = level
+            
+            # Apply the new logging level to all loggers at runtime
+            try:
+                # Set the root logger level
+                root_logger = logging.getLogger()
+                root_logger.setLevel(getattr(logging, level))
+                
+                # Set level for all existing loggers
+                for logger_name in logging.Logger.manager.loggerDict:
+                    logger_obj = logging.getLogger(logger_name)
+                    if logger_obj.handlers:  # Only update loggers that have handlers
+                        logger_obj.setLevel(getattr(logging, level))
+                
+                # Update all handlers to respect the new level
+                for handler in root_logger.handlers:
+                    handler.setLevel(getattr(logging, level))
+                
+                logger.info(f"Global logging level changed: {old_level} → {level}")
+                
+            except Exception as e:
+                # Revert on error
+                self.global_logging_level = old_level
+                logger.error(f"Failed to set global logging level: {e}")
+                return Result.err(StateError.OPERATION_FAILED)
             
             return Result.ok(None)
 

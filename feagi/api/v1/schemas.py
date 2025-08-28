@@ -21,10 +21,31 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 """
 
 from typing import Any, Dict, List, Optional
+from enum import Enum
 
 from pydantic import AliasChoices, BaseModel, Field, RootModel
 
 # ===== System Schemas =====
+
+
+class LoggingLevel(str, Enum):
+    """Enumeration of available logging levels for global system logging control.
+    
+    These levels control the minimum severity of log messages that will be displayed
+    across all FEAGI components. Changes take effect immediately at runtime.
+    
+    Levels (from most to least verbose):
+    - DEBUG: All messages including detailed debugging information
+    - INFO: Informational messages and above (normal operation details)
+    - WARNING: Warning messages and above (potential issues, default level)
+    - ERROR: Error messages and above (actual problems)
+    - CRITICAL: Only critical system failures
+    """
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
 
 
 class UserPreferencesRequest(BaseModel):
@@ -418,39 +439,49 @@ class CorticalAreaInfoResponse(BaseModel):
 # ===== System Debug Logging Schema =====
 
 class DebugLoggingRequest(BaseModel):
-    """Request to set live debug logging flags via API.
+    """Request to set live debug logging flags and global logging level via API.
 
-    Keys mirror CLI debug flags.
+    Keys mirror CLI debug flags. All fields are optional - only provided fields
+    will be updated, allowing partial updates of debug configuration.
+    
+    The global_logging_level field controls system-wide log verbosity and takes
+    effect immediately across all FEAGI components.
     """
 
     # Legacy aggregate API flag (enables all API subsystems when True)
-    api: Optional[bool] = None
+    api: Optional[bool] = Field(None, description="Legacy aggregate API debug flag (enables all API subsystems)")
     # New granular API flags
-    api_core: Optional[bool] = None
-    api_rest: Optional[bool] = None
-    api_zmq: Optional[bool] = None
-    npu: Optional[bool] = None
-    bdu: Optional[bool] = None
-    zmq_inbound: Optional[bool] = None
-    zmq_outbound: Optional[bool] = None
-    mem: Optional[bool] = None
+    api_core: Optional[bool] = Field(None, description="Core API debug flag (not supported, ignored)")
+    api_rest: Optional[bool] = Field(None, description="REST API debug flag (not supported, ignored)")
+    api_zmq: Optional[bool] = Field(None, description="ZMQ API debug flag (not supported, ignored)")
+    npu: Optional[bool] = Field(None, description="Neural Processing Unit debug flag")
+    bdu: Optional[bool] = Field(None, description="Brain Development Unit debug flag")
+    zmq_inbound: Optional[bool] = Field(None, description="Inbound ZMQ message debug flag")
+    zmq_outbound: Optional[bool] = Field(None, description="Outbound ZMQ message debug flag")
+    mem: Optional[bool] = Field(None, description="Memory system debug flag")
+    global_logging_level: Optional[LoggingLevel] = Field(None, description="Global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) - controls system-wide log verbosity")
 
     class Config:
         extra = "forbid"
 
 
 class DebugLoggingResponse(BaseModel):
-    """Response with current debug logging flags."""
+    """Response with current debug logging flags and global logging level.
+    
+    Returns the current state of all debug flags for FEAGI subsystems and
+    the active global logging level that controls system-wide log verbosity.
+    """
 
-    api: bool  # legacy aggregate
-    api_core: bool
-    api_rest: bool
-    api_zmq: bool
-    npu: bool
-    bdu: bool
-    zmq_inbound: bool
-    zmq_outbound: bool
-    mem: bool
+    api: bool = Field(description="Legacy aggregate API debug flag")
+    api_core: bool = Field(description="Core API debug flag (not supported, always False)")
+    api_rest: bool = Field(description="REST API debug flag (not supported, always False)")
+    api_zmq: bool = Field(description="ZMQ API debug flag (not supported, always False)")
+    npu: bool = Field(description="Neural Processing Unit debug flag")
+    bdu: bool = Field(description="Brain Development Unit debug flag")
+    zmq_inbound: bool = Field(description="Inbound ZMQ message debug flag")
+    zmq_outbound: bool = Field(description="Outbound ZMQ message debug flag")
+    mem: bool = Field(description="Memory system debug flag")
+    global_logging_level: LoggingLevel = Field(description="Current global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
 
 
 
