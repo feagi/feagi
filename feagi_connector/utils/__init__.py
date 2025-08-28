@@ -75,7 +75,7 @@ def is_rust_available() -> bool:
     Check if the Rust implementations are available.
     
     Returns:
-        True if feagi-data-processing is installed, False otherwise
+        True if feagi-rust-py-libs is installed, False otherwise
     """
     try:
         # Just try to import the module - don't use the result

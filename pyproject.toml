@@ -31,7 +31,7 @@ dependencies = [
 
 [project.optional-dependencies]
 rust = [
-    "feagi-data-processing>=0.0.8",
+    "feagi-rust-py-libs>=0.0.45",
 ]
 dev = [
     "pytest>=7.0.0",
@@ -49,7 +49,7 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
-    "feagi-data-processing>=0.0.8",
+    "feagi-rust-py-libs>=0.0.45",
 ]
 
 [project.urls]

@@ -153,7 +153,7 @@ FEAGI Connector is designed to work with FEAGI's communication protocols:
 
 ## Rust Integration
 
-FEAGI Connector provides optional high-performance Rust implementations for computationally intensive operations through the `feagi-data-processing` package.
+FEAGI Connector provides optional high-performance Rust implementations for computationally intensive operations through the `feagi-rust-py-libs` package.
 
 ### Installation with Rust Support
 

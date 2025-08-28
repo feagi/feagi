@@ -87,6 +87,8 @@ class FeagiSensoryClient:
             if not neuron_data:
                 return None
                 
+            logger.debug(f"FDP_INPUT: {cortical_area} -> {neuron_data}")
+                
             # Convert to lists
             coords = list(neuron_data.keys())
             potentials = list(neuron_data.values())
@@ -103,9 +105,11 @@ class FeagiSensoryClient:
             neurons_z = np.asarray(z_coords, dtype=np.uint32)
             neurons_p = np.asarray(potentials, dtype=np.float32)
             
+            logger.debug(f"FDP_ARRAYS: X={neurons_x.tolist()} Y={neurons_y.tolist()} Z={neurons_z.tolist()} P={neurons_p.tolist()}")
+            
             logger.info(f"Step 2: Created numpy arrays - x={len(neurons_x)}, y={len(neurons_y)}, z={len(neurons_z)}, p={len(neurons_p)}")
             
-            # Create cortical ID using the modern feagi-data-processing approach
+            # Create cortical ID using the modern feagi-rust-py-libs approach
             cortical_area_str = str(cortical_area)
             
             try:

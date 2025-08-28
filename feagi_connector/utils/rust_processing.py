@@ -17,11 +17,11 @@ limitations under the License.
 """
 FEAGI Byte Processing Utilities - Rust Implementation
 
-This module provides direct wrappers to the Rust implementations in feagi-data-processing-py.
-These functions require the feagi-data-processing package to be installed.
+This module provides direct wrappers to the Rust implementations in feagi-rust-py-libs.
+These functions require the feagi-rust-py-libs package to be installed.
 """
 
-import feagi_data_processing as fdp
+import feagi_rust_py_libs as frpl
 from typing import List, Dict, Tuple, Any
 
 # Constants for byte structure types (should match Rust implementation)
@@ -41,9 +41,9 @@ def infer_byte_structure_type_rust(bytes_data: bytes) -> int:
         
     Raises:
         ValueError: If the byte structure type cannot be inferred
-        ImportError: If feagi-data-processing is not installed
+        ImportError: If feagi-rust-py-libs is not installed
     """
-    return fdp.byte_data_functions.infer_byte_structure_type(bytes_data)
+    return frpl.byte_data_functions.infer_byte_structure_type(bytes_data)
 
 
 def extract_sub_structures_rust(bytes_data: bytes) -> List[bytes]:
@@ -58,9 +58,9 @@ def extract_sub_structures_rust(bytes_data: bytes) -> List[bytes]:
         
     Raises:
         ValueError: If the bytes data is not a valid multi-structure holder
-        ImportError: If feagi-data-processing is not installed
+        ImportError: If feagi-rust-py-libs is not installed
     """
-    return fdp.byte_data_functions.extract_sub_structures(bytes_data)
+    return frpl.byte_data_functions.extract_sub_structures(bytes_data)
 
 
 def decode_neuron_potential_xyz_rust(bytes_data: bytes) -> Dict[Tuple[int, int, int], float]:
@@ -75,9 +75,9 @@ def decode_neuron_potential_xyz_rust(bytes_data: bytes) -> Dict[Tuple[int, int, 
         
     Raises:
         ValueError: If the bytes data is not in the expected format
-        ImportError: If feagi-data-processing is not installed
+        ImportError: If feagi-rust-py-libs is not installed
     """
-    return fdp.byte_data_functions.decode_neuron_potential_xyz(bytes_data)
+    return frpl.byte_data_functions.decode_neuron_potential_xyz(bytes_data)
 
 
 def encode_neuron_potential_xyz_rust(neuron_data: Dict[Tuple[int, int, int], float]) -> bytes:
@@ -92,6 +92,6 @@ def encode_neuron_potential_xyz_rust(neuron_data: Dict[Tuple[int, int, int], flo
         
     Raises:
         ValueError: If the input data is invalid
-        ImportError: If feagi-data-processing is not installed
+        ImportError: If feagi-rust-py-libs is not installed
     """
-    return fdp.byte_data_functions.encode_neuron_potential_xyz(neuron_data) 
+    return frpl.byte_data_functions.encode_neuron_potential_xyz(neuron_data)
