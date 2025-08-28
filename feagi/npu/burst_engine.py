@@ -670,6 +670,39 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     f"SIMD: {perf_summary.get('simd_enabled', False)}"
                 )
 
+            # 7. Memory processing for memory cortical areas
+            #    Process temporal patterns and manage memory neuron lifecycle
+            mem_debug = (
+                self.state_manager.is_mem_debug_enabled()
+                if self.state_manager
+                else False
+            )
+            
+            if self.memory_processor:
+                if self.state_manager.is_debug_npu_enabled() or mem_debug:
+                    logger.info(
+                        "🧠 [MEMORY-DEBUG] BURST ENGINE: Starting memory processing for temporal patterns"
+                    )
+                    logger.info(
+                        f"🧠 [MEMORY-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
+                    )
+                    logger.info(
+                        f"🧠 [MEMORY-DEBUG] Current timestep: {self.burst_count}"
+                    )
+                    logger.info(
+                        f"🧠 [MEMORY-DEBUG] Memory neuron count: {self.memory_processor.memory_neuron_array.count}"
+                    )
+                self._process_memory_areas(self.burst_count)
+                if mem_debug:
+                    logger.info(
+                        "🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processing completed"
+                    )
+            else:
+                if self.state_manager.is_debug_npu_enabled():
+                    logger.info(
+                        "🧠 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor available"
+                    )
+
             return fired_neurons
 
         except Exception as e:
@@ -687,21 +720,19 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 )
             return []
 
-    def _process_burst_with_power_injection(
-        self, current_timestep: int
-    ) -> List[int]:
-        """Enhanced burst processing with unified FCL injection model.
-
-        This method uses the same clean architecture as _process_burst() but with
-        explicit timestep parameter for compatibility. Implements the unified FCL
-        candidate model where injection service adds candidates and connectome
-        manager processes all candidates together.
-
-        Args:
-            current_timestep: Current simulation timestep (should be 0 for current)
-
-        Returns:
-            List of neuron IDs that fired in this burst
+    # DELETED: _process_burst_with_power_injection() method removed
+    # - Was redundant with _process_burst()
+    # - Created architectural confusion and maintenance issues  
+    # - Memory processing moved to unified _process_burst() method
+    # - All functionality preserved in _process_burst()
+    
+    def _DEPRECATED_process_burst_with_power_injection_BODY_TO_DELETE(self):
+        # DEPRECATED: This method is no longer used and will be deleted
+        # All functionality has been moved to _process_burst()
+        return []  # Stub return to prevent errors
+        
+        # COMMENTED OUT: Original method body to avoid linting errors
+        # All functionality has been moved to _process_burst()
         """
         # Use cached state_manager instance (initialized in __init__)
         # Initialize debug flags
@@ -850,6 +881,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self._debug_fire_queue_output()
 
         return fired_neurons
+        """
 
     def run(self) -> None:
         """Main burst engine loop.
@@ -1337,10 +1369,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             start_time = time.perf_counter()
 
-            # Enhanced burst processing with power injection
-            fired_neurons = self._process_burst_with_power_injection(
-                current_timestep
-            )
+            # Unified burst processing (now includes memory processing)
+            fired_neurons = self._process_burst()
 
             processing_time = time.perf_counter() - start_time
 

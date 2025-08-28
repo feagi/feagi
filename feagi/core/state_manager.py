@@ -1170,6 +1170,10 @@ class FeagiStateManager:
         try:
             # Store debug configuration in state
             debug_config = config.get("debug", {})
+            print(f"🔍 [STATE-PRINT] set_debug_config called with: {config}")
+            print(f"🔍 [STATE-PRINT] Extracted debug config: {debug_config}")
+            logger.info(f"🔍 [STATE-DEBUG] set_debug_config called with: {config}")
+            logger.info(f"🔍 [STATE-DEBUG] Extracted debug config: {debug_config}")
 
             # Extract relevant debug settings
             log_level = debug_config.get("log_level", "INFO")
@@ -1217,6 +1221,9 @@ class FeagiStateManager:
             if self._debug_config.get("mem_debug", False):
                 enabled_flags.append("mem_debug")
 
+            print(f"🔍 [STATE-PRINT] Final _debug_config: {self._debug_config}")
+            logger.info(f"🔍 [STATE-DEBUG] Final _debug_config: {self._debug_config}")
+            
             if enabled_flags:
                 logger.info(
                     f"Debug configuration set: log_level={log_level}, verbose={verbose}"

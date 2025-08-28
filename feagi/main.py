@@ -387,6 +387,10 @@ def main():
     )
 
     args = parser.parse_args()
+    
+    # DIAGNOSTIC: Show all parsed arguments
+    print(f"🔍 [ARGS-PRINT] All parsed arguments: {vars(args)}")
+    print(f"🔍 [ARGS-PRINT] Specifically debug_mem: {getattr(args, 'debug_mem', 'NOT_FOUND')}")
 
     # CRITICAL: Set global log level IMMEDIATELY after parsing CLI args
     # This must happen before any logging occurs to respect --log-level
@@ -563,7 +567,11 @@ def main():
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
             os.environ["FEAGI_DEBUG_MEM"] = "1"
-            logger.info("Memory debugging enabled via --debug-mem flag")
+            print("🔍 [MAIN-PRINT] --debug-mem flag detected! (using print to bypass logging)")
+            logger.info("🔍 [MAIN-DEBUG] Memory debugging enabled via --debug-mem flag")
+            logger.info(f"🔍 [MAIN-DEBUG] cli_overrides now contains: {cli_overrides}")
+        else:
+            print("🔍 [MAIN-PRINT] --debug-mem flag NOT detected")
 
         # Module-specific debug levels are now handled automatically by setup_logger()
         # when each module creates its logger - no additional processing needed here
@@ -645,7 +653,8 @@ def main():
         return 1
 
     # Initialize state manager and set debug configuration
-
+    print(f"🔍 [CONFIG-PRINT] Config being passed to set_debug_config: {config.get('debug', 'NO_DEBUG_SECTION')}")
+    
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
     # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
@@ -664,6 +673,8 @@ def main():
             state_manager._debug_config["debug_zmq_inbound"] = True
         if args.debug_mem:
             state_manager._debug_config["mem_debug"] = True
+            logger.info(f"🔍 [MAIN-DEBUG] Set StateManager mem_debug = True")
+            logger.info(f"🔍 [MAIN-DEBUG] StateManager debug config now: {state_manager._debug_config}")
     except Exception:
         pass
 
