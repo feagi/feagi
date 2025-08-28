@@ -26,6 +26,19 @@ import numpy as np  # noqa: F401
 
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu.connectivity.synaptogenesis import (
+    find_candidate_neurons,
+    find_destination_coordinates,
+)
+from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.evo.genome_processor import (
+    genome_morphology_updator,
+    genome_physiology_updator,
+    genome_stat_updator,
+    merge_core_morphologies,
+)
+from feagi.evo.genome_validator import genome_validator
+from feagi.utils.config import FeagiConfig
 
 logger = setup_logger(__name__)
 """
@@ -56,32 +69,8 @@ The implementation uses the ConnectomeManager API for efficient neuron and
 synapse management, and focuses on memory efficiency and thread-safety.
 """
 
-# Custom types
-Position = Tuple[int, int, int]
-NeuronId = int
-AreaId = int
-BoundingBox = Tuple[
-    Position, Position
-]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
-
 # Import modern synaptogenesis functions (no legacy dependencies)
-from feagi.bdu.connectivity.synaptogenesis import (
-    find_candidate_neurons,
-    find_destination_coordinates,
-)
-
-# Clean FEAGI 2.0 implementation - no legacy dependencies
-from feagi.bdu.connectome_manager import ConnectomeManager
-
-# Import genome processing from EVO (single source of truth)
-from feagi.evo.genome_processor import (
-    genome_morphology_updator,
-    genome_physiology_updator,
-    genome_stat_updator,
-    merge_core_morphologies,
-)
-from feagi.evo.genome_validator import genome_validator
-from feagi.utils.config import FeagiConfig
+# (moved to top for ruff compliance)
 
 # Try both the old and new import paths for FCLbitmap
 try:
@@ -112,6 +101,14 @@ except ImportError:
             def __len__(self):
                 return len(self.bits)
 
+
+# Custom types
+Position = Tuple[int, int, int]
+NeuronId = int
+AreaId = int
+BoundingBox = Tuple[
+    Position, Position
+]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
 class DevelopmentStage(Enum):
     """Development stages of brain embryogenesis."""
@@ -1058,7 +1055,7 @@ class NeuroEmbryogenesis:
                 # ARCHITECTURE COMPLIANCE: No fallbacks for required properties
                 if "refrac" not in properties:
                     raise ValueError(f"ARCHITECTURE VIOLATION: Missing required property 'refrac' for area {cortical_id}")
-                refractory_period = properties["refrac"]
+                _ = properties["refrac"]
 
                 # Generate all positions for this cortical area
                 positions = []
@@ -1546,6 +1543,15 @@ class NeuroEmbryogenesis:
             - self.development_stats["start_time"]
         )
 
+        # Run brain region I/O validation/update for file-based path as well
+        try:
+            if not self._validate_and_update_brain_region_mappings():
+                logger.warning(
+                    "Brain region mapping validation failed after file-based development"
+                )
+        except Exception as e:
+            logger.warning(f"Brain region mapping validation error: {e}")
+
         # Final report
         self._report_progress(
             DevelopmentStage.COMPLETED,
@@ -1684,7 +1690,7 @@ class NeuroEmbryogenesis:
             # Log initial state of root region
             if 'root' in brain_regions:
                 root_before = brain_regions['root']
-                logger.info(f"🧠 [BRAIN REGIONS] Root region BEFORE validation:")
+                logger.info("🧠 [BRAIN REGIONS] Root region BEFORE validation:")
                 logger.info(f"   - Areas: {len(root_before.get('areas', []))} total")
                 logger.info(f"   - Inputs: {root_before.get('inputs', [])}")
                 logger.info(f"   - Outputs: {root_before.get('outputs', [])}")
@@ -1720,7 +1726,7 @@ class NeuroEmbryogenesis:
             # Log final state of root region
             if 'root' in brain_regions:
                 root_after = brain_regions['root']
-                logger.info(f"🧠 [BRAIN REGIONS] Root region AFTER validation:")
+                logger.info("🧠 [BRAIN REGIONS] Root region AFTER validation:")
                 logger.info(f"   - Areas: {len(root_after.get('areas', []))} total")
                 logger.info(f"   - Inputs: {root_after.get('inputs', [])}")
                 logger.info(f"   - Outputs: {root_after.get('outputs', [])}")
@@ -1759,19 +1765,31 @@ class NeuroEmbryogenesis:
             ipu_count = 0
             opu_count = 0
             
+            logger.info(f"🧠 [BRAIN REGIONS] Areas: {areas}")
             for area_id in areas:
+                logger.info(f"🧠 [BRAIN REGIONS] Processing area {area_id}")
                 area_props = blueprint.get(area_id, {})
-                # Check both 'group' and 'cortical_group' for compatibility
-                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+                # Robust detection across fields: group, cortical_group, group_id, cortical_type
+                raw_group = (
+                    area_props.get("group")
+                    or area_props.get("cortical_group")
+                    or area_props.get("group_id")
+                    or ""
+                )
+                raw_type = area_props.get("cortical_type") or ""
+                area_group = str(raw_group).upper()
+                area_type = str(raw_type).upper()
                 
-                logger.info(f"🧠 [BRAIN REGIONS] Area {area_id}: props_keys={list(area_props.keys())}, group='{area_group}', cortical_group='{area_props.get('cortical_group', 'NONE')}'")
-                logger.debug(f"🧠 [BRAIN REGIONS] Area {area_id}: group='{area_group}'")
+                logger.info(
+                    f"🧠 [BRAIN REGIONS] Area {area_id}: props_keys={list(area_props.keys())}, group='{area_group}', cortical_group='{area_props.get('cortical_group', 'NONE')}', cortical_type='{area_type}'"
+                )
+                logger.debug(f"🧠 [BRAIN REGIONS] Area {area_id}: group='{area_group}', type='{area_type}'")
                 
-                if area_group == "IPU" and area_id not in inputs:
+                if (area_group == "IPU" or area_type == "IPU") and area_id not in inputs:
                     region_data["inputs"].append(area_id)
                     ipu_count += 1
                     logger.info(f"🧠 [BRAIN REGIONS] Auto-assigned {area_id} (IPU) as input to {region_id}")
-                elif area_group == "OPU" and area_id not in outputs:
+                elif (area_group == "OPU" or area_type == "OPU") and area_id not in outputs:
                     region_data["outputs"].append(area_id)
                     opu_count += 1
                     logger.info(f"🧠 [BRAIN REGIONS] Auto-assigned {area_id} (OPU) as output to {region_id}")
