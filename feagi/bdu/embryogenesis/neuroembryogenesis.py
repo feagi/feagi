@@ -1922,6 +1922,14 @@ class NeuroEmbryogenesis:
                     f"🧠 [MAPPING-DEBUG] Setting mapping to: {api_mapping}"
                 )
                 src_area.properties["mapping"] = api_mapping
+                
+                # Trigger automatic I/O designation for each target area
+                for dst_area_id in api_mapping.keys():
+                    try:
+                        self.connectome_manager.on_cortical_mapping_created(src_area_id, dst_area_id)
+                        logger.debug(f"🧠 [MAPPING-DEBUG] Processed I/O designation for {src_area_id} -> {dst_area_id}")
+                    except Exception as e:
+                        logger.warning(f"🧠 [MAPPING-DEBUG] Failed I/O designation for {src_area_id} -> {dst_area_id}: {e}")
 
                 # Update StateManager cortical areas cache
                 try:

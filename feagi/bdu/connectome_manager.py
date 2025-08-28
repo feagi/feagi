@@ -221,6 +221,10 @@ class ConnectomeManager(NeuronMappingProvider):
         self.cortical_areas: Dict[str, CorticalArea] = {}
         self.brain_regions = {}
         self.region_area_map = {}
+        
+        # Initialize hierarchical brain region system
+        from feagi.bdu.models.brain_region_hierarchy import BrainRegionHierarchy
+        self.brain_region_hierarchy = BrainRegionHierarchy()
 
         # Initialize connectivity rules and cortical connections storage
         self.connectivity_rules = {}
@@ -3687,6 +3691,78 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(f"Updated brain region {region_id} ({region['name']})")
         return True
 
+    def on_cortical_mapping_created(self, source_area_id: str, target_area_id: str) -> None:
+        """Handle automatic I/O designation when a cortical mapping is created.
+        
+        This method implements the rule:
+        When connecting area A to area B:
+        - If the brain region which area A belongs to is not in the ancestry tree 
+          of area B, then area A will be designated as an output area for area A's 
+          region and area B will be designated as an input area for area B's region.
+        
+        Args:
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+        """
+        try:
+            # Check if we should designate I/O based on hierarchy rules
+            should_output, should_input = self.brain_region_hierarchy.should_designate_io(
+                source_area_id, target_area_id
+            )
+            
+            if not should_output and not should_input:
+                logger.debug(f"No I/O designation needed for mapping {source_area_id} -> {target_area_id}")
+                return
+            
+            # Get regions for both areas
+            source_region_id = self.brain_region_hierarchy.get_region_for_area(source_area_id)
+            target_region_id = self.brain_region_hierarchy.get_region_for_area(target_area_id)
+            
+            changes_made = False
+            
+            # Designate source area as output in its region
+            if should_output and source_region_id:
+                success = self.brain_region_hierarchy.add_output_area(source_region_id, source_area_id)
+                if success:
+                    logger.info(f"Designated {source_area_id} as OUTPUT in region {source_region_id}")
+                    changes_made = True
+            
+            # Designate target area as input in its region
+            if should_input and target_region_id:
+                success = self.brain_region_hierarchy.add_input_area(target_region_id, target_area_id)
+                if success:
+                    logger.info(f"Designated {target_area_id} as INPUT in region {target_region_id}")
+                    changes_made = True
+            
+            # Sync changes back to genome if any were made
+            if changes_made:
+                self._sync_hierarchy_to_genome()
+                
+        except Exception as e:
+            logger.error(f"Error in automatic I/O designation for {source_area_id} -> {target_area_id}: {e}")
+    
+    def _sync_hierarchy_to_genome(self) -> None:
+        """Sync brain region hierarchy changes back to genome."""
+        try:
+            # Get current genome from StateManager
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if hasattr(state_manager, 'genome') and state_manager.genome:
+                # Sync hierarchy changes to genome
+                self.brain_region_hierarchy.sync_to_genome(state_manager.genome)
+                
+                # Also update local brain_regions for consistency
+                if "brain_regions" in state_manager.genome:
+                    self.brain_regions.update(state_manager.genome["brain_regions"])
+                
+                logger.debug("Synced brain region hierarchy changes to genome")
+            else:
+                logger.warning("Cannot sync hierarchy changes: no genome in StateManager")
+                
+        except Exception as e:
+            logger.error(f"Error syncing hierarchy to genome: {e}")
+
     def delete_brain_region(
         self, region_id: str, delete_areas: bool = False
     ) -> bool:
@@ -5613,7 +5689,21 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}"
                 )
 
-            # Create default root region with existing areas
+            # Automatically assign IPU/OPU areas as inputs/outputs
+            auto_inputs = []
+            auto_outputs = []
+            blueprint = genome_data.get("blueprint", {})
+            
+            for area_id in existing_areas:
+                area_props = blueprint.get(area_id, {})
+                area_group = area_props.get("group", "")
+                
+                if area_group == "IPU":
+                    auto_inputs.append(area_id)
+                elif area_group == "OPU":
+                    auto_outputs.append(area_id)
+
+            # Create default root region with existing areas and automatic I/O
             genome_data["brain_regions"]["root"] = {
                 "title": "Root Brain Region",
                 "description": "Default root region for brain organization",
@@ -5621,9 +5711,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 "coordinate_2d": [0, 0],
                 "coordinate_3d": [0, 0, 0],
                 "areas": existing_areas,
-                "regions": [],
-                "inputs": [],
-                "outputs": [],
+                "regions": [],  # Will be populated as child regions are created
+                "inputs": auto_inputs,
+                "outputs": auto_outputs,
                 "signature": "",
             }
 
@@ -5637,6 +5727,14 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Sync ConnectomeManager's brain_regions with genome
         self.brain_regions.update(genome_data["brain_regions"])
+        
+        # Load hierarchical brain region system
+        try:
+            self.brain_region_hierarchy.load_from_genome(genome_data)
+            logger.info(f"[BRAIN REGIONS] Loaded hierarchical brain region system")
+        except Exception as e:
+            logger.error(f"[BRAIN REGIONS] Failed to load hierarchy: {e}")
+            # Continue without hierarchy - graceful degradation
 
         #  ARCHITECTURE: StateManager is the single source of truth for genome
         #  data

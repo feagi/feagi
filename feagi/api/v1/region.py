@@ -331,58 +331,45 @@ class RegionAPI:
 
     @region_endpoint("GET", "/regions_members")
     def list_all_regions_and_members(self) -> Dict[str, Any]:
-        """List all brain regions and their members from genome data."""
-        # Get brain regions from genome through proper architecture
-        genome_service = self.core_api_service._genome_service
-        if not genome_service or not genome_service.is_genome_loaded():
-            raise ValueError("Genome not loaded - cannot retrieve brain regions")
-        
-        current_genome = genome_service.get_genome()
-        if not current_genome:
-            raise ValueError("Genome data not available")
-        
-        # Get brain regions from genome
-        brain_regions = current_genome.get("brain_regions", {})
-        
-        # Get cortical area IDs for regions that don't have explicit areas
-        cortical_area_ids = self.core_api_service.get_cortical_area_id_list()
-        
-        # Build response with actual brain regions
-        result = {}
-        
-        # Add actual brain regions from genome
-        for region_id, region_data in brain_regions.items():
-            result[region_id] = {
-                "title": region_data.get("region_name", region_id),
-                "description": region_data.get("parameters", {}).get("description"),
-                "parent_region_id": region_data.get("parent_region_id"),
-                "coordinate_2d": region_data.get("parameters", {}).get("coordinates_2d", [0, 0]),
-                "coordinate_3d": [
-                    region_data.get("coordinates", {}).get("x", 0),
-                    region_data.get("coordinates", {}).get("y", 0),
-                    region_data.get("coordinates", {}).get("z", 0)
-                ],
-                "areas": region_data.get("cortical_areas", []),
-                "regions": region_data.get("child_regions", []),
-                "inputs": [],  # Maintained for legacy compatibility
-                "outputs": [], # Maintained for legacy compatibility
+        """List all brain regions and their members with consistent schema."""
+        try:
+            # Use the same normalization logic as /v1/region/list for consistency
+            regions_list = self.core_api_service.get_brain_regions()
+            
+            # Convert list to dictionary format expected by this endpoint
+            result = {}
+            for region in regions_list:
+                region_id = region["region_id"]
+                result[region_id] = {
+                    "title": region["title"],
+                    "description": region["description"],
+                    "parent_region_id": region["parent_region_id"],
+                    "coordinate_2d": region["coordinate_2d"],
+                    "coordinate_3d": region["coordinate_3d"],
+                    "areas": region["areas"],
+                    "regions": region["regions"],
+                    "inputs": region["inputs"],
+                    "outputs": region["outputs"]
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting regions and members: {e}")
+            # Fallback to empty root region if error occurs
+            return {
+                "root": {
+                    "title": "Root Brain Region",
+                    "description": "Default root region",
+                    "parent_region_id": None,
+                    "coordinate_2d": [0, 0],
+                    "coordinate_3d": [0, 0, 0],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": []
+                }
             }
-        
-        # If no brain regions exist, create root region with all cortical areas
-        if not result:
-            result["root"] = {
-                "title": "Genome's root brain region",
-                "description": None,
-                "parent_region_id": None,
-                "coordinate_2d": [0, 0],
-                "coordinate_3d": [0, 0, 0],
-                "areas": cortical_area_ids,
-                "regions": [],
-                "inputs": [],
-                "outputs": [],
-            }
-        
-        return result
 
     @region_endpoint("GET", "/region_titles")
     def list_all_region_titles(self) -> List[tuple]:

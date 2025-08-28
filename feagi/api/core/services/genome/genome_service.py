@@ -3744,17 +3744,21 @@ class GenomeService(BaseService):
                 # Add to genome structure
                 current_genome["brain_regions"][region_id] = new_region
 
-                # Update parent region's children list
-                if (
-                    parent_region_id != "root"
-                    and parent_region_id in current_genome["brain_regions"]
-                ):
-                    parent_region = current_genome["brain_regions"][
-                        parent_region_id
-                    ]
+                # Update parent region's children list (use consistent 'regions' field)
+                if parent_region_id in current_genome["brain_regions"]:
+                    parent_region = current_genome["brain_regions"][parent_region_id]
+                    
+                    # Use consistent 'regions' field name (not 'child_regions')
+                    if "regions" not in parent_region:
+                        parent_region["regions"] = []
+                    if region_id not in parent_region["regions"]:
+                        parent_region["regions"].append(region_id)
+                    
+                    # Also update legacy 'child_regions' for backward compatibility
                     if "child_regions" not in parent_region:
                         parent_region["child_regions"] = []
-                    parent_region["child_regions"].append(region_id)
+                    if region_id not in parent_region["child_regions"]:
+                        parent_region["child_regions"].append(region_id)
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
@@ -3802,6 +3806,8 @@ class GenomeService(BaseService):
         except Exception as e:
             self.logger.error(f"Error creating brain region: {str(e)}")
             return False
+
+
 
     def update_brain_region(
         self,

@@ -4915,6 +4915,124 @@ class CoreAPIService:
             self.logger.error(f"Error updating brain region: {str(e)}")
             raise ValueError(f"Failed to update brain region: {str(e)}") from e
 
+    def get_brain_regions(self) -> List[Dict[str, Any]]:
+        """Get all brain regions with consistent schema and automatic I/O assignment.
+
+        ARCHITECTURE COMPLIANCE: READ operation can access genome directly
+        for performance, as it doesn't modify state.
+
+        Returns:
+            List[Dict[str, Any]]: List of all brain regions with consistent schema
+
+        Raises:
+            ValueError: If unable to retrieve brain regions
+        """
+        try:
+            # Get genome from StateManager (single source of truth)
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                self.logger.warning("No genome loaded in StateManager")
+                return []
+            
+            brain_regions = state_manager.genome.get("brain_regions", {})
+            blueprint = state_manager.genome.get("blueprint", {})
+            
+            # Convert to consistent list format with automatic I/O assignment
+            regions_list = []
+            for region_id, region_data in brain_regions.items():
+                # Normalize field names for consistency
+                normalized_region = self._normalize_brain_region_schema(region_data, region_id, blueprint)
+                regions_list.append(normalized_region)
+            
+            self.logger.debug(f"Retrieved {len(regions_list)} brain regions with consistent schema")
+            return regions_list
+
+        except Exception as e:
+            self.logger.error(f"Error getting brain regions: {str(e)}")
+            raise ValueError(f"Failed to get brain regions: {str(e)}") from e
+
+    def _normalize_brain_region_schema(self, region_data: Dict[str, Any], region_id: str, blueprint: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize brain region schema for consistency across all endpoints.
+        
+        Args:
+            region_data: Raw region data from genome
+            region_id: Region identifier
+            blueprint: Genome blueprint for cortical area type detection
+            
+        Returns:
+            Dict with consistent schema
+        """
+        # Start with consistent base structure
+        normalized = {
+            "region_id": region_id,
+            "title": region_data.get("title", region_data.get("region_name", f"Region {region_id}")),
+            "description": region_data.get("description", ""),
+            "parent_region_id": region_data.get("parent_region_id"),
+            "coordinate_2d": region_data.get("coordinate_2d", [0, 0]),
+            "coordinate_3d": region_data.get("coordinate_3d", [0, 0, 0]),
+            "areas": [],
+            "regions": [],
+            "inputs": [],
+            "outputs": [],
+            "signature": region_data.get("signature", "")
+        }
+        
+        # Normalize areas field (handle both 'areas' and 'cortical_areas')
+        areas = region_data.get("areas", region_data.get("cortical_areas", []))
+        normalized["areas"] = areas
+        
+        # Normalize regions field (handle both 'regions' and 'child_regions')
+        regions = region_data.get("regions", region_data.get("child_regions", []))
+        normalized["regions"] = regions
+        
+        # Get existing inputs/outputs or initialize empty
+        inputs = region_data.get("inputs", [])
+        outputs = region_data.get("outputs", [])
+        
+        # Automatic I/O assignment based on cortical area types
+        if areas and blueprint:
+            auto_inputs, auto_outputs = self._auto_assign_region_io(areas, blueprint)
+            
+            # Merge with existing I/O (avoid duplicates)
+            all_inputs = list(set(inputs + auto_inputs))
+            all_outputs = list(set(outputs + auto_outputs))
+            
+            normalized["inputs"] = all_inputs
+            normalized["outputs"] = all_outputs
+        else:
+            normalized["inputs"] = inputs
+            normalized["outputs"] = outputs
+        
+        return normalized
+
+    def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
+        """Automatically assign inputs and outputs based on cortical area types.
+        
+        Args:
+            areas: List of cortical area IDs in the region
+            blueprint: Genome blueprint for type detection
+            
+        Returns:
+            Tuple of (inputs, outputs) lists
+        """
+        inputs = []
+        outputs = []
+        
+        for area_id in areas:
+            area_props = blueprint.get(area_id, {})
+            area_group = area_props.get("group", "")
+            
+            # IPU areas become inputs
+            if area_group == "IPU":
+                inputs.append(area_id)
+            # OPU areas become outputs  
+            elif area_group == "OPU":
+                outputs.append(area_id)
+        
+        return inputs, outputs
+
     def delete_brain_region(
         self, region_id: str, preserve_children: bool = True
     ) -> bool:
