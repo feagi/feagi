@@ -1293,7 +1293,7 @@ class VisualizationStream:
                         membrane_potentials[:max_len], dtype=np.float32
                     )
 
-                    #  Create cortical ID using modern feagi-data-processing
+                    #  Create cortical ID using modern feagi-rust-py-libs
                     #  approach
                     area_str = str(area_id)
 

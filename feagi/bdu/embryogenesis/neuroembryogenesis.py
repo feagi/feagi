@@ -1734,7 +1734,8 @@ class NeuroEmbryogenesis:
 
     def _auto_assign_ipu_opu_to_regions(self, brain_regions: Dict[str, Any], blueprint: Dict[str, Any]) -> None:
         """Automatically assign IPU areas as inputs and OPU areas as outputs to their regions."""
-        logger.info(f"🧠 [BRAIN REGIONS] Starting IPU/OPU auto-assignment for {len(brain_regions)} regions")
+        logger.info(f"🧠 [BRAIN REGIONS] *** AUTO-ASSIGN FUNCTION CALLED *** Starting IPU/OPU auto-assignment for {len(brain_regions)} regions")
+        logger.info(f"🧠 [BRAIN REGIONS] Blueprint keys: {list(blueprint.keys())[:10]}")
         
         for region_id, region_data in brain_regions.items():
             areas = region_data.get("areas", region_data.get("cortical_areas", []))
@@ -1760,8 +1761,10 @@ class NeuroEmbryogenesis:
             
             for area_id in areas:
                 area_props = blueprint.get(area_id, {})
-                area_group = area_props.get("group", "")
+                # Check both 'group' and 'cortical_group' for compatibility
+                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
                 
+                logger.info(f"🧠 [BRAIN REGIONS] Area {area_id}: props_keys={list(area_props.keys())}, group='{area_group}', cortical_group='{area_props.get('cortical_group', 'NONE')}'")
                 logger.debug(f"🧠 [BRAIN REGIONS] Area {area_id}: group='{area_group}'")
                 
                 if area_group == "IPU" and area_id not in inputs:

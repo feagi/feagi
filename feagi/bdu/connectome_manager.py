@@ -5745,7 +5745,8 @@ class ConnectomeManager(NeuronMappingProvider):
             
             for area_id in existing_areas:
                 area_props = blueprint.get(area_id, {})
-                area_group = area_props.get("group", "")
+                # Check both 'group' and 'cortical_group' for compatibility
+                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
                 
                 if area_group == "IPU":
                     auto_inputs.append(area_id)

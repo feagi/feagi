@@ -5025,7 +5025,8 @@ class CoreAPIService:
         
         for area_id in areas:
             area_props = blueprint.get(area_id, {})
-            area_group = area_props.get("group", "")
+            # Check both 'group' and 'cortical_group' for compatibility
+            area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
             
             self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Area {area_id}: props={area_props}, group='{area_group}'")
             

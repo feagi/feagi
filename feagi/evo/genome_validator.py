@@ -1724,10 +1724,10 @@ def migrate_legacy_cortical_ids(genome):
     cortical_id_mappings = {}
     migrated = False
 
-    #  Complete legacy cortical ID mappings based on feagi-data-processing
+    #  Complete legacy cortical ID mappings based on feagi-rust-py-libs
     #  sensor_types.rs
     #  Maps old cortical IDs from templates.py to new IDs from
-    #  feagi-data-processing
+    #  feagi-rust-py-libs
     legacy_id_map = {
         # CORE areas
         "___pwr": "_power",  # Core power area
@@ -1755,7 +1755,7 @@ def migrate_legacy_cortical_ids(genome):
         # Additional sensor areas that may exist in customer genomes
         #  These are from templates.py but don't have new mappings yet in
         #  sensor_types.rs
-        # Will be updated as feagi-data-processing is extended
+        # Will be updated as feagi-rust-py-libs is extended
     }
 
     try:
