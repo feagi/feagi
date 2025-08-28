@@ -2318,6 +2318,12 @@ class ConnectomeManager(NeuronMappingProvider):
         except Exception as sync_err:
             logger.warning(f"[NPU-SYNC] Failed to sync cortical areas after add_cortical_area({area.id}): {sync_err}")
 
+        # Trigger brain region mapping validation after adding cortical area
+        try:
+            self._trigger_brain_region_validation()
+        except Exception as validation_err:
+            logger.warning(f"[BRAIN REGIONS] Failed to validate brain region mappings after adding {area.id}: {validation_err}")
+
         return area.id
 
     def get_cortical_area(self, cortical_id: str) -> CorticalArea:
@@ -3561,6 +3567,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"Failed to update cortical areas cache after deleting {cortical_id}: {e}"
             )
 
+        # Trigger brain region mapping validation after deleting cortical area
+        try:
+            self._trigger_brain_region_validation()
+        except Exception as validation_err:
+            logger.warning(f"[BRAIN REGIONS] Failed to validate brain region mappings after deleting {cortical_id}: {validation_err}")
+
         return True
 
     # ----------------------------------------------------------------------
@@ -3738,6 +3750,9 @@ class ConnectomeManager(NeuronMappingProvider):
             if changes_made:
                 self._sync_hierarchy_to_genome()
                 
+            # Trigger full brain region mapping validation
+            self._trigger_brain_region_validation()
+                
         except Exception as e:
             logger.error(f"Error in automatic I/O designation for {source_area_id} -> {target_area_id}: {e}")
     
@@ -3762,6 +3777,40 @@ class ConnectomeManager(NeuronMappingProvider):
                 
         except Exception as e:
             logger.error(f"Error syncing hierarchy to genome: {e}")
+
+    def _trigger_brain_region_validation(self) -> None:
+        """Trigger comprehensive brain region mapping validation.
+        
+        This method creates a NeuroEmbryogenesis instance to run the full
+        brain region mapping validation that normally happens at the end
+        of brain development.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                logger.warning("Cannot trigger brain region validation: no genome in StateManager")
+                return
+                
+            # Create NeuroEmbryogenesis instance for validation
+            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+            embryo = NeuroEmbryogenesis(self, state_manager)
+            
+            # Run the brain region mapping validation
+            success = embryo._validate_and_update_brain_region_mappings()
+            
+            if success:
+                logger.info("🧠 [BRAIN REGIONS] Triggered brain region mapping validation completed")
+                
+                # Reload hierarchy with updated mappings
+                if hasattr(self, 'brain_region_hierarchy'):
+                    self.brain_region_hierarchy.load_from_genome(state_manager.genome)
+            else:
+                logger.warning("Brain region mapping validation failed")
+                
+        except Exception as e:
+            logger.error(f"Error triggering brain region validation: {e}")
 
     def delete_brain_region(
         self, region_id: str, delete_areas: bool = False
