@@ -418,7 +418,12 @@ def main():
         import logging
 
         debug_cfg = {
+            # legacy aggregate API flag
             "debug_api": bool(getattr(args, "debug_api", False)),
+            # granular API flags
+            "debug_api_core": bool(getattr(args, "debug_api_core", False)),
+            "debug_api_rest": bool(getattr(args, "debug_api_rest", False)),
+            "debug_api_zmq": bool(getattr(args, "debug_api_zmq", False)),
             "debug_npu": bool(getattr(args, "debug_npu", False)),
             "debug_bdu": bool(getattr(args, "debug_bdu", False)),
             "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
@@ -429,6 +434,12 @@ def main():
         # Keep env vars for newly created loggers
         if debug_cfg["debug_api"]:
             os.environ["FEAGI_DEBUG_API"] = "1"
+        if debug_cfg["debug_api_core"]:
+            os.environ["FEAGI_DEBUG_API_CORE"] = "1"
+        if debug_cfg["debug_api_rest"]:
+            os.environ["FEAGI_DEBUG_API_REST"] = "1"
+        if debug_cfg["debug_api_zmq"]:
+            os.environ["FEAGI_DEBUG_API_ZMQ"] = "1"
         if debug_cfg["debug_npu"]:
             os.environ["FEAGI_DEBUG_NPU"] = "1"
         if debug_cfg["debug_bdu"]:

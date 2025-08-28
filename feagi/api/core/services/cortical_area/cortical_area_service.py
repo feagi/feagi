@@ -417,39 +417,46 @@ class CorticalAreaService(BaseService):
                         pass
                 
                 for neuron_id in neuron_ids:
-                    # NEW NPU ARCHITECTURE: Get neuron properties directly from NPU Interface
-                    # instead of using old BDU-style index mappings
+                    # NEW NPU ARCHITECTURE: Read coordinates and properties directly from NPU NeuronArray
                     if hasattr(self._connectome_manager, '_npu_interface') and self._connectome_manager._npu_interface:
-                        # Use NPU Interface for neuron properties (new architecture)
                         npu_interface = self._connectome_manager._npu_interface
-                        
-                        if cortical_id == "_power":
-                            try:
-                                from feagi.core.state_manager import FeagiStateManager
-                                if FeagiStateManager.instance().is_debug_npu_enabled():
-                                    self.logger.info(f"[API-POWER-DEBUG] Using NPU Interface for neuron {neuron_id}")
-                            except Exception:
-                                pass
-                        
-                        # Skip the old index-based approach and build result directly
-                        neuron_info = {
-                            "neuron_id": neuron_id,
-                            "cortical_id": cortical_id,
-                            "position": [0, 0, 0],
-                            "properties": {
-                                "membrane_potential": 0.0,
-                                "threshold": 1.0,
+                        na = getattr(npu_interface, 'neuron_array', None)
+                        if na is None:
+                            continue
+                        idx = na.neuron_id_to_index.get(neuron_id)
+                        if idx is None:
+                            # No mapping for this ID; skip deterministically
+                            continue
+
+                        # Extract coordinates and properties
+                        try:
+                            pos_x = int(na.coordinates_x[idx])
+                            pos_y = int(na.coordinates_y[idx])
+                            pos_z = int(na.coordinates_z[idx])
+                        except Exception:
+                            # Fallback to positions_* naming if coordinates_* are unavailable
+                            pos_x = int(getattr(na, 'positions_x')[idx])
+                            pos_y = int(getattr(na, 'positions_y')[idx])
+                            pos_z = int(getattr(na, 'positions_z')[idx])
+
+                        mp = float(na.membrane_potentials[idx])
+                        th = float(na.thresholds[idx])
+                        try:
+                            dr = float(na.decay_rates[idx])
+                        except Exception:
+                            dr = 0.0
+
+                        result.append(
+                            {
+                                "id": str(neuron_id),
+                                "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                                "properties": {
+                                    "membrane_potential": mp,
+                                    "threshold": th,
+                                    "decay_rate": dr,
+                                },
                             }
-                        }
-                        result.append(neuron_info)
-                        
-                        if cortical_id == "_power":
-                            try:
-                                from feagi.core.state_manager import FeagiStateManager
-                                if FeagiStateManager.instance().is_debug_npu_enabled():
-                                    self.logger.info(f"[API-POWER-DEBUG] Added neuron {neuron_id} to result")
-                            except Exception:
-                                pass
+                        )
                         continue
                     
                     # FALLBACK: Old BDU-style approach (for backward compatibility)

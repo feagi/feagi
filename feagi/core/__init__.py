@@ -9,7 +9,7 @@ This module provides the critical (Priority 1) components of the FEAGI framework
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger()
 from typing import Any, Dict
 
 

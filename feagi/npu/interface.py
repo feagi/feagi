@@ -744,7 +744,11 @@ class NPUInterface:
         # Get valid neuron range
         valid_range = min(self.neuron_array.neuron_count, self.neuron_array.max_neurons)
         
-        if valid_range == 0:
+        # Check if we have memory neurons even if no regular neurons
+        has_memory_neurons = (hasattr(self, 'memory_neuron_array') and 
+                             self.memory_neuron_array.count > 0)
+        
+        if valid_range == 0 and not has_memory_neurons:
             if state_manager.is_debug_npu_enabled():
                 logger.info("[NPU-BURST-DEBUG] No neurons to process - returning empty list")
             return []
@@ -783,35 +787,43 @@ class NPUInterface:
                 except Exception as dbg_e:
                     logger.warning(f"[NPU-BURST-DEBUG] Ready-per-area debug failed: {dbg_e}")
         
-        # Perform SIMD neural updates
-        # Create output mask for fired neurons
-        output_firing_mask = np.zeros(valid_range, dtype=bool)
+        # Initialize fired neurons list
+        fired_neurons = []
         
-        # Decide fast path: if all areas have excitability ~1.0, skip RNG path
-        fired_count = simd_batch_neural_update(
-            potentials=self.neuron_array.membrane_potentials[:valid_range],
-            thresholds=self.neuron_array.thresholds[:valid_range],
-            decay_rates=self.neuron_array.leak_coefficients[:valid_range],
-            resting_potentials=self.neuron_array.resting_potentials[:valid_range],
-            refractory_periods=self.neuron_array.refractory_periods[:valid_range],
-            refractory_counters=self.neuron_array.refractory_counters[:valid_range],
-            # Pass a callable to fetch area excitability by neuron index
-            excitability=(self._area_excitability, self.neuron_array.cortical_idxs[:valid_range], self.any_low_ex_area()),
-            valid_mask=np.ones(valid_range, dtype=bool),  # All neurons in range are valid
-            output_firing_mask=output_firing_mask
-        )
-        
-        # Extract fired array indices from the firing mask
-        fired_indices = np.where(output_firing_mask)[0]
-        # Map indices to neuron IDs (authoritative mapping owned by NPU)
-        fired_id_array = self.neuron_array.indices_to_neuron_ids(
-            fired_indices, filter_invalid=True
-        )
-        fired_neurons = fired_id_array.tolist()
+        # Process regular neurons if we have any
+        if valid_range > 0:
+            # Perform SIMD neural updates
+            # Create output mask for fired neurons
+            output_firing_mask = np.zeros(valid_range, dtype=bool)
+            
+            # Decide fast path: if all areas have excitability ~1.0, skip RNG path
+            fired_count = simd_batch_neural_update(
+                potentials=self.neuron_array.membrane_potentials[:valid_range],
+                thresholds=self.neuron_array.thresholds[:valid_range],
+                decay_rates=self.neuron_array.leak_coefficients[:valid_range],
+                resting_potentials=self.neuron_array.resting_potentials[:valid_range],
+                refractory_periods=self.neuron_array.refractory_periods[:valid_range],
+                refractory_counters=self.neuron_array.refractory_counters[:valid_range],
+                # Pass a callable to fetch area excitability by neuron index
+                excitability=(self._area_excitability, self.neuron_array.cortical_idxs[:valid_range], self.any_low_ex_area()),
+                valid_mask=np.ones(valid_range, dtype=bool),  # All neurons in range are valid
+                output_firing_mask=output_firing_mask
+            )
+            
+            # Extract fired array indices from the firing mask
+            fired_indices = np.where(output_firing_mask)[0]
+            # Map indices to neuron IDs (authoritative mapping owned by NPU)
+            fired_id_array = self.neuron_array.indices_to_neuron_ids(
+                fired_indices, filter_invalid=True
+            )
+            fired_neurons = fired_id_array.tolist()
+        else:
+            if state_manager.is_debug_npu_enabled():
+                logger.info("[NPU-BURST-DEBUG] No regular neurons to process, skipping SIMD updates")
         # Temporary detailed logs: fired counts per area and excitability
-        if state_manager.is_debug_npu_enabled():
+        if state_manager.is_debug_npu_enabled() and valid_range > 0:
             try:
-                if fired_indices.size > 0:
+                if 'fired_indices' in locals() and fired_indices.size > 0:
                     fired_areas = self.neuron_array.cortical_idxs[fired_indices].astype(np.int32)
                     uniq_f, cnts_f = np.unique(fired_areas, return_counts=True)
                     for a, c in zip(uniq_f.tolist(), cnts_f.tolist()):
@@ -825,6 +837,14 @@ class NPUInterface:
             logger.info(f"[NPU-BURST-DEBUG] PHASE 1 COMPLETE: {fired_count} neurons fired")
             if fired_count > 0:
                 logger.info(f"[NPU-BURST-DEBUG] PHASE 1 FIRED SAMPLE: {fired_neurons[:5]}")
+        
+        # Phase 1.5: Memory neuron processing (parallel to regular neurons)
+        memory_fired_neurons = self._process_memory_neurons(timestep, state_manager)
+        if memory_fired_neurons:
+            fired_neurons.extend(memory_fired_neurons)
+            if state_manager.is_debug_npu_enabled():
+                logger.info(f"[NPU-BURST-DEBUG] PHASE 1.5 COMPLETE: {len(memory_fired_neurons)} memory neurons fired")
+                logger.info(f"[NPU-BURST-DEBUG] PHASE 1.5 FIRED SAMPLE: {memory_fired_neurons[:5]}")
         
         # Phase 2: Synaptic propagation (if we have synapses and fired neurons)
         if fired_neurons and self.synapse_array.synapse_count > 0:
@@ -948,3 +968,67 @@ class NPUInterface:
             logger.info(f"[NPU-BURST-DEBUG] Total fired neurons: {len(fired_neurons) if fired_neurons else 0}")
         
         return fired_neurons if fired_neurons else []
+    
+    def _process_memory_neurons(self, timestep: int, state_manager) -> List[int]:
+        """Process memory neurons for firing during neural burst.
+        
+        Memory neurons are processed separately from regular neurons because they:
+        1. Have different lifecycle properties (aging, pattern-based)
+        2. Are stored in a separate MemoryNeuronArray
+        3. Need to fire when their patterns are detected (via FCL injection)
+        
+        Args:
+            timestep: Current simulation timestep
+            state_manager: State manager for debug logging
+            
+        Returns:
+            List of memory neuron IDs that fired
+        """
+        if not hasattr(self, 'memory_neuron_array') or self.memory_neuron_array.count == 0:
+            return []
+            
+        memory_array = self.memory_neuron_array
+        valid_range = min(memory_array.count, memory_array.max_memory_neurons)
+        
+        if valid_range == 0:
+            return []
+            
+        if state_manager.is_debug_npu_enabled():
+            logger.info(f"[NPU-MEMORY-DEBUG] Processing {valid_range} memory neurons")
+            
+        # Get active and valid memory neurons
+        active_mask = memory_array.is_active[:valid_range] & memory_array.valid_mask[:valid_range]
+        active_indices = np.where(active_mask)[0]
+        
+        if len(active_indices) == 0:
+            return []
+            
+        # Check which memory neurons should fire (above threshold)
+        potentials = memory_array.membrane_potentials[active_indices]
+        thresholds = memory_array.thresholds[active_indices]
+        
+        # Memory neurons fire when above threshold (no refractory period for memory neurons)
+        firing_mask = potentials >= thresholds
+        firing_indices = active_indices[firing_mask]
+        
+        if len(firing_indices) == 0:
+            return []
+            
+        # Convert indices to neuron IDs
+        fired_memory_neurons = []
+        for idx in firing_indices:
+            neuron_id = memory_array.index_to_neuron_id.get(idx)
+            if neuron_id is not None:
+                fired_memory_neurons.append(neuron_id)
+                
+                # Reset membrane potential after firing (like regular neurons)
+                memory_array.membrane_potentials[idx] = 0.0
+                
+                # Update last activation burst for lifecycle tracking
+                memory_array.last_activation_burst[idx] = timestep
+                memory_array.activation_count[idx] += 1
+                
+        if state_manager.is_debug_npu_enabled() and fired_memory_neurons:
+            logger.info(f"[NPU-MEMORY-DEBUG] {len(fired_memory_neurons)} memory neurons fired: {fired_memory_neurons[:5]}")
+            
+        return fired_memory_neurons

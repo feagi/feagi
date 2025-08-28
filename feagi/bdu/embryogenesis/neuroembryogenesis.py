@@ -1556,6 +1556,9 @@ class NeuroEmbryogenesis:
             f"{self.development_stats['total_synapses']} synapses.",
         )
 
+        # NOTE: Memory mapping rescan is handled automatically during genome processing
+        # The rescan_all_memory_mappings() method is available for manual use if needed
+
         return True
 
     def get_development_statistics(self) -> Dict[str, Any]:

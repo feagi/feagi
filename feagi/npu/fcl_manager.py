@@ -42,7 +42,7 @@ from typing import (
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger()
 import logging
 from dataclasses import dataclass
 

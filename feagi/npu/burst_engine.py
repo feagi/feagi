@@ -38,7 +38,7 @@ from .burst_engine_performance import BurstEnginePerformanceMixin
 from .fq_sampler import UnifiedFQSampler  # Backward-compatible export for tests
 from feagi.core.state_manager import ServiceState  # Re-export for tests
 
-logger = setup_logger(__name__)
+logger = setup_logger()
 
 
 # RTOS-COMPATIBLE: Use deterministic pseudo-random for instance IDs
@@ -198,6 +198,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         
         self.config = config or {}
 
+        # Cache StateManager instance to avoid expensive singleton lookups on every burst
+        self.state_manager = FeagiStateManager.instance()
+
         # Initialize MemoryProcessor for memory cortical areas
         self.memory_processor = None
         self._initialize_memory_processor()
@@ -230,8 +233,6 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         logger.info(
             "Burst Engine initialized in standby mode", status="[FAST]"
         )
-
-        self.state_manager = FeagiStateManager.instance()
 
         # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
         # Only use config as emergency fallback during initialization
@@ -516,7 +517,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         #  CRITICAL FIX: Initialize state_manager once at method start to
         #  prevent
         # "cannot access local variable" errors when exceptions occur
-        state_manager = FeagiStateManager.instance()
+        # Use cached state_manager instance
 
         try:
             import time
@@ -527,7 +528,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             if (
                 hasattr(self, "fcl_manager")
                 and self.fcl_manager
-                and state_manager.is_debug_npu_enabled()
+                and self.state_manager.is_debug_npu_enabled()
             ):
                 try:
                     #  Get FCL from previous timestep (t-1) - this is what FQ
@@ -632,13 +633,13 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         # Update FCL for next timestep (t+1)
                         next_timestep = self.burst_count + 1
                         self.fcl_manager.update_fcl(next_timestep, neurons_by_cortical)
-                        if state_manager.is_debug_npu_enabled():
+                        if self.state_manager.is_debug_npu_enabled():
                             total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
                             logger.info(
                                 f"[NPU-DEBUG] BURST ENGINE: Scheduled {total_neurons} next-burst candidates for t={next_timestep}"
                             )
                 except Exception as e:
-                    if state_manager.is_debug_npu_enabled():
+                    if self.state_manager.is_debug_npu_enabled():
                         logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
 
             # 5. Debug output if enabled
@@ -702,12 +703,17 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         Returns:
             List of neuron IDs that fired in this burst
         """
-        # CRITICAL FIX: Initialize state_manager to prevent NameError
-        state_manager = FeagiStateManager.instance()
+        # Use cached state_manager instance (initialized in __init__)
+        # Initialize debug flags
+        mem_debug = (
+            self.state_manager.is_mem_debug_enabled()
+            if self.state_manager
+            else False
+        )
 
         # Removed file I/O debug writes for RTOS/WGPU compatibility
         # Debug logging if --debug-npu is enabled
-        if state_manager.is_debug_npu_enabled():
+        if self.state_manager.is_debug_npu_enabled():
             logger.info(
                 f"[NPU-DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}"
             )
@@ -726,51 +732,32 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         #  Add candidates to FCL for external sources (power areas, sensory
         #  input, etc.)
         if self.injection_service:
-            if state_manager.is_debug_npu_enabled():
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
                 )
             self.injection_service.inject_pre_burst(current_timestep)
 
         # 2. Core neural computation (synaptic propagation)
-        #  Process ALL FCL candidates (internal + external) in one unified sweep
-        if state_manager.is_debug_npu_enabled():
+        #  Process ALL FCL candidates (internal + external) in one unified
+        #  sweep
+        if self.state_manager.is_debug_npu_enabled():
             logger.info(
                 "[NPU-DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
             )
 
-        # Measure FCL size (t window) before processing
-        try:
-            fcl_count_before = 0
-            if self.fcl_manager:
-                current_fcl = self.fcl_manager.get_fcl(0)
-                fcl_count_before = 0 if (not current_fcl or current_fcl.is_empty()) else len(list(current_fcl))
-        except Exception:
-            fcl_count_before = 0
-
-        t0 = time.perf_counter()
         fired_neurons = self.connectome_manager.update_membrane_potentials()
-        t1 = time.perf_counter()
 
-        if state_manager.is_debug_npu_enabled():
+        if self.state_manager.is_debug_npu_enabled():
             fired_count = len(fired_neurons) if fired_neurons else 0
             logger.info(
                 f"[NPU-DEBUG] BURST ENGINE: Enhanced processing - {fired_count} neurons fired from FCL"
             )
 
-            # Compute per-second throughputs
-            process_ms = max((t1 - t0) * 1000.0, 1e-6)
-            fcl_per_sec = (fcl_count_before * 1000.0) / process_ms
-            fire_per_sec = (fired_count * 1000.0) / process_ms
-            logger.info(
-                f"[NPU-DEBUG] THROUGHPUT: FCL_t candidates={fcl_count_before} ({fcl_per_sec:.1f}/s), "
-                f"fired={fired_count} ({fire_per_sec:.1f}/s), dt={process_ms:.2f}ms"
-            )
-
         # 3. Additional external injections (during-burst phase)
         #    For modulator areas or other special processing during burst
         if self.injection_service:
-            if state_manager.is_debug_npu_enabled():
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
                 )
@@ -779,7 +766,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         # 4. Post-burst external injections
         #    For cleanup, memory consolidation, or other post-processing
         if self.injection_service:
-            if state_manager.is_debug_npu_enabled():
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
                 )
@@ -798,7 +785,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 # Group neurons by cortical area using shared NPU interface
                 neurons_by_cortical = npu_if.get_firing_neurons_by_cortical_area(fired_neurons)
-                if state_manager.is_debug_npu_enabled():
+                if self.state_manager.is_debug_npu_enabled():
                     logger.info(
                         f"[NPU-DEBUG] BURST ENGINE: Fired IDs={fired_neurons[:8]} (len={len(fired_neurons)})"
                     )
@@ -809,37 +796,53 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 # Update FCL with grouped neurons
                 if neurons_by_cortical:
                     self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
-                    if state_manager.is_debug_npu_enabled():
+                    if self.state_manager.is_debug_npu_enabled():
                         total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
                         logger.info(f"[NPU-DEBUG] BURST ENGINE: Updated FCL with {total_neurons} fired neurons across {len(neurons_by_cortical)} cortical areas")
                 else:
-                    if state_manager.is_debug_npu_enabled():
+                    if self.state_manager.is_debug_npu_enabled():
                         logger.warning(f"[NPU-DEBUG] BURST ENGINE: Could not group {len(fired_neurons)} fired neurons by cortical area")
                         
             except Exception as e:
-                if state_manager.is_debug_npu_enabled():
+                if self.state_manager.is_debug_npu_enabled():
                     logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
 
         # 6. Memory processing for memory cortical areas
         #    Process temporal patterns and manage memory neuron lifecycle
+        if mem_debug:
+            logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: Checking memory processor availability...")
+            logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: memory_processor exists: {self.memory_processor is not None}")
+            if self.memory_processor:
+                logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: memory_processor active areas: {list(self.memory_processor.active_memory_areas) if hasattr(self.memory_processor, 'active_memory_areas') else 'N/A'}")
+        
         if self.memory_processor:
-            mem_debug = (
-                getattr(state_manager, "is_mem_debug_enabled", lambda: False)()
-                if state_manager
-                else False
-            )
-            if state_manager.is_debug_npu_enabled() or mem_debug:
+            logger.info(f"🚨🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processor available")
+            if self.state_manager.is_debug_npu_enabled() or mem_debug:
                 logger.info(
-                    "🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns (pre-call)"
+                    "🧠 [MEMORY-DEBUG] BURST ENGINE: Starting memory processing for temporal patterns"
                 )
                 logger.info(
-                    f"🧠 [MEMORY] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
+                    f"🧠 [MEMORY-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
+                )
+                logger.info(
+                    f"🧠 [MEMORY-DEBUG] Current timestep: {current_timestep}"
+                )
+                logger.info(
+                    f"🧠 [MEMORY-DEBUG] Memory neuron count: {self.memory_processor.memory_neuron_array.count}"
                 )
             self._process_memory_areas(current_timestep)
+            if mem_debug:
+                logger.info(
+                    "🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processing completed"
+                )
         else:
-            if state_manager.is_debug_npu_enabled():
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing"
+                )
+            if mem_debug:
+                logger.warning(
+                    "🚨 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor available! Memory processing disabled."
                 )
 
         # 7. Debug fire queue output if --debug-npu flag is enabled
@@ -890,7 +893,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                             )
 
                             if (
-                                FeagiStateManager.instance().is_debug_npu_enabled()
+                                self.state_manager.is_debug_npu_enabled()
                             ):
                                 import datetime
                                 import os
@@ -1136,8 +1139,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             #  Always initialize injection service to ensure proper special
             #  area detection
-            state_manager = FeagiStateManager.instance()
-            if state_manager.is_debug_npu_enabled():
+            # Use cached state_manager instance
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
                 )
@@ -1151,7 +1154,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 if self.injection_service
                 else "None"
             )
-            if state_manager.is_debug_npu_enabled():
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}, fcl_manager_id={id(self.fcl_manager)}"
                 )
@@ -1341,8 +1344,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             processing_time = time.perf_counter() - start_time
 
-            state_manager = FeagiStateManager.instance()
-            if state_manager.is_debug_npu_enabled():
+            # Use cached state_manager instance
+            if self.state_manager.is_debug_npu_enabled():
                 logger.info(
                     f"[NPU-DEBUG] Fire queue processing completed in {processing_time * 1000:.2f}ms, "
                     f"{len(fired_neurons)} neurons fired"
@@ -1357,6 +1360,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
     def _initialize_memory_processor(self) -> None:
         """Initialize the memory processor if ConnectomeManager has
         memory_neuron_array."""
+        # CRITICAL DEBUG: Always log memory processor initialization
+        logger.info(f"🚨 [MEMORY-INIT-ALWAYS] ===== INITIALIZING MEMORY PROCESSOR =====")
+        logger.info(f"🚨 [MEMORY-INIT-ALWAYS] ConnectomeManager available: {self.connectome_manager is not None}")
+        
         try:
             # Check if we have access to the memory neuron array
             if hasattr(self.connectome_manager, "memory_neuron_array"):
@@ -1428,32 +1435,45 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
     def _process_memory_areas(self, current_timestep: int) -> None:
         """Process memory areas for temporal pattern detection."""
+        # CRITICAL DEBUG: Always log when memory processing is called
+        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] ===== PROCESSING MEMORY AREAS =====")
+        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] Current timestep: {current_timestep}")
+        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] Memory processor available: {self.memory_processor is not None}")
+        
         try:
             npu_debug = (
                 self.state_manager.is_debug_npu_enabled()
                 if self.state_manager
                 else False
             )
+            mem_debug = (
+                self.state_manager.is_mem_debug_enabled()
+                if self.state_manager
+                else False
+            )
 
-            if npu_debug:
+            if npu_debug or mem_debug:
                 logger.info(
-                    "🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns"
+                    "🧠 [MEMORY-DEBUG] BURST ENGINE: _process_memory_areas() called"
                 )
+                logger.info(f"🧠 [MEMORY-DEBUG] Current timestep: {current_timestep}")
 
             if not self.memory_processor:
-                if npu_debug:
-                    logger.info(
-                        "🧠 [MEMORY] BURST ENGINE: No MemoryProcessor - skipping memory processing"
+                if npu_debug or mem_debug:
+                    logger.warning(
+                        "🚨 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing"
                     )
                 return
 
-            if npu_debug:
+            if npu_debug or mem_debug:
                 active_areas = (
                     list(self.memory_processor.active_memory_areas)
                     if hasattr(self.memory_processor, "active_memory_areas")
                     else []
                 )
-                logger.info(f"🧠 [MEMORY] Active memory areas: {active_areas}")
+                logger.info(f"🧠 [MEMORY-DEBUG] Active memory areas: {active_areas}")
+                if not active_areas:
+                    logger.warning(f"🚨 [MEMORY-DEBUG] No active memory areas registered!")
 
             #  Process memory areas aligned with FCL's current timestep to
             #  avoid window mismatches
@@ -1462,17 +1482,30 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 if self.fcl_manager
                 else current_timestep
             )
+            
+            if mem_debug:
+                logger.info(f"🧠 [MEMORY-DEBUG] Using FCL timestep: {fcl_current_timestep}")
+                logger.info(f"🧠 [MEMORY-DEBUG] Calling memory_processor.process_memory_areas_batch()")
+                
             memory_stats = self.memory_processor.process_memory_areas_batch(
                 fcl_current_timestep
             )
 
-            if npu_debug:
+            if npu_debug or mem_debug:
                 logger.info(
-                    f"🧠 [MEMORY] Memory processing: {memory_stats}, time: {memory_stats.get('processing_time_ms', 0):.2f}ms"
+                    f"🧠 [MEMORY-DEBUG] Memory processing completed: {memory_stats}"
+                )
+                logger.info(
+                    f"🧠 [MEMORY-DEBUG] Processing time: {memory_stats.get('processing_time_ms', 0):.2f}ms"
                 )
 
         except Exception as e:
-            logger.error(f"🧠 [MEMORY] Error starting memory processing: {e}")
+            if mem_debug:
+                logger.error(f"🚨 [MEMORY-DEBUG] Error in _process_memory_areas: {e}")
+                import traceback
+                logger.error(f"🚨 [MEMORY-DEBUG] Full traceback: {traceback.format_exc()}")
+            else:
+                logger.error(f"🧠 [MEMORY] Error starting memory processing: {e}")
 
     def register_memory_area_with_processor(
         self, cortical_id: str, properties: Dict[str, Any]
@@ -1516,6 +1549,18 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         cortical_id
                     )
                 )
+                
+            # Check if debug-mem is enabled
+            mem_debug = (
+                self.state_manager.is_mem_debug_enabled()
+                if self.state_manager
+                else False
+            )
+            
+            if mem_debug:
+                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Registering memory area {cortical_id}")
+                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Discovered upstream areas: {upstream_areas}")
+                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Properties: {properties}")
 
             return self.memory_processor.register_memory_area(
                 cortical_id=cortical_id,

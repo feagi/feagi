@@ -122,7 +122,7 @@ auto_tune_threshold = false  # Automatically adjust threshold based on performan
 # Connectome sizing and memory allocation
 # These values determine the minimum reserved space for neurons and synapses
 # regardless of genome requirements
-min_neuron_space = 1000000      # Minimum neuron slots to reserve (default safety margin)
+min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
 min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
 min_memory_neuron_space = 50000 # Minimum memory neuron slots to reserve (separate SoA)
 
@@ -200,28 +200,3 @@ zip_compression = "deflate"  # "deflate" or "store"
 default_format = "zip"
 # fc_compression can be "store" (uncompressed) or "deflate" (zlib)
 fc_compression = "store"
-
-# Injection buffering and draining configuration
-[injection]
-
-[injection.buffer]
-# Total buffered neuron IDs allowed across all areas per FEAGI instance
-capacity_total = 65536
-# Maximum buffered neuron IDs per cortical area
-capacity_per_area = 8192
-# Whether to coalesce duplicate neuron IDs within the buffer
-coalesce_duplicates = true
-
-[injection.drain]
-# Maximum neuron IDs to drain from the buffer each burst (global budget)
-per_burst_max_total = 8192
-# Maximum neuron IDs to drain per cortical area each burst
-per_burst_max_per_area = 2048
-# Fairness policy across areas: "round_robin" or "weighted"
-fairness = "round_robin"
-# Drop policy when buffers are full: "oldest", "newest", or "per_area"
-drop_policy = "newest"
-
-[injection.metrics]
-enabled = true
-window_seconds = 5.0

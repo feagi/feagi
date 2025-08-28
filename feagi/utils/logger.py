@@ -587,14 +587,22 @@ def setup_logger(
 
 # Centralized subsystem -> logger hierarchies mapping
 SUBSYSTEM_LOGGER_HIERARCHIES: Dict[str, List[str]] = {
-    "api": [
-        "feagi.api",
-        "feagi.api.rest",
+    # Split API into core/rest/zmq for fine-grained control
+    "api_core": [
         "feagi.api.core",
         "feagi.api.gateway",
         "feagi.api.protocols",
         "feagi.api.transport",
+    ],
+    "api_rest": [
+        "feagi.api.rest",
+    ],
+    "api_zmq": [
         "feagi.api.zmq",
+        "feagi.api.zmq.streams",
+        "feagi.api.zmq.neural",
+        "feagi.api.zmq.memory",
+        "feagi.api.zmq.patterns",
     ],
     "npu": [
         "feagi.npu",
@@ -642,7 +650,10 @@ def apply_subsystem_log_levels(debug_cfg: Dict[str, Any], baseline_level: int) -
 
     # Build subsystem -> enabled map from debug_cfg
     enabled_by_subsystem = {
-        "api": bool(debug_cfg.get("debug_api", False)),
+        # Keep legacy aggregate 'debug_api' enabling all three API subsystems
+        "api_core": bool(debug_cfg.get("debug_api_core", False) or debug_cfg.get("debug_api", False)),
+        "api_rest": bool(debug_cfg.get("debug_api_rest", False) or debug_cfg.get("debug_api", False)),
+        "api_zmq": bool(debug_cfg.get("debug_api_zmq", False) or debug_cfg.get("debug_api", False)),
         "npu": bool(debug_cfg.get("debug_npu", False)),
         "bdu": bool(debug_cfg.get("debug_bdu", False)),
         "evo": bool(debug_cfg.get("debug_evo", False)),

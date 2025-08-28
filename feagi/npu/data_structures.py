@@ -697,9 +697,9 @@ class MemoryNeuronArray:
     def _is_mem_debug_enabled(self) -> bool:
         """Check memory debug flag from state manager (safe, no hard dependency)."""
         try:
-            from feagi.core.state_manager import FeagiStateManager
-
-            return FeagiStateManager.instance().is_mem_debug_enabled()
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            return state_manager.is_mem_debug_enabled() if state_manager else False
         except Exception:
             return False
     
@@ -870,6 +870,13 @@ class MemoryNeuronArray:
         self.cortical_area_id[idx] = str(cortical_area_id)
         # Note: caller should also set cortical_idxs[idx] if available; keep 0 as default otherwise
 
+        # Initialize membrane potential properties for firing capability
+        # Memory neurons start above threshold to fire immediately when created
+        self.membrane_potentials[idx] = 1.5  # Above default threshold of 1.0
+        self.thresholds[idx] = 1.0  # Standard firing threshold
+        self.leak_coefficients[idx] = 0.1  # Standard leak rate
+        self.excitabilities[idx] = 1.0  # Standard excitability
+
         # Store pattern mapping for fast lookup
         self.pattern_to_index[pattern_key] = idx
         # Optional digest for quick diagnostics (last 4 bytes of hash)
@@ -912,6 +919,9 @@ class MemoryNeuronArray:
         # If current is already higher due to prior growth, keep the max
         self.lifespan_current[neuron_idx] = max(int(self.lifespan_current[neuron_idx]), grown)
         self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
+        
+        # Set membrane potential above threshold for immediate firing
+        self.membrane_potentials[neuron_idx] = 1.5  # Above threshold to fire
         if self._is_mem_debug_enabled():
             try:
                 nid = self.index_to_neuron_id.get(neuron_idx, -1)

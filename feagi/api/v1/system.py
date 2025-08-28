@@ -23,7 +23,6 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 """
 
 from typing import Any, Dict, List
-import os
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -33,14 +32,14 @@ from .schemas import (
     BrainVisualizationRequest,
     ConfigurationResponse,
     CorticalAreaTypesResponse,
+    DebugLoggingRequest,
+    DebugLoggingResponse,
     HealthCheckResponse,
     InfluxDBTestResponse,
     SuccessResponse,
     UserPreferencesRequest,
     UserPreferencesResponse,
     VersionsResponse,
-    DebugLoggingRequest,
-    DebugLoggingResponse,
 )
 
 logger = setup_logger(__name__)
@@ -126,104 +125,6 @@ class SystemAPI:
         except Exception as e:
             logger.error(f"Error getting versions: {e}")
             raise ValueError(f"Failed to get versions: {str(e)}")
-
-    @system_endpoint(
-        "POST",
-        "/debug_logging",
-        request_model=DebugLoggingRequest,
-        response_model=SuccessResponse,
-    )
-    def set_debug_logging(self, request: DebugLoggingRequest) -> SuccessResponse:
-        """Enable/disable debug logging flags live.
-
-        Keys mirror CLI switches; unspecified keys are left unchanged.
-        """
-        try:
-            from feagi.core.state_manager import FeagiStateManager
-
-            sm = FeagiStateManager.instance()
-            # Read current flags via API to avoid internal key coupling
-            cur_api = sm.is_debug_api_enabled()
-            cur_npu = sm.is_debug_npu_enabled()
-            cur_bdu = sm.is_debug_bdu_enabled()
-            cur_zmq_in = sm.is_debug_zmq_inbound_enabled()
-            cur_zmq_out = sm.is_debug_zmq_outbound_enabled()
-            cur_mem = sm.is_mem_debug_enabled()
-
-            # Compute new desired state (unspecified keys remain unchanged)
-            new_api = cur_api if request.api is None else bool(request.api)
-            new_npu = cur_npu if request.npu is None else bool(request.npu)
-            new_bdu = cur_bdu if request.bdu is None else bool(request.bdu)
-            new_zmq_in = cur_zmq_in if request.zmq_inbound is None else bool(request.zmq_inbound)
-            new_zmq_out = cur_zmq_out if request.zmq_outbound is None else bool(request.zmq_outbound)
-            new_mem = cur_mem if request.mem is None else bool(request.mem)
-
-            # Update StateManager using its public mapping format
-            sm.set_debug_config(
-                {
-                    "debug": {
-                        "api": new_api,
-                        "npu": new_npu,
-                        "bdu": new_bdu,
-                        "zmq_inbound": new_zmq_in,
-                        "zmq_outbound": new_zmq_out,
-                        "mem_debug": new_mem,
-                    }
-                }
-            )
-
-            # Apply subsystem levels live (logger + handler thresholds)
-            from feagi.utils.logger import apply_subsystem_log_levels
-            import logging
-            # Build a unified debug_cfg snapshot
-            debug_cfg = {
-                "debug_api": new_api,
-                "debug_npu": new_npu,
-                "debug_bdu": new_bdu,
-                "debug_zmq_inbound": new_zmq_in,
-                "debug_zmq_outbound": new_zmq_out,
-                "mem_debug": new_mem,
-            }
-            # Baseline comes from FEAGI_CLI_LOG_LEVEL or defaults to INFO
-            baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
-            baseline_level = getattr(logging, baseline.upper(), logging.INFO)
-            apply_subsystem_log_levels(debug_cfg, baseline_level)
-
-            # Keep module-specific env overrides in sync for any new loggers
-            os.environ["FEAGI_DEBUG_API"] = "1" if new_api else "0"
-            os.environ["FEAGI_DEBUG_NPU"] = "1" if new_npu else "0"
-            os.environ["FEAGI_DEBUG_BDU"] = "1" if new_bdu else "0"
-            os.environ["FEAGI_DEBUG_ZMQ"] = "1" if (new_zmq_in or new_zmq_out) else "0"
-            os.environ["FEAGI_DEBUG_MEM"] = "1" if new_mem else "0"
-
-            return SuccessResponse(message="Debug logging flags updated")
-        except Exception as e:
-            logger.error(f"Error updating debug logging flags: {e}")
-            raise ValueError(f"Failed to update debug logging flags: {str(e)}")
-
-    @system_endpoint(
-        "GET",
-        "/debug_logging",
-        response_model=DebugLoggingResponse,
-    )
-    def get_debug_logging(self) -> DebugLoggingResponse:
-        """Get current debug logging flags from the state manager."""
-        try:
-            from feagi.core.state_manager import FeagiStateManager
-
-            sm = FeagiStateManager.instance()
-            cfg = getattr(sm, "_debug_config", {}) or {}
-            return DebugLoggingResponse(
-                api=bool(cfg.get("debug_api", False)),
-                npu=bool(cfg.get("debug_npu", False)),
-                bdu=bool(cfg.get("debug_bdu", False)),
-                zmq_inbound=bool(cfg.get("debug_zmq_inbound", False)),
-                zmq_outbound=bool(cfg.get("debug_zmq_outbound", False)),
-                mem=bool(cfg.get("mem_debug", False)),
-            )
-        except Exception as e:
-            logger.error(f"Error retrieving debug logging flags: {e}")
-            raise ValueError(f"Failed to get debug logging flags: {str(e)}")
 
     @system_endpoint(
         "GET", "/health_check", response_model=HealthCheckResponse
@@ -867,6 +768,105 @@ class SystemAPI:
         except Exception as e:
             logger.error(f"Error getting processes: {e}")
             raise ValueError(f"Failed to get processes: {str(e)}")
+
+    @system_endpoint(
+        path="/debug_logging",
+        methods=["GET"],
+        response_model=DebugLoggingResponse,
+        description="Returns the current state of all debug logging flags",
+    )
+    def get_debug_logging(self) -> DebugLoggingResponse:
+        """Get current debug logging flags from StateManager."""
+        try:
+            from feagi.core.state_manager import get_state_manager
+            
+            state_manager = get_state_manager()
+            if not state_manager:
+                # Return default values if state manager not available
+                return DebugLoggingResponse(
+                    api=False,
+                    api_core=False,
+                    api_rest=False,
+                    api_zmq=False,
+                    npu=False,
+                    bdu=False,
+                    zmq_inbound=False,
+                    zmq_outbound=False,
+                    mem=False,
+                )
+            
+            # Get current debug flags from state manager
+            return DebugLoggingResponse(
+                api=state_manager.is_debug_api_enabled(),
+                api_core=False,  # Not supported by StateManager
+                api_rest=False,  # Not supported by StateManager
+                api_zmq=False,   # Not supported by StateManager
+                npu=state_manager.is_debug_npu_enabled(),
+                bdu=state_manager.is_debug_bdu_enabled(),
+                zmq_inbound=state_manager.is_debug_zmq_inbound_enabled(),
+                zmq_outbound=state_manager.is_debug_zmq_outbound_enabled(),
+                mem=state_manager.is_mem_debug_enabled(),
+            )
+        except Exception as e:
+            logger.error(f"Error getting debug logging flags: {e}")
+            raise ValueError(f"Failed to get debug logging flags: {str(e)}")
+
+    @system_endpoint(
+        path="/debug_logging",
+        methods=["POST"],
+        request_model=DebugLoggingRequest,
+        response_model=DebugLoggingResponse,
+        description="Update debug logging flags at runtime",
+    )
+    def set_debug_logging(self, request: DebugLoggingRequest) -> DebugLoggingResponse:
+        """Set debug logging flags in StateManager."""
+        try:
+            from feagi.core.state_manager import get_state_manager
+            
+            state_manager = get_state_manager()
+            if not state_manager:
+                raise ValueError("StateManager not available")
+            
+            # Get current debug config
+            current_config = getattr(state_manager, '_debug_config', {})
+            
+            # Update flags that were provided in the request
+            debug_updates = {}
+            if request.api is not None:
+                debug_updates['api'] = request.api
+            if request.npu is not None:
+                debug_updates['npu'] = request.npu
+            if request.bdu is not None:
+                debug_updates['bdu'] = request.bdu
+            if request.zmq_inbound is not None:
+                debug_updates['zmq_inbound'] = request.zmq_inbound
+            if request.zmq_outbound is not None:
+                debug_updates['zmq_outbound'] = request.zmq_outbound
+            if request.mem is not None:
+                debug_updates['mem_debug'] = request.mem
+            
+            # Note: api_core, api_rest, api_zmq are not supported by StateManager
+            # They are ignored for now
+            
+            # Update the debug configuration
+            if debug_updates:
+                state_manager.set_debug_config({'debug': debug_updates})
+            
+            # Return updated state
+            return DebugLoggingResponse(
+                api=state_manager.is_debug_api_enabled(),
+                api_core=False,  # Not supported by StateManager
+                api_rest=False,  # Not supported by StateManager
+                api_zmq=False,   # Not supported by StateManager
+                npu=state_manager.is_debug_npu_enabled(),
+                bdu=state_manager.is_debug_bdu_enabled(),
+                zmq_inbound=state_manager.is_debug_zmq_inbound_enabled(),
+                zmq_outbound=state_manager.is_debug_zmq_outbound_enabled(),
+                mem=state_manager.is_mem_debug_enabled(),
+            )
+        except Exception as e:
+            logger.error(f"Error setting debug logging flags: {e}")
+            raise ValueError(f"Failed to set debug logging flags: {str(e)}")
 
 
 # ===== Factory Function =====

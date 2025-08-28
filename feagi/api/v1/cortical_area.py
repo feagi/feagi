@@ -40,7 +40,6 @@ from feagi.api.v1.schemas import (
     CorticalLocationResponse,
     CorticalNameRequest,
     CorticalPropertiesUpdateRequest,
-    AddCoreCorticalAreaRequest,
     CustomCorticalAreaRequest,
     MappingRestrictionsRequest,
     MappingRestrictionsResponse,
@@ -168,177 +167,163 @@ class CorticalAreaAPI:
     ) -> CorticalAreaPropertiesResponse:
         """Get properties of a cortical area."""
         try:
-            # Validate ID format deterministically (no implicit coercion)
-            if not isinstance(request.cortical_id, str) or len(request.cortical_id) != 6:
-                raise ValueError("Invalid cortical area ID length")
-
             area_data = self.core_api_service.get_cortical_area(
                 request.cortical_id
             )
             if not area_data:
                 raise KeyError("Cortical area not found")
 
-            # Strict extraction with no defaults
-            parameters = area_data.get("parameters")
-            if not isinstance(parameters, dict):
-                raise ValueError("Missing parameters for cortical area")
+            # Transform modern FEAGI format to expected legacy format
+            parameters = area_data.get("parameters", {})
 
-            # Coordinates 3D (optional for properties; strict in geometry)
-            coordinates_3d = None
-            coordinates = area_data.get("coordinates")
-            if isinstance(coordinates, (list, tuple)) and len(coordinates) >= 3:
-                coordinates_3d = [int(coordinates[0]), int(coordinates[1]), int(coordinates[2])]
-            elif isinstance(coordinates, dict) and all(k in coordinates for k in ("x", "y", "z")):
-                coordinates_3d = [int(coordinates["x"]), int(coordinates["y"]), int(coordinates["z"])]
-
-            # Dimensions (optional for properties; strict in geometry)
-            cortical_dimensions = None
-            dimensions = area_data.get("dimensions")
-            if isinstance(dimensions, (list, tuple)) and len(dimensions) >= 3:
-                cortical_dimensions = [int(dimensions[0]), int(dimensions[1]), int(dimensions[2])]
-            elif isinstance(dimensions, dict) and all(k in dimensions for k in ("width", "height", "depth")):
-                cortical_dimensions = [
-                    int(dimensions["width"]),
-                    int(dimensions["height"]),
-                    int(dimensions["depth"]),
+            #  Extract coordinates using structural defaults for spatial
+            #  positioning
+            coordinates = area_data.get("coordinates", {})
+            if isinstance(coordinates, (list, tuple)):
+                # Handle tuple/list format: (x, y, z)
+                coordinates_3d = (
+                    list(coordinates)
+                    if len(coordinates) >= 3
+                    else [
+                        (
+                            coordinates[0]
+                            if len(coordinates) > 0
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[1]
+                            if len(coordinates) > 1
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[2]
+                            if len(coordinates) > 2
+                            else self._get_structural_default("coordinate")
+                        ),
+                    ]
+                )
+            else:
+                # Handle dict format: {"x": x, "y": y, "z": z}
+                coordinates_3d = [
+                    coordinates.get(
+                        "x", self._get_structural_default("coordinate")
+                    ),
+                    coordinates.get(
+                        "y", self._get_structural_default("coordinate")
+                    ),
+                    coordinates.get(
+                        "z", self._get_structural_default("coordinate")
+                    ),
                 ]
 
-            # 2D coordinates (optional for properties; strict in geometry)
-            coordinates_2d = None
-            if "2dcorx" in parameters and "2dcory" in parameters:
-                coordinates_2d = [int(parameters["2dcorx"]), int(parameters["2dcory"])]
-
-            # Required structural
-            if "type" not in area_data:
-                raise ValueError("cortical_group (type) is missing")
-            if "cortical_idx" not in area_data:
-                raise ValueError("cortical_idx is missing")
-
-            # Parameter helpers with synonym support (strict: one of aliases must exist)
-            def _get_required(keys, cast):
-                for k in keys:
-                    if k in parameters:
-                        return cast(parameters[k])
-                raise ValueError(f"Missing required parameter (any of): {', '.join(keys)}")
-
-            # Firing threshold from normalized area_data or legacy parameters
-            if "firing_threshold" in area_data:
-                neuron_fire_threshold = float(area_data["firing_threshold"])
+            #  Extract dimensions using structural defaults for spatial
+            #  dimensions
+            dimensions = area_data.get("dimensions", {})
+            if isinstance(dimensions, (list, tuple)):
+                # Handle tuple/list format: (width, height, depth)
+                cortical_dimensions = (
+                    list(dimensions)
+                    if len(dimensions) >= 3
+                    else [
+                        (
+                            dimensions[0]
+                            if len(dimensions) > 0
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[1]
+                            if len(dimensions) > 1
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[2]
+                            if len(dimensions) > 2
+                            else self._get_structural_default("dimension")
+                        ),
+                    ]
+                )
             else:
-                neuron_fire_threshold = _get_required(["fire_t", "firing_threshold"], float)
+                # Handle dict format: {"width": w, "height": h, "depth": d}
+                cortical_dimensions = [
+                    dimensions.get(
+                        "width", self._get_structural_default("dimension")
+                    ),
+                    dimensions.get(
+                        "height", self._get_structural_default("dimension")
+                    ),
+                    dimensions.get(
+                        "depth", self._get_structural_default("dimension")
+                    ),
+                ]
 
-            # Refractory period from normalized or legacy
-            if "refractory_period" in area_data:
-                neuron_refractory_period = int(area_data["refractory_period"])
-            else:
-                neuron_refractory_period = _get_required(["refrac", "refractory_period"], int)
-
-            # Leak coefficient
-            if "leak_coefficient" in area_data:
-                neuron_leak_coefficient = float(area_data["leak_coefficient"])
-            else:
-                neuron_leak_coefficient = _get_required(["leak_c", "leak_coefficient"], float)
-
-            # Excitability
-            if "neuron_excitability" in area_data:
-                neuron_excitability = float(area_data["neuron_excitability"])
-            else:
-                neuron_excitability = _get_required(["excite", "neuron_excitability"], float)
-
-            # Neurons per voxel
-            try:
-                npv = _get_required(["neurons_per_voxel", "per_voxel_neuron_cnt"], int)
-            except Exception:
-                npv = None
-
-            # Required mapping may be empty but must be present for determinism
-            mapping_value = parameters.get("mapping")
-
+            #  Build legacy format response with STRICT values (no fallbacks)
+            #  - Structural: must exist in area_data
+            #  - Neural: must exist either in computed area_data fields or explicit parameters
             legacy_properties = {
                 "cortical_id": area_data.get("id", request.cortical_id),
-                "cortical_idx": area_data["cortical_idx"],
+                "cortical_idx": area_data.get(
+                    "cortical_idx"
+                ),  # CRITICAL FIX: Include cortical_idx in API response
                 "cortical_name": area_data.get("name", request.cortical_id),
+                "parent_region_id": parameters.get(
+                    "parent_region_id",
+                    self._get_structural_default("parent_region_id"),
+                ),
+                "parent_region_title": parameters.get(
+                    "parent_region_title",
+                    self._get_structural_default("parent_region_title"),
+                ),
                 "cortical_group": area_data["type"],
-                "neuron_fire_threshold": neuron_fire_threshold,
-                "neuron_refractory_period": neuron_refractory_period,
-                "neuron_leak_coefficient": neuron_leak_coefficient,
-                "neuron_excitability": neuron_excitability,
+                "cortical_sub_group": parameters.get(
+                    "subgroup", self._get_default_value("sub_group_id", "")
+                ),
+                "cortical_neuron_per_vox_count": parameters.get(
+                    "neurons_per_voxel", parameters.get("per_voxel_neuron_cnt", 1)
+                ),
+                "cortical_visibility": parameters.get("gd_vis", False),
+                "cortical_synaptic_attractivity": parameters.get("synatt", 0),
+                "coordinates_3d": coordinates_3d,
+                "coordinates_2d": [
+                    parameters.get(
+                        "2dcorx", self._get_structural_default("coordinate")
+                    ),
+                    parameters.get(
+                        "2dcory", self._get_structural_default("coordinate")
+                    ),
+                ],
+                "cortical_dimensions": cortical_dimensions,
+                "cortical_destinations": parameters.get("mapping", {}),
+                "neuron_post_synaptic_potential": float(parameters.get("pstcr", 0.0)),
+                "neuron_post_synaptic_potential_max": float(parameters.get("pstcrm", 0.0)),
+                "neuron_fire_threshold": float(area_data.get("firing_threshold", 1.0)),
+                "neuron_fire_threshold_increment": [
+                    float(parameters.get("ftincx", 0.0)),
+                    float(parameters.get("ftincy", 0.0)),
+                    float(parameters.get("ftincz", 0.0)),
+                ],
+                "neuron_firing_threshold_limit": int(parameters.get("fthlim", 0)),
+                "neuron_refractory_period": int(area_data.get("refractory_period", 0)),
+                "neuron_leak_coefficient": float(area_data.get("leak_coefficient", 0.0)),
+                "neuron_leak_variability": float(parameters.get("leak_v", 0.0)),
+                "neuron_consecutive_fire_count": int(parameters.get("c_fr_c", 0)),
+                "neuron_snooze_period": int(parameters.get("snooze", 0)),
+                "neuron_degeneracy_coefficient": int(parameters.get("de_gen", 0)),
+                "neuron_psp_uniform_distribution": bool(parameters.get("pspuni", 0)),
+                "neuron_mp_charge_accumulation": bool(parameters.get("mp_acc", 0)),
+                "neuron_mp_driven_psp": bool(parameters.get("mp_psp", 0)),
+                "neuron_longterm_mem_threshold": int(parameters.get("mem__t", 0)),
+                "neuron_lifespan_growth_rate": float(parameters.get("mem_gr", 0.0)),
+                "neuron_init_lifespan": int(parameters.get("mem_ls", 0)),
+                "temporal_depth": int(parameters.get("temporal_depth", 1)),
+                "neuron_excitability": float(area_data.get("neuron_excitability", 1.0)),
+                "transforming": parameters.get(
+                    "transforming", False
+                ),  # Runtime state flag - not from templates
             }
 
-            if coordinates_3d is not None:
-                legacy_properties["coordinates_3d"] = coordinates_3d
-            if cortical_dimensions is not None:
-                legacy_properties["cortical_dimensions"] = cortical_dimensions
-
-            # Optional structural fields
-            if "parent_region_id" in parameters:
-                legacy_properties["parent_region_id"] = parameters["parent_region_id"]
-            elif "brain_region_id" in parameters:
-                legacy_properties["parent_region_id"] = parameters["brain_region_id"]
-            if "parent_region_title" in parameters:
-                legacy_properties["parent_region_title"] = parameters["parent_region_title"]
-            if parameters.get("subgroup") or parameters.get("sub_group_id"):
-                legacy_properties["cortical_sub_group"] = parameters.get("subgroup") or parameters.get("sub_group_id")
-            if npv is not None:
-                legacy_properties["cortical_neuron_per_vox_count"] = npv
-            if "gd_vis" in parameters:
-                legacy_properties["cortical_visibility"] = bool(parameters["gd_vis"])
-            elif "visualization" in parameters:
-                legacy_properties["cortical_visibility"] = bool(parameters["visualization"])
-            if "synatt" in parameters:
-                legacy_properties["cortical_synaptic_attractivity"] = int(parameters["synatt"])
-            elif "synapse_attractivity" in parameters:
-                legacy_properties["cortical_synaptic_attractivity"] = int(parameters["synapse_attractivity"])
-            if coordinates_2d is not None:
-                legacy_properties["coordinates_2d"] = coordinates_2d
-            if mapping_value is not None:
-                legacy_properties["cortical_destinations"] = mapping_value
-
-            # Optional neural params with synonyms
-            try:
-                legacy_properties["neuron_post_synaptic_potential"] = _get_required(["pstcr", "postsynaptic_current"], float)
-            except Exception:
-                pass
-            try:
-                legacy_properties["neuron_post_synaptic_potential_max"] = _get_required(["pstcrm", "postsynaptic_current_max"], float)
-            except Exception:
-                pass
-            ftincs = []
-            try:
-                ftincs.append(_get_required(["ftincx", "firing_threshold_increment_x"], float))
-                ftincs.append(_get_required(["ftincy", "firing_threshold_increment_y"], float))
-                ftincs.append(_get_required(["ftincz", "firing_threshold_increment_z"], float))
-                legacy_properties["neuron_fire_threshold_increment"] = ftincs
-            except Exception:
-                pass
-            try:
-                legacy_properties["neuron_firing_threshold_limit"] = _get_required(["fthlim", "firing_threshold_limit"], int)
-            except Exception:
-                pass
-            for key_map, caster, out_key in [
-                ((["leak_v", "leak_variability"], float), "neuron_leak_variability"),
-                ((["c_fr_c", "consecutive_fire_cnt_max"], int), "neuron_consecutive_fire_count"),
-                ((["snooze", "snooze_length"], int), "neuron_snooze_period"),
-                ((["de_gen", "degeneration"], int), "neuron_degeneracy_coefficient"),
-                ((["pspuni", "psp_uniform_distribution"], bool), "neuron_psp_uniform_distribution"),
-                ((["mp_acc", "mp_charge_accumulation"], bool), "neuron_mp_charge_accumulation"),
-                ((["mp_psp", "mp_driven_psp"], bool), "neuron_mp_driven_psp"),
-                ((["mem__t", "longterm_mem_threshold"], int), "neuron_longterm_mem_threshold"),
-                ((["mem_gr", "lifespan_growth_rate"], float), "neuron_lifespan_growth_rate"),
-                ((["mem_ls", "init_lifespan"], int), "neuron_init_lifespan"),
-                ((["temporal_depth"], int), "temporal_depth"),
-            ]:
-                keys, cast = key_map
-                try:
-                    legacy_properties[out_key] = _get_required(keys, cast)
-                except Exception:
-                    pass
-
-            # Runtime flag
-            if "transforming" in parameters:
-                legacy_properties["transforming"] = bool(parameters["transforming"])
-
             return CorticalAreaPropertiesResponse(properties=legacy_properties)
+        except ValueError:
+            raise ValueError("Invalid cortical area ID length") from None
         except KeyError:
             raise ValueError("Cortical area not found") from None
         except Exception as e:
@@ -397,10 +382,10 @@ class CorticalAreaAPI:
             raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
-        "POST", "/cortical_area", request_model=AddCoreCorticalAreaRequest, response_model=Dict[str, str]
+        "POST", "/cortical_area", response_model=Dict[str, str]
     )
     def add_cortical_area(
-        self, new_cortical_properties: AddCoreCorticalAreaRequest
+        self, new_cortical_properties: Dict[str, Any]
     ) -> Dict[str, str]:
         """Add a new core cortical area."""
         try:
@@ -410,139 +395,11 @@ class CorticalAreaAPI:
             if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            payload = new_cortical_properties.model_dump()
+            cortical_id = new_cortical_properties.get("cortical_id")
+            message = {"add_core_cortical_area": new_cortical_properties}
+            connectome.add_core_cortical_area(message)
 
-            # Map request to ConnectomeManager.add_cortical_area signature
-            cortical_id = payload.get("cortical_id")
-            name = cortical_id or payload.get("name") or "cortical_area"
-
-            coords3 = payload.get("coordinates_3d")
-            if not coords3 or len(coords3) != 3:
-                raise ValueError("coordinates_3d must be a 3-element list [x, y, z]")
-            position = (int(coords3[0]), int(coords3[1]), int(coords3[2]))
-
-            dims = payload.get("cortical_dimensions")
-            template_resolution = None
-            try:
-                # If a core template exists for this cortical_id, use its per-device resolution
-                if cortical_id:
-                    from feagi.evo.templates import cortical_template
-
-                    if cortical_id in cortical_template:
-                        template_resolution = cortical_template[cortical_id].get(
-                            "resolution"
-                        )
-            except Exception:
-                template_resolution = None
-
-            if dims and len(dims) == 3:
-                dimensions = (int(dims[0]), int(dims[1]), int(dims[2]))
-            elif template_resolution and len(template_resolution) == 3:
-                # Compute total grid from per-device resolution × device_count (width-wise)
-                if "device_count" not in payload:
-                    raise ValueError("device_count is required when cortical_dimensions are not provided")
-                device_count = int(payload.get("device_count"))
-                if device_count <= 0:
-                    raise ValueError("device_count must be > 0")
-                dimensions = (
-                    int(template_resolution[0]) * device_count,
-                    int(template_resolution[1]),
-                    int(template_resolution[2]),
-                )
-            else:
-                # Final fallback: device_count as Nx1x1 if no template found
-                device_count = payload.get("device_count")
-                if device_count is None:
-                    raise ValueError(
-                        "cortical_dimensions or device_count (or template resolution) is required"
-                    )
-                n = int(device_count)
-                if n <= 0:
-                    raise ValueError("device_count must be > 0")
-                dimensions = (n, 1, 1)
-
-            area_type = str(payload.get("cortical_type") or "custom")
-
-            # Pass remaining fields as properties (excluding ones already mapped)
-            properties: Dict[str, Any] = {
-                k: v
-                for k, v in payload.items()
-                if k
-                not in {
-                    "cortical_id",
-                    "name",
-                    "coordinates_3d",
-                    "cortical_dimensions",
-                    "device_count",
-                    "cortical_type",
-                }
-            }
-
-            # Preserve per-device resolution in properties if available
-            if template_resolution and len(template_resolution) == 3:
-                properties["resolution"] = [
-                    int(template_resolution[0]),
-                    int(template_resolution[1]),
-                    int(template_resolution[2]),
-                ]
-
-            # Create area through GenomeService to ensure genome blueprint sync
-            try:
-                genome_service = getattr(self.core_api_service, "_genome_service", None)
-                if genome_service and hasattr(genome_service, "create_cortical_area"):
-                    created = genome_service.create_cortical_area(
-                        name=name,
-                        coordinates={"x": position[0], "y": position[1], "z": position[2]},
-                        dimensions={
-                            "width": dimensions[0],
-                            "height": dimensions[1],
-                            "depth": dimensions[2],
-                        },
-                        area_type=area_type,
-                        parameters=properties,
-                    )
-                    if not created or not isinstance(created, dict) or not created.get("cortical_id"):
-                        raise ValueError("Genome service did not return created cortical area info")
-                else:
-                    # Fallback: create directly in connectome (should be rare)
-                    connectome.add_cortical_area(
-                        name=name,
-                        dimensions=dimensions,
-                        position=position,
-                        area_type=area_type,
-                        properties=properties,
-                        cortical_id=cortical_id,
-                    )
-            except Exception as e:
-                raise ValueError(f"Failed to create cortical area via genome service: {e}") from e
-
-            # Deterministic readiness gate: ensure area is visible in connectome and mapping
-            try:
-                from feagi.config.toml_loader import load_feagi_config, get_timeout_config
-
-                cfg = load_feagi_config()
-                tcfg = get_timeout_config(cfg)
-                # Use a short, bounded wait (<= service_startup seconds)
-                import time
-
-                deadline = time.time() + float(tcfg.service_startup)
-                target_id = (created.get("cortical_id") if isinstance(created, dict) else None) or cortical_id or name
-                while time.time() < deadline:
-                    area_obj = connectome.get_cortical_area(target_id)
-                    mapped_idx = None
-                    try:
-                        mapped_idx = connectome.cortical_mapping.get_idx(target_id)
-                    except Exception:
-                        mapped_idx = None
-
-                    if area_obj is not None and mapped_idx is not None:
-                        break
-                    time.sleep(0.01)
-            except Exception:
-                # Non-fatal; proceed even if readiness check fails
-                pass
-
-            return {"cortical_id": target_id}
+            return {"cortical_id": cortical_id}
         except Exception as e:
             raise ValueError(f"Error adding cortical area: {str(e)}") from e
 
@@ -808,12 +665,16 @@ class CorticalAreaAPI:
             location = self.core_api_service.get_cortical_location_by_name(
                 request.cortical_name
             )
-            if not isinstance(location, dict) or not all(
-                k in location for k in ("x", "y", "z")
-            ):
-                raise ValueError("Location does not include x,y,z")
             return CorticalLocationResponse(
-                x=int(location["x"]), y=int(location["y"]), z=int(location["z"])
+                x=location.get(
+                    "x", self._get_structural_default("coordinate")
+                ),
+                y=location.get(
+                    "y", self._get_structural_default("coordinate")
+                ),
+                z=location.get(
+                    "z", self._get_structural_default("coordinate")
+                ),
             )
         except KeyError:
             raise ValueError(
@@ -858,148 +719,240 @@ class CorticalAreaAPI:
             if not cortical_ids:
                 return {}
 
-            # Build geometry data for each cortical area (strict, no fallbacks)
+            # Build geometry data for each cortical area
             geometry_data = {}
 
             for cortical_id in cortical_ids:
-                area_data = self.core_api_service.get_cortical_area(cortical_id)
-                if not isinstance(area_data, dict):
-                    raise ValueError(f"Cortical area '{cortical_id}' not found")
+                # Get individual cortical area data
+                area_data = self.core_api_service.get_cortical_area(
+                    cortical_id
+                )
 
-                parameters = area_data.get("parameters")
-                if not isinstance(parameters, dict):
-                    raise ValueError(f"Missing parameters for area '{cortical_id}'")
+                if not area_data:
+                    area_data = {
+                        "id": cortical_id,
+                        "name": cortical_id,
+                        "parameters": {},
+                        "coordinates": {},
+                        "dimensions": {},
+                        "type": "unknown",
+                    }
 
-                # Helpers
-                def _opt(keys, cast):
-                    for k in keys:
-                        if k in parameters:
-                            try:
-                                return cast(parameters[k])
-                            except Exception:
-                                return None
-                    return None
+                if area_data:
+                    # Extract the base data from the API response
+                    parameters = area_data.get("parameters", {})
+                    coordinates = area_data.get("coordinates", {})
+                    dimensions = area_data.get("dimensions", {})
 
-                coordinates = area_data.get("coordinates")
-                if isinstance(coordinates, tuple):
-                    coordinates = {"x": coordinates[0], "y": coordinates[1], "z": coordinates[2]}
-                if not (isinstance(coordinates, dict) and all(k in coordinates for k in ("x", "y", "z"))):
-                    raise ValueError(f"Missing coordinates for area '{cortical_id}'")
+                    # Handle case where dimensions is a tuple
+                    if isinstance(dimensions, tuple):
+                        dimensions = {
+                            "width": dimensions[0],
+                            "height": dimensions[1],
+                            "depth": dimensions[2],
+                        }
 
-                dimensions = area_data.get("dimensions")
-                if isinstance(dimensions, tuple):
-                    dimensions = {"width": dimensions[0], "height": dimensions[1], "depth": dimensions[2]}
-                if not (isinstance(dimensions, dict) and all(k in dimensions for k in ("width", "height", "depth"))):
-                    raise ValueError(f"Missing dimensions for area '{cortical_id}'")
+                    # Handle case where coordinates is a tuple
+                    if isinstance(coordinates, tuple):
+                        coordinates = {
+                            "x": coordinates[0],
+                            "y": coordinates[1],
+                            "z": coordinates[2],
+                        }
 
-                if "type" not in area_data:
-                    raise ValueError(f"Missing cortical_group (type) for area '{cortical_id}'")
-
-                # Optional neural values (no defaults added; include only if present)
-                pstcr = _opt(["pstcr", "postsynaptic_current"], float)
-                pstcrm = _opt(["pstcrm", "postsynaptic_current_max"], float)
-                fire_t = float(area_data["firing_threshold"]) if "firing_threshold" in area_data else _opt(["fire_t", "firing_threshold"], float)
-                ftincx = _opt(["ftincx", "firing_threshold_increment_x"], float)
-                ftincy = _opt(["ftincy", "firing_threshold_increment_y"], float)
-                ftincz = _opt(["ftincz", "firing_threshold_increment_z"], float)
-                fthlim = _opt(["fthlim", "firing_threshold_limit"], int)
-                refrac = int(area_data["refractory_period"]) if "refractory_period" in area_data else _opt(["refrac", "refractory_period"], int)
-                leak_c = float(area_data["leak_coefficient"]) if "leak_coefficient" in area_data else _opt(["leak_c", "leak_coefficient"], float)
-                leak_v = _opt(["leak_v", "leak_variability"], float)
-                c_fr_c = _opt(["c_fr_c", "consecutive_fire_cnt_max"], int)
-                snooze = _opt(["snooze", "snooze_length"], int)
-                de_gen = _opt(["de_gen", "degeneration"], int)
-                pspuni = _opt(["pspuni", "psp_uniform_distribution"], bool)
-                mp_acc = _opt(["mp_acc", "mp_charge_accumulation"], bool)
-                mp_psp = _opt(["mp_psp", "mp_driven_psp"], bool)
-                mem__t = _opt(["mem__t", "longterm_mem_threshold"], int)
-                mem_gr = _opt(["mem_gr", "lifespan_growth_rate"], float)
-                mem_ls = _opt(["mem_ls", "init_lifespan"], int)
-                temporal_depth = _opt(["temporal_depth"], int)
-                excite = float(area_data["neuron_excitability"]) if "neuron_excitability" in area_data else _opt(["excite", "neuron_excitability"], float)
-
-                # Base required geometry
-                g: Dict[str, Any] = {
-                    "cortical_id": area_data.get("id", cortical_id),
-                    "cortical_name": area_data.get("name", cortical_id),
-                    "cortical_group": area_data["type"],
-                    "coordinates_3d": [int(coordinates["x"]), int(coordinates["y"]), int(coordinates["z"])],
-                    "cortical_dimensions": [
-                        int(dimensions["width"]),
-                        int(dimensions["height"]),
-                        int(dimensions["depth"]),
-                    ],
-                }
-
-                # Optional structural
-                pri = parameters.get("parent_region_id", parameters.get("brain_region_id"))
-                if pri is not None:
-                    g["parent_region_id"] = pri
-                if "parent_region_title" in parameters:
-                    g["parent_region_title"] = parameters["parent_region_title"]
-                if parameters.get("subgroup") or parameters.get("sub_group_id"):
-                    g["cortical_sub_group"] = parameters.get("subgroup") or parameters.get("sub_group_id")
-                npv = _opt(["neurons_per_voxel", "per_voxel_neuron_cnt"], int)
-                if npv is not None:
-                    g["cortical_neuron_per_vox_count"] = npv
-                vis = parameters.get("gd_vis", parameters.get("visualization"))
-                if vis is not None:
-                    g["visualization"] = bool(vis)
-                synatt = parameters.get("synatt", parameters.get("synapse_attractivity"))
-                if synatt is not None:
-                    g["cortical_synaptic_attractivity"] = int(synatt)
-                if ("2dcorx" in parameters and "2dcory" in parameters):
-                    g["coordinates_2d"] = [int(parameters["2dcorx"]), int(parameters["2dcory"])]
-                if "mapping" in parameters:
-                    g["cortical_destinations"] = parameters["mapping"]
-
-                # Optional neural
-                if pstcr is not None:
-                    g["neuron_post_synaptic_potential"] = pstcr
-                if pstcrm is not None:
-                    g["neuron_post_synaptic_potential_max"] = pstcrm
-                if fire_t is not None:
-                    g["neuron_fire_threshold"] = fire_t
-                if ftincx is not None and ftincy is not None and ftincz is not None:
-                    g["neuron_fire_threshold_increment"] = [ftincx, ftincy, ftincz]
-                if fthlim is not None:
-                    g["neuron_firing_threshold_limit"] = fthlim
-                if refrac is not None:
-                    g["neuron_refractory_period"] = refrac
-                if leak_c is not None:
-                    g["neuron_leak_coefficient"] = leak_c
-                if leak_v is not None:
-                    g["neuron_leak_variability"] = leak_v
-                if c_fr_c is not None:
-                    g["neuron_consecutive_fire_count"] = c_fr_c
-                if snooze is not None:
-                    g["neuron_snooze_period"] = snooze
-                if de_gen is not None:
-                    g["neuron_degeneracy_coefficient"] = de_gen
-                if pspuni is not None:
-                    g["neuron_psp_uniform_distribution"] = pspuni
-                if mp_acc is not None:
-                    g["neuron_mp_charge_accumulation"] = mp_acc
-                if mp_psp is not None:
-                    g["neuron_mp_driven_psp"] = mp_psp
-                if mem__t is not None:
-                    g["neuron_longterm_mem_threshold"] = mem__t
-                if mem_gr is not None:
-                    g["neuron_lifespan_growth_rate"] = mem_gr
-                if mem_ls is not None:
-                    g["neuron_init_lifespan"] = mem_ls
-                if temporal_depth is not None:
-                    g["temporal_depth"] = temporal_depth
-                if excite is not None:
-                    g["neuron_excitability"] = excite
-                if "transforming" in parameters:
-                    g["transforming"] = bool(parameters.get("transforming"))
-                dcount = parameters.get("dev_count", parameters.get("per_voxel_neuron_cnt"))
-                if dcount is not None:
-                    g["dev_count"] = int(dcount)
-                g["cortical_dimensions_per_device"] = dimensions
-
-                geometry_data[cortical_id] = g
+                    #  Build complete cortical area data using template
+                    #  defaults for neural properties and structural defaults
+                    #  for spatial/organizational properties
+                    geometry_data[cortical_id] = {
+                        "cortical_id": area_data.get("id", cortical_id),
+                        "cortical_name": area_data.get("name", cortical_id),
+                        "parent_region_id": parameters.get(
+                            "parent_region_id",
+                            self._get_structural_default("parent_region_id"),
+                        ),
+                        "parent_region_title": parameters.get(
+                            "parent_region_title",
+                            self._get_structural_default(
+                                "parent_region_title"
+                            ),
+                        ),
+                        "cortical_group": area_data.get(
+                            "type",
+                            self._get_structural_default("cortical_group"),
+                        ),
+                        "cortical_sub_group": parameters.get(
+                            "subgroup",
+                            self._get_default_value("sub_group_id", ""),
+                        ),
+                        "cortical_neuron_per_vox_count": parameters.get(
+                            "neurons_per_voxel",
+                            self._get_default_value("per_voxel_neuron_cnt", 1),
+                        ),
+                        "visualization": parameters.get(
+                            "gd_vis",
+                            self._get_default_value("visualization", True),
+                        ),
+                        "cortical_synaptic_attractivity": parameters.get(
+                            "synatt",
+                            self._get_default_value(
+                                "synapse_attractivity", 100
+                            ),
+                        ),
+                        "coordinates_3d": [
+                            coordinates.get(
+                                "x", self._get_structural_default("coordinate")
+                            ),
+                            coordinates.get(
+                                "y", self._get_structural_default("coordinate")
+                            ),
+                            coordinates.get(
+                                "z", self._get_structural_default("coordinate")
+                            ),
+                        ],
+                        "coordinates_2d": [
+                            parameters.get(
+                                "2dcorx",
+                                self._get_structural_default("coordinate"),
+                            ),
+                            parameters.get(
+                                "2dcory",
+                                self._get_structural_default("coordinate"),
+                            ),
+                        ],
+                        "cortical_dimensions": [
+                            dimensions.get(
+                                "width",
+                                self._get_structural_default("dimension"),
+                            ),
+                            dimensions.get(
+                                "height",
+                                self._get_structural_default("dimension"),
+                            ),
+                            dimensions.get(
+                                "depth",
+                                self._get_structural_default("dimension"),
+                            ),
+                        ],
+                        "cortical_destinations": parameters.get(
+                            "mapping", self._get_structural_default("mapping")
+                        ),
+                        "neuron_post_synaptic_potential": parameters.get(
+                            "pstcr",
+                            self._get_default_value("postsynaptic_current", 1),
+                        ),
+                        "neuron_post_synaptic_potential_max": parameters.get(
+                            "pstcrm",
+                            self._get_default_value(
+                                "postsynaptic_current_max", 99999
+                            ),
+                        ),
+                        "neuron_fire_threshold": parameters.get(
+                            "fire_t",
+                            self._get_default_value("firing_threshold", 1),
+                        ),
+                        "neuron_fire_threshold_increment": [
+                            parameters.get(
+                                "ftincx",
+                                self._get_default_value(
+                                    "firing_threshold_increment_x", 0
+                                ),
+                            ),
+                            parameters.get(
+                                "ftincy",
+                                self._get_default_value(
+                                    "firing_threshold_increment_y", 0
+                                ),
+                            ),
+                            parameters.get(
+                                "ftincz",
+                                self._get_default_value(
+                                    "firing_threshold_increment_z", 0
+                                ),
+                            ),
+                        ],
+                        "neuron_firing_threshold_limit": parameters.get(
+                            "fthlim",
+                            self._get_default_value(
+                                "firing_threshold_limit", 0
+                            ),
+                        ),
+                        "neuron_refractory_period": parameters.get(
+                            "refrac",
+                            self._get_default_value("refractory_period", 0),
+                        ),
+                        "neuron_leak_coefficient": parameters.get(
+                            "leak_c",
+                            self._get_default_value("leak_coefficient", 0),
+                        ),
+                        "neuron_leak_variability": (
+                            parameters.get("leak_v")
+                            if parameters.get("leak_v") is not None
+                            else self._get_default_value("leak_variability", 0)
+                        ),
+                        "neuron_consecutive_fire_count": parameters.get(
+                            "c_fr_c",
+                            self._get_default_value(
+                                "consecutive_fire_cnt_max", 0
+                            ),
+                        ),
+                        "neuron_snooze_period": parameters.get(
+                            "snooze",
+                            self._get_default_value("snooze_length", 0),
+                        ),
+                        "neuron_degeneracy_coefficient": parameters.get(
+                            "de_gen",
+                            self._get_default_value("degeneration", 0),
+                        ),
+                        "neuron_psp_uniform_distribution": parameters.get(
+                            "pspuni",
+                            self._get_default_value(
+                                "psp_uniform_distribution", True
+                            ),
+                        ),
+                        "neuron_mp_charge_accumulation": parameters.get(
+                            "mp_acc",
+                            self._get_default_value(
+                                "mp_charge_accumulation", False
+                            ),
+                        ),
+                        "neuron_mp_driven_psp": parameters.get(
+                            "mp_psp",
+                            self._get_default_value("mp_driven_psp", False),
+                        ),
+                        "neuron_longterm_mem_threshold": parameters.get(
+                            "mem__t",
+                            self._get_default_value(
+                                "longterm_mem_threshold", 100
+                            ),
+                        ),
+                        "neuron_lifespan_growth_rate": parameters.get(
+                            "mem_gr",
+                            self._get_default_value("lifespan_growth_rate", 1),
+                        ),
+                        "neuron_init_lifespan": parameters.get(
+                            "mem_ls",
+                            self._get_default_value("init_lifespan", 9),
+                        ),
+                        "temporal_depth": parameters.get(
+                            "temporal_depth",
+                            self._get_default_value("temporal_depth", 1),
+                        ),
+                        "neuron_excitability": parameters.get(
+                            "excite",
+                            self._get_default_value(
+                                "neuron_excitability", 1.0
+                            ),
+                        ),
+                        "transforming": parameters.get(
+                            "transforming", False
+                        ),  # Runtime state flag - not from templates
+                        # Additional fields that might be needed by Godot
+                        "dev_count": parameters.get(
+                            "dev_count",
+                            self._get_default_value("per_voxel_neuron_cnt", 1),
+                        ),
+                        "cortical_dimensions_per_device": dimensions,
+                    }
 
             return geometry_data
         except Exception as e:

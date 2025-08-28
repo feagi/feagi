@@ -421,7 +421,12 @@ class DebugLoggingRequest(BaseModel):
     Keys mirror CLI debug flags.
     """
 
+    # Legacy aggregate API flag (enables all API subsystems when True)
     api: Optional[bool] = None
+    # New granular API flags
+    api_core: Optional[bool] = None
+    api_rest: Optional[bool] = None
+    api_zmq: Optional[bool] = None
     npu: Optional[bool] = None
     bdu: Optional[bool] = None
     zmq_inbound: Optional[bool] = None
@@ -435,7 +440,10 @@ class DebugLoggingRequest(BaseModel):
 class DebugLoggingResponse(BaseModel):
     """Response with current debug logging flags."""
 
-    api: bool
+    api: bool  # legacy aggregate
+    api_core: bool
+    api_rest: bool
+    api_zmq: bool
     npu: bool
     bdu: bool
     zmq_inbound: bool

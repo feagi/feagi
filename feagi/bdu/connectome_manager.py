@@ -1574,8 +1574,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Use the NPU-owned vectorized conversion
         if hasattr(self.neuron_array, "indices_to_neuron_ids"):
             neuron_ids_array = self.neuron_array.indices_to_neuron_ids(
-                valid_indices, filter_invalid=True
-            )
+            valid_indices, filter_invalid=True
+        )
         else:
             # Fallback to dict mapping without removing SoA dependency
             ids = []
@@ -2389,6 +2389,10 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"[MEMORY-REG] Initialized upstream mappings for {cortical_id}"
             )
 
+        # CRITICAL FIX: Scan existing cortical mappings for connections to this memory area
+        # This handles cases where regular cortical mappings target memory areas
+        self._scan_and_convert_memory_mappings(cortical_id)
+
         #  Update StateManager cache - but don't fail registration if
         #  StateManager fails
         state_manager_success = False
@@ -2523,26 +2527,48 @@ class ConnectomeManager(NeuronMappingProvider):
             source_cortical_id: Source cortical area
             target_cortical_id: Target cortical area (memory area)
         """
-        logger.info(
-            f"[MEMORY-MAPPING] Called add_memory_area_mapping({source_cortical_id} -> {target_cortical_id})"
-        )
-        logger.info(
-            f"[MEMORY-MAPPING] Current memory_areas set: {self.memory_areas}"
-        )
-        logger.info(
-            f"[MEMORY-MAPPING] Is {target_cortical_id} in memory_areas? {target_cortical_id in self.memory_areas}"
-        )
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] add_memory_area_mapping() called: {source_cortical_id} -> {target_cortical_id}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Current memory_areas set: {self.memory_areas}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Is {target_cortical_id} in memory_areas? {target_cortical_id in self.memory_areas}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Available cortical areas: {list(self.cortical_areas.keys())}"
+            )
+        else:
+            logger.info(
+                f"[MEMORY-MAPPING] Called add_memory_area_mapping({source_cortical_id} -> {target_cortical_id})"
+            )
 
         if target_cortical_id in self.memory_areas:
-            logger.info(
-                f"[MEMORY-MAPPING] Target {target_cortical_id} is a registered memory area, proceeding..."
-            )
+            if mem_debug:
+                logger.info(
+                    f"🔗 [MEMORY-DEBUG] Target {target_cortical_id} is a registered memory area, adding upstream mapping..."
+                )
             self.memory_area_upstream_mappings[target_cortical_id].add(
                 source_cortical_id
             )
-            logger.info(
-                f"[MEMORY-MAPPING] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
-            )
+            if mem_debug:
+                logger.info(
+                    f"🔗 [MEMORY-DEBUG] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
+                )
+            else:
+                logger.info(
+                    f"[MEMORY-MAPPING] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
+                )
 
             # Update StateManager cache
             try:
@@ -2717,6 +2743,104 @@ class ConnectomeManager(NeuronMappingProvider):
             memory_cortical_id, set()
         )
 
+    def _scan_and_convert_memory_mappings(self, memory_cortical_id: str) -> None:
+        """Scan existing cortical mappings and convert connections to memory area.
+        
+        This method finds all regular cortical mappings that target the given memory area
+        and converts them to memory area mappings. This handles cases where the genome
+        defines regular cortical connections to memory areas.
+        
+        Args:
+            memory_cortical_id: The memory area to scan for incoming connections
+        """
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Scanning cortical mappings for connections to memory area: {memory_cortical_id}")
+            
+        converted_count = 0
+        
+        # Scan all cortical areas for mappings that target this memory area
+        for source_area_id, area in self.cortical_areas.items():
+            if hasattr(area, 'properties') and 'mapping' in area.properties:
+                mapping = area.properties['mapping']
+                
+                if mem_debug:
+                    logger.info(f"🔍 [MEMORY-DEBUG] Checking area {source_area_id} mapping: {mapping}")
+                
+                # Handle different mapping formats
+                targets_to_check = []
+                
+                if isinstance(mapping, dict):
+                    # Complex mapping format: {dst_area: [connection_specs]}
+                    targets_to_check = list(mapping.keys())
+                elif isinstance(mapping, list):
+                    # Simple list format: [dst_area1, dst_area2, ...]
+                    targets_to_check = mapping
+                
+                if mem_debug:
+                    logger.info(f"🔍 [MEMORY-DEBUG] Targets to check for {source_area_id}: {targets_to_check}")
+                
+                # Check if this source area maps to our memory area
+                if memory_cortical_id in targets_to_check:
+                    if mem_debug:
+                        logger.info(f"🔍 [MEMORY-DEBUG] Found cortical mapping: {source_area_id} -> {memory_cortical_id}")
+                        
+                    # Add to memory area upstream mappings
+                    if memory_cortical_id not in self.memory_area_upstream_mappings:
+                        self.memory_area_upstream_mappings[memory_cortical_id] = set()
+                        
+                    if source_area_id not in self.memory_area_upstream_mappings[memory_cortical_id]:
+                        self.memory_area_upstream_mappings[memory_cortical_id].add(source_area_id)
+                        converted_count += 1
+                        
+                        if mem_debug:
+                            logger.info(f"🔗 [MEMORY-DEBUG] Converted cortical mapping to memory mapping: {source_area_id} -> {memory_cortical_id}")
+                        else:
+                            logger.info(f"[MEMORY-MAPPING] Converted cortical mapping to memory mapping: {source_area_id} -> {memory_cortical_id}")
+                            
+        if converted_count > 0:
+            if mem_debug:
+                logger.info(f"🔗 [MEMORY-DEBUG] Converted {converted_count} cortical mappings to memory mappings for {memory_cortical_id}")
+                logger.info(f"🔗 [MEMORY-DEBUG] Final upstream mappings: {dict(self.memory_area_upstream_mappings)}")
+            else:
+                logger.info(f"[MEMORY-MAPPING] Converted {converted_count} cortical mappings to memory mappings for {memory_cortical_id}")
+        elif mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] No cortical mappings found targeting memory area {memory_cortical_id}")
+
+    def rescan_all_memory_mappings(self) -> None:
+        """Rescan all memory areas for cortical mappings.
+        
+        This method should be called after genome loading is complete to ensure
+        all cortical mappings to memory areas are properly converted.
+        """
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Rescanning all memory areas for cortical mappings...")
+            logger.info(f"🔍 [MEMORY-DEBUG] Memory areas to rescan: {list(self.memory_areas)}")
+            
+        total_converted = 0
+        for memory_area_id in self.memory_areas:
+            if mem_debug:
+                logger.info(f"🔍 [MEMORY-DEBUG] Rescanning memory area: {memory_area_id}")
+            self._scan_and_convert_memory_mappings(memory_area_id)
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Rescan complete. Final upstream mappings: {dict(self.memory_area_upstream_mappings)}")
+
     def get_all_cortical_ids(self) -> List[str]:
         """Get all cortical area IDs (6-character strings).
 
@@ -2854,58 +2978,59 @@ class ConnectomeManager(NeuronMappingProvider):
                 # Treat placeholder strings (e.g., 'x','y','z') as absent without error logs
                 coordinates = []
                 for i, x in enumerate(area.position):
-                    # Strict: reject invalid coordinates, do not coerce
-                    if isinstance(x, (int, float)):
-                        coordinates.append(int(x))
-                        continue
-                    value_str = str(x).strip().lower()
-                    if value_str in ("x", "y", "z", "", "none"):
-                        raise ValueError(
-                            f"Invalid coordinate value at index {i} for area {cortical_id}: '{x}'"
-                        )
                     try:
-                        coordinates.append(int(float(value_str)))
-                    except Exception as conv_err:
-                        raise ValueError(
-                            f"Invalid coordinate value at index {i} for area {cortical_id}: '{x}' ({conv_err})"
-                        )
+                        if isinstance(x, (int, float)):
+                            coordinates.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in ("x", "y", "z", "", "none"):
+                            coordinates.append(0)
+                        else:
+                            coordinates.append(int(float(value_str)))
+                    except Exception:
+                        # Downgrade noisy logs; placeholders are common from clients
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] position[{i}]='{x}' for area {cortical_id} -> 0"
+                                )
+                        except Exception:
+                            pass
+                        coordinates.append(0)
 
                 dimensions = []
                 for i, x in enumerate(area.dimensions):
-                    # Strict: reject invalid dimensions, do not coerce
-                    if isinstance(x, (int, float)):
-                        xi = int(x)
-                        if xi <= 0:
-                            raise ValueError(
-                                f"Invalid non-positive dimension at index {i} for area {cortical_id}: {xi}"
-                            )
-                        dimensions.append(xi)
-                        continue
-                    value_str = str(x).strip().lower()
-                    if value_str in (
-                        "w",
-                        "h",
-                        "d",
-                        "width",
-                        "height",
-                        "depth",
-                        "",
-                        "none",
-                    ):
-                        raise ValueError(
-                            f"Invalid dimension placeholder at index {i} for area {cortical_id}: '{x}'"
-                        )
                     try:
-                        xi = int(float(value_str))
-                        if xi <= 0:
-                            raise ValueError(
-                                f"Invalid non-positive dimension at index {i} for area {cortical_id}: {xi}"
-                            )
-                        dimensions.append(xi)
-                    except Exception as conv_err:
-                        raise ValueError(
-                            f"Invalid dimension value at index {i} for area {cortical_id}: '{x}' ({conv_err})"
-                        )
+                        if isinstance(x, (int, float)):
+                            dimensions.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in (
+                            "w",
+                            "h",
+                            "d",
+                            "width",
+                            "height",
+                            "depth",
+                            "",
+                            "none",
+                        ):
+                            dimensions.append(1)
+                        else:
+                            dimensions.append(int(float(value_str)))
+                    except Exception:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] dimensions[{i}]='{x}' for area {cortical_id} -> 1"
+                                )
+                        except Exception:
+                            pass
+                        dimensions.append(1)
 
                 # Safe neuron count (handle None from NPU variant)
                 _neuron_ids_for_count = self.get_neurons_by_area(cortical_id)
@@ -3085,59 +3210,15 @@ class ConnectomeManager(NeuronMappingProvider):
                         int(neuron_array.refractory_periods[idx])
                     )
 
+            # If no neurons found, return zeros
             # Report neuron_excitability from area properties
-            area_props_ex = (
-                area.properties.get("neuron_excitability", 1.0)
-                if hasattr(area, "properties") and area.properties
-                else 1.0
-            )
+            area_props_ex = area.properties.get("neuron_excitability", 1.0) if hasattr(area, "properties") and area.properties else 1.0
 
-            # Calculate averages of neuron properties (guard against empty samples)
-            if threshold_values:
-                avg_threshold = sum(threshold_values) / len(threshold_values)
-            else:
-                # Use configured property if present, else 0.0
-                if hasattr(area, "properties") and area.properties:
-                    avg_threshold = float(
-                        area.properties.get(
-                            "firing_threshold",
-                            area.properties.get("fire_t", 0.0),
-                        )
-                    )
-                else:
-                    avg_threshold = 0.0
-
-            if decay_rate_values:
-                avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
-            else:
-                # If leak_coefficient configured, convert to decay_rate; else assume 1.0 (no leak)
-                if hasattr(area, "properties") and area.properties:
-                    leak_c = area.properties.get(
-                        "leak_coefficient", area.properties.get("leak_c")
-                    )
-                    if leak_c is not None:
-                        try:
-                            avg_decay_rate = 1.0 - (float(leak_c) / 100.0)
-                        except Exception:
-                            avg_decay_rate = 1.0
-                    else:
-                        avg_decay_rate = 1.0
-                else:
-                    avg_decay_rate = 1.0
-
-            if refractory_values:
-                avg_refractory = sum(refractory_values) / len(refractory_values)
-            else:
-                if hasattr(area, "properties") and area.properties:
-                    avg_refractory = float(
-                        area.properties.get(
-                            "refractory_period", area.properties.get("refrac", 0)
-                        )
-                    )
-                else:
-                    avg_refractory = 0.0
-
+            # Calculate averages of neuron properties
             avg_excitability = float(area_props_ex)
+            avg_threshold = sum(threshold_values) / len(threshold_values)
+            avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
+            avg_refractory = sum(refractory_values) / len(refractory_values)
 
             #  Convert decay_rate back to leak_coefficient (reverse the
             #  calculation)
@@ -5296,9 +5377,9 @@ class ConnectomeManager(NeuronMappingProvider):
                     else:
                         # NumPy arrays use fill() method
                         neuron_array.valid_mask.fill(False)
-                        neuron_array.neuron_count = 0
+                    neuron_array.neuron_count = 0
                 else:
-                    # NumPy arrays use fill() method on local neuron_array if present
+                    # NumPy arrays use fill() method
                     if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "valid_mask"):
                         self.neuron_array.valid_mask.fill(False)
                         self.neuron_array.neuron_count = 0
@@ -5607,26 +5688,6 @@ class ConnectomeManager(NeuronMappingProvider):
             status="[OK]",
         )
 
-        # STEP 4.1: RESET BRAIN STATS IN STATE MANAGER (DETERMINISTIC ZERO)
-        try:
-            if hasattr(self, "state_manager") and self.state_manager:
-                zero_stats = {
-                    "neuron_count": 0,
-                    "synapse_count": 0,
-                    "cortical_area_count": 0,
-                    "memory_neuron_count": 0,
-                    "non_memory_neuron_count": 0,
-                }
-                result = self.state_manager.set_brain_stats(zero_stats)
-                if getattr(result, "is_err", False):
-                    logger.warning("Failed to reset brain stats to zero during genome preparation")
-
-                clr_result = self.state_manager.set_cortical_list([])
-                if getattr(clr_result, "is_err", False):
-                    logger.warning("Failed to clear cortical list during genome preparation")
-        except Exception as e:
-            logger.warning(f"Error resetting brain stats during genome preparation: {e}")
-
         # STEP 5: ENSURE BRAIN REGIONS STRUCTURE EXISTS
         logger.info("Step 5: Ensuring brain regions structure exists")
         self._ensure_brain_regions_structure(genome_data)
@@ -5757,7 +5818,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 result = self.neuron_array.indices_to_neuron_ids(
                     np.asarray(indices), filter_invalid=True
                 )
-            return result.astype(np.int64)
+                return result.astype(np.int64)
             # Fallback to dict mapping without touching BDU arrays
             mapped = []
             for idx in list(np.asarray(indices)):

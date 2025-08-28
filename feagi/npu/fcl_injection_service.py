@@ -672,7 +672,7 @@ class FCLInjectionService:
             candidates_added = self._inject_batch(batch, current_timestep)
             total_injected += candidates_added
             if candidates_added > 0:
-                logger.info(
+                logger.debug(
                     f"Successfully added {candidates_added} candidates to FCL from {batch.cortical_id}"
                 )
 
@@ -683,7 +683,7 @@ class FCLInjectionService:
         self.total_neurons_injected += total_injected
 
         if total_injected > 0:
-            logger.info(
+            logger.debug(
                 f"FCL INJECTION: Added {total_injected} candidates to FCL in {timing.value} phase ({self.last_injection_duration:.4f}s)"
             )
         else:
@@ -982,7 +982,7 @@ class FCLInjectionService:
                 logger.debug(
                     f"FCL EXTERNAL INJECTION: Added {total_injected} candidates from {source} across {len(activations)} areas"
                 )
-                logger.info(
+                logger.debug(
                     f"✅ FIXED: Set membrane potentials above threshold for external neurons from {source}"
                 )
             else:
