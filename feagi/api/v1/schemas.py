@@ -79,6 +79,8 @@ class HealthCheckResponse(BaseModel):
     genome_timestamp: Optional[int] = None
     # Simulation timing
     simulation_timestep: Optional[float] = None  # Time between neural bursts in seconds
+    # Memory area statistics (per-cortical-area breakdown)
+    memory_area_stats: Optional[Dict[str, Dict[str, Any]]] = None  # Per-area memory neuron stats
 
 
 class ConfigurationResponse(BaseModel):

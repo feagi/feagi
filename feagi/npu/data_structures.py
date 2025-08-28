@@ -797,6 +797,26 @@ class MemoryNeuronArray:
             return 0
         
         return len(valid_indices)
+
+    def _update_state_manager_memory_count(self, cortical_area_id: str, delta: int, operation: str) -> None:
+        """Update StateManager memory area statistics.
+        
+        Args:
+            cortical_area_id: Memory cortical area ID
+            delta: Change in neuron count (+1 for creation, -1 for deletion)
+            operation: Type of operation ("create", "delete")
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            if state_manager:
+                result = state_manager.update_memory_area_neuron_count(
+                    cortical_area_id, delta, operation
+                )
+                if not result.is_ok():
+                    logger.warning(f"Failed to update StateManager memory count for {cortical_area_id}: {result}")
+        except Exception as e:
+            logger.warning(f"Error updating StateManager memory count: {e}")
     
     def get_property(self, neuron_id: int, property_name: str) -> Optional[Union[float, int]]:
         """Get a memory neuron property value."""
@@ -874,6 +894,12 @@ class MemoryNeuronArray:
         # Memory neurons start above threshold to fire immediately when created
         self.membrane_potentials[idx] = 1.5  # Above default threshold of 1.0
         self.thresholds[idx] = 1.0  # Standard firing threshold
+        
+        # Update StateManager memory area statistics
+        self._update_state_manager_memory_count(cortical_area_id, delta=1, operation="create")
+
+        # Update count and return index
+        self.count += 1
         self.leak_coefficients[idx] = 0.1  # Standard leak rate
         self.excitabilities[idx] = 1.0  # Standard excitability
 
@@ -950,6 +976,11 @@ class MemoryNeuronArray:
                 self.valid_mask[idx] = False
                 died.append(idx)
                 self.deleted_indices.append(idx)
+                
+                # Update StateManager memory area statistics for deletion
+                cortical_area_id = str(self.cortical_area_id[idx])
+                self._update_state_manager_memory_count(cortical_area_id, delta=-1, operation="delete")
+                
         return died
 
     def check_longterm_conversion(self, longterm_threshold: int) -> List[int]:

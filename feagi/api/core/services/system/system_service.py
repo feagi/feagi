@@ -158,6 +158,15 @@ class SystemService(BaseService):
                     health["memory_neuron_count"] = neuron_counts["memory"]
                     health["regular_neuron_count"] = neuron_counts["regular"]
 
+                    # Add per-cortical-area memory neuron statistics
+                    try:
+                        memory_area_stats = self.state_manager.get_memory_area_stats()
+                        health["memory_area_stats"] = memory_area_stats
+                        self.logger.debug(f"Added memory_area_stats to health: {len(memory_area_stats)} areas")
+                    except Exception as e:
+                        self.logger.warning(f"Could not get memory area stats: {e}")
+                        health["memory_area_stats"] = {}
+
                     health["synapse_count"] = (
                         self._connectome_manager.get_synapse_count()
                     )

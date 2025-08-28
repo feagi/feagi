@@ -384,6 +384,11 @@ class FeagiStateManager:
             self.genome_validity: Dict[str, Any] = {"status": "unknown"}
         if not hasattr(self, "connected_agents"):
             self.connected_agents: Dict[str, Any] = {}
+        if not hasattr(self, "memory_area_stats"):
+            # Per-cortical-area memory neuron statistics
+            # Key: 6-letter memory cortical_id (e.g., "MVPmem")
+            # Value: Dict with neuron_count and other stats
+            self.memory_area_stats: Dict[str, Dict[str, Any]] = {}
         if not hasattr(self, "changes_saved_externally"):
             self.changes_saved_externally: bool = False
         if not hasattr(self, "exit_condition"):
@@ -771,6 +776,116 @@ class FeagiStateManager:
             "non_memory_neuron_count", stats.get("neuron_count", 0)
         )
         return stats
+
+    def update_memory_area_neuron_count(self, cortical_id: str, delta: int, operation: str = "update") -> Result[None]:
+        """Update memory neuron count for a specific cortical area.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID (e.g., "MVPmem")
+            delta: Change in neuron count (+1 for creation, -1 for deletion)
+            operation: Type of operation ("create", "delete", "update")
+            
+        Returns:
+            Result indicating success or failure
+        """
+        if not isinstance(cortical_id, str) or len(cortical_id) != 6:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            # Initialize area stats if not exists
+            if cortical_id not in self.memory_area_stats:
+                self.memory_area_stats[cortical_id] = {
+                    "neuron_count": 0,
+                    "created_total": 0,
+                    "deleted_total": 0,
+                    "last_updated": int(time.time() * 1000)  # timestamp in ms
+                }
+            
+            area_stats = self.memory_area_stats[cortical_id]
+            
+            # Update neuron count
+            old_count = area_stats["neuron_count"]
+            new_count = max(0, old_count + delta)  # Prevent negative counts
+            area_stats["neuron_count"] = new_count
+            
+            # Track operation totals
+            if operation == "create" and delta > 0:
+                area_stats["created_total"] += delta
+            elif operation == "delete" and delta < 0:
+                area_stats["deleted_total"] += abs(delta)
+            
+            # Update timestamp
+            area_stats["last_updated"] = int(time.time() * 1000)
+            
+            # Log the change for debugging
+            logger.debug(
+                f"Memory area {cortical_id}: {operation} {delta:+d} neurons, "
+                f"count: {old_count} → {new_count}"
+            )
+            
+            return Result.ok(None)
+
+    def get_memory_area_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get all memory area statistics.
+        
+        Returns:
+            Dictionary mapping cortical_id to area stats
+        """
+        with self._instance_lock:
+            return dict(self.memory_area_stats)  # Return a copy
+
+    def get_memory_area_neuron_count(self, cortical_id: str) -> int:
+        """Get neuron count for a specific memory area.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Current neuron count for the area (0 if area not found)
+        """
+        with self._instance_lock:
+            area_stats = self.memory_area_stats.get(cortical_id, {})
+            return area_stats.get("neuron_count", 0)
+
+    def register_memory_area_for_stats(self, cortical_id: str) -> Result[None]:
+        """Register a new memory cortical area for per-area statistics tracking.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Result indicating success or failure
+        """
+        if not isinstance(cortical_id, str) or len(cortical_id) != 6:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            if cortical_id not in self.memory_area_stats:
+                self.memory_area_stats[cortical_id] = {
+                    "neuron_count": 0,
+                    "created_total": 0,
+                    "deleted_total": 0,
+                    "last_updated": int(time.time() * 1000)
+                }
+                logger.info(f"Registered memory area {cortical_id} for tracking")
+            
+            return Result.ok(None)
+
+    def unregister_memory_area_for_stats(self, cortical_id: str) -> Result[None]:
+        """Unregister a memory cortical area from per-area statistics tracking.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Result indicating success or failure
+        """
+        with self._instance_lock:
+            if cortical_id in self.memory_area_stats:
+                del self.memory_area_stats[cortical_id]
+                logger.info(f"Unregistered memory area {cortical_id} from tracking")
+            
+            return Result.ok(None)
 
     def set_brain_stats(self, stats: Dict[str, Any]) -> Result[None]:
         """Set brain statistics."""

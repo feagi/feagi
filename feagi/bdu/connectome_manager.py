@@ -1529,12 +1529,13 @@ class ConnectomeManager(NeuronMappingProvider):
         - Fully vectorized NumPy operations (GPU/SIMD friendly)
         - O(1) lookup using pre-built index-to-ID lookup array
         - No Python loops or dictionary iterations
+        - MEMORY AREA SUPPORT: Also checks MemoryNeuronArray for memory areas
 
         Args:
             cortical_id: ID of the cortical area
 
         Returns:
-            List of neuron IDs in the area
+            List of neuron IDs in the area (regular + memory neurons)
 
         Raises:
             KeyError: If the cortical_id doesn't exist
@@ -1547,7 +1548,15 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             return []
 
-        # VECTORIZED: Use SoA arrays for GPU/SIMD-optimized query
+        # MEMORY AREA SUPPORT: Check if this is a memory area
+        is_memory_area = self.is_memory_area(cortical_id)
+        
+        if is_memory_area:
+            # For memory areas, get memory neurons from MemoryNeuronArray
+            memory_neurons = self._get_memory_neurons_by_cortical_area(cortical_id, cortical_idx)
+            return memory_neurons
+        
+        # REGULAR AREAS: Use SoA arrays for GPU/SIMD-optimized query
         # Only search in the valid range up to next_index
         valid_range = min(
             self.neuron_array.next_index, len(self.neuron_array.cortical_idxs)
@@ -2405,9 +2414,7 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.info(
                 f"[MEMORY-REG] Calling state_manager.register_memory_area({cortical_id}, {temporal_depth})"
             )
-            result = state_manager.register_memory_area(
-                cortical_id, temporal_depth
-            )
+            result = state_manager.register_memory_area_for_stats(cortical_id)
             logger.info(
                 f"[MEMORY-REG] StateManager call returned: {type(result)}"
             )
@@ -2734,6 +2741,34 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_memory_areas(self) -> List[str]:
         """Get list of all memory area IDs."""
         return list(self.memory_areas)
+    
+    def _get_memory_neurons_by_cortical_area(self, cortical_id: str, cortical_idx: int) -> List[int]:
+        """Get memory neurons for a specific memory cortical area.
+        
+        Args:
+            cortical_id: Memory cortical area ID
+            cortical_idx: Fast integer index for the cortical area
+            
+        Returns:
+            List of memory neuron IDs in the area
+        """
+        if not hasattr(self, 'memory_neuron_array') or self.memory_neuron_array is None:
+            return []
+            
+        memory_neurons = []
+        
+        # Search through active memory neurons
+        for idx in range(self.memory_neuron_array.count):
+            if (self.memory_neuron_array.valid_mask[idx] and 
+                self.memory_neuron_array.is_active[idx] and
+                self.memory_neuron_array.cortical_idxs[idx] == cortical_idx):
+                
+                # Get neuron ID from index mapping
+                neuron_id = self.memory_neuron_array.index_to_neuron_id.get(idx)
+                if neuron_id is not None:
+                    memory_neurons.append(neuron_id)
+        
+        return memory_neurons
 
     def get_upstream_areas_for_memory(
         self, memory_cortical_id: str
@@ -6963,11 +6998,13 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_neurons_by_area(self, cortical_id: str) -> Optional[List[int]]:
         """Get all neuron IDs in a cortical area by cortical_id.
         
+        MEMORY AREA SUPPORT: Now checks both regular and memory neurons.
+        
         Args:
-            cortical_id: String identifier (e.g., "_power")
+            cortical_id: String identifier (e.g., "_power", "MVPmem")
             
         Returns:
-            List of neuron IDs in the area, or None if area not found
+            List of neuron IDs in the area (regular + memory neurons), or None if area not found
         """
         if not self._npu_interface:
             return None
@@ -6976,6 +7013,15 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             return None
 
+        # MEMORY AREA SUPPORT: Check if this is a memory area
+        is_memory_area = self.is_memory_area(cortical_id)
+        
+        if is_memory_area:
+            # For memory areas, get memory neurons from MemoryNeuronArray
+            memory_neurons = self._get_memory_neurons_by_cortical_area(cortical_id, cortical_idx)
+            return memory_neurons if memory_neurons else []
+        
+        # Regular areas: delegate to NPU interface
         return self._npu_interface.get_neurons_by_area(cortical_idx)
 
     def debug_cortical_areas(self) -> Dict[str, Any]:
