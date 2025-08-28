@@ -214,7 +214,7 @@ class FeagiClient:
         """Connect to FEAGI with proper registration."""
         try:
             # Step 1: Connect all clients
-            if not self.command_client.connect():
+            if not await self.command_client.connect():
                 logger.error("Failed to connect to FEAGI command stream")
                 return False
                 
@@ -225,7 +225,7 @@ class FeagiClient:
             # Step 2: Register agent if not already registered
             if not self.registered:
                 try:
-                    success = await self.rest_client.register_agent()
+                    success = await self.rest_client.register_agent(self.agent_id, self.agent_type)
                     if success:
                         self.registered = True
                         logger.info("✅ Agent registered successfully")
