@@ -72,6 +72,9 @@ class UpdateRegionProperties(BaseModel):
     coordinate_2d: Optional[List[int]] = None
     coordinate_3d: Optional[List[int]] = None
 
+    class Config:
+        extra = "forbid"  # Reject unknown fields (e.g., coordinates_3d)
+
 
 class RegionIdRequest(BaseModel):
     """Request model for operations requiring region ID."""
@@ -209,15 +212,22 @@ class RegionAPI:
             region_id = region_data.region_id
             region_name = region_dict.get("region_title")
             coordinates = None
-            if "coordinate_3d" in region_dict:
-                c3d = region_dict["coordinate_3d"]
-                coordinates = {"x": c3d[0], "y": c3d[1], "z": c3d[2]}
+            # Strict coordinates (no legacy aliases): only coordinate_3d accepted
+            if region_data.coordinate_3d is not None:
+                c3d = region_data.coordinate_3d
+                coordinates = {"x": int(c3d[0]), "y": int(c3d[1]), "z": int(c3d[2])}
+
+            # Optional 2D coordinate update passed through parameters (strict key)
+            parameters = None
+            if region_data.coordinate_2d is not None:
+                parameters = {"coordinates_2d": [int(region_data.coordinate_2d[0]), int(region_data.coordinate_2d[1])]}            
 
             # Call correct service method
             success = self.core_api_service.update_brain_region(
                 region_id=region_id,
                 region_name=region_name,
                 coordinates=coordinates,
+                parameters=parameters,
             )
             if not success:
                 raise ValueError("Failed to update brain region properties")

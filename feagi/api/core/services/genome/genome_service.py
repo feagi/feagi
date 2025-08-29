@@ -3753,18 +3753,35 @@ class GenomeService(BaseService):
                                 a for a in existing_region["outputs"] if a not in areas_set
                             ]
                 
+                # Strict coordinates required for region creation
+                if coordinates is None:
+                    raise ValueError("coordinates are required for brain region creation")
+                for key in ("x", "y", "z"):
+                    if key not in coordinates:
+                        raise ValueError("coordinates must include x, y, z")
+
                 # Create new brain region definition
                 new_region = {
                     "region_id": region_id,
                     "region_name": region_name,
                     "parent_region_id": parent_region_id,
-                    "coordinates": coordinates or {"x": 0, "y": 0, "z": 0},
+                    "coordinates": {"x": int(coordinates["x"]), "y": int(coordinates["y"]), "z": int(coordinates["z"])},
+                    # Normalized coordinates for readers expecting list format
+                    "coordinate_3d": [
+                        int(coordinates["x"]),
+                        int(coordinates["y"]),
+                        int(coordinates["z"]),
+                    ],
                     "dimensions": dimensions
                     or {"width": 1, "height": 1, "depth": 1},
                     "parameters": clean_parameters,
                     "child_regions": regions,
                     "cortical_areas": areas,
                 }
+
+                # If 2D coordinates provided via parameters, mirror on top-level for readers
+                if parameters and isinstance(parameters.get("coordinates_2d"), list):
+                    new_region["coordinate_2d"] = parameters["coordinates_2d"]
 
                 # Add to genome structure
                 current_genome["brain_regions"][region_id] = new_region
@@ -3909,11 +3926,27 @@ class GenomeService(BaseService):
                 if region_name is not None:
                     region_def["region_name"] = region_name
                 if coordinates is not None:
-                    region_def["coordinates"] = coordinates
+                    # Strict update; validate keys
+                    for key in ("x", "y", "z"):
+                        if key not in coordinates:
+                            raise ValueError("coordinates must include x, y, z")
+                    region_def["coordinates"] = {
+                        "x": int(coordinates["x"]),
+                        "y": int(coordinates["y"]),
+                        "z": int(coordinates["z"]),
+                    }
+                    region_def["coordinate_3d"] = [
+                        int(coordinates["x"]),
+                        int(coordinates["y"]),
+                        int(coordinates["z"]),
+                    ]
                 if dimensions is not None:
                     region_def["dimensions"] = dimensions
                 if parameters is not None:
                     region_def["parameters"].update(parameters)
+                    # Mirror normalized 2D coordinates to top-level for readers
+                    if isinstance(parameters.get("coordinates_2d"), list):
+                        region_def["coordinate_2d"] = parameters["coordinates_2d"]
 
                 # Handle parent region change
                 if (
@@ -3954,19 +3987,26 @@ class GenomeService(BaseService):
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
+                # Ensure StateManager sees the updated genome (single source of truth)
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
+                # Lightweight refresh: DO NOT rebuild neurons when updating region metadata
+                success = True
+                try:
+                    # Reload hierarchy to reflect updated region metadata
+                    if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+                        self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
 
-                # Apply the brain region update
-                success = embryogenesis.develop_brain_from_genome_data(
-                    current_genome
-                )
+                    # Sync cached brain_regions structure
+                    if hasattr(self._connectome_manager, "brain_regions") and "brain_regions" in current_genome:
+                        self._connectome_manager.brain_regions.update(current_genome["brain_regions"])
+
+                    # Run mapping validation only (no neurogenesis)
+                    if hasattr(self._connectome_manager, "_trigger_brain_region_validation"):
+                        self._connectome_manager._trigger_brain_region_validation()
+                except Exception as _e:
+                    self.logger.warning(f"Region update sync encountered a non-fatal error: {_e}")
 
                 if success and transaction:
                     transaction.commit()
