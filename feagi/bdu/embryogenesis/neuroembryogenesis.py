@@ -1841,24 +1841,29 @@ class NeuroEmbryogenesis:
         is_ancestor = self._is_region_ancestor(source_region_id, target_region_id, brain_regions)
         logger.debug(f"🧠 [BRAIN REGIONS] Is {source_region_id} ancestor of {target_region_id}? {is_ancestor}")
         
-        if not is_ancestor:
-            # Designate source area as output in its region
+        if is_ancestor:
+            # Outside → inside (source region is ancestor of target): input only on target
+            target_region = brain_regions[target_region_id]
+            if "inputs" not in target_region:
+                target_region["inputs"] = []
+            if target_area not in target_region["inputs"]:
+                target_region["inputs"].append(target_area)
+                logger.info(f"🧠 [BRAIN REGIONS] Cross-region rule: {target_area} → INPUT in {target_region_id} (ancestor → descendant)")
+        else:
+            # Different branches or child → parent: designate both
             source_region = brain_regions[source_region_id]
             if "outputs" not in source_region:
                 source_region["outputs"] = []
             if source_area not in source_region["outputs"]:
                 source_region["outputs"].append(source_area)
                 logger.info(f"🧠 [BRAIN REGIONS] Cross-region rule: {source_area} → OUTPUT in {source_region_id}")
-                
-            # Designate target area as input in its region  
+            
             target_region = brain_regions[target_region_id]
             if "inputs" not in target_region:
                 target_region["inputs"] = []
             if target_area not in target_region["inputs"]:
                 target_region["inputs"].append(target_area)
                 logger.info(f"🧠 [BRAIN REGIONS] Cross-region rule: {target_area} → INPUT in {target_region_id}")
-        else:
-            logger.debug(f"🧠 [BRAIN REGIONS] No I/O designation: {source_region_id} is ancestor of {target_region_id}")
 
     def _is_region_ancestor(self, ancestor_id: str, descendant_id: str, brain_regions: Dict[str, Any]) -> bool:
         """Check if one region is an ancestor of another in the hierarchy."""
@@ -2114,6 +2119,7 @@ class NeuroEmbryogenesis:
 
             # Process each source area mapping with vectorized operations
             total_synapses_created = 0
+            memory_mappings_processed = 0
 
             for src_area_id, target_mappings in mapping.items():
                 if not isinstance(target_mappings, dict):
@@ -2184,12 +2190,25 @@ class NeuroEmbryogenesis:
                 src_area.properties["mapping"] = api_mapping
                 
                 # Trigger automatic I/O designation for each target area
-                for dst_area_id in api_mapping.keys():
-                    try:
-                        self.connectome_manager.on_cortical_mapping_created(src_area_id, dst_area_id)
-                        logger.debug(f"🧠 [MAPPING-DEBUG] Processed I/O designation for {src_area_id} -> {dst_area_id}")
-                    except Exception as e:
-                        logger.warning(f"🧠 [MAPPING-DEBUG] Failed I/O designation for {src_area_id} -> {dst_area_id}: {e}")
+                # Only when crossing region boundaries
+                try:
+                    if hasattr(self.connectome_manager, 'brain_region_hierarchy'):
+                        source_region = self.connectome_manager.brain_region_hierarchy.get_region_for_area(src_area_id)
+                        for dst_area_id in api_mapping.keys():
+                            target_region = self.connectome_manager.brain_region_hierarchy.get_region_for_area(dst_area_id)
+                            # Update only if regions differ
+                            if source_region and target_region and source_region != target_region:
+                                try:
+                                    self.connectome_manager.on_cortical_mapping_created(src_area_id, dst_area_id)
+                                    logger.debug(
+                                        f"🧠 [MAPPING-DEBUG] Cross-region I/O designation {src_area_id}({source_region}) -> {dst_area_id}({target_region})"
+                                    )
+                                except Exception as e:
+                                    logger.warning(
+                                        f"🧠 [MAPPING-DEBUG] Failed cross-region I/O designation for {src_area_id} -> {dst_area_id}: {e}"
+                                    )
+                except Exception as e:
+                    logger.warning(f"🧠 [MAPPING-DEBUG] Skipped automatic I/O designation: {e}")
                 
                 # Update StateManager cortical areas cache
                 try:
@@ -2215,7 +2234,6 @@ class NeuroEmbryogenesis:
                 )
 
                 # Process mappings to target areas
-                memory_mappings_processed = 0
                 for dst_area_id, connection_data in target_mappings.items():
                     try:
                         logger.info(

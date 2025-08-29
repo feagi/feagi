@@ -96,8 +96,10 @@ class BrainRegionHierarchy:
             node = BrainRegionNode(
                 region_id=region_id,
                 parent_id=region_data.get("parent_region_id"),
-                children_ids=region_data.get("child_regions", []).copy(),
-                cortical_areas=region_data.get("cortical_areas", []).copy(),
+                # Accept both legacy 'regions' and modern 'child_regions'
+                children_ids=region_data.get("child_regions", region_data.get("regions", [])).copy(),
+                # Accept both legacy 'areas' and modern 'cortical_areas'
+                cortical_areas=region_data.get("cortical_areas", region_data.get("areas", [])).copy(),
                 inputs=region_data.get("inputs", []).copy(),
                 outputs=region_data.get("outputs", []).copy(),
                 depth=0  # Will be calculated in second pass
@@ -232,12 +234,14 @@ class BrainRegionHierarchy:
         return False
     
     def should_designate_io(self, source_area_id: str, target_area_id: str) -> Tuple[bool, bool]:
-        """Determine if areas should be designated as I/O based on mapping rule.
+        """Determine if areas should be designated as I/O for a new mapping.
         
-        Rule: When connecting area A to area B:
-        - If the brain region which area A belongs to is not in the ancestry tree 
-          of area B, then area A will be designated as an output area for area A's 
-          region and area B will be designated as an input area for area B's region.
+        Updated rule for clarity and symmetry across region boundaries:
+        - If both areas are in the same region: no designation (False, False)
+        - If source region is an ancestor of target region (outside → inside):
+          designate INPUT on the target only (False, True)
+        - Otherwise (different branches or child → parent): designate both
+          OUTPUT on source and INPUT on target (True, True)
         
         Args:
             source_area_id: Source cortical area ID
@@ -260,17 +264,18 @@ class BrainRegionHierarchy:
             logger.debug(f"Areas {source_area_id} and {target_area_id} in same region {source_region_id}")
             return False, False
         
-        # Check if source region is in ancestry tree of target region
-        source_in_target_ancestry = self.is_ancestor(source_region_id, target_region_id)
+        # If source is ancestor of target (outside → inside): input only
+        if self.is_ancestor(source_region_id, target_region_id):
+            logger.debug(
+                f"Mapping {source_area_id} -> {target_area_id}: source_region={source_region_id} is ancestor of target_region={target_region_id}; designate (False, True)"
+            )
+            return False, True
         
-        # Apply the rule: designate I/O if source region is NOT in target's ancestry
-        should_designate = not source_in_target_ancestry
-        
-        logger.debug(f"Mapping {source_area_id} -> {target_area_id}: "
-                    f"source_region={source_region_id}, target_region={target_region_id}, "
-                    f"source_in_ancestry={source_in_target_ancestry}, designate_io={should_designate}")
-        
-        return should_designate, should_designate
+        # Otherwise (different branches or child → parent): designate both
+        logger.debug(
+            f"Mapping {source_area_id} -> {target_area_id}: cross-branch or child→parent; designate (True, True)"
+        )
+        return True, True
     
     def add_input_area(self, region_id: str, area_id: str) -> bool:
         """Add an area as input to a region.

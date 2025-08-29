@@ -3727,6 +3727,31 @@ class GenomeService(BaseService):
                     # Store other parameters excluding areas/regions (to avoid duplication)
                     clean_parameters = {k: v for k, v in parameters.items() 
                                       if k not in ["areas", "regions"]}
+
+                # Enforce one-region-per-area: remove any of these areas from existing regions
+                if areas:
+                    areas_set = set(areas)
+                    for existing_region_id, existing_region in current_genome["brain_regions"].items():
+                        # Skip the new region (not added yet) by design; iterate current existing only
+                        # Remove from modern key
+                        if "cortical_areas" in existing_region and existing_region["cortical_areas"]:
+                            existing_region["cortical_areas"] = [
+                                a for a in existing_region["cortical_areas"] if a not in areas_set
+                            ]
+                        # Remove from legacy key
+                        if "areas" in existing_region and existing_region["areas"]:
+                            existing_region["areas"] = [
+                                a for a in existing_region["areas"] if a not in areas_set
+                            ]
+                        # Also clean stale I/O listings in the old region
+                        if "inputs" in existing_region and existing_region["inputs"]:
+                            existing_region["inputs"] = [
+                                a for a in existing_region["inputs"] if a not in areas_set
+                            ]
+                        if "outputs" in existing_region and existing_region["outputs"]:
+                            existing_region["outputs"] = [
+                                a for a in existing_region["outputs"] if a not in areas_set
+                            ]
                 
                 # Create new brain region definition
                 new_region = {
@@ -3759,6 +3784,17 @@ class GenomeService(BaseService):
                         parent_region["child_regions"] = []
                     if region_id not in parent_region["child_regions"]:
                         parent_region["child_regions"].append(region_id)
+
+                # Update cortical areas' own properties to reflect new region association
+                if areas:
+                    blueprint = current_genome.get("blueprint", {})
+                    for area_id in areas:
+                        if area_id in blueprint:
+                            area_def = blueprint[area_id]
+                            if "parameters" not in area_def or not isinstance(area_def["parameters"], dict):
+                                area_def["parameters"] = {}
+                            area_def["parameters"]["parent_region_id"] = region_id
+                            area_def["parameters"]["parent_region_title"] = region_name
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome

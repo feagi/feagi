@@ -12,16 +12,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-FEAGI v1 Region API - Single Source of Truth
-
-This module contains the ONLY definitions of brain region API endpoints.
-Each endpoint is decorated to automatically register for ALL transport protocols
-(FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
-
-NO endpoint definitions should exist anywhere else - this is the single source of truth.
-"""
-
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -40,6 +30,16 @@ from .schemas import (
 )
 
 logger = setup_logger(__name__)
+
+"""
+FEAGI v1 Region API - Single Source of Truth
+
+This module contains the ONLY definitions of brain region API endpoints.
+Each endpoint is decorated to automatically register for ALL transport protocols
+(FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
+
+NO endpoint definitions should exist anywhere else - this is the single source of truth.
+"""
 
 
 # ===== Region-specific Schemas =====
@@ -205,12 +205,19 @@ class RegionAPI:
                             f"{field} cannot be modified for root region"
                         )
 
-            # Remove parent_region_id if present as it's handled separately
-            if "parent_region_id" in region_dict:
-                region_dict.pop("parent_region_id")
+            # Prepare args for CoreAPIService.update_brain_region
+            region_id = region_data.region_id
+            region_name = region_dict.get("region_title")
+            coordinates = None
+            if "coordinate_3d" in region_dict:
+                c3d = region_dict["coordinate_3d"]
+                coordinates = {"x": c3d[0], "y": c3d[1], "z": c3d[2]}
 
-            success = self.core_api_service.update_brain_region_properties(
-                region_dict
+            # Call correct service method
+            success = self.core_api_service.update_brain_region(
+                region_id=region_id,
+                region_name=region_name,
+                coordinates=coordinates,
             )
             if not success:
                 raise ValueError("Failed to update brain region properties")
@@ -222,7 +229,7 @@ class RegionAPI:
             logger.error(f"Error updating region properties: {e}")
             raise ValueError(f"Failed to update region properties: {str(e)}")
 
-    @region_endpoint("GET", "/region")
+    @region_endpoint("GET", "/region/{region_id}")
     def view_region_properties(self, region_id: str) -> Dict[str, Any]:
         """Get brain region properties."""
         try:
