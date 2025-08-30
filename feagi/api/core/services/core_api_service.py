@@ -634,6 +634,57 @@ class CoreAPIService:
         get_cortical_locations_2d)."""
         return self._cortical_area_service.get_cortical_locations_2d()
 
+    def update_multiple_cortical_properties(self, message: Dict[str, Any]) -> bool:
+        """Bulk update cortical area properties via GenomeService routing.
+
+        Notes:
+            - Coordinates are not accepted in bulk (should be pre-filtered by API layer)
+            - Mixed memory/non-memory sets should be pre-validated by API layer
+            - For each cortical_id, we route to update_cortical_area with separated fields
+        """
+        try:
+            cortical_ids = message.get("cortical_id_list", [])
+            if not cortical_ids:
+                return False
+
+            # Properties allowed to pass as parameters except structural keys
+            properties = {k: v for k, v in message.items() if k != "cortical_id_list"}
+
+            disallowed = {"coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"}
+            for key in list(properties.keys()):
+                if key in disallowed:
+                    properties.pop(key, None)
+
+            all_ok = True
+            for cortical_id in cortical_ids:
+                # Split into structural vs parameters for GenomeService routing
+                name = properties.get("cortical_name")
+                coordinates = properties.get("coordinates_3d")
+                dimensions = properties.get("cortical_dimensions")
+                area_type = properties.get("cortical_type")
+                params = {
+                    k: v
+                    for k, v in properties.items()
+                    if k not in {"cortical_name", "coordinates_3d", "cortical_dimensions", "cortical_type"}
+                }
+                if not params:
+                    params = None
+
+                result = self._genome_service.update_cortical_area(
+                    cortical_id=cortical_id,
+                    name=name,
+                    coordinates=coordinates,
+                    dimensions=dimensions,
+                    area_type=area_type,
+                    parameters=params,
+                )
+                all_ok = all_ok and (result is not None)
+
+            return all_ok
+        except Exception as e:
+            self.logger.error(f"Bulk cortical update failed: {e}")
+            return False
+
     def get_area_neuron_count(self, cortical_id: str) -> int:
         """Get neuron count for a specific cortical area.
         
@@ -1136,7 +1187,6 @@ class CoreAPIService:
 
             # Always use the singleton instance - never create a new one
             singleton_instance = BurstEngine.get_instance()
-            npu_configured = False
 
             if singleton_instance is None:
                 # Create singleton instance only if none exists
@@ -1215,7 +1265,7 @@ class CoreAPIService:
                 self.logger.info(f"   NPU id: {id(npu_interface)}")
                 self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
                 self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
-                npu_configured = True
+                # NPU configured
             else:
                 # Existing singleton - ensure NPU is configured
                 if not hasattr(singleton_instance, 'npu_interface') or singleton_instance.npu_interface is None:
@@ -1248,10 +1298,9 @@ class CoreAPIService:
                     self.logger.info(f"   NPU id: {id(npu_interface)}")
                     self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
                     self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
-                    npu_configured = True
+                    # NPU is configured at this point
                 else:
                     self.logger.debug("NPU already configured for existing singleton")
-                    npu_configured = True
 
             return singleton_instance
 
@@ -3895,7 +3944,6 @@ class CoreAPIService:
             neuron_array = self._connectome_manager.neuron_array
 
             # Convert to aligned numpy array for SIMD optimization
-            neuron_count = len(neuron_ids)
             # alignment = simd_config["alignment"]  # Unused variable removed
 
             # CRITICAL FIX: Convert neuron IDs to array indices first
@@ -5657,21 +5705,4 @@ class CoreAPIService:
             self.logger.error(f"Failed to update genome physiology: {e}")
             return False
 
-    async def get_system_health(self) -> Dict[str, Any]:
-        """Get comprehensive system health information.
-        
-        Delegates to SystemService to get health metrics for all FEAGI components.
-        
-        Returns:
-            Dictionary containing health metrics
-        """
-        try:
-            return await self._system_service.get_health()
-        except Exception as e:
-            self.logger.error(f"Failed to get system health: {e}")
-            return {
-                "error": f"Failed to get system health: {str(e)}",
-                "burst_engine": False,
-                "brain_readiness": False,
-                "genome_availability": False
-            }
+    # Duplicate definition removed; use the earlier get_system_health method

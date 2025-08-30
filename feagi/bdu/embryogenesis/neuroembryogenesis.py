@@ -863,33 +863,48 @@ class NeuroEmbryogenesis:
                 "Core areas created successfully with correct cortical_idx reservation"
             )
 
-            # Ensure genome blueprint also contains core areas if missing
-            try:
-                if hasattr(self, "genome") and isinstance(self.genome, dict):
-                    blueprint = self.genome.get("blueprint")
-                    if isinstance(blueprint, dict):
-                        def _add_core_to_genome(core_id: str, template: dict) -> None:
-                            if core_id in blueprint:
-                                return
-                            res = template.get("resolution", [1, 1, 1])
-                            coord = template.get("coordinate_3d", [0, 0, 0])
-                            area_def = {
-                                "cortical_name": template.get("cortical_name", core_id),
-                                "coordinates": {"x": coord[0], "y": coord[1], "z": coord[2]},
-                                "dimensions": {"x": res[0], "y": res[1], "z": res[2]},
-                                "parameters": {},
-                            }
-                            blueprint[core_id] = area_def
-                            logger.info(
-                                f"Added missing core area '{core_id}' to genome blueprint from templates"
-                            )
+            # Ensure genome blueprint also contains core areas (strict, no fallbacks)
+            if hasattr(self, "genome") and isinstance(self.genome, dict):
+                blueprint = self.genome.get("blueprint")
+                if not isinstance(blueprint, dict):
+                    raise ValueError("Genome blueprint missing or invalid during core area sync")
 
-                        _add_core_to_genome("_death", death_template)
-                        _add_core_to_genome("_power", pwr_template)
-            except Exception as genome_sync_error:
-                logger.warning(
-                    f"Could not sync core areas into genome blueprint: {genome_sync_error}"
-            )
+                def _add_core_to_genome_strict(core_id: str, template: dict) -> None:
+                    res = template.get("resolution")
+                    coord = template.get("coordinate_3d")
+                    if not isinstance(res, (list, tuple)) or len(res) != 3:
+                        raise ValueError(f"Invalid resolution for {core_id}")
+                    if not isinstance(coord, (list, tuple)) or len(coord) != 3:
+                        raise ValueError(f"Invalid coordinate_3d for {core_id}")
+
+                    area_def = {
+                        "cortical_name": template.get("cortical_name", core_id),
+                        # Prefer normalized hierarchical keys used elsewhere
+                        "coordinates_3d": [int(coord[0]), int(coord[1]), int(coord[2])],
+                        "cortical_dimensions": [int(res[0]), int(res[1]), int(res[2])],
+                        "cortical_type": "CORE",
+                        "parameters": {},
+                    }
+                    blueprint[core_id] = area_def
+                    logger.info(f"Synchronized core area '{core_id}' into genome blueprint")
+
+                # Add or overwrite to maintain single source of truth
+                _add_core_to_genome_strict("_death", death_template)
+                _add_core_to_genome_strict("_power", pwr_template)
+
+                # Update StateManager genome (single source of truth)
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    FeagiStateManager.instance().genome = self.genome
+                except Exception as e:
+                    logger.warning(f"Failed to update StateManager genome after core sync: {e}")
+
+                # Refresh brain region hierarchy if available (metadata-only)
+                try:
+                    if hasattr(self.connectome_manager, "brain_region_hierarchy"):
+                        self.connectome_manager.brain_region_hierarchy.load_from_genome(self.genome)
+                except Exception as e:
+                    logger.warning(f"Failed to refresh brain region hierarchy after core sync: {e}")
             return True
 
         except Exception as e:

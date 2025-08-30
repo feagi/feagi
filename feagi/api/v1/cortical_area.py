@@ -12,17 +12,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-FEAGI v1 Cortical Area API - Single Source of Truth
+# FEAGI v1 Cortical Area API - Single Source of Truth
+#
+# This module contains the ONLY definitions of cortical area API endpoints.
+# Each endpoint is decorated to automatically register for ALL transport protocols
+# (FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
+#
+# NO endpoint definitions should exist anywhere else - this is the single source of truth.
 
-This module contains the ONLY definitions of cortical area API endpoints.
-Each endpoint is decorated to automatically register for ALL transport protocols
-(FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
-
-NO endpoint definitions should exist anywhere else - this is the single source of truth.
-"""
-
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, root_validator
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.schemas import (
@@ -53,6 +52,26 @@ from .decorators import endpoint
 
 logger = setup_logger(__name__)
 
+
+# Strict request model for multi-update endpoint
+class MultiCorticalAreaUpdate(BaseModel):
+    cortical_id_list: List[str]
+    neuron_fire_threshold: Optional[float] = None
+    neuron_snooze_period: Optional[float] = None
+    # All other fields are allowed and forwarded as parameters, except coordinates
+
+    @root_validator(pre=True)
+    def _forbid_coordinate_updates(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        banned_keys = {"coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"}
+        present = [key for key in values.keys() if key in banned_keys]
+        if present:
+            raise ValueError(
+                f"Bulk update forbids coordinate changes. Remove keys: {present}"
+            )
+        return values
+
+    class Config:
+        extra = "allow"
 
 # Define the convenience decorator for cortical area endpoints
 def cortical_area_endpoint(
@@ -1171,25 +1190,101 @@ class CorticalAreaAPI:
             ) from e
 
     @cortical_area_endpoint(
-        "PUT", "/multi/cortical_area", response_model=SuccessResponse
+        "PUT",
+        "/multi/cortical_area",
+        request_model=MultiCorticalAreaUpdate,
+        response_model=SuccessResponse,
     )
     def update_multiple_cortical_properties(
-        self, message: Dict[str, Any]
+        self, request: MultiCorticalAreaUpdate
     ) -> SuccessResponse:
         """Update properties for multiple cortical areas."""
         try:
+            message = request.dict(exclude_unset=True)
+            provided_ids = message.get("cortical_id_list", [])
+            # Remove any accidental coordinate keys if passed (already validated at model level)
+            for coord_key in ("coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"):
+                if coord_key in message:
+                    del message[coord_key]
+            # Strictly filter to cortical IDs that exist in current genome
+            # Use authoritative ID source (includes special areas like _power/_death)
+            id_list = self.core_api_service.get_cortical_id_list()
+            genome_loaded = bool(id_list)
+            valid_ids = set(id_list or [])
+            filtered_ids = [cid for cid in provided_ids if cid in valid_ids]
+            unknown_ids = [cid for cid in provided_ids if cid not in valid_ids]
+            duplicate_ids = []
+            if isinstance(provided_ids, list):
+                seen = set()
+                duplicate_ids = [cid for cid in provided_ids if (cid in seen or seen.add(cid)) and provided_ids.count(cid) > 1]
+
+            if not filtered_ids:
+                # Construct a high-signal error with actionable details
+                details = {
+                    "provided_count": len(provided_ids),
+                    "genome_loaded": genome_loaded,
+                    "known_ids_count": len(valid_ids),
+                    "unknown_ids": unknown_ids,
+                    "duplicates": sorted(set(duplicate_ids)),
+                }
+                # Sample first few known IDs to guide user
+                if valid_ids:
+                    details["known_ids_sample"] = list(sorted(valid_ids))[:10]
+                raise ValueError(
+                    f"No valid cortical IDs found to update. Details: {details}"
+                )
+
+            # Validate memory vs non-memory: all selected IDs must be either all memory or all non-memory
+            try:
+                memory_flags = []
+                for cid in filtered_ids:
+                    area = self.core_api_service.get_cortical_area(cid)
+                    # Treat as memory if sub_group_id == 'MEMORY' in parameters or group_id == 'MEMORY'
+                    is_memory = False
+                    if area:
+                        params = area.get("parameters", {})
+                        if isinstance(params, dict) and params.get("sub_group_id") == "MEMORY":
+                            is_memory = True
+                        elif area.get("group_id") == "MEMORY":
+                            is_memory = True
+                    memory_flags.append(is_memory)
+                if any(memory_flags) and not all(memory_flags):
+                    raise ValueError(
+                        "Mixed memory and non-memory cortical areas in request. "
+                        "Please group updates by area type."
+                    )
+            except Exception as type_err:
+                raise ValueError(
+                    f"Area type validation failed: {str(type_err)}"
+                )
+
+            # Replace with filtered list
+            message["cortical_id_list"] = filtered_ids
             success = (
                 self.core_api_service.update_multiple_cortical_properties(
                     message
                 )
             )
             if success:
+                skipped_section = (
+                    f"; skipped unknown IDs: {sorted(set(unknown_ids))}"
+                    if unknown_ids
+                    else ""
+                )
+                dup_section = (
+                    f"; ignored duplicates: {sorted(set(duplicate_ids))}"
+                    if duplicate_ids
+                    else ""
+                )
                 return SuccessResponse(
-                    message="Multiple cortical area properties updated successfully"
+                    message=(
+                        f"Updated {len(filtered_ids)} cortical areas"
+                        f"{skipped_section}{dup_section}"
+                    )
                 )
             else:
                 raise ValueError(
-                    "Failed to update multiple cortical area properties"
+                    f"Service rejected update. Attempted: {filtered_ids}; unknown: {unknown_ids}"
                 )
         except Exception as e:
             raise ValueError(
