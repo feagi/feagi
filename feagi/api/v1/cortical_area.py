@@ -782,6 +782,33 @@ class CorticalAreaAPI:
                     #  Build complete cortical area data using template
                     #  defaults for neural properties and structural defaults
                     #  for spatial/organizational properties
+                    # Resolve 2D coordinates from multiple canonical sources
+                    coords2d: List[int] = []
+                    try:
+                        # Priority: top-level then parameters
+                        c2d = area_data.get("coordinates_2d")
+                        if not c2d:
+                            c2d = area_data.get("2d_coordinate")
+                        if not c2d and isinstance(parameters, dict):
+                            c2d = parameters.get("coordinates_2d") or parameters.get("2d_coordinate")
+                        if not c2d and isinstance(parameters, dict):
+                            x2d = parameters.get("2dcorx")
+                            y2d = parameters.get("2dcory")
+                            if x2d is not None and y2d is not None:
+                                c2d = [x2d, y2d]
+                        if isinstance(c2d, (list, tuple)) and len(c2d) >= 2:
+                            coords2d = [int(c2d[0]), int(c2d[1])]
+                        else:
+                            coords2d = [
+                                self._get_structural_default("coordinate"),
+                                self._get_structural_default("coordinate"),
+                            ]
+                    except Exception:
+                        coords2d = [
+                            self._get_structural_default("coordinate"),
+                            self._get_structural_default("coordinate"),
+                        ]
+
                     geometry_data[cortical_id] = {
                         "cortical_id": area_data.get("id", cortical_id),
                         "cortical_name": area_data.get("name", cortical_id),
@@ -828,16 +855,7 @@ class CorticalAreaAPI:
                                 "z", self._get_structural_default("coordinate")
                             ),
                         ],
-                        "coordinates_2d": [
-                            parameters.get(
-                                "2dcorx",
-                                self._get_structural_default("coordinate"),
-                            ),
-                            parameters.get(
-                                "2dcory",
-                                self._get_structural_default("coordinate"),
-                            ),
-                        ],
+                        "coordinates_2d": coords2d,
                         "cortical_dimensions": [
                             dimensions.get(
                                 "width",

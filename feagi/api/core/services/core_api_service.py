@@ -5181,12 +5181,13 @@ class CoreAPIService:
                     # If cortical area update failed, try as brain region
                     if not cortical_area_updated:
                         try:
+                            # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
                             region_result = self.update_brain_region(
                                 region_id=member_id,
-                                coordinates=coordinates_3d
+                                parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
                             )
                             if region_result:
-                                self.logger.debug(f"Updated brain region {member_id} coordinates to {coordinate_2d}")
+                                self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
                             else:
                                 self.logger.warning(f"Failed to update {member_id} as brain region")
                                 continue
