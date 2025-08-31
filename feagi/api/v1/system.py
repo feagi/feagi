@@ -166,6 +166,7 @@ class SystemAPI:
                 genome_timestamp=health.get("genome_timestamp"),
                 simulation_timestep=health.get("simulation_timestep"),
                 memory_area_stats=health.get("memory_area_stats"),
+                amalgamation_pending=health.get("amalgamation_pending"),
             )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")

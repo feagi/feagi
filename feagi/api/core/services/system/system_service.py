@@ -320,9 +320,20 @@ class SystemService(BaseService):
             if not self.state_manager:
                 return False
 
-            return bool(
-                getattr(self.state_manager, "pending_amalgamation", False)
-            )
+            pending = getattr(self.state_manager, "pending_amalgamation", {})
+            if not pending:
+                return False
+            
+            # Check for timeout (500 seconds as in legacy)
+            import time
+            amalgamation_timeout = 500
+            elapsed_time = time.time() - pending.get("initiation_time", 0)
+            if elapsed_time > amalgamation_timeout:
+                self.logger.info(f"Pending amalgamation got voided due to exceeding {amalgamation_timeout} threshold!")
+                self.state_manager.pending_amalgamation = {}
+                return False
+            
+            return True
         except Exception as e:
             self.logger.error(f"Error checking pending amalgamation: {str(e)}")
             return False

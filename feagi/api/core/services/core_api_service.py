@@ -3183,13 +3183,121 @@ class CoreAPIService:
         """Check if there is a pending amalgamation."""
         try:
             if self.state_manager:
-                return bool(
-                    getattr(self.state_manager, "pending_amalgamation", False)
-                )
+                pending = getattr(self.state_manager, "pending_amalgamation", {})
+                if not pending:
+                    return False
+                
+                # Check for timeout (500 seconds as in legacy)
+                import time
+                amalgamation_timeout = 500
+                elapsed_time = time.time() - pending.get("initiation_time", 0)
+                if elapsed_time > amalgamation_timeout:
+                    self.logger.info(f"Pending amalgamation got voided due to exceeding {amalgamation_timeout} threshold!")
+                    self.state_manager.pending_amalgamation = {}
+                    return False
+                
+                return True
             return False
         except Exception as e:
             self.logger.error(f"Error checking pending amalgamation: {str(e)}")
             return False
+
+    def get_pending_amalgamation_genome(self) -> Optional[Dict[str, Any]]:
+        """Get the genome payload from pending amalgamation."""
+        try:
+            if self.state_manager:
+                pending = getattr(self.state_manager, "pending_amalgamation", {})
+                return pending.get("genome_payload")
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting pending amalgamation genome: {str(e)}")
+            return None
+
+    def get_pending_amalgamation_title(self) -> Optional[str]:
+        """Get the genome title from pending amalgamation."""
+        try:
+            if self.state_manager:
+                pending = getattr(self.state_manager, "pending_amalgamation", {})
+                return pending.get("genome_title")
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting pending amalgamation title: {str(e)}")
+            return None
+
+    def get_amalgamation_history(self) -> Dict[str, Any]:
+        """Get the amalgamation history."""
+        try:
+            if self.state_manager:
+                return getattr(self.state_manager, "amalgamation_history", {})
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting amalgamation history: {str(e)}")
+            return {}
+
+    def get_amalgamation_details(self, amalgamation_id: str) -> Dict[str, Any]:
+        """Get details for a specific amalgamation."""
+        try:
+            if self.state_manager:
+                history = getattr(self.state_manager, "amalgamation_history", {})
+                if amalgamation_id in history:
+                    return {amalgamation_id: history[amalgamation_id]}
+                else:
+                    raise ValueError("No matching amalgamation found")
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting amalgamation details: {str(e)}")
+            raise ValueError(f"Failed to get amalgamation details: {str(e)}") from e
+
+    def calculate_circuit_size(self, blueprint: Dict[str, Any]) -> List[int]:
+        """Calculate the size of a genome circuit in voxels (x, y, z).
+        
+        This replicates the legacy circuit_size function behavior.
+        
+        Args:
+            blueprint: The genome blueprint dictionary
+            
+        Returns:
+            List[int]: [x, y, z] dimensions of the circuit
+        """
+        try:
+            dimensions = [1, 1, 1]
+            
+            self.logger.info(f"Calculating circuit size for {len(blueprint)} cortical areas")
+            
+            for cortical_area in blueprint:
+                area_data = blueprint[cortical_area]
+                
+                # Debug: Log the area data structure
+                self.logger.debug(f"Processing cortical area '{cortical_area}': {area_data}")
+                
+                # Get block boundaries and relative coordinates
+                block_boundaries = area_data.get("block_boundaries", [0, 0, 0])
+                relative_coordinate = area_data.get("relative_coordinate", [0, 0, 0])
+                
+                self.logger.debug(f"Area '{cortical_area}': block_boundaries={block_boundaries}, relative_coordinate={relative_coordinate}")
+                
+                # Calculate the extent: position + dimensions
+                # block_boundaries represents the dimensions of the cortical area
+                # relative_coordinate represents the position/offset
+                x_coord = block_boundaries[0] + relative_coordinate[0]
+                y_coord = block_boundaries[1] + relative_coordinate[1]
+                z_coord = block_boundaries[2] + relative_coordinate[2]
+                
+                self.logger.debug(f"Area '{cortical_area}': calculated coords=({x_coord}, {y_coord}, {z_coord})")
+                
+                # Update maximum dimensions
+                if x_coord > dimensions[0]:
+                    dimensions[0] = x_coord
+                if y_coord > dimensions[1]:
+                    dimensions[1] = y_coord
+                if z_coord > dimensions[2]:
+                    dimensions[2] = z_coord
+            
+            self.logger.info(f"Final calculated circuit size: {dimensions}")
+            return dimensions
+        except Exception as e:
+            self.logger.error(f"Error calculating circuit size: {str(e)}")
+            return [1, 1, 1]  # Default fallback
 
     def import_cortical_area(self, cortical_area_data: Dict[str, Any]) -> bool:
         """Import cortical area data."""
@@ -5295,7 +5403,12 @@ class CoreAPIService:
             raise ValueError(f"Failed to reset genome: {str(e)}") from e
 
     def process_amalgamation_request(
-        self, amalgamation_data: Dict[str, Any]
+        self,
+        amalgamation_data: Dict[str, Any] = None,
+        *,
+        genome_payload: Optional[Dict[str, Any]] = None,
+        genome_id: Optional[str] = None,
+        genome_title: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Process an amalgamation request.
 
@@ -5303,8 +5416,17 @@ class CoreAPIService:
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
         """
         try:
-            #  Route WRITE operation through GenomeService for architecture
-            #  compliance
+            # Normalize inputs: support both legacy dict and explicit kwargs
+            if amalgamation_data is None:
+                amalgamation_data = {}
+            if genome_payload is not None:
+                amalgamation_data["genome_payload"] = genome_payload
+            if genome_id is not None:
+                amalgamation_data["genome_id"] = genome_id
+            if genome_title is not None:
+                amalgamation_data["genome_title"] = genome_title
+
+            #  Route WRITE operation through GenomeService for architecture compliance
             return self._genome_service.amalgamate_genome(amalgamation_data)
 
         except Exception as e:
