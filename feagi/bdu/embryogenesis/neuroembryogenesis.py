@@ -1249,6 +1249,14 @@ class NeuroEmbryogenesis:
         )
 
         try:
+            # Precondition: Ensure SynapseArray is initialized once before any synaptogenesis work
+            if (
+                not hasattr(self.connectome_manager, "synapse_array")
+                or self.connectome_manager.synapse_array is None
+            ):
+                raise RuntimeError(
+                    "SynapseArray is not initialized. Initialize NPU interface and set ConnectomeManager.synapse_array before synaptogenesis."
+                )
             len(self.connectome_manager.cortical_areas)
             total_synapses = 0
 
@@ -1626,6 +1634,32 @@ class NeuroEmbryogenesis:
 
         # Validate and load genome data directly
         if not self._load_genome_data(genome_data):
+            return False
+
+        # Ensure NPU/SynapseArray readiness before any neuro/synapto-genesis
+        try:
+            cm = self.connectome_manager
+            # If NPU is not set, initialize via ConnectomeManager (uses configured backend)
+            if not hasattr(cm, "_npu_interface") or cm._npu_interface is None:
+                # Derive backend from config if available, default handled inside initializer
+                backend = None
+                if hasattr(self.state_manager, "config"):
+                    try:
+                        backend = self.state_manager.config.get("connectome.backend", None)
+                    except Exception:
+                        backend = None
+                if hasattr(cm, "_initialize_npu_interface"):
+                    cm._initialize_npu_interface(backend)
+            # Optional: dynamic capacity sizing from genome/config (ConnectomeManager already supports it)
+            # Here we ensure the CM exposes max_synapses consistent with NPU
+            if hasattr(cm, "_npu_interface") and cm._npu_interface is not None:
+                # Sync references to ensure synapse_array is available
+                if getattr(cm, "synapse_array", None) is None and hasattr(cm._npu_interface, "synapse_array"):
+                    cm.synapse_array = cm._npu_interface.synapse_array
+                if getattr(cm, "neuron_array", None) is None and hasattr(cm._npu_interface, "neuron_array"):
+                    cm.neuron_array = cm._npu_interface.neuron_array
+        except Exception as npu_init_err:
+            logger.error(f"Failed to ensure NPU/SynapseArray readiness: {npu_init_err}")
             return False
 
         # Set up cortical areas

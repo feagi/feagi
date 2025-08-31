@@ -1824,6 +1824,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses successfully created
         """
+        # Ensure synapse array is initialized
+        if not hasattr(self, "synapse_array") or self.synapse_array is None:
+            raise RuntimeError(
+                "SynapseArray is not initialized. Initialize NPU interface and set ConnectomeManager.synapse_array before synaptogenesis."
+            )
+
 
         # Validate that all neurons exist using NPU-owned mapping before batch creation
         valid_specs = []
@@ -2874,10 +2880,10 @@ class ConnectomeManager(NeuronMappingProvider):
             mem_debug = False
             
         if mem_debug:
-            logger.info(f"🔍 [MEMORY-DEBUG] Rescanning all memory areas for cortical mappings...")
+            logger.info("🔍 [MEMORY-DEBUG] Rescanning all memory areas for cortical mappings...")
             logger.info(f"🔍 [MEMORY-DEBUG] Memory areas to rescan: {list(self.memory_areas)}")
             
-        total_converted = 0
+        # total_converted metric removed (unused)
         for memory_area_id in self.memory_areas:
             if mem_debug:
                 logger.info(f"🔍 [MEMORY-DEBUG] Rescanning memory area: {memory_area_id}")
@@ -5781,7 +5787,7 @@ class ConnectomeManager(NeuronMappingProvider):
         # Load hierarchical brain region system
         try:
             self.brain_region_hierarchy.load_from_genome(genome_data)
-            logger.info(f"[BRAIN REGIONS] Loaded hierarchical brain region system")
+            logger.info("[BRAIN REGIONS] Loaded hierarchical brain region system")
         except Exception as e:
             logger.error(f"[BRAIN REGIONS] Failed to load hierarchy: {e}")
             # Continue without hierarchy - graceful degradation
