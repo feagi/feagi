@@ -1739,7 +1739,7 @@ def migrate_legacy_cortical_ids(genome):
         "iv00TM": "iic700",  # Top-middle vision (ImageCameraTopMiddle) → updated in templates.py
         "iv00TR": "iic800",  # Top-right vision (ImageCameraTopRight) → updated in templates.py
         "iv00ML": "iic300",  # Middle-left vision (ImageCameraMiddleLeft) → updated in templates.py
-        "iv00MR": "iic900",  # Middle-right vision (ImageCameraMiddleRight) → updated in templates.py
+        "iv00MR": "iic500",  # Middle-right vision (ImageCameraMiddleRight) → updated in templates.py
         "iv00BL": "iic000",  # Bottom-left vision (ImageCameraBottomLeft)
         "iv00BM": "iic100",  # Bottom-middle vision (ImageCameraBottomMiddle)
         "iv00BR": "iic200",  # Bottom-right vision (ImageCameraBottomRight)
