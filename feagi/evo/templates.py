@@ -137,7 +137,7 @@ cortical_types = {
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 70, -20],
             },
-            "iic900": {
+            "iic500": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle right",
                 "structure": "asymmetric",
@@ -241,7 +241,7 @@ cortical_types = {
                 "iic700",
                 "iic800",
                 "iic300",
-                "iic900",
+                "iic500",
                 "iic000",
                 "iic100",
                 "iic200",

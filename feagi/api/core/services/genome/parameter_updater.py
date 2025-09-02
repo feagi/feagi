@@ -7,7 +7,7 @@ massive performance improvements for parameter-only changes.
 
 import time
 from typing import Any, Dict, List, Union
-import numpy as np  # Required for any vectorized conversions or clamps
+# Removed unused numpy import
 
 from feagi.api.core.services.genome.change_classifier import (
     CorticalChangeClassifier,
@@ -193,13 +193,9 @@ class CorticalParameterUpdater:
             return True
 
         elif property_type == "neuron_excitability":
-            #  SPECIAL CASE: neuron_excitability needs to update the
-            #  NeuronArray directly
+            #  SPECIAL CASE: update per-area excitability via NPU; avoid per-neuron index mapping
             try:
-                # Get cortical area info
-                cortical_area = self.connectome_manager.get_cortical_area(
-                    cortical_id
-                )
+                cortical_area = self.connectome_manager.get_cortical_area(cortical_id)
                 if not cortical_area:
                     self.logger.error(
                         f"Cortical area {cortical_id} not found for excitability update"
@@ -208,34 +204,24 @@ class CorticalParameterUpdater:
 
                 cortical_idx = cortical_area.cortical_idx
 
-                # Get neuron index range for this cortical area
-                first_neuron_id = min(neuron_ids)
-                last_neuron_id = max(neuron_ids)
-
-                start_idx = self.connectome_manager.get_neuron_index(
-                    first_neuron_id
-                )
-                end_idx = self.connectome_manager.get_neuron_index(
-                    last_neuron_id
-                )
-
-                if start_idx is None or end_idx is None:
-                    self.logger.error(
-                        f"Could not map neuron IDs to indices for {cortical_id}"
-                    )
-                    return False
-
-                # Update excitability in NeuronArray
+                # Update excitability in NPU (authoritative) and mirror on area properties for reads
                 try:
                     npu = getattr(self.connectome_manager, "_npu_interface", None)
                     if npu and hasattr(npu, "set_area_excitability"):
                         npu.set_area_excitability(cortical_idx, float(value))
+                except Exception as npu_err:
+                    self.logger.warning(f"Could not set area excitability in NPU: {npu_err}")
+
+                # Mirror to ConnectomeManager area properties for API reads
+                try:
+                    if not hasattr(cortical_area, "properties") or cortical_area.properties is None:
+                        cortical_area.properties = {}
+                    cortical_area.properties["neuron_excitability"] = float(value)
                 except Exception:
                     pass
 
                 self.logger.info(
-                    f"[FAST-UPDATE] Updated neuron_excitability to {value} for {len(neuron_ids)} neurons "
-                    f"in {cortical_id} (cortical_idx={cortical_idx}, indices {start_idx}-{end_idx})"
+                    f"[FAST-UPDATE] Updated neuron_excitability to {value} for area {cortical_id} (cortical_idx={cortical_idx})"
                 )
                 return True
 

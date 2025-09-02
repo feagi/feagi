@@ -286,6 +286,15 @@ else:
                 )
 
                 return create_snapshot_router()
+            
+            #  Special-case genome: use manual router to handle complex parameter
+            #  binding for amalgamation_destination
+            if module_name == "genome":
+                from feagi.api.transport.universal_fastapi import (
+                    create_manual_genome_router,
+                )
+
+                return create_manual_genome_router()
             registry = get_endpoint_registry()
             endpoints = registry.get_endpoints_by_module(module_name)
 
@@ -1179,6 +1188,62 @@ else:
         """Create a FastAPI router for genome endpoints."""
         wrapper = UniversalFastAPIWrapper()
         return wrapper.create_router_for_module("genome")
+
+    def create_manual_genome_router() -> APIRouter:
+        """Create a manual FastAPI router for genome endpoints with proper parameter handling."""
+        from fastapi import APIRouter, Depends, Form, Query, UploadFile
+        from feagi.api.rest.dependencies import get_core_api_service
+        from feagi.api.v1.genome import create_genome_api, RewiringMode
+        
+        router = APIRouter()
+        
+        def _get_genome_api(
+            core_api_service=Depends(get_core_api_service),
+        ):
+            """Dependency to get the GenomeAPI instance."""
+            return create_genome_api(core_api_service)
+        
+        # Manually create the amalgamation_destination endpoint with proper parameter handling
+        @router.post("/amalgamation_destination", response_model=str)
+        async def amalgamation_destination(
+            circuit_origin_x: int = Form(..., description="X coordinate for circuit origin"),
+            circuit_origin_y: int = Form(..., description="Y coordinate for circuit origin"),
+            circuit_origin_z: int = Form(..., description="Z coordinate for circuit origin"),
+            amalgamation_id: str = Form(..., description="Amalgamation ID"),
+            brain_region_id: str = Form(default="root", description="Brain region ID"),
+            rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all, description="Rewiring mode"),
+            genome_api=Depends(_get_genome_api)
+        ) -> str:
+            """Complete amalgamation by specifying destination coordinates."""
+            return await genome_api.amalgamation_destination(
+                circuit_origin_x=circuit_origin_x,
+                circuit_origin_y=circuit_origin_y,
+                circuit_origin_z=circuit_origin_z,
+                amalgamation_id=amalgamation_id,
+                brain_region_id=brain_region_id,
+                rewire_mode=rewire_mode
+            )
+        
+        # For all other endpoints, use the universal wrapper
+        wrapper = UniversalFastAPIWrapper()
+        
+        # Get all genome endpoints except amalgamation_destination
+        from feagi.api.v1.decorators import get_endpoint_registry
+        registry = get_endpoint_registry()
+        endpoints = registry.get_endpoints_by_module("genome")
+        
+        for endpoint_id, endpoint_data in endpoints.items():
+            path = endpoint_data["path"]
+            # Skip amalgamation_destination since we handle it manually
+            if path == "/amalgamation_destination":
+                continue
+            wrapper._add_endpoint_to_router(endpoint_data, "genome")
+        
+        # Merge the universal wrapper's routes with our manual route
+        for route in wrapper.router.routes:
+            router.routes.append(route)
+        
+        return router
 
     def create_cortical_area_router() -> APIRouter:
         """Create a FastAPI router for cortical area endpoints."""

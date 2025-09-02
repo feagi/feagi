@@ -42,6 +42,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import zmq
 import zmq.asyncio
+import feagi_data_processing as fdp
 
 from feagi.core.state_manager import GenomeState
 from feagi.utils.logger import setup_logger
@@ -363,8 +364,6 @@ class MotorStream:
                 # Encode using feagi_data_processing for motor data - USE
                 # HIGH-PERFORMANCE NUMPY APPROACH
                 try:
-                    import feagi_data_processing as fdp
-
                     # Create the main mapped neuron data container
                     generated_mapped_neuron_data = (
                         fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
