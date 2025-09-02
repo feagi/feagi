@@ -1,0 +1,2108 @@
+{
+   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+   "genome_title": "The Barebones Genome",
+   "genome_description": "An empty genome",
+   "version": "2.0",
+   "neuron_morphologies": {
+      "decrease_filter_diagonal": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "decrease_filter_diagonal2": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  2,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "increase_filter_diagonal": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "increase_filter_diagonal2": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  2,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "to_block_[5, 7, 4]": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     5,
+                     7,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_one": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_two": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_three": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_four": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_five": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_one": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     3
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_two": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_three": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     1
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_four": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_five": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "motor_forward": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "motor_backward": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "y_consolidator": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     "*",
+                     "?",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "intensity": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "APT_low": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     7
+                  ],
+                  [
+                     0,
+                     0,
+                     8
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "apt_high": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     2
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "diagonal_proprio": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "right_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     7,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "left_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "bbb3": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  -1,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_135_deg": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -1,
+                  0
+               ],
+               [
+                  2,
+                  -2,
+                  0
+               ],
+               [
+                  3,
+                  -3,
+                  0
+               ],
+               [
+                  4,
+                  -4,
+                  0
+               ],
+               [
+                  5,
+                  -5,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "ori_115": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -2,
+                  0
+               ],
+               [
+                  2,
+                  -4,
+                  0
+               ],
+               [
+                  3,
+                  -6,
+                  0
+               ],
+               [
+                  4,
+                  -9,
+                  0
+               ],
+               [
+                  5,
+                  -11,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "ori_0_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_90_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  1,
+                  0
+               ],
+               [
+                  0,
+                  2,
+                  0
+               ],
+               [
+                  0,
+                  3,
+                  0
+               ],
+               [
+                  0,
+                  4,
+                  0
+               ],
+               [
+                  0,
+                  5,
+                  0
+               ],
+               [
+                  0,
+                  6,
+                  0
+               ],
+               [
+                  0,
+                  7,
+                  0
+               ],
+               [
+                  0,
+                  8,
+                  0
+               ],
+               [
+                  0,
+                  9,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_45_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  2,
+                  2,
+                  0
+               ],
+               [
+                  3,
+                  3,
+                  0
+               ],
+               [
+                  4,
+                  4,
+                  0
+               ],
+               [
+                  5,
+                  5,
+                  0
+               ],
+               [
+                  6,
+                  6,
+                  0
+               ],
+               [
+                  7,
+                  7,
+                  0
+               ],
+               [
+                  8,
+                  8,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_60_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  2,
+                  0
+               ],
+               [
+                  2,
+                  3,
+                  0
+               ],
+               [
+                  2,
+                  4,
+                  0
+               ],
+               [
+                  3,
+                  5,
+                  0
+               ],
+               [
+                  3,
+                  6,
+                  0
+               ],
+               [
+                  4,
+                  7,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "block_to_block": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "projector": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "memory": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "0-0-0_to_all": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "all_to_0-0-0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "all_to_all": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "?",
+                     "?",
+                     "?"
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "lateral_+x": {
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-x": {
+         "parameters": {
+            "vectors": [
+               [
+                  -1,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_+y": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-y": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  -1,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_+z": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-z": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "randomizer": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "expander_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "reducer_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "lateral_pairs_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "tile": {
+         "parameters": {
+            "src_seed": [
+               16,
+               16,
+               1
+            ],
+            "src_pattern": [
+               [
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  0
+               ]
+            ],
+            "mapper_morphology": "projector"
+         },
+         "type": "composite",
+         "class": "core"
+      },
+      "0_0_0-_0_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-_0_0_0",
+         "class": "custom"
+      },
+      "0_0_0-1_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-1_0_0",
+         "class": "custom"
+      },
+      "0_0_0-2_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-2_0_0",
+         "class": "custom"
+      },
+      "0_0_0-3_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-3_0_0",
+         "class": "custom"
+      },
+      "0_0_0-4_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-4_0_0",
+         "class": "custom"
+      },
+      "0_0_0-5_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-5_0_0",
+         "class": "custom"
+      },
+      "0_0_0-6_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-6_0_0",
+         "class": "custom"
+      },
+      "0_0_0-7_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-7_0_0",
+         "class": "custom"
+      },
+      "projector_xy": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "projector_xz": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "projector_yz": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "project_from_end_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "project_from_end_y": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "project_from_end_z": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "last_to_first": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      }
+   },
+   "hosts": {},
+   "physiology": {
+      "burst_delay": 0.00390625,
+      "max_age": 10000000,
+      "evolution_burst_count": 50,
+      "ipu_idle_threshold": 1000,
+      "plasticity_queue_depth": 3,
+      "lifespan_mgmt_interval": 10
+   },
+   "stats": {
+      "innate_cortical_area_count": 12,
+      "innate_neuron_count": 203506,
+      "innate_synapse_count": 156
+   },
+   "signatures": {
+      "genome": "34a671a6c762202e",
+      "blueprint": "a13f9418d3833a14",
+      "physiology": "58e35a487cf094a7"
+   },
+   "timestamp": 1745595238.437733,
+   "brain_regions": {
+      "root": {
+         "title": "Genome's root brain region",
+         "description": null,
+         "parent_region_id": null,
+         "coordinate_2d": [
+            0,
+            0
+         ],
+         "coordinate_3d": [
+            0,
+            0,
+            0
+         ],
+         "areas": [
+            "___pwr",
+            "_death",
+            "M5Fmem",
+            "o__ser",
+            "o_spos",
+            "C0Ymov"
+         ],
+         "regions": [],
+         "inputs": [],
+         "outputs": []
+      }
+   },
+   "blueprint": {
+      "_____10c-___pwr-cx-subgrp-t": "",
+      "_____10c-___pwr-cx-_n_cnt-i": 1,
+      "_____10c-___pwr-cx-synatt-f": 100,
+      "_____10c-___pwr-cx-de_gen-f": 0,
+      "_____10c-___pwr-cx-pspuni-b": false,
+      "_____10c-___pwr-nx-pstcrm-f": 35,
+      "_____10c-___pwr-cx-dstmap-d": {},
+      "_____10c-___pwr-cx-___bbx-i": 1,
+      "_____10c-___pwr-cx-___bby-i": 1,
+      "_____10c-___pwr-cx-___bbz-i": 1,
+      "_____10c-___pwr-cx-rcordx-i": 10,
+      "_____10c-___pwr-cx-rcordy-i": 0,
+      "_____10c-___pwr-cx-rcordz-i": -20,
+      "_____10c-___pwr-cx-2dcorx-i": 4,
+      "_____10c-___pwr-cx-2dcory-i": -4,
+      "_____10c-___pwr-cx-gd_vis-b": true,
+      "_____10c-___pwr-nx-pstcr_-f": 500,
+      "_____10c-___pwr-nx-fire_t-f": 1,
+      "_____10c-___pwr-nx-refrac-i": 0,
+      "_____10c-___pwr-nx-leak_c-f": 10,
+      "_____10c-___pwr-nx-leak_v-f": 0,
+      "_____10c-___pwr-nx-c_fr_c-i": 3,
+      "_____10c-___pwr-nx-snooze-f": 0,
+      "_____10c-___pwr-nx-ftincx-f": 0,
+      "_____10c-___pwr-nx-ftincy-f": 0,
+      "_____10c-___pwr-nx-ftincz-f": 0,
+      "_____10c-___pwr-nx-fthlim-f": 0,
+      "_____10c-___pwr-nx-mp_acc-b": true,
+      "_____10c-___pwr-nx-mp_psp-b": false,
+      "_____10c-___pwr-cx-memory-b": false,
+      "_____10c-___pwr-cx-mem__t-i": 100,
+      "_____10c-___pwr-cx-mem_gr-i": 1,
+      "_____10c-___pwr-cx-mem_ls-i": 9,
+      "_____10c-___pwr-cx-tmpdpt-i": 1,
+      "_____10c-___pwr-nx-excite-f": 100,
+      "_____10c-___pwr-cx-__name-t": "Brain_Power",
+      "_____10c-___pwr-cx-_group-t": "CORE",
+      "_____10c-_death-cx-subgrp-t": "",
+      "_____10c-_death-cx-_n_cnt-i": 1,
+      "_____10c-_death-cx-synatt-f": 100,
+      "_____10c-_death-cx-de_gen-f": 0,
+      "_____10c-_death-cx-pspuni-b": false,
+      "_____10c-_death-nx-pstcrm-f": 35,
+      "_____10c-_death-cx-dstmap-d": {},
+      "_____10c-_death-cx-___bbx-i": 1,
+      "_____10c-_death-cx-___bby-i": 1,
+      "_____10c-_death-cx-___bbz-i": 1,
+      "_____10c-_death-cx-rcordx-i": 10,
+      "_____10c-_death-cx-rcordy-i": 0,
+      "_____10c-_death-cx-rcordz-i": -30,
+      "_____10c-_death-cx-2dcorx-i": 1,
+      "_____10c-_death-cx-2dcory-i": 101,
+      "_____10c-_death-cx-gd_vis-b": true,
+      "_____10c-_death-nx-pstcr_-f": 5,
+      "_____10c-_death-nx-fire_t-f": 1,
+      "_____10c-_death-nx-refrac-i": 0,
+      "_____10c-_death-nx-leak_c-f": 10,
+      "_____10c-_death-nx-leak_v-f": 0,
+      "_____10c-_death-nx-c_fr_c-i": 3,
+      "_____10c-_death-nx-snooze-f": 0,
+      "_____10c-_death-nx-ftincx-f": 0,
+      "_____10c-_death-nx-ftincy-f": 0,
+      "_____10c-_death-nx-ftincz-f": 0,
+      "_____10c-_death-nx-fthlim-f": 0,
+      "_____10c-_death-nx-mp_acc-b": false,
+      "_____10c-_death-nx-mp_psp-b": false,
+      "_____10c-_death-cx-memory-b": false,
+      "_____10c-_death-cx-mem__t-i": 100,
+      "_____10c-_death-cx-mem_gr-i": 1,
+      "_____10c-_death-cx-mem_ls-i": 9,
+      "_____10c-_death-cx-tmpdpt-i": 1,
+      "_____10c-_death-nx-excite-f": 100,
+      "_____10c-_death-cx-__name-t": "Brain_Death",
+      "_____10c-_death-cx-_group-t": "CORE",
+      "_____10c-M5Fmem-cx-subgrp-t": "MEMORY",
+      "_____10c-M5Fmem-cx-_n_cnt-i": 1,
+      "_____10c-M5Fmem-cx-synatt-f": 100,
+      "_____10c-M5Fmem-cx-de_gen-f": 0,
+      "_____10c-M5Fmem-cx-pspuni-b": true,
+      "_____10c-M5Fmem-nx-pstcrm-f": 99999,
+      "_____10c-M5Fmem-cx-dstmap-d": {},
+      "_____10c-M5Fmem-cx-___bbx-i": 1,
+      "_____10c-M5Fmem-cx-___bby-i": 1,
+      "_____10c-M5Fmem-cx-___bbz-i": 1,
+      "_____10c-M5Fmem-cx-rcordx-i": 137,
+      "_____10c-M5Fmem-cx-rcordy-i": 0,
+      "_____10c-M5Fmem-cx-rcordz-i": 0,
+      "_____10c-M5Fmem-cx-2dcorx-i": -79,
+      "_____10c-M5Fmem-cx-2dcory-i": 35,
+      "_____10c-M5Fmem-cx-gd_vis-b": true,
+      "_____10c-M5Fmem-nx-pstcr_-f": 1,
+      "_____10c-M5Fmem-nx-fire_t-f": 1,
+      "_____10c-M5Fmem-nx-refrac-i": 0,
+      "_____10c-M5Fmem-nx-leak_c-f": 0,
+      "_____10c-M5Fmem-nx-leak_v-f": 0,
+      "_____10c-M5Fmem-nx-c_fr_c-i": 0,
+      "_____10c-M5Fmem-nx-snooze-f": 0,
+      "_____10c-M5Fmem-nx-ftincx-f": 0,
+      "_____10c-M5Fmem-nx-ftincy-f": 0,
+      "_____10c-M5Fmem-nx-ftincz-f": 0,
+      "_____10c-M5Fmem-nx-fthlim-f": 0,
+      "_____10c-M5Fmem-nx-mp_acc-b": false,
+      "_____10c-M5Fmem-nx-mp_psp-b": false,
+      "_____10c-M5Fmem-cx-memory-b": false,
+      "_____10c-M5Fmem-cx-mem__t-i": 100,
+      "_____10c-M5Fmem-cx-mem_gr-i": 10,
+      "_____10c-M5Fmem-cx-mem_ls-i": 9,
+      "_____10c-M5Fmem-cx-tmpdpt-i": 1,
+      "_____10c-M5Fmem-nx-excite-f": 100,
+      "_____10c-M5Fmem-cx-__name-t": "mem",
+      "_____10c-M5Fmem-cx-_group-t": "CUSTOM",
+      "_____10c-i__gyr-cx-subgrp-t": "",
+      "_____10c-i__gyr-cx-_n_cnt-i": 1,
+      "_____10c-i__gyr-cx-synatt-f": 100,
+      "_____10c-i__gyr-cx-de_gen-f": 0,
+      "_____10c-i__gyr-cx-pspuni-b": true,
+      "_____10c-i__gyr-nx-pstcrm-f": 99999,
+      "_____10c-i__gyr-cx-dstmap-d": {
+         "C3Gtes": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-i__gyr-cx-___bbx-i": 6492,
+      "_____10c-i__gyr-cx-___bby-i": 1,
+      "_____10c-i__gyr-cx-___bbz-i": 21,
+      "_____10c-i__gyr-cx-rcordx-i": 50,
+      "_____10c-i__gyr-cx-rcordy-i": 0,
+      "_____10c-i__gyr-cx-rcordz-i": -119,
+      "_____10c-i__gyr-cx-2dcorx-i": 11,
+      "_____10c-i__gyr-cx-2dcory-i": 188,
+      "_____10c-i__gyr-cx-gd_vis-b": true,
+      "_____10c-i__gyr-nx-pstcr_-f": 1,
+      "_____10c-i__gyr-nx-fire_t-f": 1,
+      "_____10c-i__gyr-nx-refrac-i": 0,
+      "_____10c-i__gyr-nx-leak_c-f": 0,
+      "_____10c-i__gyr-nx-leak_v-f": 0,
+      "_____10c-i__gyr-nx-c_fr_c-i": 0,
+      "_____10c-i__gyr-nx-snooze-f": 0,
+      "_____10c-i__gyr-nx-ftincx-f": 0,
+      "_____10c-i__gyr-nx-ftincy-f": 0,
+      "_____10c-i__gyr-nx-ftincz-f": 0,
+      "_____10c-i__gyr-nx-fthlim-f": 0,
+      "_____10c-i__gyr-nx-mp_acc-b": false,
+      "_____10c-i__gyr-nx-mp_psp-b": false,
+      "_____10c-i__gyr-cx-memory-b": false,
+      "_____10c-i__gyr-cx-mem__t-i": 100,
+      "_____10c-i__gyr-cx-mem_gr-i": 1,
+      "_____10c-i__gyr-cx-mem_ls-i": 9,
+      "_____10c-i__gyr-cx-tmpdpt-i": 1,
+      "_____10c-i__gyr-nx-excite-f": 100,
+      "_____10c-i__gyr-cx-__name-t": "Gyro sensor",
+      "_____10c-i__gyr-cx-_group-t": "IPU",
+      "_____10c-i__gyr-cx-devcnt-i": 2164,
+      "_____10c-i__acc-cx-subgrp-t": "",
+      "_____10c-i__acc-cx-_n_cnt-i": 1,
+      "_____10c-i__acc-cx-synatt-f": 100,
+      "_____10c-i__acc-cx-de_gen-f": 0,
+      "_____10c-i__acc-cx-pspuni-b": true,
+      "_____10c-i__acc-nx-pstcrm-f": 99999,
+      "_____10c-i__acc-cx-dstmap-d": {},
+      "_____10c-i__acc-cx-___bbx-i": 48,
+      "_____10c-i__acc-cx-___bby-i": 1,
+      "_____10c-i__acc-cx-___bbz-i": 21,
+      "_____10c-i__acc-cx-rcordx-i": 34,
+      "_____10c-i__acc-cx-rcordy-i": 0,
+      "_____10c-i__acc-cx-rcordz-i": -94,
+      "_____10c-i__acc-cx-2dcorx-i": 70,
+      "_____10c-i__acc-cx-2dcory-i": 180,
+      "_____10c-i__acc-cx-gd_vis-b": true,
+      "_____10c-i__acc-nx-pstcr_-f": 1,
+      "_____10c-i__acc-nx-fire_t-f": 1,
+      "_____10c-i__acc-nx-refrac-i": 0,
+      "_____10c-i__acc-nx-leak_c-f": 0,
+      "_____10c-i__acc-nx-leak_v-f": 0,
+      "_____10c-i__acc-nx-c_fr_c-i": 0,
+      "_____10c-i__acc-nx-snooze-f": 0,
+      "_____10c-i__acc-nx-ftincx-f": 0,
+      "_____10c-i__acc-nx-ftincy-f": 0,
+      "_____10c-i__acc-nx-ftincz-f": 0,
+      "_____10c-i__acc-nx-fthlim-f": 0,
+      "_____10c-i__acc-nx-mp_acc-b": false,
+      "_____10c-i__acc-nx-mp_psp-b": false,
+      "_____10c-i__acc-cx-memory-b": false,
+      "_____10c-i__acc-cx-mem__t-i": 100,
+      "_____10c-i__acc-cx-mem_gr-i": 1,
+      "_____10c-i__acc-cx-mem_ls-i": 9,
+      "_____10c-i__acc-cx-tmpdpt-i": 1,
+      "_____10c-i__acc-nx-excite-f": 100,
+      "_____10c-i__acc-cx-__name-t": "Accelerometer sensor",
+      "_____10c-i__acc-cx-_group-t": "IPU",
+      "_____10c-i__acc-cx-devcnt-i": 16,
+      "_____10c-ieuler-cx-subgrp-t": "",
+      "_____10c-ieuler-cx-_n_cnt-i": 1,
+      "_____10c-ieuler-cx-synatt-f": 100,
+      "_____10c-ieuler-cx-de_gen-f": 0,
+      "_____10c-ieuler-cx-pspuni-b": true,
+      "_____10c-ieuler-nx-pstcrm-f": 99999,
+      "_____10c-ieuler-cx-dstmap-d": {},
+      "_____10c-ieuler-cx-___bbx-i": 48,
+      "_____10c-ieuler-cx-___bby-i": 1,
+      "_____10c-ieuler-cx-___bbz-i": 21,
+      "_____10c-ieuler-cx-rcordx-i": 88,
+      "_____10c-ieuler-cx-rcordy-i": 0,
+      "_____10c-ieuler-cx-rcordz-i": -94,
+      "_____10c-ieuler-cx-2dcorx-i": 84,
+      "_____10c-ieuler-cx-2dcory-i": 22,
+      "_____10c-ieuler-cx-gd_vis-b": true,
+      "_____10c-ieuler-nx-pstcr_-f": 1,
+      "_____10c-ieuler-nx-fire_t-f": 1,
+      "_____10c-ieuler-nx-refrac-i": 0,
+      "_____10c-ieuler-nx-leak_c-f": 0,
+      "_____10c-ieuler-nx-leak_v-f": 0,
+      "_____10c-ieuler-nx-c_fr_c-i": 0,
+      "_____10c-ieuler-nx-snooze-f": 0,
+      "_____10c-ieuler-nx-ftincx-f": 0,
+      "_____10c-ieuler-nx-ftincy-f": 0,
+      "_____10c-ieuler-nx-ftincz-f": 0,
+      "_____10c-ieuler-nx-fthlim-f": 0,
+      "_____10c-ieuler-nx-mp_acc-b": false,
+      "_____10c-ieuler-nx-mp_psp-b": false,
+      "_____10c-ieuler-cx-memory-b": false,
+      "_____10c-ieuler-cx-mem__t-i": 100,
+      "_____10c-ieuler-cx-mem_gr-i": 1,
+      "_____10c-ieuler-cx-mem_ls-i": 9,
+      "_____10c-ieuler-cx-tmpdpt-i": 1,
+      "_____10c-ieuler-nx-excite-f": 100,
+      "_____10c-ieuler-cx-__name-t": "Euler angle sensor",
+      "_____10c-ieuler-cx-_group-t": "IPU",
+      "_____10c-ieuler-cx-devcnt-i": 16,
+      "_____10c-C3Gtes-cx-subgrp-t": "",
+      "_____10c-C3Gtes-cx-_n_cnt-i": 1,
+      "_____10c-C3Gtes-cx-synatt-f": 100,
+      "_____10c-C3Gtes-cx-de_gen-f": 0,
+      "_____10c-C3Gtes-cx-pspuni-b": true,
+      "_____10c-C3Gtes-nx-pstcrm-f": 99999,
+      "_____10c-C3Gtes-cx-dstmap-d": {},
+      "_____10c-C3Gtes-cx-___bbx-i": 6,
+      "_____10c-C3Gtes-cx-___bby-i": 1,
+      "_____10c-C3Gtes-cx-___bbz-i": 21,
+      "_____10c-C3Gtes-cx-rcordx-i": 24,
+      "_____10c-C3Gtes-cx-rcordy-i": 0,
+      "_____10c-C3Gtes-cx-rcordz-i": -116,
+      "_____10c-C3Gtes-cx-2dcorx-i": -68,
+      "_____10c-C3Gtes-cx-2dcory-i": 21,
+      "_____10c-C3Gtes-cx-gd_vis-b": true,
+      "_____10c-C3Gtes-nx-pstcr_-f": 1,
+      "_____10c-C3Gtes-nx-fire_t-f": 1,
+      "_____10c-C3Gtes-nx-refrac-i": 0,
+      "_____10c-C3Gtes-nx-leak_c-f": 0,
+      "_____10c-C3Gtes-nx-leak_v-f": 0,
+      "_____10c-C3Gtes-nx-c_fr_c-i": 0,
+      "_____10c-C3Gtes-nx-snooze-f": 0,
+      "_____10c-C3Gtes-nx-ftincx-f": 0,
+      "_____10c-C3Gtes-nx-ftincy-f": 0,
+      "_____10c-C3Gtes-nx-ftincz-f": 0,
+      "_____10c-C3Gtes-nx-fthlim-f": 0,
+      "_____10c-C3Gtes-nx-mp_acc-b": false,
+      "_____10c-C3Gtes-nx-mp_psp-b": false,
+      "_____10c-C3Gtes-cx-memory-b": false,
+      "_____10c-C3Gtes-cx-mem__t-i": 100,
+      "_____10c-C3Gtes-cx-mem_gr-i": 1,
+      "_____10c-C3Gtes-cx-mem_ls-i": 9,
+      "_____10c-C3Gtes-cx-tmpdpt-i": 1,
+      "_____10c-C3Gtes-nx-excite-f": 100,
+      "_____10c-C3Gtes-cx-__name-t": "test",
+      "_____10c-C3Gtes-cx-_group-t": "CUSTOM",
+      "_____10c-o__ser-cx-subgrp-t": "",
+      "_____10c-o__ser-cx-_n_cnt-i": 1,
+      "_____10c-o__ser-cx-synatt-f": 100,
+      "_____10c-o__ser-cx-de_gen-f": 0,
+      "_____10c-o__ser-cx-pspuni-b": true,
+      "_____10c-o__ser-nx-pstcrm-f": 99999,
+      "_____10c-o__ser-cx-dstmap-d": {},
+      "_____10c-o__ser-cx-___bbx-i": 4332,
+      "_____10c-o__ser-cx-___bby-i": 1,
+      "_____10c-o__ser-cx-___bbz-i": 10,
+      "_____10c-o__ser-cx-rcordx-i": -50,
+      "_____10c-o__ser-cx-rcordy-i": 0,
+      "_____10c-o__ser-cx-rcordz-i": -20,
+      "_____10c-o__ser-cx-2dcorx-i": 1064,
+      "_____10c-o__ser-cx-2dcory-i": 213,
+      "_____10c-o__ser-cx-gd_vis-b": true,
+      "_____10c-o__ser-nx-pstcr_-f": 1,
+      "_____10c-o__ser-nx-fire_t-f": 1,
+      "_____10c-o__ser-nx-refrac-i": 0,
+      "_____10c-o__ser-nx-leak_c-f": 0,
+      "_____10c-o__ser-nx-leak_v-f": 0,
+      "_____10c-o__ser-nx-c_fr_c-i": 0,
+      "_____10c-o__ser-nx-snooze-f": 0,
+      "_____10c-o__ser-nx-ftincx-f": 0,
+      "_____10c-o__ser-nx-ftincy-f": 0,
+      "_____10c-o__ser-nx-ftincz-f": 0,
+      "_____10c-o__ser-nx-fthlim-f": 0,
+      "_____10c-o__ser-nx-mp_acc-b": false,
+      "_____10c-o__ser-nx-mp_psp-b": false,
+      "_____10c-o__ser-cx-memory-b": false,
+      "_____10c-o__ser-cx-mem__t-i": 100,
+      "_____10c-o__ser-cx-mem_gr-i": 1,
+      "_____10c-o__ser-cx-mem_ls-i": 9,
+      "_____10c-o__ser-cx-tmpdpt-i": 1,
+      "_____10c-o__ser-nx-excite-f": 100,
+      "_____10c-o__ser-cx-__name-t": "Servo control",
+      "_____10c-o__ser-cx-_group-t": "OPU",
+      "_____10c-o__ser-cx-devcnt-i": 2166,
+      "_____10c-o_spos-cx-subgrp-t": "",
+      "_____10c-o_spos-cx-_n_cnt-i": 1,
+      "_____10c-o_spos-cx-synatt-f": 100,
+      "_____10c-o_spos-cx-de_gen-f": 0,
+      "_____10c-o_spos-cx-pspuni-b": true,
+      "_____10c-o_spos-nx-pstcrm-f": 99999,
+      "_____10c-o_spos-cx-dstmap-d": {},
+      "_____10c-o_spos-cx-___bbx-i": 2166,
+      "_____10c-o_spos-cx-___bby-i": 1,
+      "_____10c-o_spos-cx-___bbz-i": 10,
+      "_____10c-o_spos-cx-rcordx-i": -50,
+      "_____10c-o_spos-cx-rcordy-i": 0,
+      "_____10c-o_spos-cx-rcordz-i": -35,
+      "_____10c-o_spos-cx-2dcorx-i": 1054,
+      "_____10c-o_spos-cx-2dcory-i": 83,
+      "_____10c-o_spos-cx-gd_vis-b": true,
+      "_____10c-o_spos-nx-pstcr_-f": 1,
+      "_____10c-o_spos-nx-fire_t-f": 1,
+      "_____10c-o_spos-nx-refrac-i": 0,
+      "_____10c-o_spos-nx-leak_c-f": 0,
+      "_____10c-o_spos-nx-leak_v-f": 0,
+      "_____10c-o_spos-nx-c_fr_c-i": 0,
+      "_____10c-o_spos-nx-snooze-f": 0,
+      "_____10c-o_spos-nx-ftincx-f": 0,
+      "_____10c-o_spos-nx-ftincy-f": 0,
+      "_____10c-o_spos-nx-ftincz-f": 0,
+      "_____10c-o_spos-nx-fthlim-f": 0,
+      "_____10c-o_spos-nx-mp_acc-b": false,
+      "_____10c-o_spos-nx-mp_psp-b": false,
+      "_____10c-o_spos-cx-memory-b": false,
+      "_____10c-o_spos-cx-mem__t-i": 100,
+      "_____10c-o_spos-cx-mem_gr-i": 1,
+      "_____10c-o_spos-cx-mem_ls-i": 9,
+      "_____10c-o_spos-cx-tmpdpt-i": 1,
+      "_____10c-o_spos-nx-excite-f": 100,
+      "_____10c-o_spos-cx-__name-t": "Servo Position OPU",
+      "_____10c-o_spos-cx-_group-t": "OPU",
+      "_____10c-o_spos-cx-devcnt-i": 2166,
+      "_____10c-C0Ymov-cx-subgrp-t": "",
+      "_____10c-C0Ymov-cx-_n_cnt-i": 1,
+      "_____10c-C0Ymov-cx-synatt-f": 100,
+      "_____10c-C0Ymov-cx-de_gen-f": 0,
+      "_____10c-C0Ymov-cx-pspuni-b": true,
+      "_____10c-C0Ymov-nx-pstcrm-f": 99999,
+      "_____10c-C0Ymov-cx-dstmap-d": {
+         "o_spos": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-C0Ymov-cx-___bbx-i": 3,
+      "_____10c-C0Ymov-cx-___bby-i": 1,
+      "_____10c-C0Ymov-cx-___bbz-i": 10,
+      "_____10c-C0Ymov-cx-rcordx-i": -50,
+      "_____10c-C0Ymov-cx-rcordy-i": 0,
+      "_____10c-C0Ymov-cx-rcordz-i": -48,
+      "_____10c-C0Ymov-cx-2dcorx-i": -47,
+      "_____10c-C0Ymov-cx-2dcory-i": 77,
+      "_____10c-C0Ymov-cx-gd_vis-b": true,
+      "_____10c-C0Ymov-nx-pstcr_-f": 1,
+      "_____10c-C0Ymov-nx-fire_t-f": 1,
+      "_____10c-C0Ymov-nx-refrac-i": 0,
+      "_____10c-C0Ymov-nx-leak_c-f": 0,
+      "_____10c-C0Ymov-nx-leak_v-f": 0,
+      "_____10c-C0Ymov-nx-c_fr_c-i": 0,
+      "_____10c-C0Ymov-nx-snooze-f": 0,
+      "_____10c-C0Ymov-nx-ftincx-f": 0,
+      "_____10c-C0Ymov-nx-ftincy-f": 0,
+      "_____10c-C0Ymov-nx-ftincz-f": 0,
+      "_____10c-C0Ymov-nx-fthlim-f": 0,
+      "_____10c-C0Ymov-nx-mp_acc-b": false,
+      "_____10c-C0Ymov-nx-mp_psp-b": false,
+      "_____10c-C0Ymov-cx-memory-b": false,
+      "_____10c-C0Ymov-cx-mem__t-i": 100,
+      "_____10c-C0Ymov-cx-mem_gr-i": 1,
+      "_____10c-C0Ymov-cx-mem_ls-i": 9,
+      "_____10c-C0Ymov-cx-tmpdpt-i": 1,
+      "_____10c-C0Ymov-nx-excite-f": 100,
+      "_____10c-C0Ymov-cx-__name-t": "move_root_only",
+      "_____10c-C0Ymov-cx-_group-t": "CUSTOM",
+      "_____10c-o_init-cx-subgrp-t": "",
+      "_____10c-o_init-cx-_n_cnt-i": 1,
+      "_____10c-o_init-cx-synatt-f": 100,
+      "_____10c-o_init-cx-de_gen-f": 0,
+      "_____10c-o_init-cx-pspuni-b": true,
+      "_____10c-o_init-nx-pstcrm-f": 99999,
+      "_____10c-o_init-cx-dstmap-d": {},
+      "_____10c-o_init-cx-___bbx-i": 20,
+      "_____10c-o_init-cx-___bby-i": 1,
+      "_____10c-o_init-cx-___bbz-i": 1,
+      "_____10c-o_init-cx-rcordx-i": -43,
+      "_____10c-o_init-cx-rcordy-i": 0,
+      "_____10c-o_init-cx-rcordz-i": -41,
+      "_____10c-o_init-cx-2dcorx-i": 69,
+      "_____10c-o_init-cx-2dcory-i": 89,
+      "_____10c-o_init-cx-gd_vis-b": true,
+      "_____10c-o_init-nx-pstcr_-f": 1,
+      "_____10c-o_init-nx-fire_t-f": 1,
+      "_____10c-o_init-nx-refrac-i": 0,
+      "_____10c-o_init-nx-leak_c-f": 0,
+      "_____10c-o_init-nx-leak_v-f": 0,
+      "_____10c-o_init-nx-c_fr_c-i": 0,
+      "_____10c-o_init-nx-snooze-f": 0,
+      "_____10c-o_init-nx-ftincx-f": 0,
+      "_____10c-o_init-nx-ftincy-f": 0,
+      "_____10c-o_init-nx-ftincz-f": 0,
+      "_____10c-o_init-nx-fthlim-f": 0,
+      "_____10c-o_init-nx-mp_acc-b": false,
+      "_____10c-o_init-nx-mp_psp-b": false,
+      "_____10c-o_init-cx-memory-b": false,
+      "_____10c-o_init-cx-mem__t-i": 100,
+      "_____10c-o_init-cx-mem_gr-i": 1,
+      "_____10c-o_init-cx-mem_ls-i": 9,
+      "_____10c-o_init-cx-tmpdpt-i": 1,
+      "_____10c-o_init-nx-excite-f": 100,
+      "_____10c-o_init-cx-__name-t": "Position initializer",
+      "_____10c-o_init-cx-_group-t": "OPU",
+      "_____10c-o_init-cx-devcnt-i": 1,
+      "_____10c-o_misc-cx-subgrp-t": "",
+      "_____10c-o_misc-cx-_n_cnt-i": 1,
+      "_____10c-o_misc-cx-synatt-f": 100,
+      "_____10c-o_misc-cx-de_gen-f": 0,
+      "_____10c-o_misc-cx-pspuni-b": true,
+      "_____10c-o_misc-nx-pstcrm-f": 99999,
+      "_____10c-o_misc-cx-dstmap-d": {},
+      "_____10c-o_misc-cx-___bbx-i": 20,
+      "_____10c-o_misc-cx-___bby-i": 1,
+      "_____10c-o_misc-cx-___bbz-i": 1,
+      "_____10c-o_misc-cx-rcordx-i": -43,
+      "_____10c-o_misc-cx-rcordy-i": 0,
+      "_____10c-o_misc-cx-rcordz-i": -48,
+      "_____10c-o_misc-cx-2dcorx-i": -65,
+      "_____10c-o_misc-cx-2dcory-i": 11,
+      "_____10c-o_misc-cx-gd_vis-b": true,
+      "_____10c-o_misc-nx-pstcr_-f": 1,
+      "_____10c-o_misc-nx-fire_t-f": 1,
+      "_____10c-o_misc-nx-refrac-i": 0,
+      "_____10c-o_misc-nx-leak_c-f": 0,
+      "_____10c-o_misc-nx-leak_v-f": 0,
+      "_____10c-o_misc-nx-c_fr_c-i": 0,
+      "_____10c-o_misc-nx-snooze-f": 0,
+      "_____10c-o_misc-nx-ftincx-f": 0,
+      "_____10c-o_misc-nx-ftincy-f": 0,
+      "_____10c-o_misc-nx-ftincz-f": 0,
+      "_____10c-o_misc-nx-fthlim-f": 0,
+      "_____10c-o_misc-nx-mp_acc-b": false,
+      "_____10c-o_misc-nx-mp_psp-b": false,
+      "_____10c-o_misc-cx-memory-b": false,
+      "_____10c-o_misc-cx-mem__t-i": 100,
+      "_____10c-o_misc-cx-mem_gr-i": 1,
+      "_____10c-o_misc-cx-mem_ls-i": 9,
+      "_____10c-o_misc-cx-tmpdpt-i": 1,
+      "_____10c-o_misc-nx-excite-f": 100,
+      "_____10c-o_misc-cx-__name-t": "Miscellaneous",
+      "_____10c-o_misc-cx-_group-t": "OPU",
+      "_____10c-o_misc-cx-devcnt-i": 1
+   }
+}
