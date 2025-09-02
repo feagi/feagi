@@ -19,7 +19,7 @@ from ..memory import NeuralBufferPool
 from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
 from ..platform import optimize_socket_for_neural_data
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class StreamResult(IntEnum):
@@ -67,6 +67,7 @@ class SensoryNeuralStream:
             slot_size: Size of each slot in bytes
             cortical_config: Cortical area configuration for buffer pools
         """
+        logger.info("Initializing sensory stream.")
         self.core_api = core_api
         self.host = host
         self.port = port
@@ -109,6 +110,20 @@ class SensoryNeuralStream:
             NeuralProtocolID.NEURON_MULTI: self._handle_neuron_multi,
             NeuralProtocolID.CORTICAL_MAP: self._handle_cortical_map,
         }
+
+    def _is_debug_npu_enabled(self) -> bool:
+        """Check if NPU debug logging is enabled via state manager.
+
+        Returns:
+            True when --debug-npu is enabled, else False.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            return FeagiStateManager.instance().is_debug_npu_enabled()
+        except Exception:
+            # @architecture:acceptable - test isolation (no logging without state manager)
+            return False
 
     def _setup_socket(self) -> zmq.Socket:
         """Set up optimized PULL socket for neural data."""
@@ -365,9 +380,10 @@ class SensoryNeuralStream:
 
                     neuron_count += len(x_coords)
 
-                logger.info(
-                    f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding"
-                )
+                if self._is_debug_npu_enabled():
+                    logger.info(
+                        f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding"
+                    )
 
                 # Convert back to numpy arrays for SIMD performance
                 import numpy as np
@@ -389,17 +405,19 @@ class SensoryNeuralStream:
                             data["membrane_potentials"], dtype=np.float32
                         ),
                     }
-                    logger.info(
-                        f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons"
-                    )
+                    if self._is_debug_npu_enabled():
+                        logger.info(
+                            f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons"
+                        )
 
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
 
                 if result.get("success", False):
-                    logger.info(
-                        f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data)} cortical areas (VECTORIZED)"
-                    )
+                    if self._is_debug_npu_enabled():
+                        logger.info(
+                            f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data), neural_data} cortical areas (VECTORIZED)"
+                        )
                     return StreamResult.SUCCESS
                 else:
                     logger.error(
@@ -452,6 +470,8 @@ class SensoryNeuralStream:
     ) -> StreamResult:
         """Handle dense neural array data."""
         try:
+            if self._is_debug_npu_enabled():
+                logger.info("Handling dense neural array data.")
             # Get buffer for this cortical area if available
             buffer = None
             if self.neural_buffers:
@@ -497,6 +517,8 @@ class SensoryNeuralStream:
 
             # Convert to unified neural data format with SAFE uint16 conversion
             try:
+                if self._is_debug_npu_enabled():
+                    logger.info("Processing neural data.. .. ..")
                 #  CRITICAL FIX: Validate coordinate ranges before conversion
                 #  to uint16
                 if x_coords is not None:
@@ -545,6 +567,9 @@ class SensoryNeuralStream:
                         "membrane_potentials": firing_rates.astype(np.float32),
                     }
                 }
+
+                if self._is_debug_npu_enabled():
+                    logger.info(f"About to stimulate sensory data: {neural_data}")
 
                 # Use unified stimulation method
                 result = self.core_api.stimulate_neurons(neural_data)

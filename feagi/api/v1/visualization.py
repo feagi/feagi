@@ -30,7 +30,7 @@ from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.v1.schemas import SuccessResponse
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 router = APIRouter()
 
 

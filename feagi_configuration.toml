@@ -10,7 +10,7 @@
 # System-level configuration
 max_cores = 0  # 0 = auto-detect
 debug = true
-log_level = "INFO"
+log_level = "WARNING"
 data_dir = ""  # Must be set via environment variable or configuration override
 
 [genome]
@@ -109,6 +109,15 @@ batch_size = 1000              # neurons per batch
 use_sparse_computation = true   # optimize for sparse networks
 enable_plasticity = true       # learning mechanisms
 
+# Hybrid CPU/GPU Processing Configuration
+[neural.hybrid]
+enabled = true  # Enable intelligent CPU/GPU hybrid processing
+gpu_threshold = 1000000  # Use GPU for workloads ≥ this many synapses (1M default based on benchmarks)
+keepalive_enabled = true  # Enable GPU keep-alive to prevent cold start overhead
+keepalive_interval = 30.0  # Keep-alive interval in seconds
+# keepalive_brain_threshold is now calculated as gpu_threshold × 80% automatically
+auto_tune_threshold = false  # Automatically adjust threshold based on performance (experimental)
+
 [connectome]
 # Connectome sizing and memory allocation
 # These values determine the minimum reserved space for neurons and synapses
@@ -136,7 +145,7 @@ enable_health_check = true     # monitor process health
 
 [logging]
 # Logging configuration
-global_log_level = "INFO"
+global_log_level = "WARNING"
 print_debug_logs = false
 print_burst_info = true
 log_file = "feagi.log"

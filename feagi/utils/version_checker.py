@@ -28,7 +28,7 @@ from packaging import specifiers
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class VersionMismatchError(Exception):

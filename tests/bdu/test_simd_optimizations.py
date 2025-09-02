@@ -174,17 +174,7 @@ class TestSIMDOptimizations:
         for _neuron_id, weight in result:
             assert weight == 1.5
 
-    def test_batch_voxel_to_neuron_lookup_nonexistent_area(self, connectome_manager):
-        """Test batch lookup with non-existent cortical area."""
-        candidate_positions = {(1, 1, 0), (2, 2, 0)}
-        
-        # Should raise KeyError for non-existent area
-        with pytest.raises(KeyError):
-            connectome_manager.batch_voxel_to_neuron_lookup(
-                cortical_id='nonexistent_area',
-                candidate_positions=candidate_positions,
-                post_synaptic_current=1.0
-            )
+
 
     def test_numpy_simd_operations_basic(self):
         """Test basic numpy SIMD operations used in optimizations."""

@@ -1,0 +1,15 @@
+{
+  "test_name": "async_fcl_processor",
+  "metric_name": "execution_time_ms",
+  "baseline_value": 0.05828651774208993,
+  "baseline_timestamp": 1755280650.597223,
+  "sample_count": 8,
+  "std_deviation": 0.048312046407615085,
+  "confidence_interval": [
+    0.024807977626822596,
+    0.09176505785735725
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59712
+  }
+}

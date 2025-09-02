@@ -29,7 +29,7 @@ from feagi.api.shared_memory.events import (
 )
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 # Global event system instance
 _global_event_system: Optional[EventNotificationSystem] = None

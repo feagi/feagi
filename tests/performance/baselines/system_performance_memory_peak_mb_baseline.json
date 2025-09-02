@@ -1,0 +1,15 @@
+{
+  "test_name": "system_performance",
+  "metric_name": "memory_peak_mb",
+  "baseline_value": 0.000576019287109375,
+  "baseline_timestamp": 1755280650.600778,
+  "sample_count": 4,
+  "std_deviation": 0.00024041673670331925,
+  "confidence_interval": [
+    0.00034041088514012214,
+    0.0008116276890786278
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.600467
+  }
+}

@@ -58,7 +58,7 @@ setup(
         "zmq",
         "capnp",
         "toml",
-        "feagi-data-processing>=0.0.30",  # Replace feagi_bytes with high-performance feagi-data-processing
+        "feagi-rust-py-libs>=0.0.45",
         "tomli",
         "tomli-w",
         "pathlib",

@@ -1,17 +1,3 @@
-"""Copyright 2025 Neuraville Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
 """ConnectomeManager for the BDU optimized for GPU processing.
 
 This module provides a GPU-optimized implementation of the connectome manager
@@ -28,12 +14,12 @@ import numpy as np
 import torch
 
 from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
+from feagi.core.state_manager import get_state_manager
 from feagi.bdu.models.cortical_area import CorticalArea
-from feagi.bdu.models.memory_neuron import MemoryNeuronArray
 
 # Import models
-from feagi.bdu.models.neuron import NeuronArray, NeuronMappingProvider
-from feagi.bdu.synapse_array import GlobalSynapseArray
+from feagi.bdu.models.neuron import NeuronMappingProvider
+from feagi.npu.data_structures import NeuronArray, SynapseArray, BackendType
 
 # Import utility functions
 from feagi.utils.logger import setup_logger
@@ -84,6 +70,9 @@ class ConnectomeManager(NeuronMappingProvider):
     # Singleton pattern implementation
     _instance = None
     _initialized = False
+    
+    # Debug: Log class definition
+    logger.info("🔧 ConnectomeManager class being defined")
 
     @classmethod
     def instance(
@@ -103,6 +92,7 @@ class ConnectomeManager(NeuronMappingProvider):
             The singleton ConnectomeManager instance
         """
         if cls._instance is None:
+            logger.info(f"🔧 Creating NEW ConnectomeManager singleton with backend: '{backend}'")
             cls._instance = cls.__new__(cls)
             cls._instance.__init__(
                 config_or_max_neurons, max_synapses, backend
@@ -113,11 +103,13 @@ class ConnectomeManager(NeuronMappingProvider):
                 status="[TARGET]",
             )
         else:
+            logger.warning(f"🔧 ConnectomeManager singleton already exists! Ignoring backend: '{backend}'")
+            logger.warning(f"🔧 Existing NPU Interface: {getattr(cls._instance, '_npu_interface', 'NOT_SET')}")
             from feagi.core.state_manager import get_state_manager
 
             state_manager = get_state_manager()
             if state_manager.is_debug_bdu_enabled():
-                logger.info(
+                logger.debug(
                     "[BDU-DEBUG] Returning existing ConnectomeManager singleton",
                     status="[LINK]",
                 )
@@ -135,6 +127,10 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
+        import traceback
+        logger.info(f"🔧 ConnectomeManager.__new__ called with args: {args}, kwargs: {kwargs}")
+        logger.info(f"🔧 Call stack:\n{traceback.format_stack()[-3:-1]}")
+        
         if cls._instance is not None and cls._initialized:
             logger.warning(
                 "Attempted to create multiple ConnectomeManager instances - returning singleton",
@@ -142,6 +138,7 @@ class ConnectomeManager(NeuronMappingProvider):
             )
             return cls._instance
         # Create new instance if none exists or if reset was called
+        logger.info("🔧 Creating new ConnectomeManager instance via __new__")
         instance = super().__new__(cls)
         cls._instance = instance
         return instance
@@ -151,7 +148,7 @@ class ConnectomeManager(NeuronMappingProvider):
         config_or_max_neurons: Union[Dict[str, Any], int],
         max_synapses: int = 100_000_000,
         backend: str = "cpu",
-        multi_gpu_config=None,
+
     ):
         """Initialize the ConnectomeManager.
 
@@ -159,75 +156,60 @@ class ConnectomeManager(NeuronMappingProvider):
             config_or_max_neurons: Either a configuration dictionary or maximum number of neurons
             max_synapses: Maximum number of synapses per neuron (default: 100M)
             backend: Backend to use for computations ("cpu" or "cuda")
-            multi_gpu_config: Configuration for multi-GPU setup (optional)
+
         """
+        # Debug: Print to stderr to bypass logging issues
+        import sys
+        print(f"🔧 ConnectomeManager.__init__ called on {id(self)} with backend: '{backend}'", file=sys.stderr, flush=True)
+        
         # Initialize logger
         self.logger = logging.getLogger(__name__)
 
+        logger.info(f"🔧 ConnectomeManager.__init__ called with backend: '{backend}'")
+        logger.info(f"🔧 _initialized flag: {ConnectomeManager._initialized}")
+
         if ConnectomeManager._initialized:
+            logger.info("🔧 ConnectomeManager already initialized, but checking NPU Interface...")
+            # Even if already initialized, ensure NPU Interface is set up if it wasn't before
+            if not hasattr(self, '_npu_interface') or self._npu_interface is None:
+                logger.info(f"🔧 NPU Interface not set, initializing with backend: '{backend}'")
+                self._initialize_npu_interface(backend)
+            else:
+                logger.info(f"🔧 NPU Interface already exists: {self._npu_interface}")
             return
 
         # Handle legacy parameter passing and dynamic sizing
+        # Store these values to pass to NPU Interface later
         if isinstance(config_or_max_neurons, dict):
             config = config_or_max_neurons
-            self.max_neurons = config.get("max_neurons", 10_000_000)
+            self._max_neurons_config = config.get("max_neurons", 10_000_000)
             max_synapses = config.get("max_synapses", max_synapses)
             backend = config.get("backend", backend)
         elif hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
             config = config_or_max_neurons
             # NEW: Dynamic sizing based on genome stats and configuration
-            self.max_neurons = self._calculate_neuron_space(config)
+            self._max_neurons_config = self._calculate_neuron_space(config)
             max_synapses = self._calculate_synapse_space(config, max_synapses)
             backend = config.get("connectome.backend", backend)
         else:
-            self.max_neurons = config_or_max_neurons
+            self._max_neurons_config = config_or_max_neurons
 
-        self.max_synapses = max_synapses
+        self._max_synapses_config = max_synapses
 
-        #  Initialize neuron array with automatic backend selection and mapping
-        #  provider
-        self.neuron_array = NeuronArray(
-            max_neurons=self.max_neurons,
-            backend=backend,
-            mapping_provider=self,
-        )
+        #  CRITICAL: Do NOT create neuron array here - NPU Interface owns it
+        #  ConnectomeManager will get reference to NPU Interface's neuron array
+        #  when set_npu_interface() is called
+        self.neuron_array = None  # Will be set by NPU Interface
 
-        #  CRITICAL FIX: Initialize neuron ID counter properly to prevent
-        #  ID/index conflicts
-        # This prevents memory corruption from reusing IDs as indices
-        if not hasattr(self.neuron_array, "_next_neuron_id"):
-            self.neuron_array._next_neuron_id = (
-                1  # Start from 1, 0 reserved for invalid
-            )
+        #  Neuron ID counter will be initialized when NPU Interface is set
+        #  This prevents memory corruption from reusing IDs as indices
 
-        # Initialize memory neuron array for memory cortical areas
-        try:
-            if hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
-                max_memory_neurons = self._calculate_memory_neuron_space(
-                    config_or_max_neurons
-                )
-            else:
-                max_memory_neurons = 50_000  # Default fallback
-
-            self.memory_neuron_array = MemoryNeuronArray(
-                capacity=max_memory_neurons
-            )
-            self.logger.info(
-                f"[CONNECTOME] Memory neuron array initialized with capacity {max_memory_neurons}"
-            )
-        except Exception as e:
-            #  CRITICAL FIX: Always ensure memory_neuron_array exists for
-            #  BurstEngine
-            self.logger.warning(
-                f"Error initializing memory neuron array with config: {e}"
-            )
-            self.logger.info(
-                "[CONNECTOME] Fallback: Initializing memory neuron array with default capacity"
-            )
-            self.memory_neuron_array = MemoryNeuronArray(capacity=50_000)
-            self.logger.info(
-                "[CONNECTOME] Memory neuron array initialized with fallback capacity 50000"
-            )
+        # CRITICAL: Initialize NPU Interface immediately to own all data structures
+        # This must happen BEFORE neurogenesis so that neuron creation works
+        logger.info(f"🔧 ConnectomeManager initializing with backend: '{backend}'")
+        print(f"🔧 About to initialize NPU Interface with backend: '{backend}'", file=sys.stderr, flush=True)
+        self._initialize_npu_interface(backend)
+        print(f"🔧 NPU Interface initialized: {self._npu_interface}", file=sys.stderr, flush=True)
 
         # Memory area tracking for pattern processing
         self.memory_areas: Set[str] = set()
@@ -239,6 +221,10 @@ class ConnectomeManager(NeuronMappingProvider):
         self.cortical_areas: Dict[str, CorticalArea] = {}
         self.brain_regions = {}
         self.region_area_map = {}
+        
+        # Initialize hierarchical brain region system
+        from feagi.bdu.models.brain_region_hierarchy import BrainRegionHierarchy
+        self.brain_region_hierarchy = BrainRegionHierarchy()
 
         # Initialize connectivity rules and cortical connections storage
         self.connectivity_rules = {}
@@ -269,26 +255,23 @@ class ConnectomeManager(NeuronMappingProvider):
         # Neuron ID management - delegate to NeuronArray
         self.next_neuron_id = 1
 
-        # Initialize high-performance synapse storage using GlobalSynapseArray
-        self.max_synapses = max_synapses
-        self.synapse_array = GlobalSynapseArray(
-            max_synapses=self.max_synapses, backend=backend
-        )
+        # CRITICAL: Do NOT create synapse array here - NPU Interface owns it
+        # ConnectomeManager will get reference to NPU Interface's synapse array
+        # when set_npu_interface() is called
+        self.synapse_array = None  # Will be set by NPU Interface
 
-        #  Initialize FCL manager and other missing attributes for BurstEngine
-        #  compatibility
-        from feagi.npu.fcl_manager import FCLManager
-
-        self.fcl_manager = FCLManager()
+        #  FCL manager is now owned by NPU BurstEngine, not BDU ConnectomeManager
+        #  This maintains backward compatibility for any code that expects fcl_manager attribute
+        self.fcl_manager = None  # Will be set by NPU when BurstEngine is created
+        
+        # NPU interface reference - NPU is PRIMARY OWNER of synaptic updates
+        # NOTE: _npu_interface_internal is already set by _initialize_npu_interface() above
 
         # Initialize active neurons tracking
         self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
         self.current_timestep = 0
 
-        # Initialize multi-GPU manager
-        self.multi_gpu_manager = None
-        if multi_gpu_config:
-            self._init_multi_gpu(multi_gpu_config)
+
 
         #  Initialize global spatial hash system for ultra-fast coordinate
         #  lookups
@@ -297,11 +280,13 @@ class ConnectomeManager(NeuronMappingProvider):
         self._spatial_hash = get_spatial_hash()
         self.logger.info("[CONNECTOME] Morton spatial hash system initialized")
 
+        # Initialize state manager for brain size tracking
+        self.state_manager = get_state_manager()
+        
         # Register Morton spatial hash with state manager
         try:
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
+            # Use already imported get_state_manager (no need to re-import)
+            state_manager = self.state_manager
 
             # Register current Morton implementation details
             morton_coordinate_limit = 1 << 21  # 21-bit Morton encoding limit
@@ -324,7 +309,23 @@ class ConnectomeManager(NeuronMappingProvider):
     #  ============================================================================
 
     def get_neuron_index(self, neuron_id: int) -> Optional[int]:
-        """Get the array index for a neuron ID."""
+        """Get the array index for a neuron ID.
+
+        NPU NeuronArray is the single source of truth for ID↔index mappings.
+        """
+        # Prefer NPU-owned mapping
+        try:
+            if hasattr(self, "neuron_array") and self.neuron_array:
+                idx = self.neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is not None:
+                    return idx
+            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
+                idx = self.memory_neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is not None:
+                    return idx
+        except Exception:
+            pass
+        # Legacy mapping (may be empty in new architecture)
         return self._neuron_id_to_index_map.get(neuron_id)
 
     def get_neuron_id(self, index: int) -> Optional[int]:
@@ -343,12 +344,63 @@ class ConnectomeManager(NeuronMappingProvider):
             self._index_to_neuron_id_map.pop(index, None)
 
     def has_neuron(self, neuron_id: int) -> bool:
-        """Check if a neuron ID exists."""
+        """Check if a neuron ID exists (NPU mapping authoritative)."""
+        try:
+            if hasattr(self, "neuron_array") and self.neuron_array:
+                if neuron_id in self.neuron_array.neuron_id_to_index:
+                    return True
+            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
+                if neuron_id in self.memory_neuron_array.neuron_id_to_index:
+                    return True
+        except Exception:
+            pass
         return neuron_id in self._neuron_id_to_index_map
 
     def get_all_neuron_ids(self) -> List[int]:
         """Get all neuron IDs."""
         return list(self._neuron_id_to_index_map.keys())
+
+    def _get_fcl_manager(self):
+        """Get FCL manager from NPU BurstEngine.
+        
+        Since FCL manager is now owned by NPU, we need to get it from BurstEngine.
+        This maintains backward compatibility for BDU code that needs FCL access.
+        
+        Returns:
+            FCL manager instance from NPU, or None if not available
+        """
+        if self.fcl_manager is not None:
+            return self.fcl_manager
+            
+        # Try to get FCL manager from BurstEngine
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine._instance
+            if burst_engine and hasattr(burst_engine, 'fcl_manager'):
+                # Cache the reference for performance
+                self.fcl_manager = burst_engine.fcl_manager
+                return self.fcl_manager
+        except Exception as e:
+            logger.warning(f"Could not get FCL manager from NPU: {e}")
+            
+        return None
+    
+    def _get_async_fcl_processor(self):
+        """Get async FCL processor from NPU BurstEngine.
+        
+        Returns:
+            AsyncFCLProcessor instance from NPU, or None if not available
+        """
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine._instance
+            if (burst_engine and 
+                hasattr(burst_engine, 'async_fcl_processor')):
+                return burst_engine.async_fcl_processor
+        except Exception as e:
+            logger.warning(f"Could not get async FCL processor from NPU: {e}")
+        
+        return None
 
     # ======================================================================
     # DYNAMIC SIZING METHODS - GENOME-BASED MEMORY OPTIMIZATION
@@ -438,18 +490,17 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.max_synapses = optimal_synapse_size
 
                 # Get current backend before reinitializing
-                current_backend = getattr(self.neuron_array, "backend", "cpu")
+                _ = getattr(self.neuron_array, "backend", "cpu")
 
                 # Reinitialize high-performance synapse storage with new size
-                self.synapse_array = GlobalSynapseArray(
-                    max_synapses=self.max_synapses, backend=current_backend
+                self.synapse_array = SynapseArray(
+                    max_synapses=self.max_synapses
                 )
 
                 # Reinitialize neuron array with new capacity
                 self.neuron_array = NeuronArray(
                     max_neurons=self.max_neurons,
-                    backend=current_backend,
-                    mapping_provider=self,
+                    backend=BackendType.CPU,
                 )
 
                 # Clear and reinitialize mappings
@@ -841,7 +892,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
             state_manager = get_state_manager()
             if state_manager.is_debug_bdu_enabled():
-                logger.info(
+                logger.debug(
                     f"[BDU-DEBUG] cortical_idx allocation: reserved={reserved_indices}, "
                     f"used={sorted(used_indices)}, next_available={next_idx}"
                 )
@@ -947,55 +998,168 @@ class ConnectomeManager(NeuronMappingProvider):
             status="[OK]",
         )
 
-    def _init_multi_gpu(self, multi_gpu_config):
-        """Initialize multi-GPU support.
+    @property
+    def _npu_interface(self):
+        """Property to track access to NPU interface."""
+        return self._npu_interface_internal
+    
+    @_npu_interface.setter
+    def _npu_interface(self, value):
+        """Property to track setting of NPU interface."""
+        self._npu_interface_internal = value
+
+    def _initialize_npu_interface(self, backend: str):
+        """Initialize NPU Interface with the specified backend.
 
         Args:
-            multi_gpu_config: Configuration for multi-GPU operation
+            backend: Backend string ("cpu", "cuda", "wgpu", etc.) or None
+        """
+        from feagi.npu.interface import NPUInterface
+        from feagi.npu.data_structures import BackendType
+        
+        # Handle None backend (use CPU as default)
+        if backend is None:
+            backend = "cpu"
+            logger.info("🔧 Backend was None, defaulting to 'cpu'")
+        
+        # Create NPU Interface as single source of truth for neural data
+        backend_map = {
+            "cpu": BackendType.CPU,
+            "cuda": BackendType.CUDA, 
+            "wgpu": BackendType.WGPU,
+            "auto": BackendType.CPU  # Map 'auto' to CPU for now
+        }
+        npu_backend = backend_map.get(backend, BackendType.CPU)
+        
+        logger.info(f"🔧 Creating NPU Interface with backend: {npu_backend.value}")
+        self._npu_interface = NPUInterface(backend=npu_backend)
+        
+        # Set references to NPU Interface's data structures
+        self.neuron_array = self._npu_interface.neuron_array
+        self.synapse_array = self._npu_interface.synapse_array
+        self.memory_neuron_array = self._npu_interface.memory_neuron_array
+        
+        logger.info("✅ NPU Interface initialized as single source of truth for neural data")
+        logger.info(f"   Backend: {npu_backend.value}")
+        logger.info(f"   Max neurons: {self.neuron_array.max_neurons:,}")
+        logger.info(f"   Max synapses: {self.synapse_array.max_synapses:,}")
+        logger.info(f"   NPU Interface object: {self._npu_interface}")
+        logger.info(f"   NPU Interface is None: {self._npu_interface is None}")
+    
+    def set_npu_interface(self, npu_interface):
+        """Set NPU interface as primary owner of synaptic updates.
+        
+        This method is now mainly for backward compatibility since NPU Interface
+        is initialized during ConnectomeManager creation.
+
+        Args:
+            npu_interface: NPUInterface instance that will own synaptic updates
         """
         try:
-            # Import here to avoid circular imports
-            from feagi.bdu.multi_gpu import MultiGPUManager
+            # Always adopt the provided NPU interface to ensure single source of truth
+            self._npu_interface = npu_interface
+            # Wire arrays from NPU (authoritative owners)
+            if hasattr(npu_interface, "neuron_array"):
+                self.neuron_array = npu_interface.neuron_array
+            if hasattr(npu_interface, "synapse_array"):
+                self.synapse_array = npu_interface.synapse_array
+            if hasattr(npu_interface, "memory_neuron_array"):
+                self.memory_neuron_array = npu_interface.memory_neuron_array
 
-            # Create multi-GPU manager
-            self.multi_gpu_manager = MultiGPUManager(multi_gpu_config)
-
-            # Initialize with this connectome
-            self.multi_gpu_manager.initialize(self)
-
-            logger.info(
-                f"Initialized multi-GPU manager with {multi_gpu_config.num_devices} devices"
-            )
-        except ImportError:
-            logger.warning(
-                "Could not import MultiGPUManager. Multi-GPU support is disabled."
-            )
-            self.multi_gpu_manager = None
+            logger.info("✅ NPU interface set as PRIMARY owner of synaptic updates")
+            logger.info("✅ ConnectomeManager arrays now reference NPU-owned arrays")
         except Exception as e:
-            logger.error(f"Failed to initialize multi-GPU support: {e}")
-            self.multi_gpu_manager = None
+            logger.error(f"Failed to set NPU interface on ConnectomeManager: {e}")
 
-    def to_multi_gpu(self, multi_gpu_config=None):
-        """Convert the connectome to use multi-GPU processing.
+    def sync_cortical_areas_to_npu(self) -> None:
+        """Synchronize cortical area registry into the active NPU interface.
 
-        Args:
-            multi_gpu_config: Configuration for multi-GPU operation (optional)
-                If None, will use automatic configuration
-
-        Returns:
-            Self (for method chaining)
+        Deterministic, no fallbacks. Copies minimal metadata required by NPU hot paths:
+        - cortical_idx (int)
+        - dimensions (tuple[int,int,int])
+        - area_type: "regular" | "memory"
+        - cortical_id (6-char string) for rare lookups (e.g., special areas)
         """
-        if multi_gpu_config is None:
-            # Import here to avoid circular imports
-            from feagi.bdu.multi_gpu import MultiGPUConfig
+        if not hasattr(self, "_npu_interface") or self._npu_interface is None:
+            raise RuntimeError("NPU Interface not available for cortical area sync")
 
-            # Auto-detect configuration
-            multi_gpu_config = MultiGPUConfig(enabled=True)
+        # Guard against missing cortical_areas structure
+        areas = getattr(self, "cortical_areas", None)
+        if not areas:
+            return
 
-        # Initialize multi-GPU support
-        self._init_multi_gpu(multi_gpu_config)
+        from feagi.npu.interface import OperationResult
 
-        return self
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            debug_enabled = FeagiStateManager.instance().is_debug_npu_enabled()
+        except Exception:
+            debug_enabled = False
+
+        logger.info(
+            f"[NPU-SYNC] Starting cortical area sync: npu_id={id(self._npu_interface)}, areas={len(areas)}"
+        )
+
+        synced_new = 0
+        updated_existing = 0
+        for cortical_id, area in areas.items():
+            try:
+                cortical_idx = getattr(area, "cortical_idx")
+                dimensions = getattr(area, "dimensions")
+                area_type = (
+                    "memory" if getattr(area, "area_type", "regular") == "memory" else "regular"
+                )
+
+                result = self._npu_interface.create_cortical_area(
+                    cortical_idx=cortical_idx,
+                    dimensions=dimensions,
+                    area_type=area_type,
+                    cortical_id=cortical_id,
+                )
+                # Treat INVALID_INPUT as already-registered and UPSET metadata
+                if result == OperationResult.SUCCESS:
+                    synced_new += 1
+                    if debug_enabled:
+                        logger.info(
+                            f"[NPU-SYNC] Registered area id='{cortical_id}' idx={cortical_idx} dims={dimensions} type={area_type}"
+                        )
+                elif result == OperationResult.INVALID_INPUT:
+                    # @ruff-skip: critical hotfix - cleanup task: NPU-SYNC-UPTS-001
+                    # Area exists; ensure cortical_id (and optionally dims/type) are set for lookups like '_power'
+                    try:
+                        if cortical_idx in self._npu_interface.cortical_areas:
+                            entry = self._npu_interface.cortical_areas[cortical_idx]
+                            changed = False
+                            if entry.get("cortical_id") != cortical_id:
+                                entry["cortical_id"] = cortical_id
+                                changed = True
+                            # Keep dims/type authoritative from NPU unless missing
+                            if "dimensions" not in entry or entry["dimensions"] is None:
+                                entry["dimensions"] = dimensions
+                                changed = True
+                            if "type" not in entry or entry["type"] not in ("regular", "memory"):
+                                entry["type"] = area_type
+                                changed = True
+                            if changed:
+                                updated_existing += 1
+                                if debug_enabled:
+                                    logger.info(
+                                        f"[NPU-SYNC] Updated existing area metadata id='{cortical_id}' idx={cortical_idx}"
+                                    )
+                        else:
+                            # Inconsistent state: INVALID_INPUT but not present; log for investigation
+                            logger.warning(
+                                f"[NPU-SYNC] INVALID_INPUT for idx={cortical_idx} but not found in NPU registry"
+                            )
+                    except Exception as inner_e:
+                        logger.error(f"[NPU-SYNC] Error updating existing area '{cortical_id}': {inner_e}")
+            except Exception as e:
+                logger.error(f"Failed to sync cortical area '{cortical_id}': {e}")
+                raise
+
+        logger.info(
+            f"[NPU-SYNC] Synchronized new={synced_new}, updated={updated_existing}, total_areas={len(areas)} into NPU registry"
+        )
 
     def update_membrane_potentials(
         self, decay_factor=None, current_timestep=None
@@ -1018,171 +1182,61 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             List of neuron IDs that fired
         """
-        # Handle backward compatibility for test cases
+        # Debug-only block gated by state manager
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug("[CONNECTOME-DEBUG] === UPDATE_MEMBRANE_POTENTIALS CALLED ===")
+                logger.debug(f"[CONNECTOME-DEBUG] decay_factor: {decay_factor}")
+                logger.debug(f"[CONNECTOME-DEBUG] current_timestep: {current_timestep}")
+                logger.debug(f"[CONNECTOME-DEBUG] Has NPU interface: {hasattr(self, '_npu_interface') and self._npu_interface is not None}")
+        except Exception:
+            pass
+        # NO BACKWARD COMPATIBILITY - NPU has 100% exclusive ownership
         if decay_factor is not None and isinstance(decay_factor, (int, float)):
-            # Legacy test compatibility mode
-            return self.neuron_array.update_membrane_potentials(
-                decay_factor=decay_factor
+            raise RuntimeError(
+                "Legacy BDU neural processing is prohibited. "
+                "NPU has 100% exclusive ownership of neural processing. "
+                "Update tests to use NPU-based neural processing."
             )
 
         # Set current timestep
         if current_timestep is not None:
             self.current_timestep = current_timestep
 
-        #  Perform high-performance neural update with GlobalSynapseArray
-        #  integration
-        # First update membrane potentials and get fired neurons
-        fired_neurons = self.neuron_array.update_membrane_potentials(
-            timestep=self.current_timestep
-        )
-
-        # Apply synaptic propagation using GlobalSynapseArray
-        if fired_neurons and hasattr(self, "synapse_array"):
-            # Get membrane potentials for synaptic propagation
-            membrane_potentials = self.neuron_array.membrane_potentials
-
-            # Propagate activations through synapses
-            for fired_neuron_id in fired_neurons:
-                outgoing_connections = (
-                    self.synapse_array.get_outgoing_connections(
-                        fired_neuron_id
-                    )
-                )
-
-                # Apply synaptic weights to post-synaptic neurons
-                for post_neuron_id, weight in outgoing_connections:
-                    if post_neuron_id in self.neuron_id_to_index:
-                        post_idx = self.neuron_id_to_index[post_neuron_id]
-                        membrane_potentials[post_idx] += weight
-
-        # Initialize fired_indices to ensure it's always defined
-        fired_indices = []
-
-        # Update active neurons tracking
-        if len(fired_neurons) > 0:
-            # Convert neuron IDs to indices for active neurons mask
-            fired_indices = [
-                self.neuron_id_to_index.get(nid)
-                for nid in fired_neurons
-                if nid in self.neuron_id_to_index
-            ]
-            fired_indices = [idx for idx in fired_indices if idx is not None]
-
-            if fired_indices:
-                self.active_neurons[:] = False  # Reset
-                self.active_neurons[fired_indices] = True
-        else:
-            self.active_neurons[:] = False
-
-        #  Convert fired indices to neuron IDs FIRST - CRITICAL FIX: Use
-        #  correct vectorized method
-        if fired_indices:
-            fired_neuron_ids = self._vectorized_index_to_neuron_id(
-                np.array(fired_indices)
+        # CRITICAL: NPU has 100% exclusive ownership of neural processing
+        # NO FALLBACKS - NPU is REQUIRED for neural processing
+        if not hasattr(self, '_npu_interface') or not self._npu_interface:
+            raise RuntimeError(
+                "NPU interface required - NPU has 100% exclusive ownership of neural processing. "
+                "BDU only handles synaptogenesis and synaptic pruning. "
+                "Configure NPU interface before neural processing."
             )
-            # Convert to Python list of integers for FCL compatibility
-            fired_neuron_ids = fired_neuron_ids.tolist()
-        else:
-            fired_neuron_ids = []
+        
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug("[CONNECTOME-DEBUG] === DELEGATING TO NPU ===")
+                logger.debug(f"[CONNECTOME-DEBUG] Current timestep: {self.current_timestep}")
+                logger.debug(f"[CONNECTOME-DEBUG] NPU interface available: {self._npu_interface is not None}")
+        except Exception:
+            pass
 
-        # Update FCL manager with fired neurons
-        if hasattr(self, "fcl_manager") and self.fcl_manager:
-            #  CRITICAL FIX: Initialize state_manager outside if block to
-            #  ensure scope
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
-
-            # Convert fired neurons to the format expected by FCL manager
-            # FCL expects current_timestep first, then neurons_by_cortical
-            neurons_by_cortical = {}
-            if fired_neuron_ids:
-                #  DEBUG: Log fired neurons and mapping status (gated by
-                #  --debug-bdu flag)
-                if state_manager.is_debug_bdu_enabled():
-                    logger.info(
-                        f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}..."
-                    )
-
-                # Vectorized grouping of fired neurons by cortical area
-                fired_neurons_array = np.array(
-                    fired_neuron_ids, dtype=np.int32
-                )
-
-                #  All fired_neuron_ids should be valid since they came from
-                #  indices
-                # But verify the mapping exists for safety
-                valid_mask = np.array(
-                    [
-                        nid in self.neuron_id_to_index
-                        for nid in fired_neurons_array
-                    ]
-                )
-                valid_neurons = fired_neurons_array[valid_mask]
-                invalid_neurons = fired_neurons_array[~valid_mask]
-
-                # DEBUG: Log mapping issues
-                if len(invalid_neurons) > 0:
-                    logger.error(
-                        f"FCL BUG: {len(invalid_neurons)} fired neurons not in neuron_id_to_index mapping: {invalid_neurons[:10]}..."
-                    )
-                    logger.error(
-                        "FCL BUG: This indicates a critical mapping synchronization issue"
-                    )
-
-                if state_manager.is_debug_bdu_enabled():
-                    logger.info(
-                        f"[BDU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update"
-                    )
-
-                if len(valid_neurons) > 0:
-                    # Vectorized index lookup
-                    indices = np.array(
-                        [self.neuron_id_to_index[nid] for nid in valid_neurons]
-                    )
-
-                    # Vectorized cortical_idx extraction
-                    cortical_indices = self.neuron_array.cortical_idxs[
-                        indices
-                    ].astype(np.int32)
-
-                    #  Group neurons by cortical area using vectorized
-                    #  operations
-                    unique_cortical_indices = np.unique(cortical_indices)
-                    for cortical_idx in unique_cortical_indices:
-                        mask = cortical_indices == cortical_idx
-                        neurons_by_cortical[int(cortical_idx)] = valid_neurons[
-                            mask
-                        ].tolist()
-
-                    if state_manager.is_debug_bdu_enabled():
-                        logger.info(
-                            f"[BDU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}"
-                        )
-                else:
-                    logger.warning(
-                        "FCL UPDATE: No valid neurons to update in FCL"
-                    )
-            else:
-                if state_manager.is_debug_bdu_enabled():
-                    logger.info(
-                        "[BDU-DEBUG] FCL UPDATE: No fired neurons to update"
-                    )
-
-            self.fcl_manager.update_fcl(
-                self.current_timestep, neurons_by_cortical
-            )
-
-        # Increment timestep
-        self.current_timestep += 1
-
-        return fired_neuron_ids
+        # NPU has 100% exclusive ownership of neural processing AND synaptic propagation
+        result = self._npu_interface.process_neural_burst(self.current_timestep)
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.debug(f"[CONNECTOME-DEBUG] NPU returned fired neurons: {result}")
+        except Exception:
+            pass
+        return result
 
     # ----------------------------------------------------------------------
     # Synapse Storage Methods
     # ----------------------------------------------------------------------
 
-    # Legacy sparse matrix methods removed - replaced with GlobalSynapseArray
+    # Legacy sparse matrix methods removed - replaced with NPU SynapseArray
 
     # ----------------------------------------------------------------------
     # Neuron CRUD Operations
@@ -1236,8 +1290,11 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
 
-        # Let NeuronArray create the neuron and generate its own ID
-        neuron_id = self.neuron_array.create_neuron(
+        # CRITICAL: Use NPU Interface CRUD methods
+        if not self._npu_interface:
+            raise RuntimeError("NPU interface not configured - cannot create neurons")
+
+        return self._create_neuron_via_npu(
             cortical_idx=cortical_idx,
             position=position,
             threshold=threshold,
@@ -1245,40 +1302,8 @@ class ConnectomeManager(NeuronMappingProvider):
             resting_potential=resting_potential,
             decay_rate=decay_rate,
             refractory_period=refractory_period,
+            properties=properties,
         )
-
-        #  Get the index from ConnectomeManager's mapping (single source of
-        #  truth)
-        index = self.get_neuron_index(neuron_id)
-        if index is None:
-            raise RuntimeError(
-                f"Neuron {neuron_id} was created but mapping not found"
-            )
-
-        # Update _neuron_to_position for test compatibility
-        # Format matches test expectation: (cortical_id, x, y, z, neuron_index)
-        self._neuron_to_position[neuron_id] = (cortical_id, *position, index)
-
-        # Add to cortical area
-        area.add_neuron(neuron_id, position)
-
-        from feagi.core.state_manager import get_state_manager
-
-        state_manager = get_state_manager()
-        if state_manager.is_debug_bdu_enabled():
-            logger.info(
-                f"[BDU-DEBUG] Created neuron {neuron_id} in area {area.name} at position {position}"
-            )
-
-        # Update StateManager cortical areas cache
-        try:
-            state_manager.update_cortical_areas_cache(area.id, "add")
-        except Exception as e:
-            logger.warning(
-                f"Failed to update cortical areas cache after adding {area.id}: {e}"
-            )
-
-        return neuron_id
 
     def get_neuron(self, neuron_id: int) -> Dict[str, Any]:
         """Get information about a specific neuron.
@@ -1416,7 +1441,34 @@ class ConnectomeManager(NeuronMappingProvider):
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
 
-        return self.neuron_array.get_neuron_property(neuron_id, property_name)
+        # CRITICAL FIX: Read from NPU if it's the primary owner
+        if hasattr(self, '_npu_processor') and self._npu_processor is not None:
+            # NPU is primary owner - read from NPU arrays directly
+            if neuron_id in self._npu_processor.neurons.neuron_id_to_index:
+                idx = self._npu_processor.neurons.neuron_id_to_index[neuron_id]
+                
+                if property_name == "membrane_potential":
+                    return float(self._npu_processor.neurons.membrane_potentials[idx])
+                elif property_name == "threshold":
+                    return float(self._npu_processor.neurons.thresholds[idx])
+                elif property_name == "decay_rate":
+                    return float(self._npu_processor.neurons.decay_rates[idx])
+                elif property_name == "resting_potential":
+                    return float(self._npu_processor.neurons.resting_potentials[idx])
+                elif property_name == "refractory_period":
+                    return int(self._npu_processor.neurons.refractory_periods[idx])
+                elif property_name == "refractory_counter":
+                    return int(self._npu_processor.neurons.refractory_counters[idx])
+                else:
+                    raise RuntimeError(f"Unknown neuron property '{property_name}' - NPU does not support this property")
+            else:
+                raise RuntimeError(f"Neuron {neuron_id} not found in NPU - BDU fallback prohibited")
+        else:
+            # NPU not configured - NO FALLBACKS
+            raise RuntimeError(
+                "NPU processor required - NPU has 100% exclusive ownership of neuron properties. "
+                "Configure NPU processor before accessing neuron properties."
+            )
 
     def set_neuron_property(
         self,
@@ -1442,7 +1494,36 @@ class ConnectomeManager(NeuronMappingProvider):
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
 
-        self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+        # CRITICAL FIX: Synchronize with NPU if it's the primary owner
+        if hasattr(self, '_npu_processor') and self._npu_processor is not None:
+            # NPU is primary owner - update NPU arrays directly
+            if neuron_id in self._npu_processor.neurons.neuron_id_to_index:
+                idx = self._npu_processor.neurons.neuron_id_to_index[neuron_id]
+                
+                if property_name == "membrane_potential":
+                    self._npu_processor.neurons.membrane_potentials[idx] = float(value)
+                    logger.debug(f"[NPU-SYNC] Updated neuron {neuron_id} membrane_potential = {value}")
+                elif property_name == "threshold":
+                    self._npu_processor.neurons.thresholds[idx] = float(value)
+                elif property_name == "decay_rate":
+                    self._npu_processor.neurons.decay_rates[idx] = float(value)
+                elif property_name == "resting_potential":
+                    self._npu_processor.neurons.resting_potentials[idx] = float(value)
+                elif property_name == "refractory_period":
+                    self._npu_processor.neurons.refractory_periods[idx] = int(value)
+                elif property_name == "refractory_counter":
+                    self._npu_processor.neurons.refractory_counters[idx] = int(value)
+                else:
+                    logger.warning(f"Unknown property for NPU sync: {property_name}")
+                
+                # Also update BDU for backward compatibility
+                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+            else:
+                logger.warning(f"Neuron {neuron_id} not found in NPU - updating BDU only")
+                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+        else:
+            # NPU not configured - update BDU only
+            self.neuron_array.set_neuron_property(neuron_id, property_name, value)
 
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
         """Get all neurons in a specific cortical area using GPU/SIMD-optimized
@@ -1452,12 +1533,13 @@ class ConnectomeManager(NeuronMappingProvider):
         - Fully vectorized NumPy operations (GPU/SIMD friendly)
         - O(1) lookup using pre-built index-to-ID lookup array
         - No Python loops or dictionary iterations
+        - MEMORY AREA SUPPORT: Also checks MemoryNeuronArray for memory areas
 
         Args:
             cortical_id: ID of the cortical area
 
         Returns:
-            List of neuron IDs in the area
+            List of neuron IDs in the area (regular + memory neurons)
 
         Raises:
             KeyError: If the cortical_id doesn't exist
@@ -1470,7 +1552,15 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             return []
 
-        # VECTORIZED: Use SoA arrays for GPU/SIMD-optimized query
+        # MEMORY AREA SUPPORT: Check if this is a memory area
+        is_memory_area = self.is_memory_area(cortical_id)
+        
+        if is_memory_area:
+            # For memory areas, get memory neurons from MemoryNeuronArray
+            memory_neurons = self._get_memory_neurons_by_cortical_area(cortical_id, cortical_idx)
+            return memory_neurons
+        
+        # REGULAR AREAS: Use SoA arrays for GPU/SIMD-optimized query
         # Only search in the valid range up to next_index
         valid_range = min(
             self.neuron_array.next_index, len(self.neuron_array.cortical_idxs)
@@ -1478,16 +1568,10 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # ROBUST: Triple-mask filtering to handle deletion edge cases
         # GPU/SIMD friendly: uses element-wise boolean operations on arrays
-        # Convert all arrays to NumPy to ensure compatibility across backends
-        active_mask = self.neuron_array.backend.to_numpy(
-            self.neuron_array.is_active[:valid_range]
-        )
-        valid_mask = self.neuron_array.backend.to_numpy(
-            self.neuron_array.valid_mask[:valid_range]
-        )
-        cortical_idxs = self.neuron_array.backend.to_numpy(
-            self.neuron_array.cortical_idxs[:valid_range]
-        )
+        # NPU arrays are already numpy-based, no conversion needed
+        active_mask = self.neuron_array.valid_mask[:valid_range]
+        valid_mask = self.neuron_array.valid_mask[:valid_range]
+        cortical_idxs = self.neuron_array.cortical_idxs[:valid_range]
         cortical_mask = cortical_idxs == cortical_idx
 
         # Combined mask: must be active, valid, AND in correct cortical area
@@ -1500,10 +1584,19 @@ class ConnectomeManager(NeuronMappingProvider):
         if len(valid_indices) == 0:
             return []
 
-        # Use the existing vectorized method from NeuronArray
-        neuron_ids_array = self.neuron_array.vectorized_indices_to_neuron_ids(
+        # Use the NPU-owned vectorized conversion
+        if hasattr(self.neuron_array, "indices_to_neuron_ids"):
+            neuron_ids_array = self.neuron_array.indices_to_neuron_ids(
             valid_indices, filter_invalid=True
         )
+        else:
+            # Fallback to dict mapping without removing SoA dependency
+            ids = []
+            for idx in list(valid_indices):
+                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
+                if nid is not None:
+                    ids.append(int(nid))
+            neuron_ids_array = np.array(ids, dtype=np.int32)
 
         # Convert NumPy array to list for API compatibility
         return neuron_ids_array.tolist()
@@ -1521,13 +1614,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if not self.has_neuron(neuron_id):
+        # Resolve array index via NPU mapping
+        index = self.get_neuron_index(neuron_id)
+        if index is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Get index from ConnectomeManager mapping
-        index = self.get_neuron_index(neuron_id)
-
-        # Get the cortical_idx from the neuron array
+        # Get the cortical_idx from the authoritative neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
 
         # Use cortical mapping to find cortical_id
@@ -1552,8 +1644,8 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         return self.get_cortical_area_for_neuron(neuron_id)
 
-    def get_neurons_by_area(self, cortical_id: str) -> List[int]:
-        """Get all neuron IDs in a specific cortical area.
+    def get_neurons_by_area_list(self, cortical_id: str) -> List[int]:
+        """Get all neuron IDs in a specific cortical area (list variant).
 
         Args:
             cortical_id: ID of the cortical area
@@ -1583,14 +1675,6 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         return self.get_neurons_by_cortical_area(cortical_id)
-
-    def get_neuron_count(self) -> int:
-        """Get the total number of neurons in the connectome.
-
-        Returns:
-            Number of neurons
-        """
-        return self.neuron_array.get_neuron_count()
 
     def delete_neuron(self, neuron_id: int) -> None:
         """Delete a neuron and all its connections.
@@ -1646,17 +1730,25 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        # Use NPU-owned mapping as authoritative
+        index = self.get_neuron_index(neuron_id)
+        if index is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        index = self.neuron_id_to_index[neuron_id]
-
-        # Get position from neuron array
-        return (
-            int(self.neuron_array.coordinates_x[index]),
-            int(self.neuron_array.coordinates_y[index]),
-            int(self.neuron_array.coordinates_z[index]),
-        )
+        # Get position from NPU neuron arrays
+        try:
+            if hasattr(self.neuron_array, "coordinates_x"):
+                x = int(self.neuron_array.coordinates_x[index])
+                y = int(self.neuron_array.coordinates_y[index])
+                z = int(self.neuron_array.coordinates_z[index])
+            else:
+                x = int(self.neuron_array.positions_x[index])
+                y = int(self.neuron_array.positions_y[index])
+                z = int(self.neuron_array.positions_z[index])
+            return (x, y, z)
+        except Exception as e:
+            logger.error(f"Error getting position for neuron {neuron_id}: {e}")
+            raise
 
     # ----------------------------------------------------------------------
     # Synapse Management Methods
@@ -1673,7 +1765,7 @@ class ConnectomeManager(NeuronMappingProvider):
         **kwargs,
     ) -> bool:
         """Create a synapse between two neurons using high-performance
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1691,36 +1783,37 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If either neuron doesn't exist
         """
         # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for O(1) synapse creation
-        from feagi.bdu.synapse_array import SynapseType
+        # Use new NPU SynapseArray for O(1) synapse creation
+        synapse_type_int = 3 if is_plastic else 0  # 3=PLASTIC, 0=EXCITATORY
 
-        synapse_type = (
-            SynapseType.PLASTIC if is_plastic else SynapseType.EXCITATORY
-        )
-
-        return self.synapse_array.create_synapse(
-            pre_neuron_id=pre_neuron_id,
-            post_neuron_id=post_neuron_id,
+        success = self.synapse_array.create_synapse(
+            source_neuron_id=pre_neuron_id,
+            target_neuron_id=post_neuron_id,
             weight=weight,
-            plasticity_coeff=plasticity_coeff,
-            is_plastic=is_plastic,
-            synapse_type=synapse_type,
+            synapse_type=synapse_type_int,
+            plasticity_coeff=plasticity_coeff
         )
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if success:
+            self._update_synapse_count_only()
+        
+        return success
 
     def batch_create_synapses(
         self, synapse_specs: List[Tuple[int, int, float]]
     ) -> int:
         """Create multiple synapses using ultra-high-performance
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         This method achieves 300x+ performance improvement over legacy sparse matrices
         by using SIMD-friendly vectorized operations on the SoA structure.
@@ -1731,30 +1824,102 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses successfully created
         """
-        if not synapse_specs:
-            return 0
 
-        # Validate that all neurons exist before batch creation
+        # Validate that all neurons exist using NPU-owned mapping before batch creation
         valid_specs = []
+        invalid_specs = []
         for pre_id, post_id, weight in synapse_specs:
-            if (
-                pre_id in self.neuron_id_to_index
-                and post_id in self.neuron_id_to_index
-            ):
+            pre_exists = self.get_neuron_index(pre_id) is not None
+            post_exists = self.get_neuron_index(post_id) is not None
+            if pre_exists and post_exists:
                 valid_specs.append((pre_id, post_id, weight))
+            else:
+                invalid_specs.append((pre_id, post_id, weight))
 
         if not valid_specs:
             logger.warning("No valid synapse specifications found")
             return 0
 
-        # Use GlobalSynapseArray's vectorized batch creation
-        return self.synapse_array.batch_create_synapses(valid_specs)
 
-    #  Legacy optimized method removed - GlobalSynapseArray is inherently
+        created_count = self.synapse_array.batch_create_synapses(valid_specs)
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if created_count > 0:
+            self._update_synapse_count_only()
+        
+        return created_count
+
+    def _update_synapse_count_only(self):
+        """Update state manager with current synapse count only.
+        
+        Only synapse count affects GPU keep-alive eligibility, so we avoid
+        the overhead of updating neuron count unnecessarily.
+        """
+        try:
+            current_synapse_count = self.synapse_array.synapse_count
+            
+            # Only update synapse count - more efficient
+            self.state_manager.update_synapse_count(current_synapse_count)
+            
+            # Update GPU keep-alive system based on new synapse count
+            if hasattr(self.neuron_array, 'backend') and hasattr(self.neuron_array.backend, 'update_keepalive_based_on_brain_size'):
+                self.neuron_array.backend.update_keepalive_based_on_brain_size()
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to update synapse count in state manager: {e}")
+    
+    def _update_neuron_count_only(self):
+        """Update state manager with current neuron count only.
+        
+        This is separate from synapse updates to avoid unnecessary overhead.
+        """
+        try:
+            current_neuron_count = self.get_neuron_count()  # Use the safe method
+            self.state_manager.update_neuron_count(current_neuron_count)
+        except Exception as e:
+            self.logger.warning(f"Failed to update neuron count in state manager: {e}")
+    
+    def _update_brain_statistics(self):
+        """Update state manager with comprehensive brain statistics.
+        
+        This includes cortical area count, neuron count, and synapse count.
+        Used when cortical areas are added/removed.
+        """
+        try:
+            # Get current counts
+            cortical_area_count = len(self.cortical_areas)
+            neuron_count = self.get_neuron_count()  # Use the safe method
+            synapse_count = self._npu_interface.synapse_array.synapse_count if self._npu_interface else 0
+            
+            # Update state manager with comprehensive brain stats
+            brain_stats = {
+                "cortical_area_count": cortical_area_count,
+                "neuron_count": neuron_count,
+                "synapse_count": synapse_count,
+            }
+            
+            result = self.state_manager.set_brain_stats(brain_stats)
+            if result.is_err:
+                self.logger.warning(f"Failed to set brain stats in state manager: {result.err}")
+            else:
+                self.logger.debug(f"Updated brain statistics: {brain_stats}")
+                
+            # Also update cortical list
+            cortical_ids = list(self.cortical_areas.keys())
+            cortical_result = self.state_manager.set_cortical_list(cortical_ids)
+            if cortical_result.is_err:
+                self.logger.warning(f"Failed to set cortical list in state manager: {cortical_result.err}")
+            else:
+                self.logger.debug(f"Updated cortical list: {len(cortical_ids)} areas")
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to update brain statistics in state manager: {e}")
+
+    #  Legacy optimized method removed - NPU SynapseArray is inherently
     #  optimized
 
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
-        """Remove a synapse between two neurons using GlobalSynapseArray.
+        """Remove a synapse between two neurons using NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1766,24 +1931,30 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for O(1) synapse deletion
-        return self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
+        # Use NPU SynapseArray for O(1) synapse deletion
+        success = self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
+        
+        # Update state manager with new synapse count (optimized - synapse count only)
+        if success:
+            self._update_synapse_count_only()
+        
+        return success
 
     def get_synapse_weight(
         self, pre_neuron_id: int, post_neuron_id: int
     ) -> float:
         """Get the weight of a synapse between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1795,17 +1966,17 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for fast weight lookup
+        # Use NPU SynapseArray for fast weight lookup
         return self.synapse_array.get_synapse_weight(
             pre_neuron_id, post_neuron_id
         )
@@ -1814,7 +1985,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self, pre_neuron_id: int, post_neuron_id: int, new_weight: float
     ) -> bool:
         """Update the weight of a synapse between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron_id: ID of the presynaptic neuron
@@ -1827,17 +1998,17 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if pre_neuron_id not in self.neuron_id_to_index:
+        # Check both neurons exist using NPU-owned mapping
+        if self.get_neuron_index(pre_neuron_id) is None:
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if post_neuron_id not in self.neuron_id_to_index:
+        if self.get_neuron_index(post_neuron_id) is None:
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use GlobalSynapseArray for fast weight updates
+        # Use NPU SynapseArray for fast weight updates
         return self.synapse_array.update_synapse_weight(
             pre_neuron_id, post_neuron_id, new_weight
         )
@@ -1845,7 +2016,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_outgoing_connections(
         self, neuron_id: int
     ) -> List[Tuple[int, float]]:
-        """Get all outgoing connections from a neuron using GlobalSynapseArray.
+        """Get all outgoing connections from a neuron using NPU SynapseArray.
 
         Args:
             neuron_id: ID of the neuron
@@ -1856,16 +2027,27 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        # Validate existence using NPU mapping
+        if self.get_neuron_index(neuron_id) is None:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use GlobalSynapseArray for fast outgoing connection lookup
-        return self.synapse_array.get_outgoing_connections(neuron_id)
+        # Use NPU SynapseArray for fast outgoing connection lookup
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            # Rewire from NPU interface if not already set (no fallback, same NPU instance)
+            try:
+                self.synapse_array = self._npu_interface.synapse_array
+                syn_array = self.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
+        return syn_array.get_outgoing_connections(neuron_id)
 
     def get_incoming_connections(
         self, neuron_id: int
     ) -> List[Tuple[int, float]]:
-        """Get all incoming connections to a neuron using GlobalSynapseArray.
+        """Get all incoming connections to a neuron using NPU SynapseArray.
 
         Args:
             neuron_id: ID of the neuron
@@ -1879,17 +2061,39 @@ class ConnectomeManager(NeuronMappingProvider):
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use GlobalSynapseArray for fast incoming connection lookup
-        return self.synapse_array.get_incoming_connections(neuron_id)
+        # Use NPU SynapseArray for fast incoming connection lookup
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            try:
+                self.synapse_array = self._npu_interface.synapse_array
+                syn_array = self.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
+        return syn_array.get_incoming_connections(neuron_id)
 
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Returns:
             Number of synapses
         """
-        return self.synapse_array.synapse_count
+        syn_array = getattr(self, "synapse_array", None)
+        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
+            try:
+                syn_array = self._npu_interface.synapse_array
+            except Exception:
+                syn_array = None
+        if syn_array is None:
+            return 0
+        # Prefer explicit attribute; fall back to generic count
+        if hasattr(syn_array, "synapse_count"):
+            return int(getattr(syn_array, "synapse_count", 0))
+        if hasattr(syn_array, "count"):
+            return int(getattr(syn_array, "count", 0))
+        return 0
 
     def _update_without_firing(self) -> List[int]:
         """Update membrane potentials when no neurons are firing.
@@ -1903,14 +2107,18 @@ class ConnectomeManager(NeuronMappingProvider):
             List of neuron IDs that fired
         """
         # Move to the next FCL window
-        self.fcl_manager.advance_timestep()
+        fcl_manager = self._get_fcl_manager()
+        if fcl_manager:
+            fcl_manager.advance_timestep()
 
         # Let the neuron array handle the update
         fired_indices = self.neuron_array.decay_and_check_firing()
 
         # Add fired neurons to the next FCL
         if len(fired_indices):
-            self.fcl_manager.add_to_current_fcl(fired_indices)
+            fcl_manager = self._get_fcl_manager()
+            if fcl_manager:
+                fcl_manager.add_to_current_fcl(fired_indices)
 
         #  Convert fired indices to neuron IDs - CRITICAL FIX: Use correct
         #  vectorized method
@@ -2038,22 +2246,43 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"cortical_idx collision: cortical_idx={cortical_idx} already assigned to '{existing_area_with_same_idx}'"
             )
 
-        # Create the cortical area with assigned cortical_idx
-        area = CorticalArea(
-            name=name,
-            dimensions=dimensions,
-            position=position,
-            area_type=area_type,
-            properties=properties or {},
-            cortical_id=cortical_id,
-            cortical_idx=cortical_idx,  # Now we assign reserved or next available index
-        )
+        # Lock this cortical area index during creation to prevent concurrent reads/writes
+        lock_acquired = False
+        try:
+            try:
+                lock_acquired = state_manager.lock_cortical_area(
+                    cortical_idx, "BDU", operation="corticogenesis:add_area"
+                )
+            except Exception as lock_e:
+                logger.warning(
+                    f"[LOCK] Failed to acquire lock for cortical_idx={cortical_idx}: {lock_e}"
+                )
 
-        # Add to cortical areas dict
-        self.cortical_areas[area.id] = area
+            # Create the cortical area with assigned cortical_idx
+            area = CorticalArea(
+                name=name,
+                dimensions=dimensions,
+                position=position,
+                area_type=area_type,
+                properties=properties or {},
+                cortical_id=cortical_id,
+                cortical_idx=cortical_idx,  # Now we assign reserved or next available index
+            )
 
-        # Synchronize bidirectional cortical mapping
-        self._sync_cortical_mapping(area.id, cortical_idx)
+            # Add to cortical areas dict
+            self.cortical_areas[area.id] = area
+
+            # Synchronize bidirectional cortical mapping
+            self._sync_cortical_mapping(area.id, cortical_idx)
+        finally:
+            # Always release the lock
+            try:
+                if lock_acquired:
+                    state_manager.unlock_cortical_area(cortical_idx, "BDU")
+            except Exception as unlock_e:
+                logger.warning(
+                    f"[LOCK] Failed to release lock for cortical_idx={cortical_idx}: {unlock_e}"
+                )
 
         # Expand spatial hash cache if needed for new cortical area
         if hasattr(self, "_spatial_hash") and self._spatial_hash:
@@ -2074,13 +2303,26 @@ class ConnectomeManager(NeuronMappingProvider):
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
         )
 
-        # Update StateManager cortical areas cache
+        # Update state manager with current brain statistics
         try:
-            state_manager.update_cortical_areas_cache(area.id, "add")
+            self._update_brain_statistics()
         except Exception as e:
             logger.warning(
-                f"Failed to update cortical areas cache after adding {area.id}: {e}"
+                f"Failed to update brain statistics after adding {area.id}: {e}"
             )
+
+        # Ensure NPU registry is synced so lookups by cortical_id work immediately
+        try:
+            if hasattr(self, "sync_cortical_areas_to_npu") and hasattr(self, "_npu_interface") and self._npu_interface is not None:
+                self.sync_cortical_areas_to_npu()
+        except Exception as sync_err:
+            logger.warning(f"[NPU-SYNC] Failed to sync cortical areas after add_cortical_area({area.id}): {sync_err}")
+
+        # Trigger brain region mapping validation after adding cortical area
+        try:
+            self._trigger_brain_region_validation()
+        except Exception as validation_err:
+            logger.warning(f"[BRAIN REGIONS] Failed to validate brain region mappings after adding {area.id}: {validation_err}")
 
         return area.id
 
@@ -2166,6 +2408,10 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"[MEMORY-REG] Initialized upstream mappings for {cortical_id}"
             )
 
+        # CRITICAL FIX: Scan existing cortical mappings for connections to this memory area
+        # This handles cases where regular cortical mappings target memory areas
+        self._scan_and_convert_memory_mappings(cortical_id)
+
         #  Update StateManager cache - but don't fail registration if
         #  StateManager fails
         state_manager_success = False
@@ -2178,9 +2424,7 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.info(
                 f"[MEMORY-REG] Calling state_manager.register_memory_area({cortical_id}, {temporal_depth})"
             )
-            result = state_manager.register_memory_area(
-                cortical_id, temporal_depth
-            )
+            result = state_manager.register_memory_area_for_stats(cortical_id)
             logger.info(
                 f"[MEMORY-REG] StateManager call returned: {type(result)}"
             )
@@ -2230,16 +2474,20 @@ class ConnectomeManager(NeuronMappingProvider):
             #  FCL window size should be at least temporal_depth for pattern
             #  recognition
             # Use default FCL window size as minimum to avoid issues
-            fcl_window_size = max(
-                temporal_depth, self.fcl_manager.default_window_size
-            )
+            fcl_manager = self._get_fcl_manager()
+            default_window_size = 20  # Fallback if FCL manager not available
+            if fcl_manager and hasattr(fcl_manager, 'default_window_size'):
+                default_window_size = fcl_manager.default_window_size
+            
+            fcl_window_size = max(temporal_depth, default_window_size)
 
             logger.info(
                 f"[MEMORY-REG] Registering cortical_idx={cortical_idx} with FCL manager (window_size={fcl_window_size})"
             )
-            self.fcl_manager.register_memory_cortical(
-                cortical_idx, fcl_window_size
-            )
+            if fcl_manager:
+                fcl_manager.register_memory_cortical(
+                    cortical_idx, fcl_window_size
+                )
             logger.info(
                 f"[MEMORY-REG] Successfully registered cortical_idx={cortical_idx} with FCL manager"
             )
@@ -2296,26 +2544,48 @@ class ConnectomeManager(NeuronMappingProvider):
             source_cortical_id: Source cortical area
             target_cortical_id: Target cortical area (memory area)
         """
-        logger.info(
-            f"[MEMORY-MAPPING] Called add_memory_area_mapping({source_cortical_id} -> {target_cortical_id})"
-        )
-        logger.info(
-            f"[MEMORY-MAPPING] Current memory_areas set: {self.memory_areas}"
-        )
-        logger.info(
-            f"[MEMORY-MAPPING] Is {target_cortical_id} in memory_areas? {target_cortical_id in self.memory_areas}"
-        )
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] add_memory_area_mapping() called: {source_cortical_id} -> {target_cortical_id}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Current memory_areas set: {self.memory_areas}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Is {target_cortical_id} in memory_areas? {target_cortical_id in self.memory_areas}"
+            )
+            logger.info(
+                f"🔗 [MEMORY-DEBUG] Available cortical areas: {list(self.cortical_areas.keys())}"
+            )
+        else:
+            logger.info(
+                f"[MEMORY-MAPPING] Called add_memory_area_mapping({source_cortical_id} -> {target_cortical_id})"
+            )
 
         if target_cortical_id in self.memory_areas:
-            logger.info(
-                f"[MEMORY-MAPPING] Target {target_cortical_id} is a registered memory area, proceeding..."
-            )
+            if mem_debug:
+                logger.info(
+                    f"🔗 [MEMORY-DEBUG] Target {target_cortical_id} is a registered memory area, adding upstream mapping..."
+                )
             self.memory_area_upstream_mappings[target_cortical_id].add(
                 source_cortical_id
             )
-            logger.info(
-                f"[MEMORY-MAPPING] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
-            )
+            if mem_debug:
+                logger.info(
+                    f"🔗 [MEMORY-DEBUG] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
+                )
+            else:
+                logger.info(
+                    f"[MEMORY-MAPPING] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}"
+                )
 
             # Update StateManager cache
             try:
@@ -2481,6 +2751,34 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_memory_areas(self) -> List[str]:
         """Get list of all memory area IDs."""
         return list(self.memory_areas)
+    
+    def _get_memory_neurons_by_cortical_area(self, cortical_id: str, cortical_idx: int) -> List[int]:
+        """Get memory neurons for a specific memory cortical area.
+        
+        Args:
+            cortical_id: Memory cortical area ID
+            cortical_idx: Fast integer index for the cortical area
+            
+        Returns:
+            List of memory neuron IDs in the area
+        """
+        if not hasattr(self, 'memory_neuron_array') or self.memory_neuron_array is None:
+            return []
+            
+        memory_neurons = []
+        
+        # Search through active memory neurons
+        for idx in range(self.memory_neuron_array.count):
+            if (self.memory_neuron_array.valid_mask[idx] and 
+                self.memory_neuron_array.is_active[idx] and
+                self.memory_neuron_array.cortical_idxs[idx] == cortical_idx):
+                
+                # Get neuron ID from index mapping
+                neuron_id = self.memory_neuron_array.index_to_neuron_id.get(idx)
+                if neuron_id is not None:
+                    memory_neurons.append(neuron_id)
+        
+        return memory_neurons
 
     def get_upstream_areas_for_memory(
         self, memory_cortical_id: str
@@ -2489,6 +2787,104 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.memory_area_upstream_mappings.get(
             memory_cortical_id, set()
         )
+
+    def _scan_and_convert_memory_mappings(self, memory_cortical_id: str) -> None:
+        """Scan existing cortical mappings and convert connections to memory area.
+        
+        This method finds all regular cortical mappings that target the given memory area
+        and converts them to memory area mappings. This handles cases where the genome
+        defines regular cortical connections to memory areas.
+        
+        Args:
+            memory_cortical_id: The memory area to scan for incoming connections
+        """
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Scanning cortical mappings for connections to memory area: {memory_cortical_id}")
+            
+        converted_count = 0
+        
+        # Scan all cortical areas for mappings that target this memory area
+        for source_area_id, area in self.cortical_areas.items():
+            if hasattr(area, 'properties') and 'mapping' in area.properties:
+                mapping = area.properties['mapping']
+                
+                if mem_debug:
+                    logger.info(f"🔍 [MEMORY-DEBUG] Checking area {source_area_id} mapping: {mapping}")
+                
+                # Handle different mapping formats
+                targets_to_check = []
+                
+                if isinstance(mapping, dict):
+                    # Complex mapping format: {dst_area: [connection_specs]}
+                    targets_to_check = list(mapping.keys())
+                elif isinstance(mapping, list):
+                    # Simple list format: [dst_area1, dst_area2, ...]
+                    targets_to_check = mapping
+                
+                if mem_debug:
+                    logger.info(f"🔍 [MEMORY-DEBUG] Targets to check for {source_area_id}: {targets_to_check}")
+                
+                # Check if this source area maps to our memory area
+                if memory_cortical_id in targets_to_check:
+                    if mem_debug:
+                        logger.info(f"🔍 [MEMORY-DEBUG] Found cortical mapping: {source_area_id} -> {memory_cortical_id}")
+                        
+                    # Add to memory area upstream mappings
+                    if memory_cortical_id not in self.memory_area_upstream_mappings:
+                        self.memory_area_upstream_mappings[memory_cortical_id] = set()
+                        
+                    if source_area_id not in self.memory_area_upstream_mappings[memory_cortical_id]:
+                        self.memory_area_upstream_mappings[memory_cortical_id].add(source_area_id)
+                        converted_count += 1
+                        
+                        if mem_debug:
+                            logger.info(f"🔗 [MEMORY-DEBUG] Converted cortical mapping to memory mapping: {source_area_id} -> {memory_cortical_id}")
+                        else:
+                            logger.info(f"[MEMORY-MAPPING] Converted cortical mapping to memory mapping: {source_area_id} -> {memory_cortical_id}")
+                            
+        if converted_count > 0:
+            if mem_debug:
+                logger.info(f"🔗 [MEMORY-DEBUG] Converted {converted_count} cortical mappings to memory mappings for {memory_cortical_id}")
+                logger.info(f"🔗 [MEMORY-DEBUG] Final upstream mappings: {dict(self.memory_area_upstream_mappings)}")
+            else:
+                logger.info(f"[MEMORY-MAPPING] Converted {converted_count} cortical mappings to memory mappings for {memory_cortical_id}")
+        elif mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] No cortical mappings found targeting memory area {memory_cortical_id}")
+
+    def rescan_all_memory_mappings(self) -> None:
+        """Rescan all memory areas for cortical mappings.
+        
+        This method should be called after genome loading is complete to ensure
+        all cortical mappings to memory areas are properly converted.
+        """
+        # Check if debug-mem is enabled
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
+        except Exception:
+            mem_debug = False
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Rescanning all memory areas for cortical mappings...")
+            logger.info(f"🔍 [MEMORY-DEBUG] Memory areas to rescan: {list(self.memory_areas)}")
+            
+        total_converted = 0
+        for memory_area_id in self.memory_areas:
+            if mem_debug:
+                logger.info(f"🔍 [MEMORY-DEBUG] Rescanning memory area: {memory_area_id}")
+            self._scan_and_convert_memory_mappings(memory_area_id)
+            
+        if mem_debug:
+            logger.info(f"🔍 [MEMORY-DEBUG] Rescan complete. Final upstream mappings: {dict(self.memory_area_upstream_mappings)}")
 
     def get_all_cortical_ids(self) -> List[str]:
         """Get all cortical area IDs (6-character strings).
@@ -2549,7 +2945,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
         state_manager = get_state_manager()
         if state_manager.is_debug_bdu_enabled():
-            logger.info(
+            logger.debug(
                 f"[BDU-DEBUG] Maximum cortical area dimensions: {max_dims[0]}x{max_dims[1]}x{max_dims[2]}"
             )
         return tuple(max_dims)
@@ -2608,9 +3004,15 @@ class ConnectomeManager(NeuronMappingProvider):
             - neuron_count: Number of neurons in the area
         """
         try:
+            # Enforce mapping↔area consistency first
+            idx_from_map = self.cortical_mapping.get_idx(cortical_id)
+            if idx_from_map is None:
+                raise KeyError(f"Cortical ID '{cortical_id}' not found in mapping")
             area = self.get_cortical_area(cortical_id)
             if not area:
-                return {}
+                raise KeyError(
+                    f"Cortical area object not found for '{cortical_id}' (idx={idx_from_map})"
+                )
 
             # Get cortical_idx through the mapping
             cortical_idx = self.cortical_mapping.get_idx(cortical_id)
@@ -2618,25 +3020,67 @@ class ConnectomeManager(NeuronMappingProvider):
             # Build complete properties dictionary with safe type conversion
             try:
                 # Safely convert coordinates and dimensions to integers
+                # Treat placeholder strings (e.g., 'x','y','z') as absent without error logs
                 coordinates = []
                 for i, x in enumerate(area.position):
                     try:
-                        coordinates.append(int(x))
-                    except (ValueError, TypeError) as e:
-                        self.logger.error(
-                            f"Invalid position[{i}] value '{x}' for area {cortical_id}: {e}"
-                        )
-                        coordinates.append(0)  # Fallback to 0
+                        if isinstance(x, (int, float)):
+                            coordinates.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in ("x", "y", "z", "", "none"):
+                            coordinates.append(0)
+                        else:
+                            coordinates.append(int(float(value_str)))
+                    except Exception:
+                        # Downgrade noisy logs; placeholders are common from clients
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] position[{i}]='{x}' for area {cortical_id} -> 0"
+                                )
+                        except Exception:
+                            pass
+                        coordinates.append(0)
 
                 dimensions = []
                 for i, x in enumerate(area.dimensions):
                     try:
-                        dimensions.append(int(x))
-                    except (ValueError, TypeError) as e:
-                        self.logger.error(
-                            f"Invalid dimensions[{i}] value '{x}' for area {cortical_id}: {e}"
-                        )
-                        dimensions.append(1)  # Fallback to 1
+                        if isinstance(x, (int, float)):
+                            dimensions.append(int(x))
+                            continue
+                        value_str = str(x).strip().lower()
+                        if value_str in (
+                            "w",
+                            "h",
+                            "d",
+                            "width",
+                            "height",
+                            "depth",
+                            "",
+                            "none",
+                        ):
+                            dimensions.append(1)
+                        else:
+                            dimensions.append(int(float(value_str)))
+                    except Exception:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.debug(
+                                    f"[SANITIZE] dimensions[{i}]='{x}' for area {cortical_id} -> 1"
+                                )
+                        except Exception:
+                            pass
+                        dimensions.append(1)
+
+                # Safe neuron count (handle None from NPU variant)
+                _neuron_ids_for_count = self.get_neurons_by_area(cortical_id)
+                if _neuron_ids_for_count is None:
+                    _neuron_ids_for_count = []
 
                 properties = {
                     "id": cortical_id,
@@ -2650,9 +3094,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     "parameters": (
                         area.properties.copy() if area.properties else {}
                     ),
-                    "neuron_count": int(
-                        len(self.get_neurons_by_area(cortical_id))
-                    ),
+                    "neuron_count": int(len(_neuron_ids_for_count)),
                 }
             except Exception as conversion_error:
                 self.logger.error(
@@ -2791,7 +3233,6 @@ class ConnectomeManager(NeuronMappingProvider):
             neuron_array = self.neuron_array
 
             # Collect property values from all neurons in this area
-            excitability_values = []
             threshold_values = []
             decay_rate_values = []
             refractory_values = []
@@ -2802,9 +3243,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     neuron_array.valid_mask[idx]
                     and neuron_array.cortical_idxs[idx] == cortical_idx
                 ):
-                    excitability_values.append(
-                        float(neuron_array.excitability[idx])
-                    )
+                    # Excitability is now per-area; use area.properties
+                    pass
                     threshold_values.append(
                         float(neuron_array.thresholds[idx])
                     )
@@ -2816,18 +3256,11 @@ class ConnectomeManager(NeuronMappingProvider):
                     )
 
             # If no neurons found, return zeros
-            if not excitability_values:
-                return {
-                    "neuron_excitability": 0.0,
-                    "firing_threshold": 0.0,
-                    "refractory_period": 0,
-                    "leak_coefficient": 0.0,
-                }
+            # Report neuron_excitability from area properties
+            area_props_ex = area.properties.get("neuron_excitability", 1.0) if hasattr(area, "properties") and area.properties else 1.0
 
             # Calculate averages of neuron properties
-            avg_excitability = sum(excitability_values) / len(
-                excitability_values
-            )
+            avg_excitability = float(area_props_ex)
             avg_threshold = sum(threshold_values) / len(threshold_values)
             avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
             avg_refractory = sum(refractory_values) / len(refractory_values)
@@ -2901,16 +3334,73 @@ class ConnectomeManager(NeuronMappingProvider):
                 elif prop_name == "cortical_name":
                     area.name = str(new_value)
                     updated_properties.append(f"name='{new_value}'")
+                elif prop_name == "neuron_fire_threshold":
+                    # Legacy key used across API/clients
+                    area.properties["fire_t"] = float(new_value)
+                    updated_properties.append(f"fire_t={float(new_value)}")
+                elif prop_name == "neuron_fire_threshold_increment":
+                    try:
+                        inc = list(new_value)
+                        x = float(inc[0]) if len(inc) > 0 else 0.0
+                        y = float(inc[1]) if len(inc) > 1 else 0.0
+                        z = float(inc[2]) if len(inc) > 2 else 0.0
+                        area.properties["ftincx"] = x
+                        area.properties["ftincy"] = y
+                        area.properties["ftincz"] = z
+                        updated_properties.append(f"ftincx={x}, ftincy={y}, ftincz={z}")
+                    except Exception:
+                        pass
+                elif prop_name == "neuron_firing_threshold_limit":
+                    area.properties["fthlim"] = int(new_value)
+                    updated_properties.append(f"fthlim={int(new_value)}")
+                elif prop_name == "neuron_refractory_period":
+                    area.properties["refrac"] = int(new_value)
+                    updated_properties.append(f"refrac={int(new_value)}")
+                elif prop_name == "neuron_leak_coefficient":
+                    # Stored as leak_c (percent-based in legacy); keep raw float
+                    area.properties["leak_c"] = float(new_value)
+                    updated_properties.append(f"leak_c={float(new_value)}")
+                elif prop_name == "neuron_leak_variability":
+                    area.properties["leak_v"] = float(new_value)
+                    updated_properties.append(f"leak_v={float(new_value)}")
+                elif prop_name == "neuron_snooze_period":
+                    area.properties["snooze"] = int(new_value)
+                    updated_properties.append(f"snooze={int(new_value)}")
+                elif prop_name == "neuron_post_synaptic_potential":
+                    area.properties["pstcr"] = float(new_value)
+                    updated_properties.append(f"pstcr={float(new_value)}")
+                elif prop_name == "neuron_post_synaptic_potential_max":
+                    area.properties["pstcrm"] = float(new_value)
+                    updated_properties.append(f"pstcrm={float(new_value)}")
+                elif prop_name == "neuron_psp_uniform_distribution":
+                    area.properties["pspuni"] = bool(new_value)
+                    updated_properties.append(f"pspuni={bool(new_value)}")
+                elif prop_name == "neuron_mp_charge_accumulation":
+                    area.properties["mp_acc"] = bool(new_value)
+                    updated_properties.append(f"mp_acc={bool(new_value)}")
+                elif prop_name == "neuron_mp_driven_psp":
+                    area.properties["mp_psp"] = bool(new_value)
+                    updated_properties.append(f"mp_psp={bool(new_value)}")
+                elif prop_name == "neuron_excitability":
+                    # Area-level default; keep in legacy 'excite' for API consumers
+                    ex = max(0.0, min(1.0, float(new_value)))
+                    area.properties["excite"] = ex
+                    updated_properties.append(f"excite={ex}")
                 else:
                     # Direct property update
                     area.properties[prop_name] = new_value
                     updated_properties.append(f"{prop_name}={new_value}")
 
             if updated_properties:
-                self.logger.info(
-                    f"[CONNECTOME-SYNC] Updated cortical area {cortical_id}: "
-                    f"{', '.join(updated_properties)}"
-                )
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    if FeagiStateManager.instance().is_debug_bdu_enabled():
+                        self.logger.info(
+                            f"[BDU-DEBUG] Updated cortical area {cortical_id}: "
+                            f"{', '.join(updated_properties)}"
+                        )
+                except Exception:
+                    pass
 
                 # Update StateManager cortical areas cache
                 try:
@@ -3027,7 +3517,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
                     state_manager = get_state_manager()
                     if state_manager.is_debug_bdu_enabled():
-                        logger.info(
+                        logger.debug(
                             f"[BDU-DEBUG] Could not delete neuron {neuron_id}: {e}"
                         )
                     pass
@@ -3076,6 +3566,12 @@ class ConnectomeManager(NeuronMappingProvider):
             self.logger.warning(
                 f"Failed to update cortical areas cache after deleting {cortical_id}: {e}"
             )
+
+        # Trigger brain region mapping validation after deleting cortical area
+        try:
+            self._trigger_brain_region_validation()
+        except Exception as validation_err:
+            logger.warning(f"[BRAIN REGIONS] Failed to validate brain region mappings after deleting {cortical_id}: {validation_err}")
 
         return True
 
@@ -3206,6 +3702,115 @@ class ConnectomeManager(NeuronMappingProvider):
 
         logger.info(f"Updated brain region {region_id} ({region['name']})")
         return True
+
+    def on_cortical_mapping_created(self, source_area_id: str, target_area_id: str) -> None:
+        """Handle automatic I/O designation when a cortical mapping is created.
+        
+        This method implements the rule:
+        When connecting area A to area B:
+        - If the brain region which area A belongs to is not in the ancestry tree 
+          of area B, then area A will be designated as an output area for area A's 
+          region and area B will be designated as an input area for area B's region.
+        
+        Args:
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+        """
+        try:
+            # Check if we should designate I/O based on hierarchy rules
+            should_output, should_input = self.brain_region_hierarchy.should_designate_io(
+                source_area_id, target_area_id
+            )
+            
+            if not should_output and not should_input:
+                logger.debug(f"No I/O designation needed for mapping {source_area_id} -> {target_area_id}")
+                return
+            
+            # Get regions for both areas
+            source_region_id = self.brain_region_hierarchy.get_region_for_area(source_area_id)
+            target_region_id = self.brain_region_hierarchy.get_region_for_area(target_area_id)
+            
+            changes_made = False
+            
+            # Designate source area as output in its region
+            if should_output and source_region_id:
+                success = self.brain_region_hierarchy.add_output_area(source_region_id, source_area_id)
+                if success:
+                    logger.info(f"Designated {source_area_id} as OUTPUT in region {source_region_id}")
+                    changes_made = True
+            
+            # Designate target area as input in its region
+            if should_input and target_region_id:
+                success = self.brain_region_hierarchy.add_input_area(target_region_id, target_area_id)
+                if success:
+                    logger.info(f"Designated {target_area_id} as INPUT in region {target_region_id}")
+                    changes_made = True
+            
+            # Sync changes back to genome if any were made
+            if changes_made:
+                self._sync_hierarchy_to_genome()
+                
+            # Trigger full brain region mapping validation
+            self._trigger_brain_region_validation()
+                
+        except Exception as e:
+            logger.error(f"Error in automatic I/O designation for {source_area_id} -> {target_area_id}: {e}")
+    
+    def _sync_hierarchy_to_genome(self) -> None:
+        """Sync brain region hierarchy changes back to genome."""
+        try:
+            # Get current genome from StateManager
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if hasattr(state_manager, 'genome') and state_manager.genome:
+                # Sync hierarchy changes to genome
+                self.brain_region_hierarchy.sync_to_genome(state_manager.genome)
+                
+                # Also update local brain_regions for consistency
+                if "brain_regions" in state_manager.genome:
+                    self.brain_regions.update(state_manager.genome["brain_regions"])
+                
+                logger.debug("Synced brain region hierarchy changes to genome")
+            else:
+                logger.warning("Cannot sync hierarchy changes: no genome in StateManager")
+                
+        except Exception as e:
+            logger.error(f"Error syncing hierarchy to genome: {e}")
+
+    def _trigger_brain_region_validation(self) -> None:
+        """Trigger comprehensive brain region mapping validation.
+        
+        This method creates a NeuroEmbryogenesis instance to run the full
+        brain region mapping validation that normally happens at the end
+        of brain development.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                logger.warning("Cannot trigger brain region validation: no genome in StateManager")
+                return
+                
+            # Create NeuroEmbryogenesis instance for validation
+            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+            embryo = NeuroEmbryogenesis(self, state_manager)
+            
+            # Run the brain region mapping validation
+            success = embryo._validate_and_update_brain_region_mappings()
+            
+            if success:
+                logger.info("🧠 [BRAIN REGIONS] Triggered brain region mapping validation completed")
+                
+                # Reload hierarchy with updated mappings
+                if hasattr(self, 'brain_region_hierarchy'):
+                    self.brain_region_hierarchy.load_from_genome(state_manager.genome)
+            else:
+                logger.warning("Brain region mapping validation failed")
+                
+        except Exception as e:
+            logger.error(f"Error triggering brain region validation: {e}")
 
     def delete_brain_region(
         self, region_id: str, delete_areas: bool = False
@@ -3499,21 +4104,52 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
 
-        # Create neurons in batch using NeuronArray's batch method
-        #  Let NeuronArray generate and manage its own IDs to prevent mapping
-        #  conflicts
-        created_neuron_ids = self.neuron_array.batch_create_neurons(
-            cortical_idx=cortical_idx,
-            positions=positions,
-            thresholds=threshold,
-            membrane_potentials=membrane_potential,
-            resting_potentials=resting_potential,
-            decay_rates=decay_rate,
-            refractory_periods=refractory_period,
+        # Create neurons in batch using NPU NeuronArray API (single source of truth)
+        # Generate neuron IDs deterministically via NPU-owned counter
+        npu_neurons = self.neuron_array
+        count = len(positions)
+        start_id = npu_neurons._next_neuron_id
+        neuron_ids = list(range(start_id, start_id + count))
+
+        # Normalize per-neuron lists
+        thresholds_list = (
+            [threshold] * count if isinstance(threshold, (int, float)) else list(threshold)
+        )
+        mp_list = (
+            [membrane_potential] * count if isinstance(membrane_potential, (int, float)) else list(membrane_potential)
+        )
+        _rp_list = (
+            [resting_potential] * count if isinstance(resting_potential, (int, float)) else list(resting_potential)
+        )
+        decay_list = (
+            [decay_rate] * count if isinstance(decay_rate, (int, float)) else list(decay_rate)
+        )
+        refr_list = (
+            [refractory_period] * count if isinstance(refractory_period, int) else list(refractory_period)
         )
 
-        # Use the IDs generated by NeuronArray directly - no separate ID system
-        neuron_ids = created_neuron_ids
+        # Use add_neurons_batch to create entries (neuron_types/excitabilities defaults)
+        indices = npu_neurons.add_neurons_batch(
+            neuron_ids=neuron_ids,
+            positions=positions,
+            neuron_types=[0] * count,
+            initial_potentials=mp_list,
+            thresholds=thresholds_list,
+            leak_coefficients=decay_list,
+            cortical_idx=cortical_idx,
+        )
+
+        # Apply refractory periods vector if available
+        # Note: current NeuronArray stores refractory_periods array; set for new indices
+        if hasattr(npu_neurons, "refractory_periods"):
+            for off, idx in enumerate(indices):
+                try:
+                    npu_neurons.refractory_periods[idx] = int(refr_list[off])
+                except Exception:
+                    pass
+
+        # Use the IDs generated above - authoritative NPU IDs
+        neuron_ids = neuron_ids
 
         # Update for test compatibility
         for i, neuron_id in enumerate(neuron_ids):
@@ -3528,8 +4164,14 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         # Store neuron-area relationship for each created neuron
+        # Update NPU interface mapping immediately for downstream operations
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
+            try:
+                if hasattr(self, "_npu_interface") and self._npu_interface:
+                    self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
+            except Exception:
+                pass
 
         #  CRITICAL FIX: Register neurons in Morton spatial hash for
         #  coordinate-based lookups
@@ -3622,7 +4264,7 @@ class ConnectomeManager(NeuronMappingProvider):
             elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
                 target_array = self.neuron_array.refractory_counters
             elif property_name == NeuronPropertyType.ACTIVE:
-                target_array = self.neuron_array.is_active
+                target_array = self.neuron_array.valid_mask
             else:
                 logger.warning(
                     f"Property {property_name} cannot be batch updated"
@@ -3716,7 +4358,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 indices[valid_mask]
             ]
         elif property_name == NeuronPropertyType.ACTIVE:
-            result[valid_mask] = self.neuron_array.is_active[
+            result[valid_mask] = self.neuron_array.valid_mask[
                 indices[valid_mask]
             ]
         else:
@@ -4619,7 +5261,7 @@ class ConnectomeManager(NeuronMappingProvider):
     @property
     def synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
-        GlobalSynapseArray."""
+        NPU SynapseArray."""
         return self.synapse_array.synapse_count
 
     @property
@@ -4636,7 +5278,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
         """Check if a synapse exists between two neurons using
-        GlobalSynapseArray.
+        NPU SynapseArray.
 
         Args:
             pre_neuron: ID of the pre-synaptic neuron
@@ -4652,7 +5294,7 @@ class ConnectomeManager(NeuronMappingProvider):
         ):
             return False
 
-        # Use GlobalSynapseArray for fast synapse existence check
+        # Use NPU SynapseArray for fast synapse existence check
         return self.synapse_array.has_synapse(pre_neuron, post_neuron)
 
     def update_neuron_property(
@@ -4716,49 +5358,25 @@ class ConnectomeManager(NeuronMappingProvider):
         return result
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
-        """Process firing neurons and update membrane potentials using
-        GlobalSynapseArray.
+        """DEPRECATED: BDU neural processing is prohibited.
 
-        This method is provided for backward compatibility with the test suite.
+        NPU has 100% exclusive ownership of neural processing.
+        Update tests to use NPU-based neural processing.
 
         Args:
             firing_neurons: List of neuron IDs that are firing
 
         Returns:
             List of neuron IDs that will fire in the next timestep
+            
+        Raises:
+            RuntimeError: Always - BDU neural processing is prohibited
         """
-        if not firing_neurons:
-            return []
-
-        # Convert neuron IDs to indices
-        firing_indices = []
-        for nid in firing_neurons:
-            if nid in self.neuron_id_to_index:
-                firing_indices.append(self.neuron_id_to_index[nid])
-
-        # Set these neurons as active
-        for idx in firing_indices:
-            self.active_neurons[idx] = True
-
-        # Apply synaptic propagation manually for fired neurons
-        if hasattr(self, "synapse_array"):
-            membrane_potentials = self.neuron_array.membrane_potentials
-
-            for fired_neuron_id in firing_neurons:
-                outgoing_connections = (
-                    self.synapse_array.get_outgoing_connections(
-                        fired_neuron_id
-                    )
-                )
-
-                # Apply synaptic weights to post-synaptic neurons
-                for post_neuron_id, weight in outgoing_connections:
-                    if post_neuron_id in self.neuron_id_to_index:
-                        post_idx = self.neuron_id_to_index[post_neuron_id]
-                        membrane_potentials[post_idx] += weight
-
-        # Update membrane potentials
-        return self.update_membrane_potentials()
+        raise RuntimeError(
+            "BDU neural processing is prohibited. "
+            "NPU has 100% exclusive ownership of neural processing. "
+            "Update tests to use NPU-based neural processing."
+        )
 
     @property
     def next_neuron_index(self) -> int:
@@ -4810,7 +5428,6 @@ class ConnectomeManager(NeuronMappingProvider):
             try:
                 # Mark neurons as invalid in bulk
                 self.neuron_array.valid_mask[indices_to_delete] = False
-                self.neuron_array.is_active[indices_to_delete] = False
 
                 # Remove from mappings in bulk
                 for neuron_id, index in zip(
@@ -4911,24 +5528,31 @@ class ConnectomeManager(NeuronMappingProvider):
                 # Handle both PyTorch tensors and NumPy arrays
                 import torch
 
-                if isinstance(self.neuron_array.valid_mask, torch.Tensor):
-                    # PyTorch tensors use fill_() method
-                    self.neuron_array.valid_mask.fill_(False)
-                    self.neuron_array.is_active.fill_(False)
+                # Clear neuron data through NPU Interface if available
+                if self._npu_interface and self._npu_interface.neuron_array:
+                    neuron_array = self._npu_interface.neuron_array
+                    if isinstance(neuron_array.valid_mask, torch.Tensor):
+                        # PyTorch tensors use fill_() method
+                        neuron_array.valid_mask.fill_(False)
+                    else:
+                        # NumPy arrays use fill() method
+                        neuron_array.valid_mask.fill(False)
+                    neuron_array.neuron_count = 0
                 else:
                     # NumPy arrays use fill() method
-                    self.neuron_array.valid_mask.fill(False)
-                    self.neuron_array.is_active.fill(False)
-
-                self.neuron_array.neuron_count = 0
+                    if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "valid_mask"):
+                        self.neuron_array.valid_mask.fill(False)
+                        self.neuron_array.neuron_count = 0
 
                 #  CRITICAL: Reset the internal index tracking to allow reuse
-                #  of neurons
-                self.neuron_array.next_index = 0
-                self.neuron_array.free_indices = set()
+                #  of neurons (only if NPU interface is available)
+                if self._npu_interface and self._npu_interface.neuron_array:
+                    neuron_array = self._npu_interface.neuron_array
+                    neuron_array.next_index = 0
+                    neuron_array.free_indices = set()
                 #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
                 #  prevent ID instability
-                self.neuron_array._next_neuron_id = 1
+                    neuron_array._next_neuron_id = 1
 
                 # Clear mappings that track neuron relationships
                 self._neuron_id_to_index_map.clear()
@@ -4943,12 +5567,14 @@ class ConnectomeManager(NeuronMappingProvider):
             except Exception as e:
                 logger.warning(f"Error resetting neuron array: {e}")
                 # Force reset the critical counters even if tensor reset fails
-                self.neuron_array.neuron_count = 0
-                self.neuron_array.next_index = 0
-                self.neuron_array.free_indices = set()
+                if self._npu_interface and self._npu_interface.neuron_array:
+                    neuron_array = self._npu_interface.neuron_array
+                    neuron_array.neuron_count = 0
+                    neuron_array.next_index = 0
+                    neuron_array.free_indices = set()
                 #  CRITICAL FIX: Also reset the neuron ID counter during force
                 #  reset
-                self.neuron_array._next_neuron_id = 1
+                    neuron_array._next_neuron_id = 1
                 logger.info(
                     "Force-reset critical neuron array counters", status="[OK]"
                 )
@@ -4962,6 +5588,67 @@ class ConnectomeManager(NeuronMappingProvider):
         # 6. Reset neuron counter
         if hasattr(self, "next_neuron_id"):
             self.next_neuron_id = 1  # Start from 1, not 0
+
+        # 7. CRITICAL FIX: Clear cortical mapping to prevent stale area references
+        if hasattr(self, "cortical_mapping"):
+            self.cortical_mapping.clear(preserve_core_areas=True)
+            logger.info(
+                "Cleared cortical mapping (preserved core areas _death and _power)",
+                status="[OK]",
+            )
+
+        # 8. Clear memory area tracking to prevent stale memory area references
+        memory_areas_cleared = 0
+        mappings_cleared = 0
+        if hasattr(self, "memory_areas"):
+            memory_areas_cleared = len(self.memory_areas)
+            self.memory_areas.clear()
+            logger.info(
+                f"Cleared {memory_areas_cleared} memory areas from tracking set",
+                status="[OK]",
+            )
+        if hasattr(self, "memory_area_upstream_mappings"):
+            mappings_cleared = len(self.memory_area_upstream_mappings)
+            self.memory_area_upstream_mappings.clear()
+            logger.info(
+                f"Cleared {mappings_cleared} memory area upstream mappings",
+                status="[OK]",
+            )
+
+        # 9. CRITICAL FIX: Clear FCL manager to prevent stale cortical indices
+        fcl_cleared = False
+        if hasattr(self, "fcl_manager") and self.fcl_manager:
+            try:
+                if hasattr(self.fcl_manager, "clear_all_fcl_history"):
+                    self.fcl_manager.clear_all_fcl_history()
+                    fcl_cleared = True
+                    logger.info(
+                        "Cleared FCL manager history and caches to prevent stale cortical indices",
+                        status="[OK]",
+                    )
+                elif hasattr(self.fcl_manager, "clear_all_window_caches"):
+                    # Fallback to partial clearing
+                    self.fcl_manager.clear_all_window_caches()
+                    # Also clear history manually
+                    if hasattr(self.fcl_manager, "global_fcl_history"):
+                        for bitmap in self.fcl_manager.global_fcl_history:
+                            bitmap.clear()
+                    if hasattr(self.fcl_manager, "cortical_fcl_history"):
+                        self.fcl_manager.cortical_fcl_history.clear()
+                    if hasattr(self.fcl_manager, "custom_cortical_history"):
+                        self.fcl_manager.custom_cortical_history.clear()
+                    fcl_cleared = True
+                    logger.info(
+                        "Manually cleared FCL manager history to prevent stale cortical indices",
+                        status="[OK]",
+                    )
+            except Exception as e:
+                logger.warning(f"Error clearing FCL manager: {e}")
+        
+        if not fcl_cleared and hasattr(self, "fcl_manager"):
+            logger.warning(
+                "FCL manager found but could not be cleared - may cause stale cortical index warnings"
+            )
 
         #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
         #  synchronized
@@ -5006,6 +5693,10 @@ class ConnectomeManager(NeuronMappingProvider):
             "cortical_areas_cleared": cortical_areas_cleared,
             "neurons_cleared": neurons_cleared,
             "synapses_cleared": synapses_cleared,
+            "cortical_mapping_cleared": True,
+            "memory_areas_cleared": memory_areas_cleared,
+            "memory_mappings_cleared": mappings_cleared,
+            "fcl_manager_cleared": fcl_cleared,
         }
 
     def _ensure_brain_regions_structure(
@@ -5047,7 +5738,22 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}"
                 )
 
-            # Create default root region with existing areas
+            # Automatically assign IPU/OPU areas as inputs/outputs
+            auto_inputs = []
+            auto_outputs = []
+            blueprint = genome_data.get("blueprint", {})
+            
+            for area_id in existing_areas:
+                area_props = blueprint.get(area_id, {})
+                # Check both 'group' and 'cortical_group' for compatibility
+                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+                
+                if area_group == "IPU":
+                    auto_inputs.append(area_id)
+                elif area_group == "OPU":
+                    auto_outputs.append(area_id)
+
+            # Create default root region with existing areas and automatic I/O
             genome_data["brain_regions"]["root"] = {
                 "title": "Root Brain Region",
                 "description": "Default root region for brain organization",
@@ -5055,9 +5761,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 "coordinate_2d": [0, 0],
                 "coordinate_3d": [0, 0, 0],
                 "areas": existing_areas,
-                "regions": [],
-                "inputs": [],
-                "outputs": [],
+                "regions": [],  # Will be populated as child regions are created
+                "inputs": auto_inputs,
+                "outputs": auto_outputs,
                 "signature": "",
             }
 
@@ -5071,6 +5777,14 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Sync ConnectomeManager's brain_regions with genome
         self.brain_regions.update(genome_data["brain_regions"])
+        
+        # Load hierarchical brain region system
+        try:
+            self.brain_region_hierarchy.load_from_genome(genome_data)
+            logger.info(f"[BRAIN REGIONS] Loaded hierarchical brain region system")
+        except Exception as e:
+            logger.error(f"[BRAIN REGIONS] Failed to load hierarchy: {e}")
+            # Continue without hierarchy - graceful degradation
 
         #  ARCHITECTURE: StateManager is the single source of truth for genome
         #  data
@@ -5200,14 +5914,15 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
             #  CRITICAL: After reallocation, ensure NeuronArray is in pristine
-            #  state
-            if hasattr(self, "neuron_array"):
-                self.neuron_array.next_index = 0
-                self.neuron_array.neuron_count = 0
-                self.neuron_array.free_indices = set()
+            #  state (through NPU Interface)
+            if self._npu_interface and self._npu_interface.neuron_array:
+                neuron_array = self._npu_interface.neuron_array
+                neuron_array.next_index = 0
+                neuron_array.neuron_count = 0
+                neuron_array.free_indices = set()
                 #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
                 #  prevent ID instability
-                self.neuron_array._next_neuron_id = 1
+                neuron_array._next_neuron_id = 1
                 self._neuron_id_to_index_map.clear()
                 self._index_to_neuron_id_map.clear()
                 if hasattr(self.neuron_array, "cortical_id_to_indices"):
@@ -5239,13 +5954,26 @@ class ConnectomeManager(NeuronMappingProvider):
 
     @property
     def neuron_id_to_index(self):
-        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
-        return self._neuron_id_to_index_map
+        """Return NPU-owned neuron_id->index mapping for compatibility.
+
+        Prefer the NPU NeuronArray mapping; legacy map kept only as last resort.
+        """
+        try:
+            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
+                return self._npu_interface.neuron_array.neuron_id_to_index
+        except Exception:
+            pass
+        return getattr(self, "_neuron_id_to_index_map", {})
 
     @property
     def index_to_neuron_id(self):
-        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
-        return self._index_to_neuron_id_map
+        """Return NPU-owned index->neuron_id mapping for compatibility."""
+        try:
+            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
+                return self._npu_interface.neuron_array.index_to_neuron_id
+        except Exception:
+            pass
+        return getattr(self, "_index_to_neuron_id_map", {})
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
@@ -5265,18 +5993,22 @@ class ConnectomeManager(NeuronMappingProvider):
             Single neuron ID (int) or array of neuron IDs (np.ndarray)
         """
         if isinstance(indices, (int, np.integer)):
-            # Single index lookup
-            return self.neuron_array.index_to_id_map.get(indices, -1)
+            # Single index lookup via NPU map
+            return self.neuron_array.index_to_neuron_id.get(indices, -1)
         else:
-            #  Batch lookup using vectorized method - CRITICAL: Ensure proper
-            #  data types
-            result = self.neuron_array.vectorized_indices_to_neuron_ids(
-                np.asarray(indices),
-                filter_invalid=True,  # Only return valid IDs
-            )
-            #  CRITICAL: Convert to Python integers to prevent segfault in FCL
-            #  processing
-            return result.astype(np.int64)
+            # Batch lookup using NPU-owned conversion
+            if hasattr(self.neuron_array, "indices_to_neuron_ids"):
+                result = self.neuron_array.indices_to_neuron_ids(
+                    np.asarray(indices), filter_invalid=True
+                )
+                return result.astype(np.int64)
+            # Fallback to dict mapping without touching BDU arrays
+            mapped = []
+            for idx in list(np.asarray(indices)):
+                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
+                if nid is not None:
+                    mapped.append(int(nid))
+            return np.array(mapped, dtype=np.int64)
 
     # ======================================================================
     # QUERY METHODS FOR TESTS
@@ -6257,37 +6989,56 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup of neurons at given voxel positions within a cortical
-        area.
+        """Batch lookup using NPU SoA only (no BDU caches).
 
-        Args:
-            cortical_id: ID of the cortical area to search in
-            candidate_positions: Set of (x, y, z) positions to check
-            post_synaptic_current: Current to assign to found neurons
-
-        Returns:
-            List of (neuron_id, current) tuples for neurons found at the positions
+        Deterministically finds neurons in `cortical_id` whose
+        (coordinates_x, coordinates_y, coordinates_z) match any in
+        `candidate_positions`.
         """
-        found_neurons = []
-
         try:
-            area = self.cortical_areas.get(cortical_id)
-            if not area:
-                return found_neurons
+            npu = getattr(self, "_npu_interface", None)
+            if npu is None:
+                raise RuntimeError("NPU Interface required for voxel lookup")
 
-            # Batch lookup using cortical area's position mapping
-            for position in candidate_positions:
-                neurons_at_pos = area.get_neurons_at_position(position)
-                for nid in neurons_at_pos:
-                    #  FIXED: Use ConnectomeManager's mapping instead of
-                    #  neuron_array.id_to_index_map
-                    if nid in self._neuron_id_to_index_map:
-                        found_neurons.append((nid, post_synaptic_current))
+            # Resolve to cortical_idx (authoritative key)
+            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            if cortical_idx is None:
+                return []
+
+            na = npu.neuron_array
+            if na is None or na.neuron_count == 0:
+                return []
+
+            import numpy as np
+
+            # Select indices belonging to this cortical_idx
+            valid_count = int(na.neuron_count)
+            cort_mask = (na.cortical_idxs[:valid_count] == cortical_idx)
+            if not np.any(cort_mask):
+                return []
+
+            idxs = np.nonzero(cort_mask)[0]
+            xs = na.coordinates_x[idxs]
+            ys = na.coordinates_y[idxs]
+            zs = na.coordinates_z[idxs]
+
+            # Build a hash set of target positions for O(1) membership checks
+            targets = set(candidate_positions)
+            if not targets:
+                return []
+
+            found: List[Tuple[int, float]] = []
+            for i, idx in enumerate(idxs):
+                pos = (int(xs[i]), int(ys[i]), int(zs[i]))
+                if pos in targets:
+                    nid = npu.neuron_array.index_to_neuron_id.get(int(idx))
+                    if nid is not None:
+                        found.append((int(nid), float(post_synaptic_current)))
+            return found
 
         except Exception as e:
-            logger.error(f"Error in batch voxel lookup: {e}")
-
-        return found_neurons
+            logger.error(f"Error in NPU voxel lookup: {e}")
+            return []
 
     # ======================================================================
     # CORTICAL AREA DIMENSION VALIDATION
@@ -6367,3 +7118,131 @@ class ConnectomeManager(NeuronMappingProvider):
                 "max_cortical_area_dimensions": (1023, 1023, 1023),
                 "error": str(e),
             }
+
+    # Removed duplicate get_synapse_count/get_neuron_count/get_neurons_by_area at end of file (consolidated above)
+
+    @property
+    def max_neurons(self) -> int:
+        """Get maximum neuron capacity from NPU Interface.
+        
+        Returns:
+            Maximum number of neurons that can be stored
+        """
+        if self._npu_interface:
+            return self._npu_interface.neuron_array.max_neurons
+        return 0
+
+    @property
+    def max_synapses(self) -> int:
+        """Get maximum synapse capacity from NPU Interface.
+        
+        Returns:
+            Maximum number of synapses that can be stored
+        """
+        if self._npu_interface:
+            return self._npu_interface.synapse_array.max_synapses
+        return 0
+
+    def get_neurons_by_area(self, cortical_id: str) -> Optional[List[int]]:
+        """Get all neuron IDs in a cortical area by cortical_id.
+        
+        MEMORY AREA SUPPORT: Now checks both regular and memory neurons.
+        
+        Args:
+            cortical_id: String identifier (e.g., "_power", "mVPmem")
+            
+        Returns:
+            List of neuron IDs in the area (regular + memory neurons), or None if area not found
+        """
+        if not self._npu_interface:
+            return None
+
+        cortical_idx = self._npu_interface.get_cortical_idx_by_id(cortical_id)
+        if cortical_idx is None:
+            return None
+
+        # MEMORY AREA SUPPORT: Check if this is a memory area
+        is_memory_area = self.is_memory_area(cortical_id)
+        
+        if is_memory_area:
+            # For memory areas, get memory neurons from MemoryNeuronArray
+            memory_neurons = self._get_memory_neurons_by_cortical_area(cortical_id, cortical_idx)
+            return memory_neurons if memory_neurons else []
+        
+        # Regular areas: delegate to NPU interface
+        return self._npu_interface.get_neurons_by_area(cortical_idx)
+
+    def debug_cortical_areas(self) -> Dict[str, Any]:
+        """Debug method to show all cortical areas and their neuron counts.
+        
+        Returns:
+            Dictionary with area information for debugging
+        """
+        if not self._npu_interface:
+            return {"error": "NPU Interface not available"}
+        return self._npu_interface.debug_cortical_areas()
+
+    def _create_neuron_via_npu(
+        self,
+        cortical_idx: int,
+        position: Tuple[int, int, int],
+        threshold: float,
+        membrane_potential: float,
+        resting_potential: float,
+        decay_rate: float,
+        refractory_period: int,
+        properties: Optional[Dict[str, Any]],
+    ) -> int:
+        """Create a single neuron via NPU-owned arrays.
+
+        Args:
+            cortical_idx: Area index
+            position: (x, y, z)
+            threshold: threshold
+            membrane_potential: initial potential
+            resting_potential: resting potential
+            decay_rate: leak coefficient
+            refractory_period: refractory period
+            properties: optional extra properties (unused here)
+
+        Returns:
+            Newly created neuron ID
+        """
+        if not self._npu_interface or not self._npu_interface.neuron_array:
+            raise RuntimeError("NPU interface not configured - cannot create neurons")
+
+        na: NeuronArray = self._npu_interface.neuron_array
+        neuron_id = na._next_neuron_id
+        na.add_neurons_batch(
+            neuron_ids=[neuron_id],
+            positions=[position],
+            neuron_types=[0],
+            initial_potentials=[membrane_potential],
+            thresholds=[threshold],
+            leak_coefficients=[decay_rate],
+            cortical_idx=cortical_idx,
+        )
+        # Set refractory period and resting potential directly
+        idx = na.neuron_id_to_index.get(neuron_id)
+        if idx is not None:
+            na.refractory_periods[idx] = int(refractory_period)
+            na.resting_potentials[idx] = float(resting_potential)
+        # Update mappings owned by ConnectomeManager for backward compatibility
+        self.neuron_id_to_index[neuron_id] = idx
+        self.index_to_neuron_id[idx] = neuron_id
+        return neuron_id
+
+    def get_neuron_count(self) -> int:
+        """Return total neuron count (regular + memory) from NPU.
+
+        Returns:
+            Total number of neurons managed by NPU (0 if unavailable)
+        """
+        if hasattr(self, "_npu_interface") and self._npu_interface:
+            try:
+                regular = int(getattr(self._npu_interface.neuron_array, "count", 0))
+                memory = int(getattr(self._npu_interface.memory_neuron_array, "count", 0))
+                return regular + memory
+            except Exception:
+                return 0
+        return 0

@@ -26,7 +26,7 @@ import threading
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import tempfile
 from typing import Dict, Optional, Tuple
 

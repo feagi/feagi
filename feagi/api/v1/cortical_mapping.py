@@ -17,6 +17,9 @@ FEAGI v1 Cortical Mapping API
 from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 from .decorators import endpoint
 from .schemas import (
@@ -90,6 +93,18 @@ class CorticalMappingAPI:
 
             if not success:
                 raise ValueError("Failed to create cortical mapping")
+
+            # Trigger automatic I/O designation
+            try:
+                connectome = self.core_api_service.get_connectome()
+                if connectome and hasattr(connectome, 'on_cortical_mapping_created'):
+                    connectome.on_cortical_mapping_created(
+                        request.src_cortical_area, 
+                        request.dst_cortical_area
+                    )
+            except Exception as e:
+                # Don't fail the mapping creation if I/O designation fails
+                logger.warning(f"Failed to process automatic I/O designation: {e}")
 
             return SuccessResponse(
                 message=(

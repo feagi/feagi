@@ -21,7 +21,7 @@ and its clients using specialized byte structures optimized for neural data.
 """
 
 # Import from the PyPI feagi-data-processing package
-import feagi_data_processing as fdp
+import feagi_rust_py_libs as frpl
 
 # Import protocol definitions and constants
 from feagi.api.protocols.constants import ByteStructureID, ProtocolID
@@ -32,7 +32,7 @@ class ByteStructureEncoder:
     """Compatibility wrapper for feagi_data_processing encoding."""
 
     def __init__(self):
-        self.fdp = fdp
+        self.frpl = frpl
 
     def encode_json(self, data: dict) -> bytes:
         """Encode JSON data to FeagiByteStructure format."""
@@ -52,7 +52,7 @@ class ByteStructureEncoder:
 
         # Create the main mapped neuron data container
         generated_mapped_neuron_data = (
-            self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+            self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
         )
 
         # Organize data by cortical area for high-performance encoding
@@ -85,40 +85,40 @@ class ByteStructureEncoder:
             neurons_z = np.asarray(coords["z"], dtype=np.uint32)
             neurons_p = np.asarray(coords["p"], dtype=np.float32)
 
-            # Create cortical ID using modern feagi-data-processing approach
+            # Create cortical ID using modern feagi-rust-py-libs approach
             area_str = str(cortical_id)
 
             try:
                 #  Try to create cortical ID directly from string - handles all
                 #  modern format IDs
                 cortical_id_obj = (
-                    self.fdp.genome.CorticalID.try_new_from_string(area_str)
+                    self.frpl.genome.CorticalID.try_new_from_string(area_str)
                 )
             except ValueError:
                 # Fallback for areas that can't be parsed directly
                 if area_str == "_power":
                     cortical_id_obj = (
-                        self.fdp.genome.CorticalID.new_core_cortical_area_id(
-                            self.fdp.genome.CoreCorticalType.Power
+                        self.frpl.genome.CorticalID.new_core_cortical_area_id(
+                            self.frpl.genome.CoreCorticalType.Power
                         )
                     )
                 elif area_str == "_death":
                     cortical_id_obj = (
-                        self.fdp.genome.CorticalID.new_core_cortical_area_id(
-                            self.fdp.genome.CoreCorticalType.Death
+                        self.frpl.genome.CorticalID.new_core_cortical_area_id(
+                            self.frpl.genome.CoreCorticalType.Death
                         )
                     )
                 else:
                     # For unknown areas, use custom with 'c' prefix
                     cortical_id_obj = (
-                        self.fdp.genome.CorticalID.new_custom_cortical_area_id(
+                        self.frpl.genome.CorticalID.new_custom_cortical_area_id(
                             f"c{area_str}"
                         )
                     )
 
             # Use high-performance NumPy approach
             neurons_array = (
-                self.fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
+                self.frpl.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                     neurons_x, neurons_y, neurons_z, neurons_p
                 )
             )
@@ -137,18 +137,18 @@ class ByteStructureDecoder:
     """Compatibility wrapper for feagi_data_processing decoding."""
 
     def __init__(self):
-        self.fdp = fdp
+        self.frpl = frpl
 
     def decode_message(self, data: bytes) -> dict:
         """Decode FeagiByteStructure format to dictionary."""
         # Create a FeagiByteStructure from the bytes
-        byte_structure = self.fdp.io_processing.bytes.FeagiByteStructure(data)
+        byte_structure = self.frpl.io_processing.bytes.FeagiByteStructure(data)
         structure_type = byte_structure.try_get_structure_type()
 
         if structure_type == 11:  # NeuronCategoricalXYZP
             # Create CorticalMappedXYZPNeuronData from the byte structure
             cortical_mapped = (
-                self.fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
             )
             cortical_mapped.from_feagi_byte_structure(byte_structure)
 
@@ -164,7 +164,7 @@ class ByteStructureTranslator:
     def __init__(self):
         self.encoder = ByteStructureEncoder()
         self.decoder = ByteStructureDecoder()
-        self.fdp = fdp
+        self.frpl = frpl
 
     def create_message(self, data: dict) -> bytes:
         """Create a binary message from dictionary data."""

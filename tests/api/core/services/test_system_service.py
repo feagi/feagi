@@ -30,17 +30,26 @@ def mock_connectome_manager():
     cm = MagicMock(spec=ConnectomeManager)
     cm.fcl_manager = MagicMock()
     cm.fcl_manager.reset = MagicMock()
+    # Add missing attributes for health check
+    cm.cortical_areas = {"area1": MagicMock(), "area2": MagicMock(), "area3": MagicMock()}
+    cm.max_neurons = 10000
+    cm.max_synapses = 50000
+    cm.neuron_count = 1000
+    cm.get_synapse_count.return_value = 5000
     return cm
 
 
 @pytest.fixture
 def mock_state_manager():
     """Create a mock state manager for testing."""
+    from feagi.core.state_manager import ServiceState
+    
     sm = MagicMock()
     sm.is_genome_loaded.return_value = True
     sm.get_brain_readiness.return_value = True
+    sm.get_burst_engine_state.return_value = ServiceState.READY  # Return proper enum value
     sm.exit_condition = False
-    sm.connected_agents = 2
+    sm.connected_agents = {"agent1": {}, "agent2": {}}  # Dictionary with 2 agents
     sm.influxdb = True
     sm.changes_saved_externally = True
     sm.genome_fitness = 0.85
@@ -52,12 +61,16 @@ def mock_state_manager():
     sm.cortical_list = ["area1", "area2", "area3"]
     sm.genome_validity = True
     sm.pending_amalgamation = False
+    sm.get_genome_timestamp.return_value = 1234567890
+    sm.get_genome_counter.return_value = 1
     sm.parameters = {"Limits": {"max_neuron_count": 10000, "max_synapse_count": 50000}}
     sm.user_preferences = {
         "adv_mode": True,
         "ui_magnification": 1.2,
         "auto_pns_area_creation": False,
     }
+    # Add burst frequency for simulation timestep calculation
+    sm.get_burst_frequency.return_value = 10.0  # 10 Hz = 0.1 second timestep
     return sm
 
 
@@ -102,6 +115,7 @@ class TestSystemService:
         assert "estimated_brain_size_in_MB" in health
         assert health["genome_validity"] is True
         assert health["brain_readiness"] is True
+        assert health["simulation_timestep"] == 0.1  # 1/10.0 Hz = 0.1 seconds
 
     @pytest.mark.asyncio
     async def test_get_health_without_loaded_genome(
@@ -120,6 +134,7 @@ class TestSystemService:
         assert health["genome_availability"] is False
         assert "fitness" not in health
         assert "cortical_area_count" not in health
+        assert health["simulation_timestep"] == 0.1  # Should still be available even without genome
 
     @pytest.mark.asyncio
     async def test_get_health_with_pending_amalgamation(
@@ -426,3 +441,26 @@ class TestSystemService:
 
         config = system_service.get_configuration()
         assert isinstance(config, dict)
+
+    @pytest.mark.asyncio
+    async def test_simulation_timestep_edge_cases(self, system_service, mock_state_manager):
+        """Test simulation timestep calculation with edge cases."""
+        # Mock the state validation methods
+        system_service._validate_state_consistency = MagicMock(return_value=True)
+        system_service._sync_state_if_needed = MagicMock(return_value=True)
+
+        # Test case 1: Zero frequency should default to 1.0 second
+        mock_state_manager.get_burst_frequency.return_value = 0.0
+        health = await system_service.get_health()
+        assert health["simulation_timestep"] == 1.0
+
+        # Test case 2: Exception in get_burst_frequency should default to 1.0 second
+        mock_state_manager.get_burst_frequency.side_effect = Exception("Test error")
+        health = await system_service.get_health()
+        assert health["simulation_timestep"] == 1.0
+
+        # Test case 3: Normal frequency should calculate correctly
+        mock_state_manager.get_burst_frequency.side_effect = None  # Reset side_effect
+        mock_state_manager.get_burst_frequency.return_value = 5.0  # 5 Hz = 0.2 second timestep
+        health = await system_service.get_health()
+        assert health["simulation_timestep"] == 0.2

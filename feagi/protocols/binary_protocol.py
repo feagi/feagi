@@ -18,7 +18,7 @@ import struct
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import zlib
 from typing import Any
 

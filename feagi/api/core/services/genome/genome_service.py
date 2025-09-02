@@ -44,6 +44,59 @@ class GenomeService(BaseService):
             "GENOME SERVICE: Initialized with clean architecture"
         )
 
+    def _ensure_core_areas_in_blueprint(self, genome: Dict[str, Any]) -> None:
+        """Ensure core cortical areas ('_death', '_power') exist in the genome blueprint.
+
+        This uses FEAGI templates as the single source of truth to create minimal
+        hierarchical definitions when missing. This keeps genome and connectome
+        mapping consistent without introducing hardcoded values.
+
+        Args:
+            genome: The working genome dictionary (hierarchical format expected)
+        """
+        try:
+            if not isinstance(genome, dict) or "blueprint" not in genome:
+                return
+
+            blueprint = genome["blueprint"]
+            if not isinstance(blueprint, dict):
+                return
+
+            from feagi.evo.templates import cortical_types
+
+            core_devices = (
+                cortical_types.get("CORE", {}).get("supported_devices", {})
+            )
+
+            for area_id in ("_death", "_power"):
+                if area_id in blueprint:
+                    continue
+
+                area_template = core_devices.get(area_id, {})
+
+                # Build minimal hierarchical area definition
+                coord3d = area_template.get("coordinate_3d", [0, 0, 0])
+                res = area_template.get("resolution", [1, 1, 1])
+
+                area_def = {
+                    "cortical_name": area_template.get(
+                        "cortical_name", area_id
+                    ),
+                    "coordinates": {"x": coord3d[0], "y": coord3d[1], "z": coord3d[2]},
+                    "dimensions": {"x": res[0], "y": res[1], "z": res[2]},
+                    "parameters": {},
+                }
+
+                blueprint[area_id] = area_def
+                self.logger.info(
+                    f"Added core cortical area '{area_id}' to genome blueprint from templates"
+                )
+        except Exception as e:
+            # Non-fatal: keep loader deterministic while logging context
+            self.logger.warning(
+                f"Could not ensure core areas in genome blueprint: {e}"
+            )
+
     def load_genome(
         self, genome_data: Dict[str, Any], filename: str = "genome.json"
     ) -> Dict[str, Any]:
@@ -76,7 +129,6 @@ class GenomeService(BaseService):
                 }
 
             # CRITICAL: Start timing for performance monitoring
-            start_time = time.time()
 
             try:
                 self.logger.info("Step 1: Initializing genome load process")
@@ -88,9 +140,12 @@ class GenomeService(BaseService):
                     self.state_manager.set_genome_state(GenomeState.LOADING)
                     self.state_manager.set_brain_readiness(False)
                     # Clear all brain stats during loading
+                    self.logger.debug("Clearing brain stats during genome loading")
                     result = self.state_manager.set_brain_stats({})
                     if result.is_err:
                         self.logger.warning("Failed to clear brain stats")
+                    else:
+                        self.logger.info("✅ Brain stats cleared successfully")
 
                     result = self.state_manager.set_cortical_list([])
                     if result.is_err:
@@ -432,6 +487,9 @@ class GenomeService(BaseService):
                 else:
                     # No blueprint section or not dict - store as-is
                     self._current_genome = genome_data
+
+                # Ensure core areas are present in the hierarchical blueprint
+                self._ensure_core_areas_in_blueprint(self._current_genome)
 
                 #  ARCHITECTURE IMPROVEMENT: Stage sanitized genome in state
                 #  manager FIRST
@@ -843,17 +901,19 @@ class GenomeService(BaseService):
 
                         #  Update state manager with brain statistics (CRITICAL
                         #  for health check)
-                        stats_result = self.state_manager.set_brain_stats(
-                            {
-                                "neuron_count": total_neurons,
-                                "synapse_count": total_synapses,
-                                "cortical_area_count": cortical_area_count,
-                            }
-                        )
+                        brain_stats_to_set = {
+                            "neuron_count": total_neurons,
+                            "synapse_count": total_synapses,
+                            "cortical_area_count": cortical_area_count,
+                        }
+                        self.logger.debug(f"Setting brain stats after genome loading: {brain_stats_to_set}")
+                        stats_result = self.state_manager.set_brain_stats(brain_stats_to_set)
                         if stats_result.is_err:
                             self.logger.warning(
                                 f"Failed to set brain stats: {stats_result.unwrap_err()}"
                             )
+                        else:
+                            self.logger.info(f"Brain stats set successfully: {brain_stats_to_set}")
 
                         #  Create cortical list for health check compatibility
                         #  (CRITICAL)
@@ -1556,6 +1616,7 @@ class GenomeService(BaseService):
             self.logger.debug(
                 f"GENOME SERVICE: load_genome returned: {result.get('success', 'unknown')}"
             )
+
             return result
 
         except Exception as e:
@@ -1722,6 +1783,10 @@ class GenomeService(BaseService):
                     "cortical_dimensions": dimensions,
                     "cortical_type": area_type,
                     "parameters": parameters or {},
+                    # CRITICAL FIX: Add properties in the format expected by _extract_cortical_properties
+                    "relative_coordinate": [coordinates["x"], coordinates["y"], coordinates["z"]],
+                    "block_boundaries": [dimensions["width"], dimensions["height"], dimensions["depth"]],
+                    "2d_coordinate": parameters.get("coordinates_2d", [0, 0]) if parameters else [0, 0],
                 }
 
                 # Apply template defaults to the new area
@@ -1732,23 +1797,50 @@ class GenomeService(BaseService):
                 # Override with any provided parameters
                 if parameters:
                     new_area.update(parameters)
-
-                # Ensure memory areas have required properties with defaults
+                # Initialize embryogenesis for subsequent operations
+                from feagi.bdu.embryogenesis.neuroembryogenesis import (
+                    NeuroEmbryogenesis,
+                )
+                embryogenesis = NeuroEmbryogenesis(
+                    self._connectome_manager, self.state_manager
+                )
+                # CRITICAL FIX: Ensure group_id is set for proper classification
+                if "group_id" not in new_area:
+                    if is_memory_area:
+                        new_area["group_id"] = "MEMORY"
+                    else:
+                        new_area["group_id"] = parameters.get("cortical_group", "CUSTOM") if parameters else "CUSTOM"
+                # CRITICAL FIX: Only memory areas need memory properties
+                # Non-memory areas should not have memory properties
                 if is_memory_area:
                     memory_defaults = {
-                        "init_lifespan": new_area.get("init_lifespan", 9),
-                        "lifespan_growth_rate": new_area.get(
-                            "lifespan_growth_rate", 1.0
-                        ),
-                        "longterm_mem_threshold": new_area.get(
-                            "longterm_mem_threshold", 100
-                        ),
-                        "temporal_depth": new_area.get("temporal_depth", 1),
-                        "sub_group_id": "MEMORY",
+                        "is_mem_type": True,
+                        "longterm_mem_threshold": 100,
+                        "lifespan_growth_rate": 1,
+                        "init_lifespan": 9,
                     }
-                    # Add memory properties to both top level and parameters
-                    new_area.update(memory_defaults)
-                    new_area["parameters"].update(memory_defaults)
+                    
+                    # Add memory properties to memory areas only
+                    for key, value in memory_defaults.items():
+                        if key not in new_area:
+                            new_area[key] = value
+
+                # Additional memory area configuration (already handled above)
+                if is_memory_area:
+                    # Ensure temporal_depth is set for memory areas
+                    if "temporal_depth" not in new_area:
+                        new_area["temporal_depth"] = 1
+                    # Ensure sub_group_id is set for memory areas
+                    if "sub_group_id" not in new_area:
+                        new_area["sub_group_id"] = "MEMORY"
+                    # Update parameters dict as well for consistency
+                    new_area["parameters"].update({
+                        "sub_group_id": "MEMORY",
+                        "temporal_depth": new_area.get("temporal_depth", 1),
+                        "init_lifespan": new_area.get("init_lifespan", 9),
+                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1),
+                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                    })
 
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
@@ -1768,16 +1860,19 @@ class GenomeService(BaseService):
                     #  properties
                     enhanced_properties = new_area.get("parameters", {})
 
-                    created_cortical_id = (
-                        self._connectome_manager.add_cortical_area(
+                    # Enforce memory-area semantics
+                    if is_memory_area:
+                        create_dims = (1, 1, 1)
+                    else:
+                        create_dims = (
+                            dimensions["width"],
+                            dimensions["height"],
+                            dimensions["depth"],
+                        )
+
+                    self._connectome_manager.add_cortical_area(
                             name=name,
-                            dimensions=tuple(
-                                [
-                                    dimensions["width"],
-                                    dimensions["height"],
-                                    dimensions["depth"],
-                                ]
-                            ),
+                            dimensions=tuple(create_dims),
                             position=tuple(
                                 [
                                     coordinates["x"],
@@ -1789,18 +1884,86 @@ class GenomeService(BaseService):
                             properties=enhanced_properties,
                             cortical_id=cortical_id,
                         )
-                    )
 
-                    #  Extract proper neuron properties from the cortical area
-                    #  template
+                    # MEMORY AREA: Do not create regular neurons; register with memory systems only
+                    if is_memory_area:
+                        temporal_depth = new_area.get("temporal_depth", 1)
+                        memory_registered = (
+                            self._connectome_manager.register_memory_area(
+                                cortical_id=cortical_id,
+                                temporal_depth=temporal_depth,
+                            )
+                        )
+                        if memory_registered:
+                            self.logger.info(
+                                f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}"
+                            )
+
+                            # Register with BurstEngine MemoryProcessor as well
+                            try:
+                                from feagi.npu.burst_engine import BurstEngine
+
+                                burst_engine = BurstEngine.get_instance()
+                                if burst_engine:
+                                    memory_properties = {
+                                        "temporal_depth": temporal_depth,
+                                        "init_lifespan": new_area.get(
+                                            "init_lifespan", 9
+                                        ),
+                                        "lifespan_growth_rate": new_area.get(
+                                            "lifespan_growth_rate", 1.0
+                                        ),
+                                        "longterm_mem_threshold": new_area.get(
+                                            "longterm_mem_threshold", 100
+                                        ),
+                                    }
+                                    processor_registered = burst_engine.register_memory_area_with_processor(
+                                        cortical_id, memory_properties
+                                    )
+                                    if processor_registered:
+                                        self.logger.info(
+                                            f"✅ Registered memory area {cortical_id} with MemoryProcessor"
+                                        )
+                                    else:
+                                        self.logger.warning(
+                                            f"⚠️  Failed to register memory area {cortical_id} with MemoryProcessor"
+                                        )
+                                else:
+                                    self.logger.warning(
+                                        "⚠️  BurstEngine instance not available for memory area registration"
+                                    )
+                            except Exception as burst_error:
+                                self.logger.warning(
+                                    f"Failed to register memory area with BurstEngine: {burst_error}"
+                                )
+
+                        # Prepare return payload for memory area (no regular neurons)
+                        success = True
+                        if success and transaction:
+                            transaction.commit()
+                        elif transaction:
+                            transaction.rollback()
+                            return None
+
+                        return {
+                            "cortical_id": cortical_id,
+                            "name": name,
+                            "coordinates": coordinates,
+                            "dimensions": {"width": 1, "height": 1, "depth": 1},
+                            "type": area_type,
+                            "parameters": parameters or {},
+                            "neuron_count": 0,
+                            "excitability": None,
+                        }
+
+                    # NON-MEMORY AREA: proceed with regular neuron creation
+                    #  Extract proper neuron properties from the cortical area template
                     area = self._connectome_manager.cortical_areas[cortical_id]
                     width, height, depth = area.dimensions
                     neurons_per_voxel = new_area.get("per_voxel_neuron_cnt", 1)
-                    area_neuron_count = (
-                        width * height * depth * neurons_per_voxel
-                    )
+                    area_neuron_count = width * height * depth * neurons_per_voxel
 
-                    # Generate positions for all neurons in the cortical area
+                    # Generate positions
                     positions = []
                     for z in range(depth):
                         for y in range(height):
@@ -1808,12 +1971,8 @@ class GenomeService(BaseService):
                                 for _ in range(neurons_per_voxel):
                                     positions.append((x, y, z))
 
-                    #  Extract neuron properties from template (following
-                    #  NeuroEmbryogenesis pattern)
                     base_threshold = new_area.get("firing_threshold", 1.0)
-                    base_decay_rate = 1.0 - (
-                        new_area.get("leak_coefficient", 0) / 100.0
-                    )
+                    base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
                     base_refractory = new_area.get("refractory_period", 1)
                     excitability = new_area.get("neuron_excitability", 1.0)
 
@@ -1821,8 +1980,6 @@ class GenomeService(BaseService):
                         f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}"
                     )
 
-                    #  Create neurons using ConnectomeManager's batch creation
-                    #  (which handles position mapping)
                     neuron_ids = self._connectome_manager.batch_create_neurons(
                         cortical_id=cortical_id,
                         positions=positions,
@@ -1833,29 +1990,19 @@ class GenomeService(BaseService):
                         refractory_period=base_refractory,
                     )
 
-                    # CRITICAL FIX: Set excitability for all created neurons
-                    #  Since batch_create_neurons doesn't support excitability
-                    #  parameter,
-                    # we need to set it manually on the neuron array
-                    neuron_array = self._connectome_manager.neuron_array
-                    for neuron_id in neuron_ids:
-                        try:
-                            neuron_idx = (
-                                self._connectome_manager.get_neuron_index(
-                                    neuron_id
-                                )
-                            )
-                            if neuron_idx is not None:
-                                neuron_array.excitability[neuron_idx] = (
-                                    excitability
-                                )
-                        except Exception as e:
-                            self.logger.warning(
-                                f"Could not set excitability for neuron {neuron_id}: {e}"
-                            )
+                    # Update per-area excitability cache in NPU (per-area, not per-neuron)
+                    area_ex = float(new_area.get("neuron_excitability", 1.0))
+                    try:
+                        npu = getattr(self._connectome_manager, "_npu_interface", None)
+                        if npu and hasattr(npu, "set_area_excitability"):
+                            cidx = self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+                            if cidx is not None:
+                                npu.set_area_excitability(cidx, area_ex)
+                    except Exception:
+                        pass
 
                     self.logger.info(
-                        f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}"
+                        f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={area_ex}"
                     )
 
                     # Register as memory area if needed
@@ -2089,12 +2236,16 @@ class GenomeService(BaseService):
                         cortical_id, changes, transaction
                     )
 
-                # Log performance metrics
+                # Log performance metrics (API debug only)
                 duration = time.time() - start_time
-                self.logger.info(
-                    f"[CORTICAL-UPDATE] {cortical_id} updated via {change_type.value} "
-                    f"path in {duration * 1000:.1f}ms"
-                )
+                try:
+                    if self.state_manager.is_debug_api_enabled():
+                        self.logger.info(
+                            f"[API-DEBUG] {cortical_id} updated via {change_type.value} "
+                            f"path in {duration * 1000:.1f}ms"
+                        )
+                except Exception:
+                    pass
 
                 return result
 
@@ -2838,6 +2989,7 @@ class GenomeService(BaseService):
                 self.logger.info(
                     "🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance..."
                 )
+                
                 embryogenesis = NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
@@ -3564,36 +3716,110 @@ class GenomeService(BaseService):
                         f"Brain region '{region_id}' already exists"
                     )
 
+                # Extract areas and regions from parameters for proper storage
+                areas = []
+                regions = []
+                clean_parameters = {}
+                
+                if parameters:
+                    areas = parameters.get("areas", [])
+                    regions = parameters.get("regions", [])
+                    # Store other parameters excluding areas/regions (to avoid duplication)
+                    clean_parameters = {k: v for k, v in parameters.items() 
+                                      if k not in ["areas", "regions"]}
+
+                # Enforce one-region-per-area: remove any of these areas from existing regions
+                if areas:
+                    areas_set = set(areas)
+                    for existing_region_id, existing_region in current_genome["brain_regions"].items():
+                        # Skip the new region (not added yet) by design; iterate current existing only
+                        # Remove from modern key
+                        if "cortical_areas" in existing_region and existing_region["cortical_areas"]:
+                            existing_region["cortical_areas"] = [
+                                a for a in existing_region["cortical_areas"] if a not in areas_set
+                            ]
+                        # Remove from legacy key
+                        if "areas" in existing_region and existing_region["areas"]:
+                            existing_region["areas"] = [
+                                a for a in existing_region["areas"] if a not in areas_set
+                            ]
+                        # Also clean stale I/O listings in the old region
+                        if "inputs" in existing_region and existing_region["inputs"]:
+                            existing_region["inputs"] = [
+                                a for a in existing_region["inputs"] if a not in areas_set
+                            ]
+                        if "outputs" in existing_region and existing_region["outputs"]:
+                            existing_region["outputs"] = [
+                                a for a in existing_region["outputs"] if a not in areas_set
+                            ]
+                
+                # Strict coordinates required for region creation
+                if coordinates is None:
+                    raise ValueError("coordinates are required for brain region creation")
+                for key in ("x", "y", "z"):
+                    if key not in coordinates:
+                        raise ValueError("coordinates must include x, y, z")
+
                 # Create new brain region definition
                 new_region = {
                     "region_id": region_id,
                     "region_name": region_name,
                     "parent_region_id": parent_region_id,
-                    "coordinates": coordinates or {"x": 0, "y": 0, "z": 0},
+                    "coordinates": {"x": int(coordinates["x"]), "y": int(coordinates["y"]), "z": int(coordinates["z"])},
+                    # Normalized coordinates for readers expecting list format
+                    "coordinate_3d": [
+                        int(coordinates["x"]),
+                        int(coordinates["y"]),
+                        int(coordinates["z"]),
+                    ],
                     "dimensions": dimensions
                     or {"width": 1, "height": 1, "depth": 1},
-                    "parameters": parameters or {},
-                    "child_regions": [],
-                    "cortical_areas": [],
+                    "parameters": clean_parameters,
+                    "child_regions": regions,
+                    "cortical_areas": areas,
                 }
+
+                # If 2D coordinates provided via parameters, mirror on top-level for readers
+                if parameters and isinstance(parameters.get("coordinates_2d"), list):
+                    new_region["coordinate_2d"] = parameters["coordinates_2d"]
 
                 # Add to genome structure
                 current_genome["brain_regions"][region_id] = new_region
 
-                # Update parent region's children list
-                if (
-                    parent_region_id != "root"
-                    and parent_region_id in current_genome["brain_regions"]
-                ):
-                    parent_region = current_genome["brain_regions"][
-                        parent_region_id
-                    ]
+                # Update parent region's children list (use consistent 'regions' field)
+                if parent_region_id in current_genome["brain_regions"]:
+                    parent_region = current_genome["brain_regions"][parent_region_id]
+                    
+                    # Use consistent 'regions' field name (not 'child_regions')
+                    if "regions" not in parent_region:
+                        parent_region["regions"] = []
+                    if region_id not in parent_region["regions"]:
+                        parent_region["regions"].append(region_id)
+                    
+                    # Also update legacy 'child_regions' for backward compatibility
                     if "child_regions" not in parent_region:
                         parent_region["child_regions"] = []
-                    parent_region["child_regions"].append(region_id)
+                    if region_id not in parent_region["child_regions"]:
+                        parent_region["child_regions"].append(region_id)
+
+                # Update cortical areas' own properties to reflect new region association
+                if areas:
+                    blueprint = current_genome.get("blueprint", {})
+                    for area_id in areas:
+                        if area_id in blueprint:
+                            area_def = blueprint[area_id]
+                            if "parameters" not in area_def or not isinstance(area_def["parameters"], dict):
+                                area_def["parameters"] = {}
+                            area_def["parameters"]["parent_region_id"] = region_id
+                            area_def["parameters"]["parent_region_title"] = region_name
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
+
+                # CRITICAL FIX: Update genome in state manager (single source of truth)
+                # This ensures brain regions follow the same architectural pattern as cortical areas
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
                 # Trigger NeuroEmbryogenesis to update ConnectomeManager
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
@@ -3633,6 +3859,8 @@ class GenomeService(BaseService):
         except Exception as e:
             self.logger.error(f"Error creating brain region: {str(e)}")
             return False
+
+
 
     def update_brain_region(
         self,
@@ -3698,11 +3926,27 @@ class GenomeService(BaseService):
                 if region_name is not None:
                     region_def["region_name"] = region_name
                 if coordinates is not None:
-                    region_def["coordinates"] = coordinates
+                    # Strict update; validate keys
+                    for key in ("x", "y", "z"):
+                        if key not in coordinates:
+                            raise ValueError("coordinates must include x, y, z")
+                    region_def["coordinates"] = {
+                        "x": int(coordinates["x"]),
+                        "y": int(coordinates["y"]),
+                        "z": int(coordinates["z"]),
+                    }
+                    region_def["coordinate_3d"] = [
+                        int(coordinates["x"]),
+                        int(coordinates["y"]),
+                        int(coordinates["z"]),
+                    ]
                 if dimensions is not None:
                     region_def["dimensions"] = dimensions
                 if parameters is not None:
                     region_def["parameters"].update(parameters)
+                    # Mirror normalized 2D coordinates to top-level for readers
+                    if isinstance(parameters.get("coordinates_2d"), list):
+                        region_def["coordinate_2d"] = parameters["coordinates_2d"]
 
                 # Handle parent region change
                 if (
@@ -3743,19 +3987,26 @@ class GenomeService(BaseService):
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
+                # Ensure StateManager sees the updated genome (single source of truth)
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
+                # Lightweight refresh: DO NOT rebuild neurons when updating region metadata
+                success = True
+                try:
+                    # Reload hierarchy to reflect updated region metadata
+                    if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+                        self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
 
-                # Apply the brain region update
-                success = embryogenesis.develop_brain_from_genome_data(
-                    current_genome
-                )
+                    # Sync cached brain_regions structure
+                    if hasattr(self._connectome_manager, "brain_regions") and "brain_regions" in current_genome:
+                        self._connectome_manager.brain_regions.update(current_genome["brain_regions"])
+
+                    # Run mapping validation only (no neurogenesis)
+                    if hasattr(self._connectome_manager, "_trigger_brain_region_validation"):
+                        self._connectome_manager._trigger_brain_region_validation()
+                except Exception as _e:
+                    self.logger.warning(f"Region update sync encountered a non-fatal error: {_e}")
 
                 if success and transaction:
                     transaction.commit()
@@ -4241,6 +4492,28 @@ class GenomeService(BaseService):
             current_genome = self._current_genome.copy()
             area_def = current_genome["blueprint"][cortical_id]
 
+            # Preserve existing coordinates if not explicitly changed
+            preserved_coords_3d = None
+            preserved_coords_2d = None
+            # Try multiple known fields to preserve existing coordinates
+            try:
+                preserved_coords_3d = area_def.get("coordinates_3d")
+                if preserved_coords_3d is None:
+                    preserved_coords_3d = area_def.get("coordinates")
+                if preserved_coords_3d is None:
+                    preserved_coords_3d = area_def.get("relative_coordinate")
+            except Exception:
+                preserved_coords_3d = None
+            try:
+                # Stored as top-level '2d_coordinate' or under parameters
+                preserved_coords_2d = area_def.get("2d_coordinate")
+                if preserved_coords_2d is None:
+                    preserved_coords_2d = (
+                        area_def.get("parameters", {}).get("coordinates_2d")
+                    )
+            except Exception:
+                preserved_coords_2d = None
+
             # Apply all changes to area definition
             for key, value in changes.items():
                 if key in [
@@ -4255,6 +4528,16 @@ class GenomeService(BaseService):
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
                     area_def["parameters"][key] = value
+
+            # Restore coordinates if not provided in this update
+            if "coordinates_3d" not in changes and preserved_coords_3d is not None:
+                area_def["coordinates_3d"] = preserved_coords_3d
+            if (
+                preserved_coords_2d is not None
+                and "2d_coordinate" not in area_def
+            ):
+                # Keep existing 2D coordinate when present
+                area_def["2d_coordinate"] = preserved_coords_2d
 
             # Commit genome changes to both internal cache and state manager
             self._current_genome = current_genome
@@ -4407,9 +4690,7 @@ class GenomeService(BaseService):
 
         # 🔍 CHECKPOINT 0: Initial state before expansion
         initial_synapse_count = self._connectome_manager.get_synapse_count()
-        initial_neuron_count = (
-            self._connectome_manager.neuron_array.get_neuron_count()
-        )
+        initial_neuron_count = self._connectome_manager.get_neuron_count()
 
         self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 0 - Initial State:")
         self.logger.info(
@@ -4492,20 +4773,21 @@ class GenomeService(BaseService):
                     removed_neuron_indices = area.resize(new_dimensions)
 
                     if removed_neuron_indices:
-                        #  Use proper FEAGI neuron deletion method with free
-                        #  pool management
-                        self.logger.info(
-                            f"[LOCALIZED-REBUILD] Properly deleting {len(removed_neuron_indices)} neurons (FEAGI-compliant)"
-                        )
+                        # Map indices to neuron IDs and perform batch logical removal (no compaction)
+                        neuron_ids_to_remove = []
                         for neuron_idx in removed_neuron_indices:
-                            neuron_id = self._connectome_manager.index_to_neuron_id.get(
-                                neuron_idx
-                            )
-                            if neuron_id:
-                                #  Use FEAGI's proper deletion method - handles
-                                #  all cleanup and free pool management
-                                self._connectome_manager.neuron_array.delete_neuron(
-                                    neuron_id
+                            nid = self._connectome_manager.index_to_neuron_id.get(neuron_idx)
+                            if nid is not None:
+                                neuron_ids_to_remove.append(nid)
+                        if neuron_ids_to_remove:
+                            try:
+                                removed = self._connectome_manager.neuron_array.remove_neurons_batch(neuron_ids_to_remove)
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] Marked {removed} neurons as deleted (logical removal)"
+                                )
+                            except Exception as rm_err:
+                                self.logger.warning(
+                                    f"[LOCALIZED-REBUILD] Failed logical removal for {len(neuron_ids_to_remove)} neurons: {rm_err}"
                                 )
 
                     # Calculate if we need more neurons
@@ -4673,7 +4955,8 @@ class GenomeService(BaseService):
                 # Update properties in-place - preserves neuron assignments
                 if "name" in properties:
                     area.name = properties["name"]
-                if "position" in properties:
+                # Only update runtime position if caller explicitly changed coordinates
+                if "coordinates_3d" in changes and "position" in properties:
                     area.position = tuple(properties["position"])
                 if "area_type" in properties:
                     area.area_type = properties["area_type"]
@@ -4765,9 +5048,7 @@ class GenomeService(BaseService):
 
             # 🔍 CHECKPOINT 8: Final results
             final_synapse_count = self._connectome_manager.get_synapse_count()
-            final_neuron_count = (
-                self._connectome_manager.neuron_array.get_neuron_count()
-            )
+            final_neuron_count = self._connectome_manager.get_neuron_count()
             synapses_added = final_synapse_count - initial_synapse_count
             neurons_added = final_neuron_count - initial_neuron_count
 
@@ -4827,6 +5108,7 @@ class GenomeService(BaseService):
         )
 
         try:
+            # Access area via connectome manager (used below for dimensions)
             area = self._connectome_manager.cortical_areas[cortical_id]
 
             #  Generate positions for additional neurons distributed across
@@ -4847,20 +5129,16 @@ class GenomeService(BaseService):
                 refractory_period=properties.get("refrac", 1),
             )
 
-            # CRITICAL FIX: Set excitability for all created neurons
+            # Update per-area excitability cache in NPU
             excitability = properties.get("neuron_excitability", 1.0)
-            neuron_array = self._connectome_manager.neuron_array
-            for neuron_id in neuron_ids:
-                try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_idx is not None:
-                        neuron_array.excitability[neuron_idx] = excitability
-                except Exception as e:
-                    self.logger.warning(
-                        f"Could not set excitability for neuron {neuron_id}: {e}"
-                    )
+            try:
+                npu = getattr(self._connectome_manager, "_npu_interface", None)
+                if npu and hasattr(npu, "set_area_excitability"):
+                    cidx = self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+                    if cidx is not None:
+                        npu.set_area_excitability(cidx, float(excitability))
+            except Exception:
+                pass
 
             self.logger.info(
                 f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}"
@@ -4902,18 +5180,35 @@ class GenomeService(BaseService):
         width, height, depth = area.dimensions
         positions = []
 
-        # Find all voxels that DON'T have neurons yet (the expanded regions)
+        # Find all voxels that DON'T have neurons yet (NPU SoA authoritative)
         empty_voxels = []
-        for x in range(width):
-            for y in range(height):
-                for z in range(depth):
-                    position = (x, y, z)
-                    # Check if this voxel already has neurons
-                    existing_neurons = area.get_neurons_at_position(position)
-                    if (
-                        not existing_neurons
-                    ):  # This is an empty voxel in the expanded area
-                        empty_voxels.append(position)
+        try:
+            npu = getattr(self._connectome_manager, "_npu_interface", None)
+            if npu is None:
+                raise RuntimeError("NPU Interface required for expansion position generation")
+            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            if cortical_idx is None:
+                raise RuntimeError(f"Unknown cortical_id: {cortical_id}")
+
+            na = npu.neuron_array
+            import numpy as np
+            total = int(na.neuron_count)
+            if total > 0:
+                mask = (na.cortical_idxs[:total] == cortical_idx)
+                ix = np.nonzero(mask)[0]
+                occ = set(zip(na.coordinates_x[ix].tolist(), na.coordinates_y[ix].tolist(), na.coordinates_z[ix].tolist()))
+            else:
+                occ = set()
+
+            for x in range(width):
+                for y in range(height):
+                    for z in range(depth):
+                        position = (x, y, z)
+                        if position not in occ:
+                            empty_voxels.append(position)
+        except Exception as e:
+            self.logger.error(f"[EXPANSION] NPU position scan failed for {cortical_id}: {e}")
+            # If NPU scan fails, proceed with no empty voxels
 
         self.logger.info(
             f"[EXPANSION] Found {len(empty_voxels)} empty voxels in expanded area {cortical_id}"
@@ -4924,6 +5219,13 @@ class GenomeService(BaseService):
 
         #  Distribute neurons across the empty voxels (the newly expanded
         #  regions)
+        if len(empty_voxels) == 0:
+            # No empty voxels available in the expanded region; return no positions
+            self.logger.warning(
+                f"[EXPANSION] No empty voxels available for {cortical_id}; generated 0 positions"
+            )
+            return positions
+
         for i in range(neuron_count):
             if i < len(empty_voxels):
                 positions.append(empty_voxels[i])
@@ -4944,10 +5246,16 @@ class GenomeService(BaseService):
         try:
             area_def = genome["blueprint"][cortical_id]
 
-            return {
+            # Build base properties
+            props = {
                 "name": area_def.get("cortical_name", cortical_id),
                 "dimensions": area_def.get("cortical_dimensions", [1, 1, 1]),
-                "position": area_def.get("coordinates_3d", [0, 0, 0]),
+                "position": (
+                    area_def.get("coordinates_3d")
+                    or area_def.get("coordinates")
+                    or area_def.get("relative_coordinate")
+                    or [0, 0, 0]
+                ),
                 "area_type": area_def.get("cortical_type", "custom"),
                 "neurons_per_voxel": area_def.get("parameters", {}).get(
                     "per_voxel_neuron_cnt", 1
@@ -4968,6 +5276,13 @@ class GenomeService(BaseService):
                     "leak_variability", 0.0
                 ),
             }
+            # Include 2D coordinates if available to preserve UI placement
+            coords_2d = area_def.get("2d_coordinate")
+            if coords_2d is None:
+                coords_2d = area_def.get("parameters", {}).get("coordinates_2d")
+            if coords_2d is not None:
+                props["coordinates_2d"] = coords_2d
+            return props
         except KeyError as e:
             raise ValueError(
                 f"Missing required property in genome for area {cortical_id}: {e}"
@@ -5049,17 +5364,7 @@ class GenomeService(BaseService):
             # CRITICAL FIX: Set excitability for all created neurons
             excitability = properties.get("neuron_excitability", 1.0)
             neuron_array = self._connectome_manager.neuron_array
-            for neuron_id in neuron_ids:
-                try:
-                    neuron_idx = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_idx is not None:
-                        neuron_array.excitability[neuron_idx] = excitability
-                except Exception as e:
-                    self.logger.warning(
-                        f"Could not set excitability for neuron {neuron_id}: {e}"
-                    )
+            # Per-neuron excitability removed; handled via per-area cache
 
             self.logger.info(
                 f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}"

@@ -21,10 +21,31 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 """
 
 from typing import Any, Dict, List, Optional
+from enum import Enum
 
 from pydantic import AliasChoices, BaseModel, Field, RootModel
 
 # ===== System Schemas =====
+
+
+class LoggingLevel(str, Enum):
+    """Enumeration of available logging levels for global system logging control.
+    
+    These levels control the minimum severity of log messages that will be displayed
+    across all FEAGI components. Changes take effect immediately at runtime.
+    
+    Levels (from most to least verbose):
+    - DEBUG: All messages including detailed debugging information
+    - INFO: Informational messages and above (normal operation details)
+    - WARNING: Warning messages and above (potential issues, default level)
+    - ERROR: Error messages and above (actual problems)
+    - CRITICAL: Only critical system failures
+    """
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
 
 
 class UserPreferencesRequest(BaseModel):
@@ -77,6 +98,10 @@ class HealthCheckResponse(BaseModel):
     # Genome tracking fields for downstream clients (Bridge/Godot)
     genome_num: Optional[int] = None
     genome_timestamp: Optional[int] = None
+    # Simulation timing
+    simulation_timestep: Optional[float] = None  # Time between neural bursts in seconds
+    # Memory area statistics (per-cortical-area breakdown)
+    memory_area_stats: Optional[Dict[str, Dict[str, Any]]] = None  # Per-area memory neuron stats
 
 
 class ConfigurationResponse(BaseModel):
@@ -335,6 +360,22 @@ class CorticalPropertiesUpdateRequest(BaseModel):
         extra = "allow"  # Allow additional fields for dynamic properties
 
 
+class AddCoreCorticalAreaRequest(BaseModel):
+    """Request model for adding a core cortical area.
+
+    Accepts core cortical fields and allows additional properties.
+    """
+
+    cortical_id: Optional[str] = None
+    cortical_type: Optional[str] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    device_count: Optional[int] = None
+
+    class Config:
+        extra = "allow"  # Allow extensibility without breaking
+
+
 class CustomCorticalAreaRequest(BaseModel):
     """Request model for creating custom cortical areas."""
 
@@ -393,6 +434,55 @@ class CorticalAreaInfoResponse(BaseModel):
     """Response model for cortical area information."""
 
     area_info: Dict[str, Any]
+
+
+# ===== System Debug Logging Schema =====
+
+class DebugLoggingRequest(BaseModel):
+    """Request to set live debug logging flags and global logging level via API.
+
+    Keys mirror CLI debug flags. All fields are optional - only provided fields
+    will be updated, allowing partial updates of debug configuration.
+    
+    The global_logging_level field controls system-wide log verbosity and takes
+    effect immediately across all FEAGI components.
+    """
+
+    # Legacy aggregate API flag (enables all API subsystems when True)
+    api: Optional[bool] = Field(None, description="Legacy aggregate API debug flag (enables all API subsystems)")
+    # New granular API flags
+    api_core: Optional[bool] = Field(None, description="Core API debug flag (not supported, ignored)")
+    api_rest: Optional[bool] = Field(None, description="REST API debug flag (not supported, ignored)")
+    api_zmq: Optional[bool] = Field(None, description="ZMQ API debug flag (not supported, ignored)")
+    npu: Optional[bool] = Field(None, description="Neural Processing Unit debug flag")
+    bdu: Optional[bool] = Field(None, description="Brain Development Unit debug flag")
+    zmq_inbound: Optional[bool] = Field(None, description="Inbound ZMQ message debug flag")
+    zmq_outbound: Optional[bool] = Field(None, description="Outbound ZMQ message debug flag")
+    mem: Optional[bool] = Field(None, description="Memory system debug flag")
+    global_logging_level: Optional[LoggingLevel] = Field(None, description="Global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) - controls system-wide log verbosity")
+
+    class Config:
+        extra = "forbid"
+
+
+class DebugLoggingResponse(BaseModel):
+    """Response with current debug logging flags and global logging level.
+    
+    Returns the current state of all debug flags for FEAGI subsystems and
+    the active global logging level that controls system-wide log verbosity.
+    """
+
+    api: bool = Field(description="Legacy aggregate API debug flag")
+    api_core: bool = Field(description="Core API debug flag (not supported, always False)")
+    api_rest: bool = Field(description="REST API debug flag (not supported, always False)")
+    api_zmq: bool = Field(description="ZMQ API debug flag (not supported, always False)")
+    npu: bool = Field(description="Neural Processing Unit debug flag")
+    bdu: bool = Field(description="Brain Development Unit debug flag")
+    zmq_inbound: bool = Field(description="Inbound ZMQ message debug flag")
+    zmq_outbound: bool = Field(description="Outbound ZMQ message debug flag")
+    mem: bool = Field(description="Memory system debug flag")
+    global_logging_level: LoggingLevel = Field(description="Current global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+
 
 
 class FireQueueResponse(BaseModel):
@@ -530,6 +620,14 @@ class BatchSynapseCreationResponse(BaseModel):
     created_synapses: int
 
 
+class CorticalAreaSynapsesResponse(BaseModel):
+    """Response model for cortical area synapses."""
+
+    synapses: Dict[str, List[int]] = Field(
+        description="Dictionary where keys are destination cortical area IDs and values are lists of target neuron IDs"
+    )
+
+
 # ===== Burst Engine Schemas =====
 
 
@@ -551,6 +649,19 @@ class BurstEngineStatsResponse(BaseModel):
     """Response model for burst engine statistics."""
 
     stats: Dict[str, Any]
+
+
+class FCLContentResponse(BaseModel):
+    """Response schema for complete FCL (Fire Candidate List) content."""
+    
+    timestep: int = Field(description="Current timestep when FCL was captured")
+    total_neurons: int = Field(description="Total number of neurons currently firing")
+    global_fcl: List[int] = Field(description="List of all neuron IDs currently firing")
+    cortical_areas: Dict[str, List[int]] = Field(
+        description="Mapping of cortical area ID to list of firing neuron IDs"
+    )
+    window_size: int = Field(description="FCL history window size")
+    active_cortical_count: int = Field(description="Number of cortical areas with active neurons")
 
 
 # ===== Region Schemas =====
@@ -579,6 +690,33 @@ class UpdateRegionRequest(BaseModel):
 
     region_id: str
     updates: Dict[str, Any]
+
+
+class RegionMemberRelocationRequest(RootModel):
+    """Request model for relocating brain region members.
+    
+    Accepts a dictionary where keys are cortical area IDs and values contain
+    coordinate information and optional parent region assignments.
+    
+    Example:
+    {
+        "iic300": {
+            "coordinate_2d": [-514, 114],
+            "parent_region_id": "region_1"  # optional
+        },
+        "iic400": {
+            "coordinate_2d": [-490, -82]
+        }
+    }
+    """
+    
+    # Use RootModel for Pydantic v2 compatibility
+    root: Dict[str, Dict[str, Any]] = Field(
+        description="Dictionary mapping cortical area IDs to their new coordinates and optional parent region"
+    )
+
+
+
 
 
 # ===== Morphology Schemas =====

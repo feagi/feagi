@@ -17,7 +17,7 @@ import os
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import secrets
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Union

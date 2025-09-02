@@ -31,14 +31,15 @@ This service implements the unified FCL candidate model:
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from feagi.npu.special_area_handler import CorticalId, NeuronId
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class InjectionTiming(Enum):
@@ -99,10 +100,9 @@ class FCLInjectionService:
             )
 
         # Configuration attributes expected by other components
-        self.batch_size = 1000  # Default batch size for processing neurons
-        self.enable_probabilistic = (
-            True  # Enable probabilistic injection by default
-        )
+        # Will be overridden by TOML config when available
+        self.batch_size = 1000
+        self.enable_probabilistic = True
         self.last_injection_duration = 0.0
 
         # Statistics tracking
@@ -121,6 +121,39 @@ class FCLInjectionService:
             InjectionTiming.DURING_BURST: [],
             InjectionTiming.POST_BURST: [],
         }
+
+        # Buffered injection state (bounded, deterministic)
+        # Global counters and budgets
+        self._buffer_capacity_total: int = 65536
+        self._buffer_capacity_per_area: int = 8192
+        self._drain_max_total: int = 8192
+        self._drain_max_per_area: int = 2048
+        self._coalesce_duplicates: bool = True
+        self._drop_policy: str = "newest"  # oldest|newest|per_area
+        self._fairness: str = "round_robin"  # round_robin|weighted
+        self._metrics_enabled: bool = True
+        self._metrics_window_seconds: float = 5.0
+
+        # Runtime buffers
+        # Per-area pending queues: cortical_id -> List[List[int]] (slices of neuron_ids)
+        self._pending_by_area: Dict[CorticalId, List[List[int]]] = {}
+        # Simple global depth counter to enforce capacity_total without O(N) scanning
+        self._buffered_indices_total: int = 0
+        # RR fairness cursor
+        self._rr_cursor_index: int = 0
+        self._rr_area_order: List[CorticalId] = []
+
+        # Metrics
+        self._last_drain_stats: Dict[str, Any] = {
+            "drained_total": 0,
+            "dropped_total": 0,
+            "coalesced_total": 0,
+            "areas": {},  # cortical_id -> {depth, drained, dropped}
+        }
+        self._last_drain_time: float = 0.0
+
+        # Attempt to load configuration from TOML
+        self._load_injection_config()
 
         # Prepare injection batches based on detected special areas
         self._prepare_injection_batches()
@@ -176,8 +209,6 @@ class FCLInjectionService:
 
                     #  Check if NPU debug is enabled for detailed injection
                     #  logging
-                    from feagi.core.state_manager import FeagiStateManager
-
                     state_manager = FeagiStateManager.instance()
                     if state_manager.is_debug_npu_enabled():
                         logger.info(
@@ -229,6 +260,243 @@ class FCLInjectionService:
             #  Continue with empty batches - injection will still work via
             #  direct method
 
+    # =========================
+    # Buffered enqueue/drain
+    # =========================
+
+    def _load_injection_config(self) -> None:
+        """Load buffered injection configuration from TOML config.
+
+        Uses feagi.config.toml_loader.load_feagi_config().
+        """
+        try:
+            from feagi.config.toml_loader import load_feagi_config
+
+            config = load_feagi_config()
+            inj = config.get("injection", {})
+            buf = inj.get("buffer", {})
+            drn = inj.get("drain", {})
+            mtx = inj.get("metrics", {})
+
+            self._buffer_capacity_total = int(buf.get("capacity_total", self._buffer_capacity_total))
+            self._buffer_capacity_per_area = int(buf.get("capacity_per_area", self._buffer_capacity_per_area))
+            self._coalesce_duplicates = bool(buf.get("coalesce_duplicates", self._coalesce_duplicates))
+
+            self._drain_max_total = int(drn.get("per_burst_max_total", self._drain_max_total))
+            self._drain_max_per_area = int(drn.get("per_burst_max_per_area", self._drain_max_per_area))
+            self._fairness = str(drn.get("fairness", self._fairness))
+            self._drop_policy = str(drn.get("drop_policy", self._drop_policy))
+
+            self._metrics_enabled = bool(mtx.get("enabled", self._metrics_enabled))
+            self._metrics_window_seconds = float(mtx.get("window_seconds", self._metrics_window_seconds))
+
+        except Exception as e:
+            # Config load failures should not block injection
+            logger.warning(f"Failed to load injection configuration: {e}")
+
+    def _try_enqueue(self, cortical_id: CorticalId, neuron_ids: List[int]) -> Tuple[str, int]:
+        """Attempt to enqueue neuron IDs into the bounded buffer.
+
+        Returns a tuple (result, accepted_count) where result is one of:
+        - "OK": accepted
+        - "COALESCED": merged into existing slice
+        - "DROPPED": rejected due to capacity constraints
+        """
+        if not neuron_ids:
+            return ("OK", 0)
+
+        # Initialize area queue
+        area_q = self._pending_by_area.get(cortical_id)
+        if area_q is None:
+            area_q = []
+            self._pending_by_area[cortical_id] = area_q
+            # Maintain RR order deterministically (append once)
+            if cortical_id not in self._rr_area_order:
+                self._rr_area_order.append(cortical_id)
+
+        # Enforce per-area capacity
+        current_area_depth = sum(len(chunk) for chunk in area_q)
+        if current_area_depth >= self._buffer_capacity_per_area:
+            # Apply drop policy at area level
+            if self._drop_policy == "oldest" and area_q:
+                dropped = len(area_q[0])
+                self._buffered_indices_total = max(0, self._buffered_indices_total - dropped)
+                area_q.pop(0)
+            elif self._drop_policy == "newest":
+                return ("DROPPED", 0)
+            elif self._drop_policy == "per_area" and area_q:
+                # Drop entire area queue
+                dropped = sum(len(chunk) for chunk in area_q)
+                self._buffered_indices_total = max(0, self._buffered_indices_total - dropped)
+                area_q.clear()
+            # After policy, continue if space was freed
+
+        # Enforce global capacity
+        if self._buffered_indices_total >= self._buffer_capacity_total:
+            if self._drop_policy == "oldest":
+                # Drop from the oldest area in RR order
+                if self._pending_by_area:
+                    for aid in self._rr_area_order:
+                        q = self._pending_by_area.get(aid)
+                        if q:
+                            dropped = len(q[0])
+                            self._buffered_indices_total = max(0, self._buffered_indices_total - dropped)
+                            q.pop(0)
+                            break
+            elif self._drop_policy == "newest":
+                return ("DROPPED", 0)
+            elif self._drop_policy == "per_area":
+                # Drop from largest area queue
+                if self._pending_by_area:
+                    aid = max(self._pending_by_area.keys(), key=lambda k: sum(len(c) for c in self._pending_by_area[k]) or 0)
+                    q = self._pending_by_area.get(aid)
+                    if q:
+                        dropped = sum(len(c) for c in q)
+                        self._buffered_indices_total = max(0, self._buffered_indices_total - dropped)
+                        q.clear()
+
+        # Coalesce duplicates at enqueue if configured
+        ids = neuron_ids
+        if self._coalesce_duplicates:
+            try:
+                ids = sorted(set(int(x) for x in neuron_ids))
+            except Exception:
+                ids = neuron_ids
+
+        # If last chunk is contiguous to same cortical area and small, merge to reduce chunk count
+        if area_q and self._coalesce_duplicates and len(area_q[-1]) + len(ids) <= self._buffer_capacity_per_area:
+            area_q[-1].extend(ids)
+            self._buffered_indices_total += len(ids)
+            return ("COALESCED", len(ids))
+
+        # Otherwise append as a new chunk
+        area_q.append(ids)
+        self._buffered_indices_total += len(ids)
+        return ("OK", len(ids))
+
+    def _drain_pre_burst(self, current_timestep: int) -> int:
+        """Drain buffered activations up to configured budgets and add to FCL.
+
+        Returns number of neuron IDs submitted to FCL this burst.
+        """
+        if not self._pending_by_area:
+            self._last_drain_stats = {"drained_total": 0, "dropped_total": 0, "coalesced_total": 0, "areas": {}}
+            self._last_drain_time = 0.0
+            return 0
+
+        start = time.perf_counter()
+        total_budget = max(0, int(self._drain_max_total))
+        per_area_budget = max(0, int(self._drain_max_per_area))
+
+        drained_total = 0
+        areas_stats: Dict[str, Dict[str, int]] = {}
+
+        # Build deterministic iteration order
+        if self._fairness == "round_robin" and self._rr_area_order:
+            order = self._rr_area_order[self._rr_cursor_index :] + self._rr_area_order[: self._rr_cursor_index]
+            self._rr_cursor_index = (self._rr_cursor_index + 1) % max(1, len(self._rr_area_order))
+        else:
+            order = list(self._pending_by_area.keys())
+
+        # Collect per-area drained neuron ids
+        neurons_by_cortical_idx: Dict[int, List[int]] = {}
+
+        # Map cortical_id -> cortical_idx once
+        connectome = getattr(self.special_area_handler, "connectome_manager", None)
+        npu_if = None
+        if connectome is not None and hasattr(connectome, "_npu_interface"):
+            npu_if = connectome._npu_interface
+
+        for cortical_id in order:
+            if drained_total >= total_budget:
+                break
+            q = self._pending_by_area.get(cortical_id)
+            if not q:
+                continue
+            per_area_drained = 0
+            collected: List[int] = []
+
+            while q and per_area_drained < per_area_budget and drained_total < total_budget:
+                chunk = q[0]
+                take = min(len(chunk), per_area_budget - per_area_drained, total_budget - drained_total)
+                if take <= 0:
+                    break
+                # Take prefix of chunk
+                ids = chunk[:take]
+                del chunk[:take]
+                if not chunk:
+                    q.pop(0)
+
+                per_area_drained += take
+                drained_total += take
+                collected.extend(ids)
+                self._buffered_indices_total = max(0, self._buffered_indices_total - take)
+
+            if collected:
+                # Resolve cortical_idx
+                cortical_idx: Optional[int] = None
+                try:
+                    if connectome and hasattr(connectome, "cortical_areas"):
+                        area = connectome.cortical_areas.get(cortical_id)
+                        if area is not None:
+                            cortical_idx = getattr(area, "cortical_idx", None)
+                    if cortical_idx is None and npu_if is not None and hasattr(npu_if, "cortical_areas"):
+                        # Lookup via NPU index map if available (fallback mapping)
+                        for idx, info in npu_if.cortical_areas.items():
+                            if info.get("cortical_id") == cortical_id:
+                                cortical_idx = idx
+                                break
+                except Exception:
+                    cortical_idx = None
+
+                if cortical_idx is None:
+                    # If mapping failed, skip adding to FCL and keep counts (IDs already removed from buffer)
+                    logger.error(
+                        f"[INJECTION-DEBUG] Could not map cortical_id {cortical_id} to cortical_idx during drain"
+                    )
+                else:
+                    # Optionally dedupe/sort for determinism
+                    if self._coalesce_duplicates:
+                        try:
+                            collected = sorted(set(int(x) for x in collected))
+                        except Exception:
+                            pass
+                    neurons_by_cortical_idx[cortical_idx] = collected
+
+                areas_stats[cortical_id] = {
+                    "depth": sum(len(c) for c in q),
+                    "drained": per_area_drained,
+                    "dropped": 0,
+                }
+
+        # Submit to FCL
+        if neurons_by_cortical_idx:
+            try:
+                self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical_idx)
+            except Exception as e:
+                logger.error(f"Error updating FCL from buffer drain: {e}")
+
+        self._last_drain_stats = {
+            "drained_total": drained_total,
+            "dropped_total": 0,
+            "coalesced_total": 0,
+            "areas": areas_stats,
+        }
+        self._last_drain_time = time.perf_counter() - start
+        return drained_total
+
+    def get_buffer_status(self) -> Dict[str, Any]:
+        """Return a snapshot of the injection buffer status for monitoring."""
+        return {
+            "capacity_total": self._buffer_capacity_total,
+            "capacity_per_area": self._buffer_capacity_per_area,
+            "buffered_total": self._buffered_indices_total,
+            "areas": {k: sum(len(c) for c in v) for k, v in self._pending_by_area.items()},
+            "last_drain": {
+                "drained_total": self._last_drain_stats.get("drained_total", 0),
+                "time_ms": int(self._last_drain_time * 1000.0) if self._last_drain_time else 0,
+            },
+        }
     def inject_pre_burst(self, current_timestep: int) -> int:
         """Inject power area neurons into FCL with proper membrane potential.
 
@@ -246,111 +514,105 @@ class FCLInjectionService:
         Returns:
             Number of power neurons injected
         """
-        try:
-            # Debug-only proof logging
-            from feagi.core.state_manager import FeagiStateManager
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
+        # Get power area neurons from special area handler (cortical_idx=1)
+        # This happens EVERY burst to provide constant power supply
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info("[INJECTION-DEBUG] Fetching power neurons from SpecialAreaHandler.get_power_area_neurons()")
+        power_neurons = self.special_area_handler.get_power_area_neurons()
 
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                import os
-                import tempfile
+        # Debug-only: record found neurons
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info(f"[INJECTION-DEBUG] Retrieved power neurons: {power_neurons}")
+            import os
+            import tempfile
 
-                log_path = os.path.join(
-                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
-                )
-                with open(log_path, "a") as f:
+            log_path = os.path.join(
+                tempfile.gettempdir(), "feagi_injection_proof--temp.log"
+            )
+            with open(log_path, "a") as f:
+                if power_neurons:
                     f.write(
-                        f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
-                    )
-
-            # Get power area neurons from special area handler (cortical_idx=1)
-            # This happens EVERY burst to provide constant power supply
-            power_neurons = self.special_area_handler.get_power_area_neurons()
-
-            # Debug-only: record found neurons
-            from feagi.core.state_manager import FeagiStateManager
-
-            if FeagiStateManager.instance().is_debug_npu_enabled():
-                import os
-                import tempfile
-
-                log_path = os.path.join(
-                    tempfile.gettempdir(), "feagi_injection_proof--temp.log"
-                )
-                with open(log_path, "a") as f:
-                    if power_neurons:
-                        f.write(
-                            f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
-                        )
-                    else:
-                        f.write(
-                            f"[{current_timestep}] NO POWER NEURONS FOUND\n"
-                        )
-
-            if not power_neurons:
-                # Only log this occasionally to avoid spam
-                if current_timestep % 100 == 0:
-                    from feagi.core.state_manager import FeagiStateManager
-
-                    state_manager = FeagiStateManager.instance()
-                    if state_manager.is_debug_npu_enabled():
-                        logger.info(
-                            f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
-                        )
-                return 0
-
-            #  FAST: Set membrane potential to PSP value from cortical area
-            #  properties
-            if self.connectome_manager and hasattr(
-                self.connectome_manager, "neuron_array"
-            ):
-                #  Get PSP value from power area properties via connectome
-                #  manager
-                power_area = self.connectome_manager.get_cortical_area(
-                    "_power"
-                )
-                if power_area and power_area.properties:
-                    psp_value = power_area.properties.get(
-                        "postsynaptic_current", 500.0
+                        f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
                     )
                 else:
-                    psp_value = 500.0  # Fallback to essential genome default
+                    f.write(
+                        f"[{current_timestep}] NO POWER NEURONS FOUND\n"
+                    )
 
-                neuron_array = self.connectome_manager.neuron_array
-                for neuron_id in power_neurons:
-                    #  For power neurons, set membrane potential to PSP value
-                    #  (use correct attribute name)
-                    idx = self.connectome_manager.get_neuron_index(neuron_id)
-                    if idx is not None:
-                        neuron_array.membrane_potentials[idx] = psp_value
+        if not power_neurons:
+            # Only log this occasionally to avoid spam
+            if current_timestep % 100 == 0:
+                state_manager = FeagiStateManager.instance()
+                if state_manager.is_debug_npu_enabled():
+                    logger.info(
+                        f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
+                    )
+            return 0
 
-            #  Now inject power neurons into FCL (with proper membrane
-            #  potentials set)
-            # This happens EVERY BURST to provide constant power supply
-            injected_count = self._inject_batch(
-                InjectionBatch(
-                    cortical_id="_power",
-                    neuron_ids=power_neurons,
-                    timing=InjectionTiming.PRE_BURST,
-                    probability=1.0,  # Always inject power neurons
-                ),
-                current_timestep,
+        #  FAST: Set membrane potential ABOVE threshold for power neurons
+        if self.connectome_manager and hasattr(
+            self.connectome_manager, "neuron_array"
+        ):
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info("[INJECTION-DEBUG] Setting membrane potentials for power neurons")
+            neuron_array = self.connectome_manager.neuron_array
+            for neuron_id in power_neurons:
+                idx = neuron_array.neuron_id_to_index.get(neuron_id)
+                if idx is None:
+                    continue
+                # Compute the next representable float above threshold (epsilon step)
+                thr32 = np.float32(neuron_array.thresholds[idx])
+                mp = np.nextafter(thr32, np.float32(np.inf))
+                if hasattr(neuron_array, "set_neuron_property"):
+                    neuron_array.set_neuron_property(
+                        neuron_id, "membrane_potential", float(mp)
+                    )
+                else:
+                    neuron_array.membrane_potentials[idx] = mp
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                # Log a small sample of MP/Thr after setting
+                sample = power_neurons[:5]
+                samples = []
+                for nid in sample:
+                    sidx = neuron_array.neuron_id_to_index.get(nid)
+                    if sidx is not None:
+                        samples.append({
+                            "id": int(nid),
+                            "V": float(neuron_array.membrane_potentials[sidx]),
+                            "Thr": float(neuron_array.thresholds[sidx]),
+                            "Refr": int(neuron_array.refractory_counters[sidx]),
+                        })
+                logger.info(f"[INJECTION-DEBUG] Raised MPs for {len(power_neurons)} power neurons; sample={samples}")
+
+        #  Now inject power neurons into FCL (with proper membrane
+        #  potentials set)
+        # This happens EVERY burst to provide constant power supply
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info("[INJECTION-DEBUG] Adding power neurons to FCL via FCLManager.update_fcl()")
+        # Log FCLManager identity before update
+        try:
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                logger.info(f"[INJECTION-DEBUG] FCLManager id before update: {id(self.fcl_manager)}")
+        except Exception:
+            pass
+
+        # Enqueue into buffer instead of direct FCL update; drain will submit
+        result, accepted = self._try_enqueue("_power", power_neurons)
+        injected_count = int(accepted)
+        if FeagiStateManager.instance().is_debug_npu_enabled():
+            logger.info(f"[INJECTION-DEBUG] FCLManager.update_fcl() injected_count={injected_count}")
+
+        if (
+            injected_count > 0 and current_timestep % 50 == 0
+        ):  # Log occasionally
+            logger.debug(
+                f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
             )
 
-            if (
-                injected_count > 0 and current_timestep % 50 == 0
-            ):  # Log occasionally
-                logger.debug(
-                    f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)"
-                )
-
-            return injected_count
-
-        except Exception as e:
-            if current_timestep % 100 == 0:  # Log occasionally
-                logger.error(
-                    f"Error in power area injection at timestep {current_timestep}: {e}"
-                )
-            return 0
+        # Drain buffered items during pre-burst
+        drained = self._drain_pre_burst(current_timestep)
+        return injected_count + drained
 
     def inject_during_burst(self, current_timestep: int) -> int:
         """
@@ -359,6 +621,8 @@ class FCLInjectionService:
         Returns:
             Always 0 (no injection performed)
         """
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
+        # Buffered model: do not drain during-burst for determinism unless configured
         return 0
 
     def inject_post_burst(self, current_timestep: int) -> int:
@@ -368,6 +632,7 @@ class FCLInjectionService:
         Returns:
             Always 0 (no injection performed)
         """
+        # Removed file I/O debug writes for RTOS/WGPU compatibility
         return 0
 
     def _execute_injection_phase(
@@ -382,8 +647,6 @@ class FCLInjectionService:
         Returns:
             Number of neurons injected
         """
-        from feagi.core.state_manager import FeagiStateManager
-
         state_manager = FeagiStateManager.instance()
 
         if not self._injection_batches[timing]:
@@ -409,7 +672,7 @@ class FCLInjectionService:
             candidates_added = self._inject_batch(batch, current_timestep)
             total_injected += candidates_added
             if candidates_added > 0:
-                logger.info(
+                logger.debug(
                     f"Successfully added {candidates_added} candidates to FCL from {batch.cortical_id}"
                 )
 
@@ -420,7 +683,7 @@ class FCLInjectionService:
         self.total_neurons_injected += total_injected
 
         if total_injected > 0:
-            logger.info(
+            logger.debug(
                 f"FCL INJECTION: Added {total_injected} candidates to FCL in {timing.value} phase ({self.last_injection_duration:.4f}s)"
             )
         else:
@@ -693,15 +956,13 @@ class FCLInjectionService:
                         probability=1.0,  # External activations always inject (no probabilistic filtering)
                     )
 
-                    # Inject the batch into FCL
-                    injected_count = self._inject_batch(
-                        batch, current_timestep
-                    )
-                    total_injected += injected_count
+                    # Buffered enqueue instead of immediate FCL update
+                    res, accepted = self._try_enqueue(cortical_id, neuron_ids)
+                    total_injected += int(accepted)
 
-                    if injected_count > 0:
+                    if accepted > 0:
                         logger.debug(
-                            f"Injected {injected_count} external neurons from {source} in area {cortical_id}"
+                            f"Injected {accepted} external neurons from {source} in area {cortical_id}"
                         )
                         logger.debug(
                             f"Set membrane potential for {membrane_potential_set_count}/{len(neuron_ids)} neurons"
@@ -721,7 +982,7 @@ class FCLInjectionService:
                 logger.debug(
                     f"FCL EXTERNAL INJECTION: Added {total_injected} candidates from {source} across {len(activations)} areas"
                 )
-                logger.info(
+                logger.debug(
                     f"✅ FIXED: Set membrane potentials above threshold for external neurons from {source}"
                 )
             else:
@@ -766,8 +1027,6 @@ class FCLInjectionService:
 
         # PERFORMANCE: Single state check - avoid multiple API calls
         try:
-            from feagi.core.state_manager import ServiceState
-
             burst_state = self._cached_state_manager.get_burst_engine_state()
 
             # RTOS-FRIENDLY: Simple state comparison, no complex logic

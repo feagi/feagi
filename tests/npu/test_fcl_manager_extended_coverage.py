@@ -26,19 +26,22 @@ memory corticals, and statistical methods.
 import pytest
 
 from feagi.npu.fcl_manager import (
-    BitMap,
-    EnhancedFCLManager,
-    FallbackBitMap,
     FCLError,
     FCLManager,
     MembraneUpdate,
     NeuronCollection,
     NeuronCollectionType,
+    RoaringBitmap,
     TimestepOutOfRangeError,
     example_enhanced_fcl_usage,
     example_fcl_usage,
     inject_neurons_into_fcl,
 )
+
+# Aliases for compatibility with test
+BitMap = RoaringBitmap
+FallbackBitMap = RoaringBitmap
+EnhancedFCLManager = FCLManager
 
 
 def test_fcl_error_exception():

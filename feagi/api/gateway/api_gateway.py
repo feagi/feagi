@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 from feagi.api.core.services import CoreAPIService
 from feagi.api.protocols.constants import ProtocolID

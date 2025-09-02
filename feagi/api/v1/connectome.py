@@ -38,6 +38,7 @@ from .schemas import (
     ConnectomeDimensionsResponse,
     ConnectomePathResponse,
     CorticalAreaInfoResponse,
+    CorticalAreaSynapsesResponse,
     CorticalAreasListResponse,
     CorticalStatsResponse,
     FileUploadRequest,
@@ -240,6 +241,28 @@ class ConnectomeAPI:
             raise ValueError(
                 f"Failed to get neurons for cortical area: {str(e)}"
             ) from e
+
+    @connectome_endpoint(
+        "GET",
+        "/{cortical_area_id}/synapses",
+        response_model=CorticalAreaSynapsesResponse,
+    )
+    async def get_cortical_area_synapses(
+        self, cortical_area_id: str
+    ) -> CorticalAreaSynapsesResponse:
+        """Get synapses from a cortical area organized by destination areas.
+        
+        Returns a dictionary where keys are destination cortical area IDs 
+        and values are lists of target neuron IDs.
+        """
+        try:
+            synapses = self.core_api_service.get_cortical_area_synapses(cortical_area_id)
+            if synapses is None:
+                raise ValueError(f"Cortical area '{cortical_area_id}' not found!")
+            return CorticalAreaSynapsesResponse(synapses=synapses)
+        except Exception as e:
+            logger.error(f"Error getting synapses for cortical area {cortical_area_id}: {e}")
+            raise ValueError(f"Failed to get synapses for cortical area: {str(e)}") from e
 
     @connectome_endpoint(
         "GET", "/neuron_properties", response_model=NeuronPropertiesResponse

@@ -51,7 +51,7 @@ from feagi.utils.zmq_debug import MessageType, log_outbound
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class MotorStream:
@@ -401,7 +401,7 @@ class MotorStream:
                         potentials[:max_len], dtype=np.float32
                     )
 
-                    #  Create cortical ID using modern feagi-data-processing
+                    #  Create cortical ID using modern feagi-rust-py-libs
                     #  approach
                     area_str = str(area_id)
 
@@ -422,10 +422,25 @@ class MotorStream:
                                 fdp.genome.CoreCorticalType.Death
                             )
                         else:
-                            # For unknown areas, use custom with 'c' prefix
-                            cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
-                                f"c{area_str}"
-                            )
+                            # For unknown areas, use custom cortical ID
+                            # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
+                            if len(area_str) == 6:
+                                # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
+                                if area_str.startswith('C'):
+                                    custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
+                                elif area_str.startswith('c'):
+                                    custom_id = area_str  # Already correct
+                                else:
+                                    custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
+                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                    custom_id
+                                )
+                            else:
+                                # Only add 'c' prefix if less than 6 characters
+                                custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
+                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                    custom_id
+                                )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
@@ -488,25 +503,34 @@ class MotorStream:
                 )
                 return
 
-            #  Debug logging for outbound motor data (zero-overhead when
-            #  disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel.encode("utf-8"), binary_data],
-                message_type=MessageType.MOTOR,
-                topic=channel,
-                context="motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel.encode("utf-8"), binary_data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel,
+                        context="motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send data on specified motor channel
             await self.socket.send_multipart(
                 [channel.encode("utf-8"), binary_data]
             )
 
-            logger.debug(
-                f"Sent {len(binary_data)} bytes of motor data on channel {channel}"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(binary_data)} bytes on channel {channel}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(f"Error sending motor binary data: {e}")
@@ -539,16 +563,20 @@ class MotorStream:
                 )
                 return
 
-            #  Debug logging for outbound motor data (zero-overhead when
-            #  disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel_id.encode("utf-8"), data],
-                message_type=MessageType.MOTOR,
-                topic=channel_id,
-                context="external_motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel_id.encode("utf-8"), data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel_id,
+                        context="external_motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send multipart message with topic (channel_id) and data
             await self.socket.send_multipart(
@@ -558,9 +586,14 @@ class MotorStream:
                 ]
             )
 
-            logger.debug(
-                f"Sent {len(data)} bytes of motor data on channel {channel_id}"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(data)} bytes on channel {channel_id}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(

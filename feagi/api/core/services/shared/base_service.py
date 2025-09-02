@@ -17,7 +17,7 @@ limitations under the License.
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class BaseService:
@@ -161,7 +161,7 @@ class BaseService:
                 return False
 
             # Validate brain_stats has the expected structure
-            brain_stats = getattr(self.state_manager, "brain_stats", {})
+            brain_stats = self.state_manager.get_brain_stats() if self.state_manager else {}
             if not isinstance(brain_stats, dict):
                 self.logger.warning("brain_stats is not a dictionary")
                 return False

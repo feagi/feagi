@@ -18,7 +18,7 @@ import json
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any
 
 from feagi.protocols.protocol_factory import Protocol, register_protocol

@@ -1,0 +1,15 @@
+{
+  "test_name": "integration_performance",
+  "metric_name": "cortical_areas",
+  "baseline_value": 1,
+  "baseline_timestamp": 1755280650.599743,
+  "sample_count": 3,
+  "std_deviation": 0.0,
+  "confidence_interval": [
+    1.0,
+    1.0
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59954
+  }
+}

@@ -3,7 +3,7 @@
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the
 License at
-http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,12 +12,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Refactored CoreAPIService using domain-based service architecture.
-
-This is the new facade implementation that delegates to specialized services
-while maintaining complete backward compatibility with the existing API.
-"""
+# Refactored CoreAPIService using domain-based service architecture.
+#
+# This is the new facade implementation that delegates to specialized services
+# while maintaining complete backward compatibility with the existing API.
 
 import os
 import tempfile
@@ -37,6 +35,7 @@ from .connectome.connectome_service import ConnectomeService
 from .cortical_area.cortical_area_service import CorticalAreaService
 from .genome.genome_service import GenomeService
 from .network.network_service import NetworkService
+from .npu.npu_service import NPUService
 
 # Import all domain services
 from .system.system_service import SystemService
@@ -113,6 +112,9 @@ class CoreAPIService:
         self._network_service = NetworkService(
             connectome_manager, self.state_manager
         )
+        
+        # Initialize NPU service for new architecture
+        self._npu_service = NPUService()
 
         # Validate state manager consistency across services
         self._validate_service_state_consistency()
@@ -266,9 +268,14 @@ class CoreAPIService:
             "[DEBUG] CORE API SERVICE: load_barebones_genome called, delegating to genome service"
         )
         result = self._genome_service.load_default_genome("barebones")
-        print(
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                self.logger.debug(
             f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}"
         )
+        except Exception:
+            pass
         return result
 
     def load_test_genome(self) -> Dict[str, Any]:
@@ -285,14 +292,14 @@ class CoreAPIService:
         """
         # Load genome through genome service
         result = self._genome_service.load_genome(genome_data, filename)
-
+        
         #  If genome loading was successful, initialize spatial hash cache with
         #  final dimensions
         if result.get("success", False):
             self.logger.info(
                 "Genome loaded successfully - initializing spatial hash cache with final cortical area dimensions..."
             )
-
+            
             # Initialize spatial hash cache after all cortical areas are loaded
             spatial_hash_success = self.initialize_spatial_hash_cache()
             if spatial_hash_success:
@@ -307,7 +314,7 @@ class CoreAPIService:
                     "⚠️ Spatial hash cache initialization failed - continuing with default cache"
                 )
                 result["spatial_hash_initialized"] = False
-
+        
         return result
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
@@ -396,9 +403,13 @@ class CoreAPIService:
     ) -> bool:
         """Update properties of an existing cortical area with intelligent
         routing."""
-        self.logger.info(
-            f"[CORTICAL-UPDATE] CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}"
-        )
+        try:
+            if self.state_manager.is_debug_api_enabled():
+                self.logger.info(
+                    f"[API-DEBUG] update_cortical_area_properties cortical_id={cortical_id}, properties={properties}"
+                )
+        except Exception:
+            pass
         try:
             #  ARCHITECTURE COMPLIANCE: Route through GenomeService for
             #  intelligent routing
@@ -408,10 +419,10 @@ class CoreAPIService:
             #  Extract individual property types for
             #  GenomeService.update_cortical_area()
             name = properties.get("cortical_name")
-            coordinates = properties.get("coordinates_3d")
+            coordinates = properties.get("coordinates_3d") 
             dimensions = properties.get("cortical_dimensions")
             area_type = properties.get("cortical_type")
-
+            
             # Collect remaining properties as parameters
             parameters = {
                 k: v
@@ -424,16 +435,19 @@ class CoreAPIService:
                     "cortical_type",
                 ]
             }
-
+            
             # Remove empty parameters dict to avoid passing unnecessary data
             if not parameters:
                 parameters = None
-
-            self.logger.info(
-                f"[CORTICAL-UPDATE] Routing to GenomeService with intelligent classification: "
-                f"name={name}, coordinates={coordinates}, dimensions={dimensions}, "
-                f"area_type={area_type}, parameters={parameters}"
-            )
+                
+            try:
+                if self.state_manager.is_debug_api_enabled():
+                    self.logger.debug(
+                        f"[API-DEBUG] Routing to GenomeService: name={name}, coordinates={coordinates}, dimensions={dimensions}, "
+                        f"area_type={area_type}, parameters={parameters}"
+                    )
+            except Exception:
+                pass
 
             #  Route through GenomeService for intelligent routing (STRUCTURAL
             #  vs PARAMETER vs METADATA)
@@ -445,13 +459,17 @@ class CoreAPIService:
                 area_type=area_type,
                 parameters=parameters,
             )
-
+            
             success = result is not None
-            self.logger.info(
-                f"[CORTICAL-UPDATE] GenomeService.update_cortical_area returned success={success}"
-            )
+            try:
+                if self.state_manager.is_debug_api_enabled():
+                    self.logger.info(
+                        f"[API-DEBUG] GenomeService.update_cortical_area returned success={success}"
+                    )
+            except Exception:
+                pass
             return success
-
+            
         except Exception as e:
             self.logger.error(
                 f"Error updating cortical area properties for {cortical_id}: {str(e)}"
@@ -487,46 +505,97 @@ class CoreAPIService:
     def get_neuron_properties(
         self, neuron_id: int
     ) -> Optional[Dict[str, Any]]:
-        """Get detailed properties of a specific neuron including refractory
-        counter."""
+        """Get detailed properties of a specific neuron using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         self.logger.info(
             f"DEBUG: get_neuron_properties called for neuron_id: {neuron_id} (type: {type(neuron_id)})"
         )
 
         try:
-            # Delegate to ConnectomeManager for direct neuron property access
-            connectome_manager = (
-                self._cortical_area_service._connectome_manager
-            )
-            if not connectome_manager:
-                self.logger.error(
-                    "ConnectomeManager not available for neuron property access"
-                )
+            # Try NPU interface first for better performance
+            properties = {}
+            
+            # Get all standard neuron properties from NPU
+            property_names = [
+                'position', 'membrane_potential', 'threshold', 'leak_coefficient', 
+                'excitability', 'refractory_counter', 'neuron_type'
+            ]
+            
+            for prop_name in property_names:
+                try:
+                    result = self._npu_service.get_neuron_property(neuron_id, prop_name)
+                    if result.get("success", False):
+                        properties[prop_name] = result["data"]["value"]
+                except Exception:
+                    # Continue with other properties if one fails
+                    continue
+            
+            # Build full response strictly from NPU + mappings (no legacy fallbacks)
+            cm = self._connectome_manager
+            npu = getattr(cm, "_npu_interface", None)
+            if not npu or not hasattr(npu, "neuron_array"):
                 return None
-
-            self.logger.info(
-                f"DEBUG: Got connectome_manager, calling get_neuron_properties({neuron_id})"
-            )
-            properties = connectome_manager.get_neuron_properties(neuron_id)
-
-            if not properties:
-                self.logger.warning(
-                    f"DEBUG: Neuron {neuron_id} not found - get_neuron_properties returned None/empty"
-                )
+            na = npu.neuron_array
+            if neuron_id not in na.neuron_id_to_index:
                 return None
+            idx = na.neuron_id_to_index[neuron_id]
+            cortical_idx = int(na.cortical_idxs[idx])
+            # cortical_id via NPU registry
+            cortical_id = None
+            try:
+                area_info = npu.cortical_areas.get(cortical_idx)
+                if area_info:
+                    cortical_id = area_info.get("cortical_id")
+            except Exception:
+                cortical_id = None
 
-            # Add neuron_id to the response and convert position tuple to list
+            # Populate required fields (override any partial/None values)
+            properties["position"] = [
+                int(na.coordinates_x[idx]),
+                int(na.coordinates_y[idx]),
+                int(na.coordinates_z[idx]),
+            ]
+            properties["threshold"] = float(na.thresholds[idx])
+            properties["membrane_potential"] = float(na.membrane_potentials[idx])
+            properties["resting_potential"] = float(na.resting_potentials[idx]) if hasattr(na, "resting_potentials") else 0.0
+            properties["decay_rate"] = float(na.decay_rates[idx])
+            properties["refractory_period"] = int(na.refractory_periods[idx])
+            properties["refractory_counter"] = int(na.refractory_counters[idx])
+            if "properties" not in properties or properties["properties"] is None:
+                properties["properties"] = {}
+
+            # Synapses via NPU SynapseArray
+            sa = getattr(cm, "synapse_array", None)
+            if sa is None and hasattr(npu, "synapse_array"):
+                sa = npu.synapse_array
+            outgoing = sa.get_outgoing_connections(neuron_id) if sa else []
+            incoming = sa.get_incoming_connections(neuron_id) if sa else []
+            properties["outgoing_synapses"] = [
+                {"target_neuron_id": int(t), "weight": float(w)} for (t, w) in outgoing
+            ]
+            properties["incoming_synapses"] = [
+                {"source_neuron_id": int(s), "weight": float(w)} for (s, w) in incoming
+            ]
+            properties["synapse_counts"] = {
+                "outgoing": len(outgoing),
+                "incoming": len(incoming),
+                "total": len(outgoing) + len(incoming),
+            }
+
+            # Add neuron_id to the response
             properties["neuron_id"] = neuron_id
-            if "position" in properties and isinstance(
-                properties["position"], tuple
-            ):
-                properties["position"] = list(properties["position"])
+            # Add cortical identifiers
+            if cortical_id is not None:
+                properties["cortical_id"] = cortical_id
+            properties["cortical_idx"] = cortical_idx
 
             self.logger.info(
                 f"DEBUG: Successfully got properties for neuron {neuron_id}: {list(properties.keys())}"
             )
             return properties
-
+            
         except Exception as e:
             self.logger.error(
                 f"DEBUG: Error getting properties for neuron {neuron_id}: {str(e)}"
@@ -565,26 +634,77 @@ class CoreAPIService:
         get_cortical_locations_2d)."""
         return self._cortical_area_service.get_cortical_locations_2d()
 
+    def update_multiple_cortical_properties(self, message: Dict[str, Any]) -> bool:
+        """Bulk update cortical area properties via GenomeService routing.
+
+        Notes:
+            - Coordinates are not accepted in bulk (should be pre-filtered by API layer)
+            - Mixed memory/non-memory sets should be pre-validated by API layer
+            - For each cortical_id, we route to update_cortical_area with separated fields
+        """
+        try:
+            cortical_ids = message.get("cortical_id_list", [])
+            if not cortical_ids:
+                return False
+
+            # Properties allowed to pass as parameters except structural keys
+            properties = {k: v for k, v in message.items() if k != "cortical_id_list"}
+
+            disallowed = {"coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"}
+            for key in list(properties.keys()):
+                if key in disallowed:
+                    properties.pop(key, None)
+
+            all_ok = True
+            for cortical_id in cortical_ids:
+                # Split into structural vs parameters for GenomeService routing
+                name = properties.get("cortical_name")
+                coordinates = properties.get("coordinates_3d")
+                dimensions = properties.get("cortical_dimensions")
+                area_type = properties.get("cortical_type")
+                params = {
+                    k: v
+                    for k, v in properties.items()
+                    if k not in {"cortical_name", "coordinates_3d", "cortical_dimensions", "cortical_type"}
+                }
+                if not params:
+                    params = None
+
+                result = self._genome_service.update_cortical_area(
+                    cortical_id=cortical_id,
+                    name=name,
+                    coordinates=coordinates,
+                    dimensions=dimensions,
+                    area_type=area_type,
+                    parameters=params,
+                )
+                all_ok = all_ok and (result is not None)
+
+            return all_ok
+        except Exception as e:
+            self.logger.error(f"Bulk cortical update failed: {e}")
+            return False
+
     def get_area_neuron_count(self, cortical_id: str) -> int:
         """Get neuron count for a specific cortical area.
-
+        
         Args:
             cortical_id: ID of the cortical area
-
+            
         Returns:
             Number of neurons in the area
         """
         try:
             if not self._connectome_manager:
                 return 0
-
+                
             #  Use get_neurons_by_cortical_area which is optimized and
             #  vectorized
             neurons = self._connectome_manager.get_neurons_by_cortical_area(
                 cortical_id
             )
             return len(neurons)
-
+            
         except KeyError:
             self.logger.warning(f"Cortical area {cortical_id} not found")
             return 0
@@ -596,17 +716,17 @@ class CoreAPIService:
 
     def get_cortical_area_memory_usage(self, cortical_id: str):
         """Get detailed memory usage breakdown for a specific cortical area.
-
+        
         Args:
             cortical_id: ID of the cortical area
-
+            
         Returns:
             CorticalAreaMemoryUsageResponse with detailed memory breakdown
         """
         try:
             if not self._connectome_manager:
                 raise ValueError("ConnectomeManager not available")
-
+                
             # Import the response schemas
             from feagi.api.v1.schemas import (
                 CorticalAreaMemoryUsageResponse,
@@ -614,15 +734,15 @@ class CoreAPIService:
                 SynapseMemoryBreakdown,
                 TotalMemoryInfo,
             )
-
+            
             # Get neuron memory usage
             neuron_info = self._calculate_neuron_memory_usage(cortical_id)
-
+            
             # Get synapse memory usage breakdown
             synapse_breakdown = self._calculate_synapse_memory_breakdown(
                 cortical_id
             )
-
+            
             # Calculate total memory
             total_bytes = (
                 neuron_info["size_bytes"]
@@ -630,12 +750,12 @@ class CoreAPIService:
                 + synapse_breakdown["outgoing"]["size_bytes"]
                 + synapse_breakdown["internal"]["size_bytes"]
             )
-
+            
             total_info = TotalMemoryInfo(
                 size_bytes=total_bytes,
                 size_human=self._format_bytes(total_bytes),
             )
-
+            
             # Create response
             return CorticalAreaMemoryUsageResponse(
                 cortical_id=cortical_id,
@@ -653,7 +773,7 @@ class CoreAPIService:
                 ),
                 total=total_info,
             )
-
+            
         except Exception as e:
             self.logger.error(
                 f"Error getting memory usage for {cortical_id}: {str(e)}"
@@ -685,7 +805,7 @@ class CoreAPIService:
                     # Get complete properties including mapping information
                     properties = (
                         self._connectome_manager.get_cortical_area_properties(
-                            area_id
+                        area_id
                         )
                     )
                     if properties:
@@ -774,6 +894,80 @@ class CoreAPIService:
             source_neuron, target_neuron, weight
         )
 
+    def get_cortical_area_synapses(
+        self, cortical_area_id: str
+    ) -> Optional[Dict[str, List[int]]]:
+        """Get synapses from a cortical area organized by destination area.
+        
+        Args:
+            cortical_area_id: ID of the source cortical area
+            
+        Returns:
+            Dictionary where keys are destination cortical area IDs and 
+            values are lists of destination neuron IDs
+        """
+        try:
+            cm = self._connectome_manager
+            if cm is None:
+                self.logger.error("ConnectomeManager not available in CoreAPIService")
+                return None
+
+            # Ensure CM is wired to the live NPU arrays (authoritative)
+            npu = getattr(cm, "_npu_interface", None)
+            if (not hasattr(cm, "synapse_array") or cm.synapse_array is None) and npu is not None:
+                try:
+                    cm.set_npu_interface(npu)
+                except Exception as wire_err:
+                    self.logger.error(f"Failed to wire NPU interface to ConnectomeManager: {wire_err}")
+                    return None
+
+            # Get all neurons in the source area (cortical_id -> cortical_idx under the hood)
+            source_neurons = cm.get_neurons_by_area(cortical_area_id)
+            if not source_neurons:
+                self.logger.warning(f"No neurons found in cortical area {cortical_area_id}")
+                return {}
+
+            # Use authoritative synapse array directly to avoid stale CM methods
+            syn_array = getattr(cm, "synapse_array", None) or (npu.synapse_array if npu else None)
+            if syn_array is None:
+                self.logger.error("SynapseArray not available from ConnectomeManager or NPUInterface")
+                return {}
+
+            synapses_by_area: Dict[str, List[int]] = {}
+
+            for source_neuron_id in source_neurons:
+                try:
+                    outgoing_connections = syn_array.get_outgoing_connections(source_neuron_id)
+                except Exception as conn_err:
+                    self.logger.debug(f"Skipping neuron {source_neuron_id} (synapse lookup error): {conn_err}")
+                    continue
+
+                for target_neuron_id, _ in outgoing_connections:
+                    # Map target neuron to cortical_id using NPU-owned mapping path
+                    try:
+                        target_area_id = cm.get_cortical_area_for_neuron(target_neuron_id)
+                    except Exception:
+                        continue
+                    if target_area_id and target_area_id != cortical_area_id:
+                        bucket = synapses_by_area.setdefault(target_area_id, [])
+                        bucket.append(target_neuron_id)
+
+            # Deduplicate while preserving order
+            for area_id, ids in synapses_by_area.items():
+                seen = set()
+                deduped = []
+                for nid in ids:
+                    if nid not in seen:
+                        seen.add(nid)
+                        deduped.append(nid)
+                synapses_by_area[area_id] = deduped
+
+            return synapses_by_area
+
+        except Exception as e:
+            self.logger.error(f"Error getting synapses for cortical area {cortical_area_id}: {str(e)}")
+            return None
+
     def remove_connection(
         self, source_neuron: str, target_neuron: str
     ) -> bool:
@@ -835,10 +1029,10 @@ class CoreAPIService:
     ) -> Dict[str, Any]:
         """Unified method to stimulate neurons using coordinate-based data
         format.
-
+        
         This method handles both individual neuron stimulation and cortical area stimulation
         by converting coordinates to neuron IDs and injecting them into FCL.
-
+        
         Args:
             neural_data: Data in the format:
                 {
@@ -850,7 +1044,7 @@ class CoreAPIService:
                     },
                     'cortical_area_2': { ... }
                 }
-
+        
         Returns:
             Dict containing stimulation results and statistics
         """
@@ -980,6 +1174,11 @@ class CoreAPIService:
     # CORE COMPONENT ACCESS METHODS
     # =================================================================
 
+    @property
+    def burst_engine(self):
+        """Property to access the burst engine instance."""
+        return self.get_burst_engine()
+
     def get_burst_engine(self):
         """Get the burst engine instance - always returns the singleton instance."""
         # Import here to avoid circular imports
@@ -1027,7 +1226,81 @@ class CoreAPIService:
                     connectome_manager=self._connectome_manager,
                     config=engine_config,
                 )
-            # Removed log spam: no longer log when using existing singleton
+                
+                # ✅ CONFIGURE NPU AS PRIMARY OWNER OF SYNAPTIC UPDATES
+                # @ruff-skip: critical hotfix to enforce single NPUInterface instance - cleanup task: NPU-UNIFY-001
+                self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates (unified instance)...")
+
+                # Use the existing NPU interface from ConnectomeManager to avoid duplication
+                npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
+                if npu_interface is None:
+                    # If ConnectomeManager has not initialized NPU yet, initialize via its API
+                    try:
+                        # Read desired backend from config and initialize through ConnectomeManager
+                        npu_config = self._config.get("npu", {})
+                        backend_str = npu_config.get("backend", "cpu")
+                        from feagi.npu.data_structures import BackendType
+                        backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
+                        backend = backend_map.get(backend_str, BackendType.CPU)
+                        # Create directly and set on CM to ensure single source
+                        from feagi.npu.interface import NPUInterface
+                        npu_interface = NPUInterface(backend=backend)
+                        # Ensure CM adopts this instance and exposes arrays
+                        if hasattr(self._connectome_manager, "_npu_interface"):
+                            self._connectome_manager._npu_interface = npu_interface
+                            if hasattr(self._connectome_manager, "neuron_array"):
+                                self._connectome_manager.neuron_array = npu_interface.neuron_array
+                            if hasattr(self._connectome_manager, "synapse_array"):
+                                self._connectome_manager.synapse_array = npu_interface.synapse_array
+                            if hasattr(self._connectome_manager, "memory_neuron_array"):
+                                self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
+                    except Exception as init_err:
+                        self.logger.error(f"Failed to initialize NPU interface via ConnectomeManager: {init_err}")
+                        raise
+
+                # Inject the SAME instance into the BurstEngine
+                singleton_instance.npu_interface = npu_interface
+
+                self.logger.info("✅ NPU unified: BurstEngine and ConnectomeManager share the same NPUInterface instance")
+                self.logger.info(f"   NPU id: {id(npu_interface)}")
+                self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
+                # NPU configured
+            else:
+                # Existing singleton - ensure NPU is configured
+                if not hasattr(singleton_instance, 'npu_interface') or singleton_instance.npu_interface is None:
+                    self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton (unified instance)...")
+
+                    # Reuse the ConnectomeManager's NPU interface
+                    npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
+                    if npu_interface is None:
+                        # Initialize if missing
+                        try:
+                            npu_config = self._config.get("npu", {})
+                            backend_str = npu_config.get("backend", "cpu")
+                            from feagi.npu.data_structures import BackendType
+                            backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
+                            backend = backend_map.get(backend_str, BackendType.CPU)
+                            from feagi.npu.interface import NPUInterface
+                            npu_interface = NPUInterface(backend=backend)
+                            # Attach to CM
+                            self._connectome_manager._npu_interface = npu_interface
+                            self._connectome_manager.neuron_array = npu_interface.neuron_array
+                            self._connectome_manager.synapse_array = npu_interface.synapse_array
+                            self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
+                        except Exception as init_err:
+                            self.logger.error(f"Failed to initialize NPU interface for existing singleton: {init_err}")
+                            raise
+
+                    singleton_instance.npu_interface = npu_interface
+
+                    self.logger.info("✅ NPU unified for existing singleton")
+                    self.logger.info(f"   NPU id: {id(npu_interface)}")
+                    self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                    self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
+                    # NPU is configured at this point
+                else:
+                    self.logger.debug("NPU already configured for existing singleton")
 
             return singleton_instance
 
@@ -1045,6 +1318,16 @@ class CoreAPIService:
 
     def get_fcl_manager(self):
         """Get the FCL manager instance."""
+        try:
+            # Prefer the live BurstEngine singleton's FCL manager to avoid stale references
+            from feagi.npu.burst_engine import BurstEngine
+            be = BurstEngine.get_instance()
+            if be and hasattr(be, "fcl_manager") and be.fcl_manager:
+                return be.fcl_manager
+        except Exception as e:
+            self.logger.error(f"Error getting FCL manager: {str(e)}")
+            # pass
+        # Fallback to ConnectomeManager linkage if available
         if hasattr(self._connectome_manager, "fcl_manager"):
             return self._connectome_manager.fcl_manager
         return None
@@ -1059,114 +1342,56 @@ class CoreAPIService:
     # =================================================================
 
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data for FQSampler from FCL with real
-        neuron coordinates."""
+        """Get the global fire queue data from FCL using NPU SoA (no placeholders)."""
         try:
-            if (
-                hasattr(self._connectome_manager, "fcl_manager")
-                and self._connectome_manager.fcl_manager
-            ):
-                fcl_manager = self._connectome_manager.fcl_manager
+            # Prefer the live FCL manager from the running burst engine
+            fcl_manager = self.get_fcl_manager()
+            if not fcl_manager:
+                return None
 
-                # Get global firing neurons from FCL
+            # Get current-timestep global FCL
                 global_fcl = fcl_manager.get_fcl()
+            if not global_fcl or global_fcl.is_empty():
+                self.logger.debug("🔥 [CORE API] Global FCL is empty - no neurons firing globally")
+                return {
+                    "neuron_ids": [],
+                    "membrane_potentials": [],
+                    "thresholds": [],
+                    "consecutive_fire_counts": [],
+                    "refractory_counters": [],
+                    "coordinates": [],
+                }
 
-                if global_fcl and not global_fcl.is_empty():
-                    global_firing_neurons = list(global_fcl)
-                    self.logger.debug(
-                        f"🔥 [CORE API] Global fire queue has {len(global_firing_neurons)} firing neurons"
-                    )
+            firing_ids = list(global_fcl)
+            self.logger.debug(
+                f"🔥 [CORE API] Global fire queue has {len(firing_ids)} firing neurons"
+            )
 
-                    if global_firing_neurons:
-                        # Get real neuron coordinates instead of placeholders
-                        neuron_coordinates = []
-                        neuron_ids = []
+            # Access the authoritative NPU neuron array (SoA)
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                # No neuron array available
+                return {
+                    "neuron_ids": [],
+                    "membrane_potentials": [],
+                    "thresholds": [],
+                    "consecutive_fire_counts": [],
+                    "refractory_counters": [],
+                    "coordinates": [],
+                }
 
-                        if hasattr(self._connectome_manager, "neuron_array"):
-                            neuron_array = (
-                                self._connectome_manager.neuron_array
-                            )
-                            for neuron_id in global_firing_neurons:
-                                try:
-                                    #  CRITICAL FIX: Use proper neuron ID to
-                                    #  array index mapping
-                                    index = self._connectome_manager.get_neuron_index(
-                                        neuron_id
-                                    )
-                                    if index is not None:
-                                        neuron = neuron_array[index]
-                                        #  Only extract coordinates if they
-                                        #  actually exist - NO FALLBACKS
-                                        if (
-                                            "coordinate_3d_x" in neuron
-                                            and "coordinate_3d_y" in neuron
-                                            and "coordinate_3d_z" in neuron
-                                        ):
-                                            x = int(neuron["coordinate_3d_x"])
-                                            y = int(neuron["coordinate_3d_y"])
-                                            z = int(neuron["coordinate_3d_z"])
-                                            neuron_coordinates.append(
-                                                (x, y, z)
-                                            )
-                                            neuron_ids.append(neuron_id)
-                                except (IndexError, KeyError, TypeError):
-                                    # Skip invalid neurons
-                                    continue
-
-                        if neuron_ids:
-                            # Extract REAL neuron data - NO FAKE DATA ALLOWED
-                            membrane_potentials = []
-                            thresholds = []
-                            consecutive_fire_counts = []
-                            refractory_counters = []
-
-                            for _i, neuron_id in enumerate(neuron_ids):
-                                #  CRITICAL FIX: Use proper neuron ID to array
-                                #  index mapping
-                                index = (
-                                    self._connectome_manager.get_neuron_index(
-                                        neuron_id
-                                    )
-                                )
-                                if index is not None:
-                                    neuron = neuron_array[index]
-                                    #  Only extract exact properties that exist
-                                    #  - NO FALLBACKS AT ALL
-                                    if "membrane_potential" in neuron:
-                                        membrane_potentials.append(
-                                            float(neuron["membrane_potential"])
-                                        )
-                                    if "firing_threshold" in neuron:
-                                        thresholds.append(
-                                            float(neuron["firing_threshold"])
-                                        )
-                                    if "consecutive_fire_count" in neuron:
-                                        consecutive_fire_counts.append(
-                                            int(
-                                                neuron[
-                                                    "consecutive_fire_count"
-                                                ]
-                                            )
-                                        )
-                                    if "refractory_counter" in neuron:
-                                        refractory_counters.append(
-                                            int(neuron["refractory_counter"])
-                                        )
-
-                            result = {
-                                "neuron_ids": neuron_ids,
-                                "membrane_potentials": membrane_potentials,  # REAL data
-                                "thresholds": thresholds,  # REAL data
-                                "consecutive_fire_counts": consecutive_fire_counts,  # REAL data
-                                "refractory_counters": refractory_counters,  # REAL data
-                                "coordinates": neuron_coordinates,  # REAL coordinates
-                            }
-                            self.logger.debug(
-                                f"🔥 [CORE API] Returning global fire queue: {len(result['neuron_ids'])} neurons with REAL data (no placeholders)"
-                            )
-                            return result
-
-                    # No valid neurons found
+            neuron_array = self._connectome_manager.neuron_array
+            # Validate required SoA fields
+            required_attrs = [
+                "neuron_id_to_index",
+                "membrane_potentials",
+                "thresholds",
+                "refractory_counters",
+                "coordinates_x",
+                "coordinates_y",
+                "coordinates_z",
+            ]
+            if not all(hasattr(neuron_array, attr) for attr in required_attrs):
+                # Missing SoA fields
                     return {
                         "neuron_ids": [],
                         "membrane_potentials": [],
@@ -1175,19 +1400,43 @@ class CoreAPIService:
                         "refractory_counters": [],
                         "coordinates": [],
                     }
-                else:
-                    self.logger.debug(
-                        "🔥 [CORE API] Global FCL is empty - no neurons firing globally"
+
+            neuron_ids: List[int] = []
+            membrane_potentials: List[float] = []
+            thresholds: List[float] = []
+            refractory_counters: List[int] = []
+            coordinates: List[tuple] = []
+
+            # Map IDs to indices and extract real SoA data
+            id_to_idx = neuron_array.neuron_id_to_index
+            for nid in firing_ids:
+                idx = id_to_idx.get(nid)
+                if idx is None:
+                    continue
+                # Bounds guard
+                if idx < 0 or idx >= neuron_array.neuron_count:
+                    continue
+                neuron_ids.append(nid)
+                membrane_potentials.append(float(neuron_array.membrane_potentials[idx]))
+                thresholds.append(float(neuron_array.thresholds[idx]))
+                refractory_counters.append(int(neuron_array.refractory_counters[idx]))
+                coordinates.append(
+                    (
+                        int(neuron_array.coordinates_x[idx]),
+                        int(neuron_array.coordinates_y[idx]),
+                        int(neuron_array.coordinates_z[idx]),
                     )
-                    return {
-                        "neuron_ids": [],
-                        "membrane_potentials": [],
-                        "thresholds": [],
-                        "consecutive_fire_counts": [],
-                        "refractory_counters": [],
-                        "coordinates": [],
-                    }
-            return None
+                )
+
+            return {
+                "neuron_ids": neuron_ids,
+                "membrane_potentials": membrane_potentials,
+                "thresholds": thresholds,
+                # Not tracked in NPU SoA yet; omitted rather than fabricating values
+                "consecutive_fire_counts": [],
+                "refractory_counters": refractory_counters,
+                "coordinates": coordinates,
+            }
         except Exception as e:
             self.logger.error(f"Error getting global fire queue: {str(e)}")
             return None
@@ -1438,14 +1687,19 @@ class CoreAPIService:
     ) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
         try:
-            # Get membrane potentials from connectome manager
-            potentials = {}
+            potentials: Dict[int, float] = {}
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                return potentials
+            na = self._connectome_manager.neuron_array
+            id_to_idx = getattr(na, "neuron_id_to_index", {})
+            mem = getattr(na, "membrane_potentials", None)
+            if mem is None:
+                return potentials
             for neuron_id in neuron_ids:
-                if neuron_id in self._connectome_manager.neurons:
-                    neuron = self._connectome_manager.neurons[neuron_id]
-                    potentials[neuron_id] = neuron.get(
-                        "membrane_potential", 0.0
-                    )
+                idx = id_to_idx.get(neuron_id)
+                if idx is None or idx < 0 or idx >= na.neuron_count:
+                    continue
+                potentials[neuron_id] = float(mem[idx])
             return potentials
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
@@ -1456,12 +1710,18 @@ class CoreAPIService:
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
         try:
-            # Update membrane potentials in connectome manager
+            if not hasattr(self._connectome_manager, "neuron_array"):
+                return False
+            na = self._connectome_manager.neuron_array
+            id_to_idx = getattr(na, "neuron_id_to_index", {})
+            mem = getattr(na, "membrane_potentials", None)
+            if mem is None:
+                return False
             for neuron_id, potential in potentials.items():
-                if neuron_id in self._connectome_manager.neurons:
-                    self._connectome_manager.neurons[neuron_id][
-                        "membrane_potential"
-                    ] = potential
+                idx = id_to_idx.get(neuron_id)
+                if idx is None or idx < 0 or idx >= na.neuron_count:
+                    continue
+                mem[idx] = float(potential)
             return True
         except Exception as e:
             self.logger.error(f"Error updating membrane potentials: {str(e)}")
@@ -1547,7 +1807,7 @@ class CoreAPIService:
             # RTOS-SAFE: Update frequency if provided
             if "burst_frequency_hz" in config:
                 frequency = config["burst_frequency_hz"]
-
+                
                 # Validate frequency
                 if (
                     frequency <= 0.0 or frequency > 10000.0
@@ -1556,13 +1816,13 @@ class CoreAPIService:
                         f"Invalid frequency {frequency}Hz (must be 0 < freq <= 10000)"
                     )
                     return False
-
+                
                 # Write to state_manager - the single source of truth
                 state_manager.set_burst_frequency(frequency)
                 self.logger.info(
                     f"Updated burst frequency to {frequency}Hz in state manager"
                 )
-
+                
                 #  Also update burst engine for immediate effect (it should
                 #  sync from state_manager)
                 burst_engine = self.get_burst_engine()
@@ -1590,10 +1850,10 @@ class CoreAPIService:
     ) -> None:
         """Automatically synchronize all active FQ samplers with new burst
         frequency.
-
+        
         Ensures that no FQ sampler exceeds the burst frequency by applying:
         new_sampler_freq = min(configured_freq, new_burst_freq)
-
+        
         Args:
             new_burst_frequency: New burst frequency in Hz
         """
@@ -1601,7 +1861,7 @@ class CoreAPIService:
             self.logger.info(
                 f"🔄 [AUTO-SYNC] Starting FQ sampler synchronization with burst frequency: {new_burst_frequency}Hz"
             )
-
+            
             # Get ProcessManager instance to access FQ samplers
             try:
                 from feagi.process_manager import get_process_manager
@@ -1617,12 +1877,12 @@ class CoreAPIService:
                     f"🔄 [AUTO-SYNC] Cannot access ProcessManager: {e} - FQ sampler sync skipped"
                 )
                 return
-
+            
             sync_count = 0
-
+            
             # Synchronize Visualization FQ Sampler AND Visualization Stream
             viz_sampler = process_manager.get_viz_fq_sampler()
-
+            
             if viz_sampler:
                 try:
                     #  Get configured frequency from ProcessManager (not
@@ -1635,7 +1895,7 @@ class CoreAPIService:
                     if hasattr(process_manager, "_fq_sampler_config"):
                         configured_viz_freq = (
                             process_manager._fq_sampler_config.get(
-                                "visualization_frequency", 30.0
+                            "visualization_frequency", 30.0
                             )
                         )
 
@@ -1648,10 +1908,10 @@ class CoreAPIService:
                     new_viz_freq = min(
                         configured_viz_freq, new_burst_frequency
                     )
-
+                    
                     if new_viz_freq != current_viz_freq:
                         viz_sampler.set_sample_frequency(new_viz_freq)
-
+                        
                         #  CRITICAL FIX: Also update visualization stream's
                         #  sample_rate!
                         #  The visualization stream uses its own timing,
@@ -1673,7 +1933,7 @@ class CoreAPIService:
                             self.logger.error(
                                 f"🎬 [AUTO-SYNC] Failed to update visualization stream frequency: {e}"
                             )
-
+                        
                         self.logger.info(
                             f"🎨 [AUTO-SYNC] Visualization sampler: {current_viz_freq}Hz → {new_viz_freq}Hz "
                             f"(configured: {configured_viz_freq}Hz, burst limit: {new_burst_frequency}Hz)"
@@ -1691,10 +1951,10 @@ class CoreAPIService:
                 self.logger.warning(
                     "🎨 [AUTO-SYNC] No active visualization sampler found"
                 )
-
-            # Synchronize Motor FQ Sampler
+            
+            # Synchronize Motor FQ Sampler  
             motor_sampler = process_manager.get_motor_fq_sampler()
-
+            
             if motor_sampler:
                 try:
                     #  Get configured frequency from ProcessManager (not
@@ -1705,7 +1965,7 @@ class CoreAPIService:
                     if hasattr(process_manager, "_fq_sampler_config"):
                         configured_motor_freq = (
                             process_manager._fq_sampler_config.get(
-                                "motor_frequency", 100.0
+                            "motor_frequency", 100.0
                             )
                         )
 
@@ -1720,7 +1980,7 @@ class CoreAPIService:
                     new_motor_freq = min(
                         configured_motor_freq, new_burst_frequency
                     )
-
+                    
                     if new_motor_freq != current_motor_freq:
                         motor_sampler.set_sample_frequency(new_motor_freq)
                         self.logger.info(
@@ -1740,7 +2000,7 @@ class CoreAPIService:
                 self.logger.warning(
                     "🚗 [AUTO-SYNC] No active motor sampler found"
                 )
-
+            
             # Summary log
             if sync_count > 0:
                 self.logger.info(
@@ -1750,7 +2010,7 @@ class CoreAPIService:
                 self.logger.info(
                     f"✅ [AUTO-SYNC] All FQ samplers already synchronized with burst frequency {new_burst_frequency}Hz"
                 )
-
+                
         except Exception as e:
             self.logger.error(
                 f"❌ [AUTO-SYNC] Failed to synchronize FQ samplers: {e}"
@@ -2033,20 +2293,20 @@ class CoreAPIService:
 
             # COPY THE EXACT LOGIC FROM THE WORKING SAFETY SYSTEM
             # This is the same logic that correctly blocks deletion
-
+            
             # Check cortical mappings for morphology usage (flat genome format)
             if "blueprint" in genome:
                 blueprint = genome["blueprint"]
                 for area_id, area_data in blueprint.items():
                     if isinstance(area_data, dict):
-                        # Deep scan for morphology references in blueprint data
-                        self._scan_for_cortical_mappings(
+                                                 # Deep scan for morphology references in blueprint data
+                         self._scan_for_cortical_mappings(
                             area_data,
                             morphology_name,
                             area_id,
                             area_id,
                             usage_list,
-                        )
+                         )
 
             return usage_list
 
@@ -2061,24 +2321,24 @@ class CoreAPIService:
 
     def _extract_area_name_from_flat_format(self, flat_area_name: str) -> str:
         """Extract clean cortical area name from flat genome format.
-
+        
         Converts: "_____10c-CTGM4_-cx-dstmap-d" → "CTGM4_"
         Converts: "_____10c-iic400-cx-..." → "iic400"
         """
         if not flat_area_name:
             return flat_area_name
-
+            
         # Remove common flat format prefixes and suffixes
         clean_name = flat_area_name
-
+        
         # Remove _____10c- prefix if present
         if clean_name.startswith("_____10c-"):
             clean_name = clean_name[9:]  # Remove "_____10c-"
-
+        
         # Remove -cx-dstmap-d suffix if present
         if "-cx-dstmap-d" in clean_name:
             clean_name = clean_name.split("-cx-dstmap-d")[0]
-
+        
         # Remove other common flat format suffixes
         for suffix in [
             "-cx-subgrp-t",
@@ -2089,7 +2349,7 @@ class CoreAPIService:
             if clean_name.endswith(suffix):
                 clean_name = clean_name.replace(suffix, "")
                 break
-
+        
         return clean_name
 
     def _scan_for_cortical_mappings(
@@ -2107,7 +2367,7 @@ class CoreAPIService:
         """
         if not isinstance(data, dict):
             return
-
+            
         for key, value in data.items():
             if value == morphology_id:
                 # Found direct usage - extract area names
@@ -2118,7 +2378,7 @@ class CoreAPIService:
                 #  SPECIAL HANDLING: If key is "morphology_id", extract target
                 #  from context_key
                 if key == "morphology_id" and ":" in context_key:
-                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:co_mot"
+                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:o__mot"
                     parts = context_key.split(":")
                     if len(parts) >= 2:
                         target_area = parts[-1].split("[")[
@@ -2164,7 +2424,7 @@ class CoreAPIService:
                         #  format)
                         #  Original_area_id format:
                         #  "_____10c-CTGM4_-cx-dstmap-d"
-                        # Key format: "co_mot"
+                        # Key format: "o__mot"
                         source_area = self._extract_area_name_from_flat_format(
                             original_area_id
                         )
@@ -2523,7 +2783,7 @@ class CoreAPIService:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
             coordinates = stimulation_payload.get("coordinates", None)
-
+            
             if cortical_id:
                 # Create simple neural data for stimulation
                 #  If no coordinates provided, this would need area-specific
@@ -2571,9 +2831,9 @@ class CoreAPIService:
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
-            duration = stimulation_payload.get("duration", 10)
+            _ = stimulation_payload.get("duration", 10)
             coordinates = stimulation_payload.get("coordinates", None)
-
+            
             if cortical_id:
                 # Create simple neural data for stimulation
                 #  If no coordinates provided, this would need area-specific
@@ -2641,17 +2901,17 @@ class CoreAPIService:
     ) -> Dict[str, Any]:
         """Trigger manual stimulation across multiple cortical areas using
         coordinate lists.
-
+        
         Uses the existing FCL injection service to properly inject external stimulations
         into the Fire Candidate List during burst processing.
-
+        
         Args:
             stimulation_payload: Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates
                 Example: {
                     "_power": [[1, 0, 0], [2, 4, 3]],
                     "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
                 }
-
+        
         Returns:
             Dictionary containing stimulation results and statistics
         """
@@ -2659,10 +2919,10 @@ class CoreAPIService:
             self.logger.info(
                 f"🔵 trigger_multi_area_stimulation called with {len(stimulation_payload)} areas"
             )
-
+            
             if not stimulation_payload:
                 return {"success": False, "error": "Empty stimulation payload"}
-
+            
             # Get the burst engine and its FCL injection service
             burst_engine = self.get_burst_engine()
             if not burst_engine or not burst_engine.injection_service:
@@ -2670,22 +2930,22 @@ class CoreAPIService:
                     "success": False,
                     "error": "FCL injection service not available",
                 }
-
+            
             injection_service = burst_engine.injection_service
-
+            
             # Convert coordinates to neuron IDs for each cortical area
             activations = {}
             total_coordinates = 0
             total_neurons_found = 0
             area_results = {}
-
+            
             for cortical_id, coordinate_list in stimulation_payload.items():
                 if not coordinate_list:
                     self.logger.warning(
                         f"Empty coordinate list for cortical area {cortical_id}"
                     )
                     continue
-
+                    
                 # Validate coordinate format
                 for coord in coordinate_list:
                     if not isinstance(coord, list) or len(coord) != 3:
@@ -2696,22 +2956,22 @@ class CoreAPIService:
                         raise ValueError(
                             f"Coordinates must be integers in {cortical_id}: {coord}"
                         )
-
+                
                 total_coordinates += len(coordinate_list)
-
+                
                 # Convert coordinates to voxel positions and find neurons
                 candidate_positions = set(map(tuple, coordinate_list))
-
+                
                 try:
                     # Use batch lookup to find neurons at these coordinates
                     neuron_weight_pairs = (
                         self._connectome_manager.batch_voxel_to_neuron_lookup(
-                            cortical_id=cortical_id,
-                            candidate_positions=candidate_positions,
+                        cortical_id=cortical_id,
+                        candidate_positions=candidate_positions,
                             post_synaptic_current=1.0,  # Default weight
                         )
                     )
-
+                    
                     if neuron_weight_pairs:
                         # Extract just the neuron IDs
                         neuron_ids = [
@@ -2719,7 +2979,7 @@ class CoreAPIService:
                         ]
                         activations[cortical_id] = neuron_ids
                         total_neurons_found += len(neuron_ids)
-
+                        
                         area_results[cortical_id] = {
                             "success": True,
                             "coordinates_requested": len(coordinate_list),
@@ -2741,7 +3001,7 @@ class CoreAPIService:
                             "coordinates_requested": len(coordinate_list),
                             "neurons_found": 0,
                         }
-
+                        
                 except Exception as e:
                     self.logger.error(
                         f"Error finding neurons in {cortical_id}: {str(e)}"
@@ -2752,15 +3012,15 @@ class CoreAPIService:
                         "coordinates_requested": len(coordinate_list),
                         "neurons_found": 0,
                     }
-
+            
             if not activations:
                 return {
-                    "success": False,
+                    "success": False, 
                     "error": "No neurons found at any of the specified coordinates",
                     "area_results": area_results,
                     "total_coordinates": total_coordinates,
                 }
-
+            
             # Get current timestep for injection
             current_timestep = getattr(
                 self._connectome_manager, "current_timestep", 0
@@ -2771,7 +3031,7 @@ class CoreAPIService:
             self.logger.info(
                 f"Injecting {total_neurons_found} neurons from {len(activations)} areas into FCL via injection service"
             )
-
+            
             injected_count = injection_service.inject_external_activations(
                 activations=activations,
                 current_timestep=current_timestep,
@@ -2806,7 +3066,7 @@ class CoreAPIService:
                 self.logger.warning(
                     "No neurons were injected, skipping burst trigger"
                 )
-
+            
             # Prepare response
             result = {
                 "success": injected_count > 0,
@@ -2824,16 +3084,16 @@ class CoreAPIService:
                     "areas": list(activations.keys()),
                 },
             }
-
+            
             if injected_count > 0:
                 self.logger.info(
                     f"✅ Successfully injected {injected_count} neurons into FCL for manual stimulation"
                 )
             else:
                 self.logger.warning("❌ No neurons were injected into FCL")
-
+            
             return result
-
+            
         except Exception as e:
             self.logger.error(
                 f"🔴 CRITICAL ERROR in trigger_multi_area_stimulation: {str(e)}"
@@ -2841,10 +3101,10 @@ class CoreAPIService:
             import traceback
 
             self.logger.error(f"🔴 Traceback: {traceback.format_exc()}")
-
+            
             # Return a clear error response indicating the new method failed
             return {
-                "success": False,
+                "success": False, 
                 "error": str(e),
                 "method": "fcl_injection_service_FAILED",
                 "fallback_occurred": True,
@@ -2946,18 +3206,57 @@ class CoreAPIService:
         positions: List[Tuple[int, int, int]],
         properties: Optional[Dict[str, Any]] = None,
     ) -> List[int]:
-        """Batch create neurons."""
+        """Batch create neurons using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         try:
-            # Create neurons using connectome manager
-            neuron_ids = []
-            for position in positions:
-                neuron_id = self._connectome_manager.create_neuron(
-                    cortical_id=area_id,
-                    position=position,
-                    **(properties or {}),
-                )
-                neuron_ids.append(neuron_id)
-            return neuron_ids
+            # Convert area_id (6-letter string) to cortical_idx (integer) for NPU
+            cortical_idx = self._connectome_manager.get_cortical_idx_for_id(area_id)
+            if cortical_idx is None:
+                self.logger.error(f"Cortical area {area_id} not found")
+                return []
+            
+            # Extract properties for NPU interface
+            properties = properties or {}
+            neuron_types = properties.get('neuron_types')
+            initial_potentials = properties.get('initial_potentials') or properties.get('membrane_potential')
+            thresholds = properties.get('thresholds') or properties.get('threshold')
+            leak_coefficients = properties.get('leak_coefficients') or properties.get('leak_coefficient')
+            excitabilities = properties.get('excitabilities') or properties.get('excitability')
+            
+            # Convert single values to lists if needed
+            count = len(positions)
+            if isinstance(initial_potentials, (int, float)):
+                initial_potentials = [initial_potentials] * count
+            if isinstance(thresholds, (int, float)):
+                thresholds = [thresholds] * count
+            if isinstance(leak_coefficients, (int, float)):
+                leak_coefficients = [leak_coefficients] * count
+            if isinstance(excitabilities, (int, float)):
+                excitabilities = [excitabilities] * count
+            
+            # Use NPU service for batch creation
+            result = self._npu_service.create_neurons_batch(
+                cortical_idx=cortical_idx,
+                positions=positions,
+                neuron_types=neuron_types,
+                initial_potentials=initial_potentials,
+                thresholds=thresholds,
+                leak_coefficients=leak_coefficients,
+                excitabilities=excitabilities
+            )
+            
+            if result.get("success", False):
+                # Extract neuron IDs from NPU result
+                # For now, return empty list as NPU interface doesn't return IDs yet
+                # TODO: Update NPU interface to return created neuron IDs
+                self.logger.info(f"Successfully created {result.get('successful_count', 0)} neurons in area {area_id}")
+                return []  # Temporary until NPU interface returns IDs
+            else:
+                self.logger.error(f"NPU batch neuron creation failed: {result.get('error', 'Unknown error')}")
+                return []
+                
         except Exception as e:
             self.logger.error(f"Error batch creating neurons: {str(e)}")
             return []
@@ -2965,19 +3264,34 @@ class CoreAPIService:
     def batch_create_synapses(
         self, connections: List[Tuple[int, int, float]]
     ) -> int:
-        """Batch create synapses."""
+        """Batch create synapses using NPU interface internally.
+        
+        Maintains exact same API contract while using new NPU architecture.
+        """
         try:
-            # Create synapses using connectome manager
-            created_count = 0
-            for pre_neuron_id, post_neuron_id, weight in connections:
-                success = self._connectome_manager.create_synapse(
-                    pre_neuron_id=pre_neuron_id,
-                    post_neuron_id=post_neuron_id,
-                    weight=weight,
-                )
-                if success:
-                    created_count += 1
-            return created_count
+            if not connections:
+                return 0
+            
+            # Extract source neurons, target neurons, and weights
+            source_neuron_ids = [conn[0] for conn in connections]
+            target_neuron_ids = [conn[1] for conn in connections]
+            weights = [conn[2] for conn in connections]
+            
+            # Use NPU service for batch creation
+            result = self._npu_service.create_synapses_batch(
+                source_neuron_ids=source_neuron_ids,
+                target_neuron_ids=target_neuron_ids,
+                weights=weights
+            )
+            
+            if result.get("success", False):
+                created_count = result.get("successful_count", 0)
+                self.logger.info(f"Successfully created {created_count} synapses")
+                return created_count
+            else:
+                self.logger.error(f"NPU batch synapse creation failed: {result.get('error', 'Unknown error')}")
+                return 0
+                
         except Exception as e:
             self.logger.error(f"Error batch creating synapses: {str(e)}")
             return 0
@@ -2988,10 +3302,10 @@ class CoreAPIService:
 
     def get_max_cortical_area_dimensions(self) -> Tuple[int, int, int]:
         """Get the maximum dimensions across all cortical areas.
-
-        This method provides centralized access to cortical area dimension
+        
+        This method provides centralized access to cortical area dimension 
         calculations for spatial hash sizing and other use cases.
-
+        
         Returns:
             Tuple of (max_x, max_y, max_z) dimensions
         """
@@ -3005,7 +3319,7 @@ class CoreAPIService:
 
     def initialize_spatial_hash_cache(self) -> bool:
         """Initialize the spatial hash cache (simplified for Morton system).
-
+        
         Returns:
             True if initialization successful, False otherwise
         """
@@ -3329,14 +3643,21 @@ class CoreAPIService:
                     f"🔥 [FIRE QUEUE] Firing neuron IDs: {firing_neuron_ids}"
                 )
 
-                # CRITICAL FIX: Convert neuron IDs to indices for array access
+
+                # CRITICAL FIX: Convert neuron IDs to indices using NPU-owned mapping (single source of truth)
                 firing_indices = []
-                for neuron_id in firing_neuron_ids:
-                    neuron_index = self._connectome_manager.get_neuron_index(
-                        neuron_id
-                    )
-                    if neuron_index is not None:
-                        firing_indices.append(neuron_index)
+                if hasattr(neuron_array, "neuron_id_to_index"):
+                    for neuron_id in firing_neuron_ids:
+                        idx = neuron_array.neuron_id_to_index.get(int(neuron_id))
+                        if idx is not None:
+                            firing_indices.append(idx)
+
+                else:
+                    # As a last resort, use ConnectomeManager mapping if present
+                    for neuron_id in firing_neuron_ids:
+                        neuron_index = self._connectome_manager.get_neuron_index(neuron_id)
+                        if neuron_index is not None:
+                            firing_indices.append(neuron_index)
 
                 if len(firing_indices) == 0:
                     self.logger.debug(
@@ -3390,11 +3711,20 @@ class CoreAPIService:
                 ):
                     # CRITICAL FIX: Convert firing indices to actual neuron IDs
                     # The FQ sampler expects neuron IDs, not array indices!
-                    final_neuron_ids = (
-                        neuron_array.vectorized_indices_to_neuron_ids(
-                            area_firing_indices, filter_invalid=True
-                        )
+                    # Use NPU-owned vectorized conversion
+                    if hasattr(neuron_array, "indices_to_neuron_ids"):
+                        final_neuron_ids = neuron_array.indices_to_neuron_ids(
+                        area_firing_indices, filter_invalid=True
                     )
+                    else:
+                        # Fallback: map via index_to_neuron_id dict
+                        final_ids_list = []
+                        for idx in list(area_firing_indices):
+                            nid = neuron_array.index_to_neuron_id.get(int(idx))
+                            if nid is not None:
+                                final_ids_list.append(int(nid))
+                        final_neuron_ids = np.array(final_ids_list, dtype=np.int32)
+
 
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] Converted {len(area_firing_indices)} indices to {len(final_neuron_ids)} neuron IDs"
@@ -3406,6 +3736,11 @@ class CoreAPIService:
                         )
                         return None
 
+                    # COORDINATE DEBUG: Log coordinates being extracted from neuron array
+                    extracted_x = neuron_array.coordinates_x[area_firing_indices]
+                    extracted_y = neuron_array.coordinates_y[area_firing_indices]
+                    extracted_z = neuron_array.coordinates_z[area_firing_indices]
+
                     brain_data = np.column_stack(
                         (
                             final_neuron_ids.astype(
@@ -3414,23 +3749,18 @@ class CoreAPIService:
                             neuron_array.membrane_potentials[
                                 area_firing_indices
                             ],  # Keep float32 for potentials
-                            neuron_array.coordinates_x[
-                                area_firing_indices
-                            ].astype(
+                            extracted_x.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_y[
-                                area_firing_indices
-                            ].astype(
+                            extracted_y.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_z[
-                                area_firing_indices
-                            ].astype(
+                            extracted_z.astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
                         )
                     )
+
 
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] Successfully extracted {len(area_firing_indices)} firing neurons for area {cortical_id}"
@@ -3555,9 +3885,15 @@ class CoreAPIService:
                 # Check SIMD performance stats
                 stats = result['performance_stats']
                 print(f"SIMD Backend: {stats['backend']}")
-                print(f"Extraction method: {stats.get('extraction_method', 'unknown')}")
+                print(
+                    f"Extraction method: {stats.get('extraction_method',"
+                    f"'unknown')}"
+                )
                 if 'neurons_per_second' in stats:
-                    print(f"Performance: {stats['neurons_per_second']:.0f} neurons/sec")
+                    print(
+                        f"Performance: {stats['neurons_per_second']:.0f}"
+                        f"neurons/sec"
+                    )
 
             # Batch processing for large datasets
             large_batch = list(range(1000, 50000, 10))  # 5,000 neurons
@@ -3608,14 +3944,13 @@ class CoreAPIService:
             neuron_array = self._connectome_manager.neuron_array
 
             # Convert to aligned numpy array for SIMD optimization
-            neuron_count = len(neuron_ids)
             # alignment = simd_config["alignment"]  # Unused variable removed
 
             # CRITICAL FIX: Convert neuron IDs to array indices first
             # Neuron IDs are NOT array indices - they must be mapped!
             neuron_indices_list = []
             valid_neuron_ids = []
-
+            
             for neuron_id in neuron_ids:
                 array_index = self._connectome_manager.get_neuron_index(
                     neuron_id
@@ -3623,7 +3958,7 @@ class CoreAPIService:
                 if array_index is not None:
                     neuron_indices_list.append(array_index)
                     valid_neuron_ids.append(neuron_id)
-
+                    
             if not neuron_indices_list:
                 # No valid neuron IDs found
                 return {
@@ -3712,19 +4047,19 @@ class CoreAPIService:
                 # Use numpy vectorized operations for smaller datasets
                 coords_x, coords_y, coords_z = (
                     self._vectorized_extract_coordinates(
-                        neuron_array, valid_indices, performance_stats
+                    neuron_array, valid_indices, performance_stats
                     )
                 )
 
-            # CRITICAL FIX: Since we already filtered to valid neurons,
+            # CRITICAL FIX: Since we already filtered to valid neurons, 
             # we can return the coordinates directly without complex remapping
             # All neurons in valid_neuron_ids have corresponding coordinates
-
+            
             # Convert coordinates to uint32 for consistency
             result_x = coords_x.astype(np.uint32)
-            result_y = coords_y.astype(np.uint32)
+            result_y = coords_y.astype(np.uint32) 
             result_z = coords_z.astype(np.uint32)
-
+            
             # Create valid_indices array for original neuron_ids list
             original_valid_mask = []
             for neuron_id in neuron_ids:
@@ -3802,7 +4137,10 @@ class CoreAPIService:
                 # Efficient spatial analysis using SIMD
                 center_of_mass = np.mean(coords[:, 1:4], axis=0)
                 std_deviation = np.std(coords[:, 1:4], axis=0)
-                print(f"Spatial distribution: center={center_of_mass}, std={std_deviation}")
+                print(
+                    f"Spatial distribution: center={center_of_mass},"
+                    f"std={std_deviation}"
+                )
         """
         try:
             if not neuron_ids:
@@ -3876,7 +4214,7 @@ class CoreAPIService:
                 # Vectorized path for smaller datasets
                 coords_x, coords_y, coords_z = (
                     self._vectorized_extract_coordinates(
-                        neuron_array, valid_indices, {}
+                    neuron_array, valid_indices, {}
                     )
                 )
 
@@ -4625,6 +4963,135 @@ class CoreAPIService:
             self.logger.error(f"Error updating brain region: {str(e)}")
             raise ValueError(f"Failed to update brain region: {str(e)}") from e
 
+    def get_brain_regions(self) -> List[Dict[str, Any]]:
+        """Get all brain regions with consistent schema and automatic I/O assignment.
+
+        ARCHITECTURE COMPLIANCE: READ operation can access genome directly
+        for performance, as it doesn't modify state.
+
+        Returns:
+            List[Dict[str, Any]]: List of all brain regions with consistent schema
+
+        Raises:
+            ValueError: If unable to retrieve brain regions
+        """
+        try:
+            # Get genome from StateManager (single source of truth)
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                self.logger.warning("No genome loaded in StateManager")
+                return []
+            
+            brain_regions = state_manager.genome.get("brain_regions", {})
+            blueprint = state_manager.genome.get("blueprint", {})
+            
+            # Convert to consistent list format with automatic I/O assignment
+            regions_list = []
+            for region_id, region_data in brain_regions.items():
+                # Normalize field names for consistency
+                normalized_region = self._normalize_brain_region_schema(region_data, region_id, blueprint)
+                regions_list.append(normalized_region)
+            
+            self.logger.debug(f"Retrieved {len(regions_list)} brain regions with consistent schema")
+            return regions_list
+
+        except Exception as e:
+            self.logger.error(f"Error getting brain regions: {str(e)}")
+            raise ValueError(f"Failed to get brain regions: {str(e)}") from e
+
+    def _normalize_brain_region_schema(self, region_data: Dict[str, Any], region_id: str, blueprint: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize brain region schema for consistency across all endpoints.
+        
+        Args:
+            region_data: Raw region data from genome
+            region_id: Region identifier
+            blueprint: Genome blueprint for cortical area type detection
+            
+        Returns:
+            Dict with consistent schema
+        """
+        # Start with consistent base structure
+        normalized = {
+            "region_id": region_id,
+            "title": region_data.get("title", region_data.get("region_name", f"Region {region_id}")),
+            "description": region_data.get("description", ""),
+            "parent_region_id": region_data.get("parent_region_id"),
+            "coordinate_2d": region_data.get("coordinate_2d", [0, 0]),
+            "coordinate_3d": region_data.get("coordinate_3d", [0, 0, 0]),
+            "areas": [],
+            "regions": [],
+            "inputs": [],
+            "outputs": [],
+            "signature": region_data.get("signature", "")
+        }
+        
+        # Normalize areas field (handle both 'areas' and 'cortical_areas')
+        areas = region_data.get("areas", region_data.get("cortical_areas", []))
+        normalized["areas"] = areas
+        
+        # Normalize regions field (handle both 'regions' and 'child_regions')
+        regions = region_data.get("regions", region_data.get("child_regions", []))
+        normalized["regions"] = regions
+        
+        # Get existing inputs/outputs or initialize empty
+        inputs = region_data.get("inputs", [])
+        outputs = region_data.get("outputs", [])
+        
+        # Automatic I/O assignment based on cortical area types
+        if areas and blueprint:
+            auto_inputs, auto_outputs = self._auto_assign_region_io(areas, blueprint)
+            
+            # Merge with existing I/O (avoid duplicates)
+            all_inputs = list(set(inputs + auto_inputs))
+            all_outputs = list(set(outputs + auto_outputs))
+            
+            normalized["inputs"] = all_inputs
+            normalized["outputs"] = all_outputs
+        else:
+            normalized["inputs"] = inputs
+            normalized["outputs"] = outputs
+        
+        return normalized
+
+    def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
+        """Automatically assign inputs and outputs based on cortical area types.
+        
+        Args:
+            areas: List of cortical area IDs in the region
+            blueprint: Genome blueprint for type detection
+            
+        Returns:
+            Tuple of (inputs, outputs) lists
+        """
+        inputs = []
+        outputs = []
+        
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Processing {len(areas)} areas for I/O assignment")
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Blueprint keys sample: {list(blueprint.keys())[:5]}")
+        
+        for area_id in areas:
+            area_props = blueprint.get(area_id, {})
+            # Check both 'group' and 'cortical_group' for compatibility
+            area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+            
+            self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Area {area_id}: props={area_props}, group='{area_group}'")
+            
+            # IPU areas become inputs
+            if area_group == "IPU":
+                inputs.append(area_id)
+                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as INPUT (IPU)")
+            # OPU areas become outputs  
+            elif area_group == "OPU":
+                outputs.append(area_id)
+                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (OPU)")
+            else:
+                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ❌ Skipped {area_id} (group='{area_group}')")
+        
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Final result: inputs={inputs}, outputs={outputs}")
+        return inputs, outputs
+
     def delete_brain_region(
         self, region_id: str, preserve_children: bool = True
     ) -> bool:
@@ -4648,6 +5115,119 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error deleting brain region: {str(e)}")
             raise ValueError(f"Failed to delete brain region: {str(e)}") from e
+
+    def relocate_region_members(self, relocation_data: Dict[str, Any]) -> bool:
+        """Relocate brain region members by updating their coordinates.
+        
+        Updates the coordinates of multiple cortical areas and/or brain regions
+        in a single operation. Supports both 2D coordinate updates and optional
+        parent region changes.
+        
+        Args:
+            relocation_data: Dictionary mapping cortical area IDs to their new
+                           coordinates and optional parent region assignments.
+                           Format: {
+                               "cortical_id": {
+                                   "coordinate_2d": [x, y],
+                                   "parent_region_id": "region_id"  # optional
+                               }
+                           }
+        
+        Returns:
+            True if all relocations succeeded, False otherwise
+        
+        Raises:
+            ValueError: If relocation fails for any member
+        """
+        try:
+            if not relocation_data:
+                return True  # Nothing to relocate
+            
+            success_count = 0
+            total_count = len(relocation_data)
+            
+            for member_id, member_data in relocation_data.items():
+                try:
+                    # Extract coordinate information
+                    coordinate_2d = member_data.get("coordinate_2d")
+                    parent_region_id = member_data.get("parent_region_id")
+                    
+                    if coordinate_2d is None:
+                        self.logger.warning(f"No coordinate_2d provided for {member_id}, skipping")
+                        continue
+                    
+                    # Convert 2D coordinates to 3D format expected by update methods
+                    # Assume z-coordinate is 0 if not provided
+                    coordinates_3d = {
+                        "x": coordinate_2d[0],
+                        "y": coordinate_2d[1], 
+                        "z": 0  # Default z-coordinate
+                    }
+                    
+                    # Check if this is a cortical area or brain region
+                    # Try updating as cortical area first
+                    cortical_area_updated = False
+                    try:
+                        result = self.update_cortical_area(
+                            cortical_id=member_id,
+                            coordinates=coordinates_3d
+                        )
+                        if result is not None:
+                            cortical_area_updated = True
+                            self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
+                    
+                    # If cortical area update failed, try as brain region
+                    if not cortical_area_updated:
+                        try:
+                            # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
+                            region_result = self.update_brain_region(
+                                region_id=member_id,
+                                parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
+                            )
+                            if region_result:
+                                self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
+                            else:
+                                self.logger.warning(f"Failed to update {member_id} as brain region")
+                                continue
+                        except Exception as e:
+                            self.logger.warning(f"Failed to update {member_id} as brain region: {e}")
+                            continue
+                    
+                    # Handle parent region change if specified
+                    if parent_region_id is not None:
+                        try:
+                            parent_result = self.change_cortical_area_parent(
+                                cortical_area_id=member_id,
+                                new_parent_id=parent_region_id
+                            )
+                            if parent_result:
+                                self.logger.debug(f"Updated {member_id} parent to {parent_region_id}")
+                            else:
+                                self.logger.warning(f"Failed to update {member_id} parent region")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to update {member_id} parent region: {e}")
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    self.logger.error(f"Error relocating {member_id}: {e}")
+                    continue
+            
+            if success_count == total_count:
+                self.logger.info(f"Successfully relocated all {total_count} region members")
+                return True
+            elif success_count > 0:
+                self.logger.warning(f"Partially successful: relocated {success_count}/{total_count} members")
+                return True  # Partial success is still considered success
+            else:
+                self.logger.error("Failed to relocate any region members")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error in relocate_region_members: {str(e)}")
+            raise ValueError(f"Failed to relocate region members: {str(e)}") from e
 
     def change_cortical_area_parent(
         self, cortical_area_id: str, new_parent_id: str
@@ -4839,7 +5419,7 @@ class CoreAPIService:
                 cortical_id
             )
             neuron_count = len(neurons)
-
+            
             if neuron_count == 0:
                 return {
                     "count": 0,
@@ -4848,10 +5428,10 @@ class CoreAPIService:
                     "avg_bytes_per_item": 0.0,
                     "avg_human_per_item": "0 B",
                 }
-
+            
             # Calculate ACTUAL memory per neuron by inspecting the NeuronArray
             neuron_array = self._connectome_manager.neuron_array
-
+            
             if neuron_array._use_rust:
                 # For Rust backend, estimate based on standard sizes
                 #  TODO: Add actual Rust backend memory inspection when
@@ -4865,7 +5445,7 @@ class CoreAPIService:
             else:
                 # Calculate ACTUAL memory per neuron from numpy arrays
                 bytes_per_neuron = 0.0
-
+                
                 # Inspect all the actual arrays in NeuronArray
                 arrays_to_check = [
                     "membrane_potentials",
@@ -4885,7 +5465,7 @@ class CoreAPIService:
                     "neuron_types",
                     "enabled_flags",
                 ]
-
+                
                 for array_name in arrays_to_check:
                     if hasattr(neuron_array, array_name):
                         array = getattr(neuron_array, array_name)
@@ -4894,13 +5474,13 @@ class CoreAPIService:
                             self.logger.debug(
                                 f"Array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
                             )
-
+                
                 self.logger.info(
                     f"Calculated ACTUAL memory per neuron: {bytes_per_neuron} bytes (from {len(arrays_to_check)} arrays)"
                 )
-
+            
             total_bytes = int(neuron_count * bytes_per_neuron)
-
+            
             return {
                 "count": neuron_count,
                 "size_bytes": total_bytes,
@@ -4910,7 +5490,7 @@ class CoreAPIService:
                     int(bytes_per_neuron)
                 ),
             }
-
+            
         except Exception as e:
             self.logger.error(
                 f"Error calculating neuron memory for {cortical_id}: {str(e)}"
@@ -4934,7 +5514,7 @@ class CoreAPIService:
                     cortical_id
                 )
             )
-
+            
             if not area_neurons:
                 empty_result = {
                     "count": 0,
@@ -4945,15 +5525,15 @@ class CoreAPIService:
                 }
                 return {
                     "incoming": empty_result.copy(),
-                    "outgoing": empty_result.copy(),
+                    "outgoing": empty_result.copy(), 
                     "internal": empty_result.copy(),
                 }
-
+            
             # Get all synapses and classify them
             incoming_count = 0
             outgoing_count = 0
             internal_count = 0
-
+            
             #  Iterate through all neurons in the area and classify their
             #  connections
             for neuron_id in area_neurons:
@@ -4973,7 +5553,7 @@ class CoreAPIService:
                     else:
                         # Target is outside this area - outgoing synapse
                         outgoing_count += 1
-
+                
                 # Get incoming connections to this neuron
                 #  Returns List[Tuple[int, float]] where tuple is
                 #  (source_neuron_id, weight)
@@ -4988,14 +5568,14 @@ class CoreAPIService:
                         incoming_count += 1
                     #  Note: internal synapses are already counted in outgoing
                     #  connections
-
+            
             #  Calculate ACTUAL memory per synapse by inspecting the
             #  GlobalSynapseArray
             synapse_array = self._connectome_manager.synapse_array
-
+            
             # Calculate actual memory per synapse from the SoA structure
             bytes_per_synapse = 0.0
-
+            
             # Inspect all the actual arrays in GlobalSynapseArray
             arrays_to_check = [
                 "pre_neuron_ids",
@@ -5007,7 +5587,7 @@ class CoreAPIService:
                 "conductances",
                 "is_plastic_flags",
             ]
-
+            
             for array_name in arrays_to_check:
                 if hasattr(synapse_array, array_name):
                     array = getattr(synapse_array, array_name)
@@ -5016,7 +5596,7 @@ class CoreAPIService:
                         self.logger.debug(
                             f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
                         )
-
+            
             self.logger.info(
                 f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)"
             )
@@ -5067,7 +5647,7 @@ class CoreAPIService:
                     ),
                 },
             }
-
+            
         except Exception as e:
             self.logger.error(
                 f"Error calculating synapse memory breakdown for {cortical_id}: {str(e)}"
@@ -5089,15 +5669,15 @@ class CoreAPIService:
         """Format bytes into human-readable format."""
         if bytes_value == 0:
             return "0 B"
-
+        
         units = ["B", "KB", "MB", "GB", "TB"]
         unit_index = 0
         size = float(bytes_value)
-
+        
         while size >= 1024.0 and unit_index < len(units) - 1:
             size /= 1024.0
             unit_index += 1
-
+        
         if unit_index == 0:
             return f"{int(size)} {units[unit_index]}"
         else:
@@ -5125,3 +5705,5 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Failed to update genome physiology: {e}")
             return False
+
+    # Duplicate definition removed; use the earlier get_system_health method

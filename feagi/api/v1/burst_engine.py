@@ -34,6 +34,8 @@ from .schemas import (
     BurstEngineConfigRequest,
     BurstEngineStatsResponse,
     BurstEngineStatusResponse,
+    FCLContentResponse,
+    FireQueueResponse,
     SuccessResponse,
 )
 
@@ -226,6 +228,92 @@ class BurstEngineAPI:
             raise ValueError(
                 f"Failed to get burst engine stats: {str(e)}"
             ) from e
+
+    @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
+    async def get_fcl_content(self) -> FCLContentResponse:
+        """Get the complete FCL (Fire Candidate List) content at the current timestep.
+        
+        Returns all currently firing neurons organized by cortical areas,
+        providing a comprehensive snapshot of neural activity.
+        """
+        try:
+            fcl_manager = self.core_api_service.get_fcl_manager()
+            if not fcl_manager:
+                raise ValueError("FCL manager not available")
+            
+            # Get current timestep and log manager identity when debug is on
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(f"[FCL-ENDPOINT-DEBUG] fcl_manager_id={id(fcl_manager)}, current_timestep={getattr(fcl_manager,'current_timestep',None)}")
+            except Exception:
+                pass
+
+            current_timestep = fcl_manager.current_timestep
+            
+            # Get global FCL (all firing neurons)
+            global_fcl_bitmap = fcl_manager.get_global_fcl()
+            global_fcl_list = list(global_fcl_bitmap) if global_fcl_bitmap else []
+            
+            # Get FCL organized by cortical areas (keys are cortical_idx)
+            cortical_fcl_dict = fcl_manager.get_fcl_by_cortical()
+
+            # Map cortical_idx -> cortical_id using NPU interface via CoreAPIService
+            cortical_areas = {}
+            try:
+                # Resolve the live NPU interface
+                npu = None
+                cm = self.core_api_service.get_connectome_manager()
+                if cm and hasattr(cm, "_npu_interface") and cm._npu_interface:
+                    npu = cm._npu_interface
+
+                if npu is not None and hasattr(npu, "cortical_areas"):
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        area_info = npu.cortical_areas.get(cortical_idx, {})
+                        cortical_id = area_info.get("cortical_id", str(cortical_idx))
+                        cortical_areas[cortical_id] = list(neuron_bitmap)
+                else:
+                    # Fallback: keep indices as strings if mapping unavailable
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            except Exception as map_err:
+                logger.error(f"[FCL-ENDPOINT-DEBUG] Error mapping cortical_idx to cortical_id: {map_err}")
+                # Safe fallback to indices as strings
+                for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                    cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            
+            # Get FCL manager statistics
+            window_size = fcl_manager.window_size
+            active_cortical_count = len(cortical_areas)
+            total_neurons = len(global_fcl_list)
+            
+            return FCLContentResponse(
+                timestep=current_timestep,
+                total_neurons=total_neurons,
+                global_fcl=global_fcl_list,
+                cortical_areas=cortical_areas,
+                window_size=window_size,
+                active_cortical_count=active_cortical_count
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting FCL content: {e}")
+            raise ValueError(f"Failed to get FCL content: {str(e)}") from e
+
+    @burst_engine_endpoint("GET", "/fire_queue", response_model=FireQueueResponse)
+    async def get_fire_queue(self) -> FireQueueResponse:
+        """Get the current contents of the fire queue (global FCL snapshot).
+
+        Returns the current timestep's global fire queue as a structured dict
+        with real neuron IDs, membrane potentials, thresholds, refractory counters,
+        consecutive fire counts, and coordinates.
+        """
+        try:
+            fire_queue = self.core_api_service.get_fire_queue()
+            return FireQueueResponse(fire_queue=fire_queue)
+        except Exception as e:
+            logger.error(f"Error getting fire queue: {e}")
+            raise ValueError(f"Failed to get fire queue: {str(e)}") from e
 
     # ===== Burst Engine Configuration =====
 

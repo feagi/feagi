@@ -32,6 +32,8 @@ from .schemas import (
     BrainVisualizationRequest,
     ConfigurationResponse,
     CorticalAreaTypesResponse,
+    DebugLoggingRequest,
+    DebugLoggingResponse,
     HealthCheckResponse,
     InfluxDBTestResponse,
     SuccessResponse,
@@ -162,6 +164,8 @@ class SystemAPI:
                 ),
                 genome_num=health.get("genome_num"),
                 genome_timestamp=health.get("genome_timestamp"),
+                simulation_timestep=health.get("simulation_timestep"),
+                memory_area_stats=health.get("memory_area_stats"),
             )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
@@ -765,6 +769,181 @@ class SystemAPI:
         except Exception as e:
             logger.error(f"Error getting processes: {e}")
             raise ValueError(f"Failed to get processes: {str(e)}")
+
+    @system_endpoint(
+        path="/debug_logging",
+        methods=["GET"],
+        response_model=DebugLoggingResponse,
+        description="Get current debug logging flags and global logging level. Returns the state of all debug flags for FEAGI subsystems (NPU, BDU, memory, ZMQ, API) and the active global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) that controls system-wide log verbosity.",
+    )
+    def get_debug_logging(self) -> DebugLoggingResponse:
+        """Get current debug logging flags and global logging level from StateManager.
+        
+        Returns the current state of all debug logging flags for different FEAGI subsystems
+        and the global logging level that controls the verbosity of all system logs.
+        
+        Returns:
+            DebugLoggingResponse containing:
+            - api: Legacy aggregate API debug flag
+            - api_core: Core API debug flag (not supported, always False)
+            - api_rest: REST API debug flag (not supported, always False)  
+            - api_zmq: ZMQ API debug flag (not supported, always False)
+            - npu: Neural Processing Unit debug flag
+            - bdu: Brain Development Unit debug flag
+            - zmq_inbound: Inbound ZMQ message debug flag
+            - zmq_outbound: Outbound ZMQ message debug flag
+            - mem: Memory system debug flag
+            - global_logging_level: Current system-wide logging level
+              (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        
+        The global_logging_level controls the minimum severity of log messages
+        that will be displayed across all FEAGI components:
+        - DEBUG: Shows all messages (most verbose)
+        - INFO: Shows informational messages and above
+        - WARNING: Shows warnings, errors, and critical messages (default)
+        - ERROR: Shows only errors and critical messages
+        - CRITICAL: Shows only critical messages (least verbose)
+        """
+        try:
+            from feagi.core.state_manager import get_state_manager
+            
+            state_manager = get_state_manager()
+            if not state_manager:
+                # Return default values if state manager not available
+                return DebugLoggingResponse(
+                    api=False,
+                    api_core=False,
+                    api_rest=False,
+                    api_zmq=False,
+                    npu=False,
+                    bdu=False,
+                    zmq_inbound=False,
+                    zmq_outbound=False,
+                    mem=False,
+                    global_logging_level="WARNING",
+                )
+            
+            # Get current debug flags from state manager
+            return DebugLoggingResponse(
+                api=state_manager.is_debug_api_enabled(),
+                api_core=False,  # Not supported by StateManager
+                api_rest=False,  # Not supported by StateManager
+                api_zmq=False,   # Not supported by StateManager
+                npu=state_manager.is_debug_npu_enabled(),
+                bdu=state_manager.is_debug_bdu_enabled(),
+                zmq_inbound=state_manager.is_debug_zmq_inbound_enabled(),
+                zmq_outbound=state_manager.is_debug_zmq_outbound_enabled(),
+                mem=state_manager.is_mem_debug_enabled(),
+                global_logging_level=state_manager.get_global_logging_level(),
+            )
+        except Exception as e:
+            logger.error(f"Error getting debug logging flags: {e}")
+            raise ValueError(f"Failed to get debug logging flags: {str(e)}")
+
+    @system_endpoint(
+        path="/debug_logging",
+        methods=["POST"],
+        request_model=DebugLoggingRequest,
+        response_model=DebugLoggingResponse,
+        description="Update debug logging flags and global logging level at runtime. Set debug flags for specific FEAGI subsystems (NPU, BDU, memory, ZMQ, API) and/or change the global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). Changes take effect immediately without restart. All fields are optional - only provided fields will be updated.",
+    )
+    def set_debug_logging(self, request: DebugLoggingRequest) -> DebugLoggingResponse:
+        """Set debug logging flags and global logging level in StateManager.
+        
+        Updates debug logging flags for specific FEAGI subsystems and/or the global
+        logging level that controls system-wide log verbosity. Changes take effect
+        immediately without requiring a system restart.
+        
+        Args:
+            request: DebugLoggingRequest containing optional fields:
+            - api: Legacy aggregate API debug flag
+            - api_core: Core API debug flag (not supported, ignored)
+            - api_rest: REST API debug flag (not supported, ignored)
+            - api_zmq: ZMQ API debug flag (not supported, ignored)
+            - npu: Neural Processing Unit debug flag
+            - bdu: Brain Development Unit debug flag
+            - zmq_inbound: Inbound ZMQ message debug flag
+            - zmq_outbound: Outbound ZMQ message debug flag
+            - mem: Memory system debug flag
+            - global_logging_level: System-wide logging level
+              (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        
+        Returns:
+            DebugLoggingResponse with updated state of all flags and logging level.
+        
+        Global Logging Level Effects:
+        - DEBUG: Enables all log messages (most verbose, useful for development)
+        - INFO: Shows informational messages and above (moderate verbosity)
+        - WARNING: Shows warnings, errors, and critical messages (default, production)
+        - ERROR: Shows only errors and critical messages (minimal verbosity)
+        - CRITICAL: Shows only critical messages (least verbose, emergency only)
+        
+        The global_logging_level change is applied immediately to all active loggers
+        and handlers throughout the FEAGI system, affecting all components including
+        NPU, BDU, API services, ZMQ transports, and memory processing.
+        
+        Example:
+            POST /v1/system/debug_logging
+            {
+                "npu": true,
+                "mem": true, 
+                "global_logging_level": "DEBUG"
+            }
+        """
+        try:
+            from feagi.core.state_manager import get_state_manager
+            
+            state_manager = get_state_manager()
+            if not state_manager:
+                raise ValueError("StateManager not available")
+            
+            # Get current debug config
+            current_config = getattr(state_manager, '_debug_config', {})
+            
+            # Update flags that were provided in the request
+            debug_updates = {}
+            if request.api is not None:
+                debug_updates['api'] = request.api
+            if request.npu is not None:
+                debug_updates['npu'] = request.npu
+            if request.bdu is not None:
+                debug_updates['bdu'] = request.bdu
+            if request.zmq_inbound is not None:
+                debug_updates['zmq_inbound'] = request.zmq_inbound
+            if request.zmq_outbound is not None:
+                debug_updates['zmq_outbound'] = request.zmq_outbound
+            if request.mem is not None:
+                debug_updates['mem_debug'] = request.mem
+            
+            # Handle global logging level
+            if request.global_logging_level is not None:
+                result = state_manager.set_global_logging_level(request.global_logging_level.value)
+                if not result.is_ok:
+                    raise ValueError(f"Failed to set global logging level: {result.unwrap_err()}")
+            
+            # Note: api_core, api_rest, api_zmq are not supported by StateManager
+            # They are ignored for now
+            
+            # Update the debug configuration
+            if debug_updates:
+                state_manager.set_debug_config({'debug': debug_updates})
+            
+            # Return updated state
+            return DebugLoggingResponse(
+                api=state_manager.is_debug_api_enabled(),
+                api_core=False,  # Not supported by StateManager
+                api_rest=False,  # Not supported by StateManager
+                api_zmq=False,   # Not supported by StateManager
+                npu=state_manager.is_debug_npu_enabled(),
+                bdu=state_manager.is_debug_bdu_enabled(),
+                zmq_inbound=state_manager.is_debug_zmq_inbound_enabled(),
+                zmq_outbound=state_manager.is_debug_zmq_outbound_enabled(),
+                mem=state_manager.is_mem_debug_enabled(),
+                global_logging_level=state_manager.get_global_logging_level(),
+            )
+        except Exception as e:
+            logger.error(f"Error setting debug logging flags: {e}")
+            raise ValueError(f"Failed to set debug logging flags: {str(e)}")
 
 
 # ===== Factory Function =====

@@ -1592,7 +1592,7 @@
     "_____10c-_power-cx-mem__t-i": 100,
     "_____10c-_power-cx-mem_gr-i": 1,
     "_____10c-_power-cx-mem_ls-i": 9,
-    "_____10c-_power-nx-excite-f": 100,
+    "_____10c-_power-nx-excite-f": 1,
     "_____10c-_power-cx-__name-t": "Brain_Power",
     "_____10c-_power-cx-_group-t": "CORE",
     "_____10c-_death-cx-subgrp-t": "",
@@ -1628,7 +1628,7 @@
     "_____10c-_death-cx-mem__t-i": 100,
     "_____10c-_death-cx-mem_gr-i": 1,
     "_____10c-_death-cx-mem_ls-i": 9,
-    "_____10c-_death-nx-excite-f": 100,
+    "_____10c-_death-nx-excite-f": 1,
     "_____10c-_death-cx-__name-t": "Brain_Death",
     "_____10c-_death-cx-_group-t": "CORE"
   }

@@ -872,8 +872,6 @@ def restore_fgc_snapshot(
                         try:
                             if hasattr(area, "_position_map"):
                                 area._position_map.clear()
-                            if hasattr(area, "_position_to_neurons"):
-                                area._position_to_neurons.clear()
                             cidx = getattr(area, "cortical_idx", None)
                             if cidx is None:
                                 continue
@@ -906,7 +904,7 @@ def restore_fgc_snapshot(
                                     if nid < 0:
                                         nid = int(
                                             getattr(
-                                                na, "index_to_id_map", {}
+                                                na, "index_to_neuron_id", {}
                                             ).get(int(i), -1)
                                         )
                                     if nid < 0:
@@ -928,20 +926,6 @@ def restore_fgc_snapshot(
                                     if pos is not None:
                                         if hasattr(area, "_position_map"):
                                             area._position_map[nid] = pos
-                                        if hasattr(
-                                            area, "_position_to_neurons"
-                                        ):
-                                            lst = (
-                                                area._position_to_neurons.get(
-                                                    pos
-                                                )
-                                            )
-                                            if lst is None:
-                                                area._position_to_neurons[
-                                                    pos
-                                                ] = [nid]
-                                            else:
-                                                lst.append(nid)
                                 except Exception:
                                     continue
                         except Exception:
@@ -1308,8 +1292,6 @@ def restore_fgs_snapshot(
                 try:
                     if hasattr(area, "_position_map"):
                         area._position_map.clear()
-                    if hasattr(area, "_position_to_neurons"):
-                        area._position_to_neurons.clear()
                     cidx = getattr(area, "cortical_idx", None)
                     if cidx is None:
                         continue
@@ -1336,7 +1318,7 @@ def restore_fgs_snapshot(
                                 nid = int(idx2id_arr[int(i)])
                             if nid < 0:
                                 nid = int(
-                                    getattr(na, "index_to_id_map", {}).get(
+                                    getattr(na, "index_to_neuron_id", {}).get(
                                         int(i), -1
                                     )
                                 )
@@ -1359,12 +1341,6 @@ def restore_fgs_snapshot(
                             if pos is not None:
                                 if hasattr(area, "_position_map"):
                                     area._position_map[nid] = pos
-                                if hasattr(area, "_position_to_neurons"):
-                                    lst = area._position_to_neurons.get(pos)
-                                    if lst is None:
-                                        area._position_to_neurons[pos] = [nid]
-                                    else:
-                                        lst.append(nid)
                         except Exception:
                             continue
                 except Exception:

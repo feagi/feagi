@@ -26,7 +26,7 @@ import time
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import json
 import queue
 import select

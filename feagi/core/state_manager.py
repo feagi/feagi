@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Set
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
 from .state_storage import FileStorage, MemoryStorage, StateStorage
+from .cortical_locking import get_cortical_lock_manager, LockResult, GlobalLockInfo
 
 try:
     from feagi.config.toml_loader import get_agent_config, load_feagi_config
@@ -32,30 +33,30 @@ class FCLWindowSizeCache:
     Tracks cortical area mappings to memory areas and computes optimal window
     sizes.
     """
-
+    
     def __init__(self, default_window_size: int = 20):
         self.default_window_size = default_window_size
         self._lock = threading.RLock()
-
-        # Mapping tracking: cortical_id -> set(memory_area_ids)
+        
+        # Mapping tracking: cortical_id -> set(memory_area_ids) 
         self.cortical_to_memory_mappings: Dict[str, Set[str]] = defaultdict(
             set
         )
-
+        
         # Memory area properties: memory_area_id -> temporal_depth
         self.memory_temporal_depths: Dict[str, int] = {}
-
+        
         # Computed window sizes: cortical_id -> computed_window_size
         self.computed_window_sizes: Dict[str, int] = {}
-
+        
         # Memory areas registry
         self.memory_areas: Set[str] = set()
-
+        
         logger.info(
             "FCLWindowSizeCache initialized with default window size: %d",
             default_window_size,
         )
-
+    
     def register_memory_area(
         self, cortical_id: str, temporal_depth: int
     ) -> None:
@@ -70,7 +71,7 @@ class FCLWindowSizeCache:
                 cortical_id,
                 temporal_depth,
             )
-
+    
     def unregister_memory_area(self, cortical_id: str) -> None:
         """Unregister a memory cortical area."""
         with self._lock:
@@ -85,7 +86,7 @@ class FCLWindowSizeCache:
                     del self.cortical_to_memory_mappings[source_id]
             self._invalidate_dependent_areas(cortical_id)
             logger.debug("Unregistered memory area %s", cortical_id)
-
+    
     def update_memory_temporal_depth(
         self, memory_cortical_id: str, new_temporal_depth: int
     ) -> None:
@@ -142,7 +143,7 @@ class FCLWindowSizeCache:
                     source_cortical_id,
                     target_cortical_id,
                 )
-
+    
     def invalidate_cortical_area(self, cortical_id: str) -> None:
         """Invalidate cached window size for a specific cortical area."""
         with self._lock:
@@ -151,14 +152,14 @@ class FCLWindowSizeCache:
                 "Invalidated window size cache for cortical area %s",
                 cortical_id,
             )
-
+    
     def get_window_size(self, cortical_id: str) -> int:
         """Get computed window size for cortical area (cached computation)."""
         with self._lock:
             # Return cached value if available
             if cortical_id in self.computed_window_sizes:
                 return self.computed_window_sizes[cortical_id]
-
+            
             # Compute window size
             connected_memory_areas = self.cortical_to_memory_mappings.get(
                 cortical_id, set()
@@ -169,11 +170,11 @@ class FCLWindowSizeCache:
             else:
                 # Find maximum temporal depth among connected memory areas
                 max_temporal_depth = max(
-                    self.memory_temporal_depths.get(mem_area, 1)
+                    self.memory_temporal_depths.get(mem_area, 1) 
                     for mem_area in connected_memory_areas
                 )
                 window_size = max(self.default_window_size, max_temporal_depth)
-
+            
             # Cache and return
             self.computed_window_sizes[cortical_id] = window_size
             logger.debug(
@@ -183,7 +184,7 @@ class FCLWindowSizeCache:
                 connected_memory_areas,
             )
             return window_size
-
+    
     def _invalidate_dependent_areas(self, memory_cortical_id: str) -> None:
         """Invalidate all cortical areas that map to this memory area."""
         areas_to_invalidate = [
@@ -193,7 +194,7 @@ class FCLWindowSizeCache:
         ]
         for area_id in areas_to_invalidate:
             self.invalidate_cortical_area(area_id)
-
+    
     def get_debug_info(self) -> Dict:
         """Get debug information about current cache state."""
         with self._lock:
@@ -294,7 +295,7 @@ class StateChangeEvent:
 
 class FeagiStateManager:
     """Rust-friendly state manager designed for easy conversion.
-
+    
     This manager provides:
     - Atomic operations for all state changes
     - Result-based error handling (no exceptions in hot paths)
@@ -302,10 +303,10 @@ class FeagiStateManager:
     - Constant-time validation
     - Transaction support for multi-field updates
     """
-
+    
     _instance = None
     _lock = threading.Lock()
-
+    
     @classmethod
     def instance(cls, storage: Optional[StateStorage] = None):
         """Get singleton instance of the state manager."""
@@ -314,7 +315,7 @@ class FeagiStateManager:
                 if cls._instance is None:
                     cls._instance = cls(storage)
         return cls._instance
-
+    
     def __init__(self, storage=None):
         """Initialize state manager with storage backend."""
         # Handle different storage types
@@ -326,14 +327,14 @@ class FeagiStateManager:
             self._storage = storage or MemoryStorage()
         else:
             raise ValueError(f"Invalid storage type: {type(storage)}")
-
+            
         self._instance_lock = (
             threading.RLock()
         )  # Reentrant lock for nested operations
         self._event_log: List[StateChangeEvent] = []
         self._max_events = 1000  # Fixed-size event log
         self._debug_config = {}  # Initialize debug config
-
+        
         # Load initial state
         load_result = self._storage.load_state()
         if load_result.is_ok:
@@ -343,14 +344,15 @@ class FeagiStateManager:
                 f"Failed to load state: {load_result.unwrap_err()}, using defaults"
             )
             self._state = RustCompatibleState()
-
+        
         # Create atomic wrappers for frequently accessed fields
         self._atomic_genome = AtomicU8(self._state.genome_state)
         self._atomic_burst_engine = AtomicU8(self._state.burst_engine_state)
+        self._atomic_gpu_keepalive_eligible = AtomicU8(self._state.gpu_keepalive_eligible)
         self._atomic_fq_sampler = AtomicU8(self._state.fq_sampler_state)
         self._atomic_brain_ready = AtomicU8(self._state.brain_readiness)
         self._atomic_version = AtomicU8(0)
-
+        
         # Initialize Morton spatial hash tracking
         self._morton_coordinate_limit = (
             1 << 21
@@ -358,10 +360,10 @@ class FeagiStateManager:
         self._morton_class_name = (
             "RoaringSpatialHash"  # Current active Morton implementation
         )
-
+        
         # Initialize memory area tracking
         self._memory_area_cache = FCLWindowSizeCache()
-
+        
         # Initialize cortical areas cache for event-driven updates
         self._cortical_areas_cache = None
         self._cortical_areas_cache_dirty = True  # Mark as dirty initially
@@ -382,6 +384,14 @@ class FeagiStateManager:
             self.genome_validity: Dict[str, Any] = {"status": "unknown"}
         if not hasattr(self, "connected_agents"):
             self.connected_agents: Dict[str, Any] = {}
+        if not hasattr(self, "memory_area_stats"):
+            # Per-cortical-area memory neuron statistics
+            # Key: 6-letter memory cortical_id (e.g., "mVPmem")
+            # Value: Dict with neuron_count and other stats
+            self.memory_area_stats: Dict[str, Dict[str, Any]] = {}
+        if not hasattr(self, "global_logging_level"):
+            # Global logging level for runtime adjustment
+            self.global_logging_level: str = "WARNING"  # Default level
         if not hasattr(self, "changes_saved_externally"):
             self.changes_saved_externally: bool = False
         if not hasattr(self, "exit_condition"):
@@ -391,35 +401,122 @@ class FeagiStateManager:
         #  warnings
         self._resync_in_progress: bool = False
 
+        # Load GPU keep-alive configuration
+        self._gpu_keepalive_brain_threshold = self._load_gpu_keepalive_threshold()
+        
+        # Initialize GPU keep-alive eligibility based on current brain size
+        self._update_gpu_keepalive_eligibility()
+        
         logger.info("FeagiStateManager initialized")
         logger.info(
             f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}"
         )
 
+    # === GPU KEEP-ALIVE BRAIN SIZE MANAGEMENT ===
+    
+    def _load_gpu_keepalive_threshold(self) -> int:
+        """Load GPU keep-alive brain size threshold from configuration.
+        
+        Uses GPU threshold × 80% as the keep-alive threshold for efficiency.
+        """
+        try:
+            if load_feagi_config:
+                config = load_feagi_config()
+                hybrid_config = config.get("neural", {}).get("hybrid", {})
+                
+                # Get the main GPU threshold and calculate 80% of it
+                gpu_threshold = hybrid_config.get("gpu_threshold", 1_000_000)
+                keepalive_threshold = int(gpu_threshold * 0.8)  # 80% of GPU threshold
+                
+                logger.info(f"🔀 GPU keep-alive threshold: {keepalive_threshold:,} synapses (80% of GPU threshold: {gpu_threshold:,})")
+                return keepalive_threshold
+            else:
+                return 800_000  # Default: 80% of 1M
+        except Exception as e:
+            logger.warning(f"Failed to load GPU keep-alive threshold config: {e}")
+            return 800_000  # Default: 80% of 1M
+    
+    def _update_gpu_keepalive_eligibility(self):
+        """Update GPU keep-alive eligibility flag based on current brain size."""
+        try:
+            current_synapse_count = self._state.synapse_count
+            is_eligible = current_synapse_count >= self._gpu_keepalive_brain_threshold
+            
+            old_value = self._atomic_gpu_keepalive_eligible.load()
+            new_value = 1 if is_eligible else 0
+            
+            if old_value != new_value:
+                self._atomic_gpu_keepalive_eligible.store(new_value)
+                logger.info(f"🔀 GPU keep-alive eligibility updated: {bool(old_value)} → {bool(new_value)} "
+                           f"(synapses: {current_synapse_count:,}, threshold: {self._gpu_keepalive_brain_threshold:,})")
+                
+                # Update state version to notify observers
+                self._increment_version()
+                
+        except Exception as e:
+            logger.error(f"Failed to update GPU keep-alive eligibility: {e}")
+    
+    def is_gpu_keepalive_eligible(self) -> bool:
+        """Check if brain is large enough to warrant GPU keep-alive."""
+        return bool(self._atomic_gpu_keepalive_eligible.load())
+    
+    def get_gpu_keepalive_brain_threshold(self) -> int:
+        """Get the current GPU keep-alive brain size threshold."""
+        return self._gpu_keepalive_brain_threshold
+    
+    def update_synapse_count(self, synapse_count: int):
+        """Update synapse count and refresh GPU keep-alive eligibility.
+        
+        This should be called whenever synapses are added/removed.
+        Only synapse count affects GPU keep-alive eligibility.
+        
+        Args:
+            synapse_count: New total synapse count
+        """
+        with self._instance_lock:
+            self._state.synapse_count = synapse_count
+            
+            # Update GPU keep-alive eligibility based on synapse count only
+            self._update_gpu_keepalive_eligibility()
+            
+            # Persist state changes
+            self._storage.store_state(self._state)
+    
+    def update_neuron_count(self, neuron_count: int):
+        """Update neuron count without affecting GPU keep-alive eligibility.
+        
+        Args:
+            neuron_count: New total neuron count
+        """
+        with self._instance_lock:
+            self._state.neuron_count = neuron_count
+            # No GPU keep-alive update needed - only synapse count matters
+            self._storage.store_state(self._state)
+    
     # === GENOME STATE MANAGEMENT ===
-
+    
     def get_genome_state(self) -> int:
         """Get current genome state (zero-cost operation)."""
         return self._atomic_genome.load()
-
+    
     def set_genome_state(self, state: int) -> Result[None]:
         """Set genome state with validation."""
         if not (0 <= state <= 4):
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Accept state changes directly for compatibility
         # (In production, strict validation would be enabled)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._atomic_genome.load()
             self._atomic_genome.store(state)
             self._state.genome_state = state
             self._increment_version()
-
+            
             # Log state change
             self._log_state_change("genome_state", old_state, state)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
@@ -427,32 +524,32 @@ class FeagiStateManager:
                 self._atomic_genome.store(old_state)
                 self._state.genome_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === BURST ENGINE STATE MANAGEMENT ===
-
+    
     def get_burst_engine_state(self) -> int:
         """Get current burst engine state."""
         return self._atomic_burst_engine.load()
-
+    
     def set_burst_engine_state(self, state: int) -> Result[None]:
         """Set burst engine state with validation."""
         if not (0 <= state <= 7):
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Accept state changes directly for compatibility
         # (In production, strict validation would be enabled)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._atomic_burst_engine.load()
             self._atomic_burst_engine.store(state)
             self._state.burst_engine_state = state
             self._increment_version()
-
+            
             self._log_state_change("burst_engine_state", old_state, state)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
@@ -460,15 +557,15 @@ class FeagiStateManager:
                 self._atomic_burst_engine.store(old_state)
                 self._state.burst_engine_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === FQ SAMPLER STATE MANAGEMENT ===
-
+    
     def get_fq_sampler_state(self) -> int:
         """Get current FQ sampler state."""
         return self._atomic_fq_sampler.load()
-
+    
     def set_fq_sampler_state(self, state) -> Result[None]:
         """Set FQ sampler state with validation."""
         # Handle enum or int input
@@ -476,22 +573,22 @@ class FeagiStateManager:
             state_value = state.value
         else:
             state_value = int(state)
-
+            
         if not (0 <= state_value <= 7):  # Allow ServiceState range
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Accept state changes directly for compatibility
         # (In production, strict validation would be enabled)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._atomic_fq_sampler.load()
             self._atomic_fq_sampler.store(state_value)
             self._state.fq_sampler_state = state_value
             self._increment_version()
-
+            
             self._log_state_change("fq_sampler_state", old_state, state_value)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
@@ -499,43 +596,43 @@ class FeagiStateManager:
                 self._atomic_fq_sampler.store(old_state)
                 self._state.fq_sampler_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === CONNECTOME STATE MANAGEMENT ===
-
+    
     def get_connectome_state(self) -> int:
         """Get current connectome state."""
         return self._state.connectome_state
-
+    
     def set_connectome_state(self, state: int) -> Result[None]:
         """Set connectome state with validation."""
         if not (0 <= state <= 5):  # ConnectomeState enum values
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._state.connectome_state
             self._state.connectome_state = state
             self._increment_version()
-
+            
             self._log_state_change("connectome_state", old_state, state)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.connectome_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
 
     # === API STATE MANAGEMENT ===
-
+    
     def get_api_state(self) -> int:
         """Get current API state."""
         return self._state.api_state
-
+    
     def set_api_state(self, state) -> Result[None]:
         """Set API state with validation."""
         # Convert ServiceState enum to integer for Rust/RTOS compatibility
@@ -543,7 +640,7 @@ class FeagiStateManager:
             # Map ServiceState enum values to integers
             state_map = {
                 ServiceState.UNAVAILABLE: 0,
-                ServiceState.INITIALIZING: 1,
+                ServiceState.INITIALIZING: 1, 
                 ServiceState.READY: 2,
                 ServiceState.DEGRADED: 3,
                 ServiceState.ERROR: 4,
@@ -575,37 +672,37 @@ class FeagiStateManager:
                 "ON_HOLD": 11,
             }
             state_value = state_map.get(str(state).upper(), 0)
-
+        
         if not (0 <= state_value <= 11):  # ServiceState enum range
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._state.api_state
             self._state.api_state = state_value
             self._increment_version()
-
+            
             self._log_state_change("api_state", old_state, state_value)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.api_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
 
     # === BRAIN READINESS MANAGEMENT ===
-
+    
     def get_brain_readiness(self) -> bool:
         """Get current brain readiness status."""
         return bool(self._atomic_brain_ready.load())
-
+    
     def set_brain_readiness(self, ready: bool) -> Result[None]:
         """Set brain readiness with prerequisite validation."""
         new_state = 1 if ready else 0
-
+        
         # CRITICAL: Validate prerequisites before setting brain ready
         if ready:
             prerequisites_result = (
@@ -616,16 +713,16 @@ class FeagiStateManager:
                     "Brain readiness blocked - prerequisites not met"
                 )
                 return prerequisites_result
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = self._atomic_brain_ready.load()
             self._atomic_brain_ready.store(new_state)
             self._state.brain_readiness = new_state
             self._increment_version()
-
+            
             self._log_state_change("brain_readiness", old_state, new_state)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
@@ -633,38 +730,38 @@ class FeagiStateManager:
                 self._atomic_brain_ready.store(old_state)
                 self._state.brain_readiness = old_state
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === EXIT CONDITION MANAGEMENT ===
-
+    
     def get_exit_condition(self) -> bool:
         """Get current exit condition status."""
         return bool(self._state.exit_condition)
-
+    
     def set_exit_condition(self, should_exit: bool) -> Result[None]:
         """Set exit condition for burst engine control."""
         new_state = 1 if should_exit else 0
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = 1 if self._state.exit_condition else 0
             self._state.exit_condition = should_exit
             self._increment_version()
-
+            
             self._log_state_change("exit_condition", old_state, new_state)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.exit_condition = not should_exit
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === BRAIN STATISTICS MANAGEMENT ===
-
+    
     def get_brain_stats(self) -> Dict[str, Any]:
         """Get current brain statistics."""
         stats = getattr(self._state, "brain_stats", None)
@@ -683,17 +780,185 @@ class FeagiStateManager:
         )
         return stats
 
+    def update_memory_area_neuron_count(self, cortical_id: str, delta: int, operation: str = "update") -> Result[None]:
+        """Update memory neuron count for a specific cortical area.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID (e.g., "mVPmem")
+            delta: Change in neuron count (+1 for creation, -1 for deletion)
+            operation: Type of operation ("create", "delete", "update")
+            
+        Returns:
+            Result indicating success or failure
+        """
+        if not isinstance(cortical_id, str) or len(cortical_id) != 6:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            # Initialize area stats if not exists
+            if cortical_id not in self.memory_area_stats:
+                self.memory_area_stats[cortical_id] = {
+                    "neuron_count": 0,
+                    "created_total": 0,
+                    "deleted_total": 0,
+                    "last_updated": int(time.time() * 1000)  # timestamp in ms
+                }
+            
+            area_stats = self.memory_area_stats[cortical_id]
+            
+            # Update neuron count
+            old_count = area_stats["neuron_count"]
+            new_count = max(0, old_count + delta)  # Prevent negative counts
+            area_stats["neuron_count"] = new_count
+            
+            # Track operation totals
+            if operation == "create" and delta > 0:
+                area_stats["created_total"] += delta
+            elif operation == "delete" and delta < 0:
+                area_stats["deleted_total"] += abs(delta)
+            
+            # Update timestamp
+            area_stats["last_updated"] = int(time.time() * 1000)
+            
+            # Log the change for debugging
+            logger.debug(
+                f"Memory area {cortical_id}: {operation} {delta:+d} neurons, "
+                f"count: {old_count} → {new_count}"
+            )
+            
+            return Result.ok(None)
+
+    def get_memory_area_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get all memory area statistics.
+        
+        Returns:
+            Dictionary mapping cortical_id to area stats
+        """
+        with self._instance_lock:
+            return dict(self.memory_area_stats)  # Return a copy
+
+    def get_memory_area_neuron_count(self, cortical_id: str) -> int:
+        """Get neuron count for a specific memory area.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Current neuron count for the area (0 if area not found)
+        """
+        with self._instance_lock:
+            area_stats = self.memory_area_stats.get(cortical_id, {})
+            return area_stats.get("neuron_count", 0)
+
+    def register_memory_area_for_stats(self, cortical_id: str) -> Result[None]:
+        """Register a new memory cortical area for per-area statistics tracking.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Result indicating success or failure
+        """
+        if not isinstance(cortical_id, str) or len(cortical_id) != 6:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            if cortical_id not in self.memory_area_stats:
+                self.memory_area_stats[cortical_id] = {
+                    "neuron_count": 0,
+                    "created_total": 0,
+                    "deleted_total": 0,
+                    "last_updated": int(time.time() * 1000)
+                }
+                logger.info(f"Registered memory area {cortical_id} for tracking")
+            
+            return Result.ok(None)
+
+    def unregister_memory_area_for_stats(self, cortical_id: str) -> Result[None]:
+        """Unregister a memory cortical area from per-area statistics tracking.
+        
+        Args:
+            cortical_id: 6-letter memory cortical area ID
+            
+        Returns:
+            Result indicating success or failure
+        """
+        with self._instance_lock:
+            if cortical_id in self.memory_area_stats:
+                del self.memory_area_stats[cortical_id]
+                logger.info(f"Unregistered memory area {cortical_id} from tracking")
+            
+            return Result.ok(None)
+
+    def get_global_logging_level(self) -> str:
+        """Get the current global logging level.
+        
+        Returns:
+            Current global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        """
+        with self._instance_lock:
+            return getattr(self, 'global_logging_level', 'WARNING')
+
+    def set_global_logging_level(self, level: str) -> Result[None]:
+        """Set the global logging level and apply it to all loggers.
+        
+        Args:
+            level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            
+        Returns:
+            Result indicating success or failure
+        """
+        import logging
+        
+        # Validate logging level
+        valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        if level not in valid_levels:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            old_level = getattr(self, 'global_logging_level', 'WARNING')
+            self.global_logging_level = level
+            
+            # Apply the new logging level to all loggers at runtime
+            try:
+                # Set the root logger level
+                root_logger = logging.getLogger()
+                root_logger.setLevel(getattr(logging, level))
+                
+                # Set level for all existing loggers
+                for logger_name in logging.Logger.manager.loggerDict:
+                    logger_obj = logging.getLogger(logger_name)
+                    if logger_obj.handlers:  # Only update loggers that have handlers
+                        logger_obj.setLevel(getattr(logging, level))
+                
+                # Update all handlers to respect the new level
+                for handler in root_logger.handlers:
+                    handler.setLevel(getattr(logging, level))
+                
+                logger.info(f"Global logging level changed: {old_level} → {level}")
+                
+            except Exception as e:
+                # Revert on error
+                self.global_logging_level = old_level
+                logger.error(f"Failed to set global logging level: {e}")
+                return Result.err(StateError.OPERATION_FAILED)
+            
+            return Result.ok(None)
+    
     def set_brain_stats(self, stats: Dict[str, Any]) -> Result[None]:
         """Set brain statistics."""
         if not isinstance(stats, dict):
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
+        # DEBUG: Removed detailed caller logging
+        
         # Atomic update
         with self._instance_lock:
             # Extract incoming values
             in_total = stats.get("neuron_count")
             in_synapses = stats.get("synapse_count", 0)
-            in_areas = stats.get("cortical_area_count", 0)
+            # Preserve existing cortical_area_count if not provided
+            in_areas = stats.get("cortical_area_count", self._state.cortical_area_count)
             in_mem = stats.get("memory_neuron_count")
             in_non_mem = stats.get("non_memory_neuron_count")
 
@@ -721,6 +986,8 @@ class FeagiStateManager:
             self._state.neuron_count = total_cnt
             self._state.synapse_count = int(in_synapses)
             self._state.cortical_area_count = int(in_areas)
+            
+            # DEBUG: Removed cortical area count logging
 
             # Store in brain_stats dict
             stats["neuron_count"] = total_cnt
@@ -728,56 +995,56 @@ class FeagiStateManager:
             stats["cortical_area_count"] = int(in_areas)
             stats["memory_neuron_count"] = mem_cnt
             stats["non_memory_neuron_count"] = non_mem_cnt
-
+            
             # Also store as brain_stats attribute for backward compatibility
             self._state.brain_stats = stats
             self._increment_version()
-
+            
             self._log_state_change("brain_stats", {}, stats)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === CORTICAL LIST MANAGEMENT ===
-
+    
     def get_cortical_list(self) -> List[str]:
         """Get current cortical area list."""
         return getattr(self._state, "cortical_list", [])
-
+    
     def set_cortical_list(self, cortical_ids: List[str]) -> Result[None]:
         """Set cortical area list."""
         if not isinstance(cortical_ids, list):
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_list = getattr(self._state, "cortical_list", [])
             self._state.cortical_list = cortical_ids.copy()
             self._increment_version()
-
+            
             self._log_state_change(
                 "cortical_list", len(old_list), len(cortical_ids)
             )
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.cortical_list = old_list
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === GENOME VALIDITY MANAGEMENT ===
-
+    
     def get_genome_validity(self) -> bool:
         """Get current genome validity status."""
         return getattr(self._state, "genome_validity", False)
-
+    
     def set_genome_validity(self, valid: bool) -> Result[None]:
         """Set genome validity status."""
         # Atomic update
@@ -785,35 +1052,35 @@ class FeagiStateManager:
             old_validity = getattr(self._state, "genome_validity", False)
             self._state.genome_validity = valid
             self._increment_version()
-
+            
             self._log_state_change("genome_validity", old_validity, valid)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.genome_validity = old_validity
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     def is_genome_loaded(self) -> bool:
         """Check if genome is currently loaded based on genome state."""
         return self.get_genome_state() == GenomeState.LOADED.value
-
+    
     # === SYSTEM READINESS CHECKS ===
-
+    
     def is_system_ready_for_fq_samplers(self) -> bool:
         """Check if all critical services are ready for FQ sampler
         initialization.
-
+        
         Returns:
             True if system is ready, False otherwise
         """
         # Check genome state - must be LOADED
         if self.get_genome_state() != GenomeState.LOADED.value:
             return False
-
+        
         # Check burst engine state - must be READY or ON_HOLD
         burst_state = self.get_burst_engine_state()
         if burst_state not in [
@@ -821,28 +1088,28 @@ class FeagiStateManager:
             ServiceState.ON_HOLD.value,
         ]:
             return False
-
+        
         # Check brain readiness
         if not self.get_brain_readiness():
             return False
-
+        
         # Check neuroembryogenesis completion
         if (
             getattr(self._state, "neuroembryogenesis_stage", 0) != 5
         ):  # COMPLETED
             return False
-
+        
         return True
-
+    
     def get_critical_service_readiness_report(self) -> Dict[str, Any]:
         """Get detailed report of critical service readiness for event-driven
         decisions.
-
+        
         Returns:
             Dict containing service states and readiness conditions
         """
         critical_status = self.get_critical_services_status()
-
+        
         return {
             "services": {
                 service: {
@@ -861,31 +1128,31 @@ class FeagiStateManager:
             ),
             "system_ready_for_fq_samplers": self.is_system_ready_for_fq_samplers(),
         }
-
+    
     # === CONNECTED AGENTS MANAGEMENT ===
-
+    
     def get_connected_agents(self) -> Dict[str, Any]:
         """Get current connected agents registry."""
         return getattr(self._state, "connected_agents", {})
-
+    
     def set_connected_agents(self, agents: Dict[str, Any]) -> Result[None]:
         """Set connected agents registry."""
         if not isinstance(agents, dict):
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_agents = getattr(self._state, "connected_agents", {})
             self._state.connected_agents = agents.copy()
-
+            
             # Update agent count in structured state
             self._state.agent_count = len(agents)
             self._increment_version()
-
+            
             self._log_state_change(
                 "connected_agents", len(old_agents), len(agents)
             )
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
@@ -893,37 +1160,37 @@ class FeagiStateManager:
                 self._state.connected_agents = old_agents
                 self._state.agent_count = len(old_agents)
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     def set_agent_count(self, count: int) -> Result[None]:
         """Set agent count (for compatibility)."""
         if count < 0:
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_count = self._state.agent_count
             self._state.agent_count = count
             self._increment_version()
-
+            
             self._log_state_change("agent_count", old_count, count)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.agent_count = old_count
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === CHANGES SAVED EXTERNALLY MANAGEMENT ===
-
+    
     def get_changes_saved_externally(self) -> bool:
         """Get changes saved externally status."""
         return getattr(self._state, "changes_saved_externally", False)
-
+    
     def set_changes_saved_externally(self, saved: bool) -> Result[None]:
         """Set changes saved externally status."""
         # Atomic update
@@ -931,80 +1198,80 @@ class FeagiStateManager:
             old_saved = getattr(self._state, "changes_saved_externally", False)
             self._state.changes_saved_externally = saved
             self._increment_version()
-
+            
             self._log_state_change(
                 "changes_saved_externally", old_saved, saved
             )
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.changes_saved_externally = old_saved
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === VALIDATION METHODS ===
-
+    
     def _validate_fq_sampler_prerequisites(self) -> Result[None]:
         """Validate prerequisites for FQ sampler initialization."""
         # Check genome state
         if self._atomic_genome.load() != 2:  # Must be LOADED
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         # Check burst engine state
         burst_state = self._atomic_burst_engine.load()
         if burst_state not in [2, 3]:  # Must be READY or ON_HOLD
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         # Check brain readiness
         if self._atomic_brain_ready.load() != 1:  # Must be ready
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         # Check neuroembryogenesis completion
         if self._state.neuroembryogenesis_stage != 5:  # Must be COMPLETED
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         return Result.ok(None)
-
+    
     def _validate_brain_readiness_prerequisites(self) -> Result[None]:
         """Validate prerequisites for brain readiness."""
         # Check genome state
         if self._atomic_genome.load() != 2:  # Must be LOADED
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         # Check neuroembryogenesis completion
         if self._state.neuroembryogenesis_stage != 5:  # Must be COMPLETED
             return Result.err(StateError.PREREQUISITE_NOT_MET)
-
+        
         return Result.ok(None)
-
+    
     # === UTILITY METHODS ===
-
+    
     def _increment_version(self) -> None:
         """Increment state version atomically."""
         old_version = self._atomic_version.fetch_add(1)
         self._state.state_version = old_version + 1
         self._state.last_modified = int(time.time() * 1000)
-
+    
     def _log_state_change(
         self, field_name: str, old_value: int, new_value: int
     ) -> None:
         """Log state change event."""
         event = StateChangeEvent(field_name, old_value, new_value)
-
+        
         # Maintain fixed-size event log
         if len(self._event_log) >= self._max_events:
             self._event_log.pop(0)  # Remove oldest event
-
+        
         self._event_log.append(event)
         logger.debug(f"State change: {field_name} {old_value} -> {new_value}")
-
+    
     def get_state_version(self) -> int:
         """Get current state version."""
         return self._atomic_version.load()
-
+    
     def get_comprehensive_state_report(self) -> Dict[str, Any]:
         """Get comprehensive state report for diagnostics."""
         with self._instance_lock:
@@ -1048,11 +1315,11 @@ class FeagiStateManager:
                     for event in self._event_log[-10:]  # Last 10 events
                 ],
             }
-
+    
     def validate_state_consistency(self) -> List[str]:
         """Validate state consistency and return list of errors."""
         errors = []
-
+        
         # Check brain readiness prerequisites
         if self.get_brain_readiness():
             if self.get_genome_state() != 2:
@@ -1061,30 +1328,34 @@ class FeagiStateManager:
                 errors.append(
                     "Brain ready but neuroembryogenesis not completed"
                 )
-
+        
         # Check FQ sampler prerequisites
         if self.get_fq_sampler_state() == 2:  # READY
             if self._validate_fq_sampler_prerequisites().is_err:
                 errors.append("FQ samplers ready but prerequisites not met")
-
+        
         return errors
 
     # === MISSING CRITICAL METHODS FOR MAIN.PY ===
-
+    
     def set_debug_config(self, config: Dict[str, Any]) -> None:
         """Set debug configuration from main.py config."""
         try:
             # Store debug configuration in state
             debug_config = config.get("debug", {})
-
+            print(f"🔍 [STATE-PRINT] set_debug_config called with: {config}")
+            print(f"🔍 [STATE-PRINT] Extracted debug config: {debug_config}")
+            logger.info(f"🔍 [STATE-DEBUG] set_debug_config called with: {config}")
+            logger.info(f"🔍 [STATE-DEBUG] Extracted debug config: {debug_config}")
+            
             # Extract relevant debug settings
             log_level = debug_config.get("log_level", "INFO")
             verbose = debug_config.get("verbose", False)
-
+            
             # Update internal debug state (could be expanded later)
             if not hasattr(self, "_debug_config"):
                 self._debug_config = {}
-
+            
             self._debug_config = {
                 "log_level": log_level,
                 "verbose": verbose,
@@ -1110,7 +1381,7 @@ class FeagiStateManager:
                     "mem_debug", False
                 ),  # CLI maps mem_debug -> debug.mem_debug
             }
-
+            
             # Show which debug flags are enabled
             enabled_flags = [
                 flag.replace("debug_", "")
@@ -1123,6 +1394,9 @@ class FeagiStateManager:
             if self._debug_config.get("mem_debug", False):
                 enabled_flags.append("mem_debug")
 
+            print(f"🔍 [STATE-PRINT] Final _debug_config: {self._debug_config}")
+            logger.info(f"🔍 [STATE-DEBUG] Final _debug_config: {self._debug_config}")
+                
             if enabled_flags:
                 logger.info(
                     f"Debug configuration set: log_level={log_level}, verbose={verbose}"
@@ -1132,7 +1406,7 @@ class FeagiStateManager:
                 logger.info(
                     f"Debug configuration set: log_level={log_level}, verbose={verbose}"
                 )
-
+            
             # Log enabled debug flags
             enabled_flags = [
                 key.replace("debug_", "")
@@ -1141,20 +1415,240 @@ class FeagiStateManager:
             ]
             if enabled_flags:
                 logger.info(f"Debug flags enabled: {', '.join(enabled_flags)}")
-
+            
         except Exception as e:
             logger.error(f"Error setting debug config: {e}")
             # Don't fail startup for debug config issues
             self._debug_config = {"config_loaded": False, "error": str(e)}
 
+    # ===== CORTICAL AREA LOCKING METHODS =====
+    
+    def lock_cortical_area(self, cortical_idx: int, locked_by: str, operation: str = "unknown") -> bool:
+        """Lock a cortical area for exclusive BDU operations.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            locked_by: Component requesting the lock (e.g., "BDU", "SleepManager")
+            operation: Description of the operation requiring the lock
+            
+        Returns:
+            True if lock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.lock_area(cortical_idx, locked_by, operation)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to lock cortical area {cortical_idx}: {e}")
+            return False
+    
+    def unlock_cortical_area(self, cortical_idx: int, locked_by: str) -> bool:
+        """Unlock a cortical area.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            locked_by: Component that originally locked the area
+            
+        Returns:
+            True if unlock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.unlock_area(cortical_idx, locked_by)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to unlock cortical area {cortical_idx}: {e}")
+            return False
+    
+    def is_cortical_area_locked(self, cortical_idx: int) -> bool:
+        """Check if a cortical area is currently locked.
+        
+        Args:
+            cortical_idx: Fast integer index for the cortical area
+            
+        Returns:
+            True if the area is locked, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.is_area_locked(cortical_idx)
+        except Exception as e:
+            logger.error(f"Failed to check lock status for cortical area {cortical_idx}: {e}")
+            return False
+    
+    def get_locked_cortical_areas(self) -> List[int]:
+        """Get list of all currently locked cortical area indices.
+        
+        Returns:
+            List of cortical_idx values that are currently locked
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_locked_areas()
+        except Exception as e:
+            logger.error(f"Failed to get locked cortical areas: {e}")
+            return []
+    
+    def lock_multiple_cortical_areas(self, cortical_indices: List[int], locked_by: str, operation: str = "batch") -> bool:
+        """Lock multiple cortical areas atomically.
+        
+        Args:
+            cortical_indices: List of cortical area indices to lock
+            locked_by: Component requesting the locks
+            operation: Description of the operation requiring the locks
+            
+        Returns:
+            True if all areas were locked successfully, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            results = lock_manager.lock_multiple_areas(cortical_indices, locked_by, operation)
+            return all(result == LockResult.SUCCESS for result in results.values())
+        except Exception as e:
+            logger.error(f"Failed to lock multiple cortical areas {cortical_indices}: {e}")
+            return False
+    
+    def unlock_multiple_cortical_areas(self, cortical_indices: List[int], locked_by: str) -> bool:
+        """Unlock multiple cortical areas.
+        
+        Args:
+            cortical_indices: List of cortical area indices to unlock
+            locked_by: Component that originally locked the areas
+            
+        Returns:
+            True if all areas were unlocked successfully, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            results = lock_manager.unlock_multiple_areas(cortical_indices, locked_by)
+            return all(result == LockResult.SUCCESS for result in results.values())
+        except Exception as e:
+            logger.error(f"Failed to unlock multiple cortical areas {cortical_indices}: {e}")
+            return False
+    
+    def get_cortical_locking_statistics(self) -> Dict[str, int]:
+        """Get cortical area locking statistics for monitoring.
+        
+        Returns:
+            Dictionary with lock statistics
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_statistics()
+        except Exception as e:
+            logger.error(f"Failed to get cortical locking statistics: {e}")
+            return {"error": 1}
+    
+    def force_unlock_all_cortical_areas(self, locked_by: str) -> int:
+        """Force unlock all areas locked by a specific component.
+        
+        This is useful for cleanup when a component shuts down unexpectedly.
+        
+        Args:
+            locked_by: Component to unlock all areas for
+            
+        Returns:
+            Number of areas that were unlocked
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.force_unlock_all(locked_by)
+        except Exception as e:
+            logger.error(f"Failed to force unlock areas for {locked_by}: {e}")
+            return 0
+
+    # ===== GLOBAL BRAIN LOCKING METHODS =====
+    
+    def lock_global_brain(self, locked_by: str, operation: str = "global_operation", 
+                         affected_areas: Optional[List[int]] = None) -> bool:
+        """Lock the entire brain for global operations.
+        
+        This is much more efficient than locking individual cortical areas and provides
+        atomic global operations. Perfect for Sleep Manager maintenance operations.
+        
+        Args:
+            locked_by: Component requesting the global lock (e.g., "SleepManager")
+            operation: Description of the global operation
+            affected_areas: Optional list of specific areas affected (None = all areas)
+            
+        Returns:
+            True if global lock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.lock_global_brain(locked_by, operation, affected_areas)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to lock global brain for {locked_by}: {e}")
+            return False
+    
+    def unlock_global_brain(self, locked_by: str) -> bool:
+        """Unlock the global brain.
+        
+        Args:
+            locked_by: Component that originally locked the brain
+            
+        Returns:
+            True if unlock was successful, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            result = lock_manager.unlock_global_brain(locked_by)
+            return result == LockResult.SUCCESS
+        except Exception as e:
+            logger.error(f"Failed to unlock global brain for {locked_by}: {e}")
+            return False
+    
+    def is_global_brain_locked(self) -> bool:
+        """Check if the global brain is currently locked.
+        
+        Returns:
+            True if global brain is locked, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.is_global_brain_locked()
+        except Exception as e:
+            logger.error(f"Failed to check global brain lock status: {e}")
+            return False
+    
+    def get_global_brain_lock_info(self) -> Optional[GlobalLockInfo]:
+        """Get information about the global brain lock.
+        
+        Returns:
+            GlobalLockInfo if global lock is active, None otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.get_global_lock_info()
+        except Exception as e:
+            logger.error(f"Failed to get global brain lock info: {e}")
+            return None
+    
+    def force_unlock_global_brain(self, locked_by: str) -> bool:
+        """Force unlock the global brain (emergency cleanup).
+        
+        Args:
+            locked_by: Component to force unlock for
+            
+        Returns:
+            True if global lock was cleared, False otherwise
+        """
+        try:
+            lock_manager = get_cortical_lock_manager()
+            return lock_manager.force_unlock_global_brain(locked_by)
+        except Exception as e:
+            logger.error(f"Failed to force unlock global brain for {locked_by}: {e}")
+            return False
+
     def cleanup(self) -> None:
         """Cleanup state manager resources for graceful shutdown."""
         try:
             logger.info("FeagiStateManager cleanup initiated")
-
+            
             # Set exit condition
             self.set_exit_condition(True)
-
+            
             # Save final state
             if hasattr(self, "_storage") and self._storage:
                 store_result = self._storage.store_state(self._state)
@@ -1165,13 +1659,13 @@ class FeagiStateManager:
                     )
                 else:
                     logger.info("Final state saved successfully")
-
+            
             # Clear instance for clean shutdown
             with FeagiStateManager._lock:
                 FeagiStateManager._instance = None
-
+                
             logger.info("FeagiStateManager cleanup completed")
-
+            
         except Exception as e:
             logger.error(f"Error during FeagiStateManager cleanup: {e}")
 
@@ -1184,45 +1678,45 @@ class FeagiStateManager:
             logger.info(f"Burst Engine State: {self.get_burst_engine_state()}")
             logger.info(f"FQ Sampler State: {self.get_fq_sampler_state()}")
             logger.info(f"Exit Condition: {self.get_exit_condition()}")
-
+            
             # Additional state info
             cortical_list = self.get_cortical_list()
             logger.info(f"Cortical Areas: {len(cortical_list)} registered")
-
+            
             connected_agents = self.get_connected_agents()
             logger.info(f"Connected Agents: {len(connected_agents)} active")
-
+            
             logger.info("=== STATE MANAGER READY ===")
-
+            
         except Exception as e:
             logger.error(f"Error logging startup summary: {e}")
 
     # === DEBUG CONFIGURATION METHODS ===
-
+    
     def is_debug_npu_enabled(self) -> bool:
         """Check if NPU debug mode is enabled."""
         if not hasattr(self, "_debug_config"):
             return False
         return self._debug_config.get("debug_npu", False)
-
+    
     def is_debug_api_enabled(self) -> bool:
         """Check if API debug mode is enabled."""
         if not hasattr(self, "_debug_config"):
             return False
         return self._debug_config.get("debug_api", False)
-
+    
     def is_debug_bdu_enabled(self) -> bool:
         """Check if BDU debug mode is enabled."""
         if not hasattr(self, "_debug_config"):
             return False
         return self._debug_config.get("debug_bdu", False)
-
+    
     def is_debug_zmq_inbound_enabled(self) -> bool:
         """Check if ZMQ inbound debug mode is enabled."""
         if not hasattr(self, "_debug_config"):
             return False
         return self._debug_config.get("debug_zmq_inbound", False)
-
+    
     def is_debug_zmq_outbound_enabled(self) -> bool:
         """Check if ZMQ outbound debug mode is enabled."""
         if not hasattr(self, "_debug_config"):
@@ -1290,7 +1784,7 @@ class FeagiStateManager:
         class StateValue:
             def __init__(self, value: str):
                 self.value = value
-
+        
         # Map integer states back to string values for compatibility
         genome_state_map = {
             0: "MISSING",
@@ -1331,7 +1825,7 @@ class FeagiStateManager:
             10: "SYNC_ERROR",
             11: "ON_HOLD",
         }
-
+        
         return {
             "genome": StateValue(
                 genome_state_map.get(self._state.genome_state, "UNKNOWN")
@@ -1362,7 +1856,7 @@ class FeagiStateManager:
             import platform
 
             arch = platform.machine().lower()
-
+            
             # Basic SIMD detection for common architectures
             if "arm64" in arch or "aarch64" in arch:
                 return {
@@ -1383,7 +1877,7 @@ class FeagiStateManager:
                 # Fallback to scalar processing
                 return {
                     "available": False,
-                    "backend": "SCALAR",
+                    "backend": "SCALAR", 
                     "vector_width": 1,
                     "alignment": 8,
                 }
@@ -1397,13 +1891,13 @@ class FeagiStateManager:
             }
 
     # === ZMQ STATE MANAGEMENT ===
-
+    
     def get_zmq_state(self) -> int:
         """Get current ZMQ state."""
         return getattr(
             self._state, "zmq_state", ServiceState.UNAVAILABLE.value
         )
-
+    
     def set_zmq_state(self, state) -> Result[None]:
         """Set ZMQ state with validation."""
         # Convert ServiceState enum to integer for Rust/RTOS compatibility
@@ -1428,29 +1922,29 @@ class FeagiStateManager:
                 "ON_HOLD": 11,
             }
             state_value = state_map.get(str(state).upper(), 0)
-
+        
         if not (0 <= state_value <= 11):  # ServiceState enum range
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_state = getattr(self._state, "zmq_state", 0)
             self._state.zmq_state = state_value
             self._increment_version()
-
+            
             self._log_state_change("zmq_state", old_state, state_value)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.zmq_state = old_state
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     # === AGENT REGISTRATION MANAGEMENT ===
-
+    
     def register_agent(
         self,
         agent_id: str,
@@ -1463,14 +1957,14 @@ class FeagiStateManager:
         **kwargs,
     ) -> Result[None]:
         """Register an agent in the state manager.
-
+        
         Args:
             agent_id: Unique agent identifier
             agent_type: Type of agent
             capabilities: Agent capabilities dictionary
             agent_data_port: Agent data port
             agent_version: Agent version
-            controller_version: Controller version
+            controller_version: Controller version  
             agent_ip: Agent IP address (uses configuration default if None)
             **kwargs: Additional agent data
         """
@@ -1488,7 +1982,7 @@ class FeagiStateManager:
                     f"Could not load agent configuration, using fallback: {e}"
                 )
                 agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
-
+        
         agent_data = {
             "agent_id": agent_id,
             "agent_type": agent_type,
@@ -1500,18 +1994,18 @@ class FeagiStateManager:
             "registered_at": int(time.time() * 1000),
             **kwargs,
         }
-
+        
         # Update connected agents registry
         current_agents = self.get_connected_agents()
         current_agents[agent_id] = agent_data
-
+        
         # Use existing method to update registry
         result = self.set_connected_agents(current_agents)
         return result
-
+    
     def deregister_agent(self, agent_id: str) -> Result[None]:
         """Deregister an agent from the state manager.
-
+        
         Args:
             agent_id: Agent identifier to remove
         """
@@ -1523,17 +2017,17 @@ class FeagiStateManager:
         return Result.ok(None)
 
     # === MISSING METHODS FOR TEST COMPATIBILITY ===
-
+    
     def get_agent_count(self) -> int:
         """Get current agent count."""
         return self._state.agent_count
-
+    
     def get_burst_frequency(self) -> float:
         """Get current burst frequency."""
         return (
             float(self._state.burst_frequency) / 100.0
         )  # Convert from fixed point
-
+    
     def set_burst_frequency(self, frequency: float) -> None:
         """Set burst frequency."""
         with self._instance_lock:
@@ -1546,13 +2040,13 @@ class FeagiStateManager:
                 "burst_frequency", old_freq, self._state.burst_frequency
             )
             self._storage.store_state(self._state)
-
+    
     def get_simulation_state(self) -> int:
         """Get current simulation state."""
         return getattr(
             self._state, "simulation_state", SimulationState.STOPPED.value
         )
-
+    
     def set_simulation_state(self, state) -> None:
         """Set simulation state."""
         if isinstance(state, SimulationState):
@@ -1561,63 +2055,63 @@ class FeagiStateManager:
             state_value = state
         else:
             state_value = SimulationState.STOPPED.value
-
+            
         with self._instance_lock:
             old_state = getattr(self._state, "simulation_state", 0)
             self._state.simulation_state = state_value
             self._increment_version()
             self._log_state_change("simulation_state", old_state, state_value)
             self._storage.store_state(self._state)
-
+    
     def set_fcl_sampler_state(self, state) -> None:
         """Set FCL sampler state (alias for FQ sampler state)."""
         self.set_fq_sampler_state(state)
-
+    
     def get_fcl_sampler_state(self) -> int:
         """Get FCL sampler state (alias for FQ sampler state)."""
         return self.get_fq_sampler_state()
-
+    
     def is_connectome_ready(self) -> bool:
         """Check if connectome is ready."""
         return self.get_connectome_state() == ConnectomeState.READY.value
-
+    
     def is_burst_engine_ready(self) -> bool:
         """Check if burst engine is ready."""
         return self.get_burst_engine_state() == ServiceState.READY.value
-
+    
     def is_simulation_running(self) -> bool:
         """Check if simulation is running."""
         return self.get_simulation_state() == SimulationState.RUNNING.value
-
+    
     def sync_to_disk(self) -> None:
         """Force synchronization to disk."""
         self._storage.store_state(self._state)
-
+    
     def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status (alias for
         get_critical_services_status)."""
         return self.get_critical_services_status()
-
+    
     def get_state_summary(self) -> Dict[str, Any]:
         """Get comprehensive state summary (alias for
         get_comprehensive_state_report)."""
         return self.get_comprehensive_state_report()
-
+    
     def set_debug_configuration(self, config: Dict[str, Any]) -> None:
         """Set debug configuration (alias for set_debug_config)."""
         self.set_debug_config(config)
-
+    
     def begin_genome_transaction(self) -> "GenomeTransaction":
         """Begin a genome transaction for atomic genome modifications."""
         # For now, return a simple mock transaction object
         # This can be expanded later if needed
         return GenomeTransaction(self)
-
+    
     def get_agent_registry_summary(self) -> Dict[str, Any]:
         """Get agent registry summary for logging and monitoring."""
         connected_agents = self.get_connected_agents()
         agent_count = len(connected_agents)
-
+        
         # Categorize agents by type
         agent_types = {}
         for agent_id, agent_data in connected_agents.items():
@@ -1625,11 +2119,11 @@ class FeagiStateManager:
                 agent_type = agent_data.get("agent_type", "unknown")
             else:
                 agent_type = str(agent_data)
-
+            
             if agent_type not in agent_types:
                 agent_types[agent_type] = []
             agent_types[agent_type].append(agent_id)
-
+        
         return {
             "total_agents": agent_count,
             "agent_types": agent_types,
@@ -1639,7 +2133,7 @@ class FeagiStateManager:
             },
             "connected_agent_ids": list(connected_agents.keys()),
         }
-
+    
     def get_genome_counter(self) -> int:
         """Get the current genome counter/version number."""
         # This tracks how many times genomes have been loaded
@@ -1648,35 +2142,35 @@ class FeagiStateManager:
         if current_state == GenomeState.LOADED:
             return 1  # Simple implementation - first loaded genome
         return 0  # No genome loaded
-
+    
     def get_genome_timestamp(self) -> int:
         """Get the current genome timestamp."""
         return getattr(self._state, "genome_timestamp", 0)
-
+    
     def set_genome_timestamp(self, timestamp: int) -> Result[None]:
         """Set genome timestamp."""
         if not isinstance(timestamp, int) or timestamp < 0:
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         # Atomic update
         with self._instance_lock:
             old_timestamp = getattr(self._state, "genome_timestamp", 0)
             self._state.genome_timestamp = timestamp
             self._increment_version()
-
+            
             self._log_state_change(
                 "genome_timestamp", old_timestamp, timestamp
             )
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.genome_timestamp = old_timestamp
                 return store_result
-
+        
         return Result.ok(None)
-
+    
     def increment_genome_counter(self) -> Result[None]:
         """Increment the genome counter."""
         # For now, this is a simple implementation
@@ -1686,106 +2180,106 @@ class FeagiStateManager:
             new_counter = old_counter + 1
             self._state.genome_counter = new_counter
             self._increment_version()
-
+            
             self._log_state_change("genome_counter", old_counter, new_counter)
-
+            
             # Persist to storage
             store_result = self._storage.store_state(self._state)
             if store_result.is_err:
                 # Rollback on storage failure
                 self._state.genome_counter = old_counter
                 return store_result
-
+        
         return Result.ok(None)
 
     # === MORTON SPATIAL HASH STATE MANAGEMENT ===
-
+    
     def get_morton_coordinate_limit(self) -> int:
         """Get the maximum coordinate value supported by the active Morton
         spatial hash.
-
+        
         Returns:
             Maximum coordinate value per dimension (exclusive)
         """
         return self._morton_coordinate_limit
-
+    
     def get_morton_class_name(self) -> str:
         """Get the name of the active Morton spatial hash class.
-
+        
         Returns:
             Name of the Morton spatial hash implementation
         """
         return self._morton_class_name
-
+    
     def set_morton_class_info(
         self, class_name: str, coordinate_limit: int
     ) -> Result[None]:
         """Update Morton spatial hash class information.
-
+        
         Args:
             class_name: Name of the Morton class implementation
             coordinate_limit: Maximum coordinate value per dimension
-
+            
         Returns:
             Result indicating success or failure
         """
         if coordinate_limit <= 0:
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         with self._instance_lock:
             old_class = self._morton_class_name
             old_limit = self._morton_coordinate_limit
-
+            
             self._morton_class_name = class_name
             self._morton_coordinate_limit = coordinate_limit
-
+            
             logger.info(
                 f"Morton spatial hash updated: {old_class} -> {class_name}, limit: {old_limit} -> {coordinate_limit}"
             )
-
+            
         return Result.ok(None)
-
+    
     def is_coordinate_within_morton_limits(
         self, x: int, y: int, z: int
     ) -> bool:
         """Check if coordinates are within Morton encoding limits.
-
+        
         Args:
             x, y, z: 3D coordinates to validate
-
+            
         Returns:
             True if coordinates are within limits, False otherwise
         """
         limit = self._morton_coordinate_limit
         return 0 <= x < limit and 0 <= y < limit and 0 <= z < limit
-
+    
     def validate_cortical_area_dimensions(
         self, dimensions: tuple
     ) -> Result[None]:
         """Validate that cortical area dimensions are within Morton limits.
-
+        
         Args:
             dimensions: Tuple of (width, height, depth) dimensions
-
+            
         Returns:
             Result indicating if dimensions are valid
         """
         if len(dimensions) != 3:
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         width, height, depth = dimensions
         limit = self._morton_coordinate_limit
-
+        
         if width >= limit or height >= limit or depth >= limit:
             logger.error(
                 f"Cortical area dimensions {dimensions} exceed Morton limit {limit}"
             )
             return Result.err(StateError.VALIDATION_FAILED)
-
+        
         return Result.ok(None)
 
     # === MEMORY AREA MANAGEMENT ===
-
+    
     def register_memory_area(
         self, cortical_id: str, temporal_depth: int
     ) -> Result[None]:
@@ -1801,7 +2295,7 @@ class FeagiStateManager:
         except Exception as e:
             logger.error(f"Failed to register memory area {cortical_id}: {e}")
             return Result.err(StateError.OPERATION_FAILED)
-
+    
     def unregister_memory_area(self, cortical_id: str) -> Result[None]:
         """Unregister a memory cortical area."""
         try:
@@ -1813,7 +2307,7 @@ class FeagiStateManager:
                 f"Failed to unregister memory area {cortical_id}: {e}"
             )
             return Result.err(StateError.OPERATION_FAILED)
-
+    
     def update_memory_temporal_depth(
         self, cortical_id: str, new_temporal_depth: int
     ) -> Result[None]:
@@ -1831,7 +2325,7 @@ class FeagiStateManager:
                 f"Failed to update memory area temporal depth {cortical_id}: {e}"
             )
             return Result.err(StateError.OPERATION_FAILED)
-
+    
     def add_cortical_mapping_to_cache(
         self, source_cortical_id: str, target_cortical_id: str
     ) -> None:
@@ -1849,41 +2343,41 @@ class FeagiStateManager:
         self._memory_area_cache.remove_cortical_mapping(
             source_cortical_id, target_cortical_id
         )
-
+    
     def get_fcl_window_size(self, cortical_id: str) -> int:
         """Get computed FCL window size for cortical area."""
         return self._memory_area_cache.get_window_size(cortical_id)
-
+    
     def invalidate_fcl_window_cache(self, cortical_id: str) -> None:
         """Invalidate FCL window size cache for cortical area."""
         self._memory_area_cache.invalidate_cortical_area(cortical_id)
-
+    
     def is_memory_area(self, cortical_id: str) -> bool:
         """Check if cortical area is a memory area."""
         return cortical_id in self._memory_area_cache.memory_areas
-
+    
     def get_memory_areas(self) -> List[str]:
         """Get list of all registered memory areas."""
         return list(self._memory_area_cache.memory_areas)
-
+    
     def get_memory_area_debug_info(self) -> Dict:
         """Get debug information about memory area cache state."""
         return self._memory_area_cache.get_debug_info()
 
     # === CORTICAL AREAS CACHE MANAGEMENT ===
-
+    
     def invalidate_cortical_areas_cache(self) -> None:
         """Mark cortical areas cache as dirty - will be refreshed on next access."""
         self._cortical_areas_cache_dirty = True
         self._cortical_areas_cache = None
         logger.debug("Cortical areas cache invalidated")
-
+    
     def get_cortical_areas_cache(self, connectome_manager=None) -> List[Dict]:
         """Get cached cortical areas data, refreshing if needed.
-
+        
         Args:
             connectome_manager: ConnectomeManager instance to refresh from if cache is dirty
-
+            
         Returns:
             List of cortical area dictionaries
         """
@@ -1896,7 +2390,7 @@ class FeagiStateManager:
                     "Cache is dirty but no connectome_manager provided for refresh"
                 )
                 return self._cortical_areas_cache or []
-
+            
             # Refresh cache from ConnectomeManager
             try:
                 fresh_data = (
@@ -1904,26 +2398,26 @@ class FeagiStateManager:
                 )
                 # Filter out empty dictionaries
                 fresh_data = [area for area in fresh_data if area]
-
+                
                 self._cortical_areas_cache = fresh_data
                 self._cortical_areas_cache_dirty = False
-
+                
                 logger.debug(
                     f"Refreshed cortical areas cache with {len(fresh_data)} areas"
                 )
                 return fresh_data
-
+                
             except Exception as e:
                 logger.error(f"Failed to refresh cortical areas cache: {e}")
                 return self._cortical_areas_cache or []
-
+        
         return self._cortical_areas_cache
-
+    
     def update_cortical_areas_cache(
         self, cortical_id: str, operation: str
     ) -> None:
         """Update cortical areas cache after operations.
-
+        
         Args:
             cortical_id: ID of the cortical area that changed
             operation: Type of operation ('add', 'update', 'delete', 'mapping_update')
@@ -1938,31 +2432,31 @@ class FeagiStateManager:
 
 class GenomeTransaction:
     """Simple genome transaction context manager for atomic operations."""
-
+    
     def __init__(self, state_manager: FeagiStateManager):
         self._state_manager = state_manager
         self._changes = []
         self._committed = False
-
+    
     def record_change(self, operation: str, *args, **kwargs):
         """Record a change to be applied atomically."""
         self._changes.append((operation, args, kwargs))
-
+    
     def commit(self):
         """Commit all recorded changes."""
         # For now, just mark as committed
         # In a full implementation, this would apply changes atomically
         self._committed = True
         return {"success": True, "changes_applied": len(self._changes)}
-
+    
     def rollback(self):
         """Rollback any changes."""
         self._changes.clear()
         return {"success": True, "changes_rolled_back": True}
-
+    
     def __enter__(self):
         return self
-
+    
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None and not self._committed:
             self.commit()

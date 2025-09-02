@@ -28,13 +28,29 @@ from feagi.bdu.models.neuron import Neuron, NeuronArray
 @pytest.fixture
 def neuron_array():
     """Create a test NeuronArray with a small capacity for testing."""
-    return NeuronArray(max_neurons=100)
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    from feagi.core.state_manager import FeagiStateManager
+    # Reset singletons to ensure test isolation
+    ConnectomeManager._instance = None
+    ConnectomeManager._initialized = False
+    FeagiStateManager._instance = None
+    # Create ConnectomeManager as mapping provider
+    connectome = ConnectomeManager.instance({"max_neurons": 100})
+    return connectome.neuron_array
 
 
 @pytest.fixture
 def populated_neuron_array():
     """Create a test NeuronArray with some neurons already created."""
-    na = NeuronArray(max_neurons=100)
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    from feagi.core.state_manager import FeagiStateManager
+    # Reset singletons to ensure test isolation
+    ConnectomeManager._instance = None
+    ConnectomeManager._initialized = False
+    FeagiStateManager._instance = None
+    # Create ConnectomeManager as mapping provider
+    connectome = ConnectomeManager.instance({"max_neurons": 100})
+    na = connectome.neuron_array
 
     # Create test neurons
     na.create_neuron(cortical_idx=1, position=(0, 0, 0), threshold=1.0)
@@ -46,12 +62,19 @@ def populated_neuron_array():
 
 def test_neuron_array_init():
     """Test NeuronArray initialization."""
-    na = NeuronArray(max_neurons=1000)
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    from feagi.core.state_manager import FeagiStateManager
+    # Reset singletons to ensure test isolation
+    ConnectomeManager._instance = None
+    ConnectomeManager._initialized = False
+    FeagiStateManager._instance = None
+    connectome = ConnectomeManager.instance({"max_neurons": 1000})
+    na = connectome.neuron_array
 
-    # Check array sizes
-    assert len(na.membrane_potentials) == 1000
-    assert len(na.thresholds) == 1000
-    assert len(na.valid_mask) == 1000
+    # Check array sizes (note: arrays are SIMD-aligned, so may be slightly larger)
+    assert len(na.membrane_potentials) >= 1000
+    assert len(na.thresholds) >= 1000
+    assert len(na.valid_mask) >= 1000
 
     # Check default values - convert PyTorch tensors to numpy if needed
     if isinstance(na.membrane_potentials, torch.Tensor):
@@ -224,7 +247,14 @@ def test_neuron_wrapper_class():
 
 def test_gpu_transfer():
     """Test GPU transfer methods (conditionally skips if no GPU available)."""
-    na = NeuronArray(max_neurons=10)
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    from feagi.core.state_manager import FeagiStateManager
+    # Reset singletons to ensure test isolation
+    ConnectomeManager._instance = None
+    ConnectomeManager._initialized = False
+    FeagiStateManager._instance = None
+    connectome = ConnectomeManager.instance({"max_neurons": 10})
+    na = connectome.neuron_array
 
     # Create some test neurons
     for i in range(3):

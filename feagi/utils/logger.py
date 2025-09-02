@@ -10,15 +10,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Logging utilities for FEAGI with ASCII-safe status indicators.
 """
 
-"""Logging utilities for FEAGI with ASCII-safe status indicators."""
 import logging
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 # -----------------------------------------------------------------------------
 # ASCII Status Indicators for Embedded System Compatibility
@@ -186,16 +187,13 @@ class StatusAdapter(logging.LoggerAdapter):
 
 # Global flag to track if we've already shown the main logger setup messages
 _MAIN_LOGGER_SETUP_SHOWN = False
-# Cache for the global log level to avoid repeated config loading
-_CACHED_LOG_LEVEL = None
 # Global storage for deferred setup info
 _DEFERRED_SETUP_INFO: Optional[Dict[str, Any]] = None
 
 
 def clear_logger_cache():
-    """Clear the logger cache - for testing/debugging only."""
-    global _CACHED_LOG_LEVEL
-    _CACHED_LOG_LEVEL = None
+    """Clear any logger caches (currently no-op since caching was removed)."""
+    pass
 
 
 def show_deferred_setup_info():
@@ -235,6 +233,73 @@ def show_deferred_setup_info():
     _DEFERRED_SETUP_INFO = None
 
 
+def _check_module_debug_override(logger_name: str) -> Optional[int]:
+    """Check if a module-specific debug flag should override the logger level.
+    
+    This function checks environment variables set by CLI debug flags to determine
+    if a specific logger should be set to DEBUG level regardless of global settings.
+    
+    Args:
+        logger_name: The name of the logger being created
+        
+    Returns:
+        logging.DEBUG if module should be in debug mode, None otherwise
+    """
+    import logging
+    import os
+    
+    # Define mappings between debug environment variables and logger hierarchies
+    debug_env_to_loggers = {
+        "FEAGI_DEBUG_NPU": [
+            "feagi.npu",
+            "feagi.npu.burst_engine",
+            "feagi.npu.fcl_manager", 
+            "feagi.npu.fcl_injection_service",
+            "feagi.npu.special_area_handler",
+            "feagi.npu.memory_processor",
+            "feagi.npu.fq_sampler"
+        ],
+        "FEAGI_DEBUG_API": [
+            "feagi.api",
+            "feagi.api.rest",
+            "feagi.api.core",
+            "feagi.api.gateway",
+            "feagi.api.protocols",
+            "feagi.api.transport",
+            "feagi.api.zmq"
+        ],
+        "FEAGI_DEBUG_BDU": [
+            "feagi.bdu",
+            "feagi.bdu.connectivity",
+            "feagi.bdu.embryogenesis",
+            "feagi.bdu.models",
+            "feagi.bdu.utils"
+        ],
+        "FEAGI_DEBUG_ZMQ": [
+            "feagi.api.zmq",
+            "feagi.api.zmq.streams",
+            "feagi.api.zmq.neural",
+            "feagi.api.zmq.memory",
+            "feagi.api.zmq.patterns"
+        ],
+        "FEAGI_DEBUG_MEM": [
+            "feagi.npu.memory_processor",
+            "feagi.bdu.models.memory",
+            "feagi.core.memory"
+        ]
+    }
+    
+    # Check each debug environment variable
+    for env_var, logger_hierarchies in debug_env_to_loggers.items():
+        if os.environ.get(env_var, "0") == "1":
+            # Check if this logger matches any of the hierarchies for this debug flag
+            for hierarchy in logger_hierarchies:
+                if logger_name == hierarchy or logger_name.startswith(hierarchy + "."):
+                    return logging.DEBUG
+    
+    return None
+
+
 def setup_logger(
     name: str = "feagi",
     level: Optional[int] = None,  # Changed from WARNING default to None
@@ -242,11 +307,16 @@ def setup_logger(
     console: bool = True,
     tag: Optional[str] = None,
 ) -> StatusAdapter:
-    global _MAIN_LOGGER_SETUP_SHOWN, _CACHED_LOG_LEVEL
+    global _MAIN_LOGGER_SETUP_SHOWN
 
-    #  Determine log level priority: parameter > CLI env var > config > default
-    #  INFO
+    #  Determine log level priority: parameter > module debug override > CLI env var > config > default
     final_level = level
+
+    if final_level is None:
+        # Check for module-specific debug override FIRST
+        debug_override = _check_module_debug_override(name)
+        if debug_override is not None:
+            final_level = debug_override
 
     if final_level is None:
         # Check for CLI-provided log level override
@@ -255,28 +325,22 @@ def setup_logger(
             final_level = getattr(logging, cli_log_level.upper(), None)
 
     if final_level is None:
-        # Use cached log level if available to avoid repeated config loading
-        if _CACHED_LOG_LEVEL is not None:
-            final_level = _CACHED_LOG_LEVEL
-        else:
-            # Try to get log level from FEAGI configuration (only once)
-            try:
-                from feagi.config.toml_loader import load_feagi_config
+        # Try to get log level from FEAGI configuration
+        # Note: Removed caching to allow config updates to take effect
+        try:
+            from feagi.config.toml_loader import load_feagi_config
 
-                config = load_feagi_config()
-                config_log_level = config.get("system", {}).get(
-                    "log_level", "INFO"
-                )
-                final_level = getattr(
-                    logging, config_log_level.upper(), logging.INFO
-                )
-                # Cache the result to avoid repeated config loading
-                _CACHED_LOG_LEVEL = final_level
-            except (ImportError, Exception):
-                #  Fallback to INFO if config is not available (e.g., during
-                #  early startup)
-                final_level = logging.INFO
-                _CACHED_LOG_LEVEL = final_level
+            config = load_feagi_config()
+            config_log_level = config.get("system", {}).get(
+                "log_level", "INFO"
+            )
+            final_level = getattr(
+                logging, config_log_level.upper(), logging.INFO
+            )
+        except (ImportError, Exception):
+            #  Fallback to INFO if config is not available (e.g., during
+            #  early startup)
+            final_level = logging.INFO
 
     LEVEL_MAP = {
         "DEBUG": "DEBUG   ",
@@ -374,12 +438,13 @@ def setup_logger(
 
     logger = logging.getLogger(name)
 
-    # CRITICAL FIX: Only configure logger if not already configured
-    #  This prevents duplicate handlers when setup_logger is called multiple
-    #  times
+    # Always apply the computed level to the logger, even if handlers exist
+    # This ensures CLI/config updates affect existing module loggers reliably
+    logger.setLevel(final_level)
+    logger.propagate = False
+
+    # Only create handlers once to prevent duplication
     if not logger.handlers or len(logger.handlers) == 0:
-        logger.setLevel(final_level)
-        logger.propagate = False
 
         formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -509,13 +574,112 @@ def setup_logger(
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
     else:
-        # Logger already configured - just update level if provided explicitly
-        if level is not None:
-            logger.setLevel(level)
-            for handler in logger.handlers:
-                handler.setLevel(level)
+        # Logger already configured - update handler levels to match final_level
+        for handler in logger.handlers:
+            handler.setLevel(final_level)
 
     return StatusAdapter(logger, {"label": tag or name})
+
+
+# -----------------------------------------------------------------------------
+# Subsystem logger application (runtime level sync for loggers and handlers)
+# -----------------------------------------------------------------------------
+
+# Centralized subsystem -> logger hierarchies mapping
+SUBSYSTEM_LOGGER_HIERARCHIES: Dict[str, List[str]] = {
+    # Split API into core/rest/zmq for fine-grained control
+    "api_core": [
+        "feagi.api.core",
+        "feagi.api.gateway",
+        "feagi.api.protocols",
+        "feagi.api.transport",
+    ],
+    "api_rest": [
+        "feagi.api.rest",
+    ],
+    "api_zmq": [
+        "feagi.api.zmq",
+        "feagi.api.zmq.streams",
+        "feagi.api.zmq.neural",
+        "feagi.api.zmq.memory",
+        "feagi.api.zmq.patterns",
+    ],
+    "npu": [
+        "feagi.npu",
+        "feagi.npu.burst_engine",
+        "feagi.npu.fcl_manager",
+        "feagi.npu.fcl_injection_service",
+        "feagi.npu.special_area_handler",
+        "feagi.npu.memory_processor",
+        "feagi.npu.fq_sampler",
+    ],
+    "bdu": [
+        "feagi.bdu",
+        "feagi.bdu.connectivity",
+        "feagi.bdu.embryogenesis",
+        "feagi.bdu.models",
+        "feagi.bdu.utils",
+    ],
+    "evo": [
+        "feagi.evo",
+    ],
+    "zmq": [
+        "feagi.api.zmq",
+        "feagi.api.zmq.streams",
+        "feagi.api.zmq.neural",
+        "feagi.api.zmq.memory",
+        "feagi.api.zmq.patterns",
+    ],
+    "mem": [
+        "feagi.npu.memory_processor",
+        "feagi.bdu.models.memory",
+        "feagi.core.memory",
+    ],
+}
+
+
+def apply_subsystem_log_levels(debug_cfg: Dict[str, Any], baseline_level: int) -> None:
+    """Apply subsystem log levels live by updating logger and handler levels.
+
+    Args:
+        debug_cfg: StateManager debug config dict; expects keys like
+                   {'debug_api': bool, 'debug_npu': bool, ...}
+        baseline_level: logging.INFO/DEBUG/WARNING/etc for subsystems that are off
+    """
+    import logging
+
+    # Build subsystem -> enabled map from debug_cfg
+    enabled_by_subsystem = {
+        # Keep legacy aggregate 'debug_api' enabling all three API subsystems
+        "api_core": bool(debug_cfg.get("debug_api_core", False) or debug_cfg.get("debug_api", False)),
+        "api_rest": bool(debug_cfg.get("debug_api_rest", False) or debug_cfg.get("debug_api", False)),
+        "api_zmq": bool(debug_cfg.get("debug_api_zmq", False) or debug_cfg.get("debug_api", False)),
+        "npu": bool(debug_cfg.get("debug_npu", False)),
+        "bdu": bool(debug_cfg.get("debug_bdu", False)),
+        "evo": bool(debug_cfg.get("debug_evo", False)),
+        "zmq": bool(debug_cfg.get("debug_zmq_inbound", False) or debug_cfg.get("debug_zmq_outbound", False)),
+        "mem": bool(debug_cfg.get("mem_debug", False)),
+    }
+
+    logger_dict = logging.Logger.manager.loggerDict
+
+    # Helper to set both logger and all handler levels
+    def _set_logger_and_handlers(_logger: logging.Logger, level: int) -> None:
+        try:
+            _logger.setLevel(level)
+            for h in getattr(_logger, "handlers", []) or []:
+                h.setLevel(level)
+        except Exception:
+            pass
+
+    for subsystem, hierarchies in SUBSYSTEM_LOGGER_HIERARCHIES.items():
+        target_level = logging.DEBUG if enabled_by_subsystem.get(subsystem, False) else baseline_level
+        for name, log_obj in logger_dict.items():
+            if isinstance(log_obj, logging.Logger):
+                for h in hierarchies:
+                    if name == h or name.startswith(h + "."):
+                        _set_logger_and_handlers(log_obj, target_level)
+                        break
 
 
 # Backward compatibility alias

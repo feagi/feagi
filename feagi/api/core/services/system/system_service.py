@@ -130,7 +130,7 @@ class SystemService(BaseService):
             #  (Bridge/Godot) to track genome counter increments
             health["genome_num"] = self.state_manager.get_genome_counter()
 
-            # Use the proper state manager method to check if genome is loaded
+            # Determine genome loaded state via StateManager only (single source of truth)
             if self.state_manager.is_genome_loaded():
                 health["genome_availability"] = True
                 health["brain_readiness"] = (
@@ -144,7 +144,7 @@ class SystemService(BaseService):
                     fitness_raw if fitness_raw is not None else 0.0
                 )
 
-                # Get data from connectome manager (now properly singleton)
+                # Report current counts if connectome is ready per existing validator
                 if self._validate_connectome_ready():
                     health["cortical_area_count"] = len(
                         self._connectome_manager.cortical_areas
@@ -157,6 +157,15 @@ class SystemService(BaseService):
                     ]  # Keep existing key for UI compatibility
                     health["memory_neuron_count"] = neuron_counts["memory"]
                     health["regular_neuron_count"] = neuron_counts["regular"]
+
+                    # Add per-cortical-area memory neuron statistics
+                    try:
+                        memory_area_stats = self.state_manager.get_memory_area_stats()
+                        health["memory_area_stats"] = memory_area_stats
+                        self.logger.debug(f"Added memory_area_stats to health: {len(memory_area_stats)} areas")
+                    except Exception as e:
+                        self.logger.warning(f"Could not get memory area stats: {e}")
+                        health["memory_area_stats"] = {}
 
                     health["synapse_count"] = (
                         self._connectome_manager.get_synapse_count()
@@ -203,6 +212,17 @@ class SystemService(BaseService):
                 if genome_validity_raw is not None
                 else False
             )
+
+            # Add simulation timestep (time between neural bursts)
+            try:
+                frequency = self.state_manager.get_burst_frequency()
+                if frequency > 0:
+                    health["simulation_timestep"] = 1.0 / frequency
+                else:
+                    health["simulation_timestep"] = 1.0  # Default 1 second period
+            except Exception as e:
+                self.logger.warning(f"Could not get simulation timestep: {e}")
+                health["simulation_timestep"] = 1.0  # Default fallback
 
             # Check for pending amalgamation
             if self._has_pending_amalgamation():
@@ -645,11 +665,13 @@ class SystemService(BaseService):
                 # Get visualization FQ sampler status
                 viz_sampler = getattr(process_manager, "_viz_fq_sampler", None)
                 if viz_sampler:
-                    #  Check if sampler has visualization subscribers (enabled
-                    #  state)
+                    # Determine active status for stream-based sampler
                     has_subscribers = getattr(
                         viz_sampler, "_has_visualization_subscribers", False
                     )
+                    thread_running = getattr(viz_sampler, "running", False)
+                    is_active = bool(has_subscribers or thread_running)
+
                     status["visualization"] = {
                         "enabled": has_subscribers,
                         "frequency_hz": getattr(
@@ -663,7 +685,8 @@ class SystemService(BaseService):
                             )
                             or "unknown"
                         ),
-                        "running": getattr(viz_sampler, "running", False),
+                        # Report running when sampler is active (subscribers or internal thread)
+                        "running": is_active,
                     }
                 else:
                     status["visualization"] = {
@@ -676,10 +699,13 @@ class SystemService(BaseService):
                     process_manager, "_motor_fq_sampler", None
                 )
                 if motor_sampler:
-                    # Check if sampler has motor subscribers (enabled state)
+                    # Determine active status for stream-based sampler
                     has_subscribers = getattr(
                         motor_sampler, "_has_motor_subscribers", False
                     )
+                    thread_running = getattr(motor_sampler, "running", False)
+                    is_active = bool(has_subscribers or thread_running)
+
                     status["motor"] = {
                         "enabled": has_subscribers,
                         "frequency_hz": getattr(
@@ -695,7 +721,8 @@ class SystemService(BaseService):
                             )
                             or "unknown"
                         ),
-                        "running": getattr(motor_sampler, "running", False),
+                        # Report running when sampler is active (subscribers or internal thread)
+                        "running": is_active,
                     }
                 else:
                     status["motor"] = {
@@ -756,3 +783,30 @@ class SystemService(BaseService):
             "suggested_frequency_scale": suggested_frequency_scale,
             "performance_tier": performance_tier,
         }
+
+    def _get_neuron_count_breakdown(self) -> Dict[str, int]:
+        """Get breakdown of neuron counts by type.
+        
+        Returns:
+            Dictionary with total, regular, and memory neuron counts
+        """
+        try:
+            if not self._connectome_manager or not hasattr(self._connectome_manager, '_npu_interface'):
+                return {"total": 0, "regular": 0, "memory": 0}
+            
+            npu_interface = self._connectome_manager._npu_interface
+            if not npu_interface:
+                return {"total": 0, "regular": 0, "memory": 0}
+            
+            regular_count = npu_interface.neuron_array.count
+            memory_count = npu_interface.memory_neuron_array.count
+            total_count = regular_count + memory_count
+            
+            return {
+                "total": total_count,
+                "regular": regular_count,
+                "memory": memory_count
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting neuron count breakdown: {e}")
+            return {"total": 0, "regular": 0, "memory": 0}

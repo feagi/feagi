@@ -86,7 +86,7 @@ class ConnectomeService(BaseService):
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_synapses = sum(
                 len(connections)
-                for connections in self._connectome_manager._outgoing_connections.values()
+                for connections in getattr(self._connectome_manager, "_outgoing_connections", {}).values()
             )
 
             # Calculate average connectivity
@@ -155,9 +155,8 @@ class ConnectomeService(BaseService):
             total_weight = 0.0
 
             for src_neuron in source_neurons:
-                outgoing = self._connectome_manager.get_outgoing_connections(
-                    src_neuron
-                )
+                # Ensure NPU SynapseArray is wired; use CM accessor which delegates to NPU
+                outgoing = self._connectome_manager.get_outgoing_connections(src_neuron)
                 for tgt_neuron, weight in outgoing:
                     if tgt_neuron in target_neurons:
                         connections.append(

@@ -260,7 +260,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "co_mot": {
+            "o__mot": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Motor control",
@@ -515,7 +515,7 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "motor": [
-                "co_mot",
+                "o__mot",
             ],
             "servo": [
                 "o__ser",
@@ -799,3 +799,6 @@ core_morphologies = {
         "class": "core",
     },
 }
+
+# Create supported_ipu_list for backward compatibility with genome validator
+supported_ipu_list = list(cortical_types["IPU"]["supported_devices"].keys())

@@ -24,7 +24,7 @@ import time
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import threading
 from typing import Any, Dict, List, Optional
 

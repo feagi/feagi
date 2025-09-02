@@ -40,7 +40,7 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 # Import TOML configuration system
 from feagi.config.toml_loader import (
@@ -90,11 +90,9 @@ class ProcessManager:
 
         logger.info("[SINGLETON] ProcessManager initialized")
 
-        #  CRITICAL: Use ConnectomeManager singleton for mission-critical
-        #  reliability
-        from feagi.bdu.connectome_manager import ConnectomeManager
-
-        self._connectome_manager = ConnectomeManager.instance()
+        #  CRITICAL: ConnectomeManager will be initialized in init_critical_processes
+        #  with proper configuration and backend parameters
+        self._connectome_manager = None
 
         # Internal references for critical components
         self._fcl_manager = None
@@ -924,11 +922,26 @@ class ProcessManager:
 
                             import uvicorn
 
+                            # Determine Uvicorn log level based on debug flags
+                            import os
+                            
+                            # Check if API debugging is enabled
+                            debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+                            
+                            if debug_api_enabled:
+                                # API debug mode: show INFO level logs
+                                uvicorn_log_level = "info"
+                            else:
+                                # Use global log level from environment or config
+                                global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
+                                uvicorn_log_level = global_level.lower()
+                            
                             uvicorn.run(
                                 app,
                                 host=api_config["host"],
                                 port=api_config["port"],
                                 access_log=api_config.get("access_log", True),
+                                log_level=uvicorn_log_level,
                                 loop="asyncio",
                             )
                         except Exception as e:
@@ -1080,11 +1093,24 @@ class ProcessManager:
 
                     # Run uvicorn in the same process
                     import uvicorn
+                    import os
+                    
+                    # Determine Uvicorn log level based on debug flags
+                    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+                    
+                    if debug_api_enabled:
+                        # API debug mode: show INFO level logs
+                        uvicorn_log_level = "info"
+                    else:
+                        # Use global log level from environment or config
+                        global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
+                        uvicorn_log_level = global_level.lower()
 
                     uvicorn.run(
                         app,
                         host=config["host"],
                         port=config["port"],
+                        log_level=uvicorn_log_level,
                         loop="asyncio",
                     )
                 except Exception as e:
@@ -1280,7 +1306,7 @@ class ProcessManager:
                 graceful_shutdown_timeout = timeout_config.graceful_shutdown
                 thread_join_timeout = timeout_config.thread_join
                 process_join_timeout = timeout_config.process_join
-                fq_sampler_timeout = timeout_config.fq_sampler_shutdown
+                # fq_sampler_timeout = timeout_config.fq_sampler_shutdown  # Unused for now
             except Exception as e:
                 print(
                     f"Warning: Could not load timeout config during shutdown, using fallback values: {e}",
@@ -2218,6 +2244,10 @@ class SleepManager:
         self._thread = None
         # Genome physiology overrides
         self._use_genome_trigger = True
+        
+        # Global brain locking coordination
+        self._state_manager = None
+        self._component_name = "SleepManager"
 
     def start(self) -> None:
         if self._running:
@@ -2232,6 +2262,9 @@ class SleepManager:
             self._thread.join(
                 timeout=2.0
             )  # @architecture:acceptable - shutdown cleanup
+        
+        # Clean up any locked areas during shutdown
+        self._cleanup_locked_areas()
 
     def is_running(self) -> bool:
         return self._running and self._thread and self._thread.is_alive()
@@ -2307,107 +2340,228 @@ class SleepManager:
         except Exception as e:
             logger.error(f"Sleep Manager terminated with error: {e}")
 
+    def _get_state_manager(self):
+        """Get State Manager instance for cortical locking."""
+        if self._state_manager is None:
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                self._state_manager = FeagiStateManager.instance()
+            except Exception as e:
+                logger.error(f"Failed to get State Manager for cortical locking: {e}")
+                self._state_manager = None
+        return self._state_manager
+
+    def _get_memory_cortical_areas(self) -> List[int]:
+        """Get list of memory cortical area indices that need maintenance.
+        
+        Returns:
+            List of cortical_idx values for memory areas
+        """
+        memory_areas = []
+        try:
+            if self._mp and hasattr(self._mp, "memory_area_properties"):
+                # Get memory areas from memory processor
+                for area_id, props in self._mp.memory_area_properties.items():
+                    # Convert area_id (6-letter string) to cortical_idx (integer)
+                    # TODO: Need proper mapping from ConnectomeManager
+                    # For now, use a simple hash-based approach
+                    cortical_idx = hash(area_id) % 10000  # Simple mapping
+                    if cortical_idx >= 0:
+                        memory_areas.append(cortical_idx)
+            
+            # Fallback: if no memory processor, assume memory areas exist
+            # This is a temporary approach until proper integration
+            if not memory_areas and self._cm:
+                # Check if ConnectomeManager has memory areas
+                if hasattr(self._cm, 'cortical_areas'):
+                    for area_id, area_info in self._cm.cortical_areas.items():
+                        if area_info.get('type') == 'memory':
+                            cortical_idx = hash(area_id) % 10000
+                            if cortical_idx >= 0:
+                                memory_areas.append(cortical_idx)
+        except Exception as e:
+            logger.debug(f"Error getting memory cortical areas: {e}")
+        
+        return memory_areas
+
+    def _lock_memory_areas_for_maintenance(self) -> bool:
+        """Lock the entire brain for global memory maintenance operations.
+        
+        This uses the efficient global brain lock instead of locking individual areas.
+        
+        Returns:
+            True if global brain lock was successful, False otherwise
+        """
+        state_manager = self._get_state_manager()
+        if not state_manager:
+            logger.warning("No State Manager available for global brain locking")
+            return True  # Proceed without locking (backward compatibility)
+        
+        # Use global brain lock for efficient maintenance
+        success = state_manager.lock_global_brain(
+            locked_by=self._component_name,
+            operation="global_memory_maintenance"
+        )
+        
+        if success:
+            logger.debug(f"🌍 Sleep Manager acquired global brain lock for maintenance")
+        else:
+            logger.warning(f"Failed to acquire global brain lock for maintenance")
+        
+        return success
+
+    def _unlock_memory_areas_after_maintenance(self) -> None:
+        """Unlock the global brain after maintenance completion."""
+        state_manager = self._get_state_manager()
+        if not state_manager:
+            return
+        
+        # Unlock global brain
+        success = state_manager.unlock_global_brain(locked_by=self._component_name)
+        
+        if success:
+            logger.debug(f"🌍 Sleep Manager released global brain lock after maintenance")
+        else:
+            logger.warning(f"Failed to release global brain lock")
+
+    def _cleanup_locked_areas(self) -> None:
+        """Emergency cleanup of global brain lock (called during shutdown)."""
+        state_manager = self._get_state_manager()
+        if not state_manager:
+            return
+        
+        # Force unlock global brain
+        unlocked = state_manager.force_unlock_global_brain(locked_by=self._component_name)
+        
+        if unlocked:
+            logger.info(f"🚨 Sleep Manager emergency cleanup: released global brain lock")
+
     def _run_memory_maintenance(self, current_ts: int) -> None:
+        """Run memory maintenance operations with cortical area locking coordination.
+        
+        This method now coordinates with the NPU by locking memory cortical areas
+        during maintenance operations, ensuring BDU operations take precedence.
+        """
         try:
             if not self._cm or not hasattr(self._cm, "memory_neuron_array"):
                 return
-            mna = self._cm.memory_neuron_array
-            # Aging: decrement lifespans by elapsed bursts since last run
+            
+            # Lock memory areas before maintenance (BDU operations take precedence)
+            if not self._lock_memory_areas_for_maintenance():
+                logger.warning("Failed to lock memory areas, skipping maintenance cycle")
+                return
+            
             try:
-                if not hasattr(self, "_last_aging_burst"):
-                    self._last_aging_burst = current_ts
-                delta = int(
-                    current_ts - getattr(self, "_last_aging_burst", current_ts)
-                )
-                if delta > 0:
-                    died = []
-                    # Prefer vectorized aging if available
-                    if hasattr(mna, "age_by_bursts") and callable(
-                        mna.age_by_bursts
-                    ):
-                        died = mna.age_by_bursts(delta)
-                    else:
-                        # Fallback to per-burst aging loop (should be rare)
-                        for _ in range(delta):
-                            died.extend(
-                                mna.age_memory_neurons(
-                                    current_burst=current_ts
-                                )
-                            )
-                    if died:
-                        #  Update global counts via MemoryProcessor helper if
-                        #  available
-                        try:
-                            if self._mp and hasattr(
-                                self._mp, "_update_state_manager_neuron_count"
-                            ):
-                                self._mp._update_state_manager_neuron_count(
-                                    increment=-len(died)
-                                )
-                        except Exception:
-                            pass
-                        logger.info(
-                            f"[MEMORY-DEATH] aged_by={delta} died={len(died)} sample={died[:10]}"
-                        )
-                    self._last_aging_burst = current_ts
-            except Exception as age_err:
-                logger.debug(f"Sleep Manager aging error: {age_err}")
-            #  Consolidation: re-check long-term conversion under current
-            #  thresholds
-            try:
-                #  Derive thresholds from registered memory areas if memory
-                #  processor exists
-                if self._mp and hasattr(self._mp, "memory_area_properties"):
-                    thresholds = set()
-                    for props in self._mp.memory_area_properties.values():
-                        try:
-                            thresholds.add(
-                                int(props.get("longterm_threshold", 100))
-                            )
-                        except Exception:
-                            pass
-                    converted_total = 0
-                    converted_sample = []
-                    for t in thresholds:
-                        converted = mna.check_longterm_conversion(
-                            longterm_threshold=t
-                        )
-                        if converted:
-                            converted_total += len(converted)
-                            if len(converted_sample) < 10:
-                                converted_sample.extend(
-                                    converted[
-                                        : max(0, 10 - len(converted_sample))
-                                    ]
-                                )
-                    if converted_total:
-                        logger.info(
-                            f"[MEMORY-LTM] converted={converted_total} sample={converted_sample}"
-                        )
-            except Exception as conv_err:
-                logger.debug(
-                    f"Sleep Manager conversion pass error: {conv_err}"
-                )
-            # GC: prune stale inactive pattern mappings
-            try:
-                pruned = mna.collect_garbage(
-                    current_burst=current_ts,
-                    prune_inactive_after_bursts=self._gc_prune_after,
-                )
-                if (
-                    pruned
-                    and self._mp
-                    and hasattr(self._mp, "_remove_neuron_from_cache")
-                ):
-                    # Best effort: ensure caches drop any pruned indices
-                    #  Note: indexes removed from mappings may still be present
-                    #  in cache if inactive; flush conservatively
-                    pass  # Cache uses pattern keys; pruning mappings already reduces memory footprint
-                if pruned:
-                    logger.info(
-                        f"[SLEEP] Memory GC completed: pruned {pruned} mappings (ts={current_ts})"
+                mna = self._cm.memory_neuron_array
+                logger.debug(f"🔧 Sleep Manager starting memory maintenance (ts={current_ts})")
+                
+                # Aging: decrement lifespans by elapsed bursts since last run
+                try:
+                    if not hasattr(self, "_last_aging_burst"):
+                        self._last_aging_burst = current_ts
+                    delta = int(
+                        current_ts - getattr(self, "_last_aging_burst", current_ts)
                     )
-            except Exception as gc_err:
-                logger.debug(f"Sleep Manager GC error: {gc_err}")
+                    if delta > 0:
+                        died = []
+                        # Prefer vectorized aging if available
+                        if hasattr(mna, "age_by_bursts") and callable(
+                            mna.age_by_bursts
+                        ):
+                            died = mna.age_by_bursts(delta)
+                        else:
+                            # Fallback to per-burst aging loop (should be rare)
+                            for _ in range(delta):
+                                died.extend(
+                                    mna.age_memory_neurons(
+                                        current_burst=current_ts
+                                    )
+                                )
+                        if died:
+                            #  Update global counts via MemoryProcessor helper if
+                            #  available
+                            try:
+                                if self._mp and hasattr(
+                                    self._mp, "_update_state_manager_neuron_count"
+                                ):
+                                    self._mp._update_state_manager_neuron_count(
+                                        increment=-len(died)
+                                    )
+                            except Exception:
+                                pass
+                            logger.info(
+                                f"[MEMORY-DEATH] aged_by={delta} died={len(died)} sample={died[:10]}"
+                            )
+                    self._last_aging_burst = current_ts
+                except Exception as age_err:
+                    logger.debug(f"Sleep Manager aging error: {age_err}")
+                
+                #  Consolidation: re-check long-term conversion under current
+                #  thresholds
+                try:
+                    #  Derive thresholds from registered memory areas if memory
+                    #  processor exists
+                    if self._mp and hasattr(self._mp, "memory_area_properties"):
+                        thresholds = set()
+                        for props in self._mp.memory_area_properties.values():
+                            try:
+                                thresholds.add(
+                                    int(props.get("longterm_threshold", 100))
+                                )
+                            except Exception:
+                                pass
+                        converted_total = 0
+                        converted_sample = []
+                        for t in thresholds:
+                            converted = mna.check_longterm_conversion(
+                                longterm_threshold=t
+                            )
+                            if converted:
+                                converted_total += len(converted)
+                                if len(converted_sample) < 10:
+                                    converted_sample.extend(
+                                        converted[
+                                            : max(0, 10 - len(converted_sample))
+                                        ]
+                                    )
+                        if converted_total:
+                            logger.info(
+                                f"[MEMORY-LTM] converted={converted_total} sample={converted_sample}"
+                            )
+                except Exception as conv_err:
+                    logger.debug(
+                        f"Sleep Manager conversion pass error: {conv_err}"
+                    )
+                
+                # GC: prune stale inactive pattern mappings
+                try:
+                    pruned = mna.collect_garbage(
+                        current_burst=current_ts,
+                        prune_inactive_after_bursts=self._gc_prune_after,
+                    )
+                    if (
+                        pruned
+                        and self._mp
+                        and hasattr(self._mp, "_remove_neuron_from_cache")
+                    ):
+                        # Best effort: ensure caches drop any pruned indices
+                        #  Note: indexes removed from mappings may still be present
+                        #  in cache if inactive; flush conservatively
+                        pass  # Cache uses pattern keys; pruning mappings already reduces memory footprint
+                    if pruned:
+                        logger.info(
+                            f"[SLEEP] Memory GC completed: pruned {pruned} mappings (ts={current_ts})"
+                        )
+                except Exception as gc_err:
+                    logger.debug(f"Sleep Manager GC error: {gc_err}")
+                
+                logger.debug(f"🔧 Sleep Manager completed memory maintenance (ts={current_ts})")
+                
+            finally:
+                # Always unlock memory areas after maintenance, regardless of success/failure
+                self._unlock_memory_areas_after_maintenance()
+                
         except Exception as e:
             logger.debug(f"Sleep Manager maintenance error: {e}")
+            # Ensure areas are unlocked even if maintenance fails
+            self._unlock_memory_areas_after_maintenance()

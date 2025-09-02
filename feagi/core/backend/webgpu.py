@@ -21,7 +21,7 @@ enabling GPU acceleration across different platforms without vendor lock-in.
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any, Tuple
 
 import numpy as np

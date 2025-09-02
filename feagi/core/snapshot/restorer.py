@@ -442,10 +442,9 @@ def restore_brain_snapshot(
                     for cortical_id, area in areas.items():
                         try:
                             # Reset position maps
+                            # Legacy BDU caches not used at runtime; rely on NPU SoA only
                             if hasattr(area, "_position_map"):
                                 area._position_map.clear()
-                            if hasattr(area, "_position_to_neurons"):
-                                area._position_to_neurons.clear()
                             #  Collect all neurons belonging to this area by
                             #  cortical_idx
                             cidx = getattr(area, "cortical_idx", None)
@@ -482,11 +481,10 @@ def restore_brain_snapshot(
                                         if int(i) < idx2id_arr.shape[0]:
                                             nid = int(idx2id_arr[int(i)])
                                     if nid < 0:
-                                        #  Fallback to neuron_array mapping if
-                                        #  available
+                                        # Use NPU index->neuron_id map
                                         nid = int(
                                             getattr(
-                                                na, "index_to_id_map", {}
+                                                na, "index_to_neuron_id", {}
                                             ).get(int(i), -1)
                                         )
                                     if nid < 0:
@@ -510,20 +508,6 @@ def restore_brain_snapshot(
                                     if pos is not None:
                                         if hasattr(area, "_position_map"):
                                             area._position_map[nid] = pos
-                                        if hasattr(
-                                            area, "_position_to_neurons"
-                                        ):
-                                            lst = (
-                                                area._position_to_neurons.get(
-                                                    pos
-                                                )
-                                            )
-                                            if lst is None:
-                                                area._position_to_neurons[
-                                                    pos
-                                                ] = [nid]
-                                            else:
-                                                lst.append(nid)
                                 except Exception:
                                     continue
                         except Exception:

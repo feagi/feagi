@@ -11,26 +11,18 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""FEAGI Main Entry Point.
+FEAGI Main Entry Point.
 
 This module provides the single entry point for starting the complete FEAGI system.
 It uses the ProcessManager to handle process creation, monitoring, and shutdown
 according to the architecture described in feagi_processes.md.
 """
 
-import os
-import sys
-
-# CRITICAL: Check for embedded mode BEFORE any other imports
-# This prevents FastAPI modules from being imported in embedded mode
-if "--embedded" in sys.argv:
-    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
-    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
-
 import argparse
+import os
 import signal
+import sys
 import time
 from pathlib import Path
 
@@ -38,6 +30,12 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 from feagi.process_manager import get_process_manager
 from feagi.utils.logger import setup_logger
+
+# CRITICAL: Check for embedded mode BEFORE any other imports
+# This prevents FastAPI modules from being imported in embedded mode
+if "--embedded" in sys.argv:
+    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
+    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
 
 setup_feagi_logging()
 
@@ -73,6 +71,33 @@ def _update_all_logger_levels(log_level_str: str):
         if isinstance(logger_obj, logging.Logger):
             logger_obj.setLevel(level)
         # PlaceHolder objects don't need updating
+
+
+def _set_global_level_from_config():
+    """Load log level from config file and set it globally.
+    
+    This function ensures that the global log level from the config file
+    is properly set before module imports happen, fixing the caching issue.
+    """
+    try:
+        from feagi.config.toml_loader import load_feagi_config
+        
+        config = load_feagi_config()
+        config_log_level = config.get("system", {}).get("log_level", "INFO")
+        
+        # Set environment variable so setup_logger() will use this level
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = config_log_level
+        
+        # Update all existing loggers
+        _update_all_logger_levels(config_log_level)
+        
+        logger.info(f"Global log level set from config: {config_log_level}")
+        
+    except Exception as e:
+        # Fallback to INFO if config loading fails
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+        _update_all_logger_levels("INFO")
+        logger.warning(f"Failed to load config for log level, using INFO: {e}")
 
 
 def check_dependencies():
@@ -362,14 +387,77 @@ def main():
     )
 
     args = parser.parse_args()
+    
+    # DIAGNOSTIC: Show all parsed arguments
+    print(f"🔍 [ARGS-PRINT] All parsed arguments: {vars(args)}")
+    print(f"🔍 [ARGS-PRINT] Specifically debug_mem: {getattr(args, 'debug_mem', 'NOT_FOUND')}")
 
-    # CRITICAL: Update logger levels IMMEDIATELY after parsing CLI args
+    # CRITICAL: Set global log level IMMEDIATELY after parsing CLI args
     # This must happen before any logging occurs to respect --log-level
     if args.log_level is not None:
         # Set environment variable for future logger creation
         os.environ["FEAGI_CLI_LOG_LEVEL"] = args.log_level
         # Update all existing loggers immediately
         _update_all_logger_levels(args.log_level)
+    else:
+        # No CLI override - ensure config file level is loaded and set globally
+        # This fixes the caching issue by explicitly setting the global level early
+        _set_global_level_from_config()
+
+        # IMPORTANT: Do NOT elevate global level for --debug-api.
+        # Only elevate globally for other module-specific debug flags as needed.
+        if (
+            getattr(args, "debug_npu", False)
+            or getattr(args, "debug_bdu", False)
+            or getattr(args, "debug_zmq_outbound", False)
+            or getattr(args, "debug_zmq_inbound", False)
+            or getattr(args, "debug_mem", False)
+        ):
+            os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+            _update_all_logger_levels("INFO")
+
+    # Apply subsystem levels (logger + handlers) using centralized mapping
+    try:
+        from feagi.utils.logger import apply_subsystem_log_levels
+        import logging
+
+        debug_cfg = {
+            # legacy aggregate API flag
+            "debug_api": bool(getattr(args, "debug_api", False)),
+            # granular API flags
+            "debug_api_core": bool(getattr(args, "debug_api_core", False)),
+            "debug_api_rest": bool(getattr(args, "debug_api_rest", False)),
+            "debug_api_zmq": bool(getattr(args, "debug_api_zmq", False)),
+            "debug_npu": bool(getattr(args, "debug_npu", False)),
+            "debug_bdu": bool(getattr(args, "debug_bdu", False)),
+            "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
+            "debug_zmq_outbound": bool(getattr(args, "debug_zmq_outbound", False)),
+            "mem_debug": bool(getattr(args, "debug_mem", False)),
+        }
+
+        # Keep env vars for newly created loggers
+        if debug_cfg["debug_api"]:
+            os.environ["FEAGI_DEBUG_API"] = "1"
+        if debug_cfg["debug_api_core"]:
+            os.environ["FEAGI_DEBUG_API_CORE"] = "1"
+        if debug_cfg["debug_api_rest"]:
+            os.environ["FEAGI_DEBUG_API_REST"] = "1"
+        if debug_cfg["debug_api_zmq"]:
+            os.environ["FEAGI_DEBUG_API_ZMQ"] = "1"
+        if debug_cfg["debug_npu"]:
+            os.environ["FEAGI_DEBUG_NPU"] = "1"
+        if debug_cfg["debug_bdu"]:
+            os.environ["FEAGI_DEBUG_BDU"] = "1"
+        if debug_cfg["debug_zmq_inbound"] or debug_cfg["debug_zmq_outbound"]:
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1"
+        if debug_cfg["mem_debug"]:
+            os.environ["FEAGI_DEBUG_MEM"] = "1"
+
+        baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
+        baseline_level = getattr(logging, baseline.upper(), logging.INFO)
+        apply_subsystem_log_levels(debug_cfg, baseline_level)
+    except Exception:
+        pass
 
     # Show deferred logger setup info now that CLI override is applied
     from feagi.utils.logger import show_deferred_setup_info
@@ -426,29 +514,67 @@ def main():
 
         if args.debug_npu:
             cli_overrides["debug_npu"] = True
+            os.environ["FEAGI_DEBUG_NPU"] = "1"
             logger.info(
                 "[DEBUG] NPU fire queue debugging enabled via --debug-npu flag"
             )
+            # Ensure StateManager debug flag reflects CLI immediately
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_npu"] = True
+            except Exception:
+                pass
 
-        if args.debug_zmq_outbound:
-            cli_overrides["debug_zmq_outbound"] = True
-            logger.info(
-                "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
-            )
-
-        if args.debug_zmq_inbound:
-            cli_overrides["debug_zmq_inbound"] = True
-            logger.info(
-                "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
-            )
+        if args.debug_zmq_outbound or args.debug_zmq_inbound:
+            if args.debug_zmq_outbound:
+                cli_overrides["debug_zmq_outbound"] = True
+                logger.info(
+                    "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
+                )
+            if args.debug_zmq_inbound:
+                cli_overrides["debug_zmq_inbound"] = True
+                logger.info(
+                    "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
+                )
+            # Set common ZMQ debug environment variable for both
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1"
+            # Reflect in StateManager
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                if args.debug_zmq_outbound:
+                    sm._debug_config["debug_zmq_outbound"] = True
+                if args.debug_zmq_inbound:
+                    sm._debug_config["debug_zmq_inbound"] = True
+            except Exception:
+                pass
 
         if args.debug_bdu:
             cli_overrides["debug_bdu"] = True
+            os.environ["FEAGI_DEBUG_BDU"] = "1"
             logger.info("BDU debugging enabled via --debug-bdu flag")
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_bdu"] = True
+            except Exception:
+                pass
 
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
-            logger.info("Memory debugging enabled via --debug-mem flag")
+            os.environ["FEAGI_DEBUG_MEM"] = "1"
+            print("🔍 [MAIN-PRINT] --debug-mem flag detected! (using print to bypass logging)")
+            logger.info("🔍 [MAIN-DEBUG] Memory debugging enabled via --debug-mem flag")
+            logger.info(f"🔍 [MAIN-DEBUG] cli_overrides now contains: {cli_overrides}")
+        else:
+            print("🔍 [MAIN-PRINT] --debug-mem flag NOT detected")
+
+        # Module-specific debug levels are now handled automatically by setup_logger()
+        # when each module creates its logger - no additional processing needed here
 
         if args.profile:
             cli_overrides["profile"] = True
@@ -527,14 +653,41 @@ def main():
         return 1
 
     # Initialize state manager and set debug configuration
-
+    print(f"🔍 [CONFIG-PRINT] Config being passed to set_debug_config: {config.get('debug', 'NO_DEBUG_SECTION')}")
+    
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
+    # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
+    try:
+        if not hasattr(state_manager, "_debug_config"):
+            state_manager._debug_config = {}
+        if args.debug_npu:
+            state_manager._debug_config["debug_npu"] = True
+        if args.debug_api:
+            state_manager._debug_config["debug_api"] = True
+        if args.debug_bdu:
+            state_manager._debug_config["debug_bdu"] = True
+        if args.debug_zmq_outbound:
+            state_manager._debug_config["debug_zmq_outbound"] = True
+        if args.debug_zmq_inbound:
+            state_manager._debug_config["debug_zmq_inbound"] = True
+        if args.debug_mem:
+            state_manager._debug_config["mem_debug"] = True
+            logger.info(f"🔍 [MAIN-DEBUG] Set StateManager mem_debug = True")
+            logger.info(f"🔍 [MAIN-DEBUG] StateManager debug config now: {state_manager._debug_config}")
+    except Exception:
+        pass
 
-    # Initialize the main connectome instance using singleton pattern
-    from feagi.bdu.connectome_manager import ConnectomeManager
-
-    connectome = ConnectomeManager.instance()
+    # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
+    process_manager = get_process_manager()
+    
+    # Initialize critical processes with proper configuration
+    if not process_manager.init_critical_processes(config):
+        logger.error("Failed to initialize critical processes")
+        return 1
+    
+    # Get the properly configured connectome instance from ProcessManager
+    connectome = process_manager._connectome_manager
 
     #  Set the connectome instance for FastAPI dependency injection (only in
     #  normal mode)
@@ -547,9 +700,6 @@ def main():
         logger.info(
             "[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup"
         )
-
-    # Initialize the ProcessManager with the connectome
-    process_manager = get_process_manager()
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
@@ -625,7 +775,6 @@ def main():
             "mode_1": args.test_mode_1,
             "mode_2": args.test_mode_2,
             "duration": args.test_duration,
-            "frequency": args.test_frequency,
             "frequency": args.test_frequency,
         },
         "debug": {

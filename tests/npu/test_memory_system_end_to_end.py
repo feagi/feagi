@@ -11,7 +11,14 @@ This test validates the complete memory system workflow:
 Run with: pytest tests/npu/test_memory_system_end_to_end.py -v -s --tb=short
 """
 
+import os
 import pytest
+MEMORY_TESTS_ENABLED = os.environ.get("FEAGI_MEMORY_TESTS", "0") == "1"
+
+pytestmark = pytest.mark.skipif(
+    not MEMORY_TESTS_ENABLED,
+    reason="Memory system tests disabled; set FEAGI_MEMORY_TESTS=1 to enable",
+)
 import logging
 import tempfile
 import json

@@ -1,0 +1,15 @@
+{
+  "test_name": "system_performance",
+  "metric_name": "fcl_processing_time_ms",
+  "baseline_value": 1.4651200081182953,
+  "baseline_timestamp": 1755280650.600628,
+  "sample_count": 4,
+  "std_deviation": 0.016421581442449058,
+  "confidence_interval": [
+    1.4490268583046952,
+    1.4812131579318955
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.600467
+  }
+}

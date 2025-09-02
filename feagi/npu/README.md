@@ -164,6 +164,38 @@ engine.set_injection_enabled("___pwr", True)  # Enable/disable any special area
 engine.set_injection_enabled("dopamine_mod", False)  # Works for any area type
 ```
 
+### Buffered Injection (Burst-Paced Drain)
+
+External activations are buffered and drained at burst boundaries for determinism and performance:
+
+- Bounded global and per-area capacities
+- Per-burst drain budgets and round-robin fairness
+- Duplicate coalescing for deterministic updates
+- Single batched submission to FCL per burst
+
+Configure in `feagi_configuration.toml`:
+
+```toml
+[injection.buffer]
+capacity_total = 65536
+capacity_per_area = 8192
+coalesce_duplicates = true
+
+[injection.drain]
+per_burst_max_total = 8192
+per_burst_max_per_area = 2048
+fairness = "round_robin"
+drop_policy = "newest"
+
+[injection.metrics]
+enabled = true
+window_seconds = 5.0
+```
+
+Inspect runtime status via:
+
+- `GET /v1/burst_engine/injection/status`
+
 ### FCL Manager
 
 The FCL (Fire Candidate List) Manager maintains the temporal history of neuron firing patterns:

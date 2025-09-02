@@ -1,0 +1,15 @@
+{
+  "test_name": "rust_optimized_fcl",
+  "metric_name": "cpu_usage_percent",
+  "baseline_value": 98.3625,
+  "baseline_timestamp": 1755280650.598552,
+  "sample_count": 8,
+  "std_deviation": 1.3814459298658295,
+  "confidence_interval": [
+    97.40520681084632,
+    99.31979318915367
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.598318
+  }
+}

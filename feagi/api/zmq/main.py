@@ -22,7 +22,7 @@ import argparse
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import logging
 import signal
 import sys

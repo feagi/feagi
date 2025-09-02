@@ -282,26 +282,12 @@ async def log_requests(request: Request, call_next):
 
         debug_api_enabled = "--debug-api" in sys.argv
 
-    # Always show diagnostic info to understand what's happening
-    if not hasattr(log_requests, "_diagnostic_shown"):
+    # Minimize diagnostics unless API debug is enabled
+    if debug_api_enabled and not hasattr(log_requests, "_diagnostic_shown"):
         try:
-            debug_config = getattr(state_manager, "_debug_config", {})
-            logger.error("[DIAGNOSTIC] API Debug Status Check:")
-            logger.error(
-                f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}"
-            )
-            logger.error(
-                f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}"
-            )
-            logger.error(
-                f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}"
-            )
-            logger.error(
-                f"[DIAGNOSTIC]   Final debug_api_enabled: {debug_api_enabled}"
-            )
-            logger.error(f"[DIAGNOSTIC]   _debug_config: {debug_config}")
-        except Exception as e:
-            logger.error(f"[DIAGNOSTIC] Error checking debug status: {e}")
+            logger.debug("[API-DEBUG] Diagnostic status check initialized")
+        except Exception:
+            pass
         log_requests._diagnostic_shown = True
 
     if not debug_api_enabled:
@@ -915,14 +901,14 @@ def create_rest_app(connectome: ConnectomeManager = None):
     state_manager.set_api_state(ServiceState.READY)
 
     # Log debug information about the created app
-    logger.error("[APP-CREATION] FastAPI app created successfully")
-    logger.error(
+    logger.info("[APP-CREATION] FastAPI app created successfully")
+    logger.debug(
         f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}"
     )
-    logger.error(
+    logger.debug(
         f"[APP-CREATION] App middleware count: {len(app.user_middleware)}"
     )
-    logger.error(
+    logger.debug(
         f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}"
     )
 

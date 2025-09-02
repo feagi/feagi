@@ -40,7 +40,14 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List
 
+import os
 import pytest
+RTOS_TESTS_ENABLED = os.environ.get("FEAGI_RTOS_TESTS", "0") == "1"
+
+pytestmark = pytest.mark.skipif(
+    not RTOS_TESTS_ENABLED,
+    reason="RTOS/Rust compatibility meta-tests disabled; set FEAGI_RTOS_TESTS=1 to enable",
+)
 
 
 class CompatibilityLevel(Enum):

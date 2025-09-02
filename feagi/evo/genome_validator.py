@@ -1142,7 +1142,7 @@ def sanitize_invalid_morphologies(genome):
 
         # Check for other validation criteria
         morph_type = morph_data.get("type", "")
-        if morph_type not in ["vectors", "patterns", "function"]:
+        if morph_type not in ["vectors", "patterns", "functions", "composite"]:
             invalid_morphologies.append(morph_name)
             continue
 
@@ -1703,7 +1703,6 @@ def migrate_legacy_cortical_ids(genome):
 
     Legacy ID mappings:
     - ___pwr → _power (core power area)
-    - o__mot → co_mot (motor output)
     - iv00_C → iic400 (central vision)
     - iv00BL → iic000 (bottom-left vision)
     - iv00BM → iic100 (bottom-middle vision)
@@ -1725,16 +1724,14 @@ def migrate_legacy_cortical_ids(genome):
     cortical_id_mappings = {}
     migrated = False
 
-    #  Complete legacy cortical ID mappings based on feagi-data-processing
+    #  Complete legacy cortical ID mappings based on feagi-rust-py-libs
     #  sensor_types.rs
     #  Maps old cortical IDs from templates.py to new IDs from
-    #  feagi-data-processing
+    #  feagi-rust-py-libs
     legacy_id_map = {
         # CORE areas
         "___pwr": "_power",  # Core power area
         "___dth": "_death",  # Core death area
-        # Motor/Output areas (OPU) - confirmed in templates.py
-        "o__mot": "co_mot",  # Motor output
         #  Vision areas (IPU) - peripheral camera mappings confirmed in
         #  templates.py
         "iv00_C": "iic400",  # Central vision (ImageCameraCenter)
@@ -1758,7 +1755,7 @@ def migrate_legacy_cortical_ids(genome):
         # Additional sensor areas that may exist in customer genomes
         #  These are from templates.py but don't have new mappings yet in
         #  sensor_types.rs
-        # Will be updated as feagi-data-processing is extended
+        # Will be updated as feagi-rust-py-libs is extended
     }
 
     try:

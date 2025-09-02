@@ -170,6 +170,7 @@ async def check_burst_engine_or_allow_config_ops(request: Request):
         "burst_counter",  # Current burst count
         "fcl_sampler",  # FCL sampling operations
         "neuron_fcl",  # Neuron FCL operations
+        "fcl",  # Complete FCL content retrieval
     ]
 
     # Check if this is a config/read operation
