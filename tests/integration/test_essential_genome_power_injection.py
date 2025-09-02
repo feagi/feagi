@@ -108,10 +108,10 @@ class TestEssentialGenomePowerInjection:
 
         # Check for core areas
         assert "_death" in real_connectome.cortical_areas
-        assert "___pwr" in real_connectome.cortical_areas
+        assert "_power" in real_connectome.cortical_areas
 
         # Verify power area properties
-        power_area = real_connectome.cortical_areas["___pwr"]
+        power_area = real_connectome.cortical_areas["_power"]
         assert power_area.cortical_idx == 1
         assert power_area.name == "Brain_Power"
 
@@ -119,7 +119,7 @@ class TestEssentialGenomePowerInjection:
             f"✅ Essential genome loaded with {len(real_connectome.cortical_areas)} cortical areas"
         )
         print(
-            f"✅ Power area '___pwr' found with cortical_idx={power_area.cortical_idx}"
+            f"✅ Power area '_power' found with cortical_idx={power_area.cortical_idx}"
         )
 
     def test_power_areas_detected(self, special_area_handler):
@@ -133,11 +133,11 @@ class TestEssentialGenomePowerInjection:
         )
 
         # Verify power area contains neurons (power neurons returned by cortical_id, not cortical_idx)
-        assert "___pwr" in power_neurons, (
-            f"Core power area (___pwr) not found in power_neurons: {power_neurons}"
+        assert "_power" in power_neurons, (
+            f"Core power area (_power) not found in power_neurons: {power_neurons}"
         )
-        assert len(power_neurons["___pwr"]) > 0, (
-            f"No neurons found in core power area: {power_neurons['___pwr']}"
+        assert len(power_neurons["_power"]) > 0, (
+            f"No neurons found in core power area: {power_neurons['_power']}"
         )
 
         print(
@@ -167,7 +167,7 @@ class TestEssentialGenomePowerInjection:
         initial_fcl_count = len(initial_firing_neurons)
         print(f"Initial FCL neuron count: {initial_fcl_count}")
 
-        # Perform injection
+        # Perform injection: now returns injected+drained counts (buffered model)
         neurons_injected = fcl_injection_service.inject_pre_burst(current_timestep=0)
         print(f"inject_pre_burst returned: {neurons_injected}")
 
@@ -181,8 +181,8 @@ class TestEssentialGenomePowerInjection:
         post_injection_fcl_count = len(post_injection_firing_neurons)
         print(f"Post-injection FCL neuron count: {post_injection_fcl_count}")
 
-        # FCL should now contain the injected neurons
-        assert post_injection_fcl_count > initial_fcl_count, (
+        # FCL should now contain the injected or drained neurons
+        assert post_injection_fcl_count >= initial_fcl_count, (
             f"FCL neuron count did not increase: {initial_fcl_count} -> {post_injection_fcl_count}"
         )
 

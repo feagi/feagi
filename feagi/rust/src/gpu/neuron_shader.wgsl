@@ -24,6 +24,7 @@ struct GNA {
     refractory_counters: array<u32>,
     consecutive_fire_counts: array<u32>,
     last_fired: array<u32>,
+    excitability: array<f32>,  // Firing probability (0.0 to 1.0)
 }
 
 // Define the FCL structure
@@ -79,6 +80,39 @@ fn calculate_psp(firing_neuron_mp: f32, firing_neuron_psp: f32, synapse_count: u
 
     // Calculate the final PSP
     return (numerator / denominator) * synapse_conductance;
+}
+
+// GPU-efficient PCG hash for random number generation
+fn pcg_hash(input: u32) -> u32 {
+    var state = input * 747796405u + 2891336453u;
+    var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+// Convert PCG hash to floating point [0,1)
+fn hash_to_float(hash: u32) -> f32 {
+    return f32(hash) / 4294967296.0;
+}
+
+// Enhanced firing function with excitability support
+fn should_fire_with_excitability(neuron_id: u32, random_seed: u32) -> bool {
+    let membrane_potential = gna.membrane_potentials[neuron_id];
+    let threshold = gna.thresholds[neuron_id];
+    let excitability = gna.excitability[neuron_id];
+    
+    // Standard threshold check
+    if (membrane_potential < threshold) {
+        return false;
+    }
+    
+    // Fast path: if excitability is ~1.0, always fire
+    if (excitability >= 0.999) {
+        return true;
+    }
+    
+    // Probabilistic firing using GPU-efficient PRNG
+    let random_val = hash_to_float(pcg_hash(neuron_id + random_seed));
+    return random_val < excitability;
 }
 
 // Compute shader for processing fired neurons and updating the fire queue

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,7 +53,8 @@ from .rules.vectors import match_vectors
 
 logger = setup_logger(__name__)
 
-# Explicitly export imported functions for use by test modules and external consumers
+#  Explicitly export imported functions for use by test modules and external
+#  consumers
 __all__ = [
     # Function-based morphologies
     "syn_block_connection",
@@ -87,11 +86,10 @@ __all__ = [
 
 
 def _is_debug_bdu_enabled() -> bool:
-    """
-    Check if BDU (Brain Development Unit) debugging is enabled.
+    """Check if BDU (Brain Development Unit) debugging is enabled.
 
-        Returns:
-        True if BDU debugging is enabled, False otherwise
+    Returns:
+    True if BDU debugging is enabled, False otherwise
     """
     try:
         from feagi.core.state_manager import FeagiStateManager
@@ -145,32 +143,34 @@ class MorphologyFunction(Enum):
 # Helper functions for position handling
 
 
-def linearize_position(position: Position, dimensions: Position) -> LinearPosition:
-    """
-    Convert a 3D position to a linearized 1D index.
+def linearize_position(
+    position: Position, dimensions: Position
+) -> LinearPosition:
+    """Convert a 3D position to a linearized 1D index.
 
-        Args:
-        position: 3D position (x, y, z)
-        dimensions: Dimensions of the cortical area (width, height, depth)
+    Args:
+    position: 3D position (x, y, z)
+    dimensions: Dimensions of the cortical area (width, height, depth)
 
-        Returns:
-        Linearized position index
+    Returns:
+    Linearized position index
     """
     x, y, z = position
     width, height, depth = dimensions
     return x + (y * width) + (z * width * height)
 
 
-def delinearize_position(linear_pos: LinearPosition, dimensions: Position) -> Position:
-    """
-    Convert a linearized 1D index back to a 3D position.
+def delinearize_position(
+    linear_pos: LinearPosition, dimensions: Position
+) -> Position:
+    """Convert a linearized 1D index back to a 3D position.
 
-        Args:
-        linear_pos: Linearized position index
-        dimensions: Dimensions of the cortical area (width, height, depth)
+    Args:
+    linear_pos: Linearized position index
+    dimensions: Dimensions of the cortical area (width, height, depth)
 
-        Returns:
-        3D position (x, y, z)
+    Returns:
+    3D position (x, y, z)
     """
     width, height, depth = dimensions
     z = linear_pos // (width * height)
@@ -181,14 +181,13 @@ def delinearize_position(linear_pos: LinearPosition, dimensions: Position) -> Po
 
 
 def preprocess_expression(expr: str) -> str:
-    """
-    Preprocess algebraic expressions for evaluation.
+    """Preprocess algebraic expressions for evaluation.
 
-        Args:
-        expr: Expression string
+    Args:
+    expr: Expression string
 
-        Returns:
-        Preprocessed expression string
+    Returns:
+    Preprocessed expression string
     """
     # Add * for implicit multiplication (e.g., 2x -> 2*x)
     expr = re.sub(r"(\d)([a-zA-Z])", r"\1*\2", expr)
@@ -198,21 +197,22 @@ def preprocess_expression(expr: str) -> str:
 
 
 def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
-    """
-    Evaluate an algebraic expression with the given x, y, z values.
+    """Evaluate an algebraic expression with the given x, y, z values.
 
-        Args:
-        expr: Expression string or integer value
-        x, y, z: Variable values
+    Args:
+    expr: Expression string or integer value
+    x, y, z: Variable values
 
-        Returns:
-        Evaluated integer result
+    Returns:
+    Evaluated integer result
     """
     if isinstance(expr, (int, float)):
         return int(expr)
 
     try:
-        result = sympify(preprocess_expression(expr)).subs({"x": x, "y": y, "z": z})
+        result = sympify(preprocess_expression(expr)).subs(
+            {"x": x, "y": y, "z": z}
+        )
         return int(result)
     except Exception as e:
         logger.error(f"Error evaluating expression '{expr}': {e}")
@@ -220,8 +220,7 @@ def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
 
 
 def neighbor_finder(position, neighbor_range=1, include_self=False):
-    """
-    Find all neighboring positions within a given range.
+    """Find all neighboring positions within a given range.
 
     Args:
         position: 3D position as (x, y, z)
@@ -273,8 +272,7 @@ def find_candidate_neurons(
     memory_register: Dict[AreaId, Set[AreaId]],
     morphology_id_overwrite: Optional[str] = None,
 ) -> List[Tuple[NeuronId, float]]:
-    """
-    Find candidate neurons in the destination area for synaptic connections.
+    """Find candidate neurons in the destination area for synaptic connections.
 
     This is the main entry point for synaptogenesis rules. It determines which neurons
     in the destination area should be connected to the source neuron based on
@@ -338,15 +336,19 @@ def find_candidate_neurons(
     raw_candidate_positions = set()
     candidate_neuron_list = []
 
-    # Get morphology type - for function morphologies, we know the type directly
-    # This follows the legacy pattern where function morphologies are handled directly
+    #  Get morphology type - for function morphologies, we know the type
+    #  directly
+    #  This follows the legacy pattern where function morphologies are handled
+    #  directly
     if neuron_morphology in [e.value for e in MorphologyFunction]:
         morphology_type = RuleType.FUNCTIONS.value
         morphologies_registry = None  # Not needed for function morphologies
     elif hasattr(connectome_manager, "get_morphologies_registry"):
         morphologies_registry = connectome_manager.get_morphologies_registry()
         if neuron_morphology not in morphologies_registry:
-            logger.error(f"Morphology {neuron_morphology} not found in registry")
+            logger.error(
+                f"Morphology {neuron_morphology} not found in registry"
+            )
             return []
         morphology_type = morphologies_registry[neuron_morphology]["type"]
     else:
@@ -358,9 +360,9 @@ def find_candidate_neurons(
     try:
         # Process based on morphology type
         if morphology_type == RuleType.VECTORS.value:
-            for vector in morphologies_registry[neuron_morphology]["parameters"][
-                "vectors"
-            ]:
+            for vector in morphologies_registry[neuron_morphology][
+                "parameters"
+            ]["vectors"]:
                 positions = match_vectors(
                     src_voxel=src_voxel,
                     dst_area_id=dst_area_id,
@@ -375,14 +377,18 @@ def find_candidate_neurons(
                     raw_candidate_positions.add(pos)
 
         elif morphology_type == RuleType.PATTERNS.value:
-            for pattern in morphologies_registry[neuron_morphology]["parameters"][
-                "patterns"
-            ]:
+            for pattern in morphologies_registry[neuron_morphology][
+                "parameters"
+            ]["patterns"]:
                 # Get destination area dimensions
                 try:
-                    dst_area = connectome_manager.get_cortical_area(dst_area_id)
+                    dst_area = connectome_manager.get_cortical_area(
+                        dst_area_id
+                    )
                 except Exception as e:
-                    logger.error(f"Destination area {dst_area_id} not found: {e}")
+                    logger.error(
+                        f"Destination area {dst_area_id} not found: {e}"
+                    )
                     continue
                 dst_dimensions = dst_area.dimensions
 
@@ -424,7 +430,8 @@ def find_candidate_neurons(
 
             elif neuron_morphology == MorphologyFunction.RANDOMIZER.value:
                 pos = syn_randomizer(
-                    dst_area_id=dst_area_id, connectome_manager=connectome_manager
+                    dst_area_id=dst_area_id,
+                    connectome_manager=connectome_manager,
                 )
                 raw_candidate_positions.add(pos)
 
@@ -438,7 +445,9 @@ def find_candidate_neurons(
                 if pos:
                     raw_candidate_positions.add(pos)
 
-            elif neuron_morphology == MorphologyFunction.BLOCK_CONNECTION.value:
+            elif (
+                neuron_morphology == MorphologyFunction.BLOCK_CONNECTION.value
+            ):
                 pos = syn_block_connection(
                     src_area_id=src_area_id,
                     dst_area_id=dst_area_id,
@@ -513,7 +522,10 @@ def find_candidate_neurons(
                 for pos in positions:
                     raw_candidate_positions.add(pos)
 
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_X.value:
+            elif (
+                neuron_morphology
+                == MorphologyFunction.PROJECT_FROM_END_X.value
+            ):
                 # Only project if neuron is in the last layer of x dimension
                 src_dimensions = src_area.dimensions
                 if src_voxel[0] == src_dimensions[0] - 1:
@@ -528,7 +540,10 @@ def find_candidate_neurons(
                     for pos in positions:
                         raw_candidate_positions.add(pos)
 
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Y.value:
+            elif (
+                neuron_morphology
+                == MorphologyFunction.PROJECT_FROM_END_Y.value
+            ):
                 # Only project if neuron is in the last layer of y dimension
                 src_dimensions = src_area.dimensions
                 if src_voxel[1] == src_dimensions[1] - 1:
@@ -543,7 +558,10 @@ def find_candidate_neurons(
                     for pos in positions:
                         raw_candidate_positions.add(pos)
 
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Z.value:
+            elif (
+                neuron_morphology
+                == MorphologyFunction.PROJECT_FROM_END_Z.value
+            ):
                 # Only project if neuron is in the last layer of z dimension
                 src_dimensions = src_area.dimensions
                 if src_voxel[2] == src_dimensions[2] - 1:
@@ -558,18 +576,22 @@ def find_candidate_neurons(
                     for pos in positions:
                         raw_candidate_positions.add(pos)
 
-            # Handle special memory morphology that doesn't produce voxel positions
+            #  Handle special memory morphology that doesn't produce voxel
+            #  positions
             elif neuron_morphology == MorphologyFunction.MEMORY.value:
                 syn_memory(src_area_id, dst_area_id, memory_register)
                 # No positions are added for memory function
 
             else:
-                logger.warning(f"Unsupported morphology function: {neuron_morphology}")
+                logger.warning(
+                    f"Unsupported morphology function: {neuron_morphology}"
+                )
 
         else:
             logger.warning(f"Unsupported morphology type: {morphology_type}")
 
-        # Legacy-style batch lookup: single O(N) pass instead of O(P×N) individual lookups
+        #  Legacy-style batch lookup: single O(N) pass instead of O(P×N)
+        #  individual lookups
         if debug_bdu:
             logger.info(
                 f"[BDU DEBUG] Processing {len(raw_candidate_positions)} candidate positions"
@@ -578,11 +600,14 @@ def find_candidate_neurons(
                 f"[BDU DEBUG] Candidate positions: {sorted(list(raw_candidate_positions))}"
             )
 
-        # Use legacy batch approach for performance (like voxels.voxel_list_to_neuron_list)
-        candidate_neuron_list = connectome_manager.batch_voxel_to_neuron_lookup(
-            cortical_id=dst_area_id,
-            candidate_positions=raw_candidate_positions,
-            post_synaptic_current=post_synaptic_current,
+        #  Use legacy batch approach for performance (like
+        #  voxels.voxel_list_to_neuron_list)
+        candidate_neuron_list = (
+            connectome_manager.batch_voxel_to_neuron_lookup(
+                cortical_id=dst_area_id,
+                candidate_positions=raw_candidate_positions,
+                post_synaptic_current=post_synaptic_current,
+            )
         )
 
         if debug_bdu:
@@ -590,8 +615,12 @@ def find_candidate_neurons(
                 f"[BDU DEBUG] Final candidate neurons: {len(candidate_neuron_list)} found"
             )
             if candidate_neuron_list:
-                neuron_ids = [neuron_id for neuron_id, weight in candidate_neuron_list]
-                weights = [weight for neuron_id, weight in candidate_neuron_list]
+                neuron_ids = [
+                    neuron_id for neuron_id, weight in candidate_neuron_list
+                ]
+                weights = [
+                    weight for neuron_id, weight in candidate_neuron_list
+                ]
                 logger.info(f"[BDU DEBUG] Candidate neuron IDs: {neuron_ids}")
                 logger.info(f"[BDU DEBUG] Candidate weights: {weights}")
             logger.info(

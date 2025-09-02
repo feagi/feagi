@@ -21,7 +21,7 @@ from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 # Import core models
 from feagi.bdu.models.brain_region import BrainRegion
 from feagi.bdu.models.cortical_area import CorticalArea
-from feagi.bdu.models.neuron import Neuron, NeuronArray
+from feagi.bdu.models.neuron import Neuron
 from feagi.bdu.models.synapse import SynapseManager
 
 __all__ = [
@@ -31,7 +31,7 @@ __all__ = [
     # Data models
     "CorticalArea",
     "Neuron",
-    "NeuronArray",
+
     # Core models
     "BrainRegion",
     "SynapseManager",

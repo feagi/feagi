@@ -127,9 +127,9 @@ POST /v1/burst_engine/resume
 
 ### Configuration Endpoints
 
-#### Get Stimulation Period
+#### Get Simulation Timestep
 ```http
-GET /v1/burst_engine/stimulation_period
+GET /v1/burst_engine/simulation_timestep
 ```
 - **Dependency**: Requires engine in `READY` or `ON_HOLD` state
 - Returns: `1 / burst_frequency` in seconds
@@ -173,7 +173,7 @@ async def check_burst_engine(request: Request):
 ```python
 async def check_burst_engine_or_allow_config_ops(request: Request):
     # Allows read-only config operations even when engine not READY
-    # Used for: stimulation_period, config, status
+    # Used for: simulation_timestep, config, status
 ```
 
 ### Processing Operations Dependency

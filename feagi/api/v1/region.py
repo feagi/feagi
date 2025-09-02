@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +11,25 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.utils.logger import setup_logger
+
+from .decorators import endpoint
+from .schemas import (
+    CreateRegionRequest,
+    RegionInfoResponse,
+    RegionListResponse,
+    RegionMemberRelocationRequest,
+    SuccessResponse,
+    UpdateRegionRequest,
+)
+
+logger = setup_logger(__name__)
 
 """
 FEAGI v1 Region API - Single Source of Truth
@@ -23,24 +40,6 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
-
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel
-
-from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.utils.logger import setup_logger
-
-from .decorators import endpoint
-from .schemas import (
-    CreateRegionRequest,
-    RegionInfoResponse,
-    RegionListResponse,
-    SuccessResponse,
-    UpdateRegionRequest,
-)
-
-logger = setup_logger(__name__)
 
 
 # ===== Region-specific Schemas =====
@@ -56,11 +55,13 @@ class RegionAssociation(BaseModel):
 class NewRegionProperties(BaseModel):
     """Request model for creating a new region."""
 
-    region_id: str
-    region_title: str
-    parent_region_id: str
-    coordinate_2d: List[int]
-    coordinate_3d: List[int]
+    title: str = Field(description="Region title/name")
+    parent_region_id: str = Field(description="Parent region ID (use 'root' for top-level)")
+    coordinates_2d: List[int] = Field(description="2D coordinates [x, y]")
+    coordinates_3d: List[float] = Field(description="3D coordinates [x, y, z]")
+    areas: Optional[List[str]] = Field(default=[], description="List of cortical area IDs in this region")
+    regions: Optional[List[str]] = Field(default=[], description="List of child region IDs")
+    region_id: Optional[str] = Field(default=None, description="Optional region ID (auto-generated if not provided)")
 
 
 class UpdateRegionProperties(BaseModel):
@@ -70,6 +71,9 @@ class UpdateRegionProperties(BaseModel):
     region_title: Optional[str] = None
     coordinate_2d: Optional[List[int]] = None
     coordinate_3d: Optional[List[int]] = None
+
+    class Config:
+        extra = "forbid"  # Reject unknown fields (e.g., coordinates_3d)
 
 
 class RegionIdRequest(BaseModel):
@@ -115,7 +119,9 @@ class RegionAPI:
         request_model=NewRegionProperties,
         response_model=Dict[str, str],
     )
-    def create_brain_region(self, region_data: NewRegionProperties) -> Dict[str, str]:
+    def create_brain_region(
+        self, region_data: NewRegionProperties
+    ) -> Dict[str, str]:
         """Create a new brain region."""
         try:
             # Check if connectome is ready
@@ -129,13 +135,48 @@ class RegionAPI:
                 and hasattr(connectome, "brain_regions")
                 and connectome.brain_regions
             ):
-                if region_data.parent_region_id not in connectome.brain_regions:
+                if (
+                    region_data.parent_region_id
+                    not in connectome.brain_regions
+                ):
                     raise ValueError(
                         f"{region_data.parent_region_id} is not a valid region id"
                     )
 
+            # Generate region_id if not provided
+            region_id = region_data.region_id
+            if not region_id:
+                import uuid
+                region_id = f"region_{uuid.uuid4().hex[:8]}"
+            
+            # Convert coordinates to the expected format
+            coordinates = None
+            if region_data.coordinates_3d:
+                coordinates = {
+                    "x": int(region_data.coordinates_3d[0]),
+                    "y": int(region_data.coordinates_3d[1]),
+                    "z": int(region_data.coordinates_3d[2])
+                }
+            
+            # Prepare additional parameters
+            parameters = {
+                "coordinates_2d": region_data.coordinates_2d,
+                "areas": region_data.areas,
+                "regions": region_data.regions
+            }
+            
             # Create the region using core API service
-            region_id = self.core_api_service.create_brain_region(region_data.dict())
+            success = self.core_api_service.create_brain_region(
+                region_id=region_id,
+                region_name=region_data.title,
+                parent_region_id=region_data.parent_region_id,
+                coordinates=coordinates,
+                parameters=parameters
+            )
+            
+            if not success:
+                raise ValueError("Failed to create brain region")
+            
             return {"region_id": region_id}
         except Exception as e:
             logger.error(f"Error creating brain region: {e}")
@@ -163,13 +204,31 @@ class RegionAPI:
             if region_data.region_id == "root":
                 for field in unacceptable_root_fields:
                     if field in region_dict:
-                        raise ValueError(f"{field} cannot be modified for root region")
+                        raise ValueError(
+                            f"{field} cannot be modified for root region"
+                        )
 
-            # Remove parent_region_id if present as it's handled separately
-            if "parent_region_id" in region_dict:
-                region_dict.pop("parent_region_id")
+            # Prepare args for CoreAPIService.update_brain_region
+            region_id = region_data.region_id
+            region_name = region_dict.get("region_title")
+            coordinates = None
+            # Strict coordinates (no legacy aliases): only coordinate_3d accepted
+            if region_data.coordinate_3d is not None:
+                c3d = region_data.coordinate_3d
+                coordinates = {"x": int(c3d[0]), "y": int(c3d[1]), "z": int(c3d[2])}
 
-            success = self.core_api_service.update_brain_region_properties(region_dict)
+            # Optional 2D coordinate update passed through parameters (strict key)
+            parameters = None
+            if region_data.coordinate_2d is not None:
+                parameters = {"coordinates_2d": [int(region_data.coordinate_2d[0]), int(region_data.coordinate_2d[1])]}            
+
+            # Call correct service method
+            success = self.core_api_service.update_brain_region(
+                region_id=region_id,
+                region_name=region_name,
+                coordinates=coordinates,
+                parameters=parameters,
+            )
             if not success:
                 raise ValueError("Failed to update brain region properties")
 
@@ -180,7 +239,7 @@ class RegionAPI:
             logger.error(f"Error updating region properties: {e}")
             raise ValueError(f"Failed to update region properties: {str(e)}")
 
-    @region_endpoint("GET", "/region")
+    @region_endpoint("GET", "/region/{region_id}")
     def view_region_properties(self, region_id: str) -> Dict[str, Any]:
         """Get brain region properties."""
         try:
@@ -207,7 +266,9 @@ class RegionAPI:
         request_model=RegionIdRequest,
         response_model=SuccessResponse,
     )
-    def delete_region(self, region_id_data: RegionIdRequest) -> SuccessResponse:
+    def delete_region(
+        self, region_id_data: RegionIdRequest
+    ) -> SuccessResponse:
         """Delete a brain region (moves children to parent)."""
         try:
             region_id = region_id_data.id
@@ -220,7 +281,10 @@ class RegionAPI:
                 raise ValueError("Connectome is not ready!")
 
             # Use new ConnectomeManager structure
-            if hasattr(connectome, "brain_regions") and connectome.brain_regions:
+            if (
+                hasattr(connectome, "brain_regions")
+                and connectome.brain_regions
+            ):
                 if region_id not in connectome.brain_regions:
                     raise ValueError(f"{region_id} is not a valid region id")
 
@@ -256,7 +320,10 @@ class RegionAPI:
                 raise ValueError("Connectome is not ready!")
 
             # Use new ConnectomeManager structure
-            if hasattr(connectome, "brain_regions") and connectome.brain_regions:
+            if (
+                hasattr(connectome, "brain_regions")
+                and connectome.brain_regions
+            ):
                 if region_id not in connectome.brain_regions:
                     raise ValueError(f"{region_id} is not a valid region id")
 
@@ -281,27 +348,45 @@ class RegionAPI:
 
     @region_endpoint("GET", "/regions_members")
     def list_all_regions_and_members(self) -> Dict[str, Any]:
-        """List all brain regions and their members (returns legacy format)."""
-        # Get cortical area IDs and return in legacy format
+        """List all brain regions and their members with consistent schema."""
         try:
-            cortical_area_ids = self.core_api_service.get_cortical_area_id_list()
-        except Exception:
-            cortical_area_ids = []
-
-        # Return exact legacy format
-        return {
-            "root": {
-                "title": "Genome's root brain region",
-                "description": None,
-                "parent_region_id": None,
-                "coordinate_2d": [0, 0],
-                "coordinate_3d": [0, 0, 0],
-                "areas": cortical_area_ids,
-                "regions": [],
-                "inputs": [],
-                "outputs": [],
+            # Use the same normalization logic as /v1/region/list for consistency
+            regions_list = self.core_api_service.get_brain_regions()
+            
+            # Convert list to dictionary format expected by this endpoint
+            result = {}
+            for region in regions_list:
+                region_id = region["region_id"]
+                result[region_id] = {
+                    "title": region["title"],
+                    "description": region["description"],
+                    "parent_region_id": region["parent_region_id"],
+                    "coordinate_2d": region["coordinate_2d"],
+                    "coordinate_3d": region["coordinate_3d"],
+                    "areas": region["areas"],
+                    "regions": region["regions"],
+                    "inputs": region["inputs"],
+                    "outputs": region["outputs"]
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting regions and members: {e}")
+            # Fallback to empty root region if error occurs
+            return {
+                "root": {
+                    "title": "Root Brain Region",
+                    "description": "Default root region",
+                    "parent_region_id": None,
+                    "coordinate_2d": [0, 0],
+                    "coordinate_3d": [0, 0, 0],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": []
+                }
             }
-        }
 
     @region_endpoint("GET", "/region_titles")
     def list_all_region_titles(self) -> List[tuple]:
@@ -342,20 +427,25 @@ class RegionAPI:
             if not connectome:
                 raise ValueError("Connectome is not ready!")
 
-            # For compatibility, just use core API service without genome validation
+            #  For compatibility, just use core API service without genome
+            #  validation
             success = self.core_api_service.change_cortical_area_parent(
                 cortical_area_id=association_data.id,
                 new_parent_id=association_data.new_region_id,
             )
 
             if not success:
-                raise ValueError("Failed to update cortical area region association")
+                raise ValueError(
+                    "Failed to update cortical area region association"
+                )
 
             return SuccessResponse(
                 message="Cortical area region association updated successfully"
             )
         except Exception as e:
-            logger.error(f"Error updating cortical area region association: {e}")
+            logger.error(
+                f"Error updating cortical area region association: {e}"
+            )
             raise ValueError(
                 f"Failed to update cortical area region association: {str(e)}"
             )
@@ -376,7 +466,10 @@ class RegionAPI:
                 raise ValueError("Connectome is not ready!")
 
             # Use new ConnectomeManager structure for validation
-            if hasattr(connectome, "brain_regions") and connectome.brain_regions:
+            if (
+                hasattr(connectome, "brain_regions")
+                and connectome.brain_regions
+            ):
                 # Validate region exists
                 if association_data.id not in connectome.brain_regions:
                     raise ValueError(
@@ -384,7 +477,10 @@ class RegionAPI:
                     )
 
                 # Validate new parent region exists
-                if association_data.new_region_id not in connectome.brain_regions:
+                if (
+                    association_data.new_region_id
+                    not in connectome.brain_regions
+                ):
                     raise ValueError(
                         f"{association_data.new_region_id} is not a valid brain region id"
                     )
@@ -397,17 +493,22 @@ class RegionAPI:
             if not success:
                 raise ValueError("Failed to update brain region parent")
 
-            return SuccessResponse(message="Brain region parent updated successfully")
+            return SuccessResponse(
+                message="Brain region parent updated successfully"
+            )
         except Exception as e:
             logger.error(f"Error updating brain region parent: {e}")
             raise ValueError(f"Failed to update brain region parent: {str(e)}")
 
-    @region_endpoint("PUT", "/relocate_members", response_model=SuccessResponse)
+    @region_endpoint(
+        "PUT", "/relocate_members", 
+        request_model=RegionMemberRelocationRequest,
+        response_model=SuccessResponse
+    )
     def brain_region_member_relocation(
-        self, relocation_data: Dict[str, Any]
+        self, relocation_data: RegionMemberRelocationRequest
     ) -> SuccessResponse:
-        """
-        Brain region member relocation.
+        """Brain region member relocation.
 
         Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
 
@@ -428,11 +529,17 @@ class RegionAPI:
         }
         """
         try:
-            success = self.core_api_service.relocate_region_members(relocation_data)
+            # Extract the dictionary data from the Pydantic RootModel
+            relocation_dict = relocation_data.root
+            success = self.core_api_service.relocate_region_members(
+                relocation_dict
+            )
             if not success:
                 raise ValueError("Failed to relocate region members")
 
-            return SuccessResponse(message="Region members relocated successfully")
+            return SuccessResponse(
+                message="Region members relocated successfully"
+            )
         except Exception as e:
             logger.error(f"Error relocating region members: {e}")
             raise ValueError(f"Failed to relocate region members: {str(e)}")
@@ -449,11 +556,15 @@ class RegionAPI:
             logger.error(f"Error getting regions list: {e}")
             raise ValueError(f"Failed to get regions list: {str(e)}")
 
-    @region_endpoint("GET", "/info/{region_id}", response_model=RegionInfoResponse)
+    @region_endpoint(
+        "GET", "/info/{region_id}", response_model=RegionInfoResponse
+    )
     async def get_region_info(self, region_id: str) -> RegionInfoResponse:
         """Get information about a specific brain region."""
         try:
-            region_info = self.core_api_service.get_brain_region_info(region_id)
+            region_info = self.core_api_service.get_brain_region_info(
+                region_id
+            )
             return RegionInfoResponse(region_info=region_info)
         except Exception as e:
             logger.error(f"Error getting region info: {e}")
@@ -465,10 +576,14 @@ class RegionAPI:
         request_model=CreateRegionRequest,
         response_model=SuccessResponse,
     )
-    async def create_region(self, request: CreateRegionRequest) -> SuccessResponse:
+    async def create_region(
+        self, request: CreateRegionRequest
+    ) -> SuccessResponse:
         """Create a new brain region."""
         try:
-            success = self.core_api_service.create_brain_region(request.region_data)
+            success = self.core_api_service.create_brain_region(
+                request.region_data
+            )
             if not success:
                 raise ValueError("Failed to create brain region")
 
@@ -483,7 +598,9 @@ class RegionAPI:
         request_model=UpdateRegionRequest,
         response_model=SuccessResponse,
     )
-    async def update_region(self, request: UpdateRegionRequest) -> SuccessResponse:
+    async def update_region(
+        self, request: UpdateRegionRequest
+    ) -> SuccessResponse:
         """Update an existing brain region."""
         try:
             success = self.core_api_service.update_brain_region(
@@ -497,7 +614,9 @@ class RegionAPI:
             logger.error(f"Error updating region: {e}")
             raise ValueError(f"Failed to update region: {str(e)}")
 
-    @region_endpoint("DELETE", "/delete/{region_id}", response_model=SuccessResponse)
+    @region_endpoint(
+        "DELETE", "/delete/{region_id}", response_model=SuccessResponse
+    )
     async def delete_region_new_api(self, region_id: str) -> SuccessResponse:
         """Delete a brain region."""
         try:
@@ -515,8 +634,7 @@ class RegionAPI:
 
 
 def create_region_api(core_api_service: CoreAPIService) -> RegionAPI:
-    """
-    Factory function to create a RegionAPI instance.
+    """Factory function to create a RegionAPI instance.
 
     This function can be used by transport adapters to get a configured
     RegionAPI instance with the required dependencies.

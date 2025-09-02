@@ -1,5 +1,4 @@
-"""
-FEAGI Test Mode Module
+"""FEAGI Test Mode Module.
 
 This module provides different test modes for FEAGI neural network testing:
 - test_mode_1: JSON-based predictable neuron activations
@@ -14,4 +13,9 @@ from .test_mode_1 import TestMode1Handler
 from .test_mode_2 import TestMode2Handler
 from .test_runner import FeagiTestRunner, run_test_mode
 
-__all__ = ["FeagiTestRunner", "run_test_mode", "TestMode1Handler", "TestMode2Handler"]
+__all__ = [
+    "FeagiTestRunner",
+    "run_test_mode",
+    "TestMode1Handler",
+    "TestMode2Handler",
+]

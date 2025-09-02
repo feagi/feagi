@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -83,10 +81,14 @@ def validate_position(
     """
     # Validate inputs
     if not isinstance(position, (tuple, list)):
-        raise TypeError(f"Position must be a tuple or list, got {type(position)}")
+        raise TypeError(
+            f"Position must be a tuple or list, got {type(position)}"
+        )
 
     if not isinstance(dimensions, (tuple, list)):
-        raise TypeError(f"Dimensions must be a tuple or list, got {type(dimensions)}")
+        raise TypeError(
+            f"Dimensions must be a tuple or list, got {type(dimensions)}"
+        )
 
     if len(position) != 3:
         raise ValueError(
@@ -106,7 +108,9 @@ def validate_position(
     return (0 <= x < width) and (0 <= y < height) and (0 <= z < depth)
 
 
-def calculate_distance(pos1: Tuple[int, int, int], pos2: Tuple[int, int, int]) -> float:
+def calculate_distance(
+    pos1: Tuple[int, int, int], pos2: Tuple[int, int, int]
+) -> float:
     """Calculate the Euclidean distance between two 3D positions.
 
     Args:
@@ -120,7 +124,9 @@ def calculate_distance(pos1: Tuple[int, int, int], pos2: Tuple[int, int, int]) -
 
 
 def get_neighbors(
-    position: Tuple[int, int, int], dimensions: Tuple[int, int, int], distance: int = 1
+    position: Tuple[int, int, int],
+    dimensions: Tuple[int, int, int],
+    distance: int = 1,
 ) -> List[Tuple[int, int, int]]:
     """Get all valid neighbor positions within a given distance.
 

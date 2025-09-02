@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -66,7 +64,9 @@ class MemoryAnalyzer:
         }
 
         self.baseline_memory = baseline
-        logger.info(f"[STATS] Baseline captured: {baseline['rss_mb']:.1f}MB RSS")
+        logger.info(
+            f"[STATS] Baseline captured: {baseline['rss_mb']:.1f}MB RSS"
+        )
 
         return baseline
 
@@ -79,7 +79,9 @@ class MemoryAnalyzer:
         try:
             # Get neuron and synapse counts
             neuron_count = getattr(self.connectome_manager, "neuron_count", 0)
-            synapse_count = getattr(self.connectome_manager, "synapse_count", 0)
+            synapse_count = getattr(
+                self.connectome_manager, "synapse_count", 0
+            )
 
             # Estimate based on typical data structure sizes
             # These are rough estimates - actual sizes may vary
@@ -111,10 +113,14 @@ class MemoryAnalyzer:
                 / (1024 * 1024),
                 "estimated_synapse_memory_mb": estimated_synapse_memory_bytes
                 / (1024 * 1024),
-                "estimated_neural_overhead_mb": neural_overhead / (1024 * 1024),
-                "estimated_total_neural_mb": total_neural_bytes / (1024 * 1024),
+                "estimated_neural_overhead_mb": neural_overhead
+                / (1024 * 1024),
+                "estimated_total_neural_mb": total_neural_bytes
+                / (1024 * 1024),
                 "memory_per_neuron_bytes": (
-                    total_neural_bytes / neuron_count if neuron_count > 0 else 0
+                    total_neural_bytes / neuron_count
+                    if neuron_count > 0
+                    else 0
                 ),
                 "memory_per_neuron_kb": (
                     (total_neural_bytes / neuron_count) / 1024
@@ -160,8 +166,12 @@ class MemoryAnalyzer:
 
             # Sort by total size
             sorted_types = sorted(
-                obj_types.items(), key=lambda x: x[1]["total_size"], reverse=True
-            )[:20]  # Top 20
+                obj_types.items(),
+                key=lambda x: x[1]["total_size"],
+                reverse=True,
+            )[
+                :20
+            ]  # Top 20
 
             breakdown = {
                 "total_objects": len(gc.get_objects()),
@@ -202,7 +212,9 @@ class MemoryAnalyzer:
             "total_rss_mb": memory_info.rss / (1024 * 1024),
             "total_vms_mb": memory_info.vms / (1024 * 1024),
             "thread_count": process.num_threads(),
-            "fd_count": process.num_fds() if hasattr(process, "num_fds") else 0,
+            "fd_count": (
+                process.num_fds() if hasattr(process, "num_fds") else 0
+            ),
         }
 
         # Calculate overhead if we have baseline
@@ -210,7 +222,9 @@ class MemoryAnalyzer:
             application_overhead_mb = (
                 current_memory["total_rss_mb"] - self.baseline_memory["rss_mb"]
             )
-            current_memory["application_overhead_mb"] = max(0, application_overhead_mb)
+            current_memory["application_overhead_mb"] = max(
+                0, application_overhead_mb
+            )
             current_memory["baseline_rss_mb"] = self.baseline_memory["rss_mb"]
 
         # Get neural data estimate
@@ -238,7 +252,9 @@ class MemoryAnalyzer:
                     (neural_mb / total_mb) * 100 if total_mb > 0 else 0
                 ),
                 "overhead_percentage": (
-                    (max(0, overhead_mb) / total_mb) * 100 if total_mb > 0 else 0
+                    (max(0, overhead_mb) / total_mb) * 100
+                    if total_mb > 0
+                    else 0
                 ),
             }
 
@@ -306,7 +322,9 @@ def analyze_memory_usage(connectome_manager=None) -> Dict[str, Any]:
     return analyzer.analyze_current_memory()
 
 
-def start_memory_monitoring(connectome_manager=None, interval_seconds: float = 10.0):
+def start_memory_monitoring(
+    connectome_manager=None, interval_seconds: float = 10.0
+):
     """Start continuous memory monitoring."""
     analyzer = get_memory_analyzer()
     if connectome_manager:

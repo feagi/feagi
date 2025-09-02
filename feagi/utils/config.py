@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,21 +21,19 @@ allowing settings to be loaded from files or environment variables.
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any, Dict, Optional
 
 
 class FeagiConfig:
-    """
-    Configuration manager for FEAGI.
+    """Configuration manager for FEAGI.
 
-    This class manages configuration settings for FEAGI components,
-    with support for default values and dot notation access.
+    This class manages configuration settings for FEAGI components, with
+    support for default values and dot notation access.
     """
 
     def __init__(self, config_dict: Optional[Dict[str, Any]] = None):
-        """
-        Initialize configuration with optional dictionary.
+        """Initialize configuration with optional dictionary.
 
         Args:
             config_dict: Optional configuration dictionary
@@ -49,8 +45,7 @@ class FeagiConfig:
         }
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get a configuration value with dot notation.
+        """Get a configuration value with dot notation.
 
         Args:
             key: Configuration key with dot notation (e.g., 'connectome.max_neurons')
@@ -76,8 +71,7 @@ class FeagiConfig:
         return config
 
     def set(self, key: str, value: Any) -> None:
-        """
-        Set a configuration value.
+        """Set a configuration value.
 
         Args:
             key: Configuration key with dot notation

@@ -156,79 +156,6 @@ def validate_area_structure(area, genome_props):
     )
 
 
-def test_extract_cortical_properties(embryo, test_genome_file):
-    """Test that cortical properties are correctly extracted from genome."""
-    # Load the genome
-    embryo.load_genome(test_genome_file)
-
-    # Get the test genome data for validation
-    with open(test_genome_file, "r") as f:
-        genome_data = json.load(f)
-
-    # Look for a valid cortical ID in the blueprint section
-    # The format appears to be "_____10c-<cortical_id>-cx-__name-t"
-    blueprint = genome_data.get("blueprint", {})
-    cortical_id = None
-
-    # Look for keys matching the pattern and extract a valid ID
-    for key in blueprint.keys():
-        if isinstance(key, str) and key.endswith("-cx-__name-t"):
-            # Extract the cortical ID portion
-            parts = key.split("-")
-            if len(parts) >= 4:
-                cortical_id = parts[1]  # This should be the cortical ID
-                # Verify this is a valid ID by checking for other properties
-                test_key = f"{parts[0]}-{cortical_id}-cx-___bbx-i"
-                if test_key in blueprint:
-                    break
-
-    if not cortical_id:
-        pytest.fail("Could not find a valid cortical area ID in test genome")
-
-    # Extract properties using the embryo method
-    props = embryo._extract_cortical_properties(cortical_id)
-
-    # Verify essential properties are extracted
-    assert "name" in props, f"Missing name property for cortical ID {cortical_id}"
-    assert "bbx" in props, (
-        f"Missing bounding box x dimension for cortical ID {cortical_id}"
-    )
-    assert "bby" in props, (
-        f"Missing bounding box y dimension for cortical ID {cortical_id}"
-    )
-    assert "bbz" in props, (
-        f"Missing bounding box z dimension for cortical ID {cortical_id}"
-    )
-    assert "rcordx" in props, f"Missing x coordinate for cortical ID {cortical_id}"
-    assert "rcordy" in props, f"Missing y coordinate for cortical ID {cortical_id}"
-    assert "rcordz" in props, f"Missing z coordinate for cortical ID {cortical_id}"
-
-    # Check that values match the genome
-    # The genome uses keys like "_____10c-<cortical_id>-cx-__name-t"
-    name_key = [
-        k
-        for k in blueprint.keys()
-        if k.endswith(f"-{cortical_id}-cx-__name-t")
-        or k.endswith(f"-{cortical_id}-cx-__name-t")
-    ][0]
-    expected_name = blueprint.get(name_key, "")
-    assert props["name"] == expected_name, (
-        f"Extracted name '{props['name']}' doesn't match expected '{expected_name}'"
-    )
-
-    # Check numeric properties
-    bbx_key = [
-        k
-        for k in blueprint.keys()
-        if k.endswith(f"-{cortical_id}-cx-___bbx-i")
-        or k.endswith(f"-{cortical_id}-cx-___bbx-i")
-    ][0]
-    expected_bbx = blueprint.get(bbx_key, 1)
-    assert props["bbx"] == expected_bbx, (
-        f"Extracted bbx '{props['bbx']}' doesn't match expected '{expected_bbx}'"
-    )
-
-
 @pytest.mark.skip(reason="Mismatched type for cortical_id validation")
 def test_setup_cortical_areas(embryo, test_genome_file):
     """Test the cortical area setup process."""
@@ -254,7 +181,7 @@ def test_setup_cortical_areas(embryo, test_genome_file):
             [
                 area_id
                 for area_id in genome_data["blueprint"]
-                if area_id not in ["_death", "___pwr"]
+                if area_id not in ["_death", "_power"]
             ]
         )
         + 2

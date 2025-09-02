@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,8 +77,7 @@ class FeagiError(Exception):
         code: ErrorCode = ErrorCode.UNKNOWN,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a FEAGI error.
+        """Initialize a FEAGI error.
 
         Args:
             message: Error message
@@ -95,7 +92,9 @@ class FeagiError(Exception):
     def __str__(self) -> str:
         """Get string representation of the error."""
         if self.details:
-            details_str = ", ".join(f"{k}={v}" for k, v in self.details.items())
+            details_str = ", ".join(
+                f"{k}={v}" for k, v in self.details.items()
+            )
             return f"{self.code.name}: {self.message} ({details_str})"
         return f"{self.code.name}: {self.message}"
 
@@ -160,8 +159,7 @@ class ResourceNotFoundError(FeagiError):
         message: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a ResourceNotFoundError.
+        """Initialize a ResourceNotFoundError.
 
         Args:
             resource_type: Type of resource that was not found
@@ -197,8 +195,7 @@ class InvalidArgumentError(FeagiError):
         message: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize an InvalidArgumentError.
+        """Initialize an InvalidArgumentError.
 
         Args:
             parameter: Name of the parameter that was invalid
@@ -233,8 +230,7 @@ class NeuralProcessingError(FeagiError):
         message: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a NeuralProcessingError.
+        """Initialize a NeuralProcessingError.
 
         Args:
             operation: Neural processing operation that failed
@@ -267,8 +263,7 @@ class RustIntegrationError(FeagiError):
         message: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a RustIntegrationError.
+        """Initialize a RustIntegrationError.
 
         Args:
             function: Rust function that failed
@@ -301,8 +296,7 @@ class RustCompatibilityError(FeagiError):
         message: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Initialize a RustCompatibilityError.
+        """Initialize a RustCompatibilityError.
 
         Args:
             component: Component that has compatibility issues
@@ -328,8 +322,7 @@ class RustCompatibilityError(FeagiError):
 
 # Example Rust error enum generation
 def generate_rust_error_enum() -> str:
-    """
-    Generate a Rust error enum that corresponds to all FEAGI errors.
+    """Generate a Rust error enum that corresponds to all FEAGI errors.
 
     Returns:
         Rust code for the error enum

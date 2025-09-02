@@ -1,11 +1,15 @@
-"""
-Neural data processing components for ZMQ.
+"""Neural data processing components for ZMQ.
 
-This package provides neural-specific data structures, protocols,
-and optimizations for high-performance neural data transmission.
+This package provides neural-specific data structures, protocols, and
+optimizations for high-performance neural data transmission.
 """
 
-from .headers import NeuralDataHeader, NeuralHeaderError, create_header, parse_header
+from .headers import (
+    NeuralDataHeader,
+    NeuralHeaderError,
+    create_header,
+    parse_header,
+)
 from .protocols import (
     MAX_CORTICAL_AREAS,
     MAX_NEURONS_PER_MESSAGE,

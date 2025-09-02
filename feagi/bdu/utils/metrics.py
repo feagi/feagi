@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +19,6 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 """Performance metrics and profiling utilities for the BDU.
 
 This module provides utilities for measuring and analyzing the performance
@@ -30,8 +27,7 @@ of neural processing operations.
 
 
 def calculate_neuron_density(positions, dimensions, bin_size=1):
-    """
-    Calculate neuron density from a list of positions.
+    """Calculate neuron density from a list of positions.
 
     Args:
         positions: List of (x, y, z) tuples representing neuron positions
@@ -43,7 +39,8 @@ def calculate_neuron_density(positions, dimensions, bin_size=1):
     """
     # Create a 3D array to hold the counts
     binned_dimensions = tuple(
-        dim // bin_size + (1 if dim % bin_size > 0 else 0) for dim in dimensions
+        dim // bin_size + (1 if dim % bin_size > 0 else 0)
+        for dim in dimensions
     )
     density_map = np.zeros(dimensions, dtype=np.int32)
 
@@ -79,7 +76,9 @@ def calculate_neuron_density(positions, dimensions, bin_size=1):
                     bin_sum = np.sum(density_map[x:x_end, y:y_end, z:z_end])
 
                     # Store in binned map
-                    binned_map[x // bin_size, y // bin_size, z // bin_size] = bin_sum
+                    binned_map[x // bin_size, y // bin_size, z // bin_size] = (
+                        bin_sum
+                    )
 
         return binned_map
 
@@ -87,7 +86,8 @@ def calculate_neuron_density(positions, dimensions, bin_size=1):
 
 
 class PerformanceTimer:
-    """A utility class for timing operations and collecting performance metrics."""
+    """A utility class for timing operations and collecting performance
+    metrics."""
 
     def __init__(self, name: str):
         """Initialize a new timer with a given name.

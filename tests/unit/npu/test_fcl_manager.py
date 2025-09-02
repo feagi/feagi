@@ -14,20 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Tests for the Hierarchical Fire Candidate List (FCL) Manager
-
-This module contains tests for the HierarchicalFCL class from feagi.npu.fcl_manager.
-"""
+# Tests for the Hierarchical Fire Candidate List (FCL) Manager
+# This module contains tests for the HierarchicalFCL class from feagi.npu.fcl_manager.
 
 
 import pytest
 
 try:
-    import pyroaring
-
-    PYROARING_AVAILABLE = True
-except ImportError:
+    import importlib.util as _importlib_util
+    PYROARING_AVAILABLE = _importlib_util.find_spec("pyroaring") is not None
+except Exception:
     PYROARING_AVAILABLE = False
 
 # Import the code to test, handling potential import errors
@@ -51,7 +47,8 @@ def fcl_manager():
 @pytest.fixture
 def enhanced_fcl_manager():
     """Create an EnhancedFCLManager instance for testing."""
-    return EnhancedFCLManager(default_window_size=5)
+    # EnhancedFCLManager is an alias of FCLManager; use window_size to configure
+    return EnhancedFCLManager(window_size=5)
 
 
 @pytest.fixture

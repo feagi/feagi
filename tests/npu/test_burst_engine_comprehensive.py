@@ -45,6 +45,15 @@ class MockStateManager:
 
     def get_burst_engine_state(self):
         return self.burst_engine_state
+    
+    def is_debug_npu_enabled(self):
+        return False
+    
+    def get_burst_frequency(self):
+        return self.burst_frequency
+    
+    def get_simd_configuration(self):
+        return {"enabled": True, "backend": "cpu"}
 
 
 # Create test module for optimized_integration with a mock function

@@ -1,0 +1,15 @@
+{
+  "test_name": "fcl_manager_operations",
+  "metric_name": "cortical_areas",
+  "baseline_value": 5.333333333333333,
+  "baseline_timestamp": 1755280650.59615,
+  "sample_count": 54,
+  "std_deviation": 3.7163585341994363,
+  "confidence_interval": [
+    4.342097948019364,
+    6.324568718647302
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.595694
+  }
+}

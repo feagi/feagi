@@ -11,33 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-"""
-Defines all supported sensors and actuator types and properties.
-"""
+#  ==============================================================================
+"""Defines all supported sensors and actuator types and properties."""
 
 cortical_types = {
     "IPU": {
         "gui_name": "Sensors",
         "supported_devices": {
-            "i__inf": {
+            "iinf00": {
                 "enabled": True,
                 "cortical_name": "Infrared sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "i_iinf": {
+            "iiif00": {
                 "enabled": True,
-                "cortical_name": "Infrared sensor (Inverse)",
+                "cortical_name": "Reverse infrared sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "idgpio": {
+            "idgp00": {
                 "enabled": True,
-                "cortical_name": "Digital input",
+                "cortical_name": "Digital GPIO input",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [35, 20, -70],
@@ -49,7 +46,7 @@ cortical_types = {
                 "resolution": [1, 1, 10],
                 "coordinate_3d": [35, 0, -70],
             },
-            "i__pro": {
+            "ipro00": {
                 "enabled": True,
                 "cortical_name": "Proximity sensor",
                 "structure": "asymmetric",
@@ -84,14 +81,14 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [60, 0, 0],
             },
-            "ishock": {
+            "ishk00": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0],
             },
-            "i__bat": {
+            "ibat00": {
                 "enabled": True,
                 "cortical_name": "Battery gauge",
                 "structure": "asymmetric",
@@ -105,63 +102,63 @@ cortical_types = {
                 "resolution": [32, 32, 3],
                 "coordinate_3d": [30, 100, -20],
             },
-            "iv00_C": {
+            "iic400": {
                 "enabled": True,
                 "cortical_name": "Central vision sensor",
                 "structure": "asymmetric",
                 "resolution": [64, 64, 1],
                 "coordinate_3d": [30, 40, -20],
             },
-            "iv00TR": {
+            "iic800": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 105, -20],
             },
-            "iv00TL": {
+            "iic600": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 105, -20],
             },
-            "iv00TM": {
+            "iic700": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top middle",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [55, 105, -20],
             },
-            "iv00ML": {
+            "iic300": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 70, -20],
             },
-            "iv00MR": {
+            "iic900": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 70, -20],
             },
-            "iv00BL": {
+            "iic000": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [20, 30, -20],
             },
-            "iv00BR": {
+            "iic200": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
                 "coordinate_3d": [95, 30, -20],
             },
-            "iv00BM": {
+            "iic100": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom middle",
                 "structure": "asymmetric",
@@ -175,7 +172,7 @@ cortical_types = {
                 "resolution": [1, 10, 1],
                 "coordinate_3d": [111, 91, 0],
             },
-            "i_spos": {
+            "isvp00": {
                 "enabled": True,
                 "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
@@ -226,33 +223,33 @@ cortical_types = {
             },
         },
         "name_to_id_mapping": {
-            "infrared": ["i__inf"],
-            "infrared_inverse": ["ii_inf"],
-            "proximity": ["i__pro"],
-            "gpio_digital": ["idgpio"],
+            "infrared": ["iinf00"],
+            "infrared_inverse": ["iiif00"],
+            "proximity": ["ipro00"],
+            "gpio_digital": ["idgp00"],
             "gpio_analog": ["iagpio"],
             "accelerometer": ["i__acc"],
             "gyro": ["i__gyr"],
             "euler": ["ieuler"],
-            "shock": ["ishock"],
-            "battery": ["i__bat"],
+            "shock": ["ishk00"],
+            "battery": ["ibat00"],
             "compass": ["i_comp"],
             "camera": [
                 "iv00CC",
-                "iv00_C",
-                "iv00TL",
-                "iv00TM",
-                "iv00TR",
-                "iv00ML",
-                "iv00MR",
-                "iv00BL",
-                "iv00BR",
-                "iv00BM",
+                "iic400",
+                "iic600",
+                "iic700",
+                "iic800",
+                "iic300",
+                "iic900",
+                "iic000",
+                "iic100",
+                "iic200",
             ],
             "miscellaneous": ["i_misc"],
-            "servo_position": ["i_spos"],
+            "servo_position": ["isvp00"],
             "servo_motion": ["i_smot"],
-            "digital_input": ["idgpio"],
+            "digital_input": ["idgp00"],
             "analog_input": ["iagpio"],
             "id_trainer": ["i___id"],
             "pressure": ["i_pres"],
@@ -569,7 +566,7 @@ cortical_types = {
                 "coordinate_3d": [0, 0, -10],
                 "coordinate_2d": [-10, -20],
             },
-            "___pwr": {
+            "_power": {
                 "idx": 1,
                 "enabled": False,
                 "cortical_name": "Power",
@@ -608,12 +605,27 @@ cortical_template = {
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": False,
     "mp_driven_psp": False,
-    "is_mem_type": False,
-    "longterm_mem_threshold": 100,
-    "lifespan_growth_rate": 1,
-    "init_lifespan": 9,
-    "temporal_depth": 1,
-    "neuron_excitability": 100,
+    "neuron_excitability": 1.0,  # Changed from 100 to 1.0 (100% firing probability)
+}
+
+cortical_template_memory = {
+    "sub_group_id": "MEMORY",
+    "per_voxel_neuron_cnt": 0,  # FIXED: Memory areas start empty, memory neurons created dynamically
+    "psp_uniform_distribution": True,
+    "postsynaptic_current_max": 99999,
+    "plasticity_constant": 1,
+    "cortical_mapping_dst": {},
+    "postsynaptic_current": 1,
+    "firing_threshold": 1.0,
+    "refractory_period": 0,
+    "leak_coefficient": 0,
+    "neuron_excitability": 1.0,
+    "visualization": True,
+    # Memory-specific properties
+    "init_lifespan": 9,  # Initial neuron lifespan
+    "lifespan_growth_rate": 1.0,  # Growth rate on reactivation
+    "longterm_mem_threshold": 100,  # Long-term conversion threshold
+    "temporal_depth": 1,  # Pattern history depth
 }
 
 
@@ -644,7 +656,8 @@ cortical_property_mappings = {
 
 
 # Structural properties required for cortical area brain development
-# These are not in cortical_template as they're about area placement, not neuron properties
+#  These are not in cortical_template as they're about area placement, not
+#  neuron properties
 cortical_structural_properties = {
     # Position coordinates (required for brain development)
     "rcordx": "cx-rcordx-i",
@@ -656,31 +669,43 @@ cortical_structural_properties = {
     "bbz": "cx-___bbz-i",
     # Name property (required for brain development)
     "name": "cx-__name-s",
-    # Note: dimensions (bbx, bby, bbz) are usually present but could add as fallback if needed
+    #  Note: dimensions (bbx, bby, bbz) are usually present but could add as
+    #  fallback if needed
 }
 
 
-# Default physiology template for auto-recovery when physiology section is missing or incomplete
-# This provides the essential system-level parameters required for FEAGI to function properly
+#  Default physiology template for auto-recovery when physiology section is
+#  missing or incomplete
+#  This provides the essential system-level parameters required for FEAGI to
+#  function properly
 physiology_template = {
-    "burst_delay": 0.025,  # Delay between neural processing bursts (in seconds)
+    "simulation_timestep": 0.025,  # Neural simulation timestep (in seconds) - was burst_delay
     "max_age": 10000000,  # Maximum age for neurons before lifecycle management
     "evolution_burst_count": 50,  # Number of bursts per evolution cycle
     "ipu_idle_threshold": 1000,  # Threshold for IPU idle detection
     "plasticity_queue_depth": 3,  # Depth of plasticity processing queue
     "lifespan_mgmt_interval": 10,  # Interval for neuron lifespan management
+    # Sleep triggering (inactivity-based maintenance)
+    #  Number of bursts to accumulate activity for before evaluating sleep
+    #  trigger
+    "sleep_trigger_inactivity_window": 1000,
+    #  Maximum cumulative neurons fired within the window to qualify as "low
+    #  activity"
+    "sleep_trigger_neural_activity_max": 10000,
 }
 
 
 # Property mappings for physiology template
 # Maps physiology_template keys to their configuration types for validation
 physiology_property_types = {
-    "burst_delay": "float",
+    "simulation_timestep": "float",  # was burst_delay
     "max_age": "int",
     "evolution_burst_count": "int",
     "ipu_idle_threshold": "int",
     "plasticity_queue_depth": "int",
     "lifespan_mgmt_interval": "int",
+    "sleep_trigger_inactivity_window": "int",
+    "sleep_trigger_neural_activity_max": "int",
 }
 
 
@@ -694,9 +719,21 @@ core_morphologies = {
     "projector_xy": {"parameters": {}, "type": "functions", "class": "core"},
     "projector_xz": {"parameters": {}, "type": "functions", "class": "core"},
     "projector_yz": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_x": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_y": {"parameters": {}, "type": "functions", "class": "core"},
-    "project_from_end_z": {"parameters": {}, "type": "functions", "class": "core"},
+    "project_from_end_x": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
+    "project_from_end_y": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
+    "project_from_end_z": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
     "last_to_first": {"parameters": {}, "type": "functions", "class": "core"},
     "memory": {"parameters": {}, "type": "functions", "class": "core"},
     "0-0-0_to_all": {
@@ -747,7 +784,11 @@ core_morphologies = {
     "randomizer": {"parameters": {}, "type": "functions", "class": "core"},
     "expander_x": {"parameters": {}, "type": "functions", "class": "core"},
     "reducer_x": {"parameters": {}, "type": "functions", "class": "core"},
-    "lateral_pairs_x": {"parameters": {}, "type": "functions", "class": "core"},
+    "lateral_pairs_x": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core",
+    },
     "tile": {
         "parameters": {
             "src_seed": [16, 16, 1],
@@ -758,3 +799,6 @@ core_morphologies = {
         "class": "core",
     },
 }
+
+# Create supported_ipu_list for backward compatibility with genome validator
+supported_ipu_list = list(cortical_types["IPU"]["supported_devices"].keys())

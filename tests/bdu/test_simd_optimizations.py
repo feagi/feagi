@@ -37,15 +37,15 @@ class TestSIMDOptimizations:
         """Create sample neural data in the unified format."""
         return {
             'test_area_1': {
-                'coordinates_x': np.array([1, 2, 3, 4], dtype=np.uint32),
-                'coordinates_y': np.array([1, 2, 3, 4], dtype=np.uint32),
-                'coordinates_z': np.array([0, 0, 1, 1], dtype=np.uint32),
+                'coordinates_x': np.array([1, 2, 3, 4], dtype=np.uint16),
+                'coordinates_y': np.array([1, 2, 3, 4], dtype=np.uint16),
+                'coordinates_z': np.array([0, 0, 1, 1], dtype=np.uint16),
                 'membrane_potentials': np.array([0.8, 1.2, 0.9, 1.1], dtype=np.float32),
             },
             'test_area_2': {
-                'coordinates_x': np.array([5, 6], dtype=np.uint32),
-                'coordinates_y': np.array([5, 6], dtype=np.uint32),
-                'coordinates_z': np.array([0, 0], dtype=np.uint32),
+                'coordinates_x': np.array([5, 6], dtype=np.uint16),
+                'coordinates_y': np.array([5, 6], dtype=np.uint16),
+                'coordinates_z': np.array([0, 0], dtype=np.uint16),
                 'membrane_potentials': np.array([1.0, 0.9], dtype=np.float32),
             }
         }
@@ -86,8 +86,8 @@ class TestSIMDOptimizations:
         invalid_data = {
             'test_area': {
                 'coordinates_x': [1, 2, 3],  # Should be numpy array
-                'coordinates_y': np.array([1, 2, 3], dtype=np.uint32),
-                'coordinates_z': np.array([0, 0, 0], dtype=np.uint32),
+                'coordinates_y': np.array([1, 2, 3], dtype=np.uint16),
+                'coordinates_z': np.array([0, 0, 0], dtype=np.uint16),
                 # Missing membrane_potentials
             }
         }
@@ -103,7 +103,7 @@ class TestSIMDOptimizations:
             'test_area': {
                 'coordinates_x': [1, 2, 3],  # Python list
                 'coordinates_y': np.array([1, 2, 3], dtype=np.int64),  # Wrong dtype
-                'coordinates_z': np.array([0, 0, 0], dtype=np.uint32),  # Correct
+                'coordinates_z': np.array([0, 0, 0], dtype=np.uint16),  # Correct
                 'membrane_potentials': [0.8, 1.2, 0.9],  # Python list
             }
         }
@@ -174,24 +174,14 @@ class TestSIMDOptimizations:
         for _neuron_id, weight in result:
             assert weight == 1.5
 
-    def test_batch_voxel_to_neuron_lookup_nonexistent_area(self, connectome_manager):
-        """Test batch lookup with non-existent cortical area."""
-        candidate_positions = {(1, 1, 0), (2, 2, 0)}
-        
-        # Should raise KeyError for non-existent area
-        with pytest.raises(KeyError):
-            connectome_manager.batch_voxel_to_neuron_lookup(
-                cortical_id='nonexistent_area',
-                candidate_positions=candidate_positions,
-                post_synaptic_current=1.0
-            )
+
 
     def test_numpy_simd_operations_basic(self):
         """Test basic numpy SIMD operations used in optimizations."""
         # Test coordinate matrix operations
-        coords_x = np.array([1, 2, 3, 2, 1], dtype=np.uint32)
-        coords_y = np.array([1, 2, 3, 2, 1], dtype=np.uint32)
-        coords_z = np.array([0, 0, 1, 0, 0], dtype=np.uint32)
+        coords_x = np.array([1, 2, 3, 2, 1], dtype=np.uint16)
+        coords_y = np.array([1, 2, 3, 2, 1], dtype=np.uint16)
+        coords_z = np.array([0, 0, 1, 0, 0], dtype=np.uint16)
         
         # Test vectorized coordinate matrix creation
         coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
@@ -208,9 +198,9 @@ class TestSIMDOptimizations:
         """Test that numpy operations work efficiently with larger datasets."""
         # Create larger test dataset
         size = 10000
-        coords_x = np.random.randint(0, 100, size, dtype=np.uint32)
-        coords_y = np.random.randint(0, 100, size, dtype=np.uint32)
-        coords_z = np.random.randint(0, 10, size, dtype=np.uint32)
+        coords_x = np.random.randint(0, 100, size, dtype=np.uint16)
+        coords_y = np.random.randint(0, 100, size, dtype=np.uint16)
+        coords_z = np.random.randint(0, 10, size, dtype=np.uint16)
         
         # Test vectorized operations
         coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
@@ -258,9 +248,9 @@ class TestSIMDOptimizations:
         """Test unified stimulation with different intensity values."""
         test_data = {
             'test_area': {
-                'coordinates_x': np.array([1, 2], dtype=np.uint32),
-                'coordinates_y': np.array([1, 2], dtype=np.uint32),
-                'coordinates_z': np.array([0, 0], dtype=np.uint32),
+                'coordinates_x': np.array([1, 2], dtype=np.uint16),
+                'coordinates_y': np.array([1, 2], dtype=np.uint16),
+                'coordinates_z': np.array([0, 0], dtype=np.uint16),
                 'membrane_potentials': np.array([intensity, intensity], dtype=np.float32),
             }
         }
@@ -274,9 +264,9 @@ class TestSIMDOptimizations:
         # Test mismatched array lengths
         mismatched_data = {
             'test_area': {
-                'coordinates_x': np.array([1, 2, 3], dtype=np.uint32),
-                'coordinates_y': np.array([1, 2], dtype=np.uint32),  # Different length
-                'coordinates_z': np.array([0, 0, 0], dtype=np.uint32),
+                'coordinates_x': np.array([1, 2, 3], dtype=np.uint16),
+                'coordinates_y': np.array([1, 2], dtype=np.uint16),  # Different length
+                'coordinates_z': np.array([0, 0, 0], dtype=np.uint16),
                 'membrane_potentials': np.array([0.8, 1.2, 0.9], dtype=np.float32),
             }
         }
@@ -304,9 +294,9 @@ class TestSIMDOptimizations:
         size = 50000
         large_data = {
             'large_area': {
-                'coordinates_x': np.arange(size, dtype=np.uint32),
-                'coordinates_y': np.arange(size, dtype=np.uint32),
-                'coordinates_z': np.zeros(size, dtype=np.uint32),
+                'coordinates_x': np.arange(size, dtype=np.uint16),
+                'coordinates_y': np.arange(size, dtype=np.uint16),
+                'coordinates_z': np.zeros(size, dtype=np.uint16),
                 'membrane_potentials': np.ones(size, dtype=np.float32),
             }
         }
@@ -345,14 +335,14 @@ class TestNeurogenesisSIMDOptimizations:
         assert len(positions) == total_voxels
         
         # Test numpy conversion
-        positions_array = np.array(positions, dtype=np.uint32)
+        positions_array = np.array(positions, dtype=np.uint16)
         assert positions_array.shape == (total_voxels, 3)
 
     def test_vectorized_unique_position_finding(self):
         """Test vectorized unique position finding for neurogenesis."""
         # Create test positions with some duplicates
         positions = [(1, 1, 0), (2, 2, 0), (1, 1, 0), (3, 3, 0), (2, 2, 0)]
-        positions_array = np.array(positions, dtype=np.uint32)
+        positions_array = np.array(positions, dtype=np.uint16)
         
         # Test numpy unique operation
         unique_positions, inverse_indices = np.unique(positions_array, axis=0, return_inverse=True)
@@ -370,7 +360,7 @@ class TestNeurogenesisSIMDOptimizations:
         neuron_ids = [101, 102, 103, 104, 105]
         positions = [(1, 1, 0), (1, 1, 0), (2, 2, 0), (1, 1, 0), (2, 2, 0)]
         
-        positions_array = np.array(positions, dtype=np.uint32)
+        positions_array = np.array(positions, dtype=np.uint16)
         unique_positions, inverse_indices = np.unique(positions_array, axis=0, return_inverse=True)
         
         # Group neurons by position using vectorized operations

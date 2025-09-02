@@ -69,6 +69,14 @@
       background-color: #c82333;
     }
 
+    .header-button.load-barebones {
+      background-color: #28a745;
+    }
+
+    .header-button.load-barebones:hover {
+      background-color: #218838;
+    }
+
     .theme-selector {
       display: flex;
       align-items: center;
@@ -191,6 +199,7 @@
       <button class="header-button" id="expand-all">Expand All</button>
       <button class="header-button" id="collapse-all">Collapse All</button>
       <button class="header-button load-essential" id="load-essential">Load Essential</button>
+      <button class="header-button load-barebones" id="load-barebones">Load Barebones</button>
       <div class="theme-selector">
         <span class="theme-selector-label">Theme:</span>
         <select id="theme-select">
@@ -386,6 +395,137 @@
           } catch (error) {
             console.error('Error loading essential genome:', error);
             alert('Failed to load essential genome. Check console for details.');
+          }
+        });
+
+        // Add Load Barebones button functionality
+        document.getElementById('load-barebones').addEventListener('click', async () => {
+          try {
+            const response = await fetch('/v1/genome/upload/barebones', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            alert('Barebones genome loaded successfully!');
+            console.log('Barebones genome loaded:', result);
+          } catch (error) {
+            console.error('Error loading barebones genome:', error);
+            alert('Failed to load barebones genome. Check console for details.');
+          }
+        });
+
+        // Prefill POST /v1/system/debug_logging body with live state
+        async function prefillDebugLogging() {
+          try {
+            const stateResp = await fetch('/v1/system/debug_logging', { method: 'GET' });
+            if (!stateResp.ok) return;
+            const flags = await stateResp.json();
+            const jsonBody = JSON.stringify(flags, null, 2);
+
+            // Locate the opblock for POST /v1/system/debug_logging
+            const opblocks = Array.from(document.querySelectorAll('.opblock'));
+            const target = opblocks.find(op => {
+              const methodEl = op.querySelector('.opblock-summary-method');
+              const pathEl = op.querySelector('.opblock-summary-path, .opblock-summary-path__deprecated');
+              const method = methodEl ? methodEl.textContent.trim().toUpperCase() : '';
+              const path = pathEl ? pathEl.textContent.trim() : '';
+              return method === 'POST' && path === '/v1/system/debug_logging';
+            });
+            if (!target) return;
+
+            // Helper: try to fill textarea (non-invasive)
+            const tryFillTextarea = () => {
+              const ta = target.querySelector('textarea');
+              if (!ta) return false;
+
+              // Guard: attach one-time listeners to detect user edits
+              if (!ta._feagiGuarded) {
+                ta.addEventListener('input', () => {
+                  // Mark as user-edited unless a programmatic prefill is in progress
+                  if (ta.dataset.prefillInProgress !== '1') {
+                    ta.dataset.userEdited = '1';
+                  }
+                });
+                ta.addEventListener('focus', () => { ta.dataset.focused = '1'; });
+                ta.addEventListener('blur', () => { ta.dataset.focused = '0'; });
+                ta._feagiGuarded = true;
+              }
+
+              // Do not overwrite while focused or after user edits
+              if (ta.dataset.focused === '1' || ta.dataset.userEdited === '1') {
+                return false;
+              }
+
+              // Avoid redundant writes if already prefilled with same content
+              if (ta.dataset.prefilled === '1' && ta.value && ta.value.trim() === jsonBody.trim()) {
+                return true;
+              }
+
+              // Perform programmatic prefill
+              ta.dataset.prefillInProgress = '1';
+              ta.value = jsonBody;
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+              ta.dataset.prefillInProgress = '0';
+              ta.dataset.prefilled = '1';
+              return true;
+            };
+
+            // 1) If Try it out already active, fill the textarea
+            if (tryFillTextarea()) return;
+
+            // 2) Update the visible example block to mirror live state
+            const exampleBlocks = target.querySelectorAll('.microlight, pre, code');
+            if (exampleBlocks && exampleBlocks.length > 0) {
+              exampleBlocks[0].textContent = jsonBody;
+            }
+
+            // 3) Hook into Try it out to fill when textarea appears
+            const tryBtn = target.querySelector('.try-out__btn');
+            if (tryBtn && !tryBtn._feagiHooked) {
+              tryBtn.addEventListener('click', () => {
+                // Wait for UI to render textarea
+                setTimeout(() => { tryFillTextarea(); }, 200);
+              });
+              tryBtn._feagiHooked = true;
+            }
+
+            // 4) Observe DOM changes within this opblock to catch dynamic renders
+            if (!target._feagiObserver) {
+              const observer = new MutationObserver(() => {
+                // Attempt to fill textarea whenever structure changes
+                const filled = tryFillTextarea();
+                // Stop observing if filled once or user started editing
+                const ta = target.querySelector('textarea');
+                if (filled || (ta && ta.dataset.userEdited === '1')) {
+                  observer.disconnect();
+                  target._feagiObserver = null;
+                }
+              });
+              observer.observe(target, { childList: true, subtree: true });
+              target._feagiObserver = observer;
+            }
+          } catch (e) {
+            console.warn('Failed to prefill debug_logging body:', e);
+          }
+        }
+
+        // Attempt prefill shortly after initialization and after filter setup
+        setTimeout(prefillDebugLogging, 1200);
+        // Also prefill when user expands the system tag or toggles operation
+        document.addEventListener('click', (e) => {
+          const el = e.target;
+          if (!el || !el.classList) return;
+          if (el.classList.contains('opblock-tag') ||
+              el.classList.contains('opblock-summary') ||
+              el.classList.contains('btn') && /try-out|cancel/.test(el.className)) {
+            setTimeout(prefillDebugLogging, 300);
           }
         });
 

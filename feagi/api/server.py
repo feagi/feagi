@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,26 +28,40 @@ from feagi.utils.logger import setup_logger
 
 setup_feagi_logging()
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 def main():
     """Run the FEAGI API server in standalone mode."""
-    parser = argparse.ArgumentParser(description="FEAGI API Server (Standalone)")
-    parser.add_argument("--host", type=str, help="Host to run the server on (required)")
+    parser = argparse.ArgumentParser(
+        description="FEAGI API Server (Standalone)"
+    )
+    parser.add_argument(
+        "--host", type=str, help="Host to run the server on (required)"
+    )
     parser.add_argument(
         "--port", type=int, default=8000, help="Port to run the server on"
     )
-    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-    parser.add_argument("--zmq", action="store_true", help="Enable ZeroMQ client mode")
+    parser.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload"
+    )
+    parser.add_argument(
+        "--zmq", action="store_true", help="Enable ZeroMQ client mode"
+    )
     parser.add_argument(
         "--zmq-host", type=str, help="ZeroMQ host (required if using --zmq)"
     )
     parser.add_argument(
-        "--zmq-req-port", type=int, default=5555, help="ZeroMQ Request-Reply port"
+        "--zmq-req-port",
+        type=int,
+        default=5555,
+        help="ZeroMQ Request-Reply port",
     )
     parser.add_argument(
-        "--zmq-pub-port", type=int, default=5556, help="ZeroMQ Publish-Subscribe port"
+        "--zmq-pub-port",
+        type=int,
+        default=5556,
+        help="ZeroMQ Publish-Subscribe port",
     )
     parser.add_argument(
         "--zmq-push-port", type=int, default=5557, help="ZeroMQ Push-Pull port"
@@ -84,15 +96,23 @@ def main():
         os.environ["FEAGI_ZMQ_STREAM_PORT"] = str(args.zmq_stream_port)
 
     logger.info(
-        f"Starting FEAGI API server on {args.host}:{args.port}", status="[START]"
+        f"Starting FEAGI API server on {args.host}:{args.port}",
+        status="[START]",
     )
     if args.zmq:
         logger.info(
-            f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", status="[NET]"
+            f"ZeroMQ client mode enabled, connecting to {args.zmq_host}",
+            status="[NET]",
         )
-        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", status="[NET]")
-        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", status="[NET]")
-        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", status="[NET]")
+        logger.info(
+            f"  - Request-Reply port: {args.zmq_req_port}", status="[NET]"
+        )
+        logger.info(
+            f"  - Publish-Subscribe port: {args.zmq_pub_port}", status="[NET]"
+        )
+        logger.info(
+            f"  - Push-Pull port: {args.zmq_push_port}", status="[NET]"
+        )
         logger.info(f"  - Stream port: {args.zmq_stream_port}", status="[NET]")
 
     # Run the API server

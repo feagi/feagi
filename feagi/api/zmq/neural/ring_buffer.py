@@ -1,8 +1,7 @@
-"""
-Lock-free ring buffer for zero-copy neural data transmission.
+"""Lock-free ring buffer for zero-copy neural data transmission.
 
-This implementation uses atomic operations and memory mapping for high-performance
-neural data buffering without locks or memory copies.
+This implementation uses atomic operations and memory mapping for high-
+performance neural data buffering without locks or memory copies.
 """
 
 import mmap
@@ -45,8 +44,7 @@ class RingBufferStats:
 
 
 class ZeroCopyRingBuffer:
-    """
-    Lock-free ring buffer for zero-copy neural data.
+    """Lock-free ring buffer for zero-copy neural data.
 
     This implementation uses:
     - Memory-mapped files for zero-copy access
@@ -58,16 +56,18 @@ class ZeroCopyRingBuffer:
     # Cache line size (typical for x86_64)
     CACHE_LINE_SIZE = 64
 
-    def __init__(self, slots: int, slot_size: int, use_shared_memory: bool = True):
-        """
-        Initialize ring buffer.
+    def __init__(
+        self, slots: int, slot_size: int, use_shared_memory: bool = True
+    ):
+        """Initialize ring buffer.
 
         Args:
             slots: Number of slots (will be rounded up to power of 2)
             slot_size: Size of each slot in bytes
             use_shared_memory: Whether to use shared memory (for multi-process)
         """
-        # CRITICAL SAFETY CHECK: Prevent initialization during brain development
+        #  CRITICAL SAFETY CHECK: Prevent initialization during brain
+        #  development
         # Brain development should not initialize multiprocessing components
         import threading
 
@@ -152,12 +152,15 @@ class ZeroCopyRingBuffer:
         self.read_index = multiprocessing.Value("Q", 0)  # uint64
 
         # Padding to prevent false sharing
-        self._write_padding = multiprocessing.Array("c", self.CACHE_LINE_SIZE - 8)
-        self._read_padding = multiprocessing.Array("c", self.CACHE_LINE_SIZE - 8)
+        self._write_padding = multiprocessing.Array(
+            "c", self.CACHE_LINE_SIZE - 8
+        )
+        self._read_padding = multiprocessing.Array(
+            "c", self.CACHE_LINE_SIZE - 8
+        )
 
     def get_write_slot(self) -> Optional[BufferSlot]:
-        """
-        Get next available write slot without blocking.
+        """Get next available write slot without blocking.
 
         Returns:
             BufferSlot if available, None if buffer is full or closed
@@ -183,14 +186,15 @@ class ZeroCopyRingBuffer:
         # Return memory view of slot
         return BufferSlot(
             index=write_idx,
-            memory_view=memoryview(self.buffer)[offset : offset + self.slot_size],
+            memory_view=memoryview(self.buffer)[
+                offset : offset + self.slot_size
+            ],
             offset=offset,
             size=self.slot_size,
         )
 
     def commit_write(self, slot: BufferSlot) -> None:
-        """
-        Commit a write operation.
+        """Commit a write operation.
 
         Args:
             slot: The slot that was written to
@@ -208,8 +212,7 @@ class ZeroCopyRingBuffer:
         self._update_usage_stats()
 
     def get_read_slot(self) -> Optional[BufferSlot]:
-        """
-        Get next slot to read from without blocking.
+        """Get next slot to read from without blocking.
 
         Returns:
             BufferSlot if available, None if buffer is empty
@@ -230,14 +233,15 @@ class ZeroCopyRingBuffer:
         # Return memory view of slot
         return BufferSlot(
             index=read_idx,
-            memory_view=memoryview(self.buffer)[offset : offset + self.slot_size],
+            memory_view=memoryview(self.buffer)[
+                offset : offset + self.slot_size
+            ],
             offset=offset,
             size=self.slot_size,
         )
 
     def commit_read(self, slot: BufferSlot) -> None:
-        """
-        Commit a read operation.
+        """Commit a read operation.
 
         Args:
             slot: The slot that was read from
@@ -262,7 +266,9 @@ class ZeroCopyRingBuffer:
             used = (write_idx + (1 << 64)) - read_idx
 
         usage_percent = (used / self.slots) * 100
-        self.stats.max_usage_percent = max(self.stats.max_usage_percent, usage_percent)
+        self.stats.max_usage_percent = max(
+            self.stats.max_usage_percent, usage_percent
+        )
 
     @property
     def available_slots(self) -> int:
@@ -294,7 +300,8 @@ class ZeroCopyRingBuffer:
         self.read_index.value = 0
 
     def close(self):
-        """Close and cleanup resources with RTOS-friendly deterministic cleanup."""
+        """Close and cleanup resources with RTOS-friendly deterministic
+        cleanup."""
         # RTOS-friendly: Simple, bounded cleanup operations
 
         # Step 1: Mark as closed to prevent new operations
@@ -351,7 +358,8 @@ class ZeroCopyRingBuffer:
             self.shm = None
 
     def __del__(self):
-        """Destructor to ensure cleanup even if close() isn't called explicitly."""
+        """Destructor to ensure cleanup even if close() isn't called
+        explicitly."""
         try:
             # Only attempt cleanup if we haven't already cleaned up
             if hasattr(self, "buffer") and self.buffer is not None:

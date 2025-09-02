@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -91,7 +89,8 @@ class RustCompatible:
             doc = ""
             class_doc = inspect.getdoc(self.__class__)
             if class_doc:
-                # Simple heuristic to extract field docs: look for "field_name: docstring"
+                #  Simple heuristic to extract field docs: look for
+                #  "field_name: docstring"
                 for line in class_doc.split("\n"):
                     if line.strip().startswith(f"{field_name}:"):
                         doc = line.split(":", 1)[1].strip()
@@ -194,15 +193,16 @@ class RustCompatible:
 
 
 def rust_field(
-    *, ownership: OwnershipType = OwnershipType.OWNED, thread_safe: bool = False
+    *,
+    ownership: OwnershipType = OwnershipType.OWNED,
+    thread_safe: bool = False,
 ):
     """Create a field with Rust-specific metadata."""
     return field(metadata={"ownership": ownership, "thread_safe": thread_safe})
 
 
 def _python_type_to_rust_type(py_type: Type) -> str:
-    """
-    Convert a Python type to an equivalent Rust type.
+    """Convert a Python type to an equivalent Rust type.
 
     Args:
         py_type: Python type
@@ -261,8 +261,7 @@ def _python_type_to_rust_type(py_type: Type) -> str:
 # Example usage of RustCompatible dataclass
 @dataclass
 class ExampleStruct(RustCompatible):
-    """
-    Example struct demonstrating Rust-compatible dataclass.
+    """Example struct demonstrating Rust-compatible dataclass.
 
     name: Name of the example
     value: Numeric value

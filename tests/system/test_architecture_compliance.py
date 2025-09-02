@@ -411,7 +411,7 @@ graceful_shutdown = 8.0
         pm = ProcessManager()
 
         with pytest.raises(ValueError, match="API host is required"):
-            pm.load_and_validate_ports()
+            pm.load_and_validate_ports(explicit_config=empty_config)
 
         # get_host_config should fail with empty config
         with pytest.raises(ValueError, match="API host is required"):

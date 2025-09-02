@@ -12,11 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
-
-"""
-API Gateway package for handling communication between external agents and FEAGI.
-"""
+#  ==============================================================================
+"""API Gateway package for handling communication between external agents and
+FEAGI."""
 
 from feagi.api.gateway.api_gateway import APIGateway, get_api_gateway
 

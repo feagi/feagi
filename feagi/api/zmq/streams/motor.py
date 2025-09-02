@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,12 +51,11 @@ from feagi.utils.zmq_debug import MessageType, log_outbound
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class MotorStream:
-    """
-    ZeroMQ Motor Stream implementation.
+    """ZeroMQ Motor Stream implementation.
 
     This implementation uses a PUB socket for sending motor data (FEAGI → agents).
     The stream automatically adjusts to the genome availability state:
@@ -82,8 +79,7 @@ class MotorStream:
         stream_config: Optional[Dict[str, Any]] = None,
         connectome_manager=None,
     ):
-        """
-        Initialize the Motor Stream.
+        """Initialize the Motor Stream.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -137,14 +133,15 @@ class MotorStream:
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
-            core_api.register_genome_change_listener(self._on_genome_state_change)
+            core_api.register_genome_change_listener(
+                self._on_genome_state_change
+            )
 
         # Initialize state based on current genome availability
         self._update_active_mode()
 
     def _setup_socket(self):
-        """
-        Set up the motor (PUB) socket.
+        """Set up the motor (PUB) socket.
 
         Returns:
             Configured ZMQ socket
@@ -173,7 +170,8 @@ class MotorStream:
                 self.core_api.genome_is_loaded() if self.core_api else False
             )
         except Exception as e:
-            # If there's any error accessing genome state, default to standby mode
+            #  If there's any error accessing genome state, default to standby
+            #  mode
             logger.warning(
                 f"Error checking genome state: {e}, defaulting to standby mode"
             )
@@ -183,7 +181,9 @@ class MotorStream:
             if self._active_mode:
                 logger.info("MotorStream entering ACTIVE mode (genome loaded)")
             else:
-                logger.info("MotorStream entering STANDBY mode (no genome loaded)")
+                logger.info(
+                    "MotorStream entering STANDBY mode (no genome loaded)"
+                )
 
     def _on_genome_state_change(self, old_state, new_state):
         """Handle genome state changes.
@@ -192,7 +192,9 @@ class MotorStream:
             old_state: Previous genome state
             new_state: New genome state
         """
-        logger.debug(f"Received genome state change: {old_state} → {new_state}")
+        logger.debug(
+            f"Received genome state change: {old_state} → {new_state}"
+        )
 
         try:
             # Only care about LOADED vs other states
@@ -200,12 +202,16 @@ class MotorStream:
                 # Transition to active mode when genome is loaded
                 self._active_mode = True
                 if self.running:
-                    logger.info("MotorStream entering ACTIVE mode (genome loaded)")
+                    logger.info(
+                        "MotorStream entering ACTIVE mode (genome loaded)"
+                    )
             else:
                 # Any other state means genome not fully loaded
                 self._active_mode = False
                 if self.running:
-                    logger.info("MotorStream entering STANDBY mode (no genome loaded)")
+                    logger.info(
+                        "MotorStream entering STANDBY mode (no genome loaded)"
+                    )
         except Exception as e:
             logger.error(f"Error handling genome state change: {e}")
             # Default to standby mode on error
@@ -221,10 +227,14 @@ class MotorStream:
 
         # Start motor data processing if FQ sampler queue is available
         if self.fq_sampler:
-            self._motor_data_task = asyncio.create_task(self._process_motor_data())
+            self._motor_data_task = asyncio.create_task(
+                self._process_motor_data()
+            )
 
         # Start subscriber monitoring
-        self._subscriber_monitor_task = asyncio.create_task(self._monitor_subscribers())
+        self._subscriber_monitor_task = asyncio.create_task(
+            self._monitor_subscribers()
+        )
 
         logger.info("Motor Stream server started")
 
@@ -255,7 +265,8 @@ class MotorStream:
                 pass  # Expected during cancellation
             self._subscriber_monitor_task = None
 
-        # NOTE: FQ sampler control is handled by Registration Manager, not by streams
+        #  NOTE: FQ sampler control is handled by Registration Manager, not by
+        #  streams
 
         # RTOS-friendly: Simple socket cleanup
         if self.socket:
@@ -313,13 +324,16 @@ class MotorStream:
     async def _process_cortical_area_motor_data(
         self, cortical_data: Dict[str, Any]
     ) -> None:
-        """Process motor data in the cortical area format from UnifiedFQSampler."""
+        """Process motor data in the cortical area format from
+        UnifiedFQSampler."""
         try:
             # Check if we have connected clients
             client_count = self.get_connected_client_count()
 
             if client_count == 0:
-                logger.debug("No motor clients connected, skipping cortical area data")
+                logger.debug(
+                    "No motor clients connected, skipping cortical area data"
+                )
                 return
 
             logger.debug(
@@ -337,8 +351,11 @@ class MotorStream:
                 membrane_potentials = area_data.get("membrane_potentials", [])
                 coordinates = area_data.get("coordinates", [])
 
-                # Use membrane potentials if available, otherwise default to 1.0
-                if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                #  Use membrane potentials if available, otherwise default to
+                #  1.0
+                if membrane_potentials and len(membrane_potentials) == len(
+                    neuron_ids
+                ):
                     potentials = membrane_potentials
                 else:
                     potentials = [1.0] * len(neuron_ids)
@@ -350,7 +367,7 @@ class MotorStream:
 
                     # Create the main mapped neuron data container
                     generated_mapped_neuron_data = (
-                        fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+                        fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
                     )
 
                     # Generate coordinates if not available
@@ -380,20 +397,63 @@ class MotorStream:
                     neurons_x = np.asarray(x_values[:max_len], dtype=np.uint32)
                     neurons_y = np.asarray(y_values[:max_len], dtype=np.uint32)
                     neurons_z = np.asarray(z_values[:max_len], dtype=np.uint32)
-                    neurons_p = np.asarray(potentials[:max_len], dtype=np.float32)
+                    neurons_p = np.asarray(
+                        potentials[:max_len], dtype=np.float32
+                    )
 
-                    # Create cortical ID
-                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    #  Create cortical ID using modern feagi-rust-py-libs
+                    #  approach
+                    area_str = str(area_id)
+
+                    try:
+                        #  Try to create cortical ID directly from string -
+                        #  handles all modern format IDs
+                        cortical_id_obj = (
+                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                        )
+                    except ValueError:
+                        # Fallback for areas that can't be parsed directly
+                        if area_str == "_power":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Power
+                            )
+                        elif area_str == "_death":
+                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                                fdp.genome.CoreCorticalType.Death
+                            )
+                        else:
+                            # For unknown areas, use custom cortical ID
+                            # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
+                            if len(area_str) == 6:
+                                # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
+                                if area_str.startswith('C'):
+                                    custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
+                                elif area_str.startswith('c'):
+                                    custom_id = area_str  # Already correct
+                                else:
+                                    custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
+                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                    custom_id
+                                )
+                            else:
+                                # Only add 'c' prefix if less than 6 characters
+                                custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
+                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                    custom_id
+                                )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
 
-                    # Insert the neuron array into the mapped data with its cortical ID
-                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+                    #  Insert the neuron array into the mapped data with its
+                    #  cortical ID
+                    generated_mapped_neuron_data.insert(
+                        cortical_id_obj, neurons_array
+                    )
 
                     # Create the final byte structure from the mapped data
                     byte_structure = (
@@ -411,51 +471,72 @@ class MotorStream:
                             f"   Structure ID (bytes[0]): {binary_data[0]} "
                             f"(0x{binary_data[0]:02X})"
                         )
-                        logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
+                        logger.debug(
+                            f"   First 8 bytes: {list(binary_data[:8])}"
+                        )
                         logger.debug(
                             "   Generated Type 11 (NEURON_CATEGORIES) - "
                             "optimized motor path!"
                         )
 
-                    await self._send_motor_binary_data(binary_data, channel=area_id)
+                    await self._send_motor_binary_data(
+                        binary_data, channel=area_id
+                    )
 
                 except Exception as e:
-                    logger.error(f"Error encoding motor data for area {area_id}: {e}")
+                    logger.error(
+                        f"Error encoding motor data for area {area_id}: {e}"
+                    )
 
         except Exception as e:
             logger.error(f"Error processing cortical area motor data: {e}")
 
-    async def _send_motor_binary_data(self, binary_data: bytes, channel: str = "motor"):
+    async def _send_motor_binary_data(
+        self, binary_data: bytes, channel: str = "motor"
+    ):
         """Send binary motor data to motor clients."""
         try:
             # Skip if in standby mode
             if not self._active_mode:
-                logger.debug("Motor stream in STANDBY mode, skipping data send")
+                logger.debug(
+                    "Motor stream in STANDBY mode, skipping data send"
+                )
                 return
 
-            # Debug logging for outbound motor data (zero-overhead when disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel.encode("utf-8"), binary_data],
-                message_type=MessageType.MOTOR,
-                topic=channel,
-                context="motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel.encode("utf-8"), binary_data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel,
+                        context="motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send data on specified motor channel
-            await self.socket.send_multipart([channel.encode("utf-8"), binary_data])
-
-            logger.debug(
-                f"Sent {len(binary_data)} bytes of motor data on channel {channel}"
+            await self.socket.send_multipart(
+                [channel.encode("utf-8"), binary_data]
             )
+
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(binary_data)} bytes on channel {channel}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(f"Error sending motor binary data: {e}")
 
     async def send_motor_data(self, channel_id: str, data: bytes) -> None:
-        """
-        Send motor data to agents.
+        """Send motor data to agents.
 
         Args:
             channel_id: Motor channel ID
@@ -477,18 +558,25 @@ class MotorStream:
             if not self.rate_limiter.check_rate(
                 f"motor_{channel_id}", 0.01
             ):  # Max 100Hz per channel
-                logger.debug(f"Rate limiting motor data on channel {channel_id}")
+                logger.debug(
+                    f"Rate limiting motor data on channel {channel_id}"
+                )
                 return
 
-            # Debug logging for outbound motor data (zero-overhead when disabled)
-            debug_endpoint = f"tcp://{self.host}:{self.port}"
-            log_outbound(
-                endpoint=debug_endpoint,
-                data=[channel_id.encode("utf-8"), data],
-                message_type=MessageType.MOTOR,
-                topic=channel_id,
-                context="external_motor_cmd",
-            )
+            #  Debug logging for outbound motor data (gated)
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    debug_endpoint = f"tcp://{self.host}:{self.port}"
+                    log_outbound(
+                        endpoint=debug_endpoint,
+                        data=[channel_id.encode("utf-8"), data],
+                        message_type=MessageType.MOTOR,
+                        topic=channel_id,
+                        context="external_motor_cmd",
+                    )
+            except Exception:
+                pass
 
             # Send multipart message with topic (channel_id) and data
             await self.socket.send_multipart(
@@ -498,16 +586,22 @@ class MotorStream:
                 ]
             )
 
-            logger.debug(
-                f"Sent {len(data)} bytes of motor data on channel {channel_id}"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                    logger.debug(
+                        f"[ZMQ-OUT-DEBUG] Sent {len(data)} bytes on channel {channel_id}"
+                    )
+            except Exception:
+                pass
 
         except Exception as e:
-            logger.error(f"Error sending motor data on channel {channel_id}: {e}")
+            logger.error(
+                f"Error sending motor data on channel {channel_id}: {e}"
+            )
 
     async def broadcast_system_message(self, message: str) -> None:
-        """
-        Broadcast a system message to all connected agents.
+        """Broadcast a system message to all connected agents.
 
         Args:
             message: System message to broadcast
@@ -532,7 +626,10 @@ class MotorStream:
             now = time.time()
             active_clients = 0
 
-            for _client_id, last_heartbeat in self.client_last_heartbeat.items():
+            for (
+                _client_id,
+                last_heartbeat,
+            ) in self.client_last_heartbeat.items():
                 if now - last_heartbeat < self.client_heartbeat_timeout:
                     active_clients += 1
 
@@ -549,7 +646,9 @@ class MotorStream:
     async def _monitor_subscribers(self) -> None:
         """Monitor ZMQ motor subscribers - removed FQ sampler control
         (handled by Registration Manager)."""
-        logger.info("Starting motor subscriber monitoring for logging/statistics only")
+        logger.info(
+            "Starting motor subscriber monitoring for logging/statistics only"
+        )
 
         # RTOS-friendly: Simple loop with small, bounded sleep intervals
         while self.running:
@@ -564,20 +663,27 @@ class MotorStream:
                         f"{self._last_subscriber_count} -> {current_count}"
                     )
                     self._last_subscriber_count = current_count
-                    # NOTE: FQ sampler control is handled by Registration Manager
+                    #  NOTE: FQ sampler control is handled by Registration
+                    #  Manager
                     # when agents register/deregister
 
-                # RTOS-friendly: Use small bounded intervals for responsive shutdown
-                # Check running flag more frequently for deterministic cancellation
+                #  RTOS-friendly: Use small bounded intervals for responsive
+                #  shutdown
+                #  Check running flag more frequently for deterministic
+                #  cancellation
                 remaining_sleep = self.subscriber_check_interval
                 while remaining_sleep > 0 and self.running:
-                    sleep_chunk = min(0.1, remaining_sleep)  # 100ms chunks maximum
+                    sleep_chunk = min(
+                        0.1, remaining_sleep
+                    )  # 100ms chunks maximum
                     await asyncio.sleep(sleep_chunk)
                     remaining_sleep -= sleep_chunk
 
             except asyncio.CancelledError:
                 # RTOS-friendly: Simple, deterministic cancellation
-                logger.debug("Motor subscriber monitoring cancelled during shutdown")
+                logger.debug(
+                    "Motor subscriber monitoring cancelled during shutdown"
+                )
                 break
             except Exception as e:
                 logger.error(f"Error in motor subscriber monitoring: {e}")
@@ -618,7 +724,9 @@ class MotorStream:
         # Don't log every heartbeat to avoid spam, just update the timestamp
 
 
-def _process_tuple_data(cortical_id: str, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _process_tuple_data(
+    cortical_id: str, data_dict: Dict[str, Any]
+) -> Dict[str, Any]:
     """Process tuple-format FQ data into encoder format."""
     try:
         # Extract neuron data from the data dictionary
@@ -682,12 +790,13 @@ def _process_dict_data(fq_data: Dict[str, Any]) -> Dict[str, Any]:
         return {}
 
 
-def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
-    """
-    Handle motor stream with optimized performance path.
+def handle_motor_stream(
+    burst_engine, subscriber_count: int
+) -> Optional[bytes]:
+    """Handle motor stream with optimized performance path.
 
-    This function uses the optimized FQ sampler if available, otherwise
-    falls back to legacy processing for compatibility.
+    This function uses the optimized FQ sampler if available, otherwise falls
+    back to legacy processing for compatibility.
     """
     if subscriber_count <= 0:
         return None
@@ -709,16 +818,16 @@ def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
                             "OPU" in area_type
                             or "OUTPUT" in area_type
                             or "MOTOR" in area_type
-                            or area_id.startswith(("opu_", "motor_", "output_"))
+                            or area_id.startswith(
+                                ("opu_", "motor_", "output_")
+                            )
                         ):
                             opu_areas.append(area_id)
 
             # Direct binary output from optimized sampler
             if opu_areas:
-                binary_data = (
-                    burst_engine.optimized_fq_sampler.sample_motor_areas_direct(
-                        opu_areas
-                    )
+                binary_data = burst_engine.optimized_fq_sampler.sample_motor_areas_direct(
+                    opu_areas
                 )
                 if binary_data:
                     logger.debug(
@@ -784,7 +893,9 @@ def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
             f"   Structure ID (bytes[0]): {binary_data[0]} (0x{binary_data[0]:02X})"
         )
         logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
-        logger.debug("   Generated Type 11 (NEURON_CATEGORIES) - legacy motor path!")
+        logger.debug(
+            "   Generated Type 11 (NEURON_CATEGORIES) - legacy motor path!"
+        )
 
         return binary_data
 

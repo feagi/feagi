@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,7 +26,7 @@ import time
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import json
 import queue
 import select
@@ -87,8 +85,7 @@ class Event:
         data: Optional[Dict[str, Any]] = None,
         priority: EventPriority = EventPriority.MEDIUM,
     ):
-        """
-        Initialize an event.
+        """Initialize an event.
 
         Args:
             event_type: Type of the event
@@ -128,8 +125,7 @@ class Event:
 
 
 class EventNotificationSystem:
-    """
-    Provides event-based notification between FEAGI processes.
+    """Provides event-based notification between FEAGI processes.
 
     This system uses a combination of file-based semaphores and shared memory
     to enable efficient, non-blocking event notifications across processes.
@@ -141,8 +137,7 @@ class EventNotificationSystem:
         temp_dir: Optional[str] = None,
         max_queue_size: int = 1000,
     ):
-        """
-        Initialize the event notification system.
+        """Initialize the event notification system.
 
         Args:
             process_name: Name of this process (used as event source)
@@ -196,17 +191,23 @@ class EventNotificationSystem:
 
         self.running = True
         self.event_thread = threading.Thread(
-            target=self._event_loop, daemon=True, name=f"EventLoop-{self.process_name}"
+            target=self._event_loop,
+            daemon=True,
+            name=f"EventLoop-{self.process_name}",
         )
         self.event_thread.start()
-        self.logger.info(f"Started event notification system for {self.process_name}")
+        self.logger.info(
+            f"Started event notification system for {self.process_name}"
+        )
 
     def stop(self):
         """Stop the event notification system."""
         self.running = False
         if self.event_thread and self.event_thread.is_alive():
             self.event_thread.join(timeout=1.0)
-        self.logger.info(f"Stopped event notification system for {self.process_name}")
+        self.logger.info(
+            f"Stopped event notification system for {self.process_name}"
+        )
 
     def _event_loop(self):
         """Main event processing loop."""
@@ -219,12 +220,16 @@ class EventNotificationSystem:
         try:
             while self.running:
                 # Check for incoming events
-                ready, _, _ = select.select([pipe_fd], [], [], 0.1)  # 100ms timeout
+                ready, _, _ = select.select(
+                    [pipe_fd], [], [], 0.1
+                )  # 100ms timeout
 
                 if ready:
                     # Read event data
                     try:
-                        data = os.read(pipe_fd, 4096)  # Read up to 4KB at a time
+                        data = os.read(
+                            pipe_fd, 4096
+                        )  # Read up to 4KB at a time
                         if data:
                             # Parse and process events
                             self._process_event_data(data)
@@ -295,8 +300,7 @@ class EventNotificationSystem:
         data: Optional[Dict[str, Any]] = None,
         priority: EventPriority = EventPriority.MEDIUM,
     ) -> bool:
-        """
-        Send an event to other processes.
+        """Send an event to other processes.
 
         Args:
             event_type: Type of the event
@@ -346,8 +350,7 @@ class EventNotificationSystem:
         return success
 
     def subscribe(self, event_type: EventType):
-        """
-        Subscribe to a specific event type.
+        """Subscribe to a specific event type.
 
         Args:
             event_type: The event type to subscribe to
@@ -356,19 +359,21 @@ class EventNotificationSystem:
         self.logger.debug(f"Subscribed to event type: {event_type.value}")
 
     def unsubscribe(self, event_type: EventType):
-        """
-        Unsubscribe from a specific event type.
+        """Unsubscribe from a specific event type.
 
         Args:
             event_type: The event type to unsubscribe from
         """
         if event_type in self.subscriptions:
             self.subscriptions.remove(event_type)
-            self.logger.debug(f"Unsubscribed from event type: {event_type.value}")
+            self.logger.debug(
+                f"Unsubscribed from event type: {event_type.value}"
+            )
 
-    def register_handler(self, event_type: EventType, handler: Callable[[Event], None]):
-        """
-        Register a handler for a specific event type.
+    def register_handler(
+        self, event_type: EventType, handler: Callable[[Event], None]
+    ):
+        """Register a handler for a specific event type.
 
         Args:
             event_type: The event type to handle
@@ -381,19 +386,23 @@ class EventNotificationSystem:
         if event_type not in self.handlers:
             self.handlers[event_type] = []
         self.handlers[event_type].append(handler)
-        self.logger.debug(f"Registered handler for event type: {event_type.value}")
+        self.logger.debug(
+            f"Registered handler for event type: {event_type.value}"
+        )
 
     def unregister_handler(
         self, event_type: EventType, handler: Callable[[Event], None]
     ):
-        """
-        Unregister a handler for a specific event type.
+        """Unregister a handler for a specific event type.
 
         Args:
             event_type: The event type
             handler: The handler function to remove
         """
-        if event_type in self.handlers and handler in self.handlers[event_type]:
+        if (
+            event_type in self.handlers
+            and handler in self.handlers[event_type]
+        ):
             self.handlers[event_type].remove(handler)
             self.logger.debug(
                 f"Unregistered handler for event type: {event_type.value}"
@@ -412,7 +421,9 @@ class EventNotificationSystem:
         try:
             if os.path.exists(self.event_file_path):
                 os.unlink(self.event_file_path)
-                self.logger.info(f"Removed event pipe at {self.event_file_path}")
+                self.logger.info(
+                    f"Removed event pipe at {self.event_file_path}"
+                )
         except Exception as e:
             self.logger.error(f"Error removing event pipe: {e}")
 

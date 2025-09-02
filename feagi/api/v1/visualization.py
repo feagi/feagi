@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,7 +30,7 @@ from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.v1.schemas import SuccessResponse
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 router = APIRouter()
 
 
@@ -71,8 +69,7 @@ async def register_visualization_client(
     request: VisualizationClientRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> VisualizationClientResponse:
-    """
-    Register a visualization client.
+    """Register a visualization client.
 
     This triggers the FQ sampler to start sampling for visualization data.
     """
@@ -88,14 +85,17 @@ async def register_visualization_client(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
                 viz_stream = zmq_server.get_visualization_stream()
                 if viz_stream:
                     viz_stream.register_visualization_client(client_id)
-                    logger.info(f"[OK] Visualization client registered: {client_id}")
+                    logger.info(
+                        f"[OK] Visualization client registered: {client_id}"
+                    )
 
                     return VisualizationClientResponse(
                         client_id=client_id,
@@ -105,18 +105,25 @@ async def register_visualization_client(
                 else:
                     logger.error("[ERR] Visualization stream not available")
                     raise HTTPException(
-                        status_code=503, detail="Visualization stream not available"
+                        status_code=503,
+                        detail="Visualization stream not available",
                     )
             else:
                 logger.error("[ERR] ZMQ server not available in processes")
-                raise HTTPException(status_code=503, detail="ZMQ server not available")
+                raise HTTPException(
+                    status_code=503, detail="ZMQ server not available"
+                )
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
-            raise HTTPException(status_code=503, detail="FEAGI services not available")
+            raise HTTPException(
+                status_code=503, detail="FEAGI services not available"
+            )
 
     except Exception as e:
         logger.error(f"[ERR] Error registering visualization client: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Registration failed: {str(e)}"
+        ) from e
 
 
 @router.post("/unregister_client", response_model=SuccessResponse)
@@ -124,15 +131,16 @@ async def unregister_visualization_client(
     request: VisualizationClientRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> SuccessResponse:
-    """
-    Unregister a visualization client.
+    """Unregister a visualization client.
 
     If this is the last client, the FQ sampler will stop sampling.
     """
     try:
         client_id = request.client_id
         if not client_id:
-            raise HTTPException(status_code=400, detail="Client ID is required")
+            raise HTTPException(
+                status_code=400, detail="Client ID is required"
+            )
 
         logger.info(f"🔌 Unregistering visualization client: {client_id}")
 
@@ -142,14 +150,17 @@ async def unregister_visualization_client(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
                 viz_stream = zmq_server.get_visualization_stream()
                 if viz_stream:
                     viz_stream.unregister_visualization_client(client_id)
-                    logger.info(f"[OK] Visualization client unregistered: {client_id}")
+                    logger.info(
+                        f"[OK] Visualization client unregistered: {client_id}"
+                    )
 
                     return SuccessResponse(
                         message=f"Visualization client {client_id} unregistered successfully"
@@ -157,18 +168,27 @@ async def unregister_visualization_client(
                 else:
                     logger.error("[ERR] Visualization stream not available")
                     raise HTTPException(
-                        status_code=503, detail="Visualization stream not available"
+                        status_code=503,
+                        detail="Visualization stream not available",
                     )
             else:
                 logger.error("[ERR] ZMQ server not available in processes")
-                raise HTTPException(status_code=503, detail="ZMQ server not available")
+                raise HTTPException(
+                    status_code=503, detail="ZMQ server not available"
+                )
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
-            raise HTTPException(status_code=503, detail="FEAGI services not available")
+            raise HTTPException(
+                status_code=503, detail="FEAGI services not available"
+            )
 
     except Exception as e:
-        logger.error(f"[ERR] Error unregistering visualization client: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Unregistration failed: {str(e)}")
+        logger.error(
+            f"[ERR] Error unregistering visualization client: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Unregistration failed: {str(e)}"
+        ) from e
 
 
 @router.post("/heartbeat", response_model=SuccessResponse)
@@ -176,8 +196,7 @@ async def visualization_client_heartbeat(
     request: VisualizationHeartbeatRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> SuccessResponse:
-    """
-    Send a heartbeat from a visualization client.
+    """Send a heartbeat from a visualization client.
 
     This keeps the client active and prevents timeout.
     """
@@ -192,7 +211,8 @@ async def visualization_client_heartbeat(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
@@ -206,26 +226,34 @@ async def visualization_client_heartbeat(
                 else:
                     logger.error("[ERR] Visualization stream not available")
                     raise HTTPException(
-                        status_code=503, detail="Visualization stream not available"
+                        status_code=503,
+                        detail="Visualization stream not available",
                     )
             else:
                 logger.error("[ERR] ZMQ server not available in processes")
-                raise HTTPException(status_code=503, detail="ZMQ server not available")
+                raise HTTPException(
+                    status_code=503, detail="ZMQ server not available"
+                )
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
-            raise HTTPException(status_code=503, detail="FEAGI services not available")
+            raise HTTPException(
+                status_code=503, detail="FEAGI services not available"
+            )
 
     except Exception as e:
-        logger.error(f"[ERR] Error processing visualization heartbeat: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}")
+        logger.error(
+            f"[ERR] Error processing visualization heartbeat: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Heartbeat failed: {str(e)}"
+        ) from e
 
 
 @router.get("/status", response_model=VisualizationStatusResponse)
 async def get_visualization_status(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ) -> VisualizationStatusResponse:
-    """
-    Get the current visualization system status.
+    """Get the current visualization system status.
 
     Returns information about active clients and FQ sampler status.
     """
@@ -238,7 +266,8 @@ async def get_visualization_status(
         pm = get_process_manager()
 
         if pm and hasattr(pm, "_processes") and "zmq_server" in pm._processes:
-            # Get ZMQ server from _processes dictionary where it's actually stored
+            #  Get ZMQ server from _processes dictionary where it's actually
+            #  stored
             zmq_server = pm._processes["zmq_server"]
             if zmq_server:
                 # Get visualization stream from ZMQ server
@@ -282,4 +311,6 @@ async def get_visualization_status(
 
     except Exception as e:
         logger.error(f"[ERR] Error getting visualization status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Status check failed: {str(e)}"
+        ) from e

@@ -105,7 +105,7 @@ def test_build_power_connections(mock_state_manager):
 
     # Set up genome mock
     mock_instance.genome = {
-        "blueprint": {"___pwr": {}, "target_area": {"block_boundaries": [10, 10, 5]}},
+        "blueprint": {"_power": {}, "target_area": {"block_boundaries": [10, 10, 5]}},
         "neuron_morphologies": {},
     }
 
@@ -138,11 +138,11 @@ def test_build_power_connections(mock_state_manager):
         # Check that update_cortical_mappings was called with correct parameters
         connectome.update_cortical_mappings.assert_called_once()
         call_args = connectome.update_cortical_mappings.call_args[0][0]
-        assert call_args["src_cortical_area"] == "___pwr"
+        assert call_args["src_cortical_area"] == "_power"
         assert call_args["dst_cortical_area"] == "target_area"
 
         # Check that the morphology was created in the genome
-        morphology_name = "system-___pwr-target_area"
+        morphology_name = "system-_power-target_area"
         assert morphology_name in mock_instance.genome["neuron_morphologies"]
 
         # Check patterns in the morphology
@@ -174,7 +174,7 @@ def test_build_power_connections_new_area(mock_state_manager):
     mock_state_manager.get_instance.return_value = mock_instance
 
     # Set up genome mock without the target area
-    mock_instance.genome = {"blueprint": {"___pwr": {}}, "neuron_morphologies": {}}
+    mock_instance.genome = {"blueprint": {"_power": {}}, "neuron_morphologies": {}}
 
     # Set up cortical types mock
     with patch(
@@ -215,5 +215,5 @@ def test_build_power_connections_new_area(mock_state_manager):
         connectome.update_cortical_mappings.assert_called_once()
 
         # Check that a pattern was created
-        morphology_name = "system-___pwr-new_area"
+        morphology_name = "system-_power-new_area"
         assert morphology_name in mock_instance.genome["neuron_morphologies"]

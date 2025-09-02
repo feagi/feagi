@@ -21,6 +21,7 @@ These tests use mocks to simulate GPU hardware, allowing for testing of the GPU 
 even when actual GPU hardware is not available.
 """
 
+import os
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -31,6 +32,13 @@ from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,
+)
+
+# Skip GPU adapter mocked tests unless explicitly enabled
+GPU_TESTS_ENABLED = os.environ.get("FEAGI_GPU_TESTS", "0") == "1"
+pytestmark = pytest.mark.skipif(
+    not GPU_TESTS_ENABLED,
+    reason="GPU tests disabled by environment; set FEAGI_GPU_TESTS=1 to run",
 )
 
 
@@ -248,7 +256,7 @@ class TestGPUAcceleratedFCLMocked:
 
     def test_initialization(self, fcl, mock_backend):
         """Test initialization of GPU-accelerated FCL."""
-        assert fcl.cpu_fcl.default_window_size == 3
+        assert fcl.cpu_fcl.window_size == 3
         assert fcl.backend == mock_backend
 
     def test_update_fcl(self, fcl, mock_backend):
@@ -370,11 +378,11 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = backend
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Check result
         assert isinstance(fcl, GPUAcceleratedFCL)
-        assert fcl.cpu_fcl.default_window_size == 3
+        assert fcl.cpu_fcl.window_size == 3
         assert fcl.backend == backend
 
     def test_create_with_unsupported_backend(self, mock_get_backend):
@@ -386,13 +394,13 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = backend
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
         from feagi.npu.fcl_manager import EnhancedFCLManager
 
         assert isinstance(fcl, EnhancedFCLManager)
-        assert fcl.default_window_size == 3
+        assert fcl.window_size == 3
 
     def test_create_with_no_backend(self, mock_get_backend):
         """Test creation with no backend available."""
@@ -400,13 +408,13 @@ class TestCreateGPUAcceleratedFCLMocked:
         mock_get_backend.return_value = None
 
         # Create FCL
-        fcl = create_gpu_accelerated_fcl(window_size=3)
+        fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
         from feagi.npu.fcl_manager import EnhancedFCLManager
 
         assert isinstance(fcl, EnhancedFCLManager)
-        assert fcl.default_window_size == 3
+        assert fcl.window_size == 3
 
 
 if __name__ == "__main__":

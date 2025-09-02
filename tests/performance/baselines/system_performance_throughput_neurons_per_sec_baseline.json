@@ -1,0 +1,15 @@
+{
+  "test_name": "system_performance",
+  "metric_name": "throughput_neurons_per_sec",
+  "baseline_value": 253791010.63470697,
+  "baseline_timestamp": 1755280650.600889,
+  "sample_count": 4,
+  "std_deviation": 223060398.9835137,
+  "confidence_interval": [
+    35191819.63086355,
+    472390201.6385504
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.600467
+  }
+}

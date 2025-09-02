@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-FEAGI Process Killer
+"""FEAGI Process Killer.
 
 This script safely terminates all FEAGI-related processes running on the system.
 It attempts graceful shutdown first (SIGTERM) and then force-kills stubborn processes (SIGKILL).
@@ -27,7 +26,7 @@ import psutil
 
 
 class Colors:
-    """ANSI color codes for terminal output"""
+    """ANSI color codes for terminal output."""
 
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
@@ -42,13 +41,12 @@ class Colors:
 
 
 def print_colored(message: str, color: str = Colors.NC, end: str = "\n"):
-    """Print a colored message"""
+    """Print a colored message."""
     print(f"{color}{message}{Colors.NC}", end=end)
 
 
 def find_feagi_processes() -> List[Tuple[int, str]]:
-    """
-    Find all FEAGI-related processes.
+    """Find all FEAGI-related processes.
 
     Returns:
         List of tuples (pid, command_line)
@@ -91,13 +89,18 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
 
                 # Check if this is a FEAGI process
                 is_feagi = any(
-                    pattern in cmdline_str.lower() for pattern in FEAGI_PATTERNS
+                    pattern in cmdline_str.lower()
+                    for pattern in FEAGI_PATTERNS
                 )
 
                 if is_feagi:
                     feagi_processes.append((pid, cmdline_str))
 
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+                psutil.ZombieProcess,
+            ):
                 # Process disappeared or we don't have access
                 continue
 
@@ -109,7 +112,7 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
 
 
 def display_processes(processes: List[Tuple[int, str]]) -> None:
-    """Display found processes in a formatted way"""
+    """Display found processes in a formatted way."""
     if not processes:
         print_colored("No FEAGI processes found running", Colors.GREEN)
         return
@@ -122,17 +125,20 @@ def display_processes(processes: List[Tuple[int, str]]) -> None:
             proc = psutil.Process(pid)
             print_colored(f"PID {pid}:", Colors.YELLOW)
             print(f"  User: {proc.username()}")
-            print(f"  Command: {cmdline[:100]}{'...' if len(cmdline) > 100 else ''}")
+            print(
+                f"  Command: {cmdline[:100]}{'...' if len(cmdline) > 100 else ''}"
+            )
             print(f"  Memory: {proc.memory_info().rss / 1024 / 1024:.1f} MB")
             print()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
-            print_colored(f"PID {pid}: Process no longer accessible", Colors.YELLOW)
+            print_colored(
+                f"PID {pid}: Process no longer accessible", Colors.YELLOW
+            )
             print()
 
 
 def kill_processes_graceful(pids: List[int]) -> List[int]:
-    """
-    Attempt to kill processes gracefully using SIGTERM
+    """Attempt to kill processes gracefully using SIGTERM.
 
     Args:
         pids: List of process IDs to kill
@@ -173,8 +179,7 @@ def kill_processes_graceful(pids: List[int]) -> List[int]:
 
 
 def kill_processes_force(pids: List[int]) -> List[int]:
-    """
-    Force kill processes using SIGKILL
+    """Force kill processes using SIGKILL.
 
     Args:
         pids: List of process IDs to kill
@@ -213,24 +218,29 @@ def kill_processes_force(pids: List[int]) -> List[int]:
 
 
 def confirm_kill(force: bool = False) -> bool:
-    """Ask user for confirmation unless force is True"""
+    """Ask user for confirmation unless force is True."""
     if force:
         return True
 
     print_colored(
-        "Do you want to kill these FEAGI processes? (y/N): ", Colors.YELLOW, end=""
+        "Do you want to kill these FEAGI processes? (y/N): ",
+        Colors.YELLOW,
+        end="",
     )
     response = input().strip().lower()
     return response in ["y", "yes"]
 
 
 def main():
-    """Main execution function"""
+    """Main execution function."""
     parser = argparse.ArgumentParser(
         description="FEAGI Process Killer - Safely terminate all FEAGI processes"
     )
     parser.add_argument(
-        "--force", "-f", action="store_true", help="Kill processes without confirmation"
+        "--force",
+        "-f",
+        action="store_true",
+        help="Kill processes without confirmation",
     )
     parser.add_argument(
         "--no-color", action="store_true", help="Disable colored output"
@@ -273,7 +283,9 @@ def main():
         final_remaining = kill_processes_force(remaining_pids)
 
         if final_remaining:
-            print_colored("Warning: Some processes could not be killed:", Colors.RED)
+            print_colored(
+                "Warning: Some processes could not be killed:", Colors.RED
+            )
             for pid in final_remaining:
                 try:
                     proc = psutil.Process(pid)
@@ -282,7 +294,9 @@ def main():
                     pass
             return 1
 
-    print_colored("All FEAGI processes have been terminated successfully", Colors.GREEN)
+    print_colored(
+        "All FEAGI processes have been terminated successfully", Colors.GREEN
+    )
 
     # Final verification
     print_colored("Final verification...", Colors.BLUE)
@@ -290,7 +304,8 @@ def main():
     final_check = find_feagi_processes()
     if final_check:
         print_colored(
-            f"Warning: {len(final_check)} FEAGI processes still detected", Colors.YELLOW
+            f"Warning: {len(final_check)} FEAGI processes still detected",
+            Colors.YELLOW,
         )
         display_processes(final_check)
 

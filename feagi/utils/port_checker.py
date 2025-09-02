@@ -13,13 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
+"""Port Availability Checker for FEAGI.
 
-"""
-Port Availability Checker for FEAGI
-
-This module provides utilities to check if required ports are available
-and fails fast with clear error messages if there are conflicts.
+This module provides utilities to check if required ports are available and
+fails fast with clear error messages if there are conflicts.
 """
 
 import logging
@@ -37,8 +35,7 @@ class PortConflictError(Exception):
 
 
 def check_port_availability(host: str, port: int) -> bool:
-    """
-    Check if a specific port is available on the given host.
+    """Check if a specific port is available on the given host.
 
     Args:
         host: Host address to check
@@ -58,8 +55,7 @@ def check_port_availability(host: str, port: int) -> bool:
 
 
 def get_process_using_port(port: int) -> Optional[str]:
-    """
-    Get information about the process using a specific port.
+    """Get information about the process using a specific port.
 
     Args:
         port: Port number to check
@@ -84,8 +80,8 @@ def get_process_using_port(port: int) -> Optional[str]:
 
 
 def check_all_ports_available(host: str, port_config: Dict[str, int]) -> None:
-    """
-    Check if all required ports are available and fail fast if any conflicts exist.
+    """Check if all required ports are available and fail fast if any conflicts
+    exist.
 
     Args:
         host: Host address to bind to
@@ -102,7 +98,11 @@ def check_all_ports_available(host: str, port_config: Dict[str, int]) -> None:
         if not check_port_availability(host, port_number):
             process_info = get_process_using_port(port_number)
             conflicts.append(
-                {"name": port_name, "port": port_number, "process": process_info}
+                {
+                    "name": port_name,
+                    "port": port_number,
+                    "process": process_info,
+                }
             )
             logger.error(
                 f"Port conflict detected: {port_name} (port {port_number}) is in use"
@@ -116,8 +116,7 @@ def check_all_ports_available(host: str, port_config: Dict[str, int]) -> None:
 
 
 def _format_port_conflict_error(conflicts: List[Dict]) -> str:
-    """
-    Format a detailed error message for port conflicts.
+    """Format a detailed error message for port conflicts.
 
     Args:
         conflicts: List of conflict information dictionaries
@@ -169,8 +168,7 @@ def _format_port_conflict_error(conflicts: List[Dict]) -> str:
 
 
 def validate_port_range(port_config: Dict[str, int]) -> None:
-    """
-    Validate that all ports are in acceptable ranges.
+    """Validate that all ports are in acceptable ranges.
 
     Args:
         port_config: Dictionary mapping port names to port numbers
@@ -182,13 +180,17 @@ def validate_port_range(port_config: Dict[str, int]) -> None:
 
     for port_name, port_number in port_config.items():
         if not isinstance(port_number, int):
-            invalid_ports.append(f"{port_name}: {port_number} (not an integer)")
+            invalid_ports.append(
+                f"{port_name}: {port_number} (not an integer)"
+            )
         elif port_number < 1024:
             invalid_ports.append(
                 f"{port_name}: {port_number} (below 1024 - privileged range)"
             )
         elif port_number > 65535:
-            invalid_ports.append(f"{port_name}: {port_number} (above 65535 - invalid)")
+            invalid_ports.append(
+                f"{port_name}: {port_number} (above 65535 - invalid)"
+            )
 
     if invalid_ports:
         error_message = (
@@ -200,8 +202,7 @@ def validate_port_range(port_config: Dict[str, int]) -> None:
 
 
 def check_port_duplicates(port_config: Dict[str, int]) -> None:
-    """
-    Check for duplicate port assignments.
+    """Check for duplicate port assignments.
 
     Args:
         port_config: Dictionary mapping port names to port numbers
@@ -227,8 +228,7 @@ def check_port_duplicates(port_config: Dict[str, int]) -> None:
 
 
 def get_config_file_location() -> str:
-    """
-    Get the expected location of the configuration file for error messages.
+    """Get the expected location of the configuration file for error messages.
 
     Returns:
         Path to the configuration file
@@ -247,9 +247,11 @@ def get_config_file_location() -> str:
     return str(Path("./feagi_configuration.ini").resolve())
 
 
-def perform_comprehensive_port_check(host: str, port_config: Dict[str, int]) -> None:
-    """
-    Perform comprehensive port validation including duplicates, ranges, and availability.
+def perform_comprehensive_port_check(
+    host: str, port_config: Dict[str, int]
+) -> None:
+    """Perform comprehensive port validation including duplicates, ranges, and
+    availability.
 
     Args:
         host: Host address to bind to

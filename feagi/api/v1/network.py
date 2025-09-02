@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +17,11 @@ limitations under the License.
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 from .decorators import endpoint
-from .schemas import NetworkConfigRequest, NetworkStatusResponse, SuccessResponse
+from .schemas import (
+    NetworkConfigRequest,
+    NetworkStatusResponse,
+    SuccessResponse,
+)
 
 
 def network_endpoint(
@@ -50,7 +52,9 @@ class NetworkAPI:
         request_model=NetworkConfigRequest,
         response_model=SuccessResponse,
     )
-    async def configure_network(self, request: NetworkConfigRequest) -> SuccessResponse:
+    async def configure_network(
+        self, request: NetworkConfigRequest
+    ) -> SuccessResponse:
         success = self.core_api_service.configure_network(request.config)
         if not success:
             raise ValueError("Failed to configure network")

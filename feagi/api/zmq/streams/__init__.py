@@ -1,5 +1,4 @@
-"""
-ZeroMQ Stream Implementations for FEAGI API
+"""ZeroMQ Stream Implementations for FEAGI API.
 
 This package contains stream implementations for different ZMQ communication patterns:
 - Sensory streams for receiving sensor data
@@ -53,8 +52,7 @@ __all__ = [
 
 
 def create_stream_manager(core_api=None, host="*", stream_configs=None):
-    """
-    Create a complete stream manager with all FEAGI streams.
+    """Create a complete stream manager with all FEAGI streams.
 
     Args:
         core_api: CoreAPIService instance for FEAGI access
@@ -106,8 +104,7 @@ def create_stream_manager(core_api=None, host="*", stream_configs=None):
 
 
 def initialize_all_streams(core_api=None, host="*", stream_configs=None):
-    """
-    Initialize and start all FEAGI streams.
+    """Initialize and start all FEAGI streams.
 
     Args:
         core_api: CoreAPIService instance for FEAGI access
@@ -124,14 +121,13 @@ def initialize_all_streams(core_api=None, host="*", stream_configs=None):
         try:
             stream.start()
         except Exception as e:
-            raise RuntimeError(f"Failed to start {name} stream: {e}")
+            raise RuntimeError(f"Failed to start {name} stream: {e}") from e
 
     return streams
 
 
 def shutdown_all_streams(streams):
-    """
-    Shutdown all streams gracefully.
+    """Shutdown all streams gracefully.
 
     Args:
         streams: Dictionary of stream instances

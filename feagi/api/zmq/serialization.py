@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,9 +27,10 @@ logger = setup_logger(__name__)
 from typing import Any
 
 
-def serialize_message(data: Any, content_type: str = "application/json") -> bytes:
-    """
-    Serialize a message according to the specified content type.
+def serialize_message(
+    data: Any, content_type: str = "application/json"
+) -> bytes:
+    """Serialize a message according to the specified content type.
 
     Args:
         data: Data to serialize
@@ -61,9 +60,10 @@ def serialize_message(data: Any, content_type: str = "application/json") -> byte
         raise ValueError(f"Unsupported content type: {content_type}")
 
 
-def deserialize_message(data: bytes, content_type: str = "application/json") -> Any:
-    """
-    Deserialize a message according to the specified content type.
+def deserialize_message(
+    data: bytes, content_type: str = "application/json"
+) -> Any:
+    """Deserialize a message according to the specified content type.
 
     Args:
         data: Serialized data as bytes

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +18,7 @@ import struct
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import zlib
 from typing import Any
 
@@ -31,11 +29,11 @@ from feagi.protocols.protocol_factory import Protocol, register_protocol
 
 @register_protocol
 class BinaryProtocol(Protocol):
-    """
-    Binary protocol implementation.
+    """Binary protocol implementation.
 
     This protocol serializes data in a binary format optimized for performance
-    and is used primarily for high-throughput data like sensorimotor and visualization.
+    and is used primarily for high-throughput data like sensorimotor and
+    visualization.
     """
 
     name = "binary"
@@ -48,8 +46,7 @@ class BinaryProtocol(Protocol):
 
     @classmethod
     def serialize(cls, data: Any, compression_level: int = 0) -> bytes:
-        """
-        Serialize data to binary format.
+        """Serialize data to binary format.
 
         Args:
             data: Data to serialize.
@@ -107,8 +104,7 @@ class BinaryProtocol(Protocol):
 
     @classmethod
     def deserialize(cls, data: bytes) -> Any:
-        """
-        Deserialize binary data.
+        """Deserialize binary data.
 
         Args:
             data: Binary data to deserialize.
@@ -153,8 +149,7 @@ class BinaryProtocol(Protocol):
 
     @classmethod
     def _serialize_numpy(cls, array: np.ndarray) -> bytes:
-        """
-        Serialize a numpy array to binary.
+        """Serialize a numpy array to binary.
 
         Args:
             array: Numpy array to serialize.
@@ -183,8 +178,7 @@ class BinaryProtocol(Protocol):
 
     @classmethod
     def _deserialize_numpy(cls, data: bytes) -> np.ndarray:
-        """
-        Deserialize binary data to a numpy array.
+        """Deserialize binary data to a numpy array.
 
         Args:
             data: Binary data to deserialize.

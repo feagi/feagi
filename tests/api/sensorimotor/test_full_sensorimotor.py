@@ -444,7 +444,7 @@ def generate_flat_neuron_data(neurons_per_area=20, num_areas=3):
     for area_idx in range(num_areas):
         # This would normally be different cortical areas, but for testing
         # we'll use the same one with different coordinates
-        area_id = "iv00_C"  # Use correct cortical ID
+        area_id = "iic400"  # Use correct cortical ID
 
         for _ in range(neurons_per_area):
             # Generate coordinates within bounds
@@ -488,7 +488,7 @@ def generate_test_image(width=64, height=64, channels=3, pattern="random"):
     Returns:
         NumPy array of shape (height, width, channels)
     """
-    # Create image with correct dimensions for the iv00_C cortical area
+    # Create image with correct dimensions for the iic400 cortical area
     if pattern == "random":
         # Random noise
         if channels == 1:
@@ -559,9 +559,9 @@ async def main():
 
         # TEST 1: Send neuron category data
         logger.info("\n----- TEST 1: NEURON CATEGORY DATA -----")
-        neuron_data = generate_test_neuron_data("iv00_C", width=64, height=64)
+        neuron_data = generate_test_neuron_data("iic400", width=64, height=64)
         logger.info(f"Sending data with FEAGI in {client.feagi_state} mode")
-        await client.send_sensory_data("iv00_C", neuron_data, data_type="neurons")
+        await client.send_sensory_data("iic400", neuron_data, data_type="neurons")
 
         # Wait a bit to allow processing
         await asyncio.sleep(1)
@@ -570,7 +570,7 @@ async def main():
         logger.info("\n----- TEST 2: FLAT NEURON DATA -----")
         flat_data = generate_flat_neuron_data(neurons_per_area=20, num_areas=3)
         logger.info(f"Sending data with FEAGI in {client.feagi_state} mode")
-        await client.send_sensory_data("iv00_C", flat_data, data_type="flat_neurons")
+        await client.send_sensory_data("iic400", flat_data, data_type="flat_neurons")
 
         # Wait a bit to allow processing
         await asyncio.sleep(1)
@@ -581,7 +581,7 @@ async def main():
             width=64, height=64, channels=3, pattern="checker"
         )
         logger.info(f"Sending data with FEAGI in {client.feagi_state} mode")
-        await client.send_sensory_data("iv00_C", image_data, data_type="image")
+        await client.send_sensory_data("iic400", image_data, data_type="image")
 
         # Wait a bit to allow processing
         await asyncio.sleep(1)

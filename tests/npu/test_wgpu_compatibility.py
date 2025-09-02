@@ -658,6 +658,10 @@ class NPUWGPUCompatibilityMonitor:
         return "\n".join(report)
 
 
+@pytest.mark.skipif(
+    os.environ.get("FEAGI_GPU_TESTS", "0") != "1",
+    reason="Skip WGPU compatibility unless FEAGI_GPU_TESTS=1",
+)
 def test_npu_wgpu_compatibility():
     """
     Test NPU modules for WGPU compatibility.

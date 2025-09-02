@@ -1,38 +1,28 @@
 #!/usr/bin/env python3
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""FEAGI Main Entry Point.
+FEAGI Main Entry Point.
 
 This module provides the single entry point for starting the complete FEAGI system.
 It uses the ProcessManager to handle process creation, monitoring, and shutdown
 according to the architecture described in feagi_processes.md.
 """
 
-import os
-import sys
-
-# CRITICAL: Check for embedded mode BEFORE any other imports
-# This prevents FastAPI modules from being imported in embedded mode
-if "--embedded" in sys.argv:
-    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
-    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
-
 import argparse
+import os
 import signal
+import sys
 import time
 from pathlib import Path
 
@@ -40,6 +30,12 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 from feagi.process_manager import get_process_manager
 from feagi.utils.logger import setup_logger
+
+# CRITICAL: Check for embedded mode BEFORE any other imports
+# This prevents FastAPI modules from being imported in embedded mode
+if "--embedded" in sys.argv:
+    os.environ["FEAGI_EMBEDDED_MODE"] = "1"
+    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
 
 setup_feagi_logging()
 
@@ -52,8 +48,7 @@ logger = setup_logger("feagi.main")
 
 
 def _update_all_logger_levels(log_level_str: str):
-    """
-    Update all existing logger levels to the new level.
+    """Update all existing logger levels to the new level.
 
     This is necessary because loggers created before CLI override
     retain their original level and don't automatically update.
@@ -78,9 +73,35 @@ def _update_all_logger_levels(log_level_str: str):
         # PlaceHolder objects don't need updating
 
 
-def check_dependencies():
+def _set_global_level_from_config():
+    """Load log level from config file and set it globally.
+    
+    This function ensures that the global log level from the config file
+    is properly set before module imports happen, fixing the caching issue.
     """
-    Check if installed dependencies match required versions.
+    try:
+        from feagi.config.toml_loader import load_feagi_config
+        
+        config = load_feagi_config()
+        config_log_level = config.get("system", {}).get("log_level", "INFO")
+        
+        # Set environment variable so setup_logger() will use this level
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = config_log_level
+        
+        # Update all existing loggers
+        _update_all_logger_levels(config_log_level)
+        
+        logger.info(f"Global log level set from config: {config_log_level}")
+        
+    except Exception as e:
+        # Fallback to INFO if config loading fails
+        os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+        _update_all_logger_levels("INFO")
+        logger.warning(f"Failed to load config for log level, using INFO: {e}")
+
+
+def check_dependencies():
+    """Check if installed dependencies match required versions.
 
     This function verifies that all required packages are installed with the correct versions.
     If not, it displays warnings or errors as appropriate.
@@ -91,7 +112,9 @@ def check_dependencies():
     logger.info("Checking dependency versions...", status="[CHECK]")
     try:
         # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
-        skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in (
+        skip_check = os.environ.get(
+            "FEAGI_SKIP_VERSION_CHECK", ""
+        ).lower() in (
             "1",
             "true",
             "yes",
@@ -103,21 +126,26 @@ def check_dependencies():
             )
             return True
 
-        # Try to import the version checker - if it doesn't exist, just continue
+        #  Try to import the version checker - if it doesn't exist, just
+        #  continue
         try:
             from feagi.utils.version_checker import verify_dependencies
 
             # Get the path to requirements.txt
-            requirements_path = Path(__file__).parent.parent / "requirements.txt"
+            requirements_path = (
+                Path(__file__).parent.parent / "requirements.txt"
+            )
 
-            # Verify dependencies, don't raise an exception but return False if there's a mismatch
+            #  Verify dependencies, don't raise an exception but return False
+            #  if there's a mismatch
             is_compatible = verify_dependencies(
                 requirements_path, raise_exception=False
             )
 
             if is_compatible:
                 logger.info(
-                    "All dependencies are compatible with requirements", status="[OK]"
+                    "All dependencies are compatible with requirements",
+                    status="[OK]",
                 )
             else:
                 logger.warning(
@@ -143,8 +171,7 @@ def check_dependencies():
 
 
 def main():
-    """
-    Main entry point for FEAGI.
+    """Main entry point for FEAGI.
 
     Parses command-line arguments, loads TOML configuration with overrides,
     validates port availability, and starts all FEAGI processes.
@@ -160,9 +187,14 @@ def main():
         import asyncio
 
         try:
-            # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-            print("Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
+            #  Set the event loop policy to WindowsSelectorEventLoopPolicy for
+            #  ZMQ compatibility
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy()
+            )
+            print(
+                "Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility"
+            )
         except AttributeError:
             # Fallback for older Python versions
             print(
@@ -176,10 +208,14 @@ def main():
 
     # API server arguments (maintained for backwards compatibility)
     parser.add_argument(
-        "--api-host", type=str, help="Host for the API server (overrides config)"
+        "--api-host",
+        type=str,
+        help="Host for the API server (overrides config)",
     )
     parser.add_argument(
-        "--api-port", type=int, help="Port for the API server (overrides config)"
+        "--api-port",
+        type=int,
+        help="Port for the API server (overrides config)",
     )
     parser.add_argument(
         "--api-reload",
@@ -189,7 +225,9 @@ def main():
 
     # ZMQ server arguments (maintained for backwards compatibility)
     parser.add_argument(
-        "--zmq-host", type=str, help="Host for the ZMQ server (overrides config)"
+        "--zmq-host",
+        type=str,
+        help="Host for the ZMQ server (overrides config)",
     )
     parser.add_argument(
         "--zmq-req-port",
@@ -217,7 +255,9 @@ def main():
         help="Port for motor ZMQ stream (overrides config)",
     )
     parser.add_argument(
-        "--zmq-rest-port", type=int, help="Port for REST ZMQ stream (overrides config)"
+        "--zmq-rest-port",
+        type=int,
+        help="Port for REST ZMQ stream (overrides config)",
     )
     parser.add_argument(
         "--zmq-visualization-port",
@@ -279,7 +319,10 @@ def main():
         help="Run FEAGI in test mode 2 (numpy-based scalable random generation)",
     )
     parser.add_argument(
-        "--test-duration", type=int, default=10, help="Duration of the test in seconds"
+        "--test-duration",
+        type=int,
+        default=10,
+        help="Duration of the test in seconds",
     )
     parser.add_argument(
         "--test-frequency",
@@ -289,7 +332,9 @@ def main():
     )
 
     # Debug arguments
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug mode"
+    )
     parser.add_argument(
         "--log-level",
         type=str,
@@ -321,6 +366,11 @@ def main():
         action="store_true",
         help="Enable detailed BDU (Brain Development Unit) debugging - shows synapse creation and candidate neighbors",
     )
+    parser.add_argument(
+        "--debug-mem",
+        action="store_true",
+        help="Enable detailed memory system debugging - shows memory neuron creation, pattern detection, and long-term conversion",
+    )
 
     # Performance profiling arguments
     parser.add_argument(
@@ -337,14 +387,77 @@ def main():
     )
 
     args = parser.parse_args()
+    
+    # DIAGNOSTIC: Show all parsed arguments
+    print(f"🔍 [ARGS-PRINT] All parsed arguments: {vars(args)}")
+    print(f"🔍 [ARGS-PRINT] Specifically debug_mem: {getattr(args, 'debug_mem', 'NOT_FOUND')}")
 
-    # CRITICAL: Update logger levels IMMEDIATELY after parsing CLI args
+    # CRITICAL: Set global log level IMMEDIATELY after parsing CLI args
     # This must happen before any logging occurs to respect --log-level
     if args.log_level is not None:
         # Set environment variable for future logger creation
         os.environ["FEAGI_CLI_LOG_LEVEL"] = args.log_level
         # Update all existing loggers immediately
         _update_all_logger_levels(args.log_level)
+    else:
+        # No CLI override - ensure config file level is loaded and set globally
+        # This fixes the caching issue by explicitly setting the global level early
+        _set_global_level_from_config()
+
+        # IMPORTANT: Do NOT elevate global level for --debug-api.
+        # Only elevate globally for other module-specific debug flags as needed.
+        if (
+            getattr(args, "debug_npu", False)
+            or getattr(args, "debug_bdu", False)
+            or getattr(args, "debug_zmq_outbound", False)
+            or getattr(args, "debug_zmq_inbound", False)
+            or getattr(args, "debug_mem", False)
+        ):
+            os.environ["FEAGI_CLI_LOG_LEVEL"] = "INFO"
+            _update_all_logger_levels("INFO")
+
+    # Apply subsystem levels (logger + handlers) using centralized mapping
+    try:
+        from feagi.utils.logger import apply_subsystem_log_levels
+        import logging
+
+        debug_cfg = {
+            # legacy aggregate API flag
+            "debug_api": bool(getattr(args, "debug_api", False)),
+            # granular API flags
+            "debug_api_core": bool(getattr(args, "debug_api_core", False)),
+            "debug_api_rest": bool(getattr(args, "debug_api_rest", False)),
+            "debug_api_zmq": bool(getattr(args, "debug_api_zmq", False)),
+            "debug_npu": bool(getattr(args, "debug_npu", False)),
+            "debug_bdu": bool(getattr(args, "debug_bdu", False)),
+            "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
+            "debug_zmq_outbound": bool(getattr(args, "debug_zmq_outbound", False)),
+            "mem_debug": bool(getattr(args, "debug_mem", False)),
+        }
+
+        # Keep env vars for newly created loggers
+        if debug_cfg["debug_api"]:
+            os.environ["FEAGI_DEBUG_API"] = "1"
+        if debug_cfg["debug_api_core"]:
+            os.environ["FEAGI_DEBUG_API_CORE"] = "1"
+        if debug_cfg["debug_api_rest"]:
+            os.environ["FEAGI_DEBUG_API_REST"] = "1"
+        if debug_cfg["debug_api_zmq"]:
+            os.environ["FEAGI_DEBUG_API_ZMQ"] = "1"
+        if debug_cfg["debug_npu"]:
+            os.environ["FEAGI_DEBUG_NPU"] = "1"
+        if debug_cfg["debug_bdu"]:
+            os.environ["FEAGI_DEBUG_BDU"] = "1"
+        if debug_cfg["debug_zmq_inbound"] or debug_cfg["debug_zmq_outbound"]:
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1"
+        if debug_cfg["mem_debug"]:
+            os.environ["FEAGI_DEBUG_MEM"] = "1"
+
+        baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
+        baseline_level = getattr(logging, baseline.upper(), logging.INFO)
+        apply_subsystem_log_levels(debug_cfg, baseline_level)
+    except Exception:
+        pass
 
     # Show deferred logger setup info now that CLI override is applied
     from feagi.utils.logger import show_deferred_setup_info
@@ -353,7 +466,10 @@ def main():
 
     try:
         # Load TOML configuration with command-line overrides
-        from feagi.config.toml_loader import FeagiConfigurationError, load_feagi_config
+        from feagi.config.toml_loader import (
+            FeagiConfigurationError,
+            load_feagi_config,
+        )
         from feagi.utils.port_checker import PortConflictError
 
         # Convert argparse Namespace to dict for CLI overrides
@@ -382,7 +498,9 @@ def main():
         if args.zmq_rest_port is not None:
             cli_overrides["zmq_rest_port"] = args.zmq_rest_port
         if args.zmq_visualization_port is not None:
-            cli_overrides["zmq_visualization_port"] = args.zmq_visualization_port
+            cli_overrides["zmq_visualization_port"] = (
+                args.zmq_visualization_port
+            )
 
         if args.debug:
             cli_overrides["debug"] = True
@@ -390,35 +508,85 @@ def main():
             cli_overrides["log_level"] = args.log_level
         if args.debug_api:
             cli_overrides["debug_api"] = True
+            # Set environment variable for middleware detection
+            os.environ["FEAGI_DEBUG_API"] = "1"
             logger.info("API debug logging enabled via --debug-api flag")
 
         if args.debug_npu:
             cli_overrides["debug_npu"] = True
-            logger.info("[DEBUG] NPU fire queue debugging enabled via --debug-npu flag")
-
-        if args.debug_zmq_outbound:
-            cli_overrides["debug_zmq_outbound"] = True
+            os.environ["FEAGI_DEBUG_NPU"] = "1"
             logger.info(
-                "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
+                "[DEBUG] NPU fire queue debugging enabled via --debug-npu flag"
             )
+            # Ensure StateManager debug flag reflects CLI immediately
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_npu"] = True
+            except Exception:
+                pass
 
-        if args.debug_zmq_inbound:
-            cli_overrides["debug_zmq_inbound"] = True
-            logger.info(
-                "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
-            )
+        if args.debug_zmq_outbound or args.debug_zmq_inbound:
+            if args.debug_zmq_outbound:
+                cli_overrides["debug_zmq_outbound"] = True
+                logger.info(
+                    "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
+                )
+            if args.debug_zmq_inbound:
+                cli_overrides["debug_zmq_inbound"] = True
+                logger.info(
+                    "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
+                )
+            # Set common ZMQ debug environment variable for both
+            os.environ["FEAGI_DEBUG_ZMQ"] = "1"
+            # Reflect in StateManager
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                if args.debug_zmq_outbound:
+                    sm._debug_config["debug_zmq_outbound"] = True
+                if args.debug_zmq_inbound:
+                    sm._debug_config["debug_zmq_inbound"] = True
+            except Exception:
+                pass
 
         if args.debug_bdu:
             cli_overrides["debug_bdu"] = True
+            os.environ["FEAGI_DEBUG_BDU"] = "1"
             logger.info("BDU debugging enabled via --debug-bdu flag")
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_bdu"] = True
+            except Exception:
+                pass
+
+        if args.debug_mem:
+            cli_overrides["debug_mem"] = True
+            os.environ["FEAGI_DEBUG_MEM"] = "1"
+            print("🔍 [MAIN-PRINT] --debug-mem flag detected! (using print to bypass logging)")
+            logger.info("🔍 [MAIN-DEBUG] Memory debugging enabled via --debug-mem flag")
+            logger.info(f"🔍 [MAIN-DEBUG] cli_overrides now contains: {cli_overrides}")
+        else:
+            print("🔍 [MAIN-PRINT] --debug-mem flag NOT detected")
+
+        # Module-specific debug levels are now handled automatically by setup_logger()
+        # when each module creates its logger - no additional processing needed here
 
         if args.profile:
             cli_overrides["profile"] = True
-            logger.info("[STATS] System resource profiling enabled via --profile flag")
+            logger.info(
+                "[STATS] System resource profiling enabled via --profile flag"
+            )
 
         if args.embedded:
             cli_overrides["embedded"] = True
-            logger.info("[CONFIG] Embedded device mode enabled via --embedded flag")
+            logger.info(
+                "[CONFIG] Embedded device mode enabled via --embedded flag"
+            )
 
         # Handle genome path (support both --genome and --genome-path)
         genome_path = args.genome or args.genome_path
@@ -436,7 +604,9 @@ def main():
         api_config = config.get("api", {})
         port_config = config.get("ports", {})
         logger.info("Configuration loaded successfully:")
-        logger.info(f"  API: {api_config.get('host')}:{api_config.get('port')}")
+        logger.info(
+            f"  API: {api_config.get('host')}:{api_config.get('port')}"
+        )
         logger.info(
             f"  ZMQ Ports: REQ/REP={port_config.get('zmq_req_rep_port')}, "
             f"PUB/SUB={port_config.get('zmq_pub_sub_port')}, "
@@ -448,11 +618,15 @@ def main():
         logger.error("[ERR] CONFIGURATION ERROR [ERR]")
         logger.error(str(e))
         logger.error("\nTo fix this:")
-        logger.error("1. Check that feagi_configuration.toml exists and is valid")
+        logger.error(
+            "1. Check that feagi_configuration.toml exists and is valid"
+        )
         logger.error(
             "2. Verify all port numbers are unique and within range 1024-65535"
         )
-        logger.error("3. Ensure no other processes are using the configured ports")
+        logger.error(
+            "3. Ensure no other processes are using the configured ports"
+        )
         return 1
 
     except PortConflictError as e:
@@ -473,20 +647,50 @@ def main():
 
     # Check dependencies
     if not check_dependencies():
-        logger.error("Dependency check failed. Please install required dependencies.")
+        logger.error(
+            "Dependency check failed. Please install required dependencies."
+        )
         return 1
 
     # Initialize state manager and set debug configuration
-
+    print(f"🔍 [CONFIG-PRINT] Config being passed to set_debug_config: {config.get('debug', 'NO_DEBUG_SECTION')}")
+    
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
+    # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
+    try:
+        if not hasattr(state_manager, "_debug_config"):
+            state_manager._debug_config = {}
+        if args.debug_npu:
+            state_manager._debug_config["debug_npu"] = True
+        if args.debug_api:
+            state_manager._debug_config["debug_api"] = True
+        if args.debug_bdu:
+            state_manager._debug_config["debug_bdu"] = True
+        if args.debug_zmq_outbound:
+            state_manager._debug_config["debug_zmq_outbound"] = True
+        if args.debug_zmq_inbound:
+            state_manager._debug_config["debug_zmq_inbound"] = True
+        if args.debug_mem:
+            state_manager._debug_config["mem_debug"] = True
+            logger.info(f"🔍 [MAIN-DEBUG] Set StateManager mem_debug = True")
+            logger.info(f"🔍 [MAIN-DEBUG] StateManager debug config now: {state_manager._debug_config}")
+    except Exception:
+        pass
 
-    # Initialize the main connectome instance using singleton pattern
-    from feagi.bdu.connectome_manager import ConnectomeManager
+    # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
+    process_manager = get_process_manager()
+    
+    # Initialize critical processes with proper configuration
+    if not process_manager.init_critical_processes(config):
+        logger.error("Failed to initialize critical processes")
+        return 1
+    
+    # Get the properly configured connectome instance from ProcessManager
+    connectome = process_manager._connectome_manager
 
-    connectome = ConnectomeManager.instance()
-
-    # Set the connectome instance for FastAPI dependency injection (only in normal mode)
+    #  Set the connectome instance for FastAPI dependency injection (only in
+    #  normal mode)
     embedded_mode = config.get("system", {}).get("embedded", False)
     if not embedded_mode:
         from feagi.api.rest.dependencies import set_connectome_instance
@@ -497,12 +701,10 @@ def main():
             "[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup"
         )
 
-    # Initialize the ProcessManager with the connectome
-    process_manager = get_process_manager()
-
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
-        # @cursor:critical-path - Signal handlers must be minimal and avoid logging/locking operations
+        #  @cursor:critical-path - Signal handlers must be minimal and avoid
+        #  logging/locking operations
         # Print directly to stderr instead of using logger to avoid deadlocks
         print("\nShutting down FEAGI servers...", file=sys.stderr, flush=True)
 
@@ -521,7 +723,23 @@ def main():
 
         def force_exit():
             """Force exit after timeout if graceful shutdown hangs."""
-            time.sleep(15.0)  # Wait 15 seconds for graceful shutdown
+            try:
+                from feagi.config.toml_loader import (
+                    get_timeout_config,
+                    load_feagi_config,
+                )
+
+                cfg = load_feagi_config()
+                to = get_timeout_config(cfg)
+                timeout_seconds = float(
+                    getattr(to, "api_service_shutdown", 10.0)
+                )
+            except Exception:
+                timeout_seconds = (
+                    15.0  # @architecture:acceptable - emergency fallback
+                )
+
+            time.sleep(timeout_seconds)
             print(
                 "[WARN]  Force exiting FEAGI after timeout - some services may not have shut down cleanly",
                 file=sys.stderr,
@@ -558,7 +776,6 @@ def main():
             "mode_2": args.test_mode_2,
             "duration": args.test_duration,
             "frequency": args.test_frequency,
-            "frequency": args.test_frequency,
         },
         "debug": {
             "debug_npu": args.debug_npu,
@@ -589,7 +806,8 @@ def main():
         logger.warning(f"Could not log startup summary: {e}")
 
     # CLI GENOME LOADING: Load genome if specified via --genome flag
-    # Use existing genome service infrastructure instead of duplicating functionality
+    #  Use existing genome service infrastructure instead of duplicating
+    #  functionality
     genome_path = args.genome or args.genome_path
     if genome_path:
         logger.info(f"🧬 CLI genome specified: {genome_path}")
@@ -635,18 +853,24 @@ def main():
                         return 1
 
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ Invalid JSON in genome file {genome_path}: {e}")
+                    logger.error(
+                        f"❌ Invalid JSON in genome file {genome_path}: {e}"
+                    )
                     process_manager.shutdown()
                     FeagiStateManager.instance().cleanup()
                     return 1
                 except Exception as e:
-                    logger.error(f"❌ Error reading genome file {genome_path}: {e}")
+                    logger.error(
+                        f"❌ Error reading genome file {genome_path}: {e}"
+                    )
                     process_manager.shutdown()
                     FeagiStateManager.instance().cleanup()
                     return 1
 
             else:
-                logger.error("❌ Core API not available for CLI genome loading")
+                logger.error(
+                    "❌ Core API not available for CLI genome loading"
+                )
                 process_manager.shutdown()
                 FeagiStateManager.instance().cleanup()
                 return 1
@@ -655,7 +879,9 @@ def main():
             logger.error(f"❌ Error during CLI genome loading: {e}")
             import traceback
 
-            logger.debug(f"CLI genome loading error details: {traceback.format_exc()}")
+            logger.debug(
+                f"CLI genome loading error details: {traceback.format_exc()}"
+            )
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
@@ -663,7 +889,7 @@ def main():
     # If in test mode, run tests AFTER processes are started
     if args.test or args.test_mode_1 or args.test_mode_2:
         logger.info("Starting FEAGI in test mode")
-        
+
         # Determine test mode
         if args.test_mode_1:
             test_mode = "mode_1"

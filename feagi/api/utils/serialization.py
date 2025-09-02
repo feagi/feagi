@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,8 +34,7 @@ import numpy as np
 def serialize_data(
     data: Any, format_type: str = "json", compression_level: int = 0
 ) -> bytes:
-    """
-    Serialize data to binary format.
+    """Serialize data to binary format.
 
     Args:
         data: Data to serialize.
@@ -55,7 +52,9 @@ def serialize_data(
             if isinstance(data, bytes):
                 binary_data = data
             else:
-                raise TypeError(f"Expected bytes for binary format, got {type(data)}")
+                raise TypeError(
+                    f"Expected bytes for binary format, got {type(data)}"
+                )
         elif format_type == "numpy":
             if isinstance(data, np.ndarray):
                 # Encode numpy array with shape and dtype
@@ -100,8 +99,7 @@ def serialize_data(
 
 
 def deserialize_data(binary_data: bytes) -> Tuple[Any, str]:
-    """
-    Deserialize binary data.
+    """Deserialize binary data.
 
     Args:
         binary_data: Binary data to deserialize.
@@ -118,7 +116,9 @@ def deserialize_data(binary_data: bytes) -> Tuple[Any, str]:
         data = binary_data[2:]
 
         # Map format byte to format type
-        format_type = {0: "json", 1: "binary", 2: "numpy"}.get(format_byte, "json")
+        format_type = {0: "json", 1: "binary", 2: "numpy"}.get(
+            format_byte, "json"
+        )
 
         # Decompress if needed
         if compression_level > 0:
@@ -148,7 +148,10 @@ def deserialize_data(binary_data: bytes) -> Tuple[Any, str]:
 
             # Reconstruct numpy array
             array_data = data[offset:]
-            return np.frombuffer(array_data, dtype=dtype).reshape(shape), format_type
+            return (
+                np.frombuffer(array_data, dtype=dtype).reshape(shape),
+                format_type,
+            )
         else:
             raise ValueError(f"Unsupported format type: {format_type}")
     except Exception as e:

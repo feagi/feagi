@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +23,7 @@ import time
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -38,8 +36,7 @@ class BenchmarkResult:
     """Results of a benchmark run."""
 
     def __init__(self, name: str, iterations: int, times: List[float]):
-        """
-        Initialize benchmark results.
+        """Initialize benchmark results.
 
         Args:
             name: Name of the benchmark
@@ -90,8 +87,7 @@ class Benchmark:
         warmup: int = 10,
         name: Optional[str] = None,
     ) -> BenchmarkResult:
-        """
-        Run a benchmark on a function.
+        """Run a benchmark on a function.
 
         Args:
             func: Function to benchmark
@@ -133,8 +129,7 @@ class Benchmark:
         return result
 
     def compare(self, name1: str, name2: str) -> Dict[str, Any]:
-        """
-        Compare two benchmark results.
+        """Compare two benchmark results.
 
         Args:
             name1: Name of the first benchmark
@@ -166,8 +161,7 @@ class Benchmark:
         }
 
     def print_comparison(self, name1: str, name2: str) -> None:
-        """
-        Print a comparison between two benchmark results.
+        """Print a comparison between two benchmark results.
 
         Args:
             name1: Name of the first benchmark
@@ -185,8 +179,7 @@ class Benchmark:
 def benchmark(
     iterations: int = 100, warmup: int = 10, name: Optional[str] = None
 ) -> Callable:
-    """
-    Decorator to benchmark a function.
+    """Decorator to benchmark a function.
 
     Args:
         iterations: Number of iterations to run
@@ -234,7 +227,9 @@ benchmark_runner = Benchmark()
 # Examples of critical sections to benchmark
 
 
-def python_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def python_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """Pure Python implementation of matrix multiplication."""
     rows_a, cols_a = matrix_a.shape
     rows_b, cols_b = matrix_b.shape
@@ -254,7 +249,9 @@ def python_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.nda
     return result
 
 
-def numpy_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def numpy_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """NumPy implementation of matrix multiplication."""
     return np.matmul(matrix_a, matrix_b)
 
@@ -276,7 +273,11 @@ def benchmark_comparison_example():
     )
 
     result2 = benchmark_runner.run(
-        numpy_matrix_multiply, args=(a, b), iterations=10, warmup=2, name="numpy_matmul"
+        numpy_matrix_multiply,
+        args=(a, b),
+        iterations=10,
+        warmup=2,
+        name="numpy_matmul",
     )
 
     # Print results
@@ -289,6 +290,8 @@ def benchmark_comparison_example():
 
 # Example of using the benchmark decorator
 @benchmark(iterations=10, warmup=2, name="decorated_matmul")
-def decorated_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+def decorated_matrix_multiply(
+    matrix_a: np.ndarray, matrix_b: np.ndarray
+) -> np.ndarray:
     """Matrix multiplication with benchmark decorator."""
     return np.matmul(matrix_a, matrix_b)

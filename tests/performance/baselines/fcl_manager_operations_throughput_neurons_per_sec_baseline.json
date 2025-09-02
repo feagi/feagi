@@ -1,0 +1,15 @@
+{
+  "test_name": "fcl_manager_operations",
+  "metric_name": "throughput_neurons_per_sec",
+  "baseline_value": 3298796620.8226104,
+  "baseline_timestamp": 1755280650.596254,
+  "sample_count": 54,
+  "std_deviation": 8696315902.278172,
+  "confidence_interval": [
+    979295968.5359473,
+    5618297273.109274
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.595694
+  }
+}

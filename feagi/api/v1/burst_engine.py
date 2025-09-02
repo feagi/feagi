@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,6 +34,8 @@ from .schemas import (
     BurstEngineConfigRequest,
     BurstEngineStatsResponse,
     BurstEngineStatusResponse,
+    FCLContentResponse,
+    FireQueueResponse,
     SuccessResponse,
 )
 
@@ -48,6 +48,12 @@ class BurstEngineRequest(BaseModel):
     """Request model for burst engine configuration."""
 
     burst_engine_config: Dict[str, Any]
+
+
+class SimulationTimestepRequest(BaseModel):
+    """Request model for simulation timestep endpoint."""
+
+    simulation_timestep: float
 
 
 # Define the convenience decorator for burst engine endpoints
@@ -81,39 +87,70 @@ class BurstEngineAPI:
 
     # ===== Legacy Burst Engine Endpoints =====
 
-    @burst_engine_endpoint("GET", "/stimulation_period")
-    def get_stimulation_period(self) -> float:
-        """Returns the time it takes for each burst to execute in seconds."""
+    @burst_engine_endpoint("GET", "/simulation_timestep")
+    def get_simulation_timestep(self) -> float:
+        """Returns the simulation timestep (time between neural bursts) in
+        seconds."""
         try:
             burst_timer = self.core_api_service.get_burst_timer()
             return burst_timer if burst_timer is not None else 0.0
         except Exception as e:
-            logger.error(f"Error getting stimulation period: {e}")
-            raise ValueError(f"Failed to get stimulation period: {str(e)}")
+            logger.error(f"Error getting simulation timestep: {e}")
+            raise ValueError(
+                f"Failed to get simulation timestep: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint(
         "POST",
-        "/stimulation_period",
-        request_model=BurstEngineRequest,
+        "/simulation_timestep",
+        request_model=SimulationTimestepRequest,
         response_model=SuccessResponse,
     )
-    def change_stimulation_period(self, message: BurstEngineRequest) -> SuccessResponse:
-        """Enables changes against various Burst Engine parameters."""
+    def change_simulation_timestep(
+        self, message: SimulationTimestepRequest
+    ) -> SuccessResponse:
+        """Update the simulation timestep (neural processing period)."""
         try:
-            burst_config = {"burst_management": message.burst_engine_config}
-            success = self.core_api_service.send_burst_management_message(burst_config)
+            # Extract simulation timestep directly from the request
+            simulation_timestep = message.simulation_timestep
+
+            # Validate simulation timestep
+            if simulation_timestep <= 0:
+                raise ValueError(
+                    "Invalid simulation_timestep: must be a positive number."
+                )
+
+            # Convert simulation timestep (seconds) to frequency (Hz)
+            # frequency = 1 / period
+            burst_frequency_hz = 1.0 / float(simulation_timestep)
+
+            # Update burst engine configuration using the correct method
+            config_update = {"burst_frequency_hz": burst_frequency_hz}
+            success = self.core_api_service.update_burst_engine_config(
+                config_update
+            )
 
             if not success:
-                raise ValueError("Failed to change stimulation period")
+                raise ValueError("Failed to change simulation timestep")
 
-            return SuccessResponse(message="Stimulation period changed successfully")
+            logger.info(
+                f"Successfully updated simulation timestep to {simulation_timestep}s (frequency: {burst_frequency_hz}Hz)"
+            )
+            return SuccessResponse(
+                message=f"Simulation timestep changed to {simulation_timestep}s successfully"
+            )
+
         except Exception as e:
-            logger.error(f"Error changing stimulation period: {e}")
-            raise ValueError(f"Failed to change stimulation period: {str(e)}")
+            logger.error(f"Error changing simulation timestep: {e}")
+            raise ValueError(
+                f"Failed to change simulation timestep: {str(e)}"
+            ) from e
 
     # ===== Burst Engine Status and Info =====
 
-    @burst_engine_endpoint("GET", "/status", response_model=BurstEngineStatusResponse)
+    @burst_engine_endpoint(
+        "GET", "/status", response_model=BurstEngineStatusResponse
+    )
     async def get_burst_engine_status(self) -> BurstEngineStatusResponse:
         """Get the current burst engine status."""
         try:
@@ -125,7 +162,9 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error getting burst engine status: {e}")
-            raise ValueError(f"Failed to get burst engine status: {str(e)}")
+            raise ValueError(
+                f"Failed to get burst engine status: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint("POST", "/start", response_model=SuccessResponse)
     async def start_burst_engine(self) -> SuccessResponse:
@@ -137,7 +176,7 @@ class BurstEngineAPI:
             return SuccessResponse(message="Burst engine started successfully")
         except Exception as e:
             logger.error(f"Error starting burst engine: {e}")
-            raise ValueError(f"Failed to start burst engine: {str(e)}")
+            raise ValueError(f"Failed to start burst engine: {str(e)}") from e
 
     @burst_engine_endpoint("POST", "/stop", response_model=SuccessResponse)
     async def stop_burst_engine(self) -> SuccessResponse:
@@ -149,7 +188,7 @@ class BurstEngineAPI:
             return SuccessResponse(message="Burst engine stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping burst engine: {e}")
-            raise ValueError(f"Failed to stop burst engine: {str(e)}")
+            raise ValueError(f"Failed to stop burst engine: {str(e)}") from e
 
     @burst_engine_endpoint("GET", "/burst_counter", response_model=int)
     async def get_burst_counter(self) -> int:
@@ -158,17 +197,123 @@ class BurstEngineAPI:
             return self.core_api_service.get_burst_counter() or 0
         except Exception as e:
             logger.error(f"Error getting burst counter: {e}")
-            raise ValueError(f"Failed to get burst counter: {str(e)}")
+            raise ValueError(f"Failed to get burst counter: {str(e)}") from e
 
-    @burst_engine_endpoint("GET", "/stats", response_model=BurstEngineStatsResponse)
+    @burst_engine_endpoint(
+        "GET", "/stats", response_model=BurstEngineStatsResponse
+    )
     async def get_burst_engine_stats(self) -> BurstEngineStatsResponse:
         """Get the burst engine statistics."""
         try:
             stats = self.core_api_service.get_burst_engine_stats()
+            # Augment with cumulative activity counters from state manager
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+
+                counters = (
+                    FeagiStateManager.instance().get_cumulative_activity()
+                )
+                stats = dict(stats)
+                stats["cumulative_activity_bursts"] = int(
+                    counters.get("bursts", 0)
+                )
+                stats["cumulative_activity_neurons"] = int(
+                    counters.get("neurons", 0)
+                )
+            except Exception:
+                pass
             return BurstEngineStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting burst engine stats: {e}")
-            raise ValueError(f"Failed to get burst engine stats: {str(e)}")
+            raise ValueError(
+                f"Failed to get burst engine stats: {str(e)}"
+            ) from e
+
+    @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
+    async def get_fcl_content(self) -> FCLContentResponse:
+        """Get the complete FCL (Fire Candidate List) content at the current timestep.
+        
+        Returns all currently firing neurons organized by cortical areas,
+        providing a comprehensive snapshot of neural activity.
+        """
+        try:
+            fcl_manager = self.core_api_service.get_fcl_manager()
+            if not fcl_manager:
+                raise ValueError("FCL manager not available")
+            
+            # Get current timestep and log manager identity when debug is on
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(f"[FCL-ENDPOINT-DEBUG] fcl_manager_id={id(fcl_manager)}, current_timestep={getattr(fcl_manager,'current_timestep',None)}")
+            except Exception:
+                pass
+
+            current_timestep = fcl_manager.current_timestep
+            
+            # Get global FCL (all firing neurons)
+            global_fcl_bitmap = fcl_manager.get_global_fcl()
+            global_fcl_list = list(global_fcl_bitmap) if global_fcl_bitmap else []
+            
+            # Get FCL organized by cortical areas (keys are cortical_idx)
+            cortical_fcl_dict = fcl_manager.get_fcl_by_cortical()
+
+            # Map cortical_idx -> cortical_id using NPU interface via CoreAPIService
+            cortical_areas = {}
+            try:
+                # Resolve the live NPU interface
+                npu = None
+                cm = self.core_api_service.get_connectome_manager()
+                if cm and hasattr(cm, "_npu_interface") and cm._npu_interface:
+                    npu = cm._npu_interface
+
+                if npu is not None and hasattr(npu, "cortical_areas"):
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        area_info = npu.cortical_areas.get(cortical_idx, {})
+                        cortical_id = area_info.get("cortical_id", str(cortical_idx))
+                        cortical_areas[cortical_id] = list(neuron_bitmap)
+                else:
+                    # Fallback: keep indices as strings if mapping unavailable
+                    for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                        cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            except Exception as map_err:
+                logger.error(f"[FCL-ENDPOINT-DEBUG] Error mapping cortical_idx to cortical_id: {map_err}")
+                # Safe fallback to indices as strings
+                for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
+                    cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
+            
+            # Get FCL manager statistics
+            window_size = fcl_manager.window_size
+            active_cortical_count = len(cortical_areas)
+            total_neurons = len(global_fcl_list)
+            
+            return FCLContentResponse(
+                timestep=current_timestep,
+                total_neurons=total_neurons,
+                global_fcl=global_fcl_list,
+                cortical_areas=cortical_areas,
+                window_size=window_size,
+                active_cortical_count=active_cortical_count
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting FCL content: {e}")
+            raise ValueError(f"Failed to get FCL content: {str(e)}") from e
+
+    @burst_engine_endpoint("GET", "/fire_queue", response_model=FireQueueResponse)
+    async def get_fire_queue(self) -> FireQueueResponse:
+        """Get the current contents of the fire queue (global FCL snapshot).
+
+        Returns the current timestep's global fire queue as a structured dict
+        with real neuron IDs, membrane potentials, thresholds, refractory counters,
+        consecutive fire counts, and coordinates.
+        """
+        try:
+            fire_queue = self.core_api_service.get_fire_queue()
+            return FireQueueResponse(fire_queue=fire_queue)
+        except Exception as e:
+            logger.error(f"Error getting fire queue: {e}")
+            raise ValueError(f"Failed to get fire queue: {str(e)}") from e
 
     # ===== Burst Engine Configuration =====
 
@@ -179,7 +324,9 @@ class BurstEngineAPI:
             return self.core_api_service.get_burst_engine_config()
         except Exception as e:
             logger.error(f"Error getting burst engine config: {e}")
-            raise ValueError(f"Failed to get burst engine config: {str(e)}")
+            raise ValueError(
+                f"Failed to get burst engine config: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint(
         "PUT",
@@ -192,32 +339,48 @@ class BurstEngineAPI:
     ) -> Dict[str, Any]:
         """Update the burst engine configuration."""
         try:
-            result = self.core_api_service.update_burst_engine_config(request.config)
+            result = self.core_api_service.update_burst_engine_config(
+                request.config
+            )
             if not result:
                 raise ValueError("Failed to update burst engine configuration")
             return request.config
         except Exception as e:
             logger.error(f"Error updating burst engine config: {e}")
-            raise ValueError(f"Failed to update burst engine config: {str(e)}")
+            raise ValueError(
+                f"Failed to update burst engine config: {str(e)}"
+            ) from e
 
     # ===== FCL Sampler Configuration =====
 
-    @burst_engine_endpoint("GET", "/fcl_sampler/config", response_model=Dict[str, Any])
+    @burst_engine_endpoint(
+        "GET", "/fcl_sampler/config", response_model=Dict[str, Any]
+    )
     async def get_fcl_sampler_config(self) -> Dict[str, Any]:
         """Get the FCLSampler configuration (frequency, consumer)."""
         try:
             config = self.core_api_service.get_fcl_sampler_config()
-            return {"frequency": config["frequency"], "consumer": config["consumer"]}
+            return {
+                "frequency": config["frequency"],
+                "consumer": config["consumer"],
+            }
         except Exception as e:
             logger.error(f"Error getting FCL sampler config: {e}")
-            raise ValueError(f"Failed to get FCL sampler config: {str(e)}")
+            raise ValueError(
+                f"Failed to get FCL sampler config: {str(e)}"
+            ) from e
 
-    @burst_engine_endpoint("POST", "/fcl_sampler/config", response_model=Dict[str, Any])
-    async def update_fcl_sampler_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    @burst_engine_endpoint(
+        "POST", "/fcl_sampler/config", response_model=Dict[str, Any]
+    )
+    async def update_fcl_sampler_config(
+        self, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Update the FCLSampler configuration (frequency, consumer)."""
         try:
             success = self.core_api_service.update_fcl_sampler_config(
-                frequency=config.get("frequency"), consumer=config.get("consumer")
+                frequency=config.get("frequency"),
+                consumer=config.get("consumer"),
             )
 
             if not success:
@@ -226,12 +389,16 @@ class BurstEngineAPI:
             return config
         except Exception as e:
             logger.error(f"Error updating FCL sampler config: {e}")
-            raise ValueError(f"Failed to update FCL sampler config: {str(e)}")
+            raise ValueError(
+                f"Failed to update FCL sampler config: {str(e)}"
+            ) from e
 
     # ===== FCL Sample Rate Management =====
 
     @burst_engine_endpoint(
-        "GET", "/fcl_sampler/area/{area_id}/sample_rate", response_model=Dict[str, Any]
+        "GET",
+        "/fcl_sampler/area/{area_id}/sample_rate",
+        response_model=Dict[str, Any],
     )
     async def get_area_fq_sample_rate(self, area_id: int) -> Dict[str, Any]:
         """Get the FCL sample rate for a specific cortical area."""
@@ -239,13 +406,17 @@ class BurstEngineAPI:
             rate = self.core_api_service.get_area_fq_sample_rate(area_id)
             return {"sample_rate": rate}
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
             logger.error(f"Error getting area FCL sample rate: {e}")
-            raise ValueError(f"Failed to get area FCL sample rate: {str(e)}")
+            raise ValueError(
+                f"Failed to get area FCL sample rate: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint(
-        "POST", "/fcl_sampler/area/{area_id}/sample_rate", response_model=Dict[str, Any]
+        "POST",
+        "/fcl_sampler/area/{area_id}/sample_rate",
+        response_model=Dict[str, Any],
     )
     async def set_area_fq_sample_rate(
         self, area_id: int, config: Dict[str, Any]
@@ -266,25 +437,33 @@ class BurstEngineAPI:
         except ValueError:
             raise
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
             logger.error(f"Error setting area FCL sample rate: {e}")
-            raise ValueError(f"Failed to set area FCL sample rate: {str(e)}")
+            raise ValueError(
+                f"Failed to set area FCL sample rate: {str(e)}"
+            ) from e
 
     # ===== Membrane Potentials =====
 
     @burst_engine_endpoint(
         "GET", "/membrane_potentials", response_model=Dict[str, float]
     )
-    async def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[str, float]:
+    async def get_membrane_potentials(
+        self, neuron_ids: List[int]
+    ) -> Dict[str, float]:
         """Get membrane potentials for specific neurons."""
         try:
             return self.core_api_service.get_membrane_potentials(neuron_ids)
         except Exception as e:
             logger.error(f"Error getting membrane potentials: {e}")
-            raise ValueError(f"Failed to get membrane potentials: {str(e)}")
+            raise ValueError(
+                f"Failed to get membrane potentials: {str(e)}"
+            ) from e
 
-    @burst_engine_endpoint("PUT", "/membrane_potentials", response_model=Dict[str, Any])
+    @burst_engine_endpoint(
+        "PUT", "/membrane_potentials", response_model=Dict[str, Any]
+    )
     async def update_membrane_potentials(
         self, potentials: Dict[str, float]
     ) -> Dict[str, Any]:
@@ -293,14 +472,18 @@ class BurstEngineAPI:
             # Convert string keys to integers
             neuron_potentials = {int(k): v for k, v in potentials.items()}
 
-            result = self.core_api_service.update_membrane_potentials(neuron_potentials)
+            result = self.core_api_service.update_membrane_potentials(
+                neuron_potentials
+            )
             if not result:
                 raise ValueError("Failed to update membrane potentials")
 
             return {"success": True, "updated_count": len(potentials)}
         except Exception as e:
             logger.error(f"Error updating membrane potentials: {e}")
-            raise ValueError(f"Failed to update membrane potentials: {str(e)}")
+            raise ValueError(
+                f"Failed to update membrane potentials: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint("POST", "/hold", response_model=SuccessResponse)
     async def hold_burst_engine(self) -> SuccessResponse:
@@ -314,7 +497,9 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error putting burst engine on hold: {e}")
-            raise ValueError(f"Failed to put burst engine on hold: {str(e)}")
+            raise ValueError(
+                f"Failed to put burst engine on hold: {str(e)}"
+            ) from e
 
     @burst_engine_endpoint("POST", "/resume", response_model=SuccessResponse)
     async def resume_burst_engine(self) -> SuccessResponse:
@@ -328,16 +513,17 @@ class BurstEngineAPI:
             )
         except Exception as e:
             logger.error(f"Error resuming burst engine: {e}")
-            raise ValueError(f"Failed to resume burst engine: {str(e)}")
+            raise ValueError(f"Failed to resume burst engine: {str(e)}") from e
 
     # ===== Frequency Measurement =====
 
-    @burst_engine_endpoint("POST", "/measure_frequency", response_model=Dict[str, Any])
+    @burst_engine_endpoint(
+        "POST", "/measure_frequency", response_model=Dict[str, Any]
+    )
     async def trigger_frequency_measurement(
         self, duration_seconds: float = 5.0, sample_count: int = 100
     ) -> Dict[str, Any]:
-        """
-        Trigger an on-demand burst frequency measurement.
+        """Trigger an on-demand burst frequency measurement.
 
         This is an expensive operation that measures actual burst engine performance
         over a specified period. Use sparingly for monitoring/debugging purposes.
@@ -365,14 +551,17 @@ class BurstEngineAPI:
 
         except Exception as e:
             logger.error(f"Error triggering frequency measurement: {e}")
-            raise ValueError(f"Failed to trigger frequency measurement: {str(e)}")
+            raise ValueError(
+                f"Failed to trigger frequency measurement: {str(e)}"
+            ) from e
 
-    @burst_engine_endpoint("GET", "/frequency_history", response_model=Dict[str, Any])
+    @burst_engine_endpoint(
+        "GET", "/frequency_history", response_model=Dict[str, Any]
+    )
     async def get_frequency_measurement_history(
         self, limit: int = 10
     ) -> Dict[str, Any]:
-        """
-        Get the history of frequency measurements.
+        """Get the history of frequency measurements.
 
         Args:
             limit: Maximum number of recent measurements to return (default 10, max 100)
@@ -390,16 +579,23 @@ class BurstEngineAPI:
             )
             summary = self.core_api_service.get_frequency_status_summary()
 
-            return {"history": history, "summary": summary, "count": len(history)}
+            return {
+                "history": history,
+                "summary": summary,
+                "count": len(history),
+            }
 
         except Exception as e:
             logger.error(f"Error getting frequency measurement history: {e}")
-            raise ValueError(f"Failed to get frequency measurement history: {str(e)}")
+            raise ValueError(
+                f"Failed to get frequency measurement history: {str(e)}"
+            ) from e
 
-    @burst_engine_endpoint("GET", "/frequency_status", response_model=Dict[str, Any])
+    @burst_engine_endpoint(
+        "GET", "/frequency_status", response_model=Dict[str, Any]
+    )
     async def get_frequency_status(self) -> Dict[str, Any]:
-        """
-        Get current frequency status and latest measurement.
+        """Get current frequency status and latest measurement.
 
         Returns:
             Dictionary with frequency status, target frequency, and latest measurement
@@ -410,15 +606,18 @@ class BurstEngineAPI:
 
         except Exception as e:
             logger.error(f"Error getting frequency status: {e}")
-            raise ValueError(f"Failed to get frequency status: {str(e)}")
+            raise ValueError(
+                f"Failed to get frequency status: {str(e)}"
+            ) from e
 
 
 # ===== Factory Function =====
 
 
-def create_burst_engine_api(core_api_service: CoreAPIService) -> BurstEngineAPI:
-    """
-    Factory function to create a BurstEngineAPI instance.
+def create_burst_engine_api(
+    core_api_service: CoreAPIService,
+) -> BurstEngineAPI:
+    """Factory function to create a BurstEngineAPI instance.
 
     This function can be used by transport adapters to get a configured
     BurstEngineAPI instance with the required dependencies.

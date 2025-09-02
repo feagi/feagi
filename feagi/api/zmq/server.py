@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +32,7 @@ import zmq.asyncio
 from feagi.utils.logger import setup_logger
 
 # Set up logger early so it's available for imports
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 # Core dependencies
@@ -76,16 +74,25 @@ try:
 
             zmq.asyncio = DummyAsync()
 except ImportError:
-    logger.warning("zmq package not available - server functionality will be limited")
+    logger.warning(
+        "zmq package not available - server functionality will be limited"
+    )
     import zmq
 
 
 # Import protocol definitions
-from feagi.api.protocols.constants import FSMPChannelType, FVPFrameType, ProtocolID
+from feagi.api.protocols.constants import (
+    FSMPChannelType,
+    FVPFrameType,
+    ProtocolID,
+)
 from feagi.api.protocols.translator import ByteStructureTranslator
 
 # Import ConnectionManager from the new, corrected file
-from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers
+from feagi.api.zmq.message_handlers import (
+    MessageHandler,
+    start_message_handlers,
+)
 
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 
@@ -208,11 +215,10 @@ class StatusResponse:
 
 
 class ZmqServer:
-    """
-    ZMQ server for FEAGI with proper event loop management.
+    """ZMQ server for FEAGI with proper event loop management.
 
-    This implementation ensures each thread has its own event loop and
-    properly manages asyncio resources.
+    This implementation ensures each thread has its own event loop and properly
+    manages asyncio resources.
     """
 
     def __init__(
@@ -234,8 +240,7 @@ class ZmqServer:
             Any
         ] = None,  # Accept process manager for on-demand FQ sampler creation
     ):
-        """
-        Initialize the ZeroMQ server for FEAGI.
+        """Initialize the ZeroMQ server for FEAGI.
 
         Args:
             core_api: Core API service for delegating calls to FEAGI core
@@ -285,14 +290,17 @@ class ZmqServer:
         # FQ Sampler integration
         self._fq_sampler = fq_sampler
         self._fire_queue_provider = fire_queue_provider
-        self._process_manager = process_manager  # Store process manager reference
+        self._process_manager = (
+            process_manager  # Store process manager reference
+        )
 
         # Thread and event loop management
         self._thread = None
         self._loop = None
         self._shutdown_event = threading.Event()
 
-        # Initialize sockets (will be created on start, may be None if stream disabled)
+        #  Initialize sockets (will be created on start, may be None if stream
+        #  disabled)
         self.sensory_socket = None
         self.motor_socket = None
         self.vis_socket = None
@@ -305,8 +313,10 @@ class ZmqServer:
         self.sensory_callback = None
 
         # Create connection manager only if control port is enabled
-        # NOTE: ConnectionManager now only handles control port - all other ports are handled by dedicated streams
-        # UPDATE: Control port is also handled by ControlStream, so ConnectionManager is not needed
+        #  NOTE: ConnectionManager now only handles control port - all other
+        #  ports are handled by dedicated streams
+        #  UPDATE: Control port is also handled by ControlStream, so
+        #  ConnectionManager is not needed
         self.connection_manager = None
         logger.info(
             "ConnectionManager disabled - all ports handled by dedicated streams"
@@ -335,8 +345,7 @@ class ZmqServer:
         logger.info(f"ZMQ Server initialized on {host}:{req_rep_port}")
 
     def start(self) -> bool:
-        """
-        Start the ZMQ server in a background thread.
+        """Start the ZMQ server in a background thread.
 
         Returns:
             True if started successfully, False otherwise
@@ -347,12 +356,16 @@ class ZmqServer:
 
         logger.info(f"Starting ZMQ server on {self.host}")
         try:
-            # In synchronous mode, create a context and start the server in a background thread
+            #  In synchronous mode, create a context and start the server in a
+            #  background thread
             logger.info("Creating background thread for ZMQ server")
-            self._thread = threading.Thread(target=self._run_server_thread, daemon=True)
+            self._thread = threading.Thread(
+                target=self._run_server_thread, daemon=True
+            )
             self._thread.start()
 
-            # Wait briefly to allow the server to start or fail - use configurable timeout
+            #  Wait briefly to allow the server to start or fail - use
+            #  configurable timeout
             try:
                 from feagi.config.toml_loader import (
                     get_timeout_config,
@@ -365,12 +378,15 @@ class ZmqServer:
                     timeout_config.service_startup / 6.0
                 )  # Brief fraction of service startup timeout
             except Exception:
-                startup_wait = 0.5  # @architecture:acceptable - emergency fallback
+                startup_wait = (
+                    0.5  # @architecture:acceptable - emergency fallback
+                )
 
             time.sleep(startup_wait)
 
             if not self._running:
-                # If the server didn't start properly, the thread will have set _running to False
+                #  If the server didn't start properly, the thread will have
+                #  set _running to False
                 logger.error("ZMQ server failed to start")
                 return False
 
@@ -383,10 +399,10 @@ class ZmqServer:
             return False
 
     def _run_server_thread(self):
-        """
-        Run the ZMQ server in a background thread.
+        """Run the ZMQ server in a background thread.
 
-        This method creates a new event loop for the thread and runs the server in it.
+        This method creates a new event loop for the thread and runs the server
+        in it.
         """
         # CRITICAL: Windows asyncio compatibility fix for ZMQ
         # Must be done BEFORE creating event loop for this thread
@@ -394,8 +410,11 @@ class ZmqServer:
 
         if platform.system() == "Windows":
             try:
-                # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
-                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                #  Set the event loop policy to WindowsSelectorEventLoopPolicy
+                #  for ZMQ compatibility
+                asyncio.set_event_loop_policy(
+                    asyncio.WindowsSelectorEventLoopPolicy()
+                )
             except AttributeError:
                 # Fallback for older Python versions
                 logger.warning(
@@ -418,8 +437,7 @@ class ZmqServer:
             self._cleanup()
 
     async def _start_server(self):
-        """
-        Start the ZMQ server components.
+        """Start the ZMQ server components.
 
         This method:
         1. Initializes all the ZMQ patterns (REQ/REP, PUB/SUB, etc.)
@@ -439,7 +457,9 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .streams.motor import MotorStream
             from .streams.rest import RestStream
-            from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
+            from .streams.sensory_neural import (
+                SensoryNeuralStream as SensoryStream,
+            )
 
             # VisualizationStream imported conditionally at module level
             # Initialize only enabled streams based on port configuration
@@ -472,12 +492,15 @@ class ZmqServer:
                     port=self.sensory_port,
                     context=self._context,
                 )
-                logger.info(f"Sensory stream enabled on port {self.sensory_port}")
+                logger.info(
+                    f"Sensory stream enabled on port {self.sensory_port}"
+                )
             else:
                 logger.info("Sensory stream disabled")
 
             if self.motor_port is not None:
-                # Get motor FQ sampler from process manager (created on-demand when motor agents connect)
+                #  Get motor FQ sampler from process manager (created on-demand
+                #  when motor agents connect)
                 motor_fq_sampler = (
                     self._process_manager.get_motor_fq_sampler()
                     if self._process_manager
@@ -513,7 +536,8 @@ class ZmqServer:
                     else {}
                 )
 
-                # Get visualization FQ sampler from process manager (created on-demand when visualization agents connect)
+                #  Get visualization FQ sampler from process manager (created
+                #  on-demand when visualization agents connect)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,
@@ -534,8 +558,10 @@ class ZmqServer:
             else:
                 logger.info("Visualization stream disabled")
 
-            # Pass ZMQ server reference to REST stream for visualization endpoints
-            # IMPORTANT: This must happen AFTER visualization stream is created!
+            #  Pass ZMQ server reference to REST stream for visualization
+            #  endpoints
+            #  IMPORTANT: This must happen AFTER visualization stream is
+            #  created!
             if hasattr(self._rest, "set_zmq_server"):
                 self._rest.set_zmq_server(self)
                 logger.debug("ZMQ server reference passed to REST stream")
@@ -582,7 +608,9 @@ class ZmqServer:
                 self.message_handlers = {}
 
             # Start client cleanup task
-            self.cleanup_task = asyncio.create_task(self._cleanup_inactive_clients())
+            self.cleanup_task = asyncio.create_task(
+                self._cleanup_inactive_clients()
+            )
 
             logger.info("ZMQ server started successfully")
         except Exception as e:
@@ -591,9 +619,8 @@ class ZmqServer:
             raise
 
     async def _monitor_loop(self):
-        """
-        Monitor loop to keep the server running and handle shutdown requests.
-        """
+        """Monitor loop to keep the server running and handle shutdown
+        requests."""
         try:
             while self._running and not self._shutdown_event.is_set():
                 await asyncio.sleep(1.0)
@@ -604,8 +631,8 @@ class ZmqServer:
             self._running = False
 
     def shutdown(self):
-        """
-        Shutdown the ZMQ server with improved handling for multiple attempts.
+        """Shutdown the ZMQ server with improved handling for multiple
+        attempts.
 
         This method is thread-safe and can be called from any thread.
         """
@@ -632,7 +659,8 @@ class ZmqServer:
             # Signal the monitor loop to stop
             self._shutdown_event.set()
 
-            # Create a new event loop for shutdown if we're not in the server thread
+            #  Create a new event loop for shutdown if we're not in the server
+            #  thread
             if threading.current_thread() != self._thread:
                 # We're in a different thread, create a new event loop
                 loop = asyncio.new_event_loop()
@@ -673,19 +701,22 @@ class ZmqServer:
             print("ZMQ server shutdown complete", file=sys.stderr, flush=True)
 
         except Exception as e:
-            print(f"Error during ZMQ server shutdown: {e}", file=sys.stderr, flush=True)
+            print(
+                f"Error during ZMQ server shutdown: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
         finally:
             # Always reset shutdown flag
             self._shutdown_in_progress = False
 
     async def _stop_services(self):
-        """
-        Stop all ZMQ services and streams.
-        """
+        """Stop all ZMQ services and streams."""
         print("Stopping ZMQ services...", file=sys.stderr, flush=True)
 
         try:
-            # Collect async stop tasks for services that have async stop methods
+            #  Collect async stop tasks for services that have async stop
+            #  methods
             stop_tasks = []
 
             # Add pattern services (async stop methods)
@@ -711,26 +742,37 @@ class ZmqServer:
                 def stop_visualization_with_timeout():
                     """Stop visualization in a separate thread with timeout."""
                     try:
-                        logger.debug("Stopping visualization stream with timeout...")
+                        logger.debug(
+                            "Stopping visualization stream with timeout..."
+                        )
 
                         # Check if visualization has async stop method
                         if hasattr(
                             self._visualization, "stop"
-                        ) and asyncio.iscoroutinefunction(self._visualization.stop):
-                            # If stop is async, we need to run it in the event loop
+                        ) and asyncio.iscoroutinefunction(
+                            self._visualization.stop
+                        ):
+                            #  If stop is async, we need to run it in the event
+                            #  loop
                             loop = asyncio_module.new_event_loop()
                             try:
                                 asyncio_module.set_event_loop(loop)
-                                loop.run_until_complete(self._visualization.stop())
+                                loop.run_until_complete(
+                                    self._visualization.stop()
+                                )
                             finally:
                                 loop.close()
                         else:
                             # If stop is sync, call it directly
                             self._visualization.stop()
 
-                        logger.debug("Visualization stream stopped successfully")
+                        logger.debug(
+                            "Visualization stream stopped successfully"
+                        )
                     except Exception as e:
-                        logger.error(f"Error stopping visualization stream: {e}")
+                        logger.error(
+                            f"Error stopping visualization stream: {e}"
+                        )
 
                 # Run visualization stop in thread pool with timeout
                 try:
@@ -784,21 +826,26 @@ class ZmqServer:
                         socket.close(linger=0)
                         logger.debug(f"Closed {socket_name} socket")
                     except Exception as e:
-                        logger.warning(f"Error closing {socket_name} socket: {e}")
+                        logger.warning(
+                            f"Error closing {socket_name} socket: {e}"
+                        )
 
             self.sensory_socket = None
             self.motor_socket = None
             self.vis_socket = None
 
         except Exception as e:
-            print(f"Error stopping ZMQ services: {e}", file=sys.stderr, flush=True)
+            print(
+                f"Error stopping ZMQ services: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
             logger.error(f"Critical error in service shutdown: {e}")
             # Force cleanup even if there were errors
             self._visualization = None
 
     async def _cancel_all_tasks(self, wait_time: float = 2.0):
-        """
-        Cancel all running asyncio tasks except the current one.
+        """Cancel all running asyncio tasks except the current one.
 
         Args:
             wait_time: Maximum time to wait for tasks to complete cancellation
@@ -835,10 +882,14 @@ class ZmqServer:
                         timeout=wait_time,
                     )
                     print(
-                        "All tasks cancelled successfully", file=sys.stderr, flush=True
+                        "All tasks cancelled successfully",
+                        file=sys.stderr,
+                        flush=True,
                     )
                 except asyncio.TimeoutError:
-                    remaining_tasks = [task for task in all_tasks if not task.done()]
+                    remaining_tasks = [
+                        task for task in all_tasks if not task.done()
+                    ]
                     print(
                         f"[WARN]  {len(remaining_tasks)} tasks didn't cancel within {wait_time}s - forcing shutdown",
                         file=sys.stderr,
@@ -849,15 +900,16 @@ class ZmqServer:
                     for task in remaining_tasks:
                         task_info = getattr(task, "_coro", "unknown")
                         print(
-                            f"  - Stuck task: {task_info}", file=sys.stderr, flush=True
+                            f"  - Stuck task: {task_info}",
+                            file=sys.stderr,
+                            flush=True,
                         )
 
         except Exception as e:
             print(f"Error cancelling tasks: {e}", file=sys.stderr, flush=True)
 
     def _cleanup(self):
-        """
-        Clean up resources.
+        """Clean up resources.
 
         This is called when the server thread exits.
         """
@@ -871,7 +923,8 @@ class ZmqServer:
             if self._loop:
                 try:
                     # Cancel any remaining tasks before closing the loop
-                    # Use qualified asyncio module import to avoid variable shadowing
+                    #  Use qualified asyncio module import to avoid variable
+                    #  shadowing
                     import asyncio as asyncio_module
 
                     pending_tasks = [
@@ -906,7 +959,11 @@ class ZmqServer:
                     self._loop.close()
                     print("Event loop closed", file=sys.stderr, flush=True)
                 except Exception as e:
-                    print(f"Error closing event loop: {e}", file=sys.stderr, flush=True)
+                    print(
+                        f"Error closing event loop: {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 finally:
                     self._loop = None
 
@@ -937,14 +994,20 @@ class ZmqServer:
                         flush=True,
                     )
 
-            # @cursor:critical-path - Signal-safe cleanup should minimize logging
-            print("ZMQ server resources cleaned up", file=sys.stderr, flush=True)
+            #  @cursor:critical-path - Signal-safe cleanup should minimize
+            #  logging
+            print(
+                "ZMQ server resources cleaned up", file=sys.stderr, flush=True
+            )
         except Exception as e:
-            print(f"Error during ZMQ server cleanup: {e}", file=sys.stderr, flush=True)
+            print(
+                f"Error during ZMQ server cleanup: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
-        """
-        Publish an event to subscribers.
+        """Publish an event to subscribers.
 
         Args:
             event_type: Type of event
@@ -959,9 +1022,10 @@ class ZmqServer:
         except Exception as e:
             logger.error(f"Error publishing event: {e}")
 
-    async def queue_work(self, work_type: str, data: Any, priority: int = 0) -> None:
-        """
-        Queue work for processing.
+    async def queue_work(
+        self, work_type: str, data: Any, priority: int = 0
+    ) -> None:
+        """Queue work for processing.
 
         Args:
             work_type: Type of work
@@ -978,8 +1042,7 @@ class ZmqServer:
             logger.error(f"Error queueing work: {e}")
 
     async def send_motor_data(self, channel_id: int, data: bytes):
-        """
-        Send motor data to agents.
+        """Send motor data to agents.
 
         Args:
             channel_id: Motor channel ID
@@ -1011,8 +1074,7 @@ class ZmqServer:
         await self.motor_socket.send_multipart([b"motor", data])
 
     async def send_activity_data(self, data: bytes):
-        """
-        Send neural activity data to visualization clients.
+        """Send neural activity data to visualization clients.
 
         Args:
             data: Serialized activity data
@@ -1027,7 +1089,8 @@ class ZmqServer:
 
         # Create activity data message
         activity_data = self.translator.fvp_schema.ActivityData.new_message()
-        # In a real implementation, you would parse the data and fill in the fields
+        #  In a real implementation, you would parse the data and fill in the
+        #  fields
         # For this example, we'll assume data is pre-serialized ActivityData
         activity_data.ParseFromString(data)
 
@@ -1046,8 +1109,7 @@ class ZmqServer:
         await self.vis_socket.send_multipart([b"activity", data])
 
     async def send_structure_data(self, data: bytes):
-        """
-        Send brain structure data to visualization clients.
+        """Send brain structure data to visualization clients.
 
         Args:
             data: Serialized structure data
@@ -1062,7 +1124,8 @@ class ZmqServer:
 
         # Create structure data message
         structure_data = self.translator.fvp_schema.StructureData.new_message()
-        # In a real implementation, you would parse the data and fill in the fields
+        #  In a real implementation, you would parse the data and fill in the
+        #  fields
         # For this example, we'll assume data is pre-serialized StructureData
         structure_data.ParseFromString(data)
 
@@ -1080,9 +1143,10 @@ class ZmqServer:
         data = message.SerializeToString()
         await self.vis_socket.send_multipart([b"structure", data])
 
-    def register_sensory_callback(self, callback: Callable[[int, bytes], None]):
-        """
-        Register a callback for processing incoming sensory data.
+    def register_sensory_callback(
+        self, callback: Callable[[int, bytes], None]
+    ):
+        """Register a callback for processing incoming sensory data.
 
         Args:
             callback: Function to call when sensory data is received
@@ -1093,8 +1157,7 @@ class ZmqServer:
     async def _process_handshake_message(
         self, agent_id: str, message: Any
     ) -> Optional[Dict[str, Any]]:
-        """
-        Process a handshake message.
+        """Process a handshake message.
 
         Args:
             agent_id: Agent ID (may be None for hello messages)
@@ -1105,7 +1168,9 @@ class ZmqServer:
         """
         try:
             # Convert message to dictionary for easier handling
-            # message_dict = self.translator.handshake_message_to_dict(message)  # Unused variable removed
+            #  message_dict =
+            #  self.translator.handshake_message_to_dict(message) # Unused
+            #  variable removed
 
             # Handle different message types
             if message.type == message.type.hello:
@@ -1113,7 +1178,9 @@ class ZmqServer:
                 client_type = message.hello.agentType
                 zmq_id = None  # We don't have the ZMQ ID yet, handled by HandshakeMessageHandler
 
-                logger.info(f"Processing hello from {client_type} client '{client_id}'")
+                logger.info(
+                    f"Processing hello from {client_type} client '{client_id}'"
+                )
 
                 # Store client ID -> agent ID mapping for subsequent messages
                 self.pending_clients[client_id] = {
@@ -1148,8 +1215,12 @@ class ZmqServer:
                     return None
 
                 # Extract capabilities
-                sensory_channels = list(message.capabilities.supportedSensoryChannels)
-                motor_channels = list(message.capabilities.supportedMotorChannels)
+                sensory_channels = list(
+                    message.capabilities.supportedSensoryChannels
+                )
+                motor_channels = list(
+                    message.capabilities.supportedMotorChannels
+                )
 
                 # Extract protocol versions
                 protocol_versions = {
@@ -1165,10 +1236,12 @@ class ZmqServer:
                 )
 
                 # Register client in connection manager
-                # Note: The HandshakeMessageHandler should have updated the ZMQ ID
+                #  Note: The HandshakeMessageHandler should have updated the
+                #  ZMQ ID
                 client_info = self.pending_clients.get(agent_id)
                 if client_info and self.connection_manager:
-                    # Get ZMQ ID from somewhere (needs to be passed from handler)
+                    #  Get ZMQ ID from somewhere (needs to be passed from
+                    #  handler)
                     zmq_id = client_info.get("zmq_id")
                     if zmq_id:
                         # Register client with connection manager
@@ -1208,8 +1281,7 @@ class ZmqServer:
     async def _process_fcp_message(
         self, agent_id: str, message: Any
     ) -> Optional[Dict[str, Any]]:
-        """
-        Process an FCP message.
+        """Process an FCP message.
 
         Args:
             agent_id: Agent ID
@@ -1228,8 +1300,7 @@ class ZmqServer:
     async def _process_fsmp_message(
         self, agent_id: str, message: Any
     ) -> Optional[Dict[str, Any]]:
-        """
-        Process an FSMP message.
+        """Process an FSMP message.
 
         Args:
             agent_id: Agent ID
@@ -1248,8 +1319,7 @@ class ZmqServer:
     async def _process_fvp_message(
         self, agent_id: str, message: Any
     ) -> Optional[Dict[str, Any]]:
-        """
-        Process an FVP message.
+        """Process an FVP message.
 
         Args:
             agent_id: Agent ID
@@ -1266,8 +1336,7 @@ class ZmqServer:
         return None
 
     def get_server_stats(self) -> Dict[str, Any]:
-        """
-        Get ZMQ server statistics.
+        """Get ZMQ server statistics.
 
         Returns:
             Dictionary containing server statistics
@@ -1297,8 +1366,7 @@ class ZmqServer:
         }
 
     def get_visualization_stream(self):
-        """
-        Get the visualization stream instance.
+        """Get the visualization stream instance.
 
         Returns:
             VisualizationStream instance if visualization is enabled, None otherwise
@@ -1311,8 +1379,7 @@ class ZmqServer:
         message_data: Dict[str, Any],
         filter_func: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
     ) -> int:
-        """
-        Broadcast a message to all connected clients or a filtered subset.
+        """Broadcast a message to all connected clients or a filtered subset.
 
         Args:
             protocol_type: Protocol type ("fcp", "fsmp", or "fvp")
@@ -1328,12 +1395,17 @@ class ZmqServer:
 
         # Return 0 if connection manager is disabled
         if not self.connection_manager:
-            logger.debug("Connection manager disabled - cannot broadcast messages")
+            logger.debug(
+                "Connection manager disabled - cannot broadcast messages"
+            )
             return 0
 
         # Get all connected clients
         count = 0
-        for agent_id, client_info in self.connection_manager.connections.items():
+        for (
+            agent_id,
+            client_info,
+        ) in self.connection_manager.connections.items():
             # Apply filter if provided
             if filter_func and not filter_func(agent_id, client_info):
                 continue
@@ -1355,7 +1427,9 @@ class ZmqServer:
             # Send message
             encoded_message = message.to_bytes()
             success = await self.connection_manager.send_message(
-                agent_id=agent_id, protocol_type=protocol_type, message=encoded_message
+                agent_id=agent_id,
+                protocol_type=protocol_type,
+                message=encoded_message,
             )
 
             if success:
@@ -1375,8 +1449,10 @@ class ZmqServer:
                     continue
 
                 # Find inactive clients
-                inactive_clients = self.connection_manager.get_inactive_clients(
-                    timeout_seconds=60
+                inactive_clients = (
+                    self.connection_manager.get_inactive_clients(
+                        timeout_seconds=60
+                    )
                 )
 
                 # Deregister inactive clients
@@ -1388,7 +1464,9 @@ class ZmqServer:
                 now = asyncio.get_running_loop().time()
                 for client_id in list(self.pending_clients.keys()):
                     client_info = self.pending_clients[client_id]
-                    if now - client_info["timestamp"] > 30:  # 30 seconds timeout
+                    if (
+                        now - client_info["timestamp"] > 30
+                    ):  # 30 seconds timeout
                         logger.info(
                             f"Removing pending client {client_id} due to timeout"
                         )
@@ -1403,8 +1481,7 @@ class ZmqServer:
     async def _process_control_message(
         self, identity: bytes, message: Dict[str, Any]
     ) -> bytes:
-        """
-        Process a control message and return the appropriate response.
+        """Process a control message and return the appropriate response.
 
         Args:
             identity: Client identity
@@ -1453,8 +1530,7 @@ class ZmqServer:
             return json.dumps(response).encode("utf-8")
 
     async def _receive_with_timeout(self, socket, timeout):
-        """
-        Wait for a message on a socket with timeout.
+        """Wait for a message on a socket with timeout.
 
         Args:
             socket: ZMQ socket to receive from

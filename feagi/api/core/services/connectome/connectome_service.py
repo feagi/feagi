@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,8 +42,12 @@ class ConnectomeService(BaseService):
         try:
             neuron_id_int = int(neuron_id)
 
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
-            if neuron_id_int not in self._connectome_manager._neuron_id_to_index:
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
+            if (
+                neuron_id_int
+                not in self._connectome_manager._neuron_id_to_index
+            ):
                 return None
 
             result = {"neuron_id": neuron_id, "direction": direction}
@@ -79,15 +81,18 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_synapses = sum(
                 len(connections)
-                for connections in self._connectome_manager._outgoing_connections.values()
+                for connections in getattr(self._connectome_manager, "_outgoing_connections", {}).values()
             )
 
             # Calculate average connectivity
-            avg_outgoing = total_synapses / total_neurons if total_neurons > 0 else 0
+            avg_outgoing = (
+                total_synapses / total_neurons if total_neurons > 0 else 0
+            )
 
             # Count cortical areas
             total_areas = len(self._connectome_manager.cortical_areas)
@@ -133,9 +138,14 @@ class ConnectomeService(BaseService):
             return None
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
-            source_neurons = self._connectome_manager.get_neurons_by_area(source_area)
-            target_neurons = self._connectome_manager.get_neurons_by_area(target_area)
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
+            source_neurons = self._connectome_manager.get_neurons_by_area(
+                source_area
+            )
+            target_neurons = self._connectome_manager.get_neurons_by_area(
+                target_area
+            )
 
             if not source_neurons or not target_neurons:
                 return None
@@ -145,6 +155,7 @@ class ConnectomeService(BaseService):
             total_weight = 0.0
 
             for src_neuron in source_neurons:
+                # Ensure NPU SynapseArray is wired; use CM accessor which delegates to NPU
                 outgoing = self._connectome_manager.get_outgoing_connections(src_neuron)
                 for tgt_neuron, weight in outgoing:
                     if tgt_neuron in target_neurons:
@@ -162,7 +173,9 @@ class ConnectomeService(BaseService):
                 "target_area": target_area,
                 "connection_count": len(connections),
                 "total_weight": total_weight,
-                "average_weight": total_weight / len(connections) if connections else 0,
+                "average_weight": (
+                    total_weight / len(connections) if connections else 0
+                ),
                 "connections": connections[:100],  # Limit for response size
             }
         except Exception as e:
@@ -175,13 +188,16 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             areas = list(self._connectome_manager.cortical_areas.keys())
             connectivity_matrix = {}
 
             for src_area in areas:
                 connectivity_matrix[str(src_area)] = {}
-                src_neurons = self._connectome_manager.get_neurons_by_area(src_area)
+                src_neurons = self._connectome_manager.get_neurons_by_area(
+                    src_area
+                )
 
                 for tgt_area in areas:
                     tgt_neurons = set(
@@ -192,8 +208,10 @@ class ConnectomeService(BaseService):
                     total_weight = 0.0
 
                     for src_neuron in src_neurons:
-                        outgoing = self._connectome_manager.get_outgoing_connections(
-                            src_neuron
+                        outgoing = (
+                            self._connectome_manager.get_outgoing_connections(
+                                src_neuron
+                            )
                         )
                         for tgt_neuron, weight in outgoing:
                             if tgt_neuron in tgt_neurons:
@@ -212,7 +230,9 @@ class ConnectomeService(BaseService):
 
             return connectivity_matrix
         except Exception as e:
-            self.logger.error(f"Error getting area-to-area connectivity: {str(e)}")
+            self.logger.error(
+                f"Error getting area-to-area connectivity: {str(e)}"
+            )
             return {}
 
     def analyze_network_properties(self) -> Dict[str, Any]:
@@ -221,7 +241,8 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
+            #  ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager
+            #  directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_connections = sum(
                 len(connections)
@@ -232,12 +253,18 @@ class ConnectomeService(BaseService):
             in_degrees = {}
             out_degrees = {}
 
-            for neuron_id in self._connectome_manager._neuron_id_to_index.keys():
+            for (
+                neuron_id
+            ) in self._connectome_manager._neuron_id_to_index.keys():
                 out_degree = len(
-                    self._connectome_manager.get_outgoing_connections(neuron_id)
+                    self._connectome_manager.get_outgoing_connections(
+                        neuron_id
+                    )
                 )
                 in_degree = len(
-                    self._connectome_manager.get_incoming_connections(neuron_id)
+                    self._connectome_manager.get_incoming_connections(
+                        neuron_id
+                    )
                 )
 
                 out_degrees[neuron_id] = out_degree
@@ -245,7 +272,9 @@ class ConnectomeService(BaseService):
 
             # Calculate statistics
             avg_out_degree = (
-                sum(out_degrees.values()) / len(out_degrees) if out_degrees else 0
+                sum(out_degrees.values()) / len(out_degrees)
+                if out_degrees
+                else 0
             )
             avg_in_degree = (
                 sum(in_degrees.values()) / len(in_degrees) if in_degrees else 0

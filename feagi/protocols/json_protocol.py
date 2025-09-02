@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +18,7 @@ import json
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any
 
 from feagi.protocols.protocol_factory import Protocol, register_protocol
@@ -28,11 +26,10 @@ from feagi.protocols.protocol_factory import Protocol, register_protocol
 
 @register_protocol
 class JSONProtocol(Protocol):
-    """
-    JSON protocol implementation.
+    """JSON protocol implementation.
 
-    This protocol serializes data as JSON and is used for REST and ZMQ interfaces
-    where human-readable messages are desired.
+    This protocol serializes data as JSON and is used for REST and ZMQ
+    interfaces where human-readable messages are desired.
     """
 
     name = "json"
@@ -40,8 +37,7 @@ class JSONProtocol(Protocol):
 
     @classmethod
     def serialize(cls, data: Any) -> bytes:
-        """
-        Serialize data to JSON bytes.
+        """Serialize data to JSON bytes.
 
         Args:
             data: Data to serialize.
@@ -57,8 +53,7 @@ class JSONProtocol(Protocol):
 
     @classmethod
     def deserialize(cls, data: bytes) -> Any:
-        """
-        Deserialize JSON bytes to data.
+        """Deserialize JSON bytes to data.
 
         Args:
             data: JSON bytes to deserialize.
@@ -74,8 +69,7 @@ class JSONProtocol(Protocol):
 
     @classmethod
     def validate(cls, data: Any) -> bool:
-        """
-        Validate that data can be serialized as JSON.
+        """Validate that data can be serialized as JSON.
 
         Args:
             data: Data to validate.

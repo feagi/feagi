@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +16,6 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
-
 """Cortical mapping rules and constraints for the BDU.
 
 This module provides the framework for defining and enforcing rules
@@ -72,7 +69,9 @@ class MappingRestriction:
         self.allow_psp_change = allow_psp_change
         self.allow_inhibitory_change = allow_inhibitory_change
         self.allow_plasticity_change = allow_plasticity_change
-        self.allow_plasticity_constant_change = allow_plasticity_constant_change
+        self.allow_plasticity_constant_change = (
+            allow_plasticity_constant_change
+        )
         self.allow_ltp_change = allow_ltp_change
         self.allow_ltd_change = allow_ltd_change
 
@@ -101,7 +100,8 @@ class MappingRestriction:
         if self.has_restricted_morphologies():
             return morphology_name in self.restricted_morphologies
 
-        # If there are disallowed morphologies, anything except those is allowed
+        #  If there are disallowed morphologies, anything except those is
+        #  allowed
         if self.has_disallowed_morphologies():
             return morphology_name not in self.disallowed_morphologies
 
@@ -156,7 +156,8 @@ class MappingDefault:
 
 
 class CorticalMappingRestrictionsRegistry:
-    """Registry for managing mapping restrictions and defaults between cortical area types."""
+    """Registry for managing mapping restrictions and defaults between cortical
+    area types."""
 
     def __init__(self):
         """Initialize the restrictions registry with default restrictions."""
@@ -165,7 +166,8 @@ class CorticalMappingRestrictionsRegistry:
         self._initialize_default_restrictions()
 
     def _initialize_default_restrictions(self):
-        """Initialize the default restrictions based on the current Godot configuration."""
+        """Initialize the default restrictions based on the current Godot
+        configuration."""
 
         # Memory → OPU: Restricted to "projector" morphology only
         self.add_restriction(
@@ -183,7 +185,8 @@ class CorticalMappingRestrictionsRegistry:
             )
         )
 
-        # OPU → Memory: Restricted to "memory" morphology only, very limited changes
+        #  OPU → Memory: Restricted to "memory" morphology only, very limited
+        #  changes
         self.add_restriction(
             MappingRestriction(
                 source_type="OPU",
@@ -263,7 +266,8 @@ class CorticalMappingRestrictionsRegistry:
     def get_default(
         self, source_type: str, destination_type: str
     ) -> Optional[MappingDefault]:
-        """Get the default morphology for a specific source/destination combination.
+        """Get the default morphology for a specific source/destination
+        combination.
 
         Args:
             source_type: Source cortical area type
@@ -282,7 +286,8 @@ class CorticalMappingRestrictionsRegistry:
 
             # Wildcard match (UNKNOWN means any type)
             if (
-                default.source_type == "UNKNOWN" or default.source_type == source_type
+                default.source_type == "UNKNOWN"
+                or default.source_type == source_type
             ) and (
                 default.destination_type == "UNKNOWN"
                 or default.destination_type == destination_type
@@ -373,7 +378,9 @@ class CorticalMapping:
         Returns:
             Transformed position in target space (x, y, z)
         """
-        raise NotImplementedError("Subclasses must implement transform_coordinates()")
+        raise NotImplementedError(
+            "Subclasses must implement transform_coordinates()"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert mapping to dictionary for serialization.
@@ -573,7 +580,8 @@ class TopologicalMapping(CorticalMapping):
 
 
 class ProjectionMapping(CorticalMapping):
-    """Mapping that projects from a higher-dimensional space to a lower one or vice versa."""
+    """Mapping that projects from a higher-dimensional space to a lower one or
+    vice versa."""
 
     def __init__(
         self,
@@ -670,7 +678,9 @@ class ProjectionMapping(CorticalMapping):
             idx = 0
             for i in range(3):
                 if i != axis:
-                    result[idx] = int(norm_pos[i] * (target_dimensions[idx] - 1) + 0.5)
+                    result[idx] = int(
+                        norm_pos[i] * (target_dimensions[idx] - 1) + 0.5
+                    )
                     idx += 1
 
             # Handle the remaining dimension (center the projection)
@@ -678,7 +688,8 @@ class ProjectionMapping(CorticalMapping):
 
         elif projection_type == "expand":
             # Expand by duplicating along the specified axis
-            # If expanding along z (axis=2), we'll map x,y and replicate across z
+            #  If expanding along z (axis=2), we'll map x,y and replicate
+            #  across z
             result = [0, 0, 0]
             src_idx = 0
             for i in range(3):
@@ -701,7 +712,10 @@ class ProjectionMapping(CorticalMapping):
 
 
 # Registry of available mapping types
-MAPPING_TYPES = {"topological": TopologicalMapping, "projection": ProjectionMapping}
+MAPPING_TYPES = {
+    "topological": TopologicalMapping,
+    "projection": ProjectionMapping,
+}
 
 
 def create_cortical_mapping(

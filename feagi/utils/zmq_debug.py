@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -118,11 +116,10 @@ class DebugStats:
 
 
 class ZMQDebugger:
-    """
-    High-performance ZMQ debugging system with runtime configuration.
+    """High-performance ZMQ debugging system with runtime configuration.
 
-    This class provides zero-overhead debugging when disabled and
-    comprehensive debugging capabilities when enabled.
+    This class provides zero-overhead debugging when disabled and comprehensive
+    debugging capabilities when enabled.
     """
 
     def __init__(self):
@@ -145,7 +142,9 @@ class ZMQDebugger:
 
         # Statistics
         self._stats = DebugStats()
-        self._per_endpoint_stats: Dict[str, DebugStats] = defaultdict(DebugStats)
+        self._per_endpoint_stats: Dict[str, DebugStats] = defaultdict(
+            DebugStats
+        )
 
         # Performance monitoring
         self._start_time = time.time()
@@ -158,7 +157,8 @@ class ZMQDebugger:
         )
 
     def _init_from_environment(self):
-        """Initialize from state manager or environment variables (called once at startup)."""
+        """Initialize from state manager or environment variables (called once
+        at startup)."""
         # Try to get configuration from state manager first
         try:
             from feagi.core.state_manager import FeagiStateManager
@@ -166,11 +166,17 @@ class ZMQDebugger:
             state_manager = FeagiStateManager.instance()
 
             # Use state manager debug configuration
-            self._inbound_enabled = state_manager.is_debug_zmq_inbound_enabled()
-            self._outbound_enabled = state_manager.is_debug_zmq_outbound_enabled()
+            self._inbound_enabled = (
+                state_manager.is_debug_zmq_inbound_enabled()
+            )
+            self._outbound_enabled = (
+                state_manager.is_debug_zmq_outbound_enabled()
+            )
 
             # For console output, check if any ZMQ debugging is enabled
-            self._console_output = self._inbound_enabled or self._outbound_enabled
+            self._console_output = (
+                self._inbound_enabled or self._outbound_enabled
+            )
 
             # Use default debug level when using state manager
             self._debug_level = DebugLevel.SUMMARY
@@ -211,7 +217,9 @@ class ZMQDebugger:
         filter_env = os.environ.get("FEAGI_DEBUG_ZMQ_FILTER_TYPES", "")
         if filter_env:
             try:
-                filter_types = [MessageType(t.strip()) for t in filter_env.split(",")]
+                filter_types = [
+                    MessageType(t.strip()) for t in filter_env.split(",")
+                ]
                 self._message_filters = set(filter_types)
             except ValueError as e:
                 logger.warning(f"Invalid ZMQ debug message type filter: {e}")
@@ -222,7 +230,9 @@ class ZMQDebugger:
         """Enable/disable inbound message debugging at runtime."""
         with self._lock:
             self._inbound_enabled = enabled
-            logger.info(f"ZMQ inbound debugging {'enabled' if enabled else 'disabled'}")
+            logger.info(
+                f"ZMQ inbound debugging {'enabled' if enabled else 'disabled'}"
+            )
 
     def enable_outbound(self, enabled: bool = True):
         """Enable/disable outbound message debugging at runtime."""
@@ -239,7 +249,10 @@ class ZMQDebugger:
             logger.info(f"ZMQ debug level set to: {level.name}")
 
     def set_message_filters(self, message_types: List[MessageType]):
-        """Set message type filters. Empty list = allow all."""
+        """Set message type filters.
+
+        Empty list = allow all.
+        """
         with self._lock:
             self._message_filters = set(message_types)
             if message_types:
@@ -247,22 +260,33 @@ class ZMQDebugger:
                     f"ZMQ debug filtering enabled for: {[t.value for t in message_types]}"
                 )
             else:
-                logger.info("ZMQ debug filtering disabled - all message types allowed")
+                logger.info(
+                    "ZMQ debug filtering disabled - all message types allowed"
+                )
 
     def set_endpoint_filters(self, endpoints: List[str]):
-        """Set endpoint filters. Empty list = allow all."""
+        """Set endpoint filters.
+
+        Empty list = allow all.
+        """
         with self._lock:
             self._endpoint_filters = set(endpoints)
             if endpoints:
-                logger.info(f"ZMQ debug filtering enabled for endpoints: {endpoints}")
+                logger.info(
+                    f"ZMQ debug filtering enabled for endpoints: {endpoints}"
+                )
             else:
-                logger.info("ZMQ endpoint filtering disabled - all endpoints allowed")
+                logger.info(
+                    "ZMQ endpoint filtering disabled - all endpoints allowed"
+                )
 
     def set_rate_limit(self, messages_per_second: int):
         """Set rate limiting for debug messages."""
         with self._lock:
             self._rate_limit_per_second = messages_per_second
-            logger.info(f"ZMQ debug rate limit set to: {messages_per_second} msg/sec")
+            logger.info(
+                f"ZMQ debug rate limit set to: {messages_per_second} msg/sec"
+            )
 
     def set_console_output(self, enabled: bool = True):
         """Enable/disable console output for debug messages."""
@@ -322,8 +346,7 @@ class ZMQDebugger:
         topic: str = "",
         context: str = "",
     ):
-        """
-            Log outbound ZMQ traffic with minimal performance impact.
+        """Log outbound ZMQ traffic with minimal performance impact.
 
         Args:
                 endpoint: ZMQ endpoint
@@ -337,7 +360,9 @@ class ZMQDebugger:
             return
 
         # Performance timing
-        start_time = time.perf_counter() if self._enable_performance_tracking else 0
+        start_time = (
+            time.perf_counter() if self._enable_performance_tracking else 0
+        )
 
         try:
             # Apply filters
@@ -383,8 +408,7 @@ class ZMQDebugger:
         message_type: MessageType = MessageType.UNKNOWN,
         context: str = "",
     ):
-        """
-            Log inbound ZMQ traffic with minimal performance impact.
+        """Log inbound ZMQ traffic with minimal performance impact.
 
         Args:
                 endpoint: ZMQ endpoint
@@ -397,7 +421,9 @@ class ZMQDebugger:
             return
 
         # Performance timing
-        start_time = time.perf_counter() if self._enable_performance_tracking else 0
+        start_time = (
+            time.perf_counter() if self._enable_performance_tracking else 0
+        )
 
         try:
             # Apply filters
@@ -436,7 +462,9 @@ class ZMQDebugger:
 
     # Internal Helper Methods
 
-    def _should_log_message(self, endpoint: str, message_type: MessageType) -> bool:
+    def _should_log_message(
+        self, endpoint: str, message_type: MessageType
+    ) -> bool:
         """Check if message should be logged based on filters."""
         # Check message type filter
         if self._message_filters and message_type not in self._message_filters:
@@ -457,7 +485,9 @@ class ZMQDebugger:
 
         # Count messages in the last second
         cutoff_time = current_time - 1.0
-        recent_count = sum(1 for ts in self._message_timestamps if ts >= cutoff_time)
+        recent_count = sum(
+            1 for ts in self._message_timestamps if ts >= cutoff_time
+        )
 
         return recent_count <= self._rate_limit_per_second
 
@@ -479,7 +509,9 @@ class ZMQDebugger:
         arrow = "📤" if direction == "OUTBOUND" else "📥"
 
         # Choose logger based on console output setting
-        output_logger = _get_console_logger() if self._console_output else logger
+        output_logger = (
+            _get_console_logger() if self._console_output else logger
+        )
 
         # Minimal logging
         if self._debug_level == DebugLevel.MINIMAL:
@@ -492,7 +524,9 @@ class ZMQDebugger:
         output_logger.info(f"{arrow} ZMQ {direction} [{timestamp}]")
         output_logger.info(f"   [TARGET] {endpoint}")
         output_logger.info(f"   [TYPE] {message_type.value}")
-        output_logger.info(f"   [STATS] Frames: {len(frames)}, Size: {total_size}b")
+        output_logger.info(
+            f"   [STATS] Frames: {len(frames)}, Size: {total_size}b"
+        )
 
         if topic:
             output_logger.info(f"   [TAG] Topic: '{topic}'")
@@ -676,15 +710,20 @@ def log_pull_message(endpoint: str, frames: List[bytes], context: str = ""):
 
 def log_req_received(endpoint: str, frames: List[bytes], context: str = ""):
     """Log a REQ/REP inbound request."""
-    log_inbound(endpoint, frames, MessageType.UNKNOWN, f"REQ received {context}")
+    log_inbound(
+        endpoint, frames, MessageType.UNKNOWN, f"REQ received {context}"
+    )
 
 
 def log_rep_received(endpoint: str, frames: List[bytes], context: str = ""):
     """Log a REQ/REP inbound reply."""
-    log_inbound(endpoint, frames, MessageType.UNKNOWN, f"REP received {context}")
+    log_inbound(
+        endpoint, frames, MessageType.UNKNOWN, f"REP received {context}"
+    )
 
 
-# Legacy compatibility functions (deprecated but maintained for backwards compatibility)
+#  Legacy compatibility functions (deprecated but maintained for backwards
+#  compatibility)
 
 
 def decode_zmq_data(data: bytes, max_preview: int = 200) -> str:
@@ -704,7 +743,10 @@ def log_zmq_outbound(
 
 
 def log_zmq_inbound(
-    endpoint: str, frames: List[bytes], context: str = "", message_type: str = "unknown"
+    endpoint: str,
+    frames: List[bytes],
+    context: str = "",
+    message_type: str = "unknown",
 ) -> None:
     """Legacy function - use log_inbound instead."""
     log_inbound(endpoint, frames, MessageType.UNKNOWN, context)

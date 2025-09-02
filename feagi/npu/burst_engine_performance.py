@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,8 +52,7 @@ except ImportError:
 
 
 class BurstEnginePerformanceMixin:
-    """
-    Performance functionality mixin for BurstEngine.
+    """Performance functionality mixin for BurstEngine.
 
     Provides SIMD acceleration, frequency measurement, and performance monitoring:
     - Centralized SIMD configuration integration
@@ -68,13 +65,19 @@ class BurstEnginePerformanceMixin:
     """
 
     def __init__(self, *args, **kwargs):
-        """Initialize performance functionality. Called by main BurstEngine.__init__."""
-        # DO NOT call super().__init__ in mixins - causes multiple inheritance issues
+        """Initialize performance functionality.
+
+        Called by main BurstEngine.__init__.
+        """
+        #  DO NOT call super().__init__ in mixins - causes multiple inheritance
+        #  issues
         # Just initialize our own attributes
 
         # Initialize frequency measurement system
         self._burst_timing_buffer = []  # Circular buffer for burst durations
-        self._processing_timing_buffer = []  # Circular buffer for pure processing durations
+        self._processing_timing_buffer = (
+            []
+        )  # Circular buffer for pure processing durations
         self._timing_buffer_size = 100  # Keep last 100 burst measurements
         self._last_frequency_update = 0.0
         self._frequency_measurement_enabled = (
@@ -90,12 +93,16 @@ class BurstEnginePerformanceMixin:
 
         # SIMD-optimized membrane processor
         if SIMD_AVAILABLE:
-            self.membrane_processor = None  # Initialized when capacity is known
+            self.membrane_processor = (
+                None  # Initialized when capacity is known
+            )
 
         # Runtime configuration (inherited from main BurstEngine config)
         config = getattr(self, "config", {})
         self.use_simd_profiling = config.get("simd_profiling", False)
-        self.performance_monitoring = config.get("performance_monitoring", True)
+        self.performance_monitoring = config.get(
+            "performance_monitoring", True
+        )
 
         logger.debug("BurstEngine performance mixin initialized")
 
@@ -128,7 +135,9 @@ class BurstEnginePerformanceMixin:
                     self.simd_profiler = None
 
             except Exception as e:
-                logger.warning(f"Failed to access centralized SIMD configuration: {e}")
+                logger.warning(
+                    f"Failed to access centralized SIMD configuration: {e}"
+                )
                 self.simd_detector = None
                 self.simd_config = {
                     "available": False,
@@ -154,14 +163,16 @@ class BurstEnginePerformanceMixin:
                     f"[BRAIN] SIMD membrane processor initialized for {capacity} neurons"
                 )
             except Exception as e:
-                logger.warning(f"Failed to initialize SIMD membrane processor: {e}")
+                logger.warning(
+                    f"Failed to initialize SIMD membrane processor: {e}"
+                )
                 self.membrane_processor = None
 
     def measure_actual_frequency(
         self, duration_seconds: float = 5.0, sample_count: int = 100
     ) -> dict:
-        """
-        Measure both actual and potential burst frequencies over a specified period.
+        """Measure both actual and potential burst frequencies over a specified
+        period.
 
         This is an expensive operation that should only be called on-demand for monitoring
         or debugging purposes. It collects detailed timing data during burst processing.
@@ -177,7 +188,9 @@ class BurstEnginePerformanceMixin:
 
         running = getattr(self, "_running", False)
         if not running:
-            raise RuntimeError("Cannot measure frequency - burst engine is not running")
+            raise RuntimeError(
+                "Cannot measure frequency - burst engine is not running"
+            )
 
         # Only log detailed frequency measurement start when debugging NPU
         debug_npu = getattr(self, "debug_npu", False)
@@ -188,7 +201,9 @@ class BurstEnginePerformanceMixin:
             )
 
         # Enable frequency measurement mode
-        old_measurement_enabled = getattr(self, "_frequency_measurement_enabled", False)
+        old_measurement_enabled = getattr(
+            self, "_frequency_measurement_enabled", False
+        )
         self._frequency_measurement_enabled = True
 
         # Clear any existing timing buffers
@@ -201,7 +216,8 @@ class BurstEnginePerformanceMixin:
 
         try:
             # Wait for measurements to be collected
-            # The timing data will be collected automatically in the main burst loop
+            #  The timing data will be collected automatically in the main
+            #  burst loop
             while (
                 time.perf_counter() < measurement_end
                 and len(self._burst_timing_buffer) < sample_count
@@ -216,17 +232,27 @@ class BurstEnginePerformanceMixin:
 
                 # Safety check - ensure burst engine is still running
                 if not getattr(self, "_running", False):
-                    raise RuntimeError("Burst engine stopped during measurement")
+                    raise RuntimeError(
+                        "Burst engine stopped during measurement"
+                    )
 
-            measurement_actual_duration = time.perf_counter() - measurement_start
+            measurement_actual_duration = (
+                time.perf_counter() - measurement_start
+            )
             burst_count_end = getattr(self, "burst_count", 0)
             total_bursts_measured = burst_count_end - burst_count_start
 
             # Calculate frequency metrics from collected timing data
-            if not self._burst_timing_buffer or not self._processing_timing_buffer:
-                raise RuntimeError("No timing data collected during measurement period")
+            if (
+                not self._burst_timing_buffer
+                or not self._processing_timing_buffer
+            ):
+                raise RuntimeError(
+                    "No timing data collected during measurement period"
+                )
 
-            # Full cycle timing statistics (includes delays) - for actual frequency
+            #  Full cycle timing statistics (includes delays) - for actual
+            #  frequency
             full_cycle_data_ms = [t * 1000 for t in self._burst_timing_buffer]
             min_cycle_time_ms = min(full_cycle_data_ms)
             max_cycle_time_ms = max(full_cycle_data_ms)
@@ -237,8 +263,11 @@ class BurstEnginePerformanceMixin:
                 else 0.0
             )
 
-            # Processing timing statistics (pure processing) - for potential frequency
-            processing_data_ms = [t * 1000 for t in self._processing_timing_buffer]
+            #  Processing timing statistics (pure processing) - for potential
+            #  frequency
+            processing_data_ms = [
+                t * 1000 for t in self._processing_timing_buffer
+            ]
             min_processing_time_ms = min(processing_data_ms)
             max_processing_time_ms = max(processing_data_ms)
             avg_processing_time_ms = statistics.mean(processing_data_ms)
@@ -253,7 +282,9 @@ class BurstEnginePerformanceMixin:
             avg_processing_time_seconds = avg_processing_time_ms / 1000.0
 
             actual_frequency_hz = (
-                1.0 / avg_cycle_time_seconds if avg_cycle_time_seconds > 0 else 0.0
+                1.0 / avg_cycle_time_seconds
+                if avg_cycle_time_seconds > 0
+                else 0.0
             )
             potential_frequency_hz = (
                 1.0 / avg_processing_time_seconds
@@ -334,8 +365,7 @@ class BurstEnginePerformanceMixin:
                 self._processing_timing_buffer.clear()
 
     def _record_burst_timing(self, burst_duration_seconds: float) -> None:
-        """
-        Record burst timing data if frequency measurement is enabled.
+        """Record burst timing data if frequency measurement is enabled.
 
         Args:
             burst_duration_seconds: Duration of the burst in seconds
@@ -350,9 +380,10 @@ class BurstEnginePerformanceMixin:
         if len(self._burst_timing_buffer) > self._timing_buffer_size:
             self._burst_timing_buffer.pop(0)  # Remove oldest entry
 
-    def _record_processing_timing(self, processing_duration_seconds: float) -> None:
-        """
-        Record processing timing data if frequency measurement is enabled.
+    def _record_processing_timing(
+        self, processing_duration_seconds: float
+    ) -> None:
+        """Record processing timing data if frequency measurement is enabled.
 
         Args:
             processing_duration_seconds: Duration of the processing in seconds
@@ -370,8 +401,7 @@ class BurstEnginePerformanceMixin:
     def burst(
         self, burst_size: Optional[int] = None, use_gpu: bool = False
     ) -> Dict[str, Any]:
-        """
-        Execute a neural processing burst with SIMD optimization.
+        """Execute a neural processing burst with SIMD optimization.
 
         Args:
             burst_size: Number of neurons to process (None for auto-sizing)
@@ -411,7 +441,9 @@ class BurstEnginePerformanceMixin:
         # Update performance statistics
         if hasattr(self, "burst_count"):
             self.burst_count += 1
-        self.total_neurons_processed += burst_results.get("neurons_processed", 0)
+        self.total_neurons_processed += burst_results.get(
+            "neurons_processed", 0
+        )
 
         # Periodic performance reporting
         if (
@@ -455,15 +487,23 @@ class BurstEnginePerformanceMixin:
 
         # Get fire candidates with SIMD optimization
         if SIMD_AVAILABLE and self.use_simd_profiling:
-            with profile_simd_operation("fire_candidate_detection", burst_size):
+            with profile_simd_operation(
+                "fire_candidate_detection", burst_size
+            ):
                 fire_candidates = self._get_fire_candidates_simd()
         else:
-            fire_candidates = self._get_fire_candidates_simd() if SIMD_AVAILABLE else []
+            fire_candidates = (
+                self._get_fire_candidates_simd() if SIMD_AVAILABLE else []
+            )
 
         # Process membrane potential updates with SIMD
         if fire_candidates and SIMD_AVAILABLE and self.membrane_processor:
-            with profile_simd_operation("membrane_processing", len(fire_candidates)):
-                fired_neurons = self._process_membrane_updates_simd(fire_candidates)
+            with profile_simd_operation(
+                "membrane_processing", len(fire_candidates)
+            ):
+                fired_neurons = self._process_membrane_updates_simd(
+                    fire_candidates
+                )
         else:
             fired_neurons = fire_candidates  # Fallback
 
@@ -486,7 +526,10 @@ class BurstEnginePerformanceMixin:
                 session = self.simd_profiler.current_session
                 if session and session.operations:
                     avg_efficiency = np.mean(
-                        [op.simd_efficiency for op in session.operations.values()]
+                        [
+                            op.simd_efficiency
+                            for op in session.operations.values()
+                        ]
                     )
                     results["simd_efficiency"] = avg_efficiency
 
@@ -506,7 +549,9 @@ class BurstEnginePerformanceMixin:
 
         return []
 
-    def _process_membrane_updates_simd(self, candidates: List[int]) -> List[int]:
+    def _process_membrane_updates_simd(
+        self, candidates: List[int]
+    ) -> List[int]:
         """Process membrane potential updates using SIMD optimization."""
 
         if not candidates or not self.membrane_processor:
@@ -527,7 +572,9 @@ class BurstEnginePerformanceMixin:
             return fired_neurons.tolist()
 
         except Exception as e:
-            logger.warning(f"SIMD membrane processing failed, using fallback: {e}")
+            logger.warning(
+                f"SIMD membrane processing failed, using fallback: {e}"
+            )
             return candidates
 
     def _report_performance(self):
@@ -564,8 +611,7 @@ class BurstEnginePerformanceMixin:
             logger.debug(f"Performance reporting failed: {e}")
 
     def get_performance_metrics(self) -> Dict[str, Any]:
-        """
-        Get comprehensive performance metrics.
+        """Get comprehensive performance metrics.
 
         Returns:
             Dictionary with performance statistics
@@ -583,10 +629,14 @@ class BurstEnginePerformanceMixin:
         # Add timing buffer statistics if available
         if self._burst_timing_buffer:
             metrics["burst_timing_samples"] = len(self._burst_timing_buffer)
-            metrics["avg_burst_time_ms"] = np.mean(self._burst_timing_buffer) * 1000
+            metrics["avg_burst_time_ms"] = (
+                np.mean(self._burst_timing_buffer) * 1000
+            )
 
         if self._processing_timing_buffer:
-            metrics["processing_timing_samples"] = len(self._processing_timing_buffer)
+            metrics["processing_timing_samples"] = len(
+                self._processing_timing_buffer
+            )
             metrics["avg_processing_time_ms"] = (
                 np.mean(self._processing_timing_buffer) * 1000
             )
@@ -618,8 +668,7 @@ class BurstEnginePerformanceMixin:
         logger.info("Performance statistics reset")
 
     def enable_frequency_measurement(self, enabled: bool = True) -> None:
-        """
-        Enable or disable frequency measurement.
+        """Enable or disable frequency measurement.
 
         Args:
             enabled: Whether to enable frequency measurement

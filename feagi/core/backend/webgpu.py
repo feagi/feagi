@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +21,7 @@ enabling GPU acceleration across different platforms without vendor lock-in.
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 from typing import Any, Tuple
 
 import numpy as np
@@ -35,7 +33,11 @@ try:
 except ImportError:
     WEBGPU_AVAILABLE = False
 
-from feagi.core.backend.interface import BackendInterface, BackendType, register_backend
+from feagi.core.backend.interface import (
+    BackendInterface,
+    BackendType,
+    register_backend,
+)
 
 
 class WebGPUTensor:
@@ -54,8 +56,7 @@ class WebGPUTensor:
 
 
 class WebGPUBackend(BackendInterface):
-    """
-    WebGPU backend implementation for FEAGI.
+    """WebGPU backend implementation for FEAGI.
 
     This backend leverages WebGPU for cross-platform GPU acceleration,
     providing efficient tensor operations without vendor lock-in.
@@ -77,7 +78,9 @@ class WebGPUBackend(BackendInterface):
 
         try:
             # Use wgpu.gpu for newer versions of wgpu
-            if hasattr(wgpu, "gpu") and hasattr(wgpu.gpu, "request_adapter_sync"):
+            if hasattr(wgpu, "gpu") and hasattr(
+                wgpu.gpu, "request_adapter_sync"
+            ):
                 self.adapter = wgpu.gpu.request_adapter_sync(
                     power_preference="high-performance"
                 )
@@ -150,7 +153,8 @@ class WebGPUBackend(BackendInterface):
         #     np.uint8: "uint8",
         # }  # Unused variable removed
 
-        # buffer_format = format_map.get(np.dtype(dtype), "float32")  # Unused variable removed
+        #  buffer_format = format_map.get(np.dtype(dtype), "float32") # Unused
+        #  variable removed
 
         # Create a buffer on the GPU
         buffer_size = size * np.dtype(dtype).itemsize
@@ -213,7 +217,9 @@ class WebGPUBackend(BackendInterface):
     def synchronize(self) -> None:
         """Ensure all pending operations are complete."""
         if self.initialized and self.device:
-            self.device.queue.submit([])  # Submit empty command list to synchronize
+            self.device.queue.submit(
+                []
+            )  # Submit empty command list to synchronize
 
     def _init_shader_modules(self) -> None:
         """Initialize common shader modules for reuse."""
@@ -392,11 +398,13 @@ class WebGPUBackend(BackendInterface):
         }
         """
 
-        self._shader_modules["neuron_dynamics"] = self.device.create_shader_module(
-            code=neuron_shader
+        self._shader_modules["neuron_dynamics"] = (
+            self.device.create_shader_module(code=neuron_shader)
         )
 
-    def bitmap_or(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+    def bitmap_or(
+        self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor
+    ) -> WebGPUTensor:
         """Perform bitwise OR operation between two bitmaps."""
         if not self.initialized:
             raise RuntimeError("WebGPU backend is not initialized")
@@ -413,12 +421,16 @@ class WebGPUBackend(BackendInterface):
                 {
                     "binding": 0,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 1,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 2,
@@ -472,7 +484,9 @@ class WebGPUBackend(BackendInterface):
 
         return output
 
-    def bitmap_and(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+    def bitmap_and(
+        self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor
+    ) -> WebGPUTensor:
         """Perform bitwise AND operation between two bitmaps."""
         if not self.initialized:
             raise RuntimeError("WebGPU backend is not initialized")
@@ -489,12 +503,16 @@ class WebGPUBackend(BackendInterface):
                 {
                     "binding": 0,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 1,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 2,
@@ -548,7 +566,9 @@ class WebGPUBackend(BackendInterface):
 
         return output
 
-    def bitmap_xor(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+    def bitmap_xor(
+        self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor
+    ) -> WebGPUTensor:
         """Perform bitwise XOR operation between two bitmaps."""
         if not self.initialized:
             raise RuntimeError("WebGPU backend is not initialized")
@@ -565,12 +585,16 @@ class WebGPUBackend(BackendInterface):
                 {
                     "binding": 0,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 1,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 2,
@@ -627,7 +651,8 @@ class WebGPUBackend(BackendInterface):
     def bitmap_subtract(
         self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor
     ) -> WebGPUTensor:
-        """Perform bitmap subtraction (remove elements in bitmap2 from bitmap1)."""
+        """Perform bitmap subtraction (remove elements in bitmap2 from
+        bitmap1)."""
         if not self.initialized:
             raise RuntimeError("WebGPU backend is not initialized")
 
@@ -643,12 +668,16 @@ class WebGPUBackend(BackendInterface):
                 {
                     "binding": 0,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 1,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 2,
@@ -718,12 +747,16 @@ class WebGPUBackend(BackendInterface):
                 {
                     "binding": 0,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 1,
                     "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.read_only_storage},
+                    "buffer": {
+                        "type": wgpu.BufferBindingType.read_only_storage
+                    },
                 },
                 {
                     "binding": 2,
@@ -786,4 +819,6 @@ if WEBGPU_AVAILABLE:
     except Exception as e:
         logger.error(f"Failed to register WebGPU backend: {e}")
 else:
-    logger.warning("WebGPU is not available. WebGPU backend will not be registered.")
+    logger.warning(
+        "WebGPU is not available. WebGPU backend will not be registered."
+    )

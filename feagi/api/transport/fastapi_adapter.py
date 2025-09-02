@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -78,7 +76,9 @@ def _handle_api_exception(e: Exception) -> JSONResponse:
 
 
 @router.get("/user_preferences", response_model=UserPreferencesResponse)
-async def get_user_preferences(system_api: SystemAPI = Depends(_get_system_api)):
+async def get_user_preferences(
+    system_api: SystemAPI = Depends(_get_system_api),
+):
     """Get current user preferences."""
     try:
         return system_api.get_user_preferences()
@@ -88,7 +88,8 @@ async def get_user_preferences(system_api: SystemAPI = Depends(_get_system_api))
 
 @router.put("/user_preferences", response_model=SuccessResponse)
 async def update_user_preferences(
-    request: UserPreferencesRequest, system_api: SystemAPI = Depends(_get_system_api)
+    request: UserPreferencesRequest,
+    system_api: SystemAPI = Depends(_get_system_api),
 ):
     """Update user preferences."""
     try:
@@ -144,7 +145,8 @@ async def test_influxdb(system_api: SystemAPI = Depends(_get_system_api)):
 
 @router.post("/circuit_library_path", response_model=SuccessResponse)
 async def set_circuit_library_path(
-    request: CircuitLibraryPathRequest, system_api: SystemAPI = Depends(_get_system_api)
+    request: CircuitLibraryPathRequest,
+    system_api: SystemAPI = Depends(_get_system_api),
 ):
     """Set the circuit library path."""
     try:
@@ -154,7 +156,9 @@ async def set_circuit_library_path(
 
 
 @router.get("/cortical_area_types", response_model=CorticalAreaTypesResponse)
-async def get_cortical_area_types(system_api: SystemAPI = Depends(_get_system_api)):
+async def get_cortical_area_types(
+    system_api: SystemAPI = Depends(_get_system_api),
+):
     """Get available cortical area types."""
     try:
         return system_api.get_cortical_area_types()
@@ -179,7 +183,8 @@ async def reset_fcl(system_api: SystemAPI = Depends(_get_system_api)):
 
 @router.post("/register", response_model=SuccessResponse)
 async def register_system(
-    request: RegistrationRequest, system_api: SystemAPI = Depends(_get_system_api)
+    request: RegistrationRequest,
+    system_api: SystemAPI = Depends(_get_system_api),
 ):
     """System registration (placeholder implementation)."""
     try:
@@ -200,7 +205,9 @@ async def manage_logs(
 
 
 @router.get("/beacon/subscribers")
-async def get_beacon_subscribers(system_api: SystemAPI = Depends(_get_system_api)):
+async def get_beacon_subscribers(
+    system_api: SystemAPI = Depends(_get_system_api),
+):
     """Get current beacon subscribers."""
     try:
         return system_api.get_beacon_subscribers()
@@ -210,7 +217,8 @@ async def get_beacon_subscribers(system_api: SystemAPI = Depends(_get_system_api
 
 @router.post("/beacon/subscribe", response_model=SuccessResponse)
 async def subscribe_to_beacon(
-    request: SubscriberRequest, system_api: SystemAPI = Depends(_get_system_api)
+    request: SubscriberRequest,
+    system_api: SystemAPI = Depends(_get_system_api),
 ):
     """Subscribe to beacon notifications."""
     try:
@@ -221,7 +229,8 @@ async def subscribe_to_beacon(
 
 @router.delete("/beacon/unsubscribe", response_model=SuccessResponse)
 async def unsubscribe_from_beacon(
-    request: SubscriberRequest, system_api: SystemAPI = Depends(_get_system_api)
+    request: SubscriberRequest,
+    system_api: SystemAPI = Depends(_get_system_api),
 ):
     """Unsubscribe from beacon notifications."""
     try:

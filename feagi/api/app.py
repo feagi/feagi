@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,8 +51,7 @@ class ModelResponse(BaseModel):
 
 
 def get_feagi() -> FEAGI:
-    """
-    Get the FEAGI instance.
+    """Get the FEAGI instance.
 
     Returns:
         FEAGI instance.
@@ -63,8 +60,7 @@ def get_feagi() -> FEAGI:
 
 
 def create_app() -> FastAPI:
-    """
-    Create a FastAPI application for FEAGI.
+    """Create a FastAPI application for FEAGI.
 
     Returns:
         FastAPI application.
@@ -86,7 +82,9 @@ def create_app() -> FastAPI:
         return feagi.list_models()
 
     @app.post("/models", response_model=ModelResponse)
-    async def create_model(request: ModelRequest, feagi: FEAGI = Depends(get_feagi)):
+    async def create_model(
+        request: ModelRequest, feagi: FEAGI = Depends(get_feagi)
+    ):
         """Create a new model."""
         model = feagi.create_model(request.name, request.model_type)
         return {
@@ -100,7 +98,9 @@ def create_app() -> FastAPI:
         """Get model by name."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         return {
             "name": model.name,
@@ -116,19 +116,28 @@ def create_app() -> FastAPI:
         """Train a model."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         metrics = model.train(request.data, request.epochs)
-        return {"message": f"Model {name} trained successfully", "metrics": metrics}
+        return {
+            "message": f"Model {name} trained successfully",
+            "metrics": metrics,
+        }
 
     @app.post("/models/{name}/predict")
     async def predict(
-        name: str, request: PredictionRequest, feagi: FEAGI = Depends(get_feagi)
+        name: str,
+        request: PredictionRequest,
+        feagi: FEAGI = Depends(get_feagi),
     ):
         """Make predictions using a model."""
         model = feagi.get_model(name)
         if model is None:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         predictions = model.predict(request.data)
         return {"predictions": predictions.tolist()}
@@ -138,7 +147,9 @@ def create_app() -> FastAPI:
         """Delete a model."""
         success = feagi.remove_model(name)
         if not success:
-            raise HTTPException(status_code=404, detail=f"Model {name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Model {name} not found"
+            )
 
         return {"message": f"Model {name} deleted successfully"}
 

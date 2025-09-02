@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,7 +26,7 @@ import threading
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import tempfile
 from typing import Dict, Optional, Tuple
 
@@ -40,9 +38,8 @@ DEFAULT_TEMP_DIR = tempfile.gettempdir()
 
 
 class SharedMemoryRegion:
-    """
-    Represents a single shared memory region that can be accessed by multiple processes.
-    """
+    """Represents a single shared memory region that can be accessed by
+    multiple processes."""
 
     def __init__(
         self,
@@ -51,8 +48,7 @@ class SharedMemoryRegion:
         temp_dir: str = DEFAULT_TEMP_DIR,
         create: bool = True,
     ):
-        """
-        Initialize a shared memory region.
+        """Initialize a shared memory region.
 
         Args:
             name: Unique identifier for this shared memory region
@@ -76,7 +72,9 @@ class SharedMemoryRegion:
 
         # Initialize lock
         self._lock = threading.RLock()  # For thread safety within a process
-        self._file_lock = None  # Will be created when needed for cross-process locking
+        self._file_lock = (
+            None  # Will be created when needed for cross-process locking
+        )
 
     def _create_memory_region(self):
         """Create a new shared memory region."""
@@ -114,8 +112,7 @@ class SharedMemoryRegion:
         )
 
     def acquire_lock(self, timeout: Optional[float] = None) -> bool:
-        """
-        Acquire a lock on this memory region.
+        """Acquire a lock on this memory region.
 
         Args:
             timeout: Maximum time to wait for the lock (None means wait forever)
@@ -165,8 +162,7 @@ class SharedMemoryRegion:
         self._lock.release()
 
     def read(self, offset: int = 0, size: Optional[int] = None) -> bytes:
-        """
-        Read data from the shared memory region.
+        """Read data from the shared memory region.
 
         Args:
             offset: Starting position for the read
@@ -177,11 +173,12 @@ class SharedMemoryRegion:
         """
         with self._lock:
             self.mmap.seek(offset)
-            return self.mmap.read(size if size is not None else (self.size - offset))
+            return self.mmap.read(
+                size if size is not None else (self.size - offset)
+            )
 
     def write(self, data: bytes, offset: int = 0) -> int:
-        """
-        Write data to the shared memory region.
+        """Write data to the shared memory region.
 
         Args:
             data: Bytes to write
@@ -201,8 +198,7 @@ class SharedMemoryRegion:
     def as_array(
         self, shape: Tuple[int, ...], dtype: np.dtype = np.float32
     ) -> np.ndarray:
-        """
-        Get a numpy array view of the shared memory.
+        """Get a numpy array view of the shared memory.
 
         Args:
             shape: Shape of the numpy array
@@ -222,8 +218,9 @@ class SharedMemoryRegion:
         return np.frombuffer(self.mmap, dtype=dtype).reshape(shape)
 
     def close(self, delete_file: bool = False):
-        """
-        Close the shared memory region. Optionally delete the file.
+        """Close the shared memory region.
+
+        Optionally delete the file.
         Args:
             delete_file: If True, delete the file from disk (default: False)
         """
@@ -249,13 +246,10 @@ class SharedMemoryRegion:
 
 
 class SharedMemoryManager:
-    """
-    Manages multiple shared memory regions used for IPC in FEAGI.
-    """
+    """Manages multiple shared memory regions used for IPC in FEAGI."""
 
     def __init__(self, temp_dir: str = DEFAULT_TEMP_DIR):
-        """
-        Initialize the shared memory manager.
+        """Initialize the shared memory manager.
 
         Args:
             temp_dir: Directory to store the memory-mapped files
@@ -270,8 +264,7 @@ class SharedMemoryManager:
     def create_region(
         self, name: str, size: int = DEFAULT_SHARED_MEM_SIZE
     ) -> SharedMemoryRegion:
-        """
-        Create a new shared memory region.
+        """Create a new shared memory region.
 
         Args:
             name: Unique identifier for the region
@@ -291,8 +284,7 @@ class SharedMemoryManager:
         return region
 
     def get_region(self, name: str) -> SharedMemoryRegion:
-        """
-        Get an existing shared memory region.
+        """Get an existing shared memory region.
 
         Args:
             name: Identifier for the region to get
@@ -306,11 +298,15 @@ class SharedMemoryManager:
         if name not in self.regions:
             # Try to open an existing region
             try:
-                region = SharedMemoryRegion(name, temp_dir=self.temp_dir, create=False)
+                region = SharedMemoryRegion(
+                    name, temp_dir=self.temp_dir, create=False
+                )
                 self.regions[name] = region
                 return region
-            except FileNotFoundError:
-                raise KeyError(f"Shared memory region '{name}' does not exist")
+            except FileNotFoundError as e:
+                raise KeyError(
+                    f"Shared memory region '{name}' does not exist"
+                ) from e
 
         return self.regions[name]
 
@@ -321,8 +317,7 @@ class SharedMemoryManager:
             del self.regions[name]
 
     def list_regions(self) -> Dict[str, int]:
-        """
-        List all managed shared memory regions.
+        """List all managed shared memory regions.
 
         Returns:
             Dictionary of region names mapped to their sizes

@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +12,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-FEAGI v1 Cortical Area API - Single Source of Truth
+# FEAGI v1 Cortical Area API - Single Source of Truth
+#
+# This module contains the ONLY definitions of cortical area API endpoints.
+# Each endpoint is decorated to automatically register for ALL transport protocols
+# (FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
+#
+# NO endpoint definitions should exist anywhere else - this is the single source of truth.
 
-This module contains the ONLY definitions of cortical area API endpoints.
-Each endpoint is decorated to automatically register for ALL transport protocols
-(FastAPI, ZMQ, gRPC, etc.) ensuring perfect consistency across transports.
-
-NO endpoint definitions should exist anywhere else - this is the single source of truth.
-"""
-
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, root_validator
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.schemas import (
@@ -32,6 +29,7 @@ from feagi.api.v1.schemas import (
     CorticalAreaIndexListResponse,
     CorticalAreaMappingRestrictionRequest,
     CorticalAreaMappingRestrictionResponse,
+    CorticalAreaMemoryUsageResponse,
     CorticalAreaNameListResponse,
     CorticalAreaPropertiesResponse,
     CorticalAreaTypesResponse,
@@ -40,17 +38,40 @@ from feagi.api.v1.schemas import (
     CorticalIdRequest,
     CorticalLocationResponse,
     CorticalNameRequest,
+    CorticalPropertiesUpdateRequest,
+    CustomCorticalAreaRequest,
     MappingRestrictionsRequest,
     MappingRestrictionsResponse,
     NeuronCountResponse,
     SuccessResponse,
 )
+from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.utils.logger import setup_logger
 
 from .decorators import endpoint
 
 logger = setup_logger(__name__)
 
+
+# Strict request model for multi-update endpoint
+class MultiCorticalAreaUpdate(BaseModel):
+    cortical_id_list: List[str]
+    neuron_fire_threshold: Optional[float] = None
+    neuron_snooze_period: Optional[float] = None
+    # All other fields are allowed and forwarded as parameters, except coordinates
+
+    @root_validator(pre=True)
+    def _forbid_coordinate_updates(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        banned_keys = {"coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"}
+        present = [key for key in values.keys() if key in banned_keys]
+        if present:
+            raise ValueError(
+                f"Bulk update forbids coordinate changes. Remove keys: {present}"
+            )
+        return values
+
+    class Config:
+        extra = "allow"
 
 # Define the convenience decorator for cortical area endpoints
 def cortical_area_endpoint(
@@ -102,14 +123,14 @@ class CorticalAreaAPI:
                 logger.error(
                     "CRITICAL: Cannot import cortical_template from templates.py - using minimal fallbacks"
                 )
-                # Minimal emergency fallbacks only - should never happen in normal operation
+                #  Minimal emergency fallbacks only - should never happen in
+                #  normal operation
                 self._templates_cache = {}
 
         return self._templates_cache
 
     def _get_default_value(self, property_name: str, fallback_value=None):
-        """
-        Get default value for a specific property from templates.
+        """Get default value for a specific property from templates.
 
         Args:
             property_name: Name of the property in cortical_template
@@ -122,8 +143,8 @@ class CorticalAreaAPI:
         return defaults.get(property_name, fallback_value)
 
     def _get_structural_default(self, property_type: str):
-        """
-        Get acceptable structural/spatial defaults that are not neuron properties.
+        """Get acceptable structural/spatial defaults that are not neuron
+        properties.
 
         These are NOT from cortical_template since they are structural, not neural properties.
         They represent spatial positioning and brain organization defaults.
@@ -146,7 +167,8 @@ class CorticalAreaAPI:
             "parent_region_id": "root",
             "parent_region_title": "Genome's root brain region",
             "cortical_group": "CUSTOM",
-            # Memory area structural dimensions (always minimal for memory types)
+            #  Memory area structural dimensions (always minimal for memory
+            #  types)
             "memory_dimensions": [1, 1, 1],
         }
         return structural_defaults.get(property_type, None)
@@ -164,30 +186,98 @@ class CorticalAreaAPI:
     ) -> CorticalAreaPropertiesResponse:
         """Get properties of a cortical area."""
         try:
-            area_data = self.core_api_service.get_cortical_area(request.cortical_id)
+            area_data = self.core_api_service.get_cortical_area(
+                request.cortical_id
+            )
             if not area_data:
                 raise KeyError("Cortical area not found")
 
             # Transform modern FEAGI format to expected legacy format
             parameters = area_data.get("parameters", {})
 
-            # Extract coordinates using structural defaults for spatial positioning
+            #  Extract coordinates using structural defaults for spatial
+            #  positioning
             coordinates = area_data.get("coordinates", {})
-            coordinates_3d = [
-                coordinates.get("x", self._get_structural_default("coordinate")),
-                coordinates.get("y", self._get_structural_default("coordinate")),
-                coordinates.get("z", self._get_structural_default("coordinate")),
-            ]
+            if isinstance(coordinates, (list, tuple)):
+                # Handle tuple/list format: (x, y, z)
+                coordinates_3d = (
+                    list(coordinates)
+                    if len(coordinates) >= 3
+                    else [
+                        (
+                            coordinates[0]
+                            if len(coordinates) > 0
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[1]
+                            if len(coordinates) > 1
+                            else self._get_structural_default("coordinate")
+                        ),
+                        (
+                            coordinates[2]
+                            if len(coordinates) > 2
+                            else self._get_structural_default("coordinate")
+                        ),
+                    ]
+                )
+            else:
+                # Handle dict format: {"x": x, "y": y, "z": z}
+                coordinates_3d = [
+                    coordinates.get(
+                        "x", self._get_structural_default("coordinate")
+                    ),
+                    coordinates.get(
+                        "y", self._get_structural_default("coordinate")
+                    ),
+                    coordinates.get(
+                        "z", self._get_structural_default("coordinate")
+                    ),
+                ]
 
-            # Extract dimensions using structural defaults for spatial dimensions
+            #  Extract dimensions using structural defaults for spatial
+            #  dimensions
             dimensions = area_data.get("dimensions", {})
-            cortical_dimensions = [
-                dimensions.get("width", self._get_structural_default("dimension")),
-                dimensions.get("height", self._get_structural_default("dimension")),
-                dimensions.get("depth", self._get_structural_default("dimension")),
-            ]
+            if isinstance(dimensions, (list, tuple)):
+                # Handle tuple/list format: (width, height, depth)
+                cortical_dimensions = (
+                    list(dimensions)
+                    if len(dimensions) >= 3
+                    else [
+                        (
+                            dimensions[0]
+                            if len(dimensions) > 0
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[1]
+                            if len(dimensions) > 1
+                            else self._get_structural_default("dimension")
+                        ),
+                        (
+                            dimensions[2]
+                            if len(dimensions) > 2
+                            else self._get_structural_default("dimension")
+                        ),
+                    ]
+                )
+            else:
+                # Handle dict format: {"width": w, "height": h, "depth": d}
+                cortical_dimensions = [
+                    dimensions.get(
+                        "width", self._get_structural_default("dimension")
+                    ),
+                    dimensions.get(
+                        "height", self._get_structural_default("dimension")
+                    ),
+                    dimensions.get(
+                        "depth", self._get_structural_default("dimension")
+                    ),
+                ]
 
-            # Build legacy format response using template defaults for neural properties and structural defaults for spatial/organizational properties
+            #  Build legacy format response with STRICT values (no fallbacks)
+            #  - Structural: must exist in area_data
+            #  - Neural: must exist either in computed area_data fields or explicit parameters
             legacy_properties = {
                 "cortical_id": area_data.get("id", request.cortical_id),
                 "cortical_idx": area_data.get(
@@ -195,28 +285,22 @@ class CorticalAreaAPI:
                 ),  # CRITICAL FIX: Include cortical_idx in API response
                 "cortical_name": area_data.get("name", request.cortical_id),
                 "parent_region_id": parameters.get(
-                    "parent_region_id", self._get_structural_default("parent_region_id")
+                    "parent_region_id",
+                    self._get_structural_default("parent_region_id"),
                 ),
                 "parent_region_title": parameters.get(
                     "parent_region_title",
                     self._get_structural_default("parent_region_title"),
                 ),
-                "cortical_group": area_data.get(
-                    "type", self._get_structural_default("cortical_group")
-                ),
+                "cortical_group": area_data["type"],
                 "cortical_sub_group": parameters.get(
                     "subgroup", self._get_default_value("sub_group_id", "")
                 ),
                 "cortical_neuron_per_vox_count": parameters.get(
-                    "neurons_per_voxel",
-                    self._get_default_value("per_voxel_neuron_cnt", 1),
+                    "neurons_per_voxel", parameters.get("per_voxel_neuron_cnt", 1)
                 ),
-                "cortical_visibility": parameters.get(
-                    "gd_vis", self._get_default_value("visualization", True)
-                ),
-                "cortical_synaptic_attractivity": parameters.get(
-                    "synatt", self._get_default_value("synapse_attractivity", 100)
-                ),
+                "cortical_visibility": parameters.get("gd_vis", False),
+                "cortical_synaptic_attractivity": parameters.get("synatt", 0),
                 "coordinates_3d": coordinates_3d,
                 "coordinates_2d": [
                     parameters.get(
@@ -227,79 +311,30 @@ class CorticalAreaAPI:
                     ),
                 ],
                 "cortical_dimensions": cortical_dimensions,
-                "cortical_destinations": parameters.get(
-                    "mapping", self._get_structural_default("mapping")
-                ),
-                "neuron_post_synaptic_potential": parameters.get(
-                    "pstcr", self._get_default_value("postsynaptic_current", 1)
-                ),
-                "neuron_post_synaptic_potential_max": parameters.get(
-                    "pstcrm", self._get_default_value("postsynaptic_current_max", 99999)
-                ),
-                "neuron_fire_threshold": parameters.get(
-                    "fire_t", self._get_default_value("firing_threshold", 1)
-                ),
+                "cortical_destinations": parameters.get("mapping", {}),
+                "neuron_post_synaptic_potential": float(parameters.get("pstcr", 0.0)),
+                "neuron_post_synaptic_potential_max": float(parameters.get("pstcrm", 0.0)),
+                "neuron_fire_threshold": float(area_data.get("firing_threshold", 1.0)),
                 "neuron_fire_threshold_increment": [
-                    parameters.get(
-                        "ftincx",
-                        self._get_default_value("firing_threshold_increment_x", 0),
-                    ),
-                    parameters.get(
-                        "ftincy",
-                        self._get_default_value("firing_threshold_increment_y", 0),
-                    ),
-                    parameters.get(
-                        "ftincz",
-                        self._get_default_value("firing_threshold_increment_z", 0),
-                    ),
+                    float(parameters.get("ftincx", 0.0)),
+                    float(parameters.get("ftincy", 0.0)),
+                    float(parameters.get("ftincz", 0.0)),
                 ],
-                "neuron_firing_threshold_limit": parameters.get(
-                    "fthlim", self._get_default_value("firing_threshold_limit", 0)
-                ),
-                "neuron_refractory_period": parameters.get(
-                    "refrac", self._get_default_value("refractory_period", 0)
-                ),
-                "neuron_leak_coefficient": parameters.get(
-                    "leak_c", self._get_default_value("leak_coefficient", 0)
-                ),
-                "neuron_leak_variability": (
-                    parameters.get("leak_v")
-                    if parameters.get("leak_v") is not None
-                    else self._get_default_value("leak_variability", 0)
-                ),
-                "neuron_consecutive_fire_count": parameters.get(
-                    "c_fr_c", self._get_default_value("consecutive_fire_cnt_max", 0)
-                ),
-                "neuron_snooze_period": parameters.get(
-                    "snooze", self._get_default_value("snooze_length", 0)
-                ),
-                "neuron_degeneracy_coefficient": parameters.get(
-                    "de_gen", self._get_default_value("degeneration", 0)
-                ),
-                "neuron_psp_uniform_distribution": parameters.get(
-                    "pspuni", self._get_default_value("psp_uniform_distribution", True)
-                ),
-                "neuron_mp_charge_accumulation": parameters.get(
-                    "mp_acc", self._get_default_value("mp_charge_accumulation", False)
-                ),
-                "neuron_mp_driven_psp": parameters.get(
-                    "mp_psp", self._get_default_value("mp_driven_psp", False)
-                ),
-                "neuron_longterm_mem_threshold": parameters.get(
-                    "mem__t", self._get_default_value("longterm_mem_threshold", 100)
-                ),
-                "neuron_lifespan_growth_rate": parameters.get(
-                    "mem_gr", self._get_default_value("lifespan_growth_rate", 1)
-                ),
-                "neuron_init_lifespan": parameters.get(
-                    "mem_ls", self._get_default_value("init_lifespan", 9)
-                ),
-                "temporal_depth": parameters.get(
-                    "temporal_depth", self._get_default_value("temporal_depth", 1)
-                ),
-                "neuron_excitability": parameters.get(
-                    "excite", self._get_default_value("neuron_excitability", 100)
-                ),
+                "neuron_firing_threshold_limit": int(parameters.get("fthlim", 0)),
+                "neuron_refractory_period": int(area_data.get("refractory_period", 0)),
+                "neuron_leak_coefficient": float(area_data.get("leak_coefficient", 0.0)),
+                "neuron_leak_variability": float(parameters.get("leak_v", 0.0)),
+                "neuron_consecutive_fire_count": int(parameters.get("c_fr_c", 0)),
+                "neuron_snooze_period": int(parameters.get("snooze", 0)),
+                "neuron_degeneracy_coefficient": int(parameters.get("de_gen", 0)),
+                "neuron_psp_uniform_distribution": bool(parameters.get("pspuni", 0)),
+                "neuron_mp_charge_accumulation": bool(parameters.get("mp_acc", 0)),
+                "neuron_mp_driven_psp": bool(parameters.get("mp_psp", 0)),
+                "neuron_longterm_mem_threshold": int(parameters.get("mem__t", 0)),
+                "neuron_lifespan_growth_rate": float(parameters.get("mem_gr", 0.0)),
+                "neuron_init_lifespan": int(parameters.get("mem_ls", 0)),
+                "temporal_depth": int(parameters.get("temporal_depth", 1)),
+                "neuron_excitability": float(area_data.get("neuron_excitability", 1.0)),
                 "transforming": parameters.get(
                     "transforming", False
                 ),  # Runtime state flag - not from templates
@@ -307,42 +342,67 @@ class CorticalAreaAPI:
 
             return CorticalAreaPropertiesResponse(properties=legacy_properties)
         except ValueError:
-            raise ValueError("Invalid cortical area ID length")
+            raise ValueError("Invalid cortical area ID length") from None
         except KeyError:
-            raise ValueError("Cortical area not found")
+            raise ValueError("Cortical area not found") from None
         except Exception as e:
-            raise ValueError(f"Error retrieving cortical properties: {str(e)}")
+            raise ValueError(
+                f"Error retrieving cortical properties: {str(e)}"
+            ) from e
 
-    @cortical_area_endpoint("PUT", "/cortical_area", response_model=SuccessResponse)
+    @cortical_area_endpoint(
+        "PUT",
+        "/cortical_area",
+        request_model=CorticalPropertiesUpdateRequest,
+        response_model=SuccessResponse,
+    )
     def update_cortical_area_properties(
-        self, properties: Dict[str, Any]
+        self, request: CorticalPropertiesUpdateRequest
     ) -> SuccessResponse:
         """Update properties of a cortical area."""
         try:
+            # Convert request to dictionary for backward compatibility
+            properties = request.model_dump()
+
             # Extract cortical_id and remove it from properties
             cortical_id = properties.get("cortical_id", None)
             if not cortical_id:
                 raise ValueError("cortical_id is required")
 
-            # Create a copy and remove cortical_id from the properties to update
+            #  Create a copy and remove cortical_id from the properties to
+            #  update
             properties_to_update = properties.copy()
             properties_to_update.pop("cortical_id", None)
 
-            # Use the CoreAPIService to update the properties
-            success = self.core_api_service.update_cortical_area_properties(
-                cortical_id=cortical_id, properties=properties_to_update
+            # Call the update operation
+            result = self.core_api_service.update_cortical_area_properties(
+                cortical_id, properties_to_update
             )
 
-            if not success:
-                raise ValueError("Failed to update cortical area properties")
-
-            return SuccessResponse(
-                message=f"Cortical area {cortical_id} update request submitted"
-            )
+            if result:
+                return SuccessResponse(
+                    success=True,
+                    message="Cortical area properties updated successfully",
+                )
+            else:
+                # Check if the cortical area exists for better error messaging
+                existing_area = self.core_api_service.get_cortical_area(
+                    cortical_id
+                )
+                if not existing_area:
+                    raise ValueError(
+                        f"Cortical area '{cortical_id}' does not exist"
+                    )
+                else:
+                    raise ValueError(
+                        "Failed to update cortical area properties - write operations may be disabled"
+                    )
         except Exception as e:
-            raise ValueError(f"Error updating cortical area: {str(e)}")
+            raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
-    @cortical_area_endpoint("POST", "/cortical_area", response_model=Dict[str, str])
+    @cortical_area_endpoint(
+        "POST", "/cortical_area", response_model=Dict[str, str]
+    )
     def add_cortical_area(
         self, new_cortical_properties: Dict[str, Any]
     ) -> Dict[str, str]:
@@ -350,7 +410,8 @@ class CorticalAreaAPI:
         try:
             # Check if connectome is ready
             connectome = self.core_api_service.get_connectome()
-            if not connectome or not connectome.is_connectome_ready():
+            state_manager = self.core_api_service.state_manager
+            if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
             cortical_id = new_cortical_properties.get("cortical_id")
@@ -359,30 +420,49 @@ class CorticalAreaAPI:
 
             return {"cortical_id": cortical_id}
         except Exception as e:
-            raise ValueError(f"Error adding cortical area: {str(e)}")
+            raise ValueError(f"Error adding cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
-        "POST", "/custom_cortical_area", response_model=Dict[str, str]
+        "POST",
+        "/custom_cortical_area",
+        request_model=CustomCorticalAreaRequest,
+        response_model=Dict[str, str],
     )
     def add_custom_cortical_area(
-        self, new_custom_cortical_properties: Dict[str, Any]
+        self, request: CustomCorticalAreaRequest
     ) -> Dict[str, str]:
         """Add a new custom cortical area."""
         try:
             # Check if connectome is ready
             connectome = self.core_api_service.get_connectome()
-            if not connectome or not connectome.is_connectome_ready():
+            state_manager = self.core_api_service.state_manager
+            if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            # Extract properties
-            cortical_name = new_custom_cortical_properties.get("cortical_name")
-            parent_region_id = new_custom_cortical_properties.get("parent_region_id")
-            sub_group_id = new_custom_cortical_properties.get("sub_group_id")
-            copy_of = new_custom_cortical_properties.get("copy_of")
+            # Extract properties from request
+            cortical_name = request.cortical_name
+            parent_region_id = (
+                request.brain_region_id
+            )  # brain_region_id maps to parent_region_id
+            # Prefer sub_group_id if provided, otherwise use cortical_sub_group
+            sub_group_id = request.sub_group_id or request.cortical_sub_group
+            copy_of = request.copy_of
 
             # Validate parent region
-            if parent_region_id not in connectome.genome["brain_regions"]:
-                raise ValueError(f"{parent_region_id} does not exist!")
+            #  ConnectomeManager ensures brain_regions structure exists during
+            #  genome loading
+            genome_brain_regions = getattr(connectome, "genome", {}).get(
+                "brain_regions", {}
+            )
+            connectome_brain_regions = getattr(connectome, "brain_regions", {})
+
+            if (
+                parent_region_id not in genome_brain_regions
+                and parent_region_id not in connectome_brain_regions
+            ):
+                raise ValueError(
+                    f"Parent region '{parent_region_id}' does not exist!"
+                )
 
             # Generate cortical ID
             temp_name = cortical_name
@@ -392,18 +472,23 @@ class CorticalAreaAPI:
             # Determine if memory area
             is_memory = "MEMORY" in sub_group_id
             if is_memory:
-                cortical_dimensions = self._get_structural_default("memory_dimensions")
-            else:
-                cortical_dimensions = new_custom_cortical_properties.get(
-                    "cortical_dimensions"
+                cortical_dimensions = self._get_structural_default(
+                    "memory_dimensions"
                 )
-
-            cortical_id = connectome.generate_cortical_id(
-                temp_name[:3], is_memory=is_memory
-            )
+            else:
+                cortical_dimensions = request.cortical_dimensions
 
             # Calculate neuron count and validate limits
-            neuron_density = self._get_default_value("per_voxel_neuron_cnt", 1)
+            if is_memory:
+                # MEMORY AREA FIX: Memory areas start empty (0 regular neurons)
+                # Memory neurons are created dynamically by MemoryProcessor
+                neuron_density = 0
+            else:
+                # Regular areas use template default
+                neuron_density = self._get_default_value(
+                    "per_voxel_neuron_cnt", 1
+                )
+
             if copy_of:
                 neuron_density = connectome.genome["blueprint"][copy_of][
                     "per_voxel_neuron_cnt"
@@ -415,35 +500,77 @@ class CorticalAreaAPI:
                 * cortical_dimensions[1]
                 * cortical_dimensions[2]
             )
-            max_allowable_neuron_count = int(
-                connectome.parameters["Limits"]["max_neuron_count"]
-            )
+            max_allowable_neuron_count = int(connectome.max_neurons)
 
             if (
-                neuron_count + connectome.brain_stats["neuron_count"]
+                neuron_count + connectome.get_neuron_count()
                 > max_allowable_neuron_count
             ):
                 raise ValueError(
                     f"Cannot create new cortical area as neuron count will exceed {max_allowable_neuron_count} threshold"
                 )
 
-            # Prepare message
-            message_data = new_custom_cortical_properties.copy()
-            message_data.update(
-                {
-                    "is_memory": is_memory,
-                    "cortical_dimensions": cortical_dimensions,
-                    "copy_of": copy_of,
-                    "cortical_id": cortical_id,
-                }
+            # Generate proper cortical ID using FEAGI's standard format
+            cortical_id = generate_cortical_id(
+                prefix="m" if is_memory else "c", seed=temp_name[:3]
             )
 
-            message = {"add_custom_cortical_area": message_data}
-            connectome.add_custom_cortical_area(message)
+            #  ARCHITECTURE COMPLIANCE: Route through GenomeService instead of
+            #  direct ConnectomeManager access
+            genome_service = self.core_api_service._genome_service
+
+            #  Create cortical area through proper pipeline: hierarchical
+            #  genome -> GenomeService -> connectome
+            result = genome_service.create_cortical_area(
+                name=cortical_name,
+                coordinates={
+                    "x": request.coordinates_3d[0],
+                    "y": request.coordinates_3d[1],
+                    "z": request.coordinates_3d[2],
+                },
+                dimensions={
+                    "width": cortical_dimensions[0],
+                    "height": cortical_dimensions[1],
+                    "depth": cortical_dimensions[2],
+                },
+                area_type="memory" if is_memory else "custom",
+                parameters={
+                    "cortical_group": request.cortical_group,
+                    "cortical_sub_group": sub_group_id,
+                    "sub_group_id": sub_group_id,  # Add explicit sub_group_id for memory detection
+                    "coordinates_2d": request.coordinates_2d,
+                    "brain_region_id": parent_region_id,
+                    "copy_of": copy_of,
+                    "per_voxel_neuron_cnt": neuron_density,
+                    "cortical_id": cortical_id,  # Pass the generated ID
+                    # Include memory-specific properties if provided
+                    **{
+                        k: v
+                        for k, v in {
+                            "init_lifespan": request.init_lifespan,
+                            "lifespan_growth_rate": request.lifespan_growth_rate,
+                            "longterm_mem_threshold": request.longterm_mem_threshold,
+                            "temporal_depth": request.temporal_depth,
+                        }.items()
+                        if v is not None
+                    },
+                },
+            )
+
+            if not result:
+                raise ValueError(
+                    "Failed to create cortical area through GenomeService"
+                )
+
+            logger.info(
+                f"[SUCCESS] Cortical area {cortical_id} created through proper GenomeService pipeline"
+            )
 
             return {"cortical_id": cortical_id}
         except Exception as e:
-            raise ValueError(f"Error adding custom cortical area: {str(e)}")
+            raise ValueError(
+                f"Error adding custom cortical area: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "DELETE",
@@ -451,10 +578,14 @@ class CorticalAreaAPI:
         request_model=CorticalIdRequest,
         response_model=SuccessResponse,
     )
-    def delete_cortical_area(self, request: CorticalIdRequest) -> SuccessResponse:
+    def delete_cortical_area(
+        self, request: CorticalIdRequest
+    ) -> SuccessResponse:
         """Delete a single cortical area."""
         try:
-            result = self.core_api_service.delete_cortical_area(request.cortical_id)
+            result = self.core_api_service.delete_cortical_area(
+                request.cortical_id
+            )
 
             if not result:
                 raise ValueError(
@@ -465,20 +596,25 @@ class CorticalAreaAPI:
                 message=f"Cortical area {request.cortical_id} deleted successfully"
             )
         except Exception as e:
-            raise ValueError(f"Error deleting cortical area: {str(e)}")
+            raise ValueError(f"Error deleting cortical area: {str(e)}") from e
 
     # ===== Cortical Area Listings =====
 
     @cortical_area_endpoint(
-        "GET", "/cortical_area_id_list", response_model=CorticalAreaIdListResponse
+        "GET",
+        "/cortical_area_id_list",
+        response_model=CorticalAreaIdListResponse,
     )
     def get_cortical_area_id_list(self) -> CorticalAreaIdListResponse:
-        """Get list of cortical area IDs (6-letter strings) present in the current genome."""
+        """Get list of cortical area IDs (6-letter strings) present in the
+        current genome."""
         try:
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
             return CorticalAreaIdListResponse(cortical_ids=cortical_ids)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area ID list: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area ID list: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint("GET", "/cortical_area_id_list")
     def get_cortical_area_id_list_legacy(self) -> List[str]:
@@ -487,10 +623,14 @@ class CorticalAreaAPI:
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
             return cortical_ids
         except Exception as e:
-            raise ValueError(f"Error getting cortical area ID list: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area ID list: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
-        "GET", "/cortical_area_index_list", response_model=CorticalAreaIndexListResponse
+        "GET",
+        "/cortical_area_index_list",
+        response_model=CorticalAreaIndexListResponse,
     )
     def get_cortical_area_index_list(self) -> CorticalAreaIndexListResponse:
         """Get list of cortical area indices (integers) used by the FCL."""
@@ -498,10 +638,14 @@ class CorticalAreaAPI:
             indices = self.core_api_service.get_cortical_area_index_list()
             return CorticalAreaIndexListResponse(indices=indices)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area index list: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area index list: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
-        "GET", "/cortical_area_name_list", response_model=CorticalAreaNameListResponse
+        "GET",
+        "/cortical_area_name_list",
+        response_model=CorticalAreaNameListResponse,
     )
     def get_cortical_area_name_list(self) -> CorticalAreaNameListResponse:
         """Get list of cortical area names."""
@@ -509,7 +653,9 @@ class CorticalAreaAPI:
             names = self.core_api_service.get_cortical_area_name_list()
             return CorticalAreaNameListResponse(names=names)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area name list: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area name list: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint("GET", "/cortical_area_name_list")
     def get_cortical_area_name_list_legacy(self) -> List[str]:
@@ -518,7 +664,9 @@ class CorticalAreaAPI:
             names = self.core_api_service.get_cortical_area_name_list()
             return names
         except Exception as e:
-            raise ValueError(f"Error getting cortical area name list: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area name list: {str(e)}"
+            ) from e
 
     # ===== Cortical Area Location and Geometry =====
 
@@ -537,16 +685,24 @@ class CorticalAreaAPI:
                 request.cortical_name
             )
             return CorticalLocationResponse(
-                x=location.get("x", self._get_structural_default("coordinate")),
-                y=location.get("y", self._get_structural_default("coordinate")),
-                z=location.get("z", self._get_structural_default("coordinate")),
+                x=location.get(
+                    "x", self._get_structural_default("coordinate")
+                ),
+                y=location.get(
+                    "y", self._get_structural_default("coordinate")
+                ),
+                z=location.get(
+                    "z", self._get_structural_default("coordinate")
+                ),
             )
         except KeyError:
             raise ValueError(
                 f"Cortical area with name '{request.cortical_name}' not found"
-            )
+            ) from None
         except Exception as e:
-            raise ValueError(f"Error retrieving cortical location: {str(e)}")
+            raise ValueError(
+                f"Error retrieving cortical location: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_locations_2d", response_model=Dict[str, Any]
@@ -557,7 +713,9 @@ class CorticalAreaAPI:
             locations = self.core_api_service.get_cortical_2d_locations()
             return locations
         except Exception as e:
-            raise ValueError(f"Error getting 2D cortical locations: {str(e)}")
+            raise ValueError(
+                f"Error getting 2D cortical locations: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_area/geometry", response_model=Dict[str, Any]
@@ -585,7 +743,19 @@ class CorticalAreaAPI:
 
             for cortical_id in cortical_ids:
                 # Get individual cortical area data
-                area_data = self.core_api_service.get_cortical_area(cortical_id)
+                area_data = self.core_api_service.get_cortical_area(
+                    cortical_id
+                )
+
+                if not area_data:
+                    area_data = {
+                        "id": cortical_id,
+                        "name": cortical_id,
+                        "parameters": {},
+                        "coordinates": {},
+                        "dimensions": {},
+                        "type": "unknown",
+                    }
 
                 if area_data:
                     # Extract the base data from the API response
@@ -609,7 +779,36 @@ class CorticalAreaAPI:
                             "z": coordinates[2],
                         }
 
-                    # Build complete cortical area data using template defaults for neural properties and structural defaults for spatial/organizational properties
+                    #  Build complete cortical area data using template
+                    #  defaults for neural properties and structural defaults
+                    #  for spatial/organizational properties
+                    # Resolve 2D coordinates from multiple canonical sources
+                    coords2d: List[int] = []
+                    try:
+                        # Priority: top-level then parameters
+                        c2d = area_data.get("coordinates_2d")
+                        if not c2d:
+                            c2d = area_data.get("2d_coordinate")
+                        if not c2d and isinstance(parameters, dict):
+                            c2d = parameters.get("coordinates_2d") or parameters.get("2d_coordinate")
+                        if not c2d and isinstance(parameters, dict):
+                            x2d = parameters.get("2dcorx")
+                            y2d = parameters.get("2dcory")
+                            if x2d is not None and y2d is not None:
+                                c2d = [x2d, y2d]
+                        if isinstance(c2d, (list, tuple)) and len(c2d) >= 2:
+                            coords2d = [int(c2d[0]), int(c2d[1])]
+                        else:
+                            coords2d = [
+                                self._get_structural_default("coordinate"),
+                                self._get_structural_default("coordinate"),
+                            ]
+                    except Exception:
+                        coords2d = [
+                            self._get_structural_default("coordinate"),
+                            self._get_structural_default("coordinate"),
+                        ]
+
                     geometry_data[cortical_id] = {
                         "cortical_id": area_data.get("id", cortical_id),
                         "cortical_name": area_data.get("name", cortical_id),
@@ -619,24 +818,31 @@ class CorticalAreaAPI:
                         ),
                         "parent_region_title": parameters.get(
                             "parent_region_title",
-                            self._get_structural_default("parent_region_title"),
+                            self._get_structural_default(
+                                "parent_region_title"
+                            ),
                         ),
                         "cortical_group": area_data.get(
-                            "type", self._get_structural_default("cortical_group")
+                            "type",
+                            self._get_structural_default("cortical_group"),
                         ),
                         "cortical_sub_group": parameters.get(
-                            "subgroup", self._get_default_value("sub_group_id", "")
+                            "subgroup",
+                            self._get_default_value("sub_group_id", ""),
                         ),
                         "cortical_neuron_per_vox_count": parameters.get(
                             "neurons_per_voxel",
                             self._get_default_value("per_voxel_neuron_cnt", 1),
                         ),
                         "visualization": parameters.get(
-                            "gd_vis", self._get_default_value("visualization", True)
+                            "gd_vis",
+                            self._get_default_value("visualization", True),
                         ),
                         "cortical_synaptic_attractivity": parameters.get(
                             "synatt",
-                            self._get_default_value("synapse_attractivity", 100),
+                            self._get_default_value(
+                                "synapse_attractivity", 100
+                            ),
                         ),
                         "coordinates_3d": [
                             coordinates.get(
@@ -649,37 +855,37 @@ class CorticalAreaAPI:
                                 "z", self._get_structural_default("coordinate")
                             ),
                         ],
-                        "coordinates_2d": [
-                            parameters.get(
-                                "2dcorx", self._get_structural_default("coordinate")
-                            ),
-                            parameters.get(
-                                "2dcory", self._get_structural_default("coordinate")
-                            ),
-                        ],
+                        "coordinates_2d": coords2d,
                         "cortical_dimensions": [
                             dimensions.get(
-                                "width", self._get_structural_default("dimension")
+                                "width",
+                                self._get_structural_default("dimension"),
                             ),
                             dimensions.get(
-                                "height", self._get_structural_default("dimension")
+                                "height",
+                                self._get_structural_default("dimension"),
                             ),
                             dimensions.get(
-                                "depth", self._get_structural_default("dimension")
+                                "depth",
+                                self._get_structural_default("dimension"),
                             ),
                         ],
                         "cortical_destinations": parameters.get(
                             "mapping", self._get_structural_default("mapping")
                         ),
                         "neuron_post_synaptic_potential": parameters.get(
-                            "pstcr", self._get_default_value("postsynaptic_current", 1)
+                            "pstcr",
+                            self._get_default_value("postsynaptic_current", 1),
                         ),
                         "neuron_post_synaptic_potential_max": parameters.get(
                             "pstcrm",
-                            self._get_default_value("postsynaptic_current_max", 99999),
+                            self._get_default_value(
+                                "postsynaptic_current_max", 99999
+                            ),
                         ),
                         "neuron_fire_threshold": parameters.get(
-                            "fire_t", self._get_default_value("firing_threshold", 1)
+                            "fire_t",
+                            self._get_default_value("firing_threshold", 1),
                         ),
                         "neuron_fire_threshold_increment": [
                             parameters.get(
@@ -703,13 +909,17 @@ class CorticalAreaAPI:
                         ],
                         "neuron_firing_threshold_limit": parameters.get(
                             "fthlim",
-                            self._get_default_value("firing_threshold_limit", 0),
+                            self._get_default_value(
+                                "firing_threshold_limit", 0
+                            ),
                         ),
                         "neuron_refractory_period": parameters.get(
-                            "refrac", self._get_default_value("refractory_period", 0)
+                            "refrac",
+                            self._get_default_value("refractory_period", 0),
                         ),
                         "neuron_leak_coefficient": parameters.get(
-                            "leak_c", self._get_default_value("leak_coefficient", 0)
+                            "leak_c",
+                            self._get_default_value("leak_coefficient", 0),
                         ),
                         "neuron_leak_variability": (
                             parameters.get("leak_v")
@@ -718,34 +928,47 @@ class CorticalAreaAPI:
                         ),
                         "neuron_consecutive_fire_count": parameters.get(
                             "c_fr_c",
-                            self._get_default_value("consecutive_fire_cnt_max", 0),
+                            self._get_default_value(
+                                "consecutive_fire_cnt_max", 0
+                            ),
                         ),
                         "neuron_snooze_period": parameters.get(
-                            "snooze", self._get_default_value("snooze_length", 0)
+                            "snooze",
+                            self._get_default_value("snooze_length", 0),
                         ),
                         "neuron_degeneracy_coefficient": parameters.get(
-                            "de_gen", self._get_default_value("degeneration", 0)
+                            "de_gen",
+                            self._get_default_value("degeneration", 0),
                         ),
                         "neuron_psp_uniform_distribution": parameters.get(
                             "pspuni",
-                            self._get_default_value("psp_uniform_distribution", True),
+                            self._get_default_value(
+                                "psp_uniform_distribution", True
+                            ),
                         ),
                         "neuron_mp_charge_accumulation": parameters.get(
                             "mp_acc",
-                            self._get_default_value("mp_charge_accumulation", False),
+                            self._get_default_value(
+                                "mp_charge_accumulation", False
+                            ),
                         ),
                         "neuron_mp_driven_psp": parameters.get(
-                            "mp_psp", self._get_default_value("mp_driven_psp", False)
+                            "mp_psp",
+                            self._get_default_value("mp_driven_psp", False),
                         ),
                         "neuron_longterm_mem_threshold": parameters.get(
                             "mem__t",
-                            self._get_default_value("longterm_mem_threshold", 100),
+                            self._get_default_value(
+                                "longterm_mem_threshold", 100
+                            ),
                         ),
                         "neuron_lifespan_growth_rate": parameters.get(
-                            "mem_gr", self._get_default_value("lifespan_growth_rate", 1)
+                            "mem_gr",
+                            self._get_default_value("lifespan_growth_rate", 1),
                         ),
                         "neuron_init_lifespan": parameters.get(
-                            "mem_ls", self._get_default_value("init_lifespan", 9)
+                            "mem_ls",
+                            self._get_default_value("init_lifespan", 9),
                         ),
                         "temporal_depth": parameters.get(
                             "temporal_depth",
@@ -753,7 +976,9 @@ class CorticalAreaAPI:
                         ),
                         "neuron_excitability": parameters.get(
                             "excite",
-                            self._get_default_value("neuron_excitability", 100),
+                            self._get_default_value(
+                                "neuron_excitability", 1.0
+                            ),
                         ),
                         "transforming": parameters.get(
                             "transforming", False
@@ -768,31 +993,41 @@ class CorticalAreaAPI:
 
             return geometry_data
         except Exception as e:
-            raise ValueError(f"Error getting cortical area geometry: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area geometry: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint("PUT", "/coord_2d", response_model=SuccessResponse)
-    def update_2d_coordinates(self, coordinates: Dict[str, Any]) -> SuccessResponse:
+    def update_2d_coordinates(
+        self, coordinates: Dict[str, Any]
+    ) -> SuccessResponse:
         """Update 2D coordinates of cortical areas."""
         try:
             success = self.core_api_service.update_2d_coordinates(coordinates)
             if success:
-                return SuccessResponse(message="2D coordinates updated successfully")
+                return SuccessResponse(
+                    message="2D coordinates updated successfully"
+                )
             else:
                 raise ValueError("Failed to update 2D coordinates")
         except Exception as e:
-            raise ValueError(f"Error updating 2D coordinates: {str(e)}")
+            raise ValueError(f"Error updating 2D coordinates: {str(e)}") from e
 
     @cortical_area_endpoint("PUT", "/coord_3d", response_model=SuccessResponse)
-    def update_3d_coordinates(self, coordinates: Dict[str, Any]) -> SuccessResponse:
+    def update_3d_coordinates(
+        self, coordinates: Dict[str, Any]
+    ) -> SuccessResponse:
         """Update 3D coordinates of cortical areas."""
         try:
             success = self.core_api_service.update_3d_coordinates(coordinates)
             if success:
-                return SuccessResponse(message="3D coordinates updated successfully")
+                return SuccessResponse(
+                    message="3D coordinates updated successfully"
+                )
             else:
                 raise ValueError("Failed to update 3D coordinates")
         except Exception as e:
-            raise ValueError(f"Error updating 3D coordinates: {str(e)}")
+            raise ValueError(f"Error updating 3D coordinates: {str(e)}") from e
 
     # ===== Cortical Area Types and Options =====
 
@@ -805,12 +1040,16 @@ class CorticalAreaAPI:
             types = self.core_api_service.get_cortical_area_types()
             return CorticalAreaTypesResponse(types=types)
         except Exception as e:
-            raise ValueError(f"Error getting cortical area types: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical area types: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "POST", "/cortical_type_options", request_model=CorticalIdRequest
     )
-    def get_cortical_type_options(self, request: CorticalIdRequest) -> Dict[str, Any]:
+    def get_cortical_type_options(
+        self, request: CorticalIdRequest
+    ) -> Dict[str, Any]:
         """Get cortical area type options."""
         try:
             options = self.core_api_service.get_cortical_type_options(
@@ -818,12 +1057,16 @@ class CorticalAreaAPI:
             )
             return options
         except Exception as e:
-            raise ValueError(f"Error getting cortical type options: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical type options: {str(e)}"
+            ) from e
 
     # ===== Mapping and Visualization =====
 
     @cortical_area_endpoint(
-        "GET", "/cortical_id_name_mapping", response_model=CorticalIdNameMappingResponse
+        "GET",
+        "/cortical_id_name_mapping",
+        response_model=CorticalIdNameMappingResponse,
     )
     def get_cortical_id_name_mapping(self) -> CorticalIdNameMappingResponse:
         """Get cortical ID to name mapping table."""
@@ -831,7 +1074,9 @@ class CorticalAreaAPI:
             mapping = self.core_api_service.get_cortical_id_name_mapping()
             return CorticalIdNameMappingResponse(mapping=mapping)
         except Exception as e:
-            raise ValueError(f"Error getting cortical ID name mapping: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical ID name mapping: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "GET", "/cortical_map_detailed", response_model=Dict[str, Any]
@@ -842,16 +1087,24 @@ class CorticalAreaAPI:
             detailed_map = self.core_api_service.get_detailed_cortical_map()
             return detailed_map
         except Exception as e:
-            raise ValueError(f"Error getting detailed cortical map: {str(e)}")
+            raise ValueError(
+                f"Error getting detailed cortical map: {str(e)}"
+            ) from e
 
-    @cortical_area_endpoint("GET", "/cortical_visibility", response_model=List[str])
+    @cortical_area_endpoint(
+        "GET", "/cortical_visibility", response_model=List[str]
+    )
     def get_visualized_cortical_list(self) -> List[str]:
         """Get list of cortical areas currently being visualized."""
         try:
-            visualized_list = self.core_api_service.get_visualized_cortical_list()
+            visualized_list = (
+                self.core_api_service.get_visualized_cortical_list()
+            )
             return visualized_list
         except Exception as e:
-            raise ValueError(f"Error getting visualized cortical list: {str(e)}")
+            raise ValueError(
+                f"Error getting visualized cortical list: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "PUT", "/suppress_cortical_visibility", response_model=SuccessResponse
@@ -861,19 +1114,23 @@ class CorticalAreaAPI:
     ) -> SuccessResponse:
         """Suppress cortical activity visualization for specified areas."""
         try:
-            success = self.core_api_service.suppress_cortical_activity_visualization(
-                cortical_id_list
+            success = (
+                self.core_api_service.suppress_cortical_activity_visualization(
+                    cortical_id_list
+                )
             )
             if success:
                 return SuccessResponse(
                     message="Cortical activity visualization suppressed"
                 )
             else:
-                raise ValueError("Failed to suppress cortical activity visualization")
+                raise ValueError(
+                    "Failed to suppress cortical activity visualization"
+                )
         except Exception as e:
             raise ValueError(
                 f"Error suppressing cortical activity visualization: {str(e)}"
-            )
+            ) from e
 
     # ===== Input/Output Processing Units =====
 
@@ -883,7 +1140,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_ipu_list()
         except Exception as e:
-            raise ValueError(f"Error getting IPU list: {str(e)}")
+            raise ValueError(f"Error getting IPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/ipu")
     def get_current_ipu_list_legacy(self) -> List[str]:
@@ -891,7 +1148,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_ipu_list()
         except Exception as e:
-            raise ValueError(f"Error getting IPU list: {str(e)}")
+            raise ValueError(f"Error getting IPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/opu", response_model=List[str])
     def get_current_opu_list(self) -> List[str]:
@@ -899,7 +1156,7 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_opu_list()
         except Exception as e:
-            raise ValueError(f"Error getting OPU list: {str(e)}")
+            raise ValueError(f"Error getting OPU list: {str(e)}") from e
 
     @cortical_area_endpoint("GET", "/opu")
     def get_current_opu_list_legacy(self) -> List[str]:
@@ -907,28 +1164,23 @@ class CorticalAreaAPI:
         try:
             return self.core_api_service.get_current_opu_list()
         except Exception as e:
-            raise ValueError(f"Error getting OPU list: {str(e)}")
+            raise ValueError(f"Error getting OPU list: {str(e)}") from e
 
     # ===== Multi-Cortical Operations =====
 
     @cortical_area_endpoint(
-        "POST", "/multi/cortical_area_properties", response_model=List[Dict[str, Any]]
+        "POST",
+        "/multi/cortical_area_properties",
+        request_model=CorticalIdListRequest,
+        response_model=List[Dict[str, Any]],
     )
     def get_multiple_cortical_properties(
-        self, request_data: Dict[str, Any]
+        self, request: CorticalIdListRequest
     ) -> List[Dict[str, Any]]:
-        """Get properties for multiple cortical areas with flexible field name support."""
+        """Get properties for multiple cortical areas with flexible field name
+        support."""
         try:
-            # Handle both 'cortical_ids' (new) and 'cortical_id_list' (legacy) field names
-            cortical_ids = []
-            if "cortical_ids" in request_data:
-                cortical_ids = request_data["cortical_ids"]
-            elif "cortical_id_list" in request_data:
-                cortical_ids = request_data["cortical_id_list"]
-            else:
-                raise ValueError(
-                    "Missing required field: 'cortical_ids' or 'cortical_id_list'"
-                )
+            cortical_ids = request.cortical_ids
 
             if not isinstance(cortical_ids, list):
                 raise ValueError("cortical_ids must be a list")
@@ -937,7 +1189,9 @@ class CorticalAreaAPI:
             for cortical_id in cortical_ids:
                 try:
                     # Get properties using the single cortical area method
-                    cortical_data = self.core_api_service.get_cortical_area(cortical_id)
+                    cortical_data = self.core_api_service.get_cortical_area(
+                        cortical_id
+                    )
                     if cortical_data:
                         results.append(cortical_data)
                 except Exception as e:
@@ -949,25 +1203,111 @@ class CorticalAreaAPI:
 
             return results
         except Exception as e:
-            raise ValueError(f"Error getting multiple cortical properties: {str(e)}")
+            raise ValueError(
+                f"Error getting multiple cortical properties: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
-        "PUT", "/multi/cortical_area", response_model=SuccessResponse
+        "PUT",
+        "/multi/cortical_area",
+        request_model=MultiCorticalAreaUpdate,
+        response_model=SuccessResponse,
     )
     def update_multiple_cortical_properties(
-        self, message: Dict[str, Any]
+        self, request: MultiCorticalAreaUpdate
     ) -> SuccessResponse:
         """Update properties for multiple cortical areas."""
         try:
-            success = self.core_api_service.update_multiple_cortical_properties(message)
+            message = request.dict(exclude_unset=True)
+            provided_ids = message.get("cortical_id_list", [])
+            # Remove any accidental coordinate keys if passed (already validated at model level)
+            for coord_key in ("coordinate_2d", "coordinates_2d", "coordinate_3d", "coordinates_3d"):
+                if coord_key in message:
+                    del message[coord_key]
+            # Strictly filter to cortical IDs that exist in current genome
+            # Use authoritative ID source (includes special areas like _power/_death)
+            id_list = self.core_api_service.get_cortical_id_list()
+            genome_loaded = bool(id_list)
+            valid_ids = set(id_list or [])
+            filtered_ids = [cid for cid in provided_ids if cid in valid_ids]
+            unknown_ids = [cid for cid in provided_ids if cid not in valid_ids]
+            duplicate_ids = []
+            if isinstance(provided_ids, list):
+                seen = set()
+                duplicate_ids = [cid for cid in provided_ids if (cid in seen or seen.add(cid)) and provided_ids.count(cid) > 1]
+
+            if not filtered_ids:
+                # Construct a high-signal error with actionable details
+                details = {
+                    "provided_count": len(provided_ids),
+                    "genome_loaded": genome_loaded,
+                    "known_ids_count": len(valid_ids),
+                    "unknown_ids": unknown_ids,
+                    "duplicates": sorted(set(duplicate_ids)),
+                }
+                # Sample first few known IDs to guide user
+                if valid_ids:
+                    details["known_ids_sample"] = list(sorted(valid_ids))[:10]
+                raise ValueError(
+                    f"No valid cortical IDs found to update. Details: {details}"
+                )
+
+            # Validate memory vs non-memory: all selected IDs must be either all memory or all non-memory
+            try:
+                memory_flags = []
+                for cid in filtered_ids:
+                    area = self.core_api_service.get_cortical_area(cid)
+                    # Treat as memory if sub_group_id == 'MEMORY' in parameters or group_id == 'MEMORY'
+                    is_memory = False
+                    if area:
+                        params = area.get("parameters", {})
+                        if isinstance(params, dict) and params.get("sub_group_id") == "MEMORY":
+                            is_memory = True
+                        elif area.get("group_id") == "MEMORY":
+                            is_memory = True
+                    memory_flags.append(is_memory)
+                if any(memory_flags) and not all(memory_flags):
+                    raise ValueError(
+                        "Mixed memory and non-memory cortical areas in request. "
+                        "Please group updates by area type."
+                    )
+            except Exception as type_err:
+                raise ValueError(
+                    f"Area type validation failed: {str(type_err)}"
+                )
+
+            # Replace with filtered list
+            message["cortical_id_list"] = filtered_ids
+            success = (
+                self.core_api_service.update_multiple_cortical_properties(
+                    message
+                )
+            )
             if success:
+                skipped_section = (
+                    f"; skipped unknown IDs: {sorted(set(unknown_ids))}"
+                    if unknown_ids
+                    else ""
+                )
+                dup_section = (
+                    f"; ignored duplicates: {sorted(set(duplicate_ids))}"
+                    if duplicate_ids
+                    else ""
+                )
                 return SuccessResponse(
-                    message="Multiple cortical area properties updated successfully"
+                    message=(
+                        f"Updated {len(filtered_ids)} cortical areas"
+                        f"{skipped_section}{dup_section}"
+                    )
                 )
             else:
-                raise ValueError("Failed to update multiple cortical area properties")
+                raise ValueError(
+                    f"Service rejected update. Attempted: {filtered_ids}; unknown: {unknown_ids}"
+                )
         except Exception as e:
-            raise ValueError(f"Error updating multiple cortical areas: {str(e)}")
+            raise ValueError(
+                f"Error updating multiple cortical areas: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "DELETE",
@@ -990,18 +1330,47 @@ class CorticalAreaAPI:
             else:
                 raise ValueError("Failed to delete multiple cortical areas")
         except Exception as e:
-            raise ValueError(f"Error deleting multiple cortical areas: {str(e)}")
+            raise ValueError(
+                f"Error deleting multiple cortical areas: {str(e)}"
+            ) from e
 
     # ===== Neuron Operations =====
 
-    @cortical_area_endpoint("GET", "/neuron_count", response_model=NeuronCountResponse)
+    @cortical_area_endpoint(
+        "GET",
+        "/{cortical_id}/neuron_count",
+        response_model=NeuronCountResponse,
+    )
     def get_area_neuron_count(self, cortical_id: str) -> NeuronCountResponse:
-        """Get neuron count for a cortical area."""
+        """Get neuron count for a specific cortical area."""
         try:
             count = self.core_api_service.get_area_neuron_count(cortical_id)
             return NeuronCountResponse(neuron_count=count)
         except Exception as e:
-            raise ValueError(f"Error getting neuron count: {str(e)}")
+            raise ValueError(
+                f"Error getting neuron count for area {cortical_id}: {str(e)}"
+            ) from e
+
+    @cortical_area_endpoint(
+        "GET",
+        "/{cortical_id}/memory_usage",
+        response_model=CorticalAreaMemoryUsageResponse,
+    )
+    def get_area_memory_usage(
+        self, cortical_id: str
+    ) -> CorticalAreaMemoryUsageResponse:
+        """Get detailed memory usage breakdown for a specific cortical area."""
+        try:
+            memory_usage = (
+                self.core_api_service.get_cortical_area_memory_usage(
+                    cortical_id
+                )
+            )
+            return memory_usage
+        except Exception as e:
+            raise ValueError(
+                f"Error getting memory usage for area {cortical_id}: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint("PUT", "/reset", response_model=SuccessResponse)
     def reset_cortical_area(self, cortical_list: List[str]) -> SuccessResponse:
@@ -1009,27 +1378,37 @@ class CorticalAreaAPI:
         try:
             success = self.core_api_service.reset_cortical_area(cortical_list)
             if success:
-                return SuccessResponse(message="Cortical areas reset successfully")
+                return SuccessResponse(
+                    message="Cortical areas reset successfully"
+                )
             else:
                 raise ValueError("Failed to reset cortical areas")
         except Exception as e:
-            raise ValueError(f"Error resetting cortical areas: {str(e)}")
+            raise ValueError(
+                f"Error resetting cortical areas: {str(e)}"
+            ) from e
 
     # ===== Mapping Restrictions =====
 
     @cortical_area_endpoint(
-        "GET", "/mapping_restrictions", response_model=MappingRestrictionsResponse
+        "GET",
+        "/mapping_restrictions",
+        response_model=MappingRestrictionsResponse,
     )
     def get_mapping_restrictions(self) -> MappingRestrictionsResponse:
         """Get all mapping restrictions between cortical area types."""
         try:
-            restrictions_data = self.core_api_service.get_mapping_restrictions()
+            restrictions_data = (
+                self.core_api_service.get_mapping_restrictions()
+            )
             return MappingRestrictionsResponse(
                 restrictions=restrictions_data.get("restrictions", []),
                 defaults=restrictions_data.get("defaults", []),
             )
         except Exception as e:
-            raise ValueError(f"Error getting mapping restrictions: {str(e)}")
+            raise ValueError(
+                f"Error getting mapping restrictions: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "POST",
@@ -1048,7 +1427,10 @@ class CorticalAreaAPI:
             )
 
             # Handle both single restriction and full registry responses
-            if "restrictions" in restrictions_data and "defaults" in restrictions_data:
+            if (
+                "restrictions" in restrictions_data
+                and "defaults" in restrictions_data
+            ):
                 # Full registry response
                 return MappingRestrictionsResponse(
                     restrictions=restrictions_data["restrictions"],
@@ -1070,7 +1452,9 @@ class CorticalAreaAPI:
                     restrictions=restrictions, defaults=defaults
                 )
         except Exception as e:
-            raise ValueError(f"Error getting filtered mapping restrictions: {str(e)}")
+            raise ValueError(
+                f"Error getting filtered mapping restrictions: {str(e)}"
+            ) from e
 
     @cortical_area_endpoint(
         "POST",
@@ -1096,7 +1480,8 @@ class CorticalAreaAPI:
             )
 
             if not restriction_data:
-                # Return empty restriction for non-existent areas or no restrictions
+                #  Return empty restriction for non-existent areas or no
+                #  restrictions
                 return CorticalAreaMappingRestrictionResponse(
                     source_cortical_id=request.source_cortical_id,
                     destination_cortical_id=request.destination_cortical_id,
@@ -1113,7 +1498,7 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(
                 f"Error getting restrictions between cortical areas: {str(e)}"
-            )
+            ) from e
 
     # ===== DEBUG: Cortical Mapping =====
 
@@ -1121,20 +1506,24 @@ class CorticalAreaAPI:
         "GET", "/cortical_idx_mapping", response_model=Dict[str, Any]
     )
     def get_cortical_idx_mapping(self) -> Dict[str, Any]:
-        """Get the current cortical_idx to cortical_id mapping for debugging corruption issues."""
+        """Get the current cortical_idx to cortical_id mapping for debugging
+        corruption issues."""
         try:
             mapping_data = self.core_api_service.get_cortical_idx_mapping()
             return mapping_data
         except Exception as e:
-            raise ValueError(f"Error getting cortical idx mapping: {str(e)}")
+            raise ValueError(
+                f"Error getting cortical idx mapping: {str(e)}"
+            ) from e
 
 
 # ===== Factory Function =====
 
 
-def create_cortical_area_api(core_api_service: CoreAPIService) -> CorticalAreaAPI:
-    """
-    Factory function to create a CorticalAreaAPI instance.
+def create_cortical_area_api(
+    core_api_service: CoreAPIService,
+) -> CorticalAreaAPI:
+    """Factory function to create a CorticalAreaAPI instance.
 
     This function can be used by transport adapters to get a configured
     CorticalAreaAPI instance with the required dependencies.

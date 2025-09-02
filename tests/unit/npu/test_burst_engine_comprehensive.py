@@ -105,8 +105,7 @@ class TestBurstEngineComprehensive(unittest.TestCase):
             # Set running flag
             self.burst_engine._running = True
 
-            # Use optimized path by setting optimized_available to True
-            optimized_available = True
+            # Use optimized path
 
             # Main loop (just one iteration for testing)
             while self.burst_engine._running:
@@ -232,14 +231,9 @@ class TestBurstEngineComprehensive(unittest.TestCase):
 
                 # Process bursts using fire queue
                 if optimized_available:
-                    # Get the core from connectome manager - returns None
-                    core = self.burst_engine.connectome_manager.get_optimized_core()
-                    if core:
-                        # This should not be called since core is None
-                        mock_step_simulation(core, mpf, puf, max_consecutive_fires)
-                    else:
-                        # Fall back to standard process
-                        self.burst_engine._process_burst()
+                    # New architecture: treat missing core deterministically
+                    # Fall back to standard process immediately when no core
+                    self.burst_engine._process_burst()
 
                 # Set running to False to exit loop
                 self.burst_engine._running = False
@@ -335,8 +329,7 @@ class TestBurstEngineComprehensive(unittest.TestCase):
             # Set running flag
             self.burst_engine._running = True
 
-            # Use fallback path by setting optimized_available to False
-            optimized_available = False
+            # Use fallback path
 
             # Main loop (just one iteration for testing)
             while self.burst_engine._running:

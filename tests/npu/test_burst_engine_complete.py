@@ -65,8 +65,21 @@ class MockConnectomeManager:
         self.calls = 0
         # Set get_optimized_core as a MagicMock so we can check if it was called
         self.get_optimized_core = MagicMock(return_value=Mock())
+        
+        # Add neuron_array mock for NPU architecture
+        import numpy as np
+        self.neuron_array = MagicMock()
+        self.neuron_array.get_performance_summary.return_value = {"total_neurons": 1000}
+        self.neuron_array.neuron_count = 1000
+        self.neuron_array.valid_mask = np.ones(1000, dtype=bool)  # All neurons valid
+        self.neuron_array.membrane_potentials = np.zeros(1000, dtype=np.float32)
+        self.neuron_array.thresholds = np.ones(1000, dtype=np.float32)
+        
+        # Add neuron_id_to_index for genome updates
+        self.neuron_id_to_index = {i: i for i in range(1000)}  # Simple 1:1 mapping
 
-    def update_membrane_potentials(self):
+    def update_membrane_potentials(self, current_timestep=None):
+        """Updated to accept current_timestep parameter for NPU architecture."""
         self.calls += 1
         return [1, 2, 3]  # Return some fired neurons
 
@@ -87,6 +100,15 @@ class MockStateManager:
 
     def get_burst_engine_state(self):
         return self.burst_engine_state
+    
+    def is_debug_npu_enabled(self):
+        return False
+    
+    def get_burst_frequency(self):
+        return self.burst_frequency
+    
+    def get_simd_configuration(self):
+        return {"enabled": True, "backend": "cpu"}
 
 
 @pytest.fixture
@@ -122,9 +144,12 @@ def test_burst_engine_initialization(mock_connectome_manager, mock_state_manager
         assert not engine._running
 
     # Test with different frequency parameter
+    mock_state_manager_50hz = MockStateManager()
+    mock_state_manager_50hz.set_burst_frequency(50)  # Set the expected frequency
+    
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
-        return_value=mock_state_manager,
+        return_value=mock_state_manager_50hz,
     ):
         # Reset singleton to get fresh instance with new config
         BurstEngine.reset_singleton()

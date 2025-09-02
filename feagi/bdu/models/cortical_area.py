@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,10 +16,13 @@ import random
 import string
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-"""Cortical area data model for the BDU.
+"""Cortical area data model for the BDU (metadata only).
 
-This module provides the data model for representing cortical areas,
-which are 3D regions containing populations of neurons.
+Runtime architecture note:
+- NPU is the single source of truth for neurons/synapses (SoA arrays)
+- This model is not used for runtime lookups or mapping decisions
+- Any voxel→neuron queries must go through NPU-backed ConnectomeManager
+  helpers (e.g., batch_voxel_to_neuron_lookup) instead of local caches
 """
 
 
@@ -48,8 +49,8 @@ def generate_cortical_id(prefix="C", seed="___"):
 class CorticalArea:
     """Represents a cortical area in the connectome.
 
-    Cortical areas are three-dimensional regions that contain populations of neurons
-    and have specific functional roles in the brain.
+    Cortical areas are three-dimensional regions that contain populations of
+    neurons and have specific functional roles in the brain.
     """
 
     def __init__(
@@ -82,7 +83,7 @@ class CorticalArea:
         self.properties = properties or {}
 
         # Generate cortical_id if not provided
-        prefix = "M" if area_type == "memory" else "C"
+        prefix = "m" if area_type == "memory" else "c"
         self.cortical_id = cortical_id or generate_cortical_id(prefix)
 
         # cortical_idx is assigned by ConnectomeManager
@@ -91,10 +92,10 @@ class CorticalArea:
         # Track neuron indices within this area
         self._neuron_indices: Set[int] = set()
 
-        # Cache for neuron positions
+        # Cache for neuron positions (metadata only; NPU SoA is authoritative)
         self._position_map: Dict[int, Tuple[int, int, int]] = {}
 
-        # Map positions to neuron IDs
+        # Map positions to neuron IDs (deprecated for runtime; not authoritative)
         self._position_to_neurons: Dict[Tuple[int, int, int], List[int]] = {}
 
         # Region this area belongs to (if any)
@@ -141,7 +142,11 @@ class CorticalArea:
             True if the position is within this area, False otherwise
         """
         x, y, z = position
-        return 0 <= x < self.width and 0 <= y < self.height and 0 <= z < self.depth
+        return (
+            0 <= x < self.width
+            and 0 <= y < self.height
+            and 0 <= z < self.depth
+        )
 
     def resize(self, new_dimensions: Tuple[int, int, int]) -> List[int]:
         """Resize the cortical area to new dimensions.
@@ -185,7 +190,9 @@ class CorticalArea:
 
         return removed_indices
 
-    def add_neuron(self, neuron_id: int, position: Tuple[int, int, int]) -> bool:
+    def add_neuron(
+        self, neuron_id: int, position: Tuple[int, int, int]
+    ) -> bool:
         """Add a neuron to this area.
 
         Args:
@@ -236,7 +243,9 @@ class CorticalArea:
 
         return True
 
-    def get_neuron_position(self, neuron_id: int) -> Optional[Tuple[int, int, int]]:
+    def get_neuron_position(
+        self, neuron_id: int
+    ) -> Optional[Tuple[int, int, int]]:
         """Get the position of a neuron in this area.
 
         Args:
@@ -292,14 +301,20 @@ class CorticalArea:
         """
         return list(self._neuron_indices)
 
-    def get_neurons_at_position(self, position: Tuple[int, int, int]) -> List[int]:
-        """Get all neurons at a specific position.
+    def get_neurons_at_position(
+        self, position: Tuple[int, int, int]
+    ) -> List[int]:
+        """Get all neurons at a specific position (metadata cache).
 
         Args:
             position: 3D coordinates to check
 
         Returns:
-            List of neuron IDs at the specified position
+            List of neuron IDs at the specified position (if cached)
+
+        Warning:
+            This cache is not used by the runtime. Use NPU-backed
+            ConnectomeManager utilities for authoritative queries.
         """
         return self._position_to_neurons.get(position, [])
 
@@ -329,7 +344,13 @@ class CorticalArea:
         Raises:
             KeyError: If an invalid property is specified
         """
-        valid_properties = {"name", "position", "dimensions", "area_type", "properties"}
+        valid_properties = {
+            "name",
+            "position",
+            "dimensions",
+            "area_type",
+            "properties",
+        }
 
         for key, value in updates.items():
             if key not in valid_properties:

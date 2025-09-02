@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,57 +27,56 @@ from typing import Any, Dict
 
 @dataclass
 class DefaultConfig:
-    """
-    Default configuration dataclass to provide type hints and documentation.
+    """Default configuration dataclass to provide type hints and documentation.
 
-    This class doesn't contain the actual values but defines the structure
-    and documentation for configuration options.
+    This class doesn't contain the actual values but defines the structure and
+    documentation for configuration options.
     """
 
     # System configuration
     system: Dict[str, Any] = field(default_factory=dict)
-    """System-level configuration options"""
+    """System-level configuration options."""
 
     # Resource configuration
     resources: Dict[str, Any] = field(default_factory=dict)
-    """Resource allocation and management configuration"""
+    """Resource allocation and management configuration."""
 
     # Neural Processing Unit configuration
     npu: Dict[str, Any] = field(default_factory=dict)
-    """Neural Processing Unit configuration"""
+    """Neural Processing Unit configuration."""
 
     # API configuration
     api: Dict[str, Any] = field(default_factory=dict)
-    """API server configuration"""
+    """API server configuration."""
 
     # ZMQ configuration
     zmq: Dict[str, Any] = field(default_factory=dict)
-    """ZeroMQ communication configuration"""
+    """ZeroMQ communication configuration."""
 
     # Peripheral Nervous System configuration
     pns: Dict[str, Any] = field(default_factory=dict)
-    """Peripheral Nervous System configuration"""
+    """Peripheral Nervous System configuration."""
 
     # Brain Developmental Unit configuration
     bdu: Dict[str, Any] = field(default_factory=dict)
-    """Brain Developmental Unit configuration"""
+    """Brain Developmental Unit configuration."""
 
     # Evolutionary Unit configuration
     evo: Dict[str, Any] = field(default_factory=dict)
-    """Evolutionary Unit configuration"""
+    """Evolutionary Unit configuration."""
 
     # Visualization configuration
     viz: Dict[str, Any] = field(default_factory=dict)
-    """Visualization configuration"""
+    """Visualization configuration."""
 
     # Logging configuration
     logging: Dict[str, Any] = field(default_factory=dict)
-    """Logging configuration"""
+    """Logging configuration."""
 
 
 # Default CPU cores calculation
 def _get_default_cpu_cores() -> int:
-    """Get default CPU core count for configuration"""
+    """Get default CPU core count for configuration."""
     try:
         return mp.cpu_count()
     except NotImplementedError:
@@ -88,7 +85,7 @@ def _get_default_cpu_cores() -> int:
 
 # Detect if running in a container
 def _is_containerized() -> bool:
-    """Check if running in a container environment"""
+    """Check if running in a container environment."""
     # Check for container indicators
     if os.path.exists("/.dockerenv"):
         return True

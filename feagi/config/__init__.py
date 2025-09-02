@@ -1,5 +1,4 @@
-"""
-Configuration module for FEAGI.
+"""Configuration module for FEAGI.
 
 This module handles loading, validation, and access to configuration settings.
 """

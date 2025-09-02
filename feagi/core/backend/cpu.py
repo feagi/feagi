@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,8 +36,7 @@ from feagi.core.backend.interface import (
 
 
 class CPUBackend(BackendInterface):
-    """
-    CPU Backend implementation using NumPy.
+    """CPU Backend implementation using NumPy.
 
     This backend provides a reference implementation of the backend interface
     using NumPy for tensor operations. It serves as a fallback when GPU
@@ -64,8 +61,7 @@ class CPUBackend(BackendInterface):
             self._capabilities.add(BackendCapability.SPARSE_OPERATIONS)
 
     def initialize(self) -> bool:
-        """
-        Initialize the CPU backend.
+        """Initialize the CPU backend.
 
         Returns:
             True if initialization succeeded, False otherwise.
@@ -83,7 +79,9 @@ class CPUBackend(BackendInterface):
             if has_blas:
                 logger.info("NumPy is using BLAS/LAPACK for linear algebra")
             else:
-                logger.warning("NumPy may not be using optimized BLAS/LAPACK libraries")
+                logger.warning(
+                    "NumPy may not be using optimized BLAS/LAPACK libraries"
+                )
 
             self._initialized = True
             return True
@@ -97,8 +95,7 @@ class CPUBackend(BackendInterface):
         logger.info("CPU backend shut down")
 
     def supports_capability(self, capability: BackendCapability) -> bool:
-        """
-        Check if the CPU backend supports a specific capability.
+        """Check if the CPU backend supports a specific capability.
 
         Args:
             capability: The capability to check.
@@ -114,8 +111,7 @@ class CPUBackend(BackendInterface):
         dtype: Any = np.float32,
         data: Optional[Union[np.ndarray, list]] = None,
     ) -> np.ndarray:
-        """
-        Create a NumPy array with the given shape and type.
+        """Create a NumPy array with the given shape and type.
 
         Args:
             shape: Shape of the tensor.
@@ -139,8 +135,7 @@ class CPUBackend(BackendInterface):
             return np.zeros(shape, dtype=dtype)
 
     def to_numpy(self, tensor: np.ndarray) -> np.ndarray:
-        """
-        Convert a NumPy array to a NumPy array (no-op).
+        """Convert a NumPy array to a NumPy array (no-op).
 
         Args:
             tensor: NumPy array.
@@ -151,8 +146,7 @@ class CPUBackend(BackendInterface):
         return tensor
 
     def from_numpy(self, array: np.ndarray) -> np.ndarray:
-        """
-        Convert a NumPy array to a NumPy array (no-op).
+        """Convert a NumPy array to a NumPy array (no-op).
 
         Args:
             array: NumPy array.
@@ -163,14 +157,11 @@ class CPUBackend(BackendInterface):
         return array
 
     def synchronize(self) -> None:
-        """
-        Ensure all pending operations are complete (no-op for CPU).
-        """
+        """Ensure all pending operations are complete (no-op for CPU)."""
         pass  # CPU operations are synchronous, so no need to synchronize
 
     def _get_cpu_info(self) -> str:
-        """
-        Get information about the CPU.
+        """Get information about the CPU.
 
         Returns:
             String describing the CPU.
@@ -204,8 +195,7 @@ class CPUBackend(BackendInterface):
             return f"Unknown CPU on {platform.system()} {platform.machine()}"
 
     def _check_blas_support(self) -> bool:
-        """
-        Check if NumPy is using an optimized BLAS/LAPACK implementation.
+        """Check if NumPy is using an optimized BLAS/LAPACK implementation.
 
         Returns:
             True if BLAS/LAPACK support is available, False otherwise.

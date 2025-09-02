@@ -1,0 +1,15 @@
+{
+  "test_name": "system_performance",
+  "metric_name": "cpu_usage_percent",
+  "baseline_value": 24.55,
+  "baseline_timestamp": 1755280650.600807,
+  "sample_count": 4,
+  "std_deviation": 1.7521415467935233,
+  "confidence_interval": [
+    22.83290128414235,
+    26.267098715857653
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.600467
+  }
+}

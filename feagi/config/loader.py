@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +46,7 @@ DEFAULT_CONFIG = {
 
 
 class ConfigLoader:
-    """
-    Configuration loader for FEAGI.
+    """Configuration loader for FEAGI.
 
     This class handles loading configuration from various sources and provides
     a unified interface for accessing configuration values.
@@ -60,8 +57,7 @@ class ConfigLoader:
         self._config: Dict[str, Any] = {}
 
     def load_default(self) -> Dict[str, Any]:
-        """
-        Load the default configuration.
+        """Load the default configuration.
 
         Returns:
             Default configuration dictionary.
@@ -70,8 +66,7 @@ class ConfigLoader:
         return self._config
 
     def load_file(self, path: str) -> Dict[str, Any]:
-        """
-        Load configuration from a YAML file.
+        """Load configuration from a YAML file.
 
         Args:
             path: Path to the configuration file.
@@ -98,8 +93,7 @@ class ConfigLoader:
         return self._config
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get a configuration value.
+        """Get a configuration value.
 
         Keys are dot-separated, e.g., "npu.backend".
 
@@ -121,8 +115,7 @@ class ConfigLoader:
         return current
 
     def set(self, key: str, value: Any) -> None:
-        """
-        Set a configuration value.
+        """Set a configuration value.
 
         Keys are dot-separated, e.g., "npu.backend".
 
@@ -146,8 +139,7 @@ class ConfigLoader:
 
     @staticmethod
     def _deep_update(target: Dict[str, Any], source: Dict[str, Any]) -> None:
-        """
-        Deep update a dictionary with another dictionary.
+        """Deep update a dictionary with another dictionary.
 
         Args:
             target: Target dictionary to update.

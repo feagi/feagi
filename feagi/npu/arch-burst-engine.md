@@ -1350,4 +1350,90 @@ fq_sampler = FQSampler(
 - The FQSampler logic is modular and can be ported to RTOS/Rust with statically allocated arrays for area sample rates and timers.
 - Adding new per-area properties or sampling logic is straightforward and does not require global schema changes.
 
+## FCL Flow: Injection, Sampling, and Fire Queue History
+
+```mermaid
+flowchart TD
+  subgraph External_Injection
+    A["Special Areas (e.g., '_power', sensory)"] --> B["FCL Injection Service"]
+  end
+
+  subgraph NPU_Burst_Engine
+    direction TB
+    B --> C["FCL Manager: window t (candidates)"]
+    D["Internal Propagation (from prior synapses)"] --> E["Next-burst Candidates (computed this burst)"]
+
+    C --> F["Process FCL t (threshold + excitability + refractory)"]
+    F --> G["Fired Set (this burst)"]
+
+    G --> H["Accumulate Synaptic Effects"]
+    H --> E
+
+    G --> I["Write Fired to History: FCL t-1"]
+    E --> J["Queue for Next Window: FCL t+1"]
+
+    K["End-of-Burst Ring Rotation"] --> L["FCL t becomes t-1"]
+    K --> M["FCL t+1 becomes new t"]
+  end
+
+  subgraph FCL_Manager_Ring_Buffer
+    direction LR
+    N["FCL t-2 (older fired)"] --- O["FCL t-1 (most recent fired)"] --- P["FCL t (candidates)"] --- Q["FCL t+1 (queued)"]
+  end
+
+  subgraph Visualization_FQ_Sampler
+    direction TB
+    R["FQ Sampler"] --> S["Read from FCL t-1 (historical fired)"]
+    S --> T["Publish/Render"]
+  end
+
+  G --> U["Group by Cortical Area (for stats)"]
+  U --> V["Global FCL View (optional)"]
+
+  P -.-> W["Contains: internal next-burst candidates and externally injected neurons"]
+  O -.-> X["What visualization should sample each frame"]
+```
+
+Key points:
+- FCL "t" contains candidates (internal + injected) for the current burst.
+- After processing, the Fired Set is written to FCL history as "t-1".
+- At end-of-burst, the ring rotates: current "t" → "t-1"; queued "t+1" → new "t".
+- Visualization/FQ sampler must read FCL "t-1" (historical fired), not "t".
+
 # ... rest of documentation ...
+
+## Buffered External Injection and Burst-Paced Drain
+
+To decouple agent submit rates from burst cadence and ensure deterministic operation across CPU/GPU/RTOS targets, external activations are buffered and drained only at burst boundaries:
+
+- Bounded per-area and global buffers with deterministic capacity from configuration.
+- Per-burst global and per-area drain budgets enforce fixed work per burst.
+- Fairness policy is round-robin by default to prevent starvation.
+- Duplicate neuron IDs are coalesced for efficiency and determinism.
+- Pre-burst drain submits drained IDs to the FCL for the current timestep.
+
+### Configuration (feagi_configuration.toml)
+
+```toml
+[injection.buffer]
+capacity_total = 65536
+capacity_per_area = 8192
+coalesce_duplicates = true
+
+[injection.drain]
+per_burst_max_total = 8192
+per_burst_max_per_area = 2048
+fairness = "round_robin"   # or "weighted"
+drop_policy = "newest"     # or "oldest" | "per_area"
+
+[injection.metrics]
+enabled = true
+window_seconds = 5.0
+```
+
+### Monitoring
+
+- Endpoint: GET `/v1/burst_engine/injection/status`
+- Returns buffer capacities, current depths, and last-drain stats.
+
+This mechanism guarantees deterministic, burst-paced ingestion and small, predictable GPU transfers (single batch per burst when GPU is active).

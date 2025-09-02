@@ -44,6 +44,7 @@ Documents follow a standardized naming convention with prefixes indicating their
 - [Documentation Standards](guide-documentation-standards.md) - How to write documentation
 - [Coding Standards](guide-coding-standards.md) - Code quality guidelines
 - [Naming Conventions](guide-naming-conventions.md) - Naming rules
+- [Logging System](guide-logging-system.md) - **NEW** - Comprehensive logging system guide with CLI flags and debugging strategies
 
 ### Architecture Decision Records
 - [API Refactoring](adr-api-refactoring.md) - API refactoring decisions

@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,20 +22,22 @@ import sys
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 import argparse
 import logging
 from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("feagi.dependency_checker")
 
 
 def main():
-    """Check if all required dependencies are installed with the correct versions."""
+    """Check if all required dependencies are installed with the correct
+    versions."""
     parser = argparse.ArgumentParser(description="FEAGI Dependency Checker")
     parser.add_argument(
         "--requirements", type=str, help="Path to requirements.txt file"
@@ -63,10 +63,14 @@ def main():
         from feagi.utils.version_checker import verify_dependencies
 
         # Check dependencies
-        is_compatible = verify_dependencies(requirements_path, raise_exception=False)
+        is_compatible = verify_dependencies(
+            requirements_path, raise_exception=False
+        )
 
         if is_compatible:
-            logger.info("[OK]", "All dependencies are compatible with requirements")
+            logger.info(
+                "[OK]", "All dependencies are compatible with requirements"
+            )
             return 0
         else:
             if args.strict:

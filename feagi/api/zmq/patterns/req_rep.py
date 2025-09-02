@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,10 +42,10 @@ from ..serialization import deserialize_message, serialize_message
 
 
 class RequestReplyServer:
-    """
-    ZeroMQ Request-Reply server implementation.
+    """ZeroMQ Request-Reply server implementation.
 
-    This server handles command requests from clients using the REQ/REP pattern.
+    This server handles command requests from clients using the REQ/REP
+    pattern.
     """
 
     def __init__(
@@ -57,8 +55,7 @@ class RequestReplyServer:
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Request-Reply server.
+        """Initialize a new Request-Reply server.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to
@@ -90,7 +87,9 @@ class RequestReplyServer:
         self._event_loop = asyncio.get_event_loop()
 
         # Start the request handler in the current loop
-        self._handler_task = self._event_loop.create_task(self._request_handler())
+        self._handler_task = self._event_loop.create_task(
+            self._request_handler()
+        )
 
     async def stop(self) -> None:
         """Stop the request-reply server."""
@@ -105,7 +104,8 @@ class RequestReplyServer:
                 # Wait for request
                 request_data = await self.socket.recv_multipart()
 
-                # Add compatibility layer for simple JSON messages (not multipart)
+                #  Add compatibility layer for simple JSON messages (not
+                #  multipart)
                 if len(request_data) == 1:
                     # Simple message format - try to parse as JSON
                     try:
@@ -120,7 +120,9 @@ class RequestReplyServer:
                             and simple_request["type"] == "status_request"
                         ):
                             # Handle status_request specially
-                            result = await self._handle_get_status({"params": {}})
+                            result = await self._handle_get_status(
+                                {"params": {}}
+                            )
                             await self._send_response(result)
                             continue
                         elif "command" in simple_request:
@@ -133,7 +135,9 @@ class RequestReplyServer:
                                 await self._send_response(result)
                                 continue
                             else:
-                                await self._send_error(f"Unknown command: {command}")
+                                await self._send_error(
+                                    f"Unknown command: {command}"
+                                )
                                 continue
                     except json.JSONDecodeError:
                         # Not JSON - continue with normal processing
@@ -142,7 +146,8 @@ class RequestReplyServer:
                         )
                         pass
 
-                # Standard processing - expecting [auth_token, content_type, request_data]
+                #  Standard processing - expecting [auth_token, content_type,
+                #  request_data]
                 if len(request_data) < 3:
                     logger.error(f"Invalid request format: {request_data}")
                     await self._send_error("Invalid request format")
@@ -156,7 +161,9 @@ class RequestReplyServer:
 
                 # Validate authentication if token is provided
                 if auth_token and not await validate_token(auth_token):
-                    logger.warning(f"Invalid authentication token: {auth_token}")
+                    logger.warning(
+                        f"Invalid authentication token: {auth_token}"
+                    )
                     await self._send_error("Authentication failed")
                     continue
 
@@ -173,7 +180,9 @@ class RequestReplyServer:
                         await self._send_response(result)
                     except Exception as e:
                         logger.error(f"Error handling command {command}: {e}")
-                        await self._send_error(f"Error handling command: {str(e)}")
+                        await self._send_error(
+                            f"Error handling command: {str(e)}"
+                        )
                 else:
                     logger.warning(f"Unknown command: {command}")
                     await self._send_error(f"Unknown command: {command}")
@@ -195,7 +204,9 @@ class RequestReplyServer:
         """Send a response to the client."""
         try:
             serialized_data = serialize_message(data, content_type)
-            await self.socket.send_multipart([content_type.encode(), serialized_data])
+            await self.socket.send_multipart(
+                [content_type.encode(), serialized_data]
+            )
         except Exception as e:
             logger.error(f"Error sending response: {e}")
 
@@ -222,8 +233,7 @@ class RequestReplyServer:
 
 
 class RequestReplyClient:
-    """
-    ZeroMQ Request-Reply client implementation.
+    """ZeroMQ Request-Reply client implementation.
 
     This client connects to a Request-Reply server and sends command requests.
     """
@@ -235,8 +245,7 @@ class RequestReplyClient:
         timeout: int = 30,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new Request-Reply client.
+        """Initialize a new Request-Reply client.
 
         Args:
             host: Server host address to connect to
@@ -273,8 +282,7 @@ class RequestReplyClient:
         params: Optional[Dict] = None,
         content_type: str = "application/json",
     ) -> Dict:
-        """
-        Send a command request to the server.
+        """Send a command request to the server.
 
         Args:
             command: Command to execute
@@ -323,8 +331,7 @@ class RequestReplyClient:
             return {"error": "Request timed out"}
 
     def set_auth_token(self, token: str) -> None:
-        """
-        Set the authentication token to use for requests.
+        """Set the authentication token to use for requests.
 
         Args:
             token: Authentication token
@@ -333,11 +340,10 @@ class RequestReplyClient:
 
 
 class RequestReplyManager:
-    """
-    Manager class for coordinating Request-Reply servers and clients.
+    """Manager class for coordinating Request-Reply servers and clients.
 
-    This class provides a unified interface for the FEAGI ZMQ server
-    to manage REQ/REP patterns.
+    This class provides a unified interface for the FEAGI ZMQ server to manage
+    REQ/REP patterns.
     """
 
     def __init__(
@@ -347,8 +353,7 @@ class RequestReplyManager:
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None,
     ):
-        """
-        Initialize a new RequestReply Manager.
+        """Initialize a new RequestReply Manager.
 
         Args:
             core_api: The CoreAPIService instance to delegate calls to

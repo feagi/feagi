@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 
 from fastapi import Depends, HTTPException
 
@@ -42,8 +42,8 @@ def get_state_manager():
 def check_active_genome(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ):
-    """
-    Dependency that verifies a genome is loaded and ready.
+    """Dependency that verifies a genome is loaded and ready.
+
     Raises HTTPException if no genome is loaded.
     """
     state_manager = get_state_manager()
@@ -69,15 +69,18 @@ def check_active_genome(
 def check_connectome_ready(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ):
-    """
-    Dependency that verifies the connectome is initialized and ready.
+    """Dependency that verifies the connectome is initialized and ready.
+
     Raises HTTPException if connectome is not ready.
     """
     state_manager = get_state_manager()
 
     # Check if connectome is in an appropriate state
     connectome_state = state_manager.get_connectome_state()
-    if connectome_state not in [ConnectomeState.READY, ConnectomeState.RUNNING]:
+    if connectome_state not in [
+        ConnectomeState.READY,
+        ConnectomeState.RUNNING,
+    ]:
         raise HTTPException(
             status_code=400,
             detail=f"Connectome is not ready (current state: {connectome_state.name}). Please wait for initialization to complete.",
@@ -101,8 +104,8 @@ def check_connectome_ready(
 def check_burst_engine_running(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ):
-    """
-    Dependency that verifies the burst engine is running.
+    """Dependency that verifies the burst engine is running.
+
     Raises HTTPException if burst engine is not in RUNNING state.
     """
     state_manager = get_state_manager()
@@ -119,7 +122,8 @@ def check_burst_engine_running(
     burst_engine = core_api_service.get_burst_engine()
     if not burst_engine:
         raise HTTPException(
-            status_code=500, detail="Burst engine not available through service."
+            status_code=500,
+            detail="Burst engine not available through service.",
         )
 
     return "OK"
@@ -130,9 +134,7 @@ def check_genome_and_connectome(
     _genome: str = Depends(check_active_genome),
     _connectome: str = Depends(check_connectome_ready),
 ):
-    """
-    Combined dependency that checks both genome and connectome are ready.
-    """
+    """Combined dependency that checks both genome and connectome are ready."""
     return "OK"
 
 
@@ -141,9 +143,7 @@ def check_fully_operational(
     _connectome: str = Depends(check_connectome_ready),
     _burst_engine: str = Depends(check_burst_engine_running),
 ):
-    """
-    Combined dependency that checks the system is fully operational.
-    """
+    """Combined dependency that checks the system is fully operational."""
     return "OK"
 
 
@@ -152,7 +152,8 @@ def check_brain_running(_: bool = Depends(check_active_genome)):
         return True
     else:
         raise HTTPException(
-            status_code=400, detail="Brain not yet ready! Please try again later."
+            status_code=400,
+            detail="Brain not yet ready! Please try again later.",
         )
 
 
@@ -161,9 +162,8 @@ def check_plasticity_enabled(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_genome_and_connectome),
 ):
-    """
-    Verifies neuroplasticity is enabled and operational.
-    Raises HTTPException if plasticity is not enabled.
+    """Verifies neuroplasticity is enabled and operational. Raises
+    HTTPException if plasticity is not enabled.
 
     This is used for endpoints that modify neural connections or
     neuroplasticity settings.
@@ -173,7 +173,8 @@ def check_plasticity_enabled(
     # First check if the burst engine is running (plasticity requires it)
     if state_manager.get_burst_engine_state() != ServiceState.RUNNING:
         raise HTTPException(
-            status_code=400, detail="Plasticity requires the burst engine to be running"
+            status_code=400,
+            detail="Plasticity requires the burst engine to be running",
         )
 
     # Get plasticity info and check if it's enabled
@@ -186,8 +187,9 @@ def check_plasticity_enabled(
             )
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to verify neuroplasticity state: {str(e)}"
-        )
+            status_code=500,
+            detail=f"Failed to verify neuroplasticity state: {str(e)}",
+        ) from e
 
     return "OK"
 
@@ -197,12 +199,11 @@ def check_io_system_ready(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_connectome_ready),
 ):
-    """
-    Verifies the I/O system is ready for operations.
-    Raises HTTPException if I/O areas are not properly configured.
+    """Verifies the I/O system is ready for operations. Raises HTTPException if
+    I/O areas are not properly configured.
 
-    This is used for endpoints that interact with sensory inputs
-    or motor outputs.
+    This is used for endpoints that interact with sensory inputs or motor
+    outputs.
     """
     try:
         # Check for presence of IPU/OPU areas
@@ -229,19 +230,19 @@ def check_io_system_ready(
         return "OK"
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to verify I/O system readiness: {str(e)}"
-        )
+            status_code=500,
+            detail=f"Failed to verify I/O system readiness: {str(e)}",
+        ) from e
 
 
 # Deployment checks
 def check_deployment_ready(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ):
-    """
-    Verifies the system is ready for deployment operations.
+    """Verifies the system is ready for deployment operations.
 
-    This performs a minimal check without requiring an existing genome
-    to be in place, since deployment typically replaces the genome.
+    This performs a minimal check without requiring an existing genome to be in
+    place, since deployment typically replaces the genome.
     """
     state_manager = get_state_manager()
 
@@ -285,17 +286,17 @@ def check_amalgamation_ready(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_active_genome),
 ):
-    """
-    Verifies the system is ready for amalgamation operations.
+    """Verifies the system is ready for amalgamation operations.
 
-    This checks for conditions specific to amalgamation, like
-    no pending amalgamation already in progress.
+    This checks for conditions specific to amalgamation, like no pending
+    amalgamation already in progress.
     """
     state_manager = get_state_manager()
 
     # Check if there's already a pending amalgamation
-    if state_manager.pending_amalgamation and state_manager.pending_amalgamation.get(
-        "initiation_time"
+    if (
+        state_manager.pending_amalgamation
+        and state_manager.pending_amalgamation.get("initiation_time")
     ):
         raise HTTPException(
             status_code=409,  # Conflict
@@ -311,8 +312,7 @@ def check_cortical_area_exists(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_connectome_ready),
 ):
-    """
-    Verify a specific cortical area exists.
+    """Verify a specific cortical area exists.
 
     Args:
         cortical_id: The ID of the cortical area to check
@@ -324,7 +324,8 @@ def check_cortical_area_exists(
         area_data = core_api_service.get_cortical_area(cortical_id)
         if not area_data:
             raise HTTPException(
-                status_code=404, detail=f"Cortical area with ID {cortical_id} not found"
+                status_code=404,
+                detail=f"Cortical area with ID {cortical_id} not found",
             )
     except HTTPException:
         # Re-raise HTTPExceptions
@@ -332,7 +333,7 @@ def check_cortical_area_exists(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error checking cortical area: {str(e)}"
-        )
+        ) from e
 
     return "OK"
 
@@ -341,8 +342,8 @@ def check_cortical_area_exists(
 def check_monitoring_available(
     core_api_service: CoreAPIService = Depends(get_core_api_service),
 ):
-    """
-    Verify monitoring capabilities are available.
+    """Verify monitoring capabilities are available.
+
     Monitoring endpoints might work even without a full genome/connectome.
     """
     # Even without a genome, we should be able to monitor system stats
@@ -361,5 +362,6 @@ def check_monitoring_available(
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(
-            status_code=500, detail=f"Error checking monitoring availability: {str(e)}"
-        )
+            status_code=500,
+            detail=f"Error checking monitoring availability: {str(e)}",
+        ) from e

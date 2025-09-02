@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,15 +20,14 @@ import numpy as np
 
 
 class Model:
-    """
-    Represents an AI model in the FEAGI framework.
+    """Represents an AI model in the FEAGI framework.
 
-    This class provides methods to train models, make predictions, and manage model lifecycle.
+    This class provides methods to train models, make predictions, and manage
+    model lifecycle.
     """
 
     def __init__(self, name: str, model_type: str = "default"):
-        """
-        Initialize a new model.
+        """Initialize a new model.
 
         Args:
             name: Name of the model.
@@ -48,8 +45,7 @@ class Model:
         }
 
     def train(self, data: Any, epochs: int = 10, **kwargs) -> Dict[str, Any]:
-        """
-        Train the model on the given data.
+        """Train the model on the given data.
 
         Args:
             data: Training data.
@@ -70,8 +66,7 @@ class Model:
         return {"loss": 0.1, "accuracy": 0.9}
 
     def predict(self, data: Any) -> Any:
-        """
-        Make predictions using the model.
+        """Make predictions using the model.
 
         Args:
             data: Input data for prediction.
@@ -89,8 +84,7 @@ class Model:
             return np.random.rand()
 
     def save(self, path: Optional[str] = None) -> str:
-        """
-        Save the model to disk.
+        """Save the model to disk.
 
         Args:
             path: Optional path where to save the model.
@@ -99,13 +93,15 @@ class Model:
             Path where the model was saved.
         """
         # This is a placeholder for actual model saving
-        path = path or f"{self.name}_{self.updated_at.strftime('%Y%m%d_%H%M%S')}.model"
+        path = (
+            path
+            or f"{self.name}_{self.updated_at.strftime('%Y%m%d_%H%M%S')}.model"
+        )
         print(f"Saving model {self.name} to {path}")
         return path
 
     def load(self, path: str) -> bool:
-        """
-        Load the model from disk.
+        """Load the model from disk.
 
         Args:
             path: Path from where to load the model.
@@ -120,8 +116,7 @@ class Model:
         return True
 
     def evaluate(self, data: Any, **kwargs) -> Dict[str, float]:
-        """
-        Evaluate the model on the given data.
+        """Evaluate the model on the given data.
 
         Args:
             data: Evaluation data.

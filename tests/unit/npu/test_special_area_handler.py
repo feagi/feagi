@@ -118,19 +118,19 @@ class TestSpecialAreaHandler:
     ):
         """Test detection of power area by exact name match."""
         # Add exact match power area
-        mock_connectome_manager.add_area("___pwr", "Global Power", {})
+        mock_connectome_manager.add_area("_power", "Global Power", {})
         mock_connectome_manager.add_area("other_area", "Other Area", {})
 
         # Set up neurons
-        mock_connectome_manager.set_area_neurons("___pwr", [5001, 5002, 5003, 5004])
+        mock_connectome_manager.set_area_neurons("_power", [5001, 5002, 5003, 5004])
 
         # Detect special areas
         special_area_handler.detect_special_areas()
 
         # Verify detection
-        assert "___pwr" in special_area_handler.power_areas
+        assert "_power" in special_area_handler.power_areas
         assert "other_area" not in special_area_handler.power_areas
-        assert special_area_handler.power_area_neurons["___pwr"] == [
+        assert special_area_handler.power_area_neurons["_power"] == [
             5001,
             5002,
             5003,

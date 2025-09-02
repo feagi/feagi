@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,9 +32,7 @@ import numpy as np
 
 
 class BackendType(enum.Enum):
-    """
-    Enumeration of supported backend types.
-    """
+    """Enumeration of supported backend types."""
 
     CPU = "cpu"
     WEBGPU = "webgpu"
@@ -46,9 +42,7 @@ class BackendType(enum.Enum):
 
 
 class BackendCapability(enum.Enum):
-    """
-    Enumeration of backend capabilities.
-    """
+    """Enumeration of backend capabilities."""
 
     MATRIX_MULTIPLICATION = "matrix_multiplication"
     CONVOLUTION = "convolution"
@@ -59,16 +53,14 @@ class BackendCapability(enum.Enum):
 
 
 class BackendInterface(ABC):
-    """
-    Abstract base class for all backend implementations.
+    """Abstract base class for all backend implementations.
 
     Each backend must implement this interface to provide consistent
     functionality across different hardware configurations.
     """
 
     def __init__(self, name: str, device: Optional[str] = None):
-        """
-        Initialize the backend.
+        """Initialize the backend.
 
         Args:
             name: Name of the backend.
@@ -81,8 +73,7 @@ class BackendInterface(ABC):
 
     @abstractmethod
     def initialize(self) -> bool:
-        """
-        Initialize the backend.
+        """Initialize the backend.
 
         Returns:
             True if initialization succeeded, False otherwise.
@@ -96,8 +87,7 @@ class BackendInterface(ABC):
 
     @abstractmethod
     def supports_capability(self, capability: BackendCapability) -> bool:
-        """
-        Check if the backend supports a specific capability.
+        """Check if the backend supports a specific capability.
 
         Args:
             capability: The capability to check.
@@ -114,8 +104,7 @@ class BackendInterface(ABC):
         dtype: Any = np.float32,
         data: Optional[Any] = None,
     ) -> Any:
-        """
-        Create a tensor with the given shape and type.
+        """Create a tensor with the given shape and type.
 
         Args:
             shape: Shape of the tensor.
@@ -129,8 +118,7 @@ class BackendInterface(ABC):
 
     @abstractmethod
     def to_numpy(self, tensor: Any) -> np.ndarray:
-        """
-        Convert a backend-specific tensor to a NumPy array.
+        """Convert a backend-specific tensor to a NumPy array.
 
         Args:
             tensor: Backend-specific tensor.
@@ -142,8 +130,7 @@ class BackendInterface(ABC):
 
     @abstractmethod
     def from_numpy(self, array: np.ndarray) -> Any:
-        """
-        Convert a NumPy array to a backend-specific tensor.
+        """Convert a NumPy array to a backend-specific tensor.
 
         Args:
             array: NumPy array.
@@ -155,8 +142,7 @@ class BackendInterface(ABC):
 
     @abstractmethod
     def synchronize(self) -> None:
-        """
-        Ensure all pending operations are complete.
+        """Ensure all pending operations are complete.
 
         This is particularly important for asynchronous backends like CUDA.
         """
@@ -181,8 +167,7 @@ _backend_lock = threading.RLock()
 def register_backend(
     backend_type: BackendType, backend_class: Type[BackendInterface]
 ) -> None:
-    """
-    Register a backend implementation.
+    """Register a backend implementation.
 
     Args:
         backend_type: Type of the backend.
@@ -196,8 +181,7 @@ def register_backend(
 
 
 def get_available_backends() -> List[BackendType]:
-    """
-    Get a list of available backends by querying the Resource Manager.
+    """Get a list of available backends by querying the Resource Manager.
 
     Returns:
         List of available backend types.
@@ -215,7 +199,10 @@ def get_available_backends() -> List[BackendType]:
         resources = resource_mgr.resources
 
         # Check for CUDA GPU availability
-        if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0:
+        if (
+            resources.get("gpu_available", False)
+            and resources.get("gpu_count", 0) > 0
+        ):
             available.append(BackendType.CUDA)
 
         # Check for WebGPU availability
@@ -223,22 +210,26 @@ def get_available_backends() -> List[BackendType]:
             available.append(BackendType.WEBGPU)
 
         # Check for Metal (Apple Silicon) availability
-        if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
+        if (
+            resources.get("metal_available", False)
+            and BackendType.METAL in _BACKENDS
+        ):
             available.append(BackendType.METAL)
 
         logger.debug(
             f"Available backends detected via ResourceManager: {[b.value for b in available]}"
         )
     except Exception as e:
-        logger.warning(f"Error detecting available backends via ResourceManager: {e}")
+        logger.warning(
+            f"Error detecting available backends via ResourceManager: {e}"
+        )
         logger.warning("Falling back to CPU backend only")
 
     return available
 
 
 def determine_best_backend() -> BackendType:
-    """
-    Determine the best available backend based on system capabilities.
+    """Determine the best available backend based on system capabilities.
 
     This function queries the ResourceManager to get the most appropriate
     backend for the current hardware configuration.
@@ -261,12 +252,18 @@ def determine_best_backend() -> BackendType:
         return BackendType.CUDA
 
     # Second preference: Metal for Apple Silicon
-    if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
+    if (
+        resources.get("metal_available", False)
+        and BackendType.METAL in _BACKENDS
+    ):
         logger.info("Apple Metal detected, selecting Metal backend")
         return BackendType.METAL
 
     # Third preference: WebGPU if available
-    if resources.get("webgpu_available", False) and BackendType.WEBGPU in _BACKENDS:
+    if (
+        resources.get("webgpu_available", False)
+        and BackendType.WEBGPU in _BACKENDS
+    ):
         logger.info("WebGPU detected, selecting WebGPU backend")
         return BackendType.WEBGPU
 
@@ -278,8 +275,7 @@ def determine_best_backend() -> BackendType:
 def get_backend(
     backend_type: Optional[BackendType] = None,
 ) -> Optional[BackendInterface]:
-    """
-    Get or create a backend instance.
+    """Get or create a backend instance.
 
     Args:
         backend_type: Type of backend to get. If None, the best available backend is chosen.
@@ -300,7 +296,8 @@ def get_backend(
         if backend_type not in _BACKENDS:
             logger.warning(f"Backend {backend_type.value} is not registered")
 
-            # Check if user specifically requested this backend or it was auto-selected
+            #  Check if user specifically requested this backend or it was
+            #  auto-selected
             if backend_type in [BackendType.AUTO, BackendType.CPU]:
                 logger.warning("No fallback available, returning None")
                 return None
@@ -336,10 +333,14 @@ def get_backend(
 
             # Store the initialized instance
             _BACKEND_INSTANCES[backend_type] = backend
-            logger.info(f"Successfully initialized {backend_type.value} backend")
+            logger.info(
+                f"Successfully initialized {backend_type.value} backend"
+            )
             return backend
         except Exception as e:
-            logger.error(f"Error initializing {backend_type.value} backend: {e}")
+            logger.error(
+                f"Error initializing {backend_type.value} backend: {e}"
+            )
             # Try fallback to CPU if there was an error
             if backend_type != BackendType.CPU:
                 logger.warning("Falling back to CPU backend.")

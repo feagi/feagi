@@ -237,7 +237,7 @@ class TestGPUAcceleratedFCL:
     def test_create_gpu_accelerated_fcl_with_backend(self, mock_backend):
         """Test creating GPU FCL when backend is available."""
         with patch("feagi.npu.gpu_fcl_adapter.get_backend", return_value=mock_backend):
-            with patch("feagi.npu.gpu_fcl_adapter.EnhancedFCLManager"):
+            with patch("feagi.npu.gpu_fcl_adapter.FCLManager"):
                 fcl = create_gpu_accelerated_fcl()
                 assert isinstance(fcl, GPUAcceleratedFCL)
 
@@ -262,9 +262,9 @@ class TestGPUAcceleratedFCL:
         mock_fcl_instance = MagicMock()
         mock_fcl_instance.test_method.return_value = "delegated"
 
-        # We need to patch the actual instance that gets created
+        # We need to patch the FCLManager constructor in gpu_fcl_adapter
         with patch(
-            "feagi.npu.fcl_manager.EnhancedFCLManager", return_value=mock_fcl_instance
+            "feagi.npu.gpu_fcl_adapter.FCLManager", return_value=mock_fcl_instance
         ):
             # Create GPU FCL
             fcl = GPUAcceleratedFCL(mock_backend)

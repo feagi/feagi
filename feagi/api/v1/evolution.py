@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +17,11 @@ limitations under the License.
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 from .decorators import endpoint
-from .schemas import EvolutionConfigRequest, EvolutionStatusResponse, SuccessResponse
+from .schemas import (
+    EvolutionConfigRequest,
+    EvolutionStatusResponse,
+    SuccessResponse,
+)
 
 
 def evolution_endpoint(
@@ -39,7 +41,9 @@ class EvolutionAPI:
     def __init__(self, core_api_service: CoreAPIService):
         self.core_api_service = core_api_service
 
-    @evolution_endpoint("GET", "/status", response_model=EvolutionStatusResponse)
+    @evolution_endpoint(
+        "GET", "/status", response_model=EvolutionStatusResponse
+    )
     async def get_evolution_status(self) -> EvolutionStatusResponse:
         status = self.core_api_service.get_evolution_status()
         return EvolutionStatusResponse(

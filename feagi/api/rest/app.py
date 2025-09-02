@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#  ==============================================================================
 
 import os
 import random
@@ -22,7 +22,7 @@ import traceback
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger(name="api__server")
+logger = setup_logger(name="feagi.api.rest.app")
 logger.info("...")
 import json
 from pathlib import Path
@@ -32,15 +32,22 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-# Remove the old router imports - no longer needed since we use universal wrapper directly
+#  Remove the old router imports - no longer needed since we use universal
+#  wrapper directly
 from feagi.api.dependencies import *
 from feagi.api.models import *
 
-# Import the universal FastAPI wrapper directly instead of individual router files
+#  Import the universal FastAPI wrapper directly instead of individual router
+#  files
 from feagi.api.transport.universal_fastapi import (
     get_burst_engine_router,
     get_connectome_router,
@@ -77,8 +84,10 @@ from .commons import (
 from .config import settings
 from .response_utils import error_response, success_response
 
-# Note: v2 routers have been removed since we now use the universal wrapper directly for all routes
-# The v2 functionality can be added in the future if needed via the universal wrapper pattern
+#  Note: v2 routers have been removed since we now use the universal wrapper
+#  directly for all routes
+#  The v2 functionality can be added in the future if needed via the universal
+#  wrapper pattern
 
 
 description = """FEAGI REST API will help you integrate FEAGI into other applications and
@@ -106,14 +115,16 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Custom Swagger UI with dark theme
 def custom_swagger_ui_html():
-    """
-    Custom Swagger UI with Windows compatibility and better error handling.
+    """Custom Swagger UI with Windows compatibility and better error handling.
+
     This fixes the white screen issue that can occur on Windows systems.
     """
-    # Read the custom HTML template directly with Windows-compatible path handling
+    #  Read the custom HTML template directly with Windows-compatible path
+    #  handling
     template_path = Path(__file__).parent / "static" / "custom-swagger-ui.html"
     logger.info(
-        f"Loading custom Swagger UI template from {template_path}", status="[CONFIG]"
+        f"Loading custom Swagger UI template from {template_path}",
+        status="[CONFIG]",
     )
 
     try:
@@ -168,28 +179,35 @@ def custom_swagger_ui_html():
         )
 
         # Insert debug script before the closing body tag
-        html_content = html_content.replace("</body>", debug_script + "</body>")
+        html_content = html_content.replace(
+            "</body>", debug_script + "</body>"
+        )
 
-        logger.info("Custom Swagger UI template loaded successfully", status="[OK]")
+        logger.info(
+            "Custom Swagger UI template loaded successfully", status="[OK]"
+        )
         return HTMLResponse(content=html_content)
 
     except FileNotFoundError:
         logger.error(
-            f"Custom Swagger UI template not found at {template_path}", status="[ERR]"
+            f"Custom Swagger UI template not found at {template_path}",
+            status="[ERR]",
         )
         return _fallback_swagger_ui()
     except UnicodeDecodeError as e:
-        logger.error(f"Encoding error reading Swagger UI template: {e}", status="[ERR]")
+        logger.error(
+            f"Encoding error reading Swagger UI template: {e}", status="[ERR]"
+        )
         return _fallback_swagger_ui()
     except Exception as e:
-        logger.error(f"Failed to load custom Swagger UI template: {e}", status="[ERR]")
+        logger.error(
+            f"Failed to load custom Swagger UI template: {e}", status="[ERR]"
+        )
         return _fallback_swagger_ui()
 
 
 def _fallback_swagger_ui():
-    """
-    Fallback to default FastAPI Swagger UI if custom template fails.
-    """
+    """Fallback to default FastAPI Swagger UI if custom template fails."""
     logger.warning("Using fallback default Swagger UI", status="[WARN]")
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
@@ -207,8 +225,8 @@ async def swagger_ui_html_route():
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    """
-    Automatically redirect root URL to API documentation.
+    """Automatically redirect root URL to API documentation.
+
     When users visit http://127.0.0.1:8000/, they'll be redirected to /docs
     """
     return RedirectResponse(url="/docs", status_code=302)
@@ -231,8 +249,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """
-    Enhanced API debug logging middleware for comprehensive request/response tracking.
+    """Enhanced API debug logging middleware for comprehensive request/response
+    tracking.
 
     When --debug-api is enabled, this logs:
     - Complete request details (method, URL, headers, query params, body)
@@ -242,9 +260,35 @@ async def log_requests(request: Request, call_next):
 
     Enhanced to capture request body and response details for comprehensive debugging.
     """
-    # Check if debug API logging is enabled
+    # Check if debug API logging is enabled - try multiple methods to detect it
     state_manager = FeagiStateManager.instance()
-    debug_api_enabled = state_manager.is_debug_api_enabled()
+    debug_api_enabled = False
+
+    # Method 1: Check state manager
+    try:
+        debug_api_enabled = state_manager.is_debug_api_enabled()
+    except Exception:
+        pass
+
+    # Method 2: Check environment variable as fallback
+    if not debug_api_enabled:
+        import os
+
+        debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+
+    # Method 3: Check for debug flag in command line (ultimate fallback)
+    if not debug_api_enabled:
+        import sys
+
+        debug_api_enabled = "--debug-api" in sys.argv
+
+    # Minimize diagnostics unless API debug is enabled
+    if debug_api_enabled and not hasattr(log_requests, "_diagnostic_shown"):
+        try:
+            logger.debug("[API-DEBUG] Diagnostic status check initialized")
+        except Exception:
+            pass
+        log_requests._diagnostic_shown = True
 
     if not debug_api_enabled:
         # If debug is not enabled, just pass through without logging
@@ -330,7 +374,8 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         logger.warning(f"🔵 [API-DEBUG] Failed to read request body: {e}")
 
-    # Store original body for downstream handlers (since we consumed the stream)
+    #  Store original body for downstream handlers (since we consumed the
+    #  stream)
     async def receive():
         return {
             "type": "http.request",
@@ -354,11 +399,11 @@ async def log_requests(request: Request, call_next):
         status_emoji = (
             "✅"
             if 200 <= response.status_code < 300
-            else "❌"
-            if response.status_code >= 400
-            else "⚠️"
+            else "❌" if response.status_code >= 400 else "⚠️"
         )
-        logger.info(f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}")
+        logger.info(
+            f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}"
+        )
         logger.info(f"🟢 [API-DEBUG] Duration: {process_time:.2f}ms")
 
         # Response headers
@@ -371,7 +416,8 @@ async def log_requests(request: Request, call_next):
         try:
             # For streaming responses, we need to be careful
             if hasattr(response, "body_iterator"):
-                # This is a streaming response, we can't easily capture the body
+                #  This is a streaming response, we can't easily capture the
+                #  body
                 logger.info(
                     "🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
                 )
@@ -396,7 +442,9 @@ async def log_requests(request: Request, call_next):
                     except (json.JSONDecodeError, ValueError):
                         # Not JSON, log as plain text (truncate if too long)
                         if len(response_body) > 2000:
-                            truncated_body = response_body[:2000] + "... (truncated)"
+                            truncated_body = (
+                                response_body[:2000] + "... (truncated)"
+                            )
                             logger.info(
                                 f"🟢 [API-DEBUG] Response Body (truncated): {truncated_body}"
                             )
@@ -418,7 +466,9 @@ async def log_requests(request: Request, call_next):
                     logger.info("🟢 [API-DEBUG] Response Body: <empty>")
 
         except Exception as e:
-            logger.info(f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>")
+            logger.info(
+                f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>"
+            )
 
         # Summary line
         logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
@@ -482,7 +532,7 @@ standard_response = {
 #     response = await call_next(request)
 #     origin = response.headers.get("Access-Control-Allow-Origin", "")
 #     new_origin = ""
-#     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
+#  response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
 #     return response
 
 
@@ -493,8 +543,8 @@ async def set_api_state_ready():
 
 
 def create_rest_app_direct(config: Dict[str, Any]):
-    """
-    RUST/RTOS COMPATIBLE: Factory function for REST app with direct dependency injection.
+    """RUST/RTOS COMPATIBLE: Factory function for REST app with direct
+    dependency injection.
 
     This eliminates subprocess boundaries and environment variable dependencies,
     making the code much easier to port to Rust where all services run as async tasks
@@ -514,13 +564,16 @@ def create_rest_app_direct(config: Dict[str, Any]):
         status="[LINK]",
     )
 
-    # RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment lookup
+    #  RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment
+    #  lookup
     core_api_service = config["core_api"]
     state_manager = config["state_manager"]
     connectome_manager = config["connectome_manager"]
 
     if not core_api_service:
-        raise RuntimeError("CoreAPIService is required for direct REST app creation")
+        raise RuntimeError(
+            "CoreAPIService is required for direct REST app creation"
+        )
 
     logger.info(
         "[OK] Using directly injected CoreAPIService and ConnectomeManager",
@@ -541,7 +594,8 @@ def create_rest_app_direct(config: Dict[str, Any]):
 
     set_core_api_service_instance(core_api_service)
 
-    # For now, return the existing app instance (already configured with all routes)
+    #  For now, return the existing app instance (already configured with all
+    #  routes)
     # In future iterations, we can create a fresh app instance here
     global app
 
@@ -553,9 +607,11 @@ def create_rest_app_direct(config: Dict[str, Any]):
 
 
 def create_rest_app(connectome: ConnectomeManager = None):
-    """Factory function to return the FastAPI app instance, with connectome dependency injection."""
+    """Factory function to return the FastAPI app instance, with connectome
+    dependency injection."""
 
-    # CRITICAL FIX: Ensure true singleton pattern for mission-critical reliability
+    #  CRITICAL FIX: Ensure true singleton pattern for mission-critical
+    #  reliability
     core_api_service = None
 
     # Check if we're running as part of the main FEAGI process (singleton mode)
@@ -565,13 +621,15 @@ def create_rest_app(connectome: ConnectomeManager = None):
             status="[LINK]",
         )
 
-        # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
+        #  CRITICAL FIX: In subprocess mode, we can't access parent's
+        #  ProcessManager
         # Instead, use the singleton ConnectomeManager directly
         from feagi.bdu.connectome_manager import ConnectomeManager
 
         connectome = ConnectomeManager.instance()
         logger.info(
-            "[TARGET] Created singleton ConnectomeManager instance", status="[TARGET]"
+            "[TARGET] Created singleton ConnectomeManager instance",
+            status="[TARGET]",
         )
 
         # Create CoreAPIService with singleton instances
@@ -587,7 +645,9 @@ def create_rest_app(connectome: ConnectomeManager = None):
                 status="[OK]",
             )
         else:
-            logger.error("[ERR] Failed to create CoreAPIService", status="[ERR]")
+            logger.error(
+                "[ERR] Failed to create CoreAPIService", status="[ERR]"
+            )
             raise RuntimeError("Failed to create CoreAPIService")
 
         logger.info(
@@ -619,7 +679,9 @@ def create_rest_app(connectome: ConnectomeManager = None):
                 "[ERR] Failed to create CoreAPIService in standalone mode",
                 status="[ERR]",
             )
-            raise RuntimeError("Failed to create CoreAPIService in standalone mode")
+            raise RuntimeError(
+                "Failed to create CoreAPIService in standalone mode"
+            )
 
     # Set the connectome instance for FastAPI dependency injection
     from feagi.api.rest.dependencies import set_connectome_instance
@@ -635,7 +697,8 @@ def create_rest_app(connectome: ConnectomeManager = None):
     global app
 
     # CRITICAL: Include all routers here instead of at module level
-    # This prevents FastAPI router creation during module import in embedded mode
+    #  This prevents FastAPI router creation during module import in embedded
+    #  mode
     logger.info("[LINK] Including FastAPI routers for REST endpoints")
 
     app.include_router(
@@ -658,6 +721,20 @@ def create_rest_app(connectome: ConnectomeManager = None):
         get_burst_engine_router(),
         prefix="/v1/burst_engine",
         tags=["BURST ENGINE"],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
+        responses=standard_response,
+    )
+
+    # Physiology router (genome parameters)
+    from feagi.api.transport.universal_fastapi import UniversalFastAPIWrapper
+
+    physiology_router = UniversalFastAPIWrapper().create_router_for_module(
+        "physiology"
+    )
+    app.include_router(
+        physiology_router,
+        prefix="/v1/physiology",
+        tags=["PHYSIOLOGY"],
         dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
         responses=standard_response,
     )
@@ -784,6 +861,17 @@ def create_rest_app(connectome: ConnectomeManager = None):
         responses=standard_response,
     )
 
+    # Add the snapshot router
+    from feagi.api.transport.universal_fastapi import get_snapshot_router
+
+    app.include_router(
+        get_snapshot_router(),
+        prefix="/v1/snapshots",
+        tags=["SNAPSHOTS"],
+        dependencies=[],
+        responses=standard_response,
+    )
+
     # Add the visualization router
     app.include_router(
         visualization_router,
@@ -812,11 +900,26 @@ def create_rest_app(connectome: ConnectomeManager = None):
     state_manager = FeagiStateManager.instance()
     state_manager.set_api_state(ServiceState.READY)
 
+    # Log debug information about the created app
+    logger.info("[APP-CREATION] FastAPI app created successfully")
+    logger.debug(
+        f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}"
+    )
+    logger.debug(
+        f"[APP-CREATION] App middleware count: {len(app.user_middleware)}"
+    )
+    logger.debug(
+        f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}"
+    )
+
     return app
 
 
 def get_core_api():
-    """Dependency placeholder for the core API service. Should be overridden in tests."""
+    """Dependency placeholder for the core API service.
+
+    Should be overridden in tests.
+    """
     raise NotImplementedError(
         "get_core_api must be overridden in tests with a mock implementation."
     )
@@ -855,8 +958,8 @@ async def generic_exception_handler(request, exc):
 
 @app.middleware("http")
 async def standardize_response_format(request, call_next):
-    """
-    Middleware that standardizes API responses.
+    """Middleware that standardizes API responses.
+
     - Skips standardization for v1 routes
     - Applies standardization to v2+ routes
     - Honors raw_response() markers
@@ -877,7 +980,9 @@ async def standardize_response_format(request, call_next):
             # Remove the marker and return raw response
             if "__raw_response__" in content:
                 del content["__raw_response__"]
-            return JSONResponse(content=content, status_code=response.status_code)
+            return JSONResponse(
+                content=content, status_code=response.status_code
+            )
     except Exception:
         # If we can't parse JSON or other issues, just return original response
         return response
@@ -897,7 +1002,8 @@ async def standardize_response_format(request, call_next):
         try:
             content = json.loads(body)
             return JSONResponse(
-                content=success_response(data=content), status_code=response.status_code
+                content=success_response(data=content),
+                status_code=response.status_code,
             )
         except Exception:
             # If we can't standardize, return original response rebuilt

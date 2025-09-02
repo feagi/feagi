@@ -1,0 +1,15 @@
+{
+  "test_name": "fcl_manager_operations",
+  "metric_name": "memory_usage_mb",
+  "baseline_value": 0.006715809857403791,
+  "baseline_timestamp": 1755280650.596001,
+  "sample_count": 54,
+  "std_deviation": 0.008254624967919351,
+  "confidence_interval": [
+    0.004514117990109173,
+    0.008917501724698408
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.595694
+  }
+}

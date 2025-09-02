@@ -1,11 +1,9 @@
-"""
-Copyright 2025 Neuraville Inc.
+"""Copyright 2025 Neuraville Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +27,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 from feagi.api.core.services import CoreAPIService
 from feagi.api.protocols.constants import ProtocolID
@@ -38,15 +36,13 @@ from feagi.api.zmq.client import ZmqClient
 
 
 class RateLimiter:
-    """
-    Rate limiter for API Gateway.
+    """Rate limiter for API Gateway.
 
     Implements a token bucket algorithm for rate limiting.
     """
 
     def __init__(self, rate_limit: int, burst_limit: int):
-        """
-        Initialize rate limiter.
+        """Initialize rate limiter.
 
         Args:
             rate_limit: Maximum number of requests per second
@@ -59,8 +55,7 @@ class RateLimiter:
         self.lock = threading.Lock()
 
     def allow_request(self) -> bool:
-        """
-        Check if a request is allowed under the rate limit.
+        """Check if a request is allowed under the rate limit.
 
         Returns:
             True if the request is allowed, False otherwise
@@ -93,8 +88,7 @@ class AgentConnection:
         rate_limit: int = 100,
         burst_limit: int = 200,
     ):
-        """
-        Initialize agent connection.
+        """Initialize agent connection.
 
         Args:
             agent_id: Unique agent identifier
@@ -106,15 +100,16 @@ class AgentConnection:
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.protocol_versions = protocol_versions
-        self.rate_limiter = RateLimiter(rate_limit=rate_limit, burst_limit=burst_limit)
+        self.rate_limiter = RateLimiter(
+            rate_limit=rate_limit, burst_limit=burst_limit
+        )
         self.last_heartbeat = time.time()
         self.connected = True
         self.capabilities = {}  # Sensory/motor capabilities
 
 
 class APIGateway:
-    """
-    API Gateway for FEAGI.
+    """API Gateway for FEAGI.
 
     This class provides a central point of access to FEAGI's functionality for
     all API interfaces (REST, ZMQ, etc.). It manages connections to:
@@ -143,8 +138,7 @@ class APIGateway:
         return cls._instance
 
     def __init__(self, core_api: Optional[CoreAPIService] = None):
-        """
-        Initialize the API Gateway if not already initialized.
+        """Initialize the API Gateway if not already initialized.
 
         Args:
             core_api: Optional CoreAPIService instance. If not provided,
@@ -183,7 +177,9 @@ class APIGateway:
         try:
             # First check if we're running as part of the main FEAGI process
             if os.environ.get("FEAGI_INITIALIZED") == "1":
-                logger.info("Running in FEAGI main process, using Process Manager")
+                logger.info(
+                    "Running in FEAGI main process, using Process Manager"
+                )
                 from feagi.process_manager import get_process_manager
 
                 process_manager = get_process_manager()
@@ -198,7 +194,9 @@ class APIGateway:
                     self._core_api = create_core_api()
                     logger.info("Local Core API created")
         except ImportError:
-            logger.warning("Could not import Process Manager or create local Core API")
+            logger.warning(
+                "Could not import Process Manager or create local Core API"
+            )
 
         # Create mock if we couldn't get a real core API
         if self._core_api is None:
@@ -255,7 +253,10 @@ class APIGateway:
         """Process incoming messages from agents."""
         # Get configurable timeout values once at the start
         try:
-            from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+            from feagi.config.toml_loader import (
+                get_timeout_config,
+                load_feagi_config,
+            )
 
             config = load_feagi_config()
             timeout_config = get_timeout_config(config)
@@ -266,14 +267,16 @@ class APIGateway:
                 timeout_config.polling_timeout / 10000.0
             )  # Small fraction of polling timeout
         except Exception:
-            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            queue_timeout = (
+                1.0  # @architecture:acceptable - emergency fallback
+            )
             error_delay = 0.1  # @architecture:acceptable - emergency fallback
 
         while self._running:
             try:
                 # Get message from queue with configurable timeout
-                binary_data, agent_id, protocol_id, version = self._incoming_queue.get(
-                    timeout=queue_timeout
+                binary_data, agent_id, protocol_id, version = (
+                    self._incoming_queue.get(timeout=queue_timeout)
                 )
 
                 # Decode message using protocol translator
@@ -282,7 +285,9 @@ class APIGateway:
                 )
 
                 # Route to appropriate handler
-                self._route_message_to_core(agent_id, message, protocol_id, version)
+                self._route_message_to_core(
+                    agent_id, message, protocol_id, version
+                )
 
                 self._incoming_queue.task_done()
             except Exception as e:
@@ -290,15 +295,17 @@ class APIGateway:
                 time.sleep(error_delay)  # Prevent tight loop on error
 
     def _process_outgoing_messages(self, agent_id: str):
-        """
-        Process outgoing messages for an agent.
+        """Process outgoing messages for an agent.
 
         Args:
             agent_id: Agent identifier
         """
         # Get configurable timeout values
         try:
-            from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+            from feagi.config.toml_loader import (
+                get_timeout_config,
+                load_feagi_config,
+            )
 
             config = load_feagi_config()
             timeout_config = get_timeout_config(config)
@@ -309,7 +316,9 @@ class APIGateway:
                 timeout_config.polling_timeout / 10000.0
             )  # Small fraction of polling timeout
         except Exception:
-            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            queue_timeout = (
+                1.0  # @architecture:acceptable - emergency fallback
+            )
             error_delay = 0.1  # @architecture:acceptable - emergency fallback
 
         while (
@@ -338,10 +347,13 @@ class APIGateway:
                 time.sleep(error_delay)
 
     def _route_message_to_core(
-        self, agent_id: str, message: Any, protocol_id: ProtocolID, version: int
+        self,
+        agent_id: str,
+        message: Any,
+        protocol_id: ProtocolID,
+        version: int,
     ) -> None:
-        """
-        Route a message to the appropriate Core API Service handler.
+        """Route a message to the appropriate Core API Service handler.
 
         Args:
             agent_id: Agent identifier
@@ -359,7 +371,8 @@ class APIGateway:
                 # For FCP, route based on command type
                 if isinstance(message, dict):
                     command_type = message.get("command_type")
-                    # payload = message.get("payload", {})  # Unused variable removed
+                    #  payload = message.get("payload", {}) # Unused variable
+                    #  removed
 
                     if command_type == 1:  # REGISTER
                         # Handle registration via CoreAPIService
@@ -385,7 +398,9 @@ class APIGateway:
                     sensory_data = message.get("sensory_data", {})
                     # Forward to core API
                     if hasattr(self._core_api, "process_sensory_data"):
-                        self._core_api.process_sensory_data(agent_id, sensory_data)
+                        self._core_api.process_sensory_data(
+                            agent_id, sensory_data
+                        )
 
             elif protocol_id == ProtocolID.FVP:
                 # Visualization requests would be handled here
@@ -411,8 +426,7 @@ class APIGateway:
         protocol_versions: Dict[str, Union[int, List[int]]],
         capabilities: Dict[str, Any] = None,
     ) -> Dict[str, int]:
-        """
-        Register an agent with the gateway.
+        """Register an agent with the gateway.
 
         Args:
             agent_id: Unique agent identifier
@@ -477,8 +491,7 @@ class APIGateway:
         return compatible_versions
 
     def deregister_agent(self, agent_id: str) -> bool:
-        """
-        Deregister an agent.
+        """Deregister an agent.
 
         Args:
             agent_id: Agent identifier
@@ -510,8 +523,7 @@ class APIGateway:
         return True
 
     def receive_message(self, agent_id: str, binary_data: bytes) -> bool:
-        """
-        Receive a binary message from an agent.
+        """Receive a binary message from an agent.
 
         Args:
             agent_id: Agent identifier
@@ -534,21 +546,26 @@ class APIGateway:
 
         try:
             # Decode message using protocol translator
-            decoded_data, protocol_id, version = self._protocol_translator.decode(
-                binary_data
+            decoded_data, protocol_id, version = (
+                self._protocol_translator.decode(binary_data)
             )
 
             # Queue message for processing
-            self._incoming_queue.put((agent_id, decoded_data, protocol_id, version))
+            self._incoming_queue.put(
+                (agent_id, decoded_data, protocol_id, version)
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Error decoding message from agent {agent_id}: {str(e)}")
+            logger.error(
+                f"Error decoding message from agent {agent_id}: {str(e)}"
+            )
             return False
 
-    def send_message(self, agent_id: str, message: Any, protocol_name: str) -> bool:
-        """
-        Send a message to an agent.
+    def send_message(
+        self, agent_id: str, message: Any, protocol_name: str
+    ) -> bool:
+        """Send a message to an agent.
 
         Args:
             agent_id: Agent identifier
@@ -578,12 +595,13 @@ class APIGateway:
             return False
 
         except Exception as e:
-            logger.error(f"Error encoding message for agent {agent_id}: {str(e)}")
+            logger.error(
+                f"Error encoding message for agent {agent_id}: {str(e)}"
+            )
             return False
 
     def get_agent_connection(self, agent_id: str) -> Optional[AgentConnection]:
-        """
-        Get information about an agent connection.
+        """Get information about an agent connection.
 
         Args:
             agent_id: Agent identifier
@@ -594,8 +612,7 @@ class APIGateway:
         return self._agent_connections.get(agent_id)
 
     def get_agent_status(self, agent_id: str) -> Dict[str, Any]:
-        """
-        Get status information about an agent.
+        """Get status information about an agent.
 
         Args:
             agent_id: Agent identifier
@@ -618,8 +635,7 @@ class APIGateway:
         }
 
     def get_all_agents(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get information about all registered agents.
+        """Get information about all registered agents.
 
         Returns:
             Dictionary mapping agent IDs to agent information
@@ -632,8 +648,7 @@ class APIGateway:
     # Authentication and authorization methods
 
     def authenticate(self, credentials: Dict[str, Any]) -> bool:
-        """
-        Authenticate a client.
+        """Authenticate a client.
 
         Args:
             credentials: Dictionary containing authentication credentials.
@@ -647,8 +662,7 @@ class APIGateway:
     def authorize(
         self, resource: str, action: str, credentials: Dict[str, Any]
     ) -> bool:
-        """
-        Authorize a client to perform an action on a resource.
+        """Authorize a client to perform an action on a resource.
 
         Args:
             resource: The resource being accessed.
@@ -666,8 +680,7 @@ class APIGateway:
     def route_request(
         self, protocol: str, endpoint: str, method: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Route a request to the appropriate handler.
+        """Route a request to the appropriate handler.
 
         Args:
             protocol: The protocol being used (REST, ZMQ).
@@ -678,14 +691,14 @@ class APIGateway:
         Returns:
             Dictionary containing response data.
         """
-        # Implementation will route to appropriate handler based on protocol and endpoint
+        #  Implementation will route to appropriate handler based on protocol
+        #  and endpoint
         pass
 
     # Rate limiting methods
 
     def check_rate_limit(self, client_id: str, endpoint: str) -> bool:
-        """
-        Check if a client has exceeded rate limits for an endpoint.
+        """Check if a client has exceeded rate limits for an endpoint.
 
         Args:
             client_id: ID of the client.
@@ -696,11 +709,15 @@ class APIGateway:
         """
         # Use the agent's rate limiter if available
         if client_id in self._agent_connections:
-            return self._agent_connections[client_id].rate_limiter.allow_request()
+            return self._agent_connections[
+                client_id
+            ].rate_limiter.allow_request()
 
         # Otherwise use a default rate limiter
         if client_id not in self._rate_limiters:
-            self._rate_limiters[client_id] = RateLimiter(rate_limit=10, burst_limit=20)
+            self._rate_limiters[client_id] = RateLimiter(
+                rate_limit=10, burst_limit=20
+            )
 
         return self._rate_limiters[client_id].allow_request()
 
@@ -709,8 +726,7 @@ class APIGateway:
     def record_request(
         self, protocol: str, endpoint: str, status: int, duration: float
     ):
-        """
-        Record a request for monitoring purposes.
+        """Record a request for monitoring purposes.
 
         Args:
             protocol: The protocol being used (REST, ZMQ).
@@ -722,8 +738,7 @@ class APIGateway:
         pass
 
     def get_metrics(self) -> Dict[str, Any]:
-        """
-        Get API metrics.
+        """Get API metrics.
 
         Returns:
             Dictionary containing API metrics.
@@ -756,8 +771,7 @@ class APIGateway:
 
 # Factory function for creating/getting gateway instances
 def get_api_gateway(core_api: Optional[CoreAPIService] = None) -> APIGateway:
-    """
-    Get or create an API Gateway instance.
+    """Get or create an API Gateway instance.
 
     Args:
         core_api: Optional CoreAPIService instance to use in the gateway.
