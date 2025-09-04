@@ -5100,17 +5100,46 @@ class GenomeService(BaseService):
                     changes.get("cortical_dimensions", old_dimensions)
                 )
                 
-                # Check for neuron density changes
+                # Check for neuron density changes - handle multiple parameter name variants
                 old_neuron_density = properties.get("neurons_per_voxel", 1)
-                new_neuron_density = changes.get("per_voxel_neuron_cnt", old_neuron_density)
+                
+                # Look for neuron density in multiple possible parameter names
+                new_neuron_density = old_neuron_density
+                density_param_key = None
+                
+                # Check all possible parameter names for neuron density
+                density_param_names = [
+                    "per_voxel_neuron_cnt",
+                    "cortical_neuron_per_vox_count", 
+                    "neuron_density",
+                    "neurons_per_voxel"
+                ]
+                
+                for param_name in density_param_names:
+                    if param_name in changes:
+                        new_neuron_density = changes[param_name]
+                        density_param_key = param_name
+                        break
+                
+                # DEBUG: Log density change detection
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Cortical area: {cortical_id}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Properties: {properties}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Changes: {changes}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Old density: {old_neuron_density}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] New density: {new_neuron_density}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Density param key found: {density_param_key}")
                 
                 # Update properties with new neuron density for later use
-                if "per_voxel_neuron_cnt" in changes:
+                if density_param_key:
                     properties["neurons_per_voxel"] = new_neuron_density
+                    self.logger.info(f"🔍 [DENSITY-DEBUG] Updated properties neurons_per_voxel to: {new_neuron_density}")
                 
                 # Handle both dimension changes AND neuron density changes
                 dimension_changed = new_dimensions != old_dimensions
                 density_changed = new_neuron_density != old_neuron_density
+                
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Dimension changed: {dimension_changed}")
+                self.logger.info(f"🔍 [DENSITY-DEBUG] Density changed: {density_changed}")
                 
                 if dimension_changed:
                     self.logger.info(
@@ -5144,6 +5173,10 @@ class GenomeService(BaseService):
                         width, height, depth = new_dimensions
                         new_total_neurons = width * height * depth * new_neuron_density
                         old_total_neurons = width * height * depth * old_neuron_density
+                        
+                        self.logger.info(f"🔍 [DENSITY-DEBUG] Dimensions: {width}x{height}x{depth}")
+                        self.logger.info(f"🔍 [DENSITY-DEBUG] Old total neurons: {old_total_neurons} ({old_neuron_density} per voxel)")
+                        self.logger.info(f"🔍 [DENSITY-DEBUG] New total neurons: {new_total_neurons} ({new_neuron_density} per voxel)")
                         
                         self.logger.info(
                             f"[LOCALIZED-REBUILD] Neuron count change: {old_total_neurons} → {new_total_neurons}"
@@ -5702,27 +5735,38 @@ class GenomeService(BaseService):
         try:
             area = self._connectome_manager.cortical_areas[cortical_id]
 
-            # Calculate neuron count for this area
+            # Calculate neuron count for this area with safety checks
             width, height, depth = area.dimensions
-            neurons_per_voxel = properties.get("neurons_per_voxel", 1)
+            neurons_per_voxel = max(1, properties.get("neurons_per_voxel", 1))  # Ensure minimum 1
             area_neuron_count = width * height * depth * neurons_per_voxel
+            
+            # Safety check to prevent zero neuron count
+            if area_neuron_count <= 0:
+                self.logger.error(f"Invalid neuron count calculation: {width}x{height}x{depth} * {neurons_per_voxel} = {area_neuron_count}")
+                raise ValueError(f"Invalid neuron count for area {cortical_id}: {area_neuron_count}")
 
             self.logger.info(
                 f"[LOCALIZED-REBUILD] Creating {area_neuron_count} neurons for {cortical_id} (FEAGI-compliant)"
             )
 
-            # Generate all positions for the cortical area
+            # Generate positions for the cortical area - FEAGI allows multiple neurons per voxel
             positions = []
             for x in range(width):
                 for y in range(height):
                     for z in range(depth):
                         for _ in range(neurons_per_voxel):
+                            # FEAGI DESIGN: Multiple neurons can share the same (x,y,z) position
+                            # This is how memory areas work and how neuron density should work
                             positions.append((x, y, z))
+            
+            self.logger.info(f"🔍 [DENSITY-DEBUG] Generated {len(positions)} positions for {area_neuron_count} neurons ({neurons_per_voxel} per voxel)")
 
-            # Calculate base properties
+            # Calculate base properties with safety checks
             base_threshold = properties.get("fire_t", 1.0)
-            base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
-            base_refractory = properties.get("refrac", 1)
+            leak_c = properties.get("leak_c", 0.0)
+            # Safety check to prevent division by zero
+            base_decay_rate = 1.0 - (leak_c / 100.0) if leak_c != 0 else 1.0
+            base_refractory = max(1, properties.get("refrac", 1))  # Ensure minimum 1
 
             # Handle position-based variations for thresholds
             thresholds = [base_threshold] * area_neuron_count

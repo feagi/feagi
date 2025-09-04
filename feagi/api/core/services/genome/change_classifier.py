@@ -42,6 +42,9 @@ class CorticalChangeClassifier:
         "cortical_type",  # Functional role changes
         "cortical_mapping_dst",  # Connection topology
         "per_voxel_neuron_cnt",  # Neuron density changes
+        "cortical_neuron_per_vox_count",  # Alternative neuron density parameter name
+        "neuron_density",  # Another neuron density parameter name
+        "neurons_per_voxel",  # Yet another neuron density parameter name
         "group_id",  # May affect area classification
         "sub_group_id",  # May affect area classification
     }

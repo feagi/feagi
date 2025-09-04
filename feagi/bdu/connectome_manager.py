@@ -4100,11 +4100,9 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"Position {pos} is outside the bounds of area {area.name}"
                 )
 
-        # Check for duplicates
-        if len(positions) != len(set(positions)):
-            raise ValueError(
-                "Duplicate positions detected. All positions must be unique."
-            )
+        # FEAGI DESIGN: Multiple neurons can share the same position (voxel)
+        # This is essential for neuron density > 1 and memory areas
+        # Removed duplicate position validation as it's incorrect for FEAGI's architecture
 
         # Use the provided cortical_idx or get it from the area
         if cortical_idx is None:
