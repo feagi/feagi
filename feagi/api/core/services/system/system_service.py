@@ -158,7 +158,21 @@ class SystemService(BaseService):
                 if connectome_ready and connectome_stable:
                     # Get all counts from state manager (single source of truth)
                     brain_stats = self.state_manager.get_brain_stats() or {}
-                    self.logger.info(f"Health check reading from state manager brain_stats: {brain_stats}")
+                    
+                    # Also get direct state values for comparison
+                    direct_synapse_count = getattr(self.state_manager._state, "synapse_count", "N/A")
+                    direct_neuron_count = getattr(self.state_manager._state, "neuron_count", "N/A")
+                    
+                    # Get connectome manager counts for comparison
+                    cm_synapse_count = self._connectome_manager.get_synapse_count() if self._connectome_manager else "N/A"
+                    cm_neuron_count = self._connectome_manager.neuron_count if self._connectome_manager else "N/A"
+                    
+                    self.logger.info(f"🔍 HEALTH CHECK COMPARISON:")
+                    self.logger.info(f"  Brain stats: {brain_stats}")
+                    self.logger.info(f"  Direct state synapse_count: {direct_synapse_count}")
+                    self.logger.info(f"  Direct state neuron_count: {direct_neuron_count}")
+                    self.logger.info(f"  ConnectomeManager synapse_count: {cm_synapse_count}")
+                    self.logger.info(f"  ConnectomeManager neuron_count: {cm_neuron_count}")
                     
                     health["cortical_area_count"] = brain_stats.get("cortical_area_count", 0)
                     health["neuron_count"] = brain_stats.get("neuron_count", 0)

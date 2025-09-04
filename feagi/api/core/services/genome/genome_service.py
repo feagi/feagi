@@ -256,8 +256,8 @@ class GenomeService(BaseService):
                 self.logger.warning("Failed to reset connectome state")
             
             # Clear all statistical counters
-            self.state_manager.set_neuron_count(0)
-            self.state_manager.set_synapse_count(0)
+            self.state_manager.update_neuron_count(0)
+            self.state_manager.update_synapse_count(0)
             
             # CRITICAL: Clear connectome manager data immediately to prevent health check
             # from showing stale data during genome loading
@@ -3238,10 +3238,58 @@ class GenomeService(BaseService):
                 self.logger.info(
                     f"🧠 [MAPPING-DEBUG] Calling embryogenesis.update_cortical_mapping with: {mapping}"
                 )
+                
+                # Get synapse count before mapping update
+                synapse_count_before = self._connectome_manager.get_synapse_count() if self._connectome_manager else 0
+                self.logger.info(f"🔍 SYNAPSE COUNT BEFORE mapping update: {synapse_count_before}")
+                
                 success = embryogenesis.update_cortical_mapping(mapping)
+                
+                # Get synapse count after mapping update
+                synapse_count_after = self._connectome_manager.get_synapse_count() if self._connectome_manager else 0
+                synapses_created = synapse_count_after - synapse_count_before
+                
                 self.logger.info(
                     f"🧠 [MAPPING-DEBUG] embryogenesis.update_cortical_mapping result: {success}"
                 )
+                self.logger.info(f"🔍 SYNAPSE COUNT AFTER mapping update: {synapse_count_after} (created: {synapses_created})")
+
+                # CRITICAL: Update state manager with new synapse count after mapping changes
+                if success and self.state_manager and self._connectome_manager:
+                    try:
+                        # Get synapse count before and after for comparison
+                        current_synapse_count = self._connectome_manager.get_synapse_count()
+                        
+                        # Also get current state manager count for comparison
+                        current_brain_stats = self.state_manager.get_brain_stats() or {}
+                        old_state_synapse_count = current_brain_stats.get("synapse_count", 0)
+                        
+                        self.logger.info(f"🔍 SYNAPSE UPDATE: ConnectomeManager count: {current_synapse_count}, StateManager count: {old_state_synapse_count}")
+                        
+                        # Update state manager using set_brain_stats to ensure both structured and dict are updated
+                        current_brain_stats = self.state_manager.get_brain_stats() or {}
+                        current_brain_stats["synapse_count"] = current_synapse_count
+                        result = self.state_manager.set_brain_stats(current_brain_stats)
+                        if result.is_err:
+                            self.logger.error(f"Failed to set brain stats: {result.unwrap_err()}")
+                        else:
+                            self.logger.debug("Successfully updated brain stats with new synapse count")
+                        
+                        # Verify the update worked
+                        updated_brain_stats = self.state_manager.get_brain_stats() or {}
+                        new_state_synapse_count = updated_brain_stats.get("synapse_count", 0)
+                        
+                        self.logger.info(f"✅ Updated state manager synapse count: {old_state_synapse_count} → {new_state_synapse_count} (connectome: {current_synapse_count})")
+                        
+                        if new_state_synapse_count != current_synapse_count:
+                            self.logger.error(f"❌ State manager update failed! Expected: {current_synapse_count}, Got: {new_state_synapse_count}")
+                        
+                    except Exception as e:
+                        self.logger.error(f"Failed to update state manager synapse count: {e}")
+                        import traceback
+                        self.logger.error(f"Traceback: {traceback.format_exc()}")
+                else:
+                    self.logger.warning(f"Skipping synapse count update: success={success}, state_manager={bool(self.state_manager)}, connectome_manager={bool(self._connectome_manager)}")
 
                 if success and transaction:
                     transaction.commit()
@@ -4437,7 +4485,13 @@ class GenomeService(BaseService):
             # Use existing GenomeProcessor to parse genome properly
             from feagi.evo.genome_processor import GenomeProcessor
 
-            processor = GenomeProcessor(genome_data)
+            # Handle version 2.1 by treating it as 2.0 for analysis purposes
+            analysis_genome_data = genome_data.copy()
+            if analysis_genome_data.get("version") == "2.1":
+                analysis_genome_data["version"] = "2.0"
+                self.logger.debug("Treating genome version 2.1 as 2.0 for analysis purposes")
+
+            processor = GenomeProcessor(analysis_genome_data)
             cortical_areas = processor.extract_cortical_areas()
             cortical_mappings = processor.extract_cortical_mappings()
 
