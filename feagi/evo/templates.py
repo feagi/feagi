@@ -260,7 +260,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "o__mot": {
+            "omot00": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Motor control",
@@ -515,7 +515,7 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "motor": [
-                "o__mot",
+                "omot00",
             ],
             "servo": [
                 "o__ser",

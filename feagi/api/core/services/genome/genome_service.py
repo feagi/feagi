@@ -205,6 +205,76 @@ class GenomeService(BaseService):
             self.logger.warning(f"Error clearing connectome manager data: {e}")
             # Non-fatal: continue with genome loading even if clearing fails
 
+    def _force_state_manager_sync(self) -> None:
+        """Force synchronization of state manager with current connectome state.
+        
+        This method ensures the state manager reflects the actual current state of
+        the connectome manager, regardless of what operations have been performed.
+        Should be called after any operation that might change neuron/synapse counts.
+        
+        ARCHITECTURE COMPLIANCE: This provides a reliable way to ensure state manager
+        consistency without relying on individual operations to update correctly.
+        """
+        if not self.state_manager or not self._connectome_manager:
+            self.logger.debug("Cannot sync state: missing state_manager or connectome_manager")
+            return
+            
+        try:
+            self.logger.info("🔄 FORCE SYNC: Synchronizing state manager with connectome")
+            
+            # Get current actual counts from connectome manager
+            cortical_area_count = len(getattr(self._connectome_manager, "cortical_areas", {}))
+            neuron_count = self._connectome_manager.get_neuron_count() if hasattr(self._connectome_manager, "get_neuron_count") else 0
+            synapse_count = self._connectome_manager.get_synapse_count() if hasattr(self._connectome_manager, "get_synapse_count") else 0
+            
+            # Get memory neuron breakdown if available
+            memory_neuron_count = 0
+            if hasattr(self._connectome_manager, "_npu_interface") and self._connectome_manager._npu_interface:
+                try:
+                    memory_neuron_count = getattr(self._connectome_manager._npu_interface.memory_neuron_array, "count", 0)
+                except Exception:
+                    pass
+            
+            regular_neuron_count = max(0, neuron_count - memory_neuron_count)
+            
+            # Get current state manager values for comparison
+            current_brain_stats = self.state_manager.get_brain_stats() or {}
+            old_neuron_count = current_brain_stats.get("neuron_count", 0)
+            old_synapse_count = current_brain_stats.get("synapse_count", 0)
+            old_cortical_count = current_brain_stats.get("cortical_area_count", 0)
+            
+            self.logger.info(f"🔍 SYNC COMPARISON:")
+            self.logger.info(f"  Connectome: neurons={neuron_count}, synapses={synapse_count}, areas={cortical_area_count}")
+            self.logger.info(f"  StateManager: neurons={old_neuron_count}, synapses={old_synapse_count}, areas={old_cortical_count}")
+            
+            # Update state manager with actual counts
+            updated_brain_stats = {
+                "neuron_count": neuron_count,
+                "synapse_count": synapse_count,
+                "cortical_area_count": cortical_area_count,
+                "memory_neuron_count": memory_neuron_count,
+                "non_memory_neuron_count": regular_neuron_count,
+            }
+            
+            result = self.state_manager.set_brain_stats(updated_brain_stats)
+            if result.is_err:
+                self.logger.error(f"Failed to sync brain stats: {result.unwrap_err()}")
+            else:
+                self.logger.info(f"✅ SYNC COMPLETE: Updated state manager with actual counts")
+                
+            # Also update cortical list
+            cortical_ids = list(getattr(self._connectome_manager, "cortical_areas", {}).keys())
+            cortical_result = self.state_manager.set_cortical_list(cortical_ids)
+            if cortical_result.is_err:
+                self.logger.warning(f"Failed to sync cortical list: {cortical_result.unwrap_err()}")
+            else:
+                self.logger.debug(f"✅ Synced cortical list: {len(cortical_ids)} areas")
+                
+        except Exception as e:
+            self.logger.error(f"Error during state manager sync: {e}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+
     def _clear_state_for_genome_loading(self) -> None:
         """Clear all state manager entries for genome loading while preserving genome counter.
         
@@ -971,6 +1041,9 @@ class GenomeService(BaseService):
                     self.logger.info(
                         "✅ Connectome state set to READY - API endpoints now functional"
                     )
+                    
+                    # CRITICAL: Force state manager sync after genome loading completes
+                    self._force_state_manager_sync()
 
                     # Log current burst engine state for monitoring
 
@@ -2164,6 +2237,9 @@ class GenomeService(BaseService):
                             transaction.rollback()
                             return None
 
+                        # CRITICAL: Force state manager sync after memory area creation
+                        self._force_state_manager_sync()
+
                         return {
                             "cortical_id": cortical_id,
                             "name": name,
@@ -2307,6 +2383,10 @@ class GenomeService(BaseService):
                     self.logger.info(
                         f"Created cortical area: {cortical_id} ({name}) with template properties"
                     )
+                    
+                    # CRITICAL: Force state manager sync after cortical area creation
+                    self._force_state_manager_sync()
+                    
                     return {
                         "cortical_id": cortical_id,
                         "name": name,
@@ -3254,42 +3334,7 @@ class GenomeService(BaseService):
                 )
                 self.logger.info(f"🔍 SYNAPSE COUNT AFTER mapping update: {synapse_count_after} (created: {synapses_created})")
 
-                # CRITICAL: Update state manager with new synapse count after mapping changes
-                if success and self.state_manager and self._connectome_manager:
-                    try:
-                        # Get synapse count before and after for comparison
-                        current_synapse_count = self._connectome_manager.get_synapse_count()
-                        
-                        # Also get current state manager count for comparison
-                        current_brain_stats = self.state_manager.get_brain_stats() or {}
-                        old_state_synapse_count = current_brain_stats.get("synapse_count", 0)
-                        
-                        self.logger.info(f"🔍 SYNAPSE UPDATE: ConnectomeManager count: {current_synapse_count}, StateManager count: {old_state_synapse_count}")
-                        
-                        # Update state manager using set_brain_stats to ensure both structured and dict are updated
-                        current_brain_stats = self.state_manager.get_brain_stats() or {}
-                        current_brain_stats["synapse_count"] = current_synapse_count
-                        result = self.state_manager.set_brain_stats(current_brain_stats)
-                        if result.is_err:
-                            self.logger.error(f"Failed to set brain stats: {result.unwrap_err()}")
-                        else:
-                            self.logger.debug("Successfully updated brain stats with new synapse count")
-                        
-                        # Verify the update worked
-                        updated_brain_stats = self.state_manager.get_brain_stats() or {}
-                        new_state_synapse_count = updated_brain_stats.get("synapse_count", 0)
-                        
-                        self.logger.info(f"✅ Updated state manager synapse count: {old_state_synapse_count} → {new_state_synapse_count} (connectome: {current_synapse_count})")
-                        
-                        if new_state_synapse_count != current_synapse_count:
-                            self.logger.error(f"❌ State manager update failed! Expected: {current_synapse_count}, Got: {new_state_synapse_count}")
-                        
-                    except Exception as e:
-                        self.logger.error(f"Failed to update state manager synapse count: {e}")
-                        import traceback
-                        self.logger.error(f"Traceback: {traceback.format_exc()}")
-                else:
-                    self.logger.warning(f"Skipping synapse count update: success={success}, state_manager={bool(self.state_manager)}, connectome_manager={bool(self._connectome_manager)}")
+                # Note: State manager sync is now handled by _force_state_manager_sync() call above
 
                 if success and transaction:
                     transaction.commit()
@@ -3299,6 +3344,9 @@ class GenomeService(BaseService):
 
                 if success:
                     self.logger.info("Updated cortical mapping")
+                    
+                    # CRITICAL: Force state manager sync after mapping changes
+                    self._force_state_manager_sync()
 
                     #  ARCHITECTURE COMPLIANCE: Invalidate StateManager cache
                     #  after mapping updates
@@ -4673,6 +4721,10 @@ class GenomeService(BaseService):
                     f"[FAST-UPDATE] Parameter update completed for {cortical_id} "
                     f"in {duration * 1000:.1f}ms"
                 )
+                
+                # CRITICAL: Force state manager sync after parameter changes
+                self._force_state_manager_sync()
+                
                 return current_genome["blueprint"][cortical_id]
             else:
                 self.logger.error(f"Parameter update failed for {cortical_id}")
@@ -4739,6 +4791,10 @@ class GenomeService(BaseService):
                     f"[METADATA-UPDATE] Metadata update completed for {cortical_id} "
                     f"in {duration * 1000:.1f}ms"
                 )
+                
+                # CRITICAL: Force state manager sync after metadata changes
+                self._force_state_manager_sync()
+                
                 return current_genome["blueprint"][cortical_id]
             else:
                 self.logger.error(f"Metadata update failed for {cortical_id}")
@@ -4939,6 +4995,9 @@ class GenomeService(BaseService):
                 f"in {duration * 1000:.1f}ms"
             )
 
+            # CRITICAL: Force state manager sync after hybrid changes
+            self._force_state_manager_sync()
+
             return result
 
         except Exception as e:
@@ -5040,15 +5099,76 @@ class GenomeService(BaseService):
                 new_dimensions = tuple(
                     changes.get("cortical_dimensions", old_dimensions)
                 )
-
-                if new_dimensions != old_dimensions:
+                
+                # Check for neuron density changes
+                old_neuron_density = properties.get("neurons_per_voxel", 1)
+                new_neuron_density = changes.get("per_voxel_neuron_cnt", old_neuron_density)
+                
+                # Update properties with new neuron density for later use
+                if "per_voxel_neuron_cnt" in changes:
+                    properties["neurons_per_voxel"] = new_neuron_density
+                
+                # Handle both dimension changes AND neuron density changes
+                dimension_changed = new_dimensions != old_dimensions
+                density_changed = new_neuron_density != old_neuron_density
+                
+                if dimension_changed:
                     self.logger.info(
-                        f"[LOCALIZED-REBUILD] Changing dimensions from {old_dimensions} to {new_dimensions}"
+                        f"[LOCALIZED-REBUILD] Dimension change detected: {old_dimensions} → {new_dimensions}"
+                    )
+                    
+                if density_changed:
+                    self.logger.info(
+                        f"[LOCALIZED-REBUILD] Neuron density change detected: {old_neuron_density} → {new_neuron_density}"
                     )
 
-                    #  Use the proper cortical area resize method - NO NEURON
-                    #  DELETION
-                    removed_neuron_indices = area.resize(new_dimensions)
+                if dimension_changed or density_changed:
+                    if dimension_changed:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Changing dimensions from {old_dimensions} to {new_dimensions}"
+                        )
+
+                        #  Use the proper cortical area resize method - NO NEURON
+                        #  DELETION
+                        removed_neuron_indices = area.resize(new_dimensions)
+                    else:
+                        removed_neuron_indices = []
+                    
+                    # Handle neuron density changes by rebuilding neurons
+                    if density_changed:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Rebuilding neurons for density change: {old_neuron_density} → {new_neuron_density}"
+                        )
+                        
+                        # Calculate new neuron count needed
+                        width, height, depth = new_dimensions
+                        new_total_neurons = width * height * depth * new_neuron_density
+                        old_total_neurons = width * height * depth * old_neuron_density
+                        
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Neuron count change: {old_total_neurons} → {new_total_neurons}"
+                        )
+                        
+                        # Remove all existing neurons in this area
+                        existing_neurons = self._connectome_manager.get_neurons_by_cortical_area(cortical_id)
+                        if len(existing_neurons) > 0:
+                            existing_neuron_ids = [int(nid) for nid in existing_neurons]
+                            try:
+                                removed = self._connectome_manager.neuron_array.remove_neurons_batch(existing_neuron_ids)
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] Removed {removed} existing neurons for density change"
+                                )
+                            except Exception as rm_err:
+                                self.logger.warning(
+                                    f"[LOCALIZED-REBUILD] Failed to remove existing neurons: {rm_err}"
+                                )
+                        
+                        # Create new neurons with new density
+                        self._rebuild_neurons_for_area(cortical_id, {**properties, "neurons_per_voxel": new_neuron_density})
+                        
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Rebuilt {new_total_neurons} neurons with new density {new_neuron_density}"
+                        )
 
                     if removed_neuron_indices:
                         # Map indices to neuron IDs and perform batch logical removal (no compaction)
@@ -5349,6 +5469,10 @@ class GenomeService(BaseService):
                 f"[LOCALIZED-REBUILD] Real-time cortical area resize completed for {cortical_id} "
                 f"in {duration * 1000:.1f}ms (no neuron deletion, GPU-friendly)"
             )
+
+            # CRITICAL: Force state manager sync after structural changes
+            self._force_state_manager_sync()
+
             return current_genome["blueprint"][cortical_id]
 
         except Exception as e:
