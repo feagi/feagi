@@ -144,19 +144,27 @@ class SystemService(BaseService):
                     fitness_raw if fitness_raw is not None else 0.0
                 )
 
-                # Report current counts if connectome is ready per existing validator
-                if self._validate_connectome_ready():
-                    health["cortical_area_count"] = len(
-                        self._connectome_manager.cortical_areas
-                    )
-
-                    # ENHANCED NEURON COUNTS: Get memory vs regular breakdown
-                    neuron_counts = self._get_neuron_count_breakdown()
-                    health["neuron_count"] = neuron_counts[
-                        "total"
-                    ]  # Keep existing key for UI compatibility
-                    health["memory_neuron_count"] = neuron_counts["memory"]
-                    health["regular_neuron_count"] = neuron_counts["regular"]
+                # Report current counts only if connectome is ready AND not in transitional state
+                connectome_ready = self._validate_connectome_ready()
+                connectome_stable = self._validate_connectome_stable()
+                
+                self.logger.debug(f"Health check: connectome_ready={connectome_ready}, connectome_stable={connectome_stable}")
+                if connectome_stable:
+                    # Get current states for debugging
+                    genome_state = self.state_manager.get_genome_state()
+                    connectome_state = self.state_manager.get_connectome_state()
+                    self.logger.debug(f"Health check: genome_state={genome_state}, connectome_state={connectome_state}")
+                
+                if connectome_ready and connectome_stable:
+                    # Get all counts from state manager (single source of truth)
+                    brain_stats = self.state_manager.get_brain_stats() or {}
+                    self.logger.info(f"Health check reading from state manager brain_stats: {brain_stats}")
+                    
+                    health["cortical_area_count"] = brain_stats.get("cortical_area_count", 0)
+                    health["neuron_count"] = brain_stats.get("neuron_count", 0)
+                    health["memory_neuron_count"] = brain_stats.get("memory_neuron_count", 0)
+                    health["regular_neuron_count"] = brain_stats.get("non_memory_neuron_count", 0)
+                    health["synapse_count"] = brain_stats.get("synapse_count", 0)
 
                     # Add per-cortical-area memory neuron statistics
                     try:
@@ -166,28 +174,28 @@ class SystemService(BaseService):
                     except Exception as e:
                         self.logger.warning(f"Could not get memory area stats: {e}")
                         health["memory_area_stats"] = {}
-
-                    health["synapse_count"] = (
-                        self._connectome_manager.get_synapse_count()
-                    )
-
-                    # Estimate brain size using total neuron count
+                        
+                    self.logger.debug(f"Health check using state manager data: neurons={health['neuron_count']}, synapses={health['synapse_count']}")
+                    
+                    # Estimate brain size using total neuron count from state manager
                     neuron_size_mb = (
-                        neuron_counts["total"] * 0.001
+                        health["neuron_count"] * 0.001
                     )  # ~1KB per neuron
                     synapse_size_mb = (
-                        self._connectome_manager.get_synapse_count() * 0.0001
+                        health["synapse_count"] * 0.0001
                     )  # ~100B per synapse
                     health["estimated_brain_size_in_MB"] = round(
                         neuron_size_mb + synapse_size_mb, 2
                     )
                 else:
-                    # Fallback to zero values if connectome not ready
+                    # During genome loading or connectome transitions, report zeros
+                    # to prevent showing stale data from previous genome
                     health["cortical_area_count"] = 0
                     health["neuron_count"] = 0
                     health["memory_neuron_count"] = 0
                     health["regular_neuron_count"] = 0
                     health["synapse_count"] = 0
+                    health["memory_area_stats"] = {}
                     health["estimated_brain_size_in_MB"] = 0.0
             else:
                 health["genome_availability"] = False

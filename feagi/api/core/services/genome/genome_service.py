@@ -97,6 +97,240 @@ class GenomeService(BaseService):
                 f"Could not ensure core areas in genome blueprint: {e}"
             )
 
+    def _clear_connectome_manager_data(self) -> None:
+        """Clear connectome manager's internal data structures to prevent stale data.
+        
+        This method immediately clears the connectome manager's neuron arrays, cortical areas,
+        and other data structures to ensure health checks don't report stale data during
+        genome loading.
+        
+        ARCHITECTURE COMPLIANCE: This follows the same pattern used in snapshot restoration
+        to ensure clean state transitions.
+        """
+        if not self._connectome_manager:
+            self.logger.debug("No connectome manager to clear")
+            return
+            
+        try:
+            self.logger.info("Clearing connectome manager data structures")
+            cm = self._connectome_manager
+            
+            # Clear cortical areas and mapping state
+            if hasattr(cm, "cortical_areas") and isinstance(cm.cortical_areas, dict):
+                cm.cortical_areas.clear()
+                self.logger.debug("Cleared cortical areas")
+                
+            if hasattr(cm, "cortical_mapping") and hasattr(cm.cortical_mapping, "clear"):
+                cm.cortical_mapping.clear()
+                self.logger.debug("Cleared cortical mapping")
+                
+            if hasattr(cm, "cortical_connections"):
+                cm.cortical_connections = {}
+                self.logger.debug("Cleared cortical connections")
+            
+            # Clear id/index mappings
+            if hasattr(cm, "_neuron_id_to_index_map"):
+                cm._neuron_id_to_index_map.clear()
+            if hasattr(cm, "_index_to_neuron_id_map"):
+                cm._index_to_neuron_id_map.clear()
+            
+            # Reset neuron arrays to empty state
+            try:
+                if hasattr(cm, "_npu_interface") and cm._npu_interface:
+                    npu = cm._npu_interface
+                    
+                    # Clear regular neuron array
+                    if hasattr(npu, "neuron_array") and npu.neuron_array:
+                        na = npu.neuron_array
+                        if hasattr(na, "count"):
+                            na.count = 0
+                        if hasattr(na, "next_index"):
+                            na.next_index = 0
+                        if hasattr(na, "neuron_count"):
+                            na.neuron_count = 0
+                        if hasattr(na, "free_indices"):
+                            na.free_indices = set()
+                        if hasattr(na, "valid_mask"):
+                            na.valid_mask[:] = False
+                        if hasattr(na, "is_active"):
+                            na.is_active[:] = False
+                        self.logger.debug("Cleared regular neuron array")
+                    
+                    # Clear memory neuron array
+                    if hasattr(npu, "memory_neuron_array") and npu.memory_neuron_array:
+                        mna = npu.memory_neuron_array
+                        if hasattr(mna, "count"):
+                            mna.count = 0
+                        if hasattr(mna, "next_index"):
+                            mna.next_index = 0
+                        if hasattr(mna, "neuron_count"):
+                            mna.neuron_count = 0
+                        if hasattr(mna, "free_indices"):
+                            mna.free_indices = set()
+                        if hasattr(mna, "valid_mask"):
+                            mna.valid_mask[:] = False
+                        if hasattr(mna, "is_active"):
+                            mna.is_active[:] = False
+                        self.logger.debug("Cleared memory neuron array")
+                        
+            except Exception as e:
+                self.logger.debug(f"Could not clear NPU arrays: {e}")
+            
+            # Clear synapse arrays
+            try:
+                sa = getattr(cm, "synapse_array", None)
+                if sa is not None:
+                    for attr in ("next_slot", "count"):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, 0)
+                    for attr in ("free_slots",):
+                        if hasattr(sa, attr):
+                            setattr(sa, attr, set())
+                    self.logger.debug("Cleared synapse array")
+            except Exception as e:
+                self.logger.debug(f"Could not clear synapse array: {e}")
+            
+            # Clear FCL caches
+            try:
+                fclm = getattr(cm, "fcl_manager", None)
+                if fclm is not None and hasattr(fclm, "clear_all_fcl_history"):
+                    fclm.clear_all_fcl_history()
+                    self.logger.debug("Cleared FCL history")
+            except Exception as e:
+                self.logger.debug(f"Could not clear FCL history: {e}")
+            
+            self.logger.info("✅ Connectome manager data cleared successfully")
+            
+        except Exception as e:
+            self.logger.warning(f"Error clearing connectome manager data: {e}")
+            # Non-fatal: continue with genome loading even if clearing fails
+
+    def _clear_state_for_genome_loading(self) -> None:
+        """Clear all state manager entries for genome loading while preserving genome counter.
+        
+        This function ensures a clean state when loading a new genome by resetting all
+        brain-related statistics, development state, and connection data while preserving
+        the genome counter for version tracking.
+        
+        ARCHITECTURE COMPLIANCE: This method follows the centralized state management
+        pattern and ensures deterministic state clearing without hardcoded values.
+        """
+        if not self.state_manager:
+            self.logger.warning("State manager not available for state clearing")
+            return
+            
+        try:
+            # Preserve genome counter before clearing
+            preserved_genome_counter = self.state_manager.get_genome_counter()
+            
+            self.logger.info("Clearing state manager entries for genome loading")
+            
+            # Core genome and brain state
+            self.state_manager.set_brain_readiness(False)
+            self.state_manager.set_genome_validity(False)
+            
+            # Clear brain statistics and counts
+            self.logger.info("Clearing brain stats in state manager")
+            result = self.state_manager.set_brain_stats({
+                "neuron_count": 0,
+                "synapse_count": 0,
+                "cortical_area_count": 0,
+                "memory_neuron_count": 0,
+                "non_memory_neuron_count": 0
+            })
+            if result.is_err:
+                self.logger.warning("Failed to clear brain stats")
+            else:
+                self.logger.info("✅ Brain stats cleared: all counts set to 0")
+            
+            result = self.state_manager.set_cortical_list([])
+            if result.is_err:
+                self.logger.warning("Failed to clear cortical list")
+            else:
+                self.logger.info("✅ Cortical list cleared")
+                
+            # Reset connectome state to MISSING
+            from feagi.core.state_manager import ConnectomeState
+            result = self.state_manager.set_connectome_state(ConnectomeState.MISSING)
+            if result.is_err:
+                self.logger.warning("Failed to reset connectome state")
+            
+            # Clear all statistical counters
+            self.state_manager.set_neuron_count(0)
+            self.state_manager.set_synapse_count(0)
+            
+            # CRITICAL: Clear connectome manager data immediately to prevent health check
+            # from showing stale data during genome loading
+            self._clear_connectome_manager_data()
+            
+            # Clear agent/connection data
+            result = self.state_manager.set_connected_agents({})
+            if result.is_err:
+                self.logger.warning("Failed to clear connected agents")
+                
+            result = self.state_manager.set_agent_count(0)
+            if result.is_err:
+                self.logger.warning("Failed to reset agent count")
+            
+            # Reset development/embryogenesis state
+            if hasattr(self.state_manager, 'set_neuroembryogenesis_stage'):
+                try:
+                    self.state_manager.set_neuroembryogenesis_stage(0)  # INITIALIZATION
+                except Exception as e:
+                    self.logger.debug(f"Could not reset neuroembryogenesis stage: {e}")
+                    
+            if hasattr(self.state_manager, 'set_neuroembryogenesis_progress'):
+                try:
+                    self.state_manager.set_neuroembryogenesis_progress(0)
+                except Exception as e:
+                    self.logger.debug(f"Could not reset neuroembryogenesis progress: {e}")
+            
+            # Clear external state tracking
+            result = self.state_manager.set_changes_saved_externally(False)
+            if result.is_err:
+                self.logger.warning("Failed to reset changes_saved_externally")
+                
+            # Reset simulation state to STOPPED
+            from feagi.core.state_manager import SimulationState
+            try:
+                self.state_manager.set_simulation_state(SimulationState.STOPPED)
+            except Exception as e:
+                self.logger.debug(f"Could not reset simulation state: {e}")
+            
+            # Clear amalgamation state (legacy compatibility)
+            if hasattr(self.state_manager._state, 'pending_amalgamation'):
+                try:
+                    self.state_manager._state.pending_amalgamation = {}
+                except Exception as e:
+                    self.logger.debug(f"Could not clear pending_amalgamation: {e}")
+                    
+            if hasattr(self.state_manager._state, 'amalgamation_history'):
+                try:
+                    self.state_manager._state.amalgamation_history = {}
+                except Exception as e:
+                    self.logger.debug(f"Could not clear amalgamation_history: {e}")
+            
+            # Update genome timestamp but preserve counter
+            import time
+            current_timestamp = int(time.time() * 1000)
+            result = self.state_manager.set_genome_timestamp(current_timestamp)
+            if result.is_err:
+                self.logger.warning("Failed to update genome timestamp")
+                
+            # Restore preserved genome counter
+            if hasattr(self.state_manager._state, 'genome_counter'):
+                try:
+                    self.state_manager._state.genome_counter = preserved_genome_counter
+                    self.logger.debug(f"Preserved genome counter: {preserved_genome_counter}")
+                except Exception as e:
+                    self.logger.warning(f"Could not restore genome counter: {e}")
+            
+            self.logger.info("✅ State manager cleared successfully for genome loading")
+            
+        except Exception as e:
+            self.logger.error(f"Error clearing state for genome loading: {e}")
+            # Non-fatal: continue with genome loading even if state clearing fails
+
     def load_genome(
         self, genome_data: Dict[str, Any], filename: str = "genome.json"
     ) -> Dict[str, Any]:
@@ -133,29 +367,14 @@ class GenomeService(BaseService):
             try:
                 self.logger.info("Step 1: Initializing genome load process")
 
-                # Set brain readiness to False while loading
+                # Set genome loading state and clear all state manager entries
                 if self.state_manager:
                     from feagi.core.state_manager import GenomeState
 
                     self.state_manager.set_genome_state(GenomeState.LOADING)
-                    self.state_manager.set_brain_readiness(False)
-                    # Clear all brain stats during loading
-                    self.logger.debug("Clearing brain stats during genome loading")
-                    result = self.state_manager.set_brain_stats({})
-                    if result.is_err:
-                        self.logger.warning("Failed to clear brain stats")
-                    else:
-                        self.logger.info("✅ Brain stats cleared successfully")
-
-                    result = self.state_manager.set_cortical_list([])
-                    if result.is_err:
-                        self.logger.warning("Failed to clear cortical list")
-
-                    result = self.state_manager.set_genome_validity(
-                        False
-                    )  # None -> False
-                    if result.is_err:
-                        self.logger.warning("Failed to set genome validity")
+                    
+                    # Comprehensive state clearing for genome loading
+                    self._clear_state_for_genome_loading()
 
                 #  CRITICAL: Preserve old genome data BEFORE setting new values
                 #  for comparison
@@ -3418,6 +3637,9 @@ class GenomeService(BaseService):
                 self._current_genome = empty_genome
                 if self.state_manager:
                     self.state_manager.genome = empty_genome
+                    
+                    # Comprehensive state clearing for genome reset
+                    self._clear_state_for_genome_loading()
 
                 # Trigger NeuroEmbryogenesis to reset the connectome
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (

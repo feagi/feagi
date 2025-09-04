@@ -1303,6 +1303,7 @@ class VisualizationStream:
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
+
                     except ValueError:
                         logger.warning(
                             f"Failed to get cortical ID for {area_str} ")

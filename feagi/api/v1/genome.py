@@ -158,38 +158,9 @@ class GenomeAPI:
     async def upload_essential_genome(self) -> GenomeUploadResponse:
         """Upload/load the essential genome."""
         logger.info("Loading essential genome")
-
-        # Load essential genome data and use the single load_genome method
-        import json
-        from pathlib import Path
-
-        # Get the essential genome file path
-        essential_genome_path = (
-            Path(__file__).parent.parent.parent
-            / "evo"
-            / "defaults"
-            / "genome"
-            / "essential_genome.json"
-        )
-
-        if not essential_genome_path.exists():
-            logger.error(
-                f"Essential genome file not found: {essential_genome_path}"
-            )
-            result = {
-                "success": False,
-                "error": f"Essential genome file not found: {essential_genome_path}",
-            }
-        else:
-            # Read the essential genome file
-            with open(essential_genome_path, "r") as f:
-                genome_data = json.load(f)
-
-            #  Use the single load_genome method for consistency and dynamic
-            #  sizing
-            result = self.core_api_service.load_genome(
-                genome_data, filename="essential_genome.json"
-            )
+        
+        # Use the consistent genome loading path through load_essential_genome
+        result = self.core_api_service.load_essential_genome()
 
         # Prepare the final response based on loading results
         response_data = GenomeUploadResponse(

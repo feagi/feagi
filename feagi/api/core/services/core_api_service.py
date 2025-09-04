@@ -278,6 +278,22 @@ class CoreAPIService:
             pass
         return result
 
+    def load_essential_genome(self) -> Dict[str, Any]:
+        """Load the essential genome."""
+        print(
+            "[DEBUG] CORE API SERVICE: load_essential_genome called, delegating to genome service"
+        )
+        result = self._genome_service.load_default_genome("essential")
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                self.logger.debug(
+            f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}"
+        )
+        except Exception:
+            pass
+        return result
+
     def load_test_genome(self) -> Dict[str, Any]:
         """Load the test genome."""
         return self._genome_service.load_default_genome("test")
