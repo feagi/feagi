@@ -1105,10 +1105,16 @@ class BrainService(BaseService):
             if self.state_manager:
                 # Read from state_manager - the single source of truth
                 frequency = self.state_manager.get_burst_frequency()
-                if frequency > 0:
+                if frequency and frequency > 0:
                     return 1.0 / frequency
-                return 1.0  # Default 1 second period
-            return 1.0
+                else:
+                    # Log but don't raise - return safe default
+                    self.logger.warning(f"Invalid burst frequency from state manager: {frequency}Hz - using default 0.1s")
+                    return 0.1  # Default 10Hz = 0.1s period
+            else:
+                self.logger.warning("State manager not available - using default burst timer 0.1s")
+                return 0.1
         except Exception as e:
-            self.logger.error(f"Error getting burst timer: {str(e)}")
-            return 1.0
+            # Log error but return safe default instead of raising
+            self.logger.error(f"Error getting burst timer: {str(e)} - using default 0.1s")
+            return 0.1

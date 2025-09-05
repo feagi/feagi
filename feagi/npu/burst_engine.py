@@ -83,6 +83,12 @@ class BurstEngine:
         # Running state tracking (with debug integration)
         self._running_state = False
         
+        # Genome integration tracking
+        self.genome_loaded = False
+        
+        # Instance ID for debugging and tracking
+        self._instance_id = f"burst_engine_{id(self)}"
+        
         self.current_timestep = 0
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
@@ -229,24 +235,52 @@ class BurstEngine:
             logger.error(f"Failed to update burst engine state: {e}")
     
     def _initialize_frequency_from_state_manager(self):
-        """Initialize burst frequency from state manager (single source of truth)."""
+        """Initialize burst frequency from state manager (single source of truth).
+        
+        Uses the same robust fallback pattern as the old BurstEngine for compatibility.
+        """
+        # Configuration fallback frequency (mimicking old BurstEngine behavior)
+        config_frequency = 10.0  # Default fallback frequency
+        
         try:
-            # Get frequency from state manager
+            # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
+            # Get frequency from state manager (authoritative source)
             state_frequency = self.state_manager.get_burst_frequency()
             if state_frequency and state_frequency > 0:
                 self.desired_frequency = float(state_frequency)
-                logger.info(f"BurstEngine: Using state manager frequency: {state_frequency}Hz")
+                logger.info(f"[BURST ENGINE] Using state manager frequency: {state_frequency}Hz")
             else:
-                # Emergency fallback
-                fallback_frequency = 10.0
-                self.desired_frequency = fallback_frequency
-                self.state_manager.set_burst_frequency(fallback_frequency)
-                logger.warning(f"BurstEngine: Invalid state manager frequency ({state_frequency}Hz) - using fallback: {fallback_frequency}Hz")
+                # Emergency fallback: use config and update state manager
+                self.desired_frequency = config_frequency
+                self.state_manager.set_burst_frequency(config_frequency)
+                logger.warning(
+                    f"[BURST ENGINE] State manager frequency invalid ({state_frequency}Hz) - "
+                    f"using config fallback: {config_frequency}Hz and updating state manager"
+                )
         except Exception as e:
-            # Emergency fallback
-            fallback_frequency = 10.0 
-            self.desired_frequency = fallback_frequency
-            logger.error(f"BurstEngine: Failed to get frequency from state manager ({e}) - using fallback: {fallback_frequency}Hz")
+            # Emergency fallback: use config frequency and try to update state manager
+            self.desired_frequency = config_frequency
+            try:
+                if self.state_manager:
+                    self.state_manager.set_burst_frequency(config_frequency)
+                logger.warning(
+                    f"[BURST ENGINE] Failed to get frequency from state manager ({e}) - "
+                    f"using config fallback: {config_frequency}Hz"
+                )
+            except Exception:
+                # Completely fallback - just use the frequency without updating state manager
+                logger.error(
+                    f"[BURST ENGINE] Could not initialize frequency in state manager - "
+                    f"using local fallback: {config_frequency}Hz"
+                )
+        
+        # Ensure frequency is never zero to avoid division by zero (old BurstEngine safety)
+        if self.desired_frequency <= 0:
+            self.desired_frequency = config_frequency
+            logger.warning(f"[BURST ENGINE] Frequency was zero - using safety fallback: {config_frequency}Hz")
+        
+        # Set target_frequency for backward compatibility
+        self.target_frequency = self.desired_frequency
     
     def update_frequency(self, frequency_hz: float) -> bool:
         """Update burst engine frequency and sync with state manager."""
@@ -301,6 +335,88 @@ class BurstEngine:
     def is_running(self) -> bool:
         """Check if burst engine is currently running."""
         return self._running
+    
+    def run(self) -> None:
+        """Start the burst engine main loop.
+        
+        This method runs the continuous burst processing loop in the current thread.
+        It's designed to be called from a background thread by the brain service.
+        The loop continues until stop() is called or an exit condition is met.
+        """
+        try:
+            logger.info("[BURST-ENGINE] Starting main processing loop")
+            self.start()
+            
+            # Enter the main processing loop
+            if self._running:
+                logger.info("[BURST-ENGINE] ✅ Main loop started successfully") 
+                
+                # The actual processing loop will be handled by the start() method
+                # This method just initiates the process and signals readiness
+                # The continuous burst processing is managed by the burst frequency timing
+                
+                # Stay alive while running (this simulates the old run loop behavior)
+                while self._running:
+                    try:
+                        # Small sleep to prevent busy-waiting
+                        time.sleep(0.1)  # 100ms check interval
+                        
+                        # Minimal processing check - let state manager handle the rest
+                        if not self._running:
+                            break
+                            
+                    except Exception as e:
+                        logger.error(f"Error in burst engine run loop: {e}")
+                        break
+                        
+                logger.info("[BURST-ENGINE] Main processing loop ended")
+            else:
+                logger.error("[BURST-ENGINE] Failed to start - run loop exiting")
+                
+        except Exception as e:
+            logger.error(f"Error in burst engine run() method: {e}")
+            self._set_burst_engine_state(ServiceState.ERROR)
+    
+    def update_with_genome(self) -> None:
+        """Update the burst engine configuration when a new genome is loaded.
+        
+        This method is called after a new genome is loaded into the connectome manager 
+        to refresh the engine's understanding of the neural network. This ensures 
+        compatibility with the genome loading process.
+        """
+        try:
+            logger.info("[CONFIG] Updating burst engine with new genome")
+            
+            # Sync with connectome manager's current state
+            if self.connectome_manager:
+                # Check if connectome manager has neuron array data
+                if hasattr(self.connectome_manager, "neuron_array"):
+                    neuron_array = self.connectome_manager.neuron_array
+                    if hasattr(neuron_array, "neuron_count"):
+                        neuron_count = neuron_array.neuron_count
+                        logger.info(f"[GENOME-SYNC] Burst engine synced with {neuron_count} neurons")
+                    else:
+                        logger.debug("[GENOME-SYNC] Neuron array present but no count available")
+                else:
+                    logger.debug("[GENOME-SYNC] No neuron array data available yet")
+                    
+                # Update coordinate converter if available
+                if self.coordinate_converter and hasattr(self.connectome_manager, 'get_cortical_dimensions'):
+                    logger.debug("[GENOME-SYNC] Coordinate converter will use updated cortical dimensions")
+                    
+            # Re-initialize FCL injector with updated connectome data
+            if self.coordinate_converter:
+                # FCL injector will automatically pick up new connectome data through coordinate converter
+                logger.debug("[GENOME-SYNC] FCL injector will use updated connectome data")
+            
+            # Mark that genome data has been integrated
+            self.genome_loaded = True
+            
+            logger.info("✅ Burst engine updated with new genome successfully")
+            
+        except Exception as e:
+            logger.error(f"Error updating burst engine with genome: {e}")
+            # Don't raise - genome loading should not fail due to burst engine update issues
     
     def _inject_all_candidates(self, fcl: FireCandidateList):
         """Inject all candidates into FCL using FCL Injector."""

@@ -87,10 +87,38 @@ class FCLManagerAdapter:
     
     @property
     def window_size(self):
-        """Get window size from fire ledger."""
+        """Get default window size from fire ledger."""
         if self.burst_engine and self.burst_engine.fire_ledger:
-            return self.burst_engine.fire_ledger.window_size
+            return self.burst_engine.fire_ledger.default_window_size
         return 20  # Default window size
+        
+    def get_cortical_window_size(self, cortical_idx: int) -> int:
+        """Get window size for specific cortical area."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            fire_ledger = self.burst_engine.fire_ledger
+            if cortical_idx in fire_ledger.cortical_histories:
+                return fire_ledger.cortical_histories[cortical_idx].window_size
+            return fire_ledger.default_window_size
+        return 20  # Default window size
+    
+    @property
+    def memory_cortical_indices(self):
+        """Get memory cortical area indices from Fire Ledger."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            return set(self.burst_engine.fire_ledger.memory_areas.keys())
+        return set()
+    
+    @property 
+    def total_neurons_fired(self):
+        """Get total neurons that fired in the last timestep."""
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            return 0
+        
+        fire_queue = self.burst_engine.previous_fire_queue
+        total = 0
+        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
+            total += len(cortical_neurons)
+        return total
 
 
 class BitmapAdapter:
@@ -1885,6 +1913,71 @@ class CoreAPIService:
     def update_fcl_sampler_config(self, frequency: float, consumer: str) -> bool:
         """Update FCL sampler configuration (alias for FQ sampler config)."""
         return self.update_fq_sampler_config(frequency, consumer)
+    
+    # =================================================================
+    # FIRE LEDGER WINDOW SIZE CONFIGURATION METHODS
+    # =================================================================
+    
+    def get_fire_ledger_default_window_size(self) -> int:
+        """Get the default window size for Fire Ledger historical storage."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                return burst_engine.fire_ledger.default_window_size
+            return 20  # Default window size
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger default window size: {str(e)}")
+            return 20
+    
+    def get_fire_ledger_area_window_size(self, cortical_idx: int) -> int:
+        """Get window size for specific cortical area in Fire Ledger."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                fire_ledger = burst_engine.fire_ledger
+                if cortical_idx in fire_ledger.cortical_histories:
+                    return fire_ledger.cortical_histories[cortical_idx].window_size
+                return fire_ledger.default_window_size
+            return 20  # Default window size
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger window size for area {cortical_idx}: {str(e)}")
+            return 20
+    
+    def set_fire_ledger_area_window_size(self, cortical_idx: int, window_size: int) -> bool:
+        """Set window size for specific cortical area in Fire Ledger."""
+        try:
+            if window_size <= 0 or window_size > 10000:
+                raise ValueError("Window size must be between 1 and 10000")
+                
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                burst_engine.fire_ledger.configure_area_window(cortical_idx, window_size)
+                self.logger.info(f"Updated Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
+                return True
+            
+            self.logger.warning("No Fire Ledger available to configure window size")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error setting Fire Ledger window size for area {cortical_idx}: {str(e)}")
+            return False
+    
+    def get_fire_ledger_areas_window_config(self) -> Dict[int, int]:
+        """Get window size configuration for all cortical areas in Fire Ledger."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                fire_ledger = burst_engine.fire_ledger
+                window_config = {}
+                
+                # Get window sizes for all configured areas
+                for cortical_idx, history in fire_ledger.cortical_histories.items():
+                    window_config[cortical_idx] = history.window_size
+                    
+                return window_config
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger areas window configuration: {str(e)}")
+            return {}
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""

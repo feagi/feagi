@@ -542,14 +542,12 @@ class SystemAPI:
                     "error": "FCL manager not available",
                 }
 
-            # Basic stats
+            # Basic stats - window size now comes from Fire Ledger
             status: Dict[str, Any] = {
                 "available": True,
                 "current_timestep": getattr(fclm, "current_timestep", 0),
-                "default_window_size": getattr(fclm, "default_window_size", 0),
-                "dynamic_window_sizing": getattr(
-                    fclm, "_dynamic_sizing_enabled", False
-                ),
+                "default_window_size": getattr(fclm, "window_size", 20),  # From Fire Ledger via FCL adapter
+                "dynamic_window_sizing": False,  # Fire Ledger uses per-area window sizing
                 "total_neurons_fired": getattr(fclm, "total_neurons_fired", 0),
             }
 

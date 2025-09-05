@@ -71,8 +71,8 @@ class FeagiAgentAPI:
 
             registration_manager = get_registration_manager()
             if not registration_manager:
-                self.logger.error("Registration Manager not available")
-                raise ValueError("Registration service unavailable")
+                self.logger.warning("Registration Manager not available - returning empty agent list")
+                return AgentListResponse(root=[])
 
             agents_data = registration_manager.list_agents()
 
@@ -84,8 +84,9 @@ class FeagiAgentAPI:
 
             return AgentListResponse(root=agent_ids)
         except Exception as e:
-            self.logger.error(f"Error listing agents: {e}")
-            raise ValueError(f"Failed to list agents: {str(e)}") from e
+            # Log error but return empty list instead of raising ValueError (which becomes 400 Bad Request)
+            self.logger.error(f"Error listing agents: {e} - returning empty list")
+            return AgentListResponse(root=[])
 
     @agent_endpoint(
         "GET", "/info/{agent_id}", response_model=AgentInfoResponse

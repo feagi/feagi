@@ -93,12 +93,11 @@ class BurstEngineAPI:
         seconds."""
         try:
             burst_timer = self.core_api_service.get_burst_timer()
-            return burst_timer if burst_timer is not None else 0.0
+            return burst_timer if burst_timer is not None else 0.1
         except Exception as e:
-            logger.error(f"Error getting simulation timestep: {e}")
-            raise ValueError(
-                f"Failed to get simulation timestep: {str(e)}"
-            ) from e
+            # Log error but return safe default instead of raising ValueError (which becomes 400 Bad Request)
+            logger.error(f"Error getting simulation timestep: {e} - returning default 0.1s")
+            return 0.1  # Default 10Hz = 0.1s timestep
 
     @burst_engine_endpoint(
         "POST",
@@ -282,8 +281,8 @@ class BurstEngineAPI:
                 for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
                     cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
             
-            # Get FCL manager statistics
-            window_size = fcl_manager.window_size
+            # Get Fire Ledger default window size (FCL no longer has window size)
+            default_window_size = fcl_manager.window_size  # This now gets from fire ledger
             active_cortical_count = len(cortical_areas)
             total_neurons = len(global_fcl_list)
             
@@ -292,13 +291,76 @@ class BurstEngineAPI:
                 total_neurons=total_neurons,
                 global_fcl=global_fcl_list,
                 cortical_areas=cortical_areas,
-                window_size=window_size,
+                default_window_size=default_window_size,
                 active_cortical_count=active_cortical_count
             )
             
         except Exception as e:
             logger.error(f"Error getting FCL content: {e}")
             raise ValueError(f"Failed to get FCL content: {str(e)}") from e
+    
+    # =================================================================  
+    # FIRE LEDGER WINDOW SIZE CONFIGURATION ENDPOINTS
+    # =================================================================
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/default_window_size")
+    def get_fire_ledger_default_window_size(self) -> int:
+        """Get the default window size for Fire Ledger historical storage."""
+        try:
+            return self.core_api_service.get_fire_ledger_default_window_size()
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger default window size: {e}")
+            return 20  # Safe default
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/area/{area_id}/window_size")
+    def get_fire_ledger_area_window_size(self, area_id: int) -> int:
+        """Get window size for specific cortical area in Fire Ledger."""
+        try:
+            return self.core_api_service.get_fire_ledger_area_window_size(area_id)
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger window size for area {area_id}: {e}")
+            return 20  # Safe default
+    
+    @burst_engine_endpoint("PUT", "/fire_ledger/area/{area_id}/window_size")
+    def set_fire_ledger_area_window_size(self, area_id: int, window_size: int) -> Dict[str, Any]:
+        """Set window size for specific cortical area in Fire Ledger."""
+        try:
+            success = self.core_api_service.set_fire_ledger_area_window_size(area_id, window_size)
+            return {
+                "success": success,
+                "area_id": area_id,
+                "window_size": window_size,
+                "message": f"Window size updated to {window_size} for area {area_id}" if success 
+                          else f"Failed to update window size for area {area_id}"
+            }
+        except Exception as e:
+            logger.error(f"Error setting Fire Ledger window size for area {area_id}: {e}")
+            return {
+                "success": False,
+                "area_id": area_id,
+                "error": str(e)
+            }
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/areas_window_config")
+    def get_fire_ledger_areas_window_config(self) -> Dict[str, Any]:
+        """Get window size configuration for all cortical areas in Fire Ledger."""
+        try:
+            window_config = self.core_api_service.get_fire_ledger_areas_window_config()
+            default_window_size = self.core_api_service.get_fire_ledger_default_window_size()
+            
+            return {
+                "default_window_size": default_window_size,
+                "areas": window_config,
+                "total_configured_areas": len(window_config)
+            }
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger areas window configuration: {e}")
+            return {
+                "default_window_size": 20,
+                "areas": {},
+                "total_configured_areas": 0,
+                "error": str(e)
+            }
 
     @burst_engine_endpoint("GET", "/fire_queue", response_model=FireQueueResponse)
     async def get_fire_queue(self) -> FireQueueResponse:

@@ -654,15 +654,20 @@ class BurstEngineStatsResponse(BaseModel):
 
 
 class FCLContentResponse(BaseModel):
-    """Response schema for complete FCL (Fire Candidate List) content."""
+    """Response schema for FCL content (Fire Queue firing history).
     
-    timestep: int = Field(description="Current timestep when FCL was captured")
-    total_neurons: int = Field(description="Total number of neurons currently firing")
-    global_fcl: List[int] = Field(description="List of all neuron IDs currently firing")
+    Note: In the new architecture, FCL is a transient pre-burst collector.
+    This endpoint returns Fire Queue data (neurons that actually fired) for compatibility.
+    Window size refers to Fire Ledger historical storage configuration.
+    """
+    
+    timestep: int = Field(description="Current timestep when firing data was captured")
+    total_neurons: int = Field(description="Total number of neurons that fired in the timestep")
+    global_fcl: List[int] = Field(description="List of all neuron IDs that fired (from Fire Queue)")
     cortical_areas: Dict[str, List[int]] = Field(
-        description="Mapping of cortical area ID to list of firing neuron IDs"
+        description="Mapping of cortical area ID to list of fired neuron IDs"
     )
-    window_size: int = Field(description="FCL history window size")
+    default_window_size: int = Field(description="Default Fire Ledger historical window size")
     active_cortical_count: int = Field(description="Number of cortical areas with active neurons")
 
 
