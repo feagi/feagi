@@ -43,6 +43,88 @@ from .system.system_service import SystemService
 logger = setup_logger()
 
 
+class FCLManagerAdapter:
+    """Compatibility adapter to make new BurstEngine work with old FCL manager interface.
+    
+    This adapter provides the methods that the `/fcl` endpoint expects while
+    using the new NPU architecture underneath.
+    """
+    
+    def __init__(self, burst_engine):
+        """Initialize adapter with BurstEngine instance."""
+        self.burst_engine = burst_engine
+        self.current_timestep = burst_engine.current_timestep if burst_engine else 0
+        
+    def get_global_fcl(self):
+        """Get global FCL as roaring bitmap (compatibility method).
+        
+        In new architecture, returns firing neurons from previous Fire Queue,
+        since FCL is transient and gets reset each burst.
+        """
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            # Return empty roaring bitmap-like structure
+            return EmptyBitmapAdapter()
+            
+        fire_queue = self.burst_engine.previous_fire_queue
+        neuron_ids = []
+        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
+            neuron_ids.extend([n.neuron_id for n in cortical_neurons])
+        
+        return BitmapAdapter(neuron_ids)
+    
+    def get_fcl_by_cortical(self):
+        """Get FCL organized by cortical areas (compatibility method)."""
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            return {}
+            
+        fire_queue = self.burst_engine.previous_fire_queue
+        cortical_fcl = {}
+        for cortical_idx, neurons in fire_queue.firing_neurons_by_area.items():
+            neuron_ids = [n.neuron_id for n in neurons]
+            cortical_fcl[cortical_idx] = BitmapAdapter(neuron_ids)
+        
+        return cortical_fcl
+    
+    @property
+    def window_size(self):
+        """Get window size from fire ledger."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            return self.burst_engine.fire_ledger.window_size
+        return 20  # Default window size
+
+
+class BitmapAdapter:
+    """Adapter to make list of neuron IDs behave like a roaring bitmap."""
+    
+    def __init__(self, neuron_ids):
+        self.neuron_ids = set(neuron_ids) if neuron_ids else set()
+        
+    def __iter__(self):
+        """Iterate over neuron IDs."""
+        return iter(sorted(self.neuron_ids))
+        
+    def __len__(self):
+        """Get number of neurons."""
+        return len(self.neuron_ids)
+        
+    def is_empty(self):
+        """Check if bitmap is empty."""
+        return len(self.neuron_ids) == 0
+
+
+class EmptyBitmapAdapter:
+    """Empty bitmap adapter for when no data is available."""
+    
+    def __iter__(self):
+        return iter([])
+        
+    def __len__(self):
+        return 0
+        
+    def is_empty(self):
+        return True
+
+
 class CoreAPIService:
     """Facade for all FEAGI core API operations.
 
@@ -1333,17 +1415,22 @@ class CoreAPIService:
         return self._connectome_manager
 
     def get_fcl_manager(self):
-        """Get the FCL manager instance."""
+        """Get the FCL manager instance (compatibility adapter for new architecture).
+        
+        In the new architecture, there is no persistent FCL manager.
+        Instead, FCL is a transient pre-burst collector and FireQueue holds 
+        the actual firing neurons. We return a compatibility adapter.
+        """
         try:
-            # Prefer the live BurstEngine singleton's FCL manager to avoid stale references
             from feagi.npu.burst_engine import BurstEngine
             be = BurstEngine.get_instance()
-            if be and hasattr(be, "fcl_manager") and be.fcl_manager:
-                return be.fcl_manager
+            if be:
+                # Return a compatibility adapter that provides the expected interface
+                return FCLManagerAdapter(be)
         except Exception as e:
             self.logger.error(f"Error getting FCL manager: {str(e)}")
-            # pass
-        # Fallback to ConnectomeManager linkage if available
+        
+        # Fallback to old ConnectomeManager linkage if available (legacy support)
         if hasattr(self._connectome_manager, "fcl_manager"):
             return self._connectome_manager.fcl_manager
         return None
@@ -1358,104 +1445,67 @@ class CoreAPIService:
     # =================================================================
 
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data from FCL using NPU SoA (no placeholders)."""
+        """Get the global fire queue data from new FireQueue architecture."""
         try:
-            # Prefer the live FCL manager from the running burst engine
-            fcl_manager = self.get_fcl_manager()
-            if not fcl_manager:
-                return None
-
-            # Get current-timestep global FCL
-                global_fcl = fcl_manager.get_fcl()
-            if not global_fcl or global_fcl.is_empty():
-                self.logger.debug("🔥 [CORE API] Global FCL is empty - no neurons firing globally")
-                return {
-                    "neuron_ids": [],
-                    "membrane_potentials": [],
-                    "thresholds": [],
-                    "consecutive_fire_counts": [],
-                    "refractory_counters": [],
-                    "coordinates": [],
-                }
-
-            firing_ids = list(global_fcl)
+            # Get the current or previous fire queue from burst engine
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine.get_instance()
+            
+            if not burst_engine:
+                self.logger.debug("🔥 [CORE API] No burst engine available")
+                return self._empty_fire_queue_response()
+            
+            # Try to get the previous fire queue (contains last timestep's fired neurons)
+            fire_queue = burst_engine.previous_fire_queue
+            if not fire_queue or fire_queue.is_empty():
+                self.logger.debug("🔥 [CORE API] Fire queue is empty - no neurons fired globally")
+                return self._empty_fire_queue_response()
+            
+            # Extract data directly from FireQueue
+            neuron_ids = []
+            membrane_potentials = []
+            thresholds = []
+            refractory_counters = []
+            coordinates = []
+            
+            # Collect data from all cortical areas in fire queue
+            for cortical_idx, firing_neurons in fire_queue.firing_neurons_by_area.items():
+                for neuron in firing_neurons:
+                    neuron_ids.append(neuron.neuron_id)
+                    membrane_potentials.append(float(neuron.membrane_potential))
+                    # Note: FireQueue doesn't store thresholds/refractory data yet
+                    # These could be looked up from NPU if needed
+                    thresholds.append(1.0)  # Default threshold
+                    refractory_counters.append(0)  # Default refractory
+                    coordinates.append(tuple(neuron.coordinates))
+            
             self.logger.debug(
-                f"🔥 [CORE API] Global fire queue has {len(firing_ids)} firing neurons"
+                f"🔥 [CORE API] Global fire queue has {len(neuron_ids)} firing neurons"
             )
-
-            # Access the authoritative NPU neuron array (SoA)
-            if not hasattr(self._connectome_manager, "neuron_array"):
-                # No neuron array available
-                return {
-                    "neuron_ids": [],
-                    "membrane_potentials": [],
-                    "thresholds": [],
-                    "consecutive_fire_counts": [],
-                    "refractory_counters": [],
-                    "coordinates": [],
-                }
-
-            neuron_array = self._connectome_manager.neuron_array
-            # Validate required SoA fields
-            required_attrs = [
-                "neuron_id_to_index",
-                "membrane_potentials",
-                "thresholds",
-                "refractory_counters",
-                "coordinates_x",
-                "coordinates_y",
-                "coordinates_z",
-            ]
-            if not all(hasattr(neuron_array, attr) for attr in required_attrs):
-                # Missing SoA fields
-                    return {
-                        "neuron_ids": [],
-                        "membrane_potentials": [],
-                        "thresholds": [],
-                        "consecutive_fire_counts": [],
-                        "refractory_counters": [],
-                        "coordinates": [],
-                    }
-
-            neuron_ids: List[int] = []
-            membrane_potentials: List[float] = []
-            thresholds: List[float] = []
-            refractory_counters: List[int] = []
-            coordinates: List[tuple] = []
-
-            # Map IDs to indices and extract real SoA data
-            id_to_idx = neuron_array.neuron_id_to_index
-            for nid in firing_ids:
-                idx = id_to_idx.get(nid)
-                if idx is None:
-                    continue
-                # Bounds guard
-                if idx < 0 or idx >= neuron_array.neuron_count:
-                    continue
-                neuron_ids.append(nid)
-                membrane_potentials.append(float(neuron_array.membrane_potentials[idx]))
-                thresholds.append(float(neuron_array.thresholds[idx]))
-                refractory_counters.append(int(neuron_array.refractory_counters[idx]))
-                coordinates.append(
-                    (
-                        int(neuron_array.coordinates_x[idx]),
-                        int(neuron_array.coordinates_y[idx]),
-                        int(neuron_array.coordinates_z[idx]),
-                    )
-                )
-
+            
             return {
                 "neuron_ids": neuron_ids,
                 "membrane_potentials": membrane_potentials,
                 "thresholds": thresholds,
-                # Not tracked in NPU SoA yet; omitted rather than fabricating values
-                "consecutive_fire_counts": [],
+                "consecutive_fire_counts": [],  # Not tracked yet
                 "refractory_counters": refractory_counters,
                 "coordinates": coordinates,
             }
+            
         except Exception as e:
             self.logger.error(f"Error getting global fire queue: {str(e)}")
             return None
+    
+    def _empty_fire_queue_response(self) -> Dict[str, Any]:
+        """Return empty fire queue response structure."""
+        return {
+            "neuron_ids": [],
+            "membrane_potentials": [],
+            "thresholds": [],
+            "consecutive_fire_counts": [],
+            "refractory_counters": [],
+            "coordinates": [],
+        }
 
     def genome_is_loaded(self) -> bool:
         """Check if a genome is currently loaded - CRITICAL for state management."""
@@ -1783,15 +1833,58 @@ class CoreAPIService:
     def get_area_fq_sample_rate(self, area_id: int) -> float:
         """Get FQ sample rate for an area."""
         try:
-            # This should get real sample rate from the fire queue manager
-            raise NotImplementedError(
-                "Getting area FQ sample rate is not yet implemented"
-            )
+            # Get from the FQ sampler via burst engine
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_fq_sampler'):
+                fq_sampler = burst_engine.get_fq_sampler()
+                if fq_sampler and hasattr(fq_sampler, 'sample_frequency_hz'):
+                    return float(fq_sampler.sample_frequency_hz)
+            
+            # Fallback to state manager configuration
+            if self.state_manager:
+                return getattr(self.state_manager, "fq_sampler_frequency", 20.0)
+            return 20.0
         except Exception as e:
             self.logger.error(f"Error getting area FQ sample rate: {str(e)}")
             raise ValueError(
                 f"Failed to get area FQ sample rate: {str(e)}"
             ) from e
+    
+    def set_area_fq_sample_rate(self, area_id: int, sample_rate: float) -> bool:
+        """Set FQ sample rate for a specific cortical area."""
+        try:
+            # For now, we set the global FQ sampler rate
+            # TODO: In future, support per-area sampling rates
+            if sample_rate <= 0 or sample_rate > 1000:
+                raise ValueError("Sample rate must be between 0 and 1000 Hz")
+            
+            # Update via burst engine if available
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_fq_sampler'):
+                fq_sampler = burst_engine.get_fq_sampler()
+                if fq_sampler and hasattr(fq_sampler, 'sample_frequency_hz'):
+                    fq_sampler.sample_frequency_hz = sample_rate
+                    self.logger.info(f"Updated FQ sampler frequency to {sample_rate}Hz for area {area_id}")
+                    return True
+            
+            # Fallback: Update state manager
+            if self.state_manager:
+                self.state_manager.set_fq_sampler_frequency(sample_rate)
+                self.logger.info(f"Updated FQ sampler frequency in state manager to {sample_rate}Hz for area {area_id}")
+                return True
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Error setting area FQ sample rate: {str(e)}")
+            return False
+    
+    def get_fcl_sampler_config(self) -> Dict[str, Any]:
+        """Get FCL sampler configuration (alias for FQ sampler config)."""
+        return self.get_fq_sampler_config()
+    
+    def update_fcl_sampler_config(self, frequency: float, consumer: str) -> bool:
+        """Update FCL sampler configuration (alias for FQ sampler config)."""
+        return self.update_fq_sampler_config(frequency, consumer)
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""

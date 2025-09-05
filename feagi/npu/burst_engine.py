@@ -10,6 +10,7 @@ import time
 import threading
 import numpy as np
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 from .fire_candidate_list import FireCandidateList, FCLCandidate
 from .fire_queue import FireQueue, FiringNeuron
@@ -56,7 +57,14 @@ class BurstEngine:
             return
 
         self.connectome_manager = connectome_manager
-        self.state_manager = state_manager
+        
+        # STATE MANAGER INTEGRATION - Cache instance for performance 
+        # Always use singleton instance as single source of truth
+        self.state_manager = FeagiStateManager.instance()
+        logger.info("BurstEngine: Using FeagiStateManager singleton instance")
+        
+        # Set initial burst engine state to INITIALIZING
+        self._set_burst_engine_state(ServiceState.INITIALIZING)
         
         # Core NPU components
         self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
@@ -66,14 +74,24 @@ class BurstEngine:
         # FQ Sampler (initialized after burst engine is ready)
         self.fq_sampler: Optional[FQSampler] = None
         
+        # Registry of external FQ samplers (for process manager integration)
+        self.registered_fq_samplers: List[Any] = []
+        
+        # Initialize frequency from state manager (single source of truth)
+        self._initialize_frequency_from_state_manager()
+        
+        # Running state tracking (with debug integration)
+        self._running_state = False
+        
         self.current_timestep = 0
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
 
-        # Mark as initialized
+        # Mark as initialized and ready
         self._initialized = True
+        self._set_burst_engine_state(ServiceState.READY)
 
-        logger.info("Clean Burst Engine initialized with singleton pattern")
+        logger.info("Clean Burst Engine initialized with singleton pattern and state manager integration")
     
     def process_burst(self) -> List[int]:
         """Execute complete burst processing with clean 5-phase workflow."""
@@ -92,6 +110,15 @@ class BurstEngine:
             for area_idx, neurons in fire_queue.firing_neurons_by_area.items():
                 neurons_by_area[area_idx] = neurons
             self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
+            
+            # Update state manager with activity counters
+            neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
+            try:
+                if self.state_manager:
+                    self.state_manager.increment_cumulative_activity(neuron_count)
+            except Exception as e:
+                # Don't let state manager issues break burst processing
+                logger.debug(f"Failed to update activity counters: {e}")
         
         # Phase 4: FQ Sampler access ready (no action needed)
         
@@ -123,6 +150,157 @@ class BurstEngine:
     def get_fq_sampler(self) -> Optional[FQSampler]:
         """Get FQ Sampler instance."""
         return self.fq_sampler
+    
+    def register_fq_sampler(self, fq_sampler: Any):
+        """Register an external FQ sampler with this burst engine.
+        
+        This method allows the process manager to register FQ samplers 
+        that need access to the burst engine's fire queue data.
+        
+        Args:
+            fq_sampler: FQ sampler instance (FQSampler or UnifiedFQSampler)
+        """
+        if fq_sampler not in self.registered_fq_samplers:
+            self.registered_fq_samplers.append(fq_sampler)
+            sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
+            logger.info(f"FQ sampler [{sampler_id}] registered with BurstEngine")
+        else:
+            logger.warning(f"FQ sampler already registered: {getattr(fq_sampler, 'instance_id', 'unknown')}")
+    
+    def unregister_fq_sampler(self, fq_sampler: Any):
+        """Unregister an external FQ sampler from this burst engine.
+        
+        Args:
+            fq_sampler: FQ sampler instance to unregister
+        """
+        try:
+            self.registered_fq_samplers.remove(fq_sampler)
+            sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
+            logger.info(f"FQ sampler [{sampler_id}] unregistered from BurstEngine")
+        except ValueError:
+            logger.warning(f"Attempted to unregister FQ sampler that wasn't registered: {getattr(fq_sampler, 'instance_id', 'unknown')}")
+    
+    def get_registered_fq_samplers(self) -> List[Any]:
+        """Get list of all registered FQ samplers."""
+        return self.registered_fq_samplers.copy()
+    
+    # ==============================================================
+    # STATE MANAGER INTEGRATION METHODS
+    # ==============================================================
+    
+    @property
+    def _running(self):
+        """Get the running state with debug tracking (state manager integration)."""
+        return getattr(self, "_running_state", False)
+
+    @_running.setter
+    def _running(self, value):
+        """Setter for _running with debug logging and state manager integration."""
+        old_value = getattr(self, "_running_state", None)
+        self._running_state = value
+
+        # Update state manager when running state changes
+        if old_value != value:
+            if value:
+                # When starting to run, set state to READY (active and processing)
+                self._set_burst_engine_state(ServiceState.READY)
+            else:
+                # When stopping, set state back to READY but not running
+                # (This maintains compatibility with existing state machine)
+                pass
+        
+        # Debug logging if NPU debug mode is enabled
+        try:
+            if self.state_manager and self.state_manager.is_debug_npu_enabled() and old_value != value:
+                logger.info(
+                    f"[NPU-DEBUG] BURST ENGINE: Instance {id(self)} _running changed: {old_value} -> {value}"
+                )
+        except Exception:
+            # Don't let debug logging break normal operation
+            pass
+    
+    def _set_burst_engine_state(self, state: ServiceState):
+        """Set burst engine state in the state manager."""
+        try:
+            if self.state_manager:
+                self.state_manager.set_burst_engine_state(state)
+                logger.debug(f"BurstEngine state updated to: {state}")
+        except Exception as e:
+            logger.error(f"Failed to update burst engine state: {e}")
+    
+    def _initialize_frequency_from_state_manager(self):
+        """Initialize burst frequency from state manager (single source of truth)."""
+        try:
+            # Get frequency from state manager
+            state_frequency = self.state_manager.get_burst_frequency()
+            if state_frequency and state_frequency > 0:
+                self.desired_frequency = float(state_frequency)
+                logger.info(f"BurstEngine: Using state manager frequency: {state_frequency}Hz")
+            else:
+                # Emergency fallback
+                fallback_frequency = 10.0
+                self.desired_frequency = fallback_frequency
+                self.state_manager.set_burst_frequency(fallback_frequency)
+                logger.warning(f"BurstEngine: Invalid state manager frequency ({state_frequency}Hz) - using fallback: {fallback_frequency}Hz")
+        except Exception as e:
+            # Emergency fallback
+            fallback_frequency = 10.0 
+            self.desired_frequency = fallback_frequency
+            logger.error(f"BurstEngine: Failed to get frequency from state manager ({e}) - using fallback: {fallback_frequency}Hz")
+    
+    def update_frequency(self, frequency_hz: float) -> bool:
+        """Update burst engine frequency and sync with state manager."""
+        try:
+            if frequency_hz <= 0 or frequency_hz > 10000:
+                logger.error(f"Invalid frequency {frequency_hz}Hz (must be 0 < freq <= 10000)")
+                return False
+            
+            self.desired_frequency = frequency_hz
+            
+            # Update state manager
+            if self.state_manager:
+                self.state_manager.set_burst_frequency(frequency_hz)
+                logger.info(f"BurstEngine: Updated frequency to {frequency_hz}Hz in state manager")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update burst engine frequency: {e}")
+            return False
+    
+    def start(self) -> bool:
+        """Start the burst engine with proper state manager integration."""
+        try:
+            if self._running:
+                logger.warning("BurstEngine: Already running")
+                return True
+            
+            self._running = True
+            logger.info("BurstEngine: Started successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start BurstEngine: {e}")
+            self._set_burst_engine_state(ServiceState.ERROR)
+            return False
+    
+    def stop(self) -> bool:
+        """Stop the burst engine with proper state manager integration."""
+        try:
+            if not self._running:
+                logger.warning("BurstEngine: Already stopped")
+                return True
+            
+            self._running = False
+            self._set_burst_engine_state(ServiceState.STOPPED)
+            logger.info("BurstEngine: Stopped successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to stop BurstEngine: {e}")
+            self._set_burst_engine_state(ServiceState.ERROR)
+            return False
+    
+    def is_running(self) -> bool:
+        """Check if burst engine is currently running."""
+        return self._running
     
     def _inject_all_candidates(self, fcl: FireCandidateList):
         """Inject all candidates into FCL using FCL Injector."""
