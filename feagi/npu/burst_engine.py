@@ -7,6 +7,7 @@ FCL (candidates) → Fire Queue (firing) → Fire Ledger (history)
 
 from typing import Dict, List, Optional, Any
 import time
+import threading
 import numpy as np
 from feagi.utils.logger import setup_logger
 
@@ -23,15 +24,44 @@ logger = setup_logger(__name__)
 class BurstEngine:
     """Clean burst engine with proper separation of concerns."""
     
-    def __init__(self, connectome_manager, state_manager=None, fire_ledger_window_size: int = 20):
+    # Singleton pattern for compatibility with existing FEAGI code
+    _instance = None
+    _lock = threading.RLock()
+    
+    def __new__(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
+        """Singleton pattern implementation."""
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(BurstEngine, cls).__new__(cls)
+                cls._instance._initialized = False
+                logger.info("Creating new BurstEngine singleton instance")
+            return cls._instance
+
+    @classmethod
+    def get_instance(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
+        """Get or create the singleton instance."""
+        instance = cls(connectome_manager, state_manager, fire_ledger_window_size)
+        return instance
+    
+    @classmethod
+    def reset_instance(cls):
+        """Reset the singleton instance (for testing/cleanup)."""
+        with cls._lock:
+            cls._instance = None
+    
+    def __init__(self, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
         """Initialize clean burst engine."""
+        # Prevent double initialization for singleton
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+
         self.connectome_manager = connectome_manager
         self.state_manager = state_manager
         
         # Core NPU components
         self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
-        self.coordinate_converter = CoordinateConverter(connectome_manager)
-        self.fcl_injector = FCLInjector(self.coordinate_converter)
+        self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
+        self.fcl_injector = FCLInjector(self.coordinate_converter) if self.coordinate_converter else None
         
         # FQ Sampler (initialized after burst engine is ready)
         self.fq_sampler: Optional[FQSampler] = None
@@ -39,8 +69,11 @@ class BurstEngine:
         self.current_timestep = 0
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
-        
-        logger.info("Clean Burst Engine initialized with FCL Injector")
+
+        # Mark as initialized
+        self._initialized = True
+
+        logger.info("Clean Burst Engine initialized with singleton pattern")
     
     def process_burst(self) -> List[int]:
         """Execute complete burst processing with clean 5-phase workflow."""

@@ -22,7 +22,7 @@ from .fire_candidate_list import FireCandidateList, FCLCandidate
 from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .burst_engine import BurstEngine
-from .fq_sampler import FQSampler
+from .fq_sampler import FQSampler, UnifiedFQSampler
 from .fcl_injector import FCLInjector
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
@@ -46,7 +46,10 @@ from .special_area_handler import (
 from .interface import (
     NPUInterface,
     OperationResult,
-    BatchOperationResult
+    BatchOperationResult,
+    SynapseCreationRequest,
+    NeuronCreationRequest,
+    NeuronUpdateRequest
 )
 
 __all__ = [
@@ -59,6 +62,7 @@ __all__ = [
     'FireLedgerInterface',
     'BurstEngine',
     'FQSampler',
+    'UnifiedFQSampler',
     'FCLInjector',
     
     # Core Data Structures (for FEAGI compatibility)
@@ -79,5 +83,8 @@ __all__ = [
     # NPU Interface
     'NPUInterface',
     'OperationResult',
-    'BatchOperationResult'
+    'BatchOperationResult',
+    'SynapseCreationRequest',
+    'NeuronCreationRequest',
+    'NeuronUpdateRequest'
 ]

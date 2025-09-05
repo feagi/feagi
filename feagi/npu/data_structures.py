@@ -457,6 +457,51 @@ class SynapseArray:
         
         logger.info(f"SynapseArray initialized: {max_synapses:,} max synapses, {backend.value} backend")
     
+    def add_synapses_batch(self, source_neuron_ids: List[int], target_neuron_ids: List[int],
+                          weights: List[float], delays: List[int], 
+                          plasticity_types: List[int], plasticity_coefficients: List[float]) -> int:
+        """Add multiple synapses in batch."""
+        count = len(source_neuron_ids)
+        if count != len(target_neuron_ids) or count != len(weights):
+            raise ValueError("All input lists must have same length")
+            
+        if self.count + count > self.max_synapses:
+            available = int(self.max_synapses - self.count)
+            raise ValueError(
+                f"Cannot add {count} synapses: would exceed capacity (current={int(self.count)}, max={int(self.max_synapses)}, available={available})"
+            )
+        
+        start_idx = self.count
+        end_idx = start_idx + count
+        
+        # Batch assignment
+        self.source_neuron_ids[start_idx:end_idx] = np.array(source_neuron_ids, dtype=np.uint32)
+        self.target_neuron_ids[start_idx:end_idx] = np.array(target_neuron_ids, dtype=np.uint32)
+        self.weights[start_idx:end_idx] = np.array(weights, dtype=np.float32)
+        self.delays[start_idx:end_idx] = np.array(delays, dtype=np.uint8)
+        self.plasticity_types[start_idx:end_idx] = np.array(plasticity_types, dtype=np.uint8)
+        self.plasticity_coeffs[start_idx:end_idx] = np.array(plasticity_coefficients, dtype=np.float32)
+        
+        # Mark as active
+        self.is_active[start_idx:end_idx] = True
+        self.valid_mask[start_idx:end_idx] = True
+        
+        # Update indexing
+        for i, (source_id, target_id) in enumerate(zip(source_neuron_ids, target_neuron_ids)):
+            synapse_idx = start_idx + i
+            
+            if source_id not in self.source_neuron_index:
+                self.source_neuron_index[source_id] = []
+            self.source_neuron_index[source_id].append(synapse_idx)
+            
+            if target_id not in self.target_neuron_index:
+                self.target_neuron_index[target_id] = []
+            self.target_neuron_index[target_id].append(synapse_idx)
+        
+        self.count += count
+        self.synapse_count += count
+        return count
+    
     def get_outgoing_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
         """Get outgoing connections from a neuron."""
         connections = []
