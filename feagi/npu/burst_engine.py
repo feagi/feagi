@@ -71,6 +71,10 @@ class BurstEngine:
         self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
         self.fcl_injector = FCLInjector(self.coordinate_converter) if self.coordinate_converter else None
         
+        # Injection service for automatic power and special area injection
+        self.injection_service = None
+        self.enable_injection = True  # Enable automatic injection by default
+        
         # FQ Sampler (initialized after burst engine is ready)
         self.fq_sampler: Optional[FQSampler] = None
         
@@ -93,6 +97,9 @@ class BurstEngine:
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
 
+        # Initialize injection service for power areas and special neurons
+        self._initialize_injection_service()
+        
         # Mark as initialized and ready
         self._initialized = True
         self._set_burst_engine_state(ServiceState.READY)
@@ -429,6 +436,11 @@ class BurstEngine:
                 # FCL injector will automatically pick up new connectome data through coordinate converter
                 logger.debug("[GENOME-SYNC] FCL injector will use updated connectome data")
             
+            # Invalidate power neuron cache on genome changes
+            if self.injection_service and hasattr(self.injection_service, 'invalidate_cache'):
+                self.injection_service.invalidate_cache()
+                logger.debug("Power neuron cache invalidated after genome update")
+            
             # Mark that genome data has been integrated
             self.genome_loaded = True
             
@@ -439,20 +451,27 @@ class BurstEngine:
             # Don't raise - genome loading should not fail due to burst engine update issues
     
     def _inject_all_candidates(self, fcl: FireCandidateList):
-        """Inject all candidates into FCL using FCL Injector."""
-        # This method will be called by external injection services
+        """Inject all candidates into FCL - power neurons, sensory data, and synaptic propagation."""
         
-        # Check if FCL injector is available (requires connectome manager)
-        if not self.fcl_injector:
+        # 1. CRITICAL: Inject power neurons and special areas EVERY burst
+        if self.injection_service and self.enable_injection:
+            try:
+                injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
+                if injected_count > 0:
+                    logger.debug(f"Power injection: {injected_count} neurons added to FCL")
+            except Exception as e:
+                logger.error(f"Error in power neuron injection: {e}")
+        
+        # 2. Inject sensory data (if FCL injector available)
+        if self.fcl_injector:
+            # Synaptic propagation from previous timestep
+            if self.previous_fire_queue:
+                propagation_data = self._compute_synaptic_propagation()
+                self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
+        else:
             logger.debug("FCL injector not available - no connectome manager provided")
-            return
         
-        # Example: Synaptic propagation from previous timestep
-        if self.previous_fire_queue:
-            propagation_data = self._compute_synaptic_propagation()
-            self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
-        
-        logger.debug("FCL injection complete via FCL Injector")
+        logger.debug("FCL injection complete - power neurons and synaptic propagation processed")
     
     def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
         """Compute synaptic propagation data from previous fire queue."""
@@ -460,20 +479,122 @@ class BurstEngine:
         # This will integrate with actual connectome synaptic data
         return {}
     
-    def inject_sensory_data(self, cortical_id: str, x_coords, y_coords, z_coords, potentials):
-        """External interface for sensory injection."""
-        if not hasattr(self, '_current_fcl') or self._current_fcl is None:
-            logger.warning("No active FCL for sensory injection")
-            return 0
+    def _initialize_injection_service(self):
+        """Initialize injection service for power areas and special neuron injection."""
+        try:
+            if not self.connectome_manager:
+                logger.info("No connectome manager - injection service disabled")
+                return
             
-        return self.fcl_injector.inject_sensory_data(
-            self._current_fcl, cortical_id, x_coords, y_coords, z_coords, potentials
-        )
+            # Create simple power injection service
+            self.injection_service = PowerInjectionService(
+                connectome_manager=self.connectome_manager,
+                fcl_injector=self.fcl_injector
+            )
+            
+            logger.info("Power injection service initialized for automatic burst injection")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize injection service: {e}")
+            self.injection_service = None
+
+
+class PowerInjectionService:
+    """Simple power injection service for constant brain activity."""
     
-    def inject_manual_stimulation(self, stimulation_data: Dict[str, Any]):
-        """External interface for manual stimulation."""
-        if not hasattr(self, '_current_fcl') or self._current_fcl is None:
-            logger.warning("No active FCL for manual stimulation")
-            return 0
+    def __init__(self, connectome_manager, fcl_injector):
+        """Initialize power injection service."""
+        self.connectome_manager = connectome_manager
+        self.fcl_injector = fcl_injector
+        self._power_neurons_cache = None
+        self._cache_valid = False
+        
+        logger.info("PowerInjectionService created")
+    
+    def inject_power_neurons(self, fcl: FireCandidateList, current_timestep: int) -> int:
+        """Inject power neurons into FCL every burst for constant brain activity."""
+        try:
+            # Get power neurons (cached for performance)
+            power_neurons = self._get_power_neurons()
             
-        return self.fcl_injector.inject_manual_stimulation(self._current_fcl, stimulation_data)
+            if not power_neurons:
+                # Only log occasionally to avoid spam
+                if current_timestep % 1000 == 0:
+                    logger.debug(f"No power neurons found at timestep {current_timestep}")
+                return 0
+            
+            # Add power neurons to FCL using SoA format
+            if power_neurons:
+                # Convert to numpy arrays for SoA format
+                neuron_ids = np.array(power_neurons, dtype=np.uint32)
+                potential_deltas = np.full(len(power_neurons), 1.0, dtype=np.float32)  # High potential for power neurons
+                excitatory_mask = np.ones(len(power_neurons), dtype=bool)  # All excitatory
+                
+                # Add all power neurons to cortical area 0 (generic power injection)
+                injected_count = fcl.add_candidates_soa(
+                    cortical_idx=0,  # Generic power area index
+                    neuron_ids=neuron_ids,
+                    potential_deltas=potential_deltas,
+                    excitatory_mask=excitatory_mask
+                )
+            else:
+                injected_count = 0
+            
+            # Log occasionally (every 100 bursts) to avoid spam
+            if current_timestep % 100 == 0:
+                logger.info(f"Power injection: {injected_count} neurons injected at burst {current_timestep}")
+            
+            return injected_count
+            
+        except Exception as e:
+            logger.error(f"Error injecting power neurons: {e}")
+            return 0
+    
+    def _get_power_neurons(self) -> List[int]:
+        """Get neurons from power areas (cached for performance)."""
+        if self._cache_valid and self._power_neurons_cache is not None:
+            return self._power_neurons_cache
+        
+        power_neurons = []
+        
+        try:
+            # Check if connectome manager has NPU interface
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                
+                # Look for power areas by checking cortical area names
+                if hasattr(npu_interface, 'cortical_areas'):
+                    for area_data in npu_interface.cortical_areas.values():
+                        cortical_id = area_data.get('cortical_id', '')
+                        
+                        # Detect power areas (various naming patterns)
+                        if (cortical_id == '_power' or 
+                            cortical_id.endswith('_pwr') or 
+                            cortical_id.endswith('_power') or
+                            '_pwr' in cortical_id):
+                            
+                            cortical_idx = area_data.get('cortical_idx')
+                            if cortical_idx is not None:
+                                neurons = npu_interface.get_neurons_by_area(cortical_idx)
+                                power_neurons.extend(neurons)
+                                logger.info(f"Found power area '{cortical_id}': {len(neurons)} neurons")
+            
+            # Cache the result
+            self._power_neurons_cache = power_neurons
+            self._cache_valid = True
+            
+            if power_neurons:
+                logger.info(f"Power neuron detection complete: {len(power_neurons)} total power neurons cached")
+            else:
+                logger.warning("No power areas detected - consider adding '_power' area to genome for constant brain activity")
+                
+        except Exception as e:
+            logger.error(f"Error detecting power neurons: {e}")
+            power_neurons = []
+            
+        return power_neurons
+    
+    def invalidate_cache(self):
+        """Invalidate power neuron cache (call when genome changes)."""
+        self._cache_valid = False
+        self._power_neurons_cache = None

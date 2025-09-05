@@ -1847,7 +1847,24 @@ class ConnectomeManager(NeuronMappingProvider):
             return 0
 
 
-        created_count = self.synapse_array.batch_create_synapses(valid_specs)
+        # Convert synapse specs to the format expected by add_synapses_batch
+        source_neuron_ids = [spec[0] for spec in valid_specs]
+        target_neuron_ids = [spec[1] for spec in valid_specs] 
+        weights = [spec[2] for spec in valid_specs]
+        
+        # Default values for other parameters
+        delays = [1] * len(valid_specs)  # Default delay of 1
+        plasticity_types = [0] * len(valid_specs)  # Default: no plasticity  
+        plasticity_coefficients = [1.0] * len(valid_specs)  # Default coefficient
+        
+        created_count = self.synapse_array.add_synapses_batch(
+            source_neuron_ids=source_neuron_ids,
+            target_neuron_ids=target_neuron_ids,
+            weights=weights,
+            delays=delays,
+            plasticity_types=plasticity_types,
+            plasticity_coefficients=plasticity_coefficients
+        )
         
         # Update state manager with new synapse count (optimized - synapse count only)
         if created_count > 0:

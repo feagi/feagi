@@ -512,6 +512,7 @@ class SynapseArray:
                     weight = float(self.weights[synapse_idx])
                     connections.append((target_id, weight))
         return connections
+    
 
 
 # Export the main data structures for compatibility
