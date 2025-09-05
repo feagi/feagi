@@ -168,12 +168,12 @@ class TestEssentialGenomePowerInjection:
         print(f"Initial FCL neuron count: {initial_fcl_count}")
 
         # Perform injection: now returns injected+drained counts (buffered model)
-        neurons_injected = fcl_injection_service.inject_pre_burst(current_timestep=0)
-        print(f"inject_pre_burst returned: {neurons_injected}")
+        neurons_injected = fcl_injection_service.inject_candidates(current_timestep=0)
+        print(f"inject_candidates returned: {neurons_injected}")
 
         # Verify injection worked
         assert neurons_injected > 0, (
-            f"inject_pre_burst returned {neurons_injected}, expected > 0"
+            f"inject_candidates returned {neurons_injected}, expected > 0"
         )
 
         # Check FCL state after injection
@@ -191,7 +191,7 @@ class TestEssentialGenomePowerInjection:
     ):
         """Test that FQ sampler can detect activity from power injection."""
         # Inject power neurons first
-        neurons_injected = fcl_injection_service.inject_pre_burst(current_timestep=0)
+        neurons_injected = fcl_injection_service.inject_candidates(current_timestep=0)
         assert neurons_injected > 0, "Power injection failed"
 
         # Sample the FCL
@@ -216,7 +216,7 @@ class TestEssentialGenomePowerInjection:
         print(f"1. Initial FCL: {len(initial_fcl)} neurons")
 
         # Step 2: Inject power neurons
-        injected_count = fcl_injection_service.inject_pre_burst(current_timestep=0)
+        injected_count = fcl_injection_service.inject_candidates(current_timestep=0)
         print(f"2. Injected: {injected_count} power neurons")
         assert injected_count > 0, "Power injection failed"
 

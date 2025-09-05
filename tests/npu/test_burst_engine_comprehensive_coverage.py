@@ -151,8 +151,8 @@ def test_burst_engine_debug_process_burst():
         # Test _process_burst with debug output
         result = engine._process_burst()
 
-        # Should have called injection service
-        engine.injection_service.inject_pre_burst.assert_called_once()
+        # Should have called injection service (single-phase)
+        engine.injection_service.inject_candidates.assert_called_once()
 
         # Should return fired neurons
         assert result == [1, 2, 3]
@@ -514,10 +514,8 @@ def test_burst_engine_injection_timing_variants():
         engine.injection_service = Mock()
         result = engine._process_burst()
 
-        # Should call all injection phases (unified architecture)
-        engine.injection_service.inject_pre_burst.assert_called_once()
-        engine.injection_service.inject_during_burst.assert_called_once()
-        engine.injection_service.inject_post_burst.assert_called_once()
+        # Should call single-phase injection (unified architecture)
+        engine.injection_service.inject_candidates.assert_called_once()
 
         # Test without injection service
         BurstEngine.reset_singleton()

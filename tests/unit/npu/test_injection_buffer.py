@@ -46,7 +46,7 @@ def test_enqueue_and_drain_pre_burst_coalesce_and_budget():
     svc, fcl = make_service()
 
     # Enqueue power neurons
-    count = svc.inject_pre_burst(current_timestep=0)
+    count = svc.inject_candidates(current_timestep=0)
     # Should return accepted + drained; with budgets, drained <= max_total
     assert count > 0
 
@@ -63,9 +63,9 @@ def test_global_and_per_area_budgets_respected():
     svc, fcl = make_service(max_total=3, max_area=2)
 
     # Enqueue twice to build up buffer a bit
-    svc.inject_pre_burst(current_timestep=0)
-    # Inject again at t=1; drain occurs each pre_burst
-    svc.inject_pre_burst(current_timestep=1)
+    svc.inject_candidates(current_timestep=0)
+    # Inject again at t=1; drain occurs each injection
+    svc.inject_candidates(current_timestep=1)
 
     # Check that each update drained no more than budgets
     for _, by_area in fcl.updates:

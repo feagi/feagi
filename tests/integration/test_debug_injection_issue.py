@@ -96,8 +96,8 @@ def test_debug_injection_lookup():
 
     # Try the actual injection
     print("\n=== TESTING ACTUAL INJECTION ===")
-    result = fcl_injection_service.inject_pre_burst(current_timestep=0)
-    print(f"inject_pre_burst result: {result}")
+    result = fcl_injection_service.inject_candidates(current_timestep=0)
+    print(f"inject_candidates result: {result}")
 
     # Check FCL manager capabilities
     print("\n=== FCL MANAGER CAPABILITIES ===")

@@ -55,17 +55,12 @@ class BurstEngine:
 
     def _process_burst(self):
         """Core burst processing with unified FCL candidate model."""
-        # 1. External candidates injection (all special area types)
+        # 1. Single-phase candidates injection (atomic accumulation before processing)
         if self.injection_service:
-            self.injection_service.inject_pre_burst(self.burst_count)
+            self.injection_service.inject_candidates(self.burst_count)
 
-        # 2. Unified neural computation (internal + external candidates)
+        # 2. Unified neural computation (all accumulated candidates processed atomically)
         fired_neurons = self.connectome_manager.update_membrane_potentials()
-
-        # 3. Additional injection phases if needed
-        if self.injection_service:
-            self.injection_service.inject_during_burst(self.burst_count)
-            self.injection_service.inject_post_burst(self.burst_count)
 
         # 4. Debug output if enabled
         if self.debug_npu:
