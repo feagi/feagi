@@ -337,7 +337,7 @@ class BurstEngine:
         return self._running
     
     def run(self) -> None:
-        """Start the burst engine main loop.
+        """Start the burst engine main processing loop.
         
         This method runs the continuous burst processing loop in the current thread.
         It's designed to be called from a background thread by the brain service.
@@ -349,19 +349,39 @@ class BurstEngine:
             
             # Enter the main processing loop
             if self._running:
-                logger.info("[BURST-ENGINE] ✅ Main loop started successfully") 
+                logger.info(f"[BURST-ENGINE] ✅ Main loop started successfully at {self.desired_frequency}Hz") 
                 
-                # The actual processing loop will be handled by the start() method
-                # This method just initiates the process and signals readiness
-                # The continuous burst processing is managed by the burst frequency timing
+                # Calculate burst interval from frequency
+                burst_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
+                logger.info(f"[BURST-ENGINE] Burst interval: {burst_interval:.4f}s")
                 
-                # Stay alive while running (this simulates the old run loop behavior)
+                # Main burst processing loop
                 while self._running:
                     try:
-                        # Small sleep to prevent busy-waiting
-                        time.sleep(0.1)  # 100ms check interval
+                        burst_start_time = time.perf_counter()
                         
-                        # Minimal processing check - let state manager handle the rest
+                        # Execute the actual burst processing
+                        try:
+                            fired_neurons = self.process_burst()
+                            
+                            # Log periodic burst status 
+                            if self.burst_count % 100 == 0:  # Every 100 bursts
+                                logger.info(f"[BURST-ENGINE] Burst #{self.burst_count}: {len(fired_neurons)} neurons fired")
+                                
+                        except Exception as burst_error:
+                            logger.error(f"Error in burst processing #{self.burst_count}: {burst_error}")
+                            # Continue processing even if one burst fails
+                        
+                        # Calculate sleep time to maintain frequency
+                        burst_duration = time.perf_counter() - burst_start_time
+                        sleep_time = max(0, burst_interval - burst_duration)
+                        
+                        if sleep_time > 0:
+                            time.sleep(sleep_time)
+                        elif burst_duration > burst_interval * 1.5:  # Warn if significantly over budget
+                            logger.warning(f"[BURST-ENGINE] Burst #{self.burst_count} took {burst_duration:.4f}s (>{burst_interval:.4f}s budget)")
+                        
+                        # Check for exit condition
                         if not self._running:
                             break
                             
@@ -369,7 +389,7 @@ class BurstEngine:
                         logger.error(f"Error in burst engine run loop: {e}")
                         break
                         
-                logger.info("[BURST-ENGINE] Main processing loop ended")
+                logger.info(f"[BURST-ENGINE] Main processing loop ended after {self.burst_count} bursts")
             else:
                 logger.error("[BURST-ENGINE] Failed to start - run loop exiting")
                 
@@ -421,7 +441,11 @@ class BurstEngine:
     def _inject_all_candidates(self, fcl: FireCandidateList):
         """Inject all candidates into FCL using FCL Injector."""
         # This method will be called by external injection services
-        # For now, it's a placeholder showing the integration point
+        
+        # Check if FCL injector is available (requires connectome manager)
+        if not self.fcl_injector:
+            logger.debug("FCL injector not available - no connectome manager provided")
+            return
         
         # Example: Synaptic propagation from previous timestep
         if self.previous_fire_queue:
