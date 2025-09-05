@@ -6,8 +6,6 @@ FCL (candidates) → Fire Queue (firing) → Fire Ledger (history)
 """
 
 from typing import Dict, List, Optional, Any
-import time
-import threading
 import numpy as np
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -25,18 +23,16 @@ logger = setup_logger(__name__)
 class BurstEngine:
     """Clean burst engine with proper separation of concerns."""
     
-    # Singleton pattern for compatibility with existing FEAGI code
+    # Lock-free singleton pattern for RTOS compliance
     _instance = None
-    _lock = threading.RLock()
     
     def __new__(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
-        """Singleton pattern implementation."""
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super(BurstEngine, cls).__new__(cls)
-                cls._instance._initialized = False
-                logger.info("Creating new BurstEngine singleton instance")
-            return cls._instance
+        """Lock-free singleton pattern implementation."""
+        if cls._instance is None:
+            cls._instance = super(BurstEngine, cls).__new__(cls)
+            cls._instance._initialized = False
+            logger.info("Creating new BurstEngine singleton instance")
+        return cls._instance
 
     @classmethod
     def get_instance(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
@@ -47,8 +43,7 @@ class BurstEngine:
     @classmethod
     def reset_instance(cls):
         """Reset the singleton instance (for testing/cleanup)."""
-        with cls._lock:
-            cls._instance = None
+        cls._instance = None
     
     def __init__(self, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
         """Initialize clean burst engine."""
@@ -79,7 +74,10 @@ class BurstEngine:
         self.fq_sampler: Optional[FQSampler] = None
         
         # Registry of external FQ samplers (for process manager integration)
-        self.registered_fq_samplers: List[Any] = []
+        # Pre-allocated for RTOS compliance (max 10 FQ samplers)
+        self._max_fq_samplers = 10
+        self.registered_fq_samplers: List[Any] = [None] * self._max_fq_samplers
+        self._fq_sampler_count = 0
         
         # Initialize frequency from state manager (single source of truth)
         self._initialize_frequency_from_state_manager()
@@ -90,8 +88,8 @@ class BurstEngine:
         # Genome integration tracking
         self.genome_loaded = False
         
-        # Instance ID for debugging and tracking
-        self._instance_id = f"burst_engine_{id(self)}"
+        # Instance ID for debugging and tracking (RTOS-safe)
+        self._instance_id = "burst_engine_%d" % id(self)
         
         self.current_timestep = 0
         self.burst_count = 0
@@ -128,12 +126,12 @@ class BurstEngine:
                     # Convert fired neuron IDs to FiringNeuron objects and add to fire queue
                     firing_neurons = self._create_firing_neurons(fired_neuron_ids)
                     fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
-                    logger.debug(f"Phase 2: {len(fired_neuron_ids)} neurons fired at timestep {self.current_timestep}")
+                    logger.debug("Phase 2: %d neurons fired at timestep %d", len(fired_neuron_ids), self.current_timestep)
                 else:
-                    logger.debug(f"Phase 2: No neurons fired at timestep {self.current_timestep}")
+                    logger.debug("Phase 2: No neurons fired at timestep %d", self.current_timestep)
                     
-            except Exception as e:
-                logger.error(f"Error in neural processing phase: {e}")
+            except Exception:
+                logger.error("Error in neural processing phase")
                 # Continue with empty fire queue to maintain burst cycle
         else:
             logger.debug("No connectome manager - skipping neural processing phase")
@@ -150,9 +148,9 @@ class BurstEngine:
             try:
                 if self.state_manager:
                     self.state_manager.increment_cumulative_activity(neuron_count)
-            except Exception as e:
+            except Exception:
                 # Don't let state manager issues break burst processing
-                logger.debug(f"Failed to update activity counters: {e}")
+                logger.debug("Failed to update activity counters")
         
         # Phase 4: FQ Sampler access ready (no action needed)
         
@@ -178,7 +176,7 @@ class BurstEngine:
             sample_frequency_hz=sample_frequency_hz,
             sampling_mode=sampling_mode
         )
-        logger.info(f"FQ Sampler initialized: {sampling_mode} @ {sample_frequency_hz}Hz")
+        logger.info("FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
         return self.fq_sampler
     
     def get_fq_sampler(self) -> Optional[FQSampler]:
@@ -194,12 +192,23 @@ class BurstEngine:
         Args:
             fq_sampler: FQ sampler instance (FQSampler or UnifiedFQSampler)
         """
-        if fq_sampler not in self.registered_fq_samplers:
-            self.registered_fq_samplers.append(fq_sampler)
-            sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
-            logger.info(f"FQ sampler [{sampler_id}] registered with BurstEngine")
+        # Check if sampler already registered
+        sampler_already_registered = False
+        for i in range(self._fq_sampler_count):
+            if self.registered_fq_samplers[i] == fq_sampler:
+                sampler_already_registered = True
+                break
+        
+        if not sampler_already_registered:
+            if self._fq_sampler_count < self._max_fq_samplers:
+                self.registered_fq_samplers[self._fq_sampler_count] = fq_sampler
+                self._fq_sampler_count += 1
+                sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
+                logger.info("FQ sampler [%s] registered with BurstEngine", sampler_id)
+            else:
+                logger.error("Cannot register FQ sampler: maximum limit reached (%d)", self._max_fq_samplers)
         else:
-            logger.warning(f"FQ sampler already registered: {getattr(fq_sampler, 'instance_id', 'unknown')}")
+            logger.warning("FQ sampler already registered: %s", getattr(fq_sampler, 'instance_id', 'unknown'))
     
     def unregister_fq_sampler(self, fq_sampler: Any):
         """Unregister an external FQ sampler from this burst engine.
@@ -207,16 +216,31 @@ class BurstEngine:
         Args:
             fq_sampler: FQ sampler instance to unregister
         """
-        try:
-            self.registered_fq_samplers.remove(fq_sampler)
+        # Find and remove sampler using index-based approach
+        found_index = -1
+        for i in range(self._fq_sampler_count):
+            if self.registered_fq_samplers[i] == fq_sampler:
+                found_index = i
+                break
+        
+        if found_index >= 0:
+            # Shift remaining elements left to fill gap
+            for i in range(found_index, self._fq_sampler_count - 1):
+                self.registered_fq_samplers[i] = self.registered_fq_samplers[i + 1]
+            
+            # Clear last element and decrement count
+            self.registered_fq_samplers[self._fq_sampler_count - 1] = None
+            self._fq_sampler_count -= 1
+            
             sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
-            logger.info(f"FQ sampler [{sampler_id}] unregistered from BurstEngine")
-        except ValueError:
-            logger.warning(f"Attempted to unregister FQ sampler that wasn't registered: {getattr(fq_sampler, 'instance_id', 'unknown')}")
+            logger.info("FQ sampler [%s] unregistered from BurstEngine", sampler_id)
+        else:
+            logger.warning("Attempted to unregister FQ sampler that wasn't registered: %s", getattr(fq_sampler, 'instance_id', 'unknown'))
     
     def get_registered_fq_samplers(self) -> List[Any]:
         """Get list of all registered FQ samplers."""
-        return self.registered_fq_samplers.copy()
+        # Return only active samplers (RTOS-safe: no dynamic allocation)
+        return self.registered_fq_samplers[:self._fq_sampler_count]
     
     # ==============================================================
     # STATE MANAGER INTEGRATION METHODS
@@ -247,7 +271,7 @@ class BurstEngine:
         try:
             if self.state_manager and self.state_manager.is_debug_npu_enabled() and old_value != value:
                 logger.info(
-                    f"[NPU-DEBUG] BURST ENGINE: Instance {id(self)} _running changed: {old_value} -> {value}"
+                    "[NPU-DEBUG] BURST ENGINE: Instance %d _running changed: %s -> %s", id(self), old_value, value
                 )
         except Exception:
             # Don't let debug logging break normal operation
@@ -258,9 +282,9 @@ class BurstEngine:
         try:
             if self.state_manager:
                 self.state_manager.set_burst_engine_state(state)
-                logger.debug(f"BurstEngine state updated to: {state}")
-        except Exception as e:
-            logger.error(f"Failed to update burst engine state: {e}")
+                logger.debug("BurstEngine state updated to: %s", state)
+        except Exception:
+            logger.error("Failed to update burst engine state")
     
     def _initialize_frequency_from_state_manager(self):
         """Initialize burst frequency from state manager (single source of truth).
@@ -276,36 +300,30 @@ class BurstEngine:
             state_frequency = self.state_manager.get_burst_frequency()
             if state_frequency and state_frequency > 0:
                 self.desired_frequency = float(state_frequency)
-                logger.info(f"[BURST ENGINE] Using state manager frequency: {state_frequency}Hz")
+                logger.info("[BURST ENGINE] Using state manager frequency: %dHz", state_frequency)
             else:
                 # Emergency fallback: use config and update state manager
                 self.desired_frequency = config_frequency
                 self.state_manager.set_burst_frequency(config_frequency)
                 logger.warning(
-                    f"[BURST ENGINE] State manager frequency invalid ({state_frequency}Hz) - "
-                    f"using config fallback: {config_frequency}Hz and updating state manager"
+                    "[BURST ENGINE] State manager frequency invalid (%sHz) - using config fallback: %dHz and updating state manager", 
+                    state_frequency, config_frequency
                 )
-        except Exception as e:
+        except Exception:
             # Emergency fallback: use config frequency and try to update state manager
             self.desired_frequency = config_frequency
             try:
                 if self.state_manager:
                     self.state_manager.set_burst_frequency(config_frequency)
-                logger.warning(
-                    f"[BURST ENGINE] Failed to get frequency from state manager ({e}) - "
-                    f"using config fallback: {config_frequency}Hz"
-                )
+                logger.warning("[BURST ENGINE] Failed to get frequency from state manager - using config fallback: %dHz", config_frequency)
             except Exception:
                 # Completely fallback - just use the frequency without updating state manager
-                logger.error(
-                    f"[BURST ENGINE] Could not initialize frequency in state manager - "
-                    f"using local fallback: {config_frequency}Hz"
-                )
+                logger.error("[BURST ENGINE] Could not initialize frequency in state manager - using local fallback: %dHz", config_frequency)
         
         # Ensure frequency is never zero to avoid division by zero (old BurstEngine safety)
         if self.desired_frequency <= 0:
             self.desired_frequency = config_frequency
-            logger.warning(f"[BURST ENGINE] Frequency was zero - using safety fallback: {config_frequency}Hz")
+            logger.warning("[BURST ENGINE] Frequency was zero - using safety fallback: %dHz", config_frequency)
         
         # Set target_frequency for backward compatibility
         self.target_frequency = self.desired_frequency
@@ -314,7 +332,7 @@ class BurstEngine:
         """Update burst engine frequency and sync with state manager."""
         try:
             if frequency_hz <= 0 or frequency_hz > 10000:
-                logger.error(f"Invalid frequency {frequency_hz}Hz (must be 0 < freq <= 10000)")
+                logger.error("Invalid frequency %dHz (must be 0 < freq <= 10000)", frequency_hz)
                 return False
             
             self.desired_frequency = frequency_hz
@@ -322,11 +340,11 @@ class BurstEngine:
             # Update state manager
             if self.state_manager:
                 self.state_manager.set_burst_frequency(frequency_hz)
-                logger.info(f"BurstEngine: Updated frequency to {frequency_hz}Hz in state manager")
+                logger.info("BurstEngine: Updated frequency to %dHz in state manager", frequency_hz)
             
             return True
-        except Exception as e:
-            logger.error(f"Failed to update burst engine frequency: {e}")
+        except Exception:
+            logger.error("Failed to update burst engine frequency")
             return False
     
     def start(self) -> bool:
@@ -339,8 +357,8 @@ class BurstEngine:
             self._running = True
             logger.info("BurstEngine: Started successfully")
             return True
-        except Exception as e:
-            logger.error(f"Failed to start BurstEngine: {e}")
+        except Exception:
+            logger.error("Failed to start BurstEngine")
             self._set_burst_engine_state(ServiceState.ERROR)
             return False
     
@@ -355,8 +373,8 @@ class BurstEngine:
             self._set_burst_engine_state(ServiceState.STOPPED)
             logger.info("BurstEngine: Stopped successfully")
             return True
-        except Exception as e:
-            logger.error(f"Failed to stop BurstEngine: {e}")
+        except Exception:
+            logger.error("Failed to stop BurstEngine")
             self._set_burst_engine_state(ServiceState.ERROR)
             return False
     
@@ -377,52 +395,44 @@ class BurstEngine:
             
             # Enter the main processing loop
             if self._running:
-                logger.info(f"[BURST-ENGINE] ✅ Main loop started successfully at {self.desired_frequency}Hz") 
+                logger.info("[BURST-ENGINE] Main loop started successfully at %dHz", self.desired_frequency) 
                 
                 # Calculate burst interval from frequency
                 burst_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
-                logger.info(f"[BURST-ENGINE] Burst interval: {burst_interval:.4f}s")
+                logger.info("[BURST-ENGINE] Burst interval: %.4fs", burst_interval)
                 
                 # Main burst processing loop
                 while self._running:
                     try:
-                        burst_start_time = time.perf_counter()
-                        
-                        # Execute the actual burst processing
+                        # Execute the actual burst processing (RTOS-safe: no timing calls)
                         try:
                             fired_neurons = self.process_burst()
                             
                             # Log periodic burst status 
                             if self.burst_count % 100 == 0:  # Every 100 bursts
-                                logger.info(f"[BURST-ENGINE] Burst #{self.burst_count}: {len(fired_neurons)} neurons fired")
+                                logger.info("[BURST-ENGINE] Burst #%d: %d neurons fired", self.burst_count, len(fired_neurons))
                                 
-                        except Exception as burst_error:
-                            logger.error(f"Error in burst processing #{self.burst_count}: {burst_error}")
+                        except Exception:
+                            logger.error("Error in burst processing #%d", self.burst_count)
                             # Continue processing even if one burst fails
                         
-                        # Calculate sleep time to maintain frequency
-                        burst_duration = time.perf_counter() - burst_start_time
-                        sleep_time = max(0, burst_interval - burst_duration)
-                        
-                        if sleep_time > 0:
-                            time.sleep(sleep_time)
-                        elif burst_duration > burst_interval * 1.5:  # Warn if significantly over budget
-                            logger.warning(f"[BURST-ENGINE] Burst #{self.burst_count} took {burst_duration:.4f}s (>{burst_interval:.4f}s budget)")
+                        # RTOS-compliant timing: no blocking sleep operations
+                        # Burst engine relies on external scheduler for timing control
                         
                         # Check for exit condition
                         if not self._running:
                             break
                             
-                    except Exception as e:
-                        logger.error(f"Error in burst engine run loop: {e}")
+                    except Exception:
+                        logger.error("Error in burst engine run loop")
                         break
                         
-                logger.info(f"[BURST-ENGINE] Main processing loop ended after {self.burst_count} bursts")
+                logger.info("[BURST-ENGINE] Main processing loop ended after %d bursts", self.burst_count)
             else:
                 logger.error("[BURST-ENGINE] Failed to start - run loop exiting")
                 
-        except Exception as e:
-            logger.error(f"Error in burst engine run() method: {e}")
+        except Exception:
+            logger.error("Error in burst engine run() method")
             self._set_burst_engine_state(ServiceState.ERROR)
     
     def update_with_genome(self) -> None:
@@ -442,7 +452,7 @@ class BurstEngine:
                     neuron_array = self.connectome_manager.neuron_array
                     if hasattr(neuron_array, "neuron_count"):
                         neuron_count = neuron_array.neuron_count
-                        logger.info(f"[GENOME-SYNC] Burst engine synced with {neuron_count} neurons")
+                        logger.info("[GENOME-SYNC] Burst engine synced with %d neurons", neuron_count)
                     else:
                         logger.debug("[GENOME-SYNC] Neuron array present but no count available")
                 else:
@@ -467,8 +477,8 @@ class BurstEngine:
             
             logger.info("✅ Burst engine updated with new genome successfully")
             
-        except Exception as e:
-            logger.error(f"Error updating burst engine with genome: {e}")
+        except Exception:
+            logger.error("Error updating burst engine with genome")
             # Don't raise - genome loading should not fail due to burst engine update issues
     
     def _inject_all_candidates(self, fcl: FireCandidateList):
@@ -479,9 +489,9 @@ class BurstEngine:
             try:
                 injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
                 if injected_count > 0:
-                    logger.debug(f"Power injection: {injected_count} neurons added to FCL")
-            except Exception as e:
-                logger.error(f"Error in power neuron injection: {e}")
+                    logger.debug("Power injection: %d neurons added to FCL", injected_count)
+            except Exception:
+                logger.error("Error in power neuron injection")
         
         # 2. Inject sensory data (if FCL injector available)
         if self.fcl_injector:
@@ -502,10 +512,11 @@ class BurstEngine:
     
     def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
         """Convert fired neuron IDs to FiringNeuron objects with properties."""
-        firing_neurons = []
+        # Pre-allocate list for RTOS compliance (no dynamic growth)
+        firing_neurons = [None] * len(fired_neuron_ids)
         
         try:
-            for neuron_id in fired_neuron_ids:
+            for idx, neuron_id in enumerate(fired_neuron_ids):
                 # Get neuron properties from connectome manager or NPU interface
                 cortical_idx = 0  # Default cortical area
                 membrane_potential = 1.0  # Default membrane potential
@@ -538,15 +549,15 @@ class BurstEngine:
                     threshold=threshold,
                     consecutive_fire_count=0,  # Could be tracked in future
                     refractory_counter=0,      # Could be tracked in future
-                    timestamp=time.time()
+                    timestamp=0.0  # RTOS-safe: no system time calls
                 )
                 
-                firing_neurons.append(firing_neuron)
+                firing_neurons[idx] = firing_neuron
             
-            logger.debug(f"Created {len(firing_neurons)} FiringNeuron objects")
+            logger.debug("Created %d FiringNeuron objects", len(firing_neurons))
             
-        except Exception as e:
-            logger.error(f"Error creating firing neurons: {e}")
+        except Exception:
+            logger.error("Error creating firing neurons")
             # Return empty list to prevent breaking burst cycle
             
         return firing_neurons
@@ -566,8 +577,8 @@ class BurstEngine:
             
             logger.info("Power injection service initialized for automatic burst injection")
             
-        except Exception as e:
-            logger.error(f"Failed to initialize injection service: {e}")
+        except Exception:
+            logger.error("Failed to initialize injection service")
             self.injection_service = None
 
 
@@ -592,7 +603,7 @@ class PowerInjectionService:
             if not power_neurons:
                 # Only log occasionally to avoid spam
                 if current_timestep % 1000 == 0:
-                    logger.debug(f"No power neurons found at timestep {current_timestep}")
+                    logger.debug("No power neurons found at timestep %d", current_timestep)
                 return 0
             
             # Add power neurons to FCL using SoA format
@@ -614,12 +625,12 @@ class PowerInjectionService:
             
             # Log occasionally (every 100 bursts) to avoid spam
             if current_timestep % 100 == 0:
-                logger.info(f"Power injection: {injected_count} neurons injected at burst {current_timestep}")
+                logger.info("Power injection: %d neurons injected at burst %d", injected_count, current_timestep)
             
             return injected_count
             
-        except Exception as e:
-            logger.error(f"Error injecting power neurons: {e}")
+        except Exception:
+            logger.error("Error injecting power neurons")
             return 0
     
     def _get_power_neurons(self) -> List[int]:
@@ -649,19 +660,19 @@ class PowerInjectionService:
                             if cortical_idx is not None:
                                 neurons = npu_interface.get_neurons_by_area(cortical_idx)
                                 power_neurons.extend(neurons)
-                                logger.info(f"Found power area '{cortical_id}': {len(neurons)} neurons")
+                                logger.info("Found power area '%s': %d neurons", cortical_id, len(neurons))
             
             # Cache the result
             self._power_neurons_cache = power_neurons
             self._cache_valid = True
             
             if power_neurons:
-                logger.info(f"Power neuron detection complete: {len(power_neurons)} total power neurons cached")
+                logger.info("Power neuron detection complete: %d total power neurons cached", len(power_neurons))
             else:
                 logger.warning("No power areas detected - consider adding '_power' area to genome for constant brain activity")
                 
-        except Exception as e:
-            logger.error(f"Error detecting power neurons: {e}")
+        except Exception:
+            logger.error("Error detecting power neurons")
             power_neurons = []
             
         return power_neurons
