@@ -56,7 +56,7 @@ class FireQueue:
         self.firing_neurons_by_area: Dict[int, List[FiringNeuron]] = {}
         self.current_timestep: int = 0
         self.total_firing_neurons: int = 0
-        self.creation_timestamp: float = time.time()
+        self.creation_timestamp: float = 0.0  # RTOS-safe: no system time
         
     def add_fired_neurons(self, neurons: List[FiringNeuron], timestep: int):
         """Add neurons that actually fired after membrane potential processing.
@@ -73,7 +73,7 @@ class FireQueue:
                 self.firing_neurons_by_area[neuron.cortical_idx] = []
                 
             # Set firing timestamp
-            neuron.timestamp = time.time()
+            neuron.timestamp = 0.0  # RTOS-safe: no system time
             self.firing_neurons_by_area[neuron.cortical_idx].append(neuron)
             
         self.total_firing_neurons += len(neurons)
@@ -128,7 +128,7 @@ class FireQueue:
                 threshold=float(thresholds[i]),
                 consecutive_fire_count=int(consecutive_fire_counts[i]),
                 refractory_counter=int(refractory_counters[i]),
-                timestamp=time.time()
+                timestamp=0.0  # RTOS-safe: no system time
             )
             firing_neurons.append(neuron)
             
@@ -163,7 +163,7 @@ class FireQueue:
             'thresholds': [n.threshold for n in neurons],
             'consecutive_fire_counts': [n.consecutive_fire_count for n in neurons],
             'refractory_counters': [n.refractory_counter for n in neurons],
-            'timestamp': neurons[0].timestamp if neurons else time.time()
+            'timestamp': neurons[0].timestamp if neurons else 0.0  # RTOS-safe
         }
     
     def get_area_fire_queue_soa(self, cortical_idx: int) -> Tuple[np.ndarray, ...]:
@@ -227,8 +227,16 @@ class FireQueue:
             'areas_with_firing': len(self.firing_neurons_by_area),
             'neurons_per_area': area_counts,
             'current_timestep': self.current_timestep,
-            'age_seconds': time.time() - self.creation_timestamp
+            'age_seconds': 0.0  # RTOS-safe: no system time calls
         }
+    
+    def get_total_neuron_count(self) -> int:
+        """Get total number of firing neurons for debug logging.
+        
+        Returns:
+            Total number of firing neurons across all areas
+        """
+        return self.total_firing_neurons
     
     def clear(self):
         """Clear fire queue after archival to fire ledger."""

@@ -108,58 +108,141 @@ class BurstEngine:
         """Execute complete burst processing with clean 5-phase workflow."""
         self.current_timestep = self.burst_count
         
+        # NPU Debug logging (enabled with --debug-npu)
+        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
+        
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] BURST #%d: Starting burst processing pipeline", self.burst_count)
+            logger.warning("[NPU-DEBUG] BurstEngine state: running=%s, timestep=%d", self._running, self.current_timestep)
+        
         # Phase 1: Collect candidates using FCL Injector
         fcl = FireCandidateList()
+        
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] Phase 1: FCL injection starting...")
+            
         self._inject_all_candidates(fcl)
+        
+        if debug_enabled:
+            fcl_candidate_count = fcl.get_total_candidate_count()
+            logger.warning("[NPU-DEBUG] Phase 1: FCL injection complete - %d total candidates", fcl_candidate_count)
+            
+            # Show FCL breakdown by cortical area
+            for cortical_idx in fcl.candidates_by_area.keys():
+                area_count = fcl.get_candidate_count_by_area(cortical_idx)
+                logger.warning("[NPU-DEBUG] FCL Area %d: %d candidates", cortical_idx, area_count)
         
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         fire_queue = FireQueue()
         
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] Phase 2: Neural processing starting...")
+        
         if self.connectome_manager:
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] ConnectomeManager available: %s", type(self.connectome_manager).__name__)
+                
             try:
                 # Use connectome manager to process membrane potentials vs thresholds
                 fired_neuron_ids = self.connectome_manager.update_membrane_potentials(
                     current_timestep=self.current_timestep
                 )
                 
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] ConnectomeManager.update_membrane_potentials returned: %s", 
+                              fired_neuron_ids if fired_neuron_ids else "None/Empty")
+                
                 if fired_neuron_ids:
                     # Convert fired neuron IDs to FiringNeuron objects and add to fire queue
                     firing_neurons = self._create_firing_neurons(fired_neuron_ids)
                     fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
-                    logger.debug("Phase 2: %d neurons fired at timestep %d", len(fired_neuron_ids), self.current_timestep)
-                else:
-                    logger.debug("Phase 2: No neurons fired at timestep %d", self.current_timestep)
                     
-            except Exception:
-                logger.error("Error in neural processing phase")
+                    if debug_enabled:
+                        logger.warning("[NPU-DEBUG] Phase 2: %d neurons fired, %d FiringNeuron objects created", 
+                                  len(fired_neuron_ids), len(firing_neurons))
+                        logger.warning("[NPU-DEBUG] Fire Queue populated with %d neurons", fire_queue.get_total_neuron_count())
+                    else:
+                        logger.debug("Phase 2: %d neurons fired at timestep %d", len(fired_neuron_ids), self.current_timestep)
+                else:
+                    if debug_enabled:
+                        logger.warning("[NPU-DEBUG] Phase 2: No neurons fired - fire queue remains empty")
+                    else:
+                        logger.debug("Phase 2: No neurons fired at timestep %d", self.current_timestep)
+                    
+            except Exception as e:
+                if debug_enabled:
+                    logger.error("[NPU-DEBUG] Error in neural processing phase: %s", str(e))
+                    import traceback
+                    logger.error("[NPU-DEBUG] Traceback: %s", traceback.format_exc())
+                else:
+                    logger.error("Error in neural processing phase")
                 # Continue with empty fire queue to maintain burst cycle
         else:
-            logger.debug("No connectome manager - skipping neural processing phase")
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] No connectome manager available - skipping neural processing phase")
+            else:
+                logger.debug("No connectome manager - skipping neural processing phase")
         
         # Phase 3: Archive to fire ledger
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] Phase 3: Fire ledger archiving starting...")
+            logger.warning("[NPU-DEBUG] Fire queue empty: %s", fire_queue.is_empty())
+        
         if not fire_queue.is_empty():
             neurons_by_area = {}
             for area_idx, neurons in fire_queue.firing_neurons_by_area.items():
                 neurons_by_area[area_idx] = neurons
+            
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] Archiving %d cortical areas to fire ledger", len(neurons_by_area))
+                for area_idx, neurons in neurons_by_area.items():
+                    logger.warning("[NPU-DEBUG] Area %d: %d neurons to archive", area_idx, len(neurons))
+                    
             self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
             
             # Update state manager with activity counters
             neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
+            
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] Total neurons archived: %d", neuron_count)
+                
             try:
                 if self.state_manager:
                     self.state_manager.increment_cumulative_activity(neuron_count)
+                    if debug_enabled:
+                        logger.warning("[NPU-DEBUG] State manager activity counters updated")
             except Exception:
                 # Don't let state manager issues break burst processing
-                logger.debug("Failed to update activity counters")
+                if debug_enabled:
+                    logger.error("[NPU-DEBUG] Failed to update activity counters in state manager")
+                else:
+                    logger.debug("Failed to update activity counters")
+        else:
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] Phase 3: Fire queue is empty - no archiving needed")
         
         # Phase 4: FQ Sampler access ready (no action needed)
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] Phase 4: FQ Sampler access ready - no action needed")
         
         # Phase 5: Cleanup and prepare
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] Phase 5: Cleanup and prepare for next burst")
+            
         self.previous_fire_queue = fire_queue.copy_for_propagation()
         fcl.clear()
         self.burst_count += 1
         
-        return fire_queue.get_all_neuron_ids()
+        # Return fired neuron IDs for external systems
+        fired_ids = fire_queue.get_all_neuron_ids()
+        
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] BURST #%d COMPLETE: %d neurons fired total", 
+                      self.current_timestep, len(fired_ids))
+            logger.warning("[NPU-DEBUG] Next burst will be #%d", self.burst_count)
+            logger.warning("[NPU-DEBUG] " + "="*60)
+            
+        return fired_ids
     
     def get_current_fire_queue(self) -> Optional[FireQueue]:
         """Get current fire queue for FQ Sampler access."""
@@ -390,11 +473,25 @@ class BurstEngine:
         The loop continues until stop() is called or an exit condition is met.
         """
         try:
+            # NPU Debug logging
+            debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
+            
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] BurstEngine.run() starting main processing loop")
+                logger.warning("[NPU-DEBUG] BurstEngine state: initialized=%s, running=%s", self._initialized, self._running)
+                logger.warning("[NPU-DEBUG] Desired frequency: %dHz", self.desired_frequency)
+                logger.warning("[NPU-DEBUG] Connectome manager: %s", type(self.connectome_manager).__name__ if self.connectome_manager else "None")
+                logger.warning("[NPU-DEBUG] State manager: %s", type(self.state_manager).__name__ if self.state_manager else "None")
+                logger.warning("[NPU-DEBUG] " + "="*60)
+            
             logger.info("[BURST-ENGINE] Starting main processing loop")
             self.start()
             
             # Enter the main processing loop
             if self._running:
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] BurstEngine main loop entered successfully")
+                
                 logger.info("[BURST-ENGINE] Main loop started successfully at %dHz", self.desired_frequency) 
                 
                 # Calculate burst interval from frequency
@@ -484,25 +581,71 @@ class BurstEngine:
     def _inject_all_candidates(self, fcl: FireCandidateList):
         """Inject all candidates into FCL - power neurons, sensory data, and synaptic propagation."""
         
+        # NPU Debug logging
+        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
+        
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] FCL injection starting...")
+            logger.warning("[NPU-DEBUG] Injection service available: %s", self.injection_service is not None)
+            logger.warning("[NPU-DEBUG] Injection enabled: %s", self.enable_injection)
+            logger.warning("[NPU-DEBUG] FCL injector available: %s", self.fcl_injector is not None)
+        
         # 1. CRITICAL: Inject power neurons and special areas EVERY burst
         if self.injection_service and self.enable_injection:
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] Starting power neuron injection...")
+                
             try:
                 injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
-                if injected_count > 0:
+                
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] Power injection complete: %d neurons added to FCL", injected_count)
+                elif injected_count > 0:
                     logger.debug("Power injection: %d neurons added to FCL", injected_count)
-            except Exception:
-                logger.error("Error in power neuron injection")
+                    
+            except Exception as e:
+                if debug_enabled:
+                    logger.error("[NPU-DEBUG] Error in power neuron injection: %s", str(e))
+                    import traceback
+                    logger.error("[NPU-DEBUG] Power injection traceback: %s", traceback.format_exc())
+                else:
+                    logger.error("Error in power neuron injection")
+        else:
+            if debug_enabled:
+                if not self.injection_service:
+                    logger.warning("[NPU-DEBUG] No injection service available - power injection skipped")
+                elif not self.enable_injection:
+                    logger.warning("[NPU-DEBUG] Injection disabled - power injection skipped")
         
         # 2. Inject sensory data (if FCL injector available)
         if self.fcl_injector:
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] FCL injector available - checking for sensory/synaptic data...")
+                
             # Synaptic propagation from previous timestep
             if self.previous_fire_queue:
+                if debug_enabled:
+                    prev_neuron_count = len(self.previous_fire_queue.get_all_neuron_ids()) if self.previous_fire_queue else 0
+                    logger.warning("[NPU-DEBUG] Previous fire queue has %d neurons for synaptic propagation", prev_neuron_count)
+                    
                 propagation_data = self._compute_synaptic_propagation()
                 self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
+                
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] Synaptic propagation injection complete")
+            else:
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] No previous fire queue - synaptic propagation skipped")
         else:
-            logger.debug("FCL injector not available - no connectome manager provided")
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] FCL injector not available - no connectome manager provided")
+            else:
+                logger.debug("FCL injector not available - no connectome manager provided")
         
-        logger.debug("FCL injection complete - power neurons and synaptic propagation processed")
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] FCL injection complete - all injection sources processed")
+        else:
+            logger.debug("FCL injection complete - power neurons and synaptic propagation processed")
     
     def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
         """Compute synaptic propagation data from previous fire queue."""
@@ -596,22 +739,45 @@ class PowerInjectionService:
     
     def inject_power_neurons(self, fcl: FireCandidateList, current_timestep: int) -> int:
         """Inject power neurons into FCL every burst for constant brain activity."""
+        
+        # NPU Debug logging for power injection
+        debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
+                        self.connectome_manager.state_manager and 
+                        self.connectome_manager.state_manager.is_debug_npu_enabled())
+        
+        if debug_enabled:
+            logger.warning("[NPU-DEBUG] PowerInjectionService: Starting power neuron injection...")
+            logger.warning("[NPU-DEBUG] PowerInjectionService: Cache valid: %s", self._cache_valid)
+        
         try:
             # Get power neurons (cached for performance)
             power_neurons = self._get_power_neurons()
             
+            if debug_enabled:
+                logger.warning("[NPU-DEBUG] PowerInjectionService: Retrieved %d power neurons from cache/detection", len(power_neurons))
+            
             if not power_neurons:
                 # Only log occasionally to avoid spam
                 if current_timestep % 1000 == 0:
-                    logger.debug("No power neurons found at timestep %d", current_timestep)
+                    if debug_enabled:
+                        logger.warning("[NPU-DEBUG] PowerInjectionService: No power neurons available at timestep %d", current_timestep)
+                    else:
+                        logger.debug("No power neurons found at timestep %d", current_timestep)
                 return 0
             
             # Add power neurons to FCL using SoA format
             if power_neurons:
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] PowerInjectionService: Converting %d power neurons to SoA format", len(power_neurons))
+                
                 # Convert to numpy arrays for SoA format
                 neuron_ids = np.array(power_neurons, dtype=np.uint32)
                 potential_deltas = np.full(len(power_neurons), 1.0, dtype=np.float32)  # High potential for power neurons
                 excitatory_mask = np.ones(len(power_neurons), dtype=bool)  # All excitatory
+                
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] PowerInjectionService: SoA arrays created - neuron_ids: %s, potentials: %s", 
+                              neuron_ids.shape, potential_deltas.shape)
                 
                 # Add all power neurons to cortical area 0 (generic power injection)
                 injected_count = fcl.add_candidates_soa(
@@ -620,12 +786,21 @@ class PowerInjectionService:
                     potential_deltas=potential_deltas,
                     excitatory_mask=excitatory_mask
                 )
+                
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] PowerInjectionService: FCL.add_candidates_soa returned: %d", injected_count)
+                    
             else:
                 injected_count = 0
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] PowerInjectionService: No power neurons to inject")
             
             # Log occasionally (every 100 bursts) to avoid spam
             if current_timestep % 100 == 0:
-                logger.info("Power injection: %d neurons injected at burst %d", injected_count, current_timestep)
+                if debug_enabled:
+                    logger.warning("[NPU-DEBUG] PowerInjectionService: Periodic status - %d neurons injected at burst %d", injected_count, current_timestep)
+                else:
+                    logger.info("Power injection: %d neurons injected at burst %d", injected_count, current_timestep)
             
             return injected_count
             

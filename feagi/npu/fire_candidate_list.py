@@ -195,6 +195,25 @@ class FireCandidateList:
             'inhibitory_candidates': inhibitory_count
         }
     
+    def get_total_candidate_count(self) -> int:
+        """Get total number of candidates across all cortical areas.
+        
+        Returns:
+            Total candidate count for debug logging
+        """
+        return self.total_candidates
+        
+    def get_candidate_count_by_area(self, cortical_idx: int) -> int:
+        """Get number of candidates in a specific cortical area.
+        
+        Args:
+            cortical_idx: Cortical area index
+            
+        Returns:
+            Number of candidates in the specified area
+        """
+        return len(self.candidates_by_area.get(cortical_idx, []))
+    
     def clear(self):
         """Clear all candidates for next burst cycle.
         
