@@ -114,8 +114,29 @@ class BurstEngine:
         fcl = FireCandidateList()
         self._inject_all_candidates(fcl)
         
-        # Phase 2: Process neural dynamics  
+        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         fire_queue = FireQueue()
+        
+        if self.connectome_manager:
+            try:
+                # Use connectome manager to process membrane potentials vs thresholds
+                fired_neuron_ids = self.connectome_manager.update_membrane_potentials(
+                    current_timestep=self.current_timestep
+                )
+                
+                if fired_neuron_ids:
+                    # Convert fired neuron IDs to FiringNeuron objects and add to fire queue
+                    firing_neurons = self._create_firing_neurons(fired_neuron_ids)
+                    fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
+                    logger.debug(f"Phase 2: {len(fired_neuron_ids)} neurons fired at timestep {self.current_timestep}")
+                else:
+                    logger.debug(f"Phase 2: No neurons fired at timestep {self.current_timestep}")
+                    
+            except Exception as e:
+                logger.error(f"Error in neural processing phase: {e}")
+                # Continue with empty fire queue to maintain burst cycle
+        else:
+            logger.debug("No connectome manager - skipping neural processing phase")
         
         # Phase 3: Archive to fire ledger
         if not fire_queue.is_empty():
@@ -478,6 +499,57 @@ class BurstEngine:
         # Placeholder for synaptic propagation computation
         # This will integrate with actual connectome synaptic data
         return {}
+    
+    def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
+        """Convert fired neuron IDs to FiringNeuron objects with properties."""
+        firing_neurons = []
+        
+        try:
+            for neuron_id in fired_neuron_ids:
+                # Get neuron properties from connectome manager or NPU interface
+                cortical_idx = 0  # Default cortical area
+                membrane_potential = 1.0  # Default membrane potential
+                coordinates = (0, 0, 0)  # Default coordinates
+                threshold = 1.0  # Default threshold
+                
+                # Try to get actual properties from NPU interface
+                if (hasattr(self.connectome_manager, '_npu_interface') and 
+                    self.connectome_manager._npu_interface):
+                    
+                    npu_interface = self.connectome_manager._npu_interface
+                    
+                    # Get cortical area for this neuron
+                    if hasattr(npu_interface, 'neuron_to_area') and neuron_id in npu_interface.neuron_to_area:
+                        cortical_idx = npu_interface.neuron_to_area[neuron_id]
+                    
+                    # Get coordinates (simplified - may need more complex lookup)
+                    # For now, use neuron_id as coordinate basis
+                    x = neuron_id % 10
+                    y = (neuron_id // 10) % 10  
+                    z = (neuron_id // 100) % 10
+                    coordinates = (x, y, z)
+                
+                # Create FiringNeuron with available data
+                firing_neuron = FiringNeuron(
+                    neuron_id=neuron_id,
+                    cortical_idx=cortical_idx,
+                    membrane_potential=membrane_potential,
+                    coordinates=coordinates,
+                    threshold=threshold,
+                    consecutive_fire_count=0,  # Could be tracked in future
+                    refractory_counter=0,      # Could be tracked in future
+                    timestamp=time.time()
+                )
+                
+                firing_neurons.append(firing_neuron)
+            
+            logger.debug(f"Created {len(firing_neurons)} FiringNeuron objects")
+            
+        except Exception as e:
+            logger.error(f"Error creating firing neurons: {e}")
+            # Return empty list to prevent breaking burst cycle
+            
+        return firing_neurons
     
     def _initialize_injection_service(self):
         """Initialize injection service for power areas and special neuron injection."""
