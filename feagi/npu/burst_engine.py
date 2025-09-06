@@ -150,6 +150,13 @@ class BurstEngine:
             
             if fcl_candidate_count > 0:
                 # Process FCL candidates
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                if debug_enabled:
+                    logger.info("🔥 [FIRING-DEBUG] Processing %d total FCL candidates across %d areas", 
+                               fcl_candidate_count, len(fcl.candidates_by_area))
+                    for area_idx, area_candidates in fcl.candidates_by_area.items():
+                        logger.info("🔥 [FIRING-DEBUG] Area %d: %d candidates ready for firing evaluation", 
+                                   area_idx, len(area_candidates))
                 
                 # Process each cortical area's candidates directly
                 total_fired = 0
@@ -158,16 +165,27 @@ class BurstEngine:
                     
                     # Processing cortical area
                     
-                    # Simple threshold-based firing evaluation
-                    # TODO: Replace with proper neural dynamics when available
+                    # Get actual firing thresholds from neuron properties
+                    debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                    
                     for candidate in candidates:
-                        # Basic firing rule: fire if potential > threshold
-                        # Most sensory injected neurons have potentials 100-200, so use 50 as threshold
-                        firing_threshold = 50.0  
+                        # Get actual neuron firing threshold from NPU interface
+                        firing_threshold = self._get_neuron_firing_threshold(candidate.neuron_id)
+                        
+                        if debug_enabled:
+                            logger.info("🔥 [FIRING-DEBUG] Area %d, Neuron %d: potential=%.1f, threshold=%.1f, will_fire=%s", 
+                                       cortical_idx, candidate.neuron_id, candidate.membrane_potential_delta, 
+                                       firing_threshold, candidate.membrane_potential_delta >= firing_threshold)
                         
                         if candidate.membrane_potential_delta >= firing_threshold:
                             fired_neurons.append(candidate.neuron_id)
                             area_fired += 1
+                            if debug_enabled:
+                                logger.info("🔥 [FIRING-DEBUG] ✅ Neuron %d FIRED with potential %.1f", 
+                                           candidate.neuron_id, candidate.membrane_potential_delta)
+                        elif debug_enabled:
+                            logger.info("🔥 [FIRING-DEBUG] ❌ Neuron %d did NOT fire: %.1f < %.1f", 
+                                       candidate.neuron_id, candidate.membrane_potential_delta, firing_threshold)
                     
                     total_fired += area_fired
                     
@@ -710,23 +728,38 @@ class BurstEngine:
                 
             # Synaptic propagation from previous timestep
             if self.previous_fire_queue:
-                if periodic_debug:
-                    prev_neuron_count = len(self.previous_fire_queue.get_all_neuron_ids()) if self.previous_fire_queue else 0
-                    logger.debug("Previous fire queue has %d neurons for synaptic propagation", prev_neuron_count)
-                    
-                propagation_data = self._compute_synaptic_propagation()
-                self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
+                prev_neuron_count = len(self.previous_fire_queue.get_all_neuron_ids()) if self.previous_fire_queue else 0
                 
-                if periodic_debug:
-                    logger.debug("Synaptic propagation injection complete")
+                # Debug logging for NPU debug mode
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] Starting synaptic propagation phase with %d previously fired neurons", prev_neuron_count)
+                
+                propagation_data = self._compute_synaptic_propagation()
+                if propagation_data:
+                    if debug_enabled:
+                        logger.info("🔗 [SYNAPTIC-DEBUG] Propagation data computed, injecting into FCL...")
+                    injected_count = self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
+                    total_targets = sum(len(targets) for targets in propagation_data.values())
+                    logger.info("Synaptic propagation: %d candidates injected from %d fired neurons → %d target neurons", 
+                               injected_count, prev_neuron_count, total_targets)
+                    if debug_enabled:
+                        logger.info("🔗 [SYNAPTIC-DEBUG] FCL injection complete: %d candidates added", injected_count)
+                else:
+                    logger.info("Synaptic propagation: No synaptic connections found for %d fired neurons", prev_neuron_count)
+                    if debug_enabled:
+                        logger.info("🔗 [SYNAPTIC-DEBUG] No propagation data - check if neurons have outgoing synapses")
             else:
-                if periodic_debug:
-                    logger.debug("No previous fire queue - synaptic propagation skipped")
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] No previous fire queue - synaptic propagation skipped (first burst?)")
         else:
-            if periodic_debug:
-                logger.debug("FCL injector not available - no connectome manager provided")
-            else:
-                logger.debug("FCL injector not available - no connectome manager provided")
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            if debug_enabled:
+                logger.info("🔗 [SYNAPTIC-DEBUG] FCL injector not available - no connectome manager or initialization issue")
+                logger.info("🔗 [SYNAPTIC-DEBUG] Connectome manager: %s", self.connectome_manager is not None)
+                if self.connectome_manager:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] FCL injector available: %s", self.fcl_injector is not None)
         
         if periodic_debug:
             logger.debug("FCL injection complete - all injection sources processed")
@@ -734,10 +767,203 @@ class BurstEngine:
             logger.debug("FCL injection complete - power neurons and synaptic propagation processed")
     
     def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
-        """Compute synaptic propagation data from previous fire queue."""
-        # Placeholder for synaptic propagation computation
-        # This will integrate with actual connectome synaptic data
-        return {}
+        """Compute synaptic propagation data from previous fire queue.
+        
+        RUST-COMPATIBLE: Uses vectorized operations and deterministic lookups.
+        
+        Returns:
+            Dict[cortical_idx, List[(target_neuron_id, synaptic_contribution)]]
+        """
+        if not self.previous_fire_queue or not self.connectome_manager:
+            return {}
+            
+        # Get NPU interface for synapse data access
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            if debug_enabled:
+                logger.info("🔗 [SYNAPTIC-DEBUG] No NPU interface available in connectome_manager")
+            return {}
+            
+        synapse_array = getattr(npu_interface, 'synapse_array', None)
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not synapse_array or not neuron_array:
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            if debug_enabled:
+                logger.info("🔗 [SYNAPTIC-DEBUG] Missing data arrays - synapse_array: %s, neuron_array: %s", 
+                           synapse_array is not None, neuron_array is not None)
+            return {}
+            
+        # Get all fired neuron IDs from previous timestep
+        fired_neuron_ids = self.previous_fire_queue.get_all_neuron_ids()
+        if not fired_neuron_ids:
+            return {}
+            
+        try:
+            propagation_data = {}
+            
+            # Debug logging
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            if debug_enabled:
+                logger.info("🔗 [SYNAPTIC-DEBUG] Starting synaptic propagation for %d fired neurons: %s", 
+                           len(fired_neuron_ids), fired_neuron_ids[:5])
+                logger.info("🔗 [SYNAPTIC-DEBUG] Synapse array stats: total=%d, source_index_size=%d", 
+                           getattr(synapse_array, 'synapse_count', 0),
+                           len(getattr(synapse_array, 'source_neuron_index', {})))
+            
+            # For each fired neuron, find outgoing synapses
+            total_synapses_found = 0
+            neurons_with_synapses = 0
+            
+            for src_neuron_id in fired_neuron_ids:
+                # Get outgoing synapses for this source neuron
+                synapse_indices = getattr(synapse_array, 'source_neuron_index', {}).get(src_neuron_id, [])
+                
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Found %d outgoing synapses", 
+                               src_neuron_id, len(synapse_indices))
+                
+                if not synapse_indices:
+                    continue
+                    
+                neurons_with_synapses += 1
+                total_synapses_found += len(synapse_indices)
+                    
+                # Convert to numpy array for vectorized operations
+                syn_indices = np.array(synapse_indices, dtype=np.int32)
+                
+                # Filter valid synapses
+                valid_mask = getattr(synapse_array, 'valid_mask', None)
+                if valid_mask is not None:
+                    valid_syn_mask = valid_mask[syn_indices]
+                    valid_count = np.sum(valid_syn_mask)
+                    if debug_enabled:
+                        logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: %d/%d synapses are valid", 
+                                   src_neuron_id, valid_count, len(syn_indices))
+                    if not np.any(valid_syn_mask):
+                        continue
+                    syn_indices = syn_indices[valid_syn_mask]
+                
+                # Get target neuron IDs and synaptic properties
+                target_neuron_ids = synapse_array.target_neuron_ids[syn_indices].astype(np.int32)
+                weights = synapse_array.weights[syn_indices].astype(np.float32)
+                
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Target neurons: %s, Weights: %s", 
+                               src_neuron_id, target_neuron_ids[:3].tolist(), weights[:3].tolist())
+                
+                # Apply conductance and excitatory/inhibitory type
+                conductances = getattr(synapse_array, 'conductances', None)
+                syn_types = getattr(synapse_array, 'types', None)
+                
+                if conductances is not None:
+                    conductances_array = conductances[syn_indices].astype(np.float32)
+                else:
+                    conductances_array = np.ones(len(syn_indices), dtype=np.float32)
+                    
+                if syn_types is not None:
+                    types_array = syn_types[syn_indices].astype(np.int32)
+                    # 0 = excitatory (+), 1 = inhibitory (-)
+                    sign = np.where(types_array == 0, 1.0, -1.0).astype(np.float32)
+                else:
+                    sign = np.ones(len(syn_indices), dtype=np.float32)  # Default to excitatory
+                
+                # Compute synaptic contributions
+                synaptic_contributions = weights * conductances_array * sign
+                
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Computed contributions: %s", 
+                               src_neuron_id, synaptic_contributions[:3].tolist())
+                
+                # Group by target cortical areas
+                neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
+                
+                targets_by_area = {}
+                for target_id, contribution in zip(target_neuron_ids, synaptic_contributions):
+                    target_id = int(target_id)
+                    contribution = float(contribution)
+                    
+                    # Get cortical area for target neuron
+                    cortical_idx = neuron_to_area.get(target_id, 0)  # Default to area 0
+                    
+                    # Track targets by area for debugging
+                    if cortical_idx not in targets_by_area:
+                        targets_by_area[cortical_idx] = 0
+                    targets_by_area[cortical_idx] += 1
+                    
+                    # Add to propagation data
+                    if cortical_idx not in propagation_data:
+                        propagation_data[cortical_idx] = []
+                    
+                    propagation_data[cortical_idx].append((target_id, contribution))
+                
+                if debug_enabled:
+                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Targets by area: %s", 
+                               src_neuron_id, targets_by_area)
+            
+            if debug_enabled:
+                total_targets = sum(len(targets) for targets in propagation_data.values())
+                logger.info("🔗 [SYNAPTIC-DEBUG] SUMMARY: %d/%d fired neurons had synapses", 
+                           neurons_with_synapses, len(fired_neuron_ids))
+                logger.info("🔗 [SYNAPTIC-DEBUG] SUMMARY: Found %d total synapses → %d target neurons across %d areas", 
+                           total_synapses_found, total_targets, len(propagation_data))
+                if propagation_data:
+                    for area_idx, targets in propagation_data.items():
+                        sample_targets = [f"{t[0]}({t[1]:.1f})" for t in targets[:3]]
+                        logger.info("🔗 [SYNAPTIC-DEBUG] Area %d: %d targets, samples: %s", 
+                                   area_idx, len(targets), sample_targets)
+                           
+            return propagation_data
+            
+        except Exception as e:
+            logger.error("Error in synaptic propagation computation: %s", str(e))
+            return {}
+    
+    def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
+        """Get the actual firing threshold for a specific neuron.
+        
+        RUST-COMPATIBLE: Deterministic lookup with fallback.
+        
+        Args:
+            neuron_id: The neuron ID to get threshold for
+            
+        Returns:
+            Actual firing threshold from neuron properties, or default 1.0
+        """
+        # Default threshold if we can't get the actual value
+        default_threshold = 1.0
+        
+        try:
+            # Get NPU interface for neuron data access
+            if not self.connectome_manager:
+                return default_threshold
+                
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if not npu_interface:
+                return default_threshold
+                
+            neuron_array = getattr(npu_interface, 'neuron_array', None)
+            if not neuron_array:
+                return default_threshold
+                
+            # Get neuron index from ID
+            neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+            if not neuron_id_to_index or neuron_id not in neuron_id_to_index:
+                return default_threshold
+                
+            neuron_index = neuron_id_to_index[neuron_id]
+            
+            # Get threshold array and lookup threshold for this neuron
+            thresholds = getattr(neuron_array, 'thresholds', None)
+            if thresholds is not None and neuron_index < len(thresholds):
+                actual_threshold = float(thresholds[neuron_index])
+                return actual_threshold
+                
+            return default_threshold
+            
+        except Exception as e:
+            logger.warning("Failed to get firing threshold for neuron %d: %s", neuron_id, str(e))
+            return default_threshold
     
     def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
         """Convert fired neuron IDs to FiringNeuron objects with properties."""
