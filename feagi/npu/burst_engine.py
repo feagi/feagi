@@ -842,8 +842,8 @@ class BurstEngine:
     
     def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
         """Convert fired neuron IDs to FiringNeuron objects with properties."""
-        # Pre-allocate list for RTOS compliance (no dynamic growth)
-        firing_neurons = [None] * len(fired_neuron_ids)
+        # Use list comprehension to avoid index assignment errors
+        firing_neurons = []
         
         try:
             for idx, neuron_id in enumerate(fired_neuron_ids):
@@ -903,10 +903,10 @@ class BurstEngine:
                     timestamp=0.0  # RTOS-safe: no system time calls
                 )
                 
-                firing_neurons[idx] = firing_neuron
+                # Use append instead of index assignment to avoid range errors
+                firing_neurons.append(firing_neuron)
             
-            # Filter out None values (robust cleanup)
-            firing_neurons = [fn for fn in firing_neurons if fn is not None]
+            # No need to filter None values since we use append
             logger.debug("Created %d FiringNeuron objects", len(firing_neurons))
             
         except Exception as e:
