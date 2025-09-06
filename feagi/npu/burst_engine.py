@@ -98,9 +98,9 @@ class BurstEngine:
         # Initialize injection service for power areas and special neurons
         self._initialize_injection_service()
         
-        # Mark as initialized and ready
+        # Mark as initialized but keep in INITIALIZING state until burst processing works
         self._initialized = True
-        self._set_burst_engine_state(ServiceState.READY)
+        # DON'T set to READY yet - wait until burst processing actually works
 
         logger.info("Clean Burst Engine initialized with singleton pattern and state manager integration")
     
@@ -111,8 +111,12 @@ class BurstEngine:
         # NPU Debug logging (enabled with --debug-npu)
         debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
         
-        # Throttle debug logging to prevent disk space issues
+        # Throttle debug logging to prevent disk space issues  
         periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
+        
+        # CRITICAL DEBUG: Always log first few bursts to debug FCL issue
+        if self.burst_count < 5:
+            logger.info("🔥 BURST-DEBUG #%d: process_burst() called, debug_enabled=%s", self.burst_count, debug_enabled)
         
         if periodic_debug:
             logger.debug("BURST #%d: Starting burst processing pipeline", self.burst_count)
@@ -135,6 +139,10 @@ class BurstEngine:
                 
                 # Inject the accumulated data directly into FCL
                 late_injection_count = self.injection_service.inject_power_neurons(fcl, self.current_timestep)
+                
+                # PROPER SUCCESS LOG: This is when neurons are actually injected into FCL
+                if late_injection_count > 0:
+                    logger.info("✅ ACTUAL FCL INJECTION: Successfully injected %d neurons into FCL from queued activations", late_injection_count)
                 
                 if periodic_debug:
                     logger.debug("LATE INJECTION: Added %d candidates from accumulated data", late_injection_count)
@@ -163,6 +171,11 @@ class BurstEngine:
                 logger.debug("Direct neural processing: %d FCL candidates available", fcl_candidate_count)
             
             if fcl_candidate_count > 0:
+                # CRITICAL DEBUG: Log FCL candidate processing
+                if self.burst_count < 5 or periodic_debug:
+                    logger.info("🧠 FCL-DEBUG #%d: Processing %d candidates across %d areas", 
+                               self.burst_count, fcl_candidate_count, len(fcl.candidates_by_area))
+                
                 # Process each cortical area's candidates directly
                 total_fired = 0
                 for cortical_idx, candidates in fcl.candidates_by_area.items():
@@ -190,8 +203,15 @@ class BurstEngine:
                 
                 # Add fired neurons to fire queue
                 if fired_neurons:
+                    # DEBUG: Log fired neuron IDs before creating FiringNeuron objects
+                    logger.debug("Converting %d fired neuron IDs to FiringNeuron objects: %s", 
+                                len(fired_neurons), fired_neurons[:5] if len(fired_neurons) > 5 else fired_neurons)
+                    
                     # Convert neuron IDs to FiringNeuron objects
                     firing_neurons = self._create_firing_neurons(fired_neurons)
+                    logger.debug("Successfully created %d FiringNeuron objects from %d fired IDs", 
+                                len(firing_neurons) if firing_neurons else 0, len(fired_neurons))
+                    
                     fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
                     
                     if periodic_debug:
@@ -203,10 +223,18 @@ class BurstEngine:
                     if periodic_debug:
                         logger.debug("Phase 2: No neurons exceeded firing threshold (%.1f) - fire queue remains empty", 50.0)
             else:
+                # CRITICAL DEBUG: Log when FCL is empty
+                if self.burst_count < 5 or periodic_debug:
+                    logger.info("❌ FCL-DEBUG #%d: FCL is empty - no candidates to process", self.burst_count)
+                
                 if periodic_debug:
                     logger.debug("Phase 2: FCL is empty - no candidates to process")
                     
         except Exception as e:
+            # CRITICAL: Set to ERROR state if burst processing fails
+            self._set_burst_engine_state(ServiceState.ERROR)
+            logger.error("BURST-ENGINE: Critical error in burst processing - marking as ERROR state")
+            
             if debug_enabled:
                 logger.error("Error in direct neural processing: %s", str(e))
                 if periodic_debug:  # Only show traceback periodically
@@ -268,6 +296,17 @@ class BurstEngine:
         
         # Return fired neuron IDs for external systems
         fired_ids = fire_queue.get_all_neuron_ids()
+        
+        # CRITICAL: Only set to READY after successful burst processing
+        # This ensures health check only reports "running" when actually processing bursts
+        if self.burst_count == 1:  # First successful burst
+            self._set_burst_engine_state(ServiceState.READY)
+            logger.info("🎯 BURST-ENGINE: First successful burst completed - now marked as READY")
+        
+        # CRITICAL DEBUG: Log burst completion
+        if self.burst_count <= 5:
+            logger.info("✅ BURST-DEBUG #%d: Completed, returning %d fired neurons", 
+                       self.current_timestep, len(fired_ids))
         
         if periodic_debug:
             logger.debug("BURST #%d COMPLETE: %d neurons fired total", 
@@ -376,12 +415,12 @@ class BurstEngine:
         # Update state manager when running state changes
         if old_value != value:
             if value:
-                # When starting to run, set state to READY (active and processing)
-                self._set_burst_engine_state(ServiceState.READY)
+                # When starting to run, keep in INITIALIZING state until first burst completes
+                # DON'T set to READY here - wait for successful burst processing
+                logger.debug("BurstEngine: Started running but waiting for first successful burst to mark as READY")
             else:
-                # When stopping, set state back to READY but not running
-                # (This maintains compatibility with existing state machine)
-                pass
+                # When stopping, set state to STOPPED
+                self._set_burst_engine_state(ServiceState.STOPPED)
         
         # Debug logging if NPU debug mode is enabled
         try:
@@ -547,7 +586,6 @@ class BurstEngine:
                             # Continue processing even if one burst fails
                         
                         # Timing control: Add sleep to prevent runaway CPU usage
-                        # TODO: Replace with external scheduler for RTOS compliance
                         import time
                         try:
                             time.sleep(burst_interval)
@@ -825,12 +863,33 @@ class BurstEngine:
                     if hasattr(npu_interface, 'neuron_to_area') and neuron_id in npu_interface.neuron_to_area:
                         cortical_idx = npu_interface.neuron_to_area[neuron_id]
                     
-                    # Get coordinates (simplified - may need more complex lookup)
-                    # For now, use neuron_id as coordinate basis
-                    x = neuron_id % 10
-                    y = (neuron_id // 10) % 10  
-                    z = (neuron_id // 100) % 10
-                    coordinates = (x, y, z)
+                    # Get coordinates from neuron array (the mapping table) - ROBUST VERSION
+                    try:
+                        if (hasattr(npu_interface, 'neuron_array') and 
+                            hasattr(npu_interface.neuron_array, 'neuron_id_to_index')):
+                            
+                            neuron_array = npu_interface.neuron_array
+                            if neuron_id in neuron_array.neuron_id_to_index:
+                                idx = neuron_array.neuron_id_to_index[neuron_id]
+                                
+                                # Robust coordinate extraction with proper int conversion
+                                if (hasattr(neuron_array, 'coordinates_x') and 
+                                    hasattr(neuron_array, 'coordinates_y') and
+                                    hasattr(neuron_array, 'coordinates_z')):
+                                    
+                                    x = int(neuron_array.coordinates_x[idx])
+                                    y = int(neuron_array.coordinates_y[idx])  
+                                    z = int(neuron_array.coordinates_z[idx])
+                                    coordinates = (x, y, z)
+                                    
+                                    # Also get actual properties if available
+                                    if hasattr(neuron_array, 'membrane_potentials'):
+                                        membrane_potential = float(neuron_array.membrane_potentials[idx])
+                                    if hasattr(neuron_array, 'thresholds'):
+                                        threshold = float(neuron_array.thresholds[idx])
+                    except Exception:
+                        # If coordinate lookup fails, use defaults - don't break firing neuron creation
+                        pass
                 
                 # Create FiringNeuron with available data
                 firing_neuron = FiringNeuron(
@@ -846,11 +905,14 @@ class BurstEngine:
                 
                 firing_neurons[idx] = firing_neuron
             
+            # Filter out None values (robust cleanup)
+            firing_neurons = [fn for fn in firing_neurons if fn is not None]
             logger.debug("Created %d FiringNeuron objects", len(firing_neurons))
             
-        except Exception:
-            logger.error("Error creating firing neurons")
-            # Return empty list to prevent breaking burst cycle
+        except Exception as e:
+            logger.error("Error creating firing neurons: %s", str(e))
+            # Return empty list to prevent breaking burst cycle - CRITICAL FIX
+            return []
             
         return firing_neurons
     
@@ -1165,10 +1227,6 @@ class PowerInjectionService:
                         self.connectome_manager.state_manager.is_debug_npu_enabled())
         periodic_debug = debug_enabled and (current_timestep % 500 == 0)  # Every 50 bursts
         
-        if periodic_debug:
-            logger.debug("PowerInjectionService: External activation injection from %s", source)
-            logger.debug("PowerInjectionService: %d cortical areas with activations", len(activations))
-            logger.debug("PowerInjectionService: Instance ID: %s", id(self))
         
         try:
             total_injected = 0

@@ -370,14 +370,9 @@ class VisualizationStream:
         enable/disable states.
         """
         logger.debug("Visualization data worker started")
-        loop_count = 0
 
         while self.running and not self._stop_event.is_set():
             try:
-                loop_count += 1
-                if loop_count % 100 == 0:  # Every 100 loops
-                    logger.debug("🎥 [VIZ-STREAM] Data worker loop #%d", loop_count)
-                
                 # Quick exit check for shutdown
                 if self._stop_event.is_set():
                     logger.debug("Data worker received stop signal")
@@ -385,12 +380,8 @@ class VisualizationStream:
 
                 # Skip processing if in standby mode (genome not loaded)
                 if not self._active_mode:
-                    if loop_count % 50 == 0:
-                        logger.debug("🎥 [VIZ-STREAM] Not in active mode, updating...")
                     self._update_active_mode()
                     if not self._active_mode:
-                        if loop_count % 50 == 0:
-                            logger.debug("🎥 [VIZ-STREAM] Still not active, sleeping...")
                         time.sleep(
                             0.5
                         )  # @architecture:acceptable - standby mode
@@ -400,8 +391,6 @@ class VisualizationStream:
                 # satisfied. Instead of dynamic discovery, require explicit
                 # dependency injection at startup
                 if not self.fq_sampler:
-                    if loop_count % 50 == 0:
-                        logger.debug("🎥 [VIZ-STREAM] No FQ sampler, checking process manager...")
                     if self.process_manager:
                         # Try to get FQ sampler from process manager
                         viz_fq_sampler = (
@@ -459,13 +448,7 @@ class VisualizationStream:
                     else False
                 )
 
-                if loop_count % 50 == 0:
-                    logger.debug("🎥 [VIZ-STREAM] FQ sampler check - has_sampler: %s, has_subscribers: %s", 
-                               bool(self.fq_sampler), fq_sampler_has_subscribers)
-
                 if not self.fq_sampler or not fq_sampler_has_subscribers:
-                    if loop_count % 50 == 0:
-                        logger.debug("🎥 [VIZ-STREAM] Skipping sampling - no sampler or no subscribers")
                     #  Brief wait to avoid busy-waiting when no clients
                     #  connected
                     time.sleep(
@@ -476,20 +459,13 @@ class VisualizationStream:
                 #  Get data from UnifiedFQSampler ONLY when enabled (clients
                 #  connected)
                 try:
-                    # DEBUG: Check FQ sampler status before sampling
-                    if hasattr(self, 'fq_sampler') and self.fq_sampler is not None:
-                        logger.debug("🎥 [VIZ-STREAM] Calling fq_sampler.sample()")
-                        sample_data = self.fq_sampler.sample()
-                        logger.debug("🎥 [VIZ-STREAM] FQ sampler returned: %s", "data" if sample_data else "None")
-                    else:
-                        logger.debug("🎥 [VIZ-STREAM] No FQ sampler available - fq_sampler is %s", 
-                                   getattr(self, 'fq_sampler', 'undefined'))
-                        sample_data = None
+                    sample_data = self.fq_sampler.sample()
 
                     if sample_data:
-                        logger.debug("🎥 [VIZ-STREAM] Converting sample data for visualization")
-                        #  Convert UnifiedFQSampler format to visualization
-                        #  format
+                        # COORDINATE DEBUG: Log what we're about to convert
+                        logger.info(f"🎨 [VIZ-STREAM] Converting sample data with {len(sample_data)} areas")
+                        
+                        #  Convert UnifiedFQSampler format to visualization format
                         for_visualization = (
                             self._convert_fq_format_to_viz_format(sample_data)
                         )
@@ -497,29 +473,14 @@ class VisualizationStream:
                         # Only broadcast if we have visualization clients
                         with self._client_lock:
                             client_count = len(self.client_last_heartbeat)
-                            logger.debug("🎥 [VIZ-STREAM] Broadcasting to %d clients", client_count)
                             if client_count > 0:
                                 broadcast_data = self._prepare_broadcast_data(
                                     for_visualization
                                 )
                                 self._broadcast_to_clients(broadcast_data)
-                                logger.debug("🎥 [VIZ-STREAM] ✅ Data broadcast complete")
-                            else:
-                                logger.debug("🎥 [VIZ-STREAM] No clients to broadcast to")
-                    else:
-                        # Only log every 10 cycles to avoid spam when no data
-                        if hasattr(self, '_no_data_counter'):
-                            self._no_data_counter += 1
-                        else:
-                            self._no_data_counter = 1
-                        
-                        if self._no_data_counter % 10 == 0:
-                            logger.debug("🎥 [VIZ-STREAM] No sample data available (count: %d)", self._no_data_counter)
 
                 except Exception as e:
-                    logger.error(f"🎥 [VIZ-STREAM] Error sampling from FQ sampler: {e}")
-                    import traceback
-                    logger.error(f"🎥 [VIZ-STREAM] Traceback: {traceback.format_exc()}")
+                    logger.error(f"Error sampling from FQ sampler: {e}")
 
                 # Maintain sample rate timing
                 time.sleep(
@@ -1345,7 +1306,7 @@ class VisualizationStream:
                             logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
                             continue
                         
-                        logger.debug(f"✅ Converted cortical_idx {area_id} → cortical_id '{cortical_id_str}'")
+                        logger.info(f"🗺️ [COORD-DEBUG] Area {area_id} → cortical_id '{cortical_id_str}'")
                         area_str = cortical_id_str
                     else:
                         # Already a string, use as-is
@@ -1356,6 +1317,9 @@ class VisualizationStream:
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
+                        # COORDINATE DEBUG: Log first few coordinates being sent to visualizer  
+                        if len(neurons_x) > 0:
+                            logger.info(f"🗺️ [COORD-DEBUG] Area '{area_str}': First neuron visualization coords = ({neurons_x[0]}, {neurons_y[0] if len(neurons_y) > 0 else 'N/A'}, {neurons_z[0] if len(neurons_z) > 0 else 'N/A'})")
                         logger.debug(f"✅ Successfully created cortical ID object for '{area_str}'")
 
                     except ValueError as e:

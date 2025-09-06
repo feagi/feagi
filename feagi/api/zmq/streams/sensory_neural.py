@@ -416,7 +416,7 @@ class SensoryNeuralStream:
                 if result.get("success", False):
                     if self._is_debug_npu_enabled():
                         logger.info(
-                            f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data), neural_data} cortical areas (VECTORIZED)"
+                            f"📥 Successfully QUEUED {neuron_count} neurons for FCL injection across {len(neural_data)} cortical areas (pending burst processing)"
                         )
                     return StreamResult.SUCCESS
                 else:
