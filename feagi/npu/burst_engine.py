@@ -112,7 +112,7 @@ class BurstEngine:
         debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
         
         # Throttle debug logging to prevent disk space issues
-        periodic_debug = debug_enabled and (self.burst_count % 50 == 0)  # Every 50 bursts
+        periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
         
         if periodic_debug:
             logger.debug("BURST #%d: Starting burst processing pipeline", self.burst_count)
@@ -546,8 +546,14 @@ class BurstEngine:
                             logger.error("Error in burst processing #%d", self.burst_count)
                             # Continue processing even if one burst fails
                         
-                        # RTOS-compliant timing: no blocking sleep operations
-                        # Burst engine relies on external scheduler for timing control
+                        # Timing control: Add sleep to prevent runaway CPU usage
+                        # TODO: Replace with external scheduler for RTOS compliance
+                        import time
+                        try:
+                            time.sleep(burst_interval)
+                        except Exception:
+                            # Fallback if config unavailable
+                            time.sleep(0.1)  # @architecture:acceptable - emergency fallback
                         
                         # Check for exit condition
                         if not self._running:
@@ -724,7 +730,7 @@ class BurstEngine:
         
         # NPU Debug logging
         debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
-        periodic_debug = debug_enabled and (self.burst_count % 50 == 0)  # Every 50 bursts
+        periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
         
         if periodic_debug:
             logger.debug("FCL injection starting...")
@@ -887,7 +893,7 @@ class PowerInjectionService:
         debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
                         self.connectome_manager.state_manager and 
                         self.connectome_manager.state_manager.is_debug_npu_enabled())
-        periodic_debug = debug_enabled and (current_timestep % 50 == 0)  # Every 50 bursts
+        periodic_debug = debug_enabled and (current_timestep % 500 == 0)  # Every 50 bursts
         
         if periodic_debug:
             logger.debug("PowerInjectionService: Starting power neuron injection...")
@@ -1157,7 +1163,7 @@ class PowerInjectionService:
         debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
                         self.connectome_manager.state_manager and 
                         self.connectome_manager.state_manager.is_debug_npu_enabled())
-        periodic_debug = debug_enabled and (current_timestep % 50 == 0)  # Every 50 bursts
+        periodic_debug = debug_enabled and (current_timestep % 500 == 0)  # Every 50 bursts
         
         if periodic_debug:
             logger.debug("PowerInjectionService: External activation injection from %s", source)

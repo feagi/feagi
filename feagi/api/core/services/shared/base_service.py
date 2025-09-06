@@ -38,17 +38,30 @@ class BaseService:
         self.logger = logger
 
     def _validate_connectome_ready(self) -> bool:
-        """Check if connectome manager is ready for operations."""
+        """Check if connectome manager is ready for basic operations like brain stats.
+        
+        NOTE: This validation is used by health checks to determine if brain statistics
+        can be safely retrieved. FCL manager is not required for basic brain stats.
+        """
         if not self._connectome_manager:
             self.logger.warning("Connectome manager not available")
             return False
 
+        # Check if basic brain data structures are available
+        if not hasattr(self._connectome_manager, "get_neuron_count"):
+            self.logger.warning("ConnectomeManager missing get_neuron_count method")
+            return False
+            
+        if not hasattr(self._connectome_manager, "synapse_count"):
+            self.logger.warning("ConnectomeManager missing synapse_count property") 
+            return False
+
+        # FCL manager is NOT required for basic brain stats - only log if missing but continue
         if (
             not hasattr(self._connectome_manager, "fcl_manager")
             or not self._connectome_manager.fcl_manager
         ):
-            self.logger.warning("FCL manager not initialized")
-            return False
+            self.logger.debug("FCL manager not initialized (not required for brain stats)")
 
         return True
 

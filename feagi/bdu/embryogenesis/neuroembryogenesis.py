@@ -1695,6 +1695,38 @@ class NeuroEmbryogenesis:
             f"{self.development_stats['total_synapses']} synapses.",
         )
 
+        # CRITICAL DEBUG: Check actual counts at completion of neuroembryogenesis
+        logger.info("🧠 [NEUROEMBRYOGENESIS] Brain development completed - checking actual counts:")
+        
+        # Get actual counts from connectome manager
+        if self.connectome_manager:
+            actual_neuron_count = self.connectome_manager.get_neuron_count() if hasattr(self.connectome_manager, 'get_neuron_count') else "N/A"
+            actual_synapse_count = self.connectome_manager.synapse_count if hasattr(self.connectome_manager, 'synapse_count') else "N/A"
+            actual_cortical_areas = len(getattr(self.connectome_manager, 'cortical_areas', {}))
+            
+            logger.info(f"🧠 [NEUROEMBRYOGENESIS] ConnectomeManager actual counts:")
+            logger.info(f"  - Neurons: {actual_neuron_count}")
+            logger.info(f"  - Synapses: {actual_synapse_count}")
+            logger.info(f"  - Cortical areas: {actual_cortical_areas}")
+        
+        # Check state manager counters if available
+        if hasattr(self, 'state_manager') and self.state_manager:
+            brain_stats = self.state_manager.get_brain_stats() if hasattr(self.state_manager, 'get_brain_stats') else None
+            genome_loaded = self.state_manager.is_genome_loaded() if hasattr(self.state_manager, 'is_genome_loaded') else "N/A"
+            
+            logger.info(f"🧠 [NEUROEMBRYOGENESIS] StateManager counters:")
+            logger.info(f"  - Brain stats: {brain_stats}")
+            logger.info(f"  - Genome loaded: {genome_loaded}")
+            
+            # Also check direct state access
+            if hasattr(self.state_manager, '_state'):
+                direct_neuron_count = getattr(self.state_manager._state, 'neuron_count', 'N/A')
+                direct_synapse_count = getattr(self.state_manager._state, 'synapse_count', 'N/A')
+                logger.info(f"  - Direct state neuron_count: {direct_neuron_count}")
+                logger.info(f"  - Direct state synapse_count: {direct_synapse_count}")
+
+        logger.info("🧠 [NEUROEMBRYOGENESIS] ✅ Returning True - brain development complete")
+
         return True
 
     def _validate_and_update_brain_region_mappings(self) -> bool:

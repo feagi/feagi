@@ -1018,6 +1018,14 @@ class GenomeService(BaseService):
                     self.logger.info(
                         f"COMPLETE brain development finished: {stats.get('total_neurons', 0)} neurons, {stats.get('total_synapses', 0)} synapses"
                     )
+                    
+                    # CRITICAL DEBUG: Check counts immediately after neuroembryogenesis completes
+                    self.logger.info("🧠 [GENOME-SERVICE] Neuroembryogenesis completed successfully - checking immediate counts:")
+                    immediate_neurons = self._connectome_manager.get_neuron_count() if self._connectome_manager else 0
+                    immediate_synapses = self._connectome_manager.synapse_count if self._connectome_manager else 0
+                    immediate_brain_stats = self.state_manager.get_brain_stats() if self.state_manager else {}
+                    self.logger.info(f"🧠 [GENOME-SERVICE] IMMEDIATE ConnectomeManager: neurons={immediate_neurons}, synapses={immediate_synapses}")
+                    self.logger.info(f"🧠 [GENOME-SERVICE] IMMEDIATE StateManager brain_stats: {immediate_brain_stats}")
 
                     #  CRITICAL: Apply genome's simulation_timestep to system
                     #  configuration
@@ -1062,7 +1070,23 @@ class GenomeService(BaseService):
                     )
                     
                     # CRITICAL: Force state manager sync after genome loading completes
+                    self.logger.info("🧠 [GENOME-SERVICE] About to call _force_state_manager_sync() after brain development")
+                    
+                    # Check what connectome manager has BEFORE sync
+                    pre_sync_neurons = self._connectome_manager.get_neuron_count() if self._connectome_manager else 0
+                    pre_sync_synapses = self._connectome_manager.synapse_count if self._connectome_manager else 0
+                    self.logger.info(f"🧠 [GENOME-SERVICE] PRE-SYNC ConnectomeManager counts: neurons={pre_sync_neurons}, synapses={pre_sync_synapses}")
+                    
+                    # Check state manager BEFORE sync
+                    pre_sync_brain_stats = self.state_manager.get_brain_stats() if self.state_manager else {}
+                    self.logger.info(f"🧠 [GENOME-SERVICE] PRE-SYNC StateManager brain_stats: {pre_sync_brain_stats}")
+                    
                     self._force_state_manager_sync()
+                    
+                    # Check state manager AFTER sync
+                    post_sync_brain_stats = self.state_manager.get_brain_stats() if self.state_manager else {}
+                    self.logger.info(f"🧠 [GENOME-SERVICE] POST-SYNC StateManager brain_stats: {post_sync_brain_stats}")
+                    self.logger.info("🧠 [GENOME-SERVICE] ✅ _force_state_manager_sync() completed")
 
                     # Log current burst engine state for monitoring
 
