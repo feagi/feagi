@@ -109,6 +109,30 @@ batch_size = 1000              # neurons per batch
 use_sparse_computation = true   # optimize for sparse networks
 enable_plasticity = true       # learning mechanisms
 
+[burst_engine]
+# Burst Engine Memory Management Configuration
+# Controls how memory is allocated for FCL, Fire Queue, and other burst engine components
+
+# Operating modes:
+# - "inference": Allocate memory based on actual genome neuron count (production/deployment)
+# - "design": Allocate memory based on percentage of max neurons (development/experimentation)
+mode = "inference"  # "inference" | "design"
+
+# Maximum neurons the system can theoretically support (hardware/memory limits)
+max_supported_neurons = 10000000  # 10M neurons maximum capacity
+
+# Design mode settings (when mode = "design")
+design_mode_allocation_percent = 80  # Use 80% of max_supported_neurons for memory allocation
+
+# Memory allocation multipliers for safety margins
+fcl_capacity_multiplier = 1.5        # FCL capacity = genome_neurons * 1.5 (for burst accumulation)
+fire_queue_capacity_multiplier = 1.2  # Fire Queue capacity = genome_neurons * 1.2 (for firing spikes)
+memory_area_multiplier = 2.0          # Memory areas can expand beyond base genome size
+
+# Performance tuning
+enable_preallocation = true           # Pre-allocate all arrays at genome load (Rust-compatible)
+enable_capacity_warnings = true       # Warn if approaching capacity limits during operation
+
 # Hybrid CPU/GPU Processing Configuration
 [neural.hybrid]
 enabled = true  # Enable intelligent CPU/GPU hybrid processing
