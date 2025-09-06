@@ -134,6 +134,15 @@ class FQSampler:
     def has_visualization_subscribers(self) -> bool:
         """Check if visualization subscribers are connected."""
         return self._has_visualization_subscribers
+    
+    def set_sample_frequency(self, frequency_hz: float):
+        """Set the sample frequency for the FQ sampler.
+        
+        Args:
+            frequency_hz: New sampling frequency in Hz
+        """
+        if frequency_hz > 0:
+            self.sample_frequency_hz = frequency_hz
 
 
 class UnifiedFQSampler:
@@ -210,6 +219,14 @@ class UnifiedFQSampler:
     def has_visualization_subscribers(self) -> bool:
         """Check if visualization subscribers are connected."""
         return self._fq_sampler.has_visualization_subscribers()
+    
+    def set_sample_frequency(self, frequency_hz: float):
+        """Set the sample frequency for the FQ sampler.
+        
+        Args:
+            frequency_hz: New sampling frequency in Hz
+        """
+        self._fq_sampler.set_sample_frequency(frequency_hz)
     
     # Additional methods that might be expected by legacy code
     def get_statistics(self) -> Dict[str, Any]:
