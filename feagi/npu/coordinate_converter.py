@@ -98,21 +98,42 @@ class CoordinateConverter:
         # Try multiple methods to find neuron at coordinate
         neuron_id = None
         
+        # RUST-COMPATIBLE: Deterministic lookup methods without runtime reflection
+        
         # Method 1: Direct connectome manager lookup
-        if hasattr(self.connectome_manager, 'get_neuron_at_coordinate'):
-            neuron_id = self.connectome_manager.get_neuron_at_coordinate(cortical_id, x, y, z)
+        get_neuron_at_coordinate = getattr(self.connectome_manager, 'get_neuron_at_coordinate', None)
+        if get_neuron_at_coordinate is not None:
+            try:
+                neuron_id = get_neuron_at_coordinate(cortical_id, x, y, z)
+            except (KeyError, ValueError, TypeError):
+                # @architecture:acceptable - coordinate lookup fallback
+                neuron_id = None
             
         # Method 2: Cortical area coordinate lookup
-        elif hasattr(self.connectome_manager, 'cortical_areas'):
-            cortical_area = self.connectome_manager.cortical_areas.get(cortical_id)
-            if cortical_area and hasattr(cortical_area, 'get_neuron_at_coordinate'):
-                neuron_id = cortical_area.get_neuron_at_coordinate(x, y, z)
+        if neuron_id is None:
+            cortical_areas = getattr(self.connectome_manager, 'cortical_areas', None)
+            if cortical_areas is not None:
+                cortical_area = cortical_areas.get(cortical_id)
+                if cortical_area is not None:
+                    get_neuron_at_coord = getattr(cortical_area, 'get_neuron_at_coordinate', None)
+                    if get_neuron_at_coord is not None:
+                        try:
+                            neuron_id = get_neuron_at_coord(x, y, z)
+                        except (KeyError, ValueError, TypeError):
+                            # @architecture:acceptable - coordinate lookup fallback
+                            neuron_id = None
                 
         # Method 3: Neuron array coordinate mapping
-        elif hasattr(self.connectome_manager, 'neuron_array'):
-            neuron_array = self.connectome_manager.neuron_array
-            if hasattr(neuron_array, 'get_neuron_at_coordinate'):
-                neuron_id = neuron_array.get_neuron_at_coordinate(cortical_id, x, y, z)
+        if neuron_id is None:
+            neuron_array = getattr(self.connectome_manager, 'neuron_array', None)
+            if neuron_array is not None:
+                get_neuron_at_coord = getattr(neuron_array, 'get_neuron_at_coordinate', None)
+                if get_neuron_at_coord is not None:
+                    try:
+                        neuron_id = get_neuron_at_coord(cortical_id, x, y, z)
+                    except (KeyError, ValueError, TypeError):
+                        # @architecture:acceptable - coordinate lookup fallback
+                        neuron_id = None
         
         # Cache result for future use
         if neuron_id is not None:

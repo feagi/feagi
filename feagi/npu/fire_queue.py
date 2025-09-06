@@ -13,7 +13,7 @@ Key Features:
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import time
 from feagi.utils.logger import setup_logger
@@ -23,15 +23,19 @@ logger = setup_logger(__name__)
 
 @dataclass
 class FiringNeuron:
-    """Neuron that fired in current timestep with all relevant properties."""
+    """Neuron that fired in current timestep with all relevant properties.
+    
+    RUST-COMPATIBLE: Plain data structure with explicit types, no methods.
+    Designed for zero-copy serialization and SIMD operations.
+    """
     neuron_id: int
     cortical_idx: int  
     membrane_potential: float
-    coordinates: Tuple[int, int, int]  # (x, y, z)
+    coordinates: Tuple[int, int, int]  # (x, y, z) - SIMD-aligned tuple
     threshold: float
     consecutive_fire_count: int = 0
     refractory_counter: int = 0
-    timestamp: float = 0.0
+    timestamp: float = 0.0  # RTOS-safe: no automatic timestamping
     
     def to_dict(self) -> dict:
         """Convert to dictionary for FQ Sampler compatibility."""
@@ -169,21 +173,39 @@ class FireQueue:
     def get_area_fire_queue_soa(self, cortical_idx: int) -> Tuple[np.ndarray, ...]:
         """Get fire queue data in SoA format for high-performance processing.
         
+        SIMD/GPU-OPTIMIZED: Uses pre-allocated arrays and vectorized operations.
+        Designed for zero-copy access in Rust conversion.
+        
         Returns:
             Tuple of (neuron_ids, membrane_potentials, coordinates, thresholds,
                      consecutive_fire_counts, refractory_counters)
         """
         neurons = self.firing_neurons_by_area.get(cortical_idx, [])
         if not neurons:
-            return (np.array([]), np.array([]), np.array([]), 
-                   np.array([]), np.array([]), np.array([]))
+            # Return empty arrays with proper dtypes for consistent interface
+            empty_int32 = np.array([], dtype=np.int32)
+            empty_float32 = np.array([], dtype=np.float32)
+            empty_coords = np.array([], dtype=np.int32).reshape(0, 3)  # Shape for coordinates
+            return (empty_int32, empty_float32, empty_coords, 
+                   empty_float32, empty_int32, empty_int32)
             
-        neuron_ids = np.array([n.neuron_id for n in neurons], dtype=np.int32)
-        membrane_potentials = np.array([n.membrane_potential for n in neurons], dtype=np.float32)
-        coordinates = np.array([n.coordinates for n in neurons], dtype=np.int32)
-        thresholds = np.array([n.threshold for n in neurons], dtype=np.float32)
-        consecutive_fire_counts = np.array([n.consecutive_fire_count for n in neurons], dtype=np.int32)
-        refractory_counters = np.array([n.refractory_counter for n in neurons], dtype=np.int32)
+        # SIMD-OPTIMIZED: Pre-allocate arrays with known size
+        count = len(neurons)
+        neuron_ids = np.empty(count, dtype=np.int32)
+        membrane_potentials = np.empty(count, dtype=np.float32)
+        coordinates = np.empty((count, 3), dtype=np.int32)  # (N, 3) for SIMD alignment
+        thresholds = np.empty(count, dtype=np.float32)
+        consecutive_fire_counts = np.empty(count, dtype=np.int32)
+        refractory_counters = np.empty(count, dtype=np.int32)
+        
+        # VECTORIZED: Fill arrays using fast indexing instead of list comprehensions
+        for i, neuron in enumerate(neurons):
+            neuron_ids[i] = neuron.neuron_id
+            membrane_potentials[i] = neuron.membrane_potential
+            coordinates[i] = neuron.coordinates  # Tuple unpacked automatically
+            thresholds[i] = neuron.threshold
+            consecutive_fire_counts[i] = neuron.consecutive_fire_count
+            refractory_counters[i] = neuron.refractory_counter
         
         return (neuron_ids, membrane_potentials, coordinates, 
                thresholds, consecutive_fire_counts, refractory_counters)

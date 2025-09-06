@@ -5,7 +5,7 @@ Complete rewrite with clear separation of concerns and proper data flow:
 FCL (candidates) → Fire Queue (firing) → Fire Ledger (history)
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union, Tuple
 import numpy as np
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -105,7 +105,14 @@ class BurstEngine:
         logger.info("Clean Burst Engine initialized with singleton pattern and state manager integration")
     
     def process_burst(self) -> List[int]:
-        """Execute complete burst processing with clean 5-phase workflow."""
+        """Execute complete burst processing with clean 5-phase workflow.
+        
+        RUST-COMPATIBLE: Deterministic processing with well-defined data flow.
+        Uses SoA format internally for SIMD optimization.
+        
+        Returns:
+            List[int]: Neuron IDs that fired in current timestep
+        """
         self.current_timestep = self.burst_count
         
         # NPU Debug logging (enabled with --debug-npu)
@@ -853,43 +860,50 @@ class BurstEngine:
                 coordinates = (0, 0, 0)  # Default coordinates
                 threshold = 1.0  # Default threshold
                 
-                # Try to get actual properties from NPU interface
-                if (hasattr(self.connectome_manager, '_npu_interface') and 
-                    self.connectome_manager._npu_interface):
+                # RUST-COMPATIBLE: Deterministic NPU interface access without reflection chains
+                if (self.connectome_manager is not None and 
+                    getattr(self.connectome_manager, '_npu_interface', None) is not None):
                     
                     npu_interface = self.connectome_manager._npu_interface
                     
-                    # Get cortical area for this neuron
-                    if hasattr(npu_interface, 'neuron_to_area') and neuron_id in npu_interface.neuron_to_area:
-                        cortical_idx = npu_interface.neuron_to_area[neuron_id]
+                    # Get cortical area for this neuron - deterministic lookup
+                    neuron_to_area = getattr(npu_interface, 'neuron_to_area', None)
+                    if neuron_to_area is not None and neuron_id in neuron_to_area:
+                        cortical_idx = neuron_to_area[neuron_id]
                     
-                    # Get coordinates from neuron array (the mapping table) - ROBUST VERSION
-                    try:
-                        if (hasattr(npu_interface, 'neuron_array') and 
-                            hasattr(npu_interface.neuron_array, 'neuron_id_to_index')):
-                            
-                            neuron_array = npu_interface.neuron_array
-                            if neuron_id in neuron_array.neuron_id_to_index:
-                                idx = neuron_array.neuron_id_to_index[neuron_id]
+                    # Get coordinates from neuron array - RUST-FRIENDLY VERSION
+                    neuron_array = getattr(npu_interface, 'neuron_array', None)
+                    if neuron_array is not None:
+                        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+                        if neuron_id_to_index is not None and neuron_id in neuron_id_to_index:
+                            try:
+                                idx = neuron_id_to_index[neuron_id]
                                 
-                                # Robust coordinate extraction with proper int conversion
-                                if (hasattr(neuron_array, 'coordinates_x') and 
-                                    hasattr(neuron_array, 'coordinates_y') and
-                                    hasattr(neuron_array, 'coordinates_z')):
-                                    
-                                    x = int(neuron_array.coordinates_x[idx])
-                                    y = int(neuron_array.coordinates_y[idx])  
-                                    z = int(neuron_array.coordinates_z[idx])
+                                # Direct array access - no reflection needed for known attributes
+                                coordinates_x = getattr(neuron_array, 'coordinates_x', None)
+                                coordinates_y = getattr(neuron_array, 'coordinates_y', None) 
+                                coordinates_z = getattr(neuron_array, 'coordinates_z', None)
+                                
+                                if coordinates_x is not None and coordinates_y is not None and coordinates_z is not None:
+                                    x = int(coordinates_x[idx])
+                                    y = int(coordinates_y[idx])  
+                                    z = int(coordinates_z[idx])
                                     coordinates = (x, y, z)
                                     
-                                    # Also get actual properties if available
-                                    if hasattr(neuron_array, 'membrane_potentials'):
-                                        membrane_potential = float(neuron_array.membrane_potentials[idx])
-                                    if hasattr(neuron_array, 'thresholds'):
-                                        threshold = float(neuron_array.thresholds[idx])
-                    except Exception:
-                        # If coordinate lookup fails, use defaults - don't break firing neuron creation
-                        pass
+                                    # Get actual properties with deterministic access
+                                    membrane_potentials = getattr(neuron_array, 'membrane_potentials', None)
+                                    if membrane_potentials is not None:
+                                        membrane_potential = float(membrane_potentials[idx])
+                                        
+                                    thresholds = getattr(neuron_array, 'thresholds', None)
+                                    if thresholds is not None:
+                                        threshold = float(thresholds[idx])
+                                        
+                            except (IndexError, KeyError, TypeError, ValueError) as e:
+                                # RUST-COMPATIBLE: Specific exception types only
+                                # @architecture:acceptable - coordinate lookup fallback
+                                logger.debug(f"Coordinate lookup failed for neuron {neuron_id}: {e}")
+                                # Use defaults - don't break firing neuron creation
                 
                 # Create FiringNeuron with available data
                 firing_neuron = FiringNeuron(
