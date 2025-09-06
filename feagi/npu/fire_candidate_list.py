@@ -86,7 +86,7 @@ class FireCandidateList:
             
         self.total_candidates += added_count
         
-        logger.debug(f"Added {added_count} candidates to cortical area {cortical_idx}")
+        # Candidates added to cortical area
         return added_count
     
     def add_single_candidate(self,
@@ -175,7 +175,7 @@ class FireCandidateList:
         # Update total count
         self.total_candidates += (new_count - old_count)
         
-        logger.debug(f"Interactive dynamics: {old_count} → {new_count} candidates in area {cortical_idx}")
+        # Interactive dynamics applied to candidates
         return new_count
     
     def get_statistics(self) -> Dict:
@@ -221,7 +221,7 @@ class FireCandidateList:
         """
         self.candidates_by_area.clear()
         self.total_candidates = 0
-        logger.debug("FCL cleared for next burst cycle")
+        # FCL cleared for next burst cycle
     
     def is_empty(self) -> bool:
         """Check if FCL has any candidates."""
@@ -234,7 +234,7 @@ class FireCandidateList:
         When enabled, membrane potentials persist across timesteps.
         """
         self._membrane_accumulation_enabled = enabled
-        logger.debug(f"Membrane accumulation: {'enabled' if enabled else 'disabled'}")
+        # Membrane accumulation setting updated
         
     def is_membrane_accumulation_enabled(self) -> bool:
         """Check if membrane potential accumulation is enabled."""

@@ -31,7 +31,7 @@ class BurstEngine:
         if cls._instance is None:
             cls._instance = super(BurstEngine, cls).__new__(cls)
             cls._instance._initialized = False
-            logger.info("Creating new BurstEngine singleton instance")
+            pass  # BurstEngine singleton created
         return cls._instance
 
     @classmethod
@@ -56,7 +56,7 @@ class BurstEngine:
         # STATE MANAGER INTEGRATION - Cache instance for performance 
         # Always use singleton instance as single source of truth
         self.state_manager = FeagiStateManager.instance()
-        logger.info("BurstEngine: Using FeagiStateManager singleton instance")
+        # BurstEngine using FeagiStateManager singleton
         
         # Set initial burst engine state to INITIALIZING
         self._set_burst_engine_state(ServiceState.INITIALIZING)
@@ -102,7 +102,7 @@ class BurstEngine:
         self._initialized = True
         # DON'T set to READY yet - wait until burst processing actually works
 
-        logger.info("Clean Burst Engine initialized with singleton pattern and state manager integration")
+        logger.info("BurstEngine initialized with singleton pattern and state manager integration")
     
     def process_burst(self) -> List[int]:
         """Execute complete burst processing with clean 5-phase workflow.
@@ -118,78 +118,45 @@ class BurstEngine:
         # NPU Debug logging (enabled with --debug-npu)
         debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
         
-        # Throttle debug logging to prevent disk space issues  
-        periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
-        
-        # CRITICAL DEBUG: Always log first few bursts to debug FCL issue
-        if self.burst_count < 5:
-            logger.info("🔥 BURST-DEBUG #%d: process_burst() called, debug_enabled=%s", self.burst_count, debug_enabled)
-        
-        if periodic_debug:
-            logger.debug("BURST #%d: Starting burst processing pipeline", self.burst_count)
-            logger.debug("BurstEngine state: running=%s, timestep=%d", self._running, self.current_timestep)
+        # Only log critical errors and major state changes
         
         # Phase 1: Collect candidates using FCL Injector
         fcl = FireCandidateList()
         
-        if periodic_debug:
-            logger.debug("Phase 1: FCL injection starting...")
-            
         self._inject_all_candidates(fcl)
         
         # CRITICAL FIX: Process any remaining accumulated external activations before neural processing
         if self.injection_service and hasattr(self.injection_service, '_pending_external_activations'):
             pending_activations = getattr(self.injection_service, '_pending_external_activations', {})
             if pending_activations:
-                if periodic_debug:
-                    logger.debug("LATE INJECTION: Processing %d accumulated external activations before neural phase", len(pending_activations))
+                # Processing accumulated external activations
                 
                 # Inject the accumulated data directly into FCL
                 late_injection_count = self.injection_service.inject_power_neurons(fcl, self.current_timestep)
                 
-                # PROPER SUCCESS LOG: This is when neurons are actually injected into FCL
+                # Log successful injection
                 if late_injection_count > 0:
-                    logger.info("✅ ACTUAL FCL INJECTION: Successfully injected %d neurons into FCL from queued activations", late_injection_count)
-                
-                if periodic_debug:
-                    logger.debug("LATE INJECTION: Added %d candidates from accumulated data", late_injection_count)
+                    logger.info("FCL injection: %d neurons from external activations", late_injection_count)
 
-        if periodic_debug:
-            fcl_candidate_count = fcl.get_total_candidate_count()
-            logger.debug("Phase 1: FCL injection complete - %d total candidates", fcl_candidate_count)
-            
-            # Show FCL breakdown by cortical area (only when periodic debug is on)
-            for cortical_idx in fcl.candidates_by_area.keys():
-                area_count = fcl.get_candidate_count_by_area(cortical_idx)
-                logger.debug("FCL Area %d: %d candidates", cortical_idx, area_count)
+        fcl_candidate_count = fcl.get_total_candidate_count()
         
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         fire_queue = FireQueue()
         
-        if periodic_debug:
-            logger.debug("Phase 2: Neural processing starting...")
-        
-        # CRITICAL FIX: Direct FCL processing instead of delegating to placeholder NPU interface
+        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         try:
             fired_neurons = []
             fcl_candidate_count = fcl.get_total_candidate_count()
             
-            if periodic_debug:
-                logger.debug("Direct neural processing: %d FCL candidates available", fcl_candidate_count)
-            
             if fcl_candidate_count > 0:
-                # CRITICAL DEBUG: Log FCL candidate processing
-                if self.burst_count < 5 or periodic_debug:
-                    logger.info("🧠 FCL-DEBUG #%d: Processing %d candidates across %d areas", 
-                               self.burst_count, fcl_candidate_count, len(fcl.candidates_by_area))
+                # Process FCL candidates
                 
                 # Process each cortical area's candidates directly
                 total_fired = 0
                 for cortical_idx, candidates in fcl.candidates_by_area.items():
                     area_fired = 0
                     
-                    if periodic_debug:
-                        logger.debug("Processing cortical area %d with %d candidates", cortical_idx, len(candidates))
+                    # Processing cortical area
                     
                     # Simple threshold-based firing evaluation
                     # TODO: Replace with proper neural dynamics when available
@@ -204,98 +171,54 @@ class BurstEngine:
                     
                     total_fired += area_fired
                     
-                    if periodic_debug:
-                        logger.debug("Cortical area %d: %d/%d candidates fired (threshold=%.1f)", 
-                                      cortical_idx, area_fired, len(candidates), firing_threshold)
+                    # Area processing complete
                 
                 # Add fired neurons to fire queue
                 if fired_neurons:
-                    # DEBUG: Log fired neuron IDs before creating FiringNeuron objects
-                    logger.debug("Converting %d fired neuron IDs to FiringNeuron objects: %s", 
-                                len(fired_neurons), fired_neurons[:5] if len(fired_neurons) > 5 else fired_neurons)
+                    # Convert fired neuron IDs to FiringNeuron objects
                     
                     # Convert neuron IDs to FiringNeuron objects
                     firing_neurons = self._create_firing_neurons(fired_neurons)
-                    logger.debug("Successfully created %d FiringNeuron objects from %d fired IDs", 
-                                len(firing_neurons) if firing_neurons else 0, len(fired_neurons))
+                    # FiringNeuron objects created
                     
                     fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
                     
-                    if periodic_debug:
-                        logger.debug("Phase 2: %d neurons fired - fire queue populated!", total_fired)
-                        logger.debug("Fire Queue now contains %d neurons", fire_queue.get_total_neuron_count())
-                    elif total_fired > 0:  # Always log when neurons fire
-                        logger.info("Phase 2: %d neurons fired at timestep %d", total_fired, self.current_timestep)
-                else:
-                    if periodic_debug:
-                        logger.debug("Phase 2: No neurons exceeded firing threshold (%.1f) - fire queue remains empty", 50.0)
-            else:
-                # CRITICAL DEBUG: Log when FCL is empty
-                if self.burst_count < 5 or periodic_debug:
-                    logger.info("❌ FCL-DEBUG #%d: FCL is empty - no candidates to process", self.burst_count)
-                
-                if periodic_debug:
-                    logger.debug("Phase 2: FCL is empty - no candidates to process")
+                    # Log significant firing activity
+                    if total_fired > 0:
+                        logger.info("Burst #%d: %d neurons fired", self.burst_count, total_fired)
                     
         except Exception as e:
             # CRITICAL: Set to ERROR state if burst processing fails
             self._set_burst_engine_state(ServiceState.ERROR)
             logger.error("BURST-ENGINE: Critical error in burst processing - marking as ERROR state")
             
-            if debug_enabled:
-                logger.error("Error in direct neural processing: %s", str(e))
-                if periodic_debug:  # Only show traceback periodically
-                    import traceback
-                    logger.error("Traceback: %s", traceback.format_exc())
-            else:
-                logger.error("Error in neural processing: %s", str(e))
+            logger.error("Burst processing error: %s", str(e))
             # Continue with empty fire queue to maintain burst cycle
         
         # Phase 3: Archive to fire ledger
-        if periodic_debug:
-            logger.debug("Phase 3: Fire ledger archiving starting...")
-            logger.debug("Fire queue empty: %s", fire_queue.is_empty())
         
         if not fire_queue.is_empty():
             neurons_by_area = {}
             for area_idx, neurons in fire_queue.firing_neurons_by_area.items():
                 neurons_by_area[area_idx] = neurons
             
-            if periodic_debug:
-                logger.debug("Archiving %d cortical areas to fire ledger", len(neurons_by_area))
-                for area_idx, neurons in neurons_by_area.items():
-                    logger.debug("Area %d: %d neurons to archive", area_idx, len(neurons))
+            # Archive neurons to fire ledger
                     
             self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
             
             # Update state manager with activity counters
             neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
             
-            if periodic_debug:
-                logger.debug("Total neurons archived: %d", neuron_count)
-                
             try:
                 if self.state_manager:
                     self.state_manager.increment_cumulative_activity(neuron_count)
-                    if periodic_debug:
-                        logger.debug("State manager activity counters updated")
             except Exception:
                 # Don't let state manager issues break burst processing
-                if periodic_debug:
-                    logger.error("Failed to update activity counters in state manager")
-                else:
-                    logger.debug("Failed to update activity counters")
-        else:
-            if periodic_debug:
-                logger.debug("Phase 3: Fire queue is empty - no archiving needed")
+                logger.warning("Failed to update activity counters in state manager")
+        # Fire queue was empty - no archiving needed
         
         # Phase 4: FQ Sampler access ready (no action needed)
-        if periodic_debug:
-            logger.debug("Phase 4: FQ Sampler access ready - no action needed")
-        
-        # Phase 5: Cleanup and prepare
-        if periodic_debug:
-            logger.debug("Phase 5: Cleanup and prepare for next burst")
+        # Phase 5: Cleanup and prepare for next burst
             
         self.previous_fire_queue = fire_queue.copy_for_propagation()
         fcl.clear()
@@ -304,22 +227,10 @@ class BurstEngine:
         # Return fired neuron IDs for external systems
         fired_ids = fire_queue.get_all_neuron_ids()
         
-        # CRITICAL: Only set to READY after successful burst processing
-        # This ensures health check only reports "running" when actually processing bursts
+        # Set to READY after first successful burst processing
         if self.burst_count == 1:  # First successful burst
             self._set_burst_engine_state(ServiceState.READY)
-            logger.info("🎯 BURST-ENGINE: First successful burst completed - now marked as READY")
-        
-        # CRITICAL DEBUG: Log burst completion
-        if self.burst_count <= 5:
-            logger.info("✅ BURST-DEBUG #%d: Completed, returning %d fired neurons", 
-                       self.current_timestep, len(fired_ids))
-        
-        if periodic_debug:
-            logger.debug("BURST #%d COMPLETE: %d neurons fired total", 
-                      self.current_timestep, len(fired_ids))
-            logger.debug("Next burst will be #%d", self.burst_count)
-            logger.debug("=" * 60)
+            logger.info("Burst engine initialized and ready")
             
         return fired_ids
     
@@ -429,22 +340,13 @@ class BurstEngine:
                 # When stopping, set state to STOPPED
                 self._set_burst_engine_state(ServiceState.STOPPED)
         
-        # Debug logging if NPU debug mode is enabled
-        try:
-            if self.state_manager and self.state_manager.is_debug_npu_enabled() and old_value != value:
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Instance %d _running changed: %s -> %s", id(self), old_value, value
-                )
-        except Exception:
-            # Don't let debug logging break normal operation
-            pass
+        # Burst engine running state updated
     
     def _set_burst_engine_state(self, state: ServiceState):
         """Set burst engine state in the state manager."""
         try:
             if self.state_manager:
                 self.state_manager.set_burst_engine_state(state)
-                logger.debug("BurstEngine state updated to: %s", state)
         except Exception:
             logger.error("Failed to update burst engine state")
     
@@ -552,30 +454,15 @@ class BurstEngine:
         The loop continues until stop() is called or an exit condition is met.
         """
         try:
-            # NPU Debug logging
-            debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
-            
-            if debug_enabled:
-                logger.debug("BurstEngine.run() starting main processing loop")
-                logger.debug("BurstEngine state: initialized=%s, running=%s", self._initialized, self._running)
-                logger.debug("Desired frequency: %dHz", self.desired_frequency)
-                logger.debug("Connectome manager: %s", type(self.connectome_manager).__name__ if self.connectome_manager else "None")
-                logger.debug("State manager: %s", type(self.state_manager).__name__ if self.state_manager else "None")
-                logger.debug("=" * 60)
-            
-            logger.info("[BURST-ENGINE] Starting main processing loop")
+            logger.info("Burst engine starting main processing loop")
             self.start()
             
             # Enter the main processing loop
             if self._running:
-                if debug_enabled:
-                    logger.debug("BurstEngine main loop entered successfully")
-                
-                logger.info("[BURST-ENGINE] Main loop started successfully at %dHz", self.desired_frequency) 
+                logger.info("Main loop started at %dHz", self.desired_frequency) 
                 
                 # Calculate burst interval from frequency
                 burst_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
-                logger.info("[BURST-ENGINE] Burst interval: %.4fs", burst_interval)
                 
                 # Main burst processing loop
                 while self._running:
@@ -631,14 +518,13 @@ class BurstEngine:
                                uses the existing one or attempts to get it from the genome service.
         """
         try:
-            logger.debug("update_with_genome() called")
+            # Updating burst engine with new genome
             
             # Accept new connectome manager or use existing one
             if connectome_manager:
                 self.connectome_manager = connectome_manager
-                logger.debug("ConnectomeManager provided and set: %s", type(connectome_manager).__name__)
+                # ConnectomeManager updated
             elif not self.connectome_manager:
-                logger.debug("No connectome manager available - attempting to get from service")
                 # Try to get connectome manager from the global/service registry
                 try:
                     # Get the connectome manager from the API service or other global reference

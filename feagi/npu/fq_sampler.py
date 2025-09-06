@@ -32,7 +32,7 @@ class FQSampler:
         # Visualization subscriber tracking
         self._has_visualization_subscribers = False
         
-        logger.info(f"FQ Sampler initialized: {sampling_mode} mode @ {sample_frequency_hz}Hz, ID: {self.instance_id}")
+        # FQ Sampler initialized
     
     def sample(self) -> Optional[Dict[str, Any]]:
         """Sample current Fire Queue data organized by cortical areas."""
@@ -65,7 +65,7 @@ class FQSampler:
                     coords_y = area_data.get('coordinates_y', [])
                     coords_z = area_data.get('coordinates_z', [])
                     if coords_x:
-                        logger.info(f"📍 [FQ-SAMPLER] Area {cortical_idx}: First neuron coords = ({coords_x[0]}, {coords_y[0] if coords_y else 'N/A'}, {coords_z[0] if coords_z else 'N/A'})")
+                        pass  # Coordinate sampling available
         
         self.samples_taken += 1
         self.last_sample_time = current_time
@@ -129,8 +129,7 @@ class FQSampler:
         self._has_visualization_subscribers = has_subscribers
         
         if old_state != has_subscribers:
-            logger.debug(f"FQ Sampler {self.instance_id}: visualization subscribers = {has_subscribers}")
-            
+            pass  # Visualization subscriber state changed
     
     def has_visualization_subscribers(self) -> bool:
         """Check if visualization subscribers are connected."""
@@ -168,7 +167,7 @@ class UnifiedFQSampler:
         self.target_areas = target_areas or []
         self.state_manager = state_manager
         
-        logger.info(f"UnifiedFQSampler created as compatibility wrapper: {self.instance_id}")
+        # UnifiedFQSampler compatibility wrapper created
     
     # Delegate properties to underlying FQ sampler
     @property

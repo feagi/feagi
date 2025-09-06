@@ -62,7 +62,7 @@ class FCLInjector:
         )
         
         if len(neuron_ids) == 0:
-            logger.debug(f"No valid neurons found for sensory injection in {cortical_id}")
+            # No valid neurons found for injection
             return 0
         
         # All sensory inputs are excitatory by default
@@ -77,7 +77,7 @@ class FCLInjector:
         )
         
         self.injection_count += added_count
-        logger.debug(f"Sensory injection: {added_count} candidates added to {cortical_id}")
+        # Sensory candidates added to FCL
         return added_count
     
     def inject_power_area(self,
@@ -115,7 +115,7 @@ class FCLInjector:
         )
         
         self.injection_count += added_count
-        logger.debug(f"Power injection: {added_count} candidates added to area {cortical_idx}")
+        # Power candidates added to FCL
         return added_count
     
     def inject_manual_stimulation(self,
@@ -239,7 +239,7 @@ class FCLInjector:
             total_injected += added_count
         
         self.injection_count += total_injected
-        logger.debug(f"Synaptic propagation: {total_injected} candidates injected")
+        # Synaptic propagation candidates injected
         return total_injected
     
     def _get_cortical_idx(self, cortical_id: str) -> Optional[int]:

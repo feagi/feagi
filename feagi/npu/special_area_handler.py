@@ -34,12 +34,12 @@ class SpecialAreaHandler:
         self.connectome_manager = connectome_manager
         self.special_areas: Dict[CorticalId, SpecialAreaConfig] = {}
         
-        logger.info("Special Area Handler initialized (clean architecture)")
+        # Special Area Handler initialized
     
     def register_special_area(self, config: SpecialAreaConfig):
         """Register a special cortical area."""
         self.special_areas[config.area_id] = config
-        logger.info(f"Registered special area: {config.area_id} ({config.area_type})")
+        # Special area registered
     
     def get_special_areas_by_type(self, area_type: str) -> List[SpecialAreaConfig]:
         """Get all special areas of a specific type."""

@@ -215,7 +215,7 @@ class NeuronArray:
         self.next_index = 0
         self.excitabilities = np.ones(max_neurons, dtype=np.float32)
         
-        logger.info(f"NeuronArray initialized: {max_neurons:,} max neurons, {backend.value} backend")
+        logger.info("NeuronArray initialized: %d max neurons, %s backend", max_neurons, backend.value)
     
     def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
                          neuron_types: List[int], initial_potentials: List[float],
@@ -371,7 +371,7 @@ class MemoryNeuronArray:
         self.deleted_indices: List[int] = []
         self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         
-        logger.info(f"MemoryNeuronArray initialized: {max_memory_neurons:,} max memory neurons")
+        logger.info("MemoryNeuronArray initialized: %d max memory neurons", max_memory_neurons)
     
     def create_memory_neuron(self, pattern_key: MemoryPatternKey, cortical_area_id: str,
                            current_burst: int, initial_lifespan: int = 9,
@@ -455,7 +455,7 @@ class SynapseArray:
         self.source_neuron_index: Dict[int, List[int]] = {}
         self.target_neuron_index: Dict[int, List[int]] = {}
         
-        logger.info(f"SynapseArray initialized: {max_synapses:,} max synapses, {backend.value} backend")
+        logger.info("SynapseArray initialized: %d max synapses, %s backend", max_synapses, backend.value)
     
     def add_synapses_batch(self, source_neuron_ids: List[int], target_neuron_ids: List[int],
                           weights: List[float], delays: List[int], 

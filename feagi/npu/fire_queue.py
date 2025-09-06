@@ -81,7 +81,7 @@ class FireQueue:
             self.firing_neurons_by_area[neuron.cortical_idx].append(neuron)
             
         self.total_firing_neurons += len(neurons)
-        logger.debug(f"Added {len(neurons)} firing neurons to queue for timestep {timestep}")
+        # Firing neurons added to queue
     
     def add_fired_neurons_soa(self,
                              cortical_idx: int,
@@ -264,7 +264,7 @@ class FireQueue:
         """Clear fire queue after archival to fire ledger."""
         self.firing_neurons_by_area.clear()
         self.total_firing_neurons = 0
-        logger.debug(f"Fire queue cleared after timestep {self.current_timestep}")
+        # Fire queue cleared
     
     def is_empty(self) -> bool:
         """Check if fire queue has any firing neurons."""

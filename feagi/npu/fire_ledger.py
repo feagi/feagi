@@ -144,7 +144,7 @@ class FireLedgerInterface:
         # Try to initialize Rust backend
         if fire_ledger_rs:
             self._rust_ledger = fire_ledger_rs.FireLedger(default_window_size)
-            logger.info("Initialized Rust Fire Ledger backend")
+            logger.info("Fire Ledger initialized with Rust backend")
         else:
             self._rust_ledger = None
             logger.warning("Rust Fire Ledger not available - using Python fallback")
@@ -174,7 +174,7 @@ class FireLedgerInterface:
                 neuron_ids = [n.neuron_id for n in neurons]
                 self._archive_area_timestep(area_idx, timestep, neuron_ids)
         
-        logger.debug(f"Archived timestep {timestep} with {len(neurons_by_area)} active areas")
+        # Timestep archived to ledger
     
     def _archive_area_timestep(self, area_idx: int, timestep: int, neuron_ids: List[int]):
         """Archive firing data for a specific cortical area (Python implementation)."""
@@ -249,7 +249,7 @@ class FireLedgerInterface:
                     
             self.cortical_histories[cortical_idx] = new_history
             
-        logger.info(f"Configured window size {window_size} for cortical area {cortical_idx}")
+        # Window size configured for cortical area
     
     def configure_memory_area(self,
                              cortical_idx: int,
@@ -268,7 +268,7 @@ class FireLedgerInterface:
             # Also configure regular history
             self.configure_area_window(cortical_idx, window_size)
             
-        logger.info(f"Configured memory area {cortical_idx} with window {window_size}, upstream: {upstream_areas}")
+        # Memory area configured with upstream connections
     
     def get_memory_pattern(self, 
                           memory_area_idx: int, 

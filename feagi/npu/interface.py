@@ -101,7 +101,7 @@ class NPUInterface:
         self.cortical_areas: Dict[int, Dict[str, Any]] = {}  # cortical_idx -> area_info
         self.neuron_to_area: Dict[int, int] = {}  # neuron_id -> cortical_idx
         
-        logger.info(f"NPU Interface initialized: {max_neurons} neurons, {max_synapses} synapses, {backend.value} backend")
+        logger.info("NPU Interface initialized: %d neurons, %d synapses, %s backend", max_neurons, max_synapses, backend.value)
     
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
         """Create neurons from a NeuronCreationRequest."""
@@ -347,7 +347,7 @@ class NPUInterface:
             "created": True
         }
         
-        logger.info(f"Created cortical area {cortical_idx} ({cortical_id}): {dimensions} {area_type}")
+        # Cortical area created
         return OperationResult.SUCCESS
     
     def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
