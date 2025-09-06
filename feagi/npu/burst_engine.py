@@ -883,8 +883,10 @@ class BurstEngine:
                     target_id = int(target_id)
                     contribution = float(contribution)
                     
-                    # Get cortical area for target neuron
-                    cortical_idx = neuron_to_area.get(target_id, 0)  # Default to area 0
+                    # Get cortical area for target neuron - MUST exist in genome
+                    if target_id not in neuron_to_area:
+                        raise ValueError(f"Target neuron {target_id} not mapped to any cortical area in genome")
+                    cortical_idx = neuron_to_area[target_id]
                     
                     # Track targets by area for debugging
                     if cortical_idx not in targets_by_area:
@@ -922,48 +924,49 @@ class BurstEngine:
     def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
         """Get the actual firing threshold for a specific neuron.
         
-        RUST-COMPATIBLE: Deterministic lookup with fallback.
+        RUST-COMPATIBLE: 100% deterministic lookup. NO FALLBACKS.
+        Raises error if genome data is missing - FEAGI must be deterministic.
         
         Args:
             neuron_id: The neuron ID to get threshold for
             
         Returns:
-            Actual firing threshold from neuron properties, or default 1.0
+            Actual firing threshold from neuron properties (from genome)
+            
+        Raises:
+            ValueError: If neuron data is missing from genome/NPU interface
         """
-        # Default threshold if we can't get the actual value
-        default_threshold = 1.0
+        if not self.connectome_manager:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No connectome manager available")
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No NPU interface in connectome manager")
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron array in NPU interface")
+            
+        # Get neuron index from ID - MUST exist in genome
+        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+        if not neuron_id_to_index:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron ID mapping in genome")
+            
+        if neuron_id not in neuron_id_to_index:
+            raise ValueError(f"Neuron {neuron_id} not found in genome neuron array - missing from neuroembryogenesis")
+            
+        neuron_index = neuron_id_to_index[neuron_id]
         
-        try:
-            # Get NPU interface for neuron data access
-            if not self.connectome_manager:
-                return default_threshold
-                
-            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            if not npu_interface:
-                return default_threshold
-                
-            neuron_array = getattr(npu_interface, 'neuron_array', None)
-            if not neuron_array:
-                return default_threshold
-                
-            # Get neuron index from ID
-            neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
-            if not neuron_id_to_index or neuron_id not in neuron_id_to_index:
-                return default_threshold
-                
-            neuron_index = neuron_id_to_index[neuron_id]
+        # Get threshold array - MUST exist in genome
+        thresholds = getattr(neuron_array, 'thresholds', None)
+        if thresholds is None:
+            raise ValueError(f"No firing thresholds array in genome neuron data")
             
-            # Get threshold array and lookup threshold for this neuron
-            thresholds = getattr(neuron_array, 'thresholds', None)
-            if thresholds is not None and neuron_index < len(thresholds):
-                actual_threshold = float(thresholds[neuron_index])
-                return actual_threshold
-                
-            return default_threshold
+        if neuron_index >= len(thresholds):
+            raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in thresholds array")
             
-        except Exception as e:
-            logger.warning("Failed to get firing threshold for neuron %d: %s", neuron_id, str(e))
-            return default_threshold
+        actual_threshold = float(thresholds[neuron_index])
+        return actual_threshold
     
     def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
         """Convert fired neuron IDs to FiringNeuron objects with properties."""
@@ -972,56 +975,66 @@ class BurstEngine:
         
         try:
             for idx, neuron_id in enumerate(fired_neuron_ids):
-                # Get neuron properties from connectome manager or NPU interface
-                cortical_idx = 0  # Default cortical area
-                membrane_potential = 1.0  # Default membrane potential
-                coordinates = (0, 0, 0)  # Default coordinates
-                threshold = 1.0  # Default threshold
+                # Get actual neuron properties from genome - ZERO FALLBACKS, STRICT VALIDATION
+                # All values MUST come from genome via neuroembryogenesis → connectome → NPU interface
                 
-                # RUST-COMPATIBLE: Deterministic NPU interface access without reflection chains
-                if (self.connectome_manager is not None and 
-                    getattr(self.connectome_manager, '_npu_interface', None) is not None):
+                if not self.connectome_manager:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No connectome manager available")
                     
-                    npu_interface = self.connectome_manager._npu_interface
+                npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+                if not npu_interface:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No NPU interface in connectome manager")
+                
+                # Get cortical area - MUST exist in genome
+                neuron_to_area = getattr(npu_interface, 'neuron_to_area', None)
+                if not neuron_to_area:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron-to-area mapping in genome")
+                if neuron_id not in neuron_to_area:
+                    raise ValueError(f"Neuron {neuron_id} not mapped to any cortical area in genome")
+                cortical_idx = neuron_to_area[neuron_id]
+                
+                # Get coordinates from neuron array - STRICT VALIDATION, NO FALLBACKS
+                neuron_array = getattr(npu_interface, 'neuron_array', None)
+                if not neuron_array:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron array in NPU interface")
                     
-                    # Get cortical area for this neuron - deterministic lookup
-                    neuron_to_area = getattr(npu_interface, 'neuron_to_area', None)
-                    if neuron_to_area is not None and neuron_id in neuron_to_area:
-                        cortical_idx = neuron_to_area[neuron_id]
+                neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+                if not neuron_id_to_index:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron ID mapping in genome")
                     
-                    # Get coordinates from neuron array - RUST-FRIENDLY VERSION
-                    neuron_array = getattr(npu_interface, 'neuron_array', None)
-                    if neuron_array is not None:
-                        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
-                        if neuron_id_to_index is not None and neuron_id in neuron_id_to_index:
-                            try:
-                                idx = neuron_id_to_index[neuron_id]
-                                
-                                # Direct array access - no reflection needed for known attributes
-                                coordinates_x = getattr(neuron_array, 'coordinates_x', None)
-                                coordinates_y = getattr(neuron_array, 'coordinates_y', None) 
-                                coordinates_z = getattr(neuron_array, 'coordinates_z', None)
-                                
-                                if coordinates_x is not None and coordinates_y is not None and coordinates_z is not None:
-                                    x = int(coordinates_x[idx])
-                                    y = int(coordinates_y[idx])  
-                                    z = int(coordinates_z[idx])
-                                    coordinates = (x, y, z)
-                                    
-                                    # Get actual properties with deterministic access
-                                    membrane_potentials = getattr(neuron_array, 'membrane_potentials', None)
-                                    if membrane_potentials is not None:
-                                        membrane_potential = float(membrane_potentials[idx])
-                                        
-                                    thresholds = getattr(neuron_array, 'thresholds', None)
-                                    if thresholds is not None:
-                                        threshold = float(thresholds[idx])
-                                        
-                            except (IndexError, KeyError, TypeError, ValueError) as e:
-                                # RUST-COMPATIBLE: Specific exception types only
-                                # @architecture:acceptable - coordinate lookup fallback
-                                logger.debug(f"Coordinate lookup failed for neuron {neuron_id}: {e}")
-                                # Use defaults - don't break firing neuron creation
+                if neuron_id not in neuron_id_to_index:
+                    raise ValueError(f"Neuron {neuron_id} not found in genome neuron array")
+                    
+                neuron_index = neuron_id_to_index[neuron_id]
+                
+                # Get coordinates - MUST exist in genome
+                coordinates_x = getattr(neuron_array, 'coordinates_x', None)
+                coordinates_y = getattr(neuron_array, 'coordinates_y', None) 
+                coordinates_z = getattr(neuron_array, 'coordinates_z', None)
+                
+                if coordinates_x is None or coordinates_y is None or coordinates_z is None:
+                    raise ValueError(f"Missing coordinate arrays in neuron array for neuron {neuron_id}")
+                    
+                if neuron_index >= len(coordinates_x) or neuron_index >= len(coordinates_y) or neuron_index >= len(coordinates_z):
+                    raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in coordinate arrays")
+                
+                x = int(coordinates_x[neuron_index])
+                y = int(coordinates_y[neuron_index])  
+                z = int(coordinates_z[neuron_index])
+                coordinates = (x, y, z)
+                
+                # Get membrane potential - MUST exist in genome
+                membrane_potentials = getattr(neuron_array, 'membrane_potentials', None)
+                if membrane_potentials is None:
+                    raise ValueError(f"No membrane potentials array in neuron array for neuron {neuron_id}")
+                    
+                if neuron_index >= len(membrane_potentials):
+                    raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in membrane potentials array")
+                    
+                membrane_potential = float(membrane_potentials[neuron_index])
+                
+                # Get threshold - MUST exist in genome  
+                threshold = self._get_neuron_firing_threshold(neuron_id)
                 
                 # Create FiringNeuron with available data
                 firing_neuron = FiringNeuron(
@@ -1441,10 +1454,15 @@ class PowerInjectionService:
                                 # Convert neuron IDs to numpy array
                                 neuron_ids = np.array(area_data, dtype=np.uint32)
                                 
-                                # Use high default potential for neuron ID lists
-                                # These neurons were selected by sensory processing, so they should fire
-                                default_potential = 75.0  # Above firing threshold to ensure activation
-                                potentials = np.full(len(neuron_ids), default_potential, dtype=np.float32)
+                                # Get actual neuron potentials from genome properties, not hardcoded defaults
+                                # These neurons were selected by sensory processing - use their actual thresholds
+                                potentials = []
+                                for neuron_id in neuron_ids:
+                                    # Get the actual firing threshold for this specific neuron from genome
+                                    actual_threshold = self._get_neuron_firing_threshold(int(neuron_id))
+                                    # Use threshold as potential to ensure firing (sensory neurons should activate)
+                                    potentials.append(actual_threshold)
+                                potentials = np.array(potentials, dtype=np.float32)
                                 
                                 # Get cortical index for this area
                                 if self.fcl_injector and hasattr(self.fcl_injector, 'coordinate_converter'):
