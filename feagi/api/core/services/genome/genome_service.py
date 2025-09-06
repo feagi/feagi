@@ -225,7 +225,26 @@ class GenomeService(BaseService):
             # Get current actual counts from connectome manager
             cortical_area_count = len(getattr(self._connectome_manager, "cortical_areas", {}))
             neuron_count = self._connectome_manager.get_neuron_count() if hasattr(self._connectome_manager, "get_neuron_count") else 0
-            synapse_count = self._connectome_manager.get_synapse_count() if hasattr(self._connectome_manager, "get_synapse_count") else 0
+            synapse_count = self._connectome_manager.synapse_count if hasattr(self._connectome_manager, "synapse_count") else 0
+            
+            self.logger.info(f"🔍 FORCE SYNC: Retrieved counts - cortical_areas: {cortical_area_count}, neurons: {neuron_count}, synapses: {synapse_count}")
+            
+            # DEBUG: Check NPU interface and arrays status
+            npu_available = hasattr(self._connectome_manager, "_npu_interface") and self._connectome_manager._npu_interface is not None
+            self.logger.info(f"🔍 FORCE SYNC: NPU interface available: {npu_available}")
+            
+            if npu_available:
+                npu_interface = self._connectome_manager._npu_interface
+                neuron_array_count = getattr(npu_interface.neuron_array, "count", "N/A") if hasattr(npu_interface, "neuron_array") else "No neuron_array"
+                memory_array_count = getattr(npu_interface.memory_neuron_array, "count", "N/A") if hasattr(npu_interface, "memory_neuron_array") else "No memory_neuron_array"
+                self.logger.info(f"🔍 FORCE SYNC: Neuron array count: {neuron_array_count}, Memory array count: {memory_array_count}")
+            
+            synapse_array_available = hasattr(self._connectome_manager, "synapse_array") and self._connectome_manager.synapse_array is not None
+            self.logger.info(f"🔍 FORCE SYNC: Synapse array available: {synapse_array_available}")
+            
+            if synapse_array_available:
+                synapse_count_actual = getattr(self._connectome_manager.synapse_array, "synapse_count", "N/A")
+                self.logger.info(f"🔍 FORCE SYNC: Synapse array count: {synapse_count_actual}")
             
             # Get memory neuron breakdown if available
             memory_neuron_count = 0
@@ -1067,7 +1086,8 @@ class GenomeService(BaseService):
 
                         burst_engine = BurstEngine.get_instance()
                         if burst_engine:
-                            burst_engine.update_with_genome()
+                            # Pass the connectome_manager to ensure proper connection
+                            burst_engine.update_with_genome(self._connectome_manager)
                             self.logger.info(
                                 "✅ Burst engine updated with new genome successfully"
                             )
@@ -1155,12 +1175,27 @@ class GenomeService(BaseService):
                         total_neurons = 0
                         total_synapses = 0
 
+                        self.logger.info(f"[STATE-MANAGER-UPDATE] ConnectomeManager available: {self._connectome_manager is not None}")
+                        if self._connectome_manager:
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] ConnectomeManager has get_neuron_count: {hasattr(self._connectome_manager, 'get_neuron_count')}")
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] ConnectomeManager has synapse_count: {hasattr(self._connectome_manager, 'synapse_count')}")
+                            
+                            # DEBUG: Check what the connectome manager actually contains
+                            npu_debug = hasattr(self._connectome_manager, "_npu_interface") and self._connectome_manager._npu_interface is not None
+                            synapse_array_debug = hasattr(self._connectome_manager, "synapse_array") and self._connectome_manager.synapse_array is not None
+                            cortical_areas_debug = len(getattr(self._connectome_manager, "cortical_areas", {}))
+                            
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] NPU interface available: {npu_debug}")
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] Synapse array available: {synapse_array_debug}")
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] Cortical areas count: {cortical_areas_debug}")
+
                         if hasattr(
-                            self._connectome_manager, "get_total_neuron_count"
+                            self._connectome_manager, "get_neuron_count"
                         ):
                             total_neurons = (
-                                self._connectome_manager.get_total_neuron_count()
+                                self._connectome_manager.get_neuron_count()
                             )
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] Retrieved neuron count: {total_neurons}")
                         elif hasattr(
                             self._connectome_manager, "cortical_areas"
                         ):
@@ -1185,11 +1220,12 @@ class GenomeService(BaseService):
                                     pass
 
                         if hasattr(
-                            self._connectome_manager, "get_total_synapse_count"
+                            self._connectome_manager, "synapse_count"
                         ):
                             total_synapses = (
-                                self._connectome_manager.get_total_synapse_count()
+                                self._connectome_manager.synapse_count
                             )
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] Retrieved synapse count: {total_synapses}")
 
                         #  Update state manager with brain statistics (CRITICAL
                         #  for health check)
@@ -1198,14 +1234,14 @@ class GenomeService(BaseService):
                             "synapse_count": total_synapses,
                             "cortical_area_count": cortical_area_count,
                         }
-                        self.logger.debug(f"Setting brain stats after genome loading: {brain_stats_to_set}")
+                        self.logger.info(f"[STATE-MANAGER-UPDATE] Setting brain stats after genome loading: {brain_stats_to_set}")
                         stats_result = self.state_manager.set_brain_stats(brain_stats_to_set)
                         if stats_result.is_err:
-                            self.logger.warning(
-                                f"Failed to set brain stats: {stats_result.unwrap_err()}"
+                            self.logger.error(
+                                f"[STATE-MANAGER-UPDATE] FAILED to set brain stats: {stats_result.unwrap_err()}"
                             )
                         else:
-                            self.logger.info(f"Brain stats set successfully: {brain_stats_to_set}")
+                            self.logger.info(f"[STATE-MANAGER-UPDATE] ✅ Brain stats set successfully: {brain_stats_to_set}")
 
                         #  Create cortical list for health check compatibility
                         #  (CRITICAL)

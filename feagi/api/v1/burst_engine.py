@@ -672,6 +672,77 @@ class BurstEngineAPI:
                 f"Failed to get frequency status: {str(e)}"
             ) from e
 
+    @burst_engine_endpoint(
+        "POST", "/force_connectome_integration", response_model=Dict[str, Any]
+    )
+    async def force_connectome_integration(self) -> Dict[str, Any]:
+        """Force BurstEngine integration with ConnectomeManager for debugging.
+        
+        This endpoint manually triggers the BurstEngine to connect with the
+        loaded genome/connectome manager. Useful for debugging integration issues
+        where the automatic connection during genome load may have failed.
+        
+        Returns:
+            Dictionary with integration status and debug information
+        """
+        try:
+            # Get BurstEngine instance and force integration
+            from feagi.npu.burst_engine import BurstEngine
+            
+            burst_engine = BurstEngine.get_instance()
+            if not burst_engine:
+                return {
+                    "success": False,
+                    "error": "BurstEngine instance not available",
+                    "integration_status": "failed"
+                }
+            
+            # Log current state before integration attempt
+            logger.info("[API] Force connectome integration requested")
+            logger.warning("[NPU-DEBUG] [API] Current state: connectome_manager=%s, injection_service=%s, fcl_injector=%s", 
+                         burst_engine.connectome_manager is not None,
+                         burst_engine.injection_service is not None,
+                         burst_engine.fcl_injector is not None)
+            
+            # Attempt forced integration
+            integration_success = burst_engine.force_connectome_integration()
+            
+            # Get updated state after integration attempt
+            updated_state = {
+                "connectome_manager_available": burst_engine.connectome_manager is not None,
+                "injection_service_available": burst_engine.injection_service is not None, 
+                "fcl_injector_available": burst_engine.fcl_injector is not None,
+                "genome_loaded": getattr(burst_engine, 'genome_loaded', False)
+            }
+            
+            if integration_success:
+                logger.info("[API] ✅ Force connectome integration successful")
+                return {
+                    "success": True,
+                    "message": "BurstEngine successfully integrated with ConnectomeManager",
+                    "integration_status": "success",
+                    "components_initialized": updated_state
+                }
+            else:
+                logger.warning("[API] ❌ Force connectome integration failed")
+                return {
+                    "success": False,
+                    "message": "BurstEngine integration with ConnectomeManager failed", 
+                    "integration_status": "failed",
+                    "components_status": updated_state,
+                    "suggestion": "Check if genome is properly loaded and ConnectomeManager is available"
+                }
+            
+        except Exception as e:
+            logger.error(f"Error in force_connectome_integration API: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {
+                "success": False,
+                "error": str(e),
+                "integration_status": "error"
+            }
+
 
 # ===== Factory Function =====
 
