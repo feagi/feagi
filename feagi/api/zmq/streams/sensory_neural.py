@@ -257,6 +257,39 @@ class SensoryNeuralStream:
 
     async def _process_neural_data(self) -> StreamResult:
         """Process incoming neural data - feagi_data_processing format only."""
+        
+        # CRITICAL: Check burst engine readiness before processing sensory data
+        try:
+            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            state_manager = FeagiStateManager.instance()
+            burst_engine_state = state_manager.get_burst_engine_state()
+            
+            if burst_engine_state != ServiceState.READY.value:
+                # Burst engine not ready - drop data silently (standby mode)
+                try:
+                    # Drain incoming messages to prevent backlog
+                    data = await self.socket.recv(flags=zmq.NOBLOCK)
+                    self._stats["messages_dropped_not_ready"] = getattr(self._stats, "messages_dropped_not_ready", 0) + 1
+                    
+                    # DEBUG: Log when dropping messages (only periodically to avoid spam)
+                    dropped_count = self._stats["messages_dropped_not_ready"]
+                    if self._is_debug_npu_enabled() and (dropped_count % 50 == 1):  # Log every 50 drops
+                        logger.info(f"🔒 STANDBY MODE: Dropped {dropped_count} sensory messages - burst engine not ready (state={burst_engine_state})")
+                        
+                    return StreamResult.NO_DATA  # Don't process
+                except zmq.Again:
+                    return StreamResult.NO_DATA  # No data anyway
+            else:
+                # Burst engine is ready - check if we're transitioning from standby
+                dropped_count = getattr(self._stats, "messages_dropped_not_ready", 0)
+                if self._is_debug_npu_enabled() and dropped_count > 0 and not hasattr(self, '_ready_logged'):
+                    logger.info(f"✅ ACTIVE MODE: Burst engine ready - resuming sensory processing (dropped {dropped_count} messages while in standby)")
+                    self._ready_logged = True  # Prevent spam
+                    
+        except Exception:
+            # If state check fails, proceed anyway to avoid breaking stream
+            pass
+        
         slot = None
         data_processed = False
 
