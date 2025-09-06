@@ -519,14 +519,9 @@ class SystemAPI:
                 f"Failed to disable visualization FQ sampler: {str(e)}"
             )
 
-    @system_endpoint("GET", "/fq_sampler_status")
-    def get_fq_sampler_status(self) -> Dict[str, Any]:
-        """Get the current status of all FQ samplers."""
-        try:
-            return self.core_api_service.get_fq_sampler_status()
-        except Exception as e:
-            logger.error(f"Error getting FQ sampler status: {e}")
-            raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
+    # REMOVED: Redundant FQ sampler status endpoint
+    # Use /v1/agent/fq_sampler_status instead - it provides comprehensive
+    # coordination status via Registration Manager with accurate real-time data
 
     # ===== Diagnostics: FCL and Process Manager =====
 

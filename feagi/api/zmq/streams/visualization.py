@@ -370,9 +370,14 @@ class VisualizationStream:
         enable/disable states.
         """
         logger.debug("Visualization data worker started")
+        loop_count = 0
 
         while self.running and not self._stop_event.is_set():
             try:
+                loop_count += 1
+                if loop_count % 100 == 0:  # Every 100 loops
+                    logger.debug("🎥 [VIZ-STREAM] Data worker loop #%d", loop_count)
+                
                 # Quick exit check for shutdown
                 if self._stop_event.is_set():
                     logger.debug("Data worker received stop signal")
@@ -380,8 +385,12 @@ class VisualizationStream:
 
                 # Skip processing if in standby mode (genome not loaded)
                 if not self._active_mode:
+                    if loop_count % 50 == 0:
+                        logger.debug("🎥 [VIZ-STREAM] Not in active mode, updating...")
                     self._update_active_mode()
                     if not self._active_mode:
+                        if loop_count % 50 == 0:
+                            logger.debug("🎥 [VIZ-STREAM] Still not active, sleeping...")
                         time.sleep(
                             0.5
                         )  # @architecture:acceptable - standby mode
@@ -391,6 +400,8 @@ class VisualizationStream:
                 # satisfied. Instead of dynamic discovery, require explicit
                 # dependency injection at startup
                 if not self.fq_sampler:
+                    if loop_count % 50 == 0:
+                        logger.debug("🎥 [VIZ-STREAM] No FQ sampler, checking process manager...")
                     if self.process_manager:
                         # Try to get FQ sampler from process manager
                         viz_fq_sampler = (
@@ -399,7 +410,7 @@ class VisualizationStream:
                         if viz_fq_sampler:
                             self.fq_sampler = viz_fq_sampler
                             logger.info(
-                                f"🎨 Visualization FQ sampler dependency resolved: "
+                                f"🎨 [VIZ-STREAM] Visualization FQ sampler dependency resolved: "
                                 f"{viz_fq_sampler.instance_id}"
                             )
                             # Ensure sampler samples when clients are connected
@@ -448,7 +459,13 @@ class VisualizationStream:
                     else False
                 )
 
+                if loop_count % 50 == 0:
+                    logger.debug("🎥 [VIZ-STREAM] FQ sampler check - has_sampler: %s, has_subscribers: %s", 
+                               bool(self.fq_sampler), fq_sampler_has_subscribers)
+
                 if not self.fq_sampler or not fq_sampler_has_subscribers:
+                    if loop_count % 50 == 0:
+                        logger.debug("🎥 [VIZ-STREAM] Skipping sampling - no sampler or no subscribers")
                     #  Brief wait to avoid busy-waiting when no clients
                     #  connected
                     time.sleep(
@@ -459,9 +476,18 @@ class VisualizationStream:
                 #  Get data from UnifiedFQSampler ONLY when enabled (clients
                 #  connected)
                 try:
-                    sample_data = self.fq_sampler.sample()
+                    # DEBUG: Check FQ sampler status before sampling
+                    if hasattr(self, 'fq_sampler') and self.fq_sampler is not None:
+                        logger.debug("🎥 [VIZ-STREAM] Calling fq_sampler.sample()")
+                        sample_data = self.fq_sampler.sample()
+                        logger.debug("🎥 [VIZ-STREAM] FQ sampler returned: %s", "data" if sample_data else "None")
+                    else:
+                        logger.debug("🎥 [VIZ-STREAM] No FQ sampler available - fq_sampler is %s", 
+                                   getattr(self, 'fq_sampler', 'undefined'))
+                        sample_data = None
 
                     if sample_data:
+                        logger.debug("🎥 [VIZ-STREAM] Converting sample data for visualization")
                         #  Convert UnifiedFQSampler format to visualization
                         #  format
                         for_visualization = (
@@ -470,14 +496,30 @@ class VisualizationStream:
 
                         # Only broadcast if we have visualization clients
                         with self._client_lock:
-                            if len(self.client_last_heartbeat) > 0:
+                            client_count = len(self.client_last_heartbeat)
+                            logger.debug("🎥 [VIZ-STREAM] Broadcasting to %d clients", client_count)
+                            if client_count > 0:
                                 broadcast_data = self._prepare_broadcast_data(
                                     for_visualization
                                 )
                                 self._broadcast_to_clients(broadcast_data)
+                                logger.debug("🎥 [VIZ-STREAM] ✅ Data broadcast complete")
+                            else:
+                                logger.debug("🎥 [VIZ-STREAM] No clients to broadcast to")
+                    else:
+                        # Only log every 10 cycles to avoid spam when no data
+                        if hasattr(self, '_no_data_counter'):
+                            self._no_data_counter += 1
+                        else:
+                            self._no_data_counter = 1
+                        
+                        if self._no_data_counter % 10 == 0:
+                            logger.debug("🎥 [VIZ-STREAM] No sample data available (count: %d)", self._no_data_counter)
 
                 except Exception as e:
-                    logger.error(f"Error sampling from FQ sampler: {e}")
+                    logger.error(f"🎥 [VIZ-STREAM] Error sampling from FQ sampler: {e}")
+                    import traceback
+                    logger.error(f"🎥 [VIZ-STREAM] Traceback: {traceback.format_exc()}")
 
                 # Maintain sample rate timing
                 time.sleep(
@@ -1295,47 +1337,31 @@ class VisualizationStream:
 
                     #  Create cortical ID using modern feagi-rust-py-libs
                     #  approach
-                    area_str = str(area_id)
+                    # PROPER CORTICAL ID CONVERSION: Use CoreAPI to convert cortical_idx to cortical_id
+                    if isinstance(area_id, int):
+                        # Convert integer cortical_idx to proper 6-character cortical_id
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(area_id)
+                        if cortical_id_str is None:
+                            logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
+                            continue
+                        
+                        logger.debug(f"✅ Converted cortical_idx {area_id} → cortical_id '{cortical_id_str}'")
+                        area_str = cortical_id_str
+                    else:
+                        # Already a string, use as-is
+                        area_str = str(area_id)
 
                     try:
-                        #  Try to create cortical ID directly from string -
-                        #  handles all modern format IDs
+                        #  Try to create cortical ID directly from proper string ID
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
+                        logger.debug(f"✅ Successfully created cortical ID object for '{area_str}'")
 
-                    except ValueError:
-                        logger.warning(
-                            f"Failed to get cortical ID for {area_str} ")
-                        # # Fallback for areas that can't be parsed directly
-                        # if area_str == "_power":
-                        #     cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                        #         fdp.genome.CoreCorticalType.Power
-                        #     )
-                        # elif area_str == "_death":
-                        #     cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                        #         fdp.genome.CoreCorticalType.Death
-                        #     )
-                        # else:
-                        #     # For unknown areas, use custom cortical ID
-                        #     # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
-                        #     if len(area_str) == 6:
-                        #         # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
-                        #         if area_str.startswith('C'):
-                        #             custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
-                        #         elif area_str.startswith('c'):
-                        #             custom_id = area_str  # Already correct
-                        #         else:
-                        #             custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
-                        #         cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
-                        #             custom_id
-                        #         )
-                        #     else:
-                        #         # Only add 'c' prefix if less than 6 characters
-                        #         custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
-                        #         cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
-                        #             custom_id
-                        #         )
+                    except ValueError as e:
+                        logger.error(f"❌ Failed to create cortical ID object for '{area_str}': {e}")
+                        logger.error("This indicates a mismatch between ConnectomeManager and FDP cortical ID formats")
+                        continue  # Skip this area if we can't create a valid ID object
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (

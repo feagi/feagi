@@ -33,30 +33,78 @@ class FQSampler:
         self._has_visualization_subscribers = False
         
         logger.info(f"FQ Sampler initialized: {sampling_mode} mode @ {sample_frequency_hz}Hz, ID: {self.instance_id}")
+        
+        # Check if debug is enabled on initialization
+        if self._is_debug_npu_enabled():
+            logger.debug("🔬 [FQ-SAMPLER] Debug logging enabled for NPU - will provide detailed sampling information")
     
     def sample(self) -> Optional[Dict[str, Any]]:
         """Sample current Fire Queue data organized by cortical areas."""
         current_time = time.time()
         
+        # Check for NPU debug logging
+        debug_enabled = self._is_debug_npu_enabled()
+        
+        if debug_enabled and self.samples_taken % 10 == 0:  # Every 10 samples to see more activity
+            logger.debug("🔬 [FQ-SAMPLER] Starting sample operation (sample #%d)", self.samples_taken)
+        
         # Respect sampling frequency
         if current_time - self.last_sample_time < self.sample_interval:
+            if debug_enabled and self.samples_taken % 20 == 0:
+                logger.debug("🔬 [FQ-SAMPLER] Skipping sample - frequency not reached (interval: %.3fs)", 
+                           self.sample_interval)
             return None
         
         # Get current fire queue
         fire_queue = self._get_current_fire_queue()
-        if fire_queue is None or fire_queue.is_empty():
+        if fire_queue is None:
+            if debug_enabled:
+                logger.debug("🔬 [FQ-SAMPLER] No fire queue available from provider")
             return None
+            
+        if fire_queue.is_empty():
+            if debug_enabled and self.samples_taken % 10 == 0:  # More frequent for empty queue
+                logger.debug("🔬 [FQ-SAMPLER] Fire queue is empty - no neurons to sample")
+            return None
+        
+        # Debug: Log fire queue status
+        active_areas = fire_queue.get_active_areas()
+        total_firing_neurons = sum(len(fire_queue.get_area_neurons(area_idx)) for area_idx in active_areas) if hasattr(fire_queue, 'get_area_neurons') else 0
+        
+        if debug_enabled:
+            logger.debug("🔬 [FQ-SAMPLER] Fire queue status:")
+            logger.debug("  - Active cortical areas: %s", active_areas)
+            logger.debug("  - Total firing neurons: %d", total_firing_neurons)
+            logger.debug("  - Fire queue timestep: %s", getattr(fire_queue, 'current_timestep', 'N/A'))
         
         # Sample all areas for now (can extend with modes)
         result = {}
-        for cortical_idx in fire_queue.get_active_areas():
+        sampled_neurons_total = 0
+        
+        for cortical_idx in active_areas:
             area_data = fire_queue.get_area_fire_queue_dict(cortical_idx)
             if area_data:
-                area_id = f"area_{cortical_idx}"
-                result[area_id] = area_data
+                # Use integer cortical_idx directly as key for proper conversion
+                result[cortical_idx] = area_data
+                
+                # Count neurons in this area
+                neuron_count = len(area_data.get('neuron_ids', [])) if isinstance(area_data, dict) else 0
+                sampled_neurons_total += neuron_count
+                
+                if debug_enabled:
+                    logger.debug("  - Area %d: %d neurons sampled", cortical_idx, neuron_count)
+                    if neuron_count > 0 and isinstance(area_data, dict):
+                        # Log sample of neuron IDs for verification
+                        neuron_ids = area_data.get('neuron_ids', [])
+                        sample_ids = neuron_ids[:3] + (['...'] if len(neuron_ids) > 3 else [])
+                        logger.debug("    Sample neuron IDs: %s", sample_ids)
         
         self.samples_taken += 1
         self.last_sample_time = current_time
+        
+        if debug_enabled:
+            logger.debug("🔬 [FQ-SAMPLER] ✅ Sample complete: %d areas, %d total neurons sampled", 
+                       len(result), sampled_neurons_total)
         
         return result
     
@@ -68,20 +116,63 @@ class FQSampler:
             return self.fire_queue_provider
         return None
     
+    def _is_debug_npu_enabled(self) -> bool:
+        """Check if NPU debug logging is enabled through the fire queue provider."""
+        try:
+            # Try to get state manager from fire_queue_provider (usually BurstEngine)
+            if hasattr(self.fire_queue_provider, 'state_manager'):
+                state_manager = self.fire_queue_provider.state_manager
+                if state_manager and hasattr(state_manager, 'is_debug_npu_enabled'):
+                    return state_manager.is_debug_npu_enabled()
+            
+            # Try to get connectome_manager from fire_queue_provider and then state_manager
+            if hasattr(self.fire_queue_provider, 'connectome_manager'):
+                cm = self.fire_queue_provider.connectome_manager
+                if cm and hasattr(cm, 'state_manager'):
+                    state_manager = cm.state_manager
+                    if state_manager and hasattr(state_manager, 'is_debug_npu_enabled'):
+                        return state_manager.is_debug_npu_enabled()
+            
+            return False
+        except Exception:
+            return False
+    
     def get_area_fire_queue(self, area_id: str) -> Optional[Dict[str, Any]]:
         """Get fire queue data for specific area (compatibility method)."""
+        debug_enabled = self._is_debug_npu_enabled()
+        
         fire_queue = self._get_current_fire_queue()
         if fire_queue is None:
+            if debug_enabled:
+                logger.debug("🔬 [FQ-SAMPLER] get_area_fire_queue: No fire queue available for area %s", area_id)
             return None
             
         try:
             cortical_idx = int(area_id.replace('area_', '')) if 'area_' in area_id else int(area_id)
-            return fire_queue.get_area_fire_queue_dict(cortical_idx)
-        except (ValueError, AttributeError):
+            area_data = fire_queue.get_area_fire_queue_dict(cortical_idx)
+            
+            if debug_enabled:
+                if area_data:
+                    neuron_count = len(area_data.get('neuron_ids', [])) if isinstance(area_data, dict) else 0
+                    logger.debug("🔬 [FQ-SAMPLER] get_area_fire_queue: Area %s (%d) has %d firing neurons", 
+                               area_id, cortical_idx, neuron_count)
+                else:
+                    logger.debug("🔬 [FQ-SAMPLER] get_area_fire_queue: Area %s (%d) has no firing data", 
+                               area_id, cortical_idx)
+            
+            return area_data
+        except (ValueError, AttributeError) as e:
+            if debug_enabled:
+                logger.debug("🔬 [FQ-SAMPLER] get_area_fire_queue: Error parsing area_id '%s': %s", area_id, e)
             return None
     
     def get_area_fire_queue_zerocopy(self, area_id: str) -> Optional[Dict[str, Any]]:
         """Zero-copy version for high performance."""
+        debug_enabled = self._is_debug_npu_enabled()
+        
+        if debug_enabled:
+            logger.debug("🔬 [FQ-SAMPLER] get_area_fire_queue_zerocopy: Called for area %s (delegating to regular method)", area_id)
+        
         # For now, same as regular method
         # In Rust implementation, this would use zero-copy arrays
         return self.get_area_fire_queue(area_id)
@@ -92,8 +183,19 @@ class FQSampler:
         Args:
             has_subscribers: True if visualization clients are connected
         """
+        old_state = self._has_visualization_subscribers
         self._has_visualization_subscribers = has_subscribers
-        logger.debug(f"FQ Sampler {self.instance_id}: visualization subscribers = {has_subscribers}")
+        
+        if old_state != has_subscribers:
+            logger.debug(f"FQ Sampler {self.instance_id}: visualization subscribers = {has_subscribers}")
+            
+            if self._is_debug_npu_enabled():
+                logger.debug("🔬 [FQ-SAMPLER] Visualization subscriber status changed: %s → %s", 
+                           old_state, has_subscribers)
+                if has_subscribers:
+                    logger.debug("🔬 [FQ-SAMPLER] Visualization clients connected - sampling will be more active")
+                else:
+                    logger.debug("🔬 [FQ-SAMPLER] Visualization clients disconnected - sampling may reduce frequency")
     
     def has_visualization_subscribers(self) -> bool:
         """Check if visualization subscribers are connected."""
@@ -148,6 +250,11 @@ class UnifiedFQSampler:
     def sampling_mode(self) -> str:
         """Get the sampling mode."""
         return self._fq_sampler.sampling_mode
+    
+    @property
+    def _has_visualization_subscribers(self) -> bool:
+        """Get visualization subscriber status - CRITICAL DELEGATION for VisualizationStream."""
+        return self._fq_sampler._has_visualization_subscribers
     
     # Delegate methods to underlying FQ sampler
     def sample(self) -> Optional[Dict[str, Any]]:

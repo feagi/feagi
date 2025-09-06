@@ -1472,6 +1472,24 @@ class CoreAPIService:
     # CRITICAL MISSING METHODS - FIRE QUEUE & STATE MANAGEMENT
     # =================================================================
 
+    def get_current_fire_queue(self):
+        """Get current fire queue from burst engine for FQ sampler access.
+        
+        This method is called by FQ samplers to get access to the current
+        fire queue data. It delegates to the BurstEngine's get_current_fire_queue method.
+        
+        Returns:
+            FireQueue instance or None if not available
+        """
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_current_fire_queue'):
+                return burst_engine.get_current_fire_queue()
+            return None
+        except Exception as e:
+            self.logger.error(f"Error accessing current fire queue: {e}")
+            return None
+    
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
         """Get the global fire queue data from new FireQueue architecture."""
         try:
@@ -3353,6 +3371,28 @@ class CoreAPIService:
         #  Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) linear
         #  search!
         return self._connectome_manager.get_cortical_idx_for_id(cortical_id)
+    
+    def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
+        """Get cortical ID for a cortical index using O(1) BiDirectionalCorticalMap.
+        
+        This method is used by FQ sampler to convert integer cortical indices
+        from FireQueue to proper 6-character cortical ID strings.
+
+        Args:
+            cortical_idx: Integer cortical area index
+
+        Returns:
+            6-character string cortical_id if found, None otherwise
+        """
+        try:
+            if not self._connectome_manager:
+                return None
+            
+            cortical_id = self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
+            return cortical_id
+        except Exception as e:
+            self.logger.error(f"Error converting cortical_idx {cortical_idx} to cortical_id: {e}")
+            return None
 
     def _validate_genome_loaded(self) -> bool:
         """Check if a genome is currently loaded - helper method for service consistency."""
