@@ -103,18 +103,21 @@ def simd_consecutive_fire_update(
     consecutive_fire_counts: np.ndarray,
     firing_mask: np.ndarray,
     not_firing_mask: np.ndarray,
-    valid_mask: np.ndarray
+    valid_mask: np.ndarray,
+    consecutive_fire_limits: np.ndarray
 ) -> None:
     """SIMD-optimized consecutive fire count tracking.
     
     Updates consecutive fire counts: increment for firing neurons,
     reset to 0 for non-firing neurons.
+    SKIPS UPDATE if consecutive_fire_limits is 0 for a neuron.
     
     Args:
         consecutive_fire_counts: Consecutive fire counts [N] (modified in-place)
         firing_mask: Boolean mask for neurons that fired [N]
         not_firing_mask: Boolean mask for neurons that didn't fire [N]
         valid_mask: Boolean mask for valid neurons [N]
+        consecutive_fire_limits: Consecutive fire limits [N] (0 = skip counting)
     
     Note:
         RUST-COMPATIBLE: Vectorized primitive operations only.
@@ -123,15 +126,21 @@ def simd_consecutive_fire_update(
     if not np.any(valid_mask):
         return
     
-    # Increment consecutive count for firing neurons (vectorized)
-    firing_valid = firing_mask & valid_mask
-    if np.any(firing_valid):
-        consecutive_fire_counts[firing_valid] += 1
+    # Only update consecutive fire counts where limit > 0 (skip if limit is 0)
+    active_counting_mask = (consecutive_fire_limits > 0) & valid_mask
     
-    # Reset consecutive count for non-firing neurons (vectorized)  
-    not_firing_valid = not_firing_mask & valid_mask
-    if np.any(not_firing_valid):
-        consecutive_fire_counts[not_firing_valid] = 0
+    if not np.any(active_counting_mask):
+        return  # No neurons have consecutive fire counting enabled
+    
+    # Increment consecutive count for firing neurons with active counting (vectorized)
+    firing_active = firing_mask & active_counting_mask
+    if np.any(firing_active):
+        consecutive_fire_counts[firing_active] += 1
+    
+    # Reset consecutive count for non-firing neurons with active counting (vectorized)  
+    not_firing_active = not_firing_mask & active_counting_mask
+    if np.any(not_firing_active):
+        consecutive_fire_counts[not_firing_active] = 0
 
 
 def simd_firing_check_with_consecutive_limits(
@@ -174,11 +183,18 @@ def simd_firing_check_with_consecutive_limits(
         return np.zeros_like(potentials, dtype=bool)
     
     # Step 1: Basic firing conditions (vectorized)
+    # Skip consecutive fire count constraint if consecutive_fire_limits is 0
+    consecutive_fire_constraint = np.ones_like(valid_mask, dtype=bool)  # Default: no constraint
+    
+    # Apply consecutive fire limit only where limit > 0
+    limit_active = consecutive_fire_limits > 0
+    consecutive_fire_constraint[limit_active] = (consecutive_fire_counts < consecutive_fire_limits)[limit_active]
+    
     can_fire_mask = (
-        valid_mask &                                          # Valid neurons
-        (refractory_counters == 0) &                         # Not in refractory
-        (potentials >= thresholds) &                         # Above threshold
-        (consecutive_fire_counts < consecutive_fire_limits)  # Under consecutive limit
+        valid_mask &                            # Valid neurons
+        (refractory_counters == 0) &           # Not in refractory
+        (potentials >= thresholds) &           # Above threshold
+        consecutive_fire_constraint            # Under consecutive limit (only if limit > 0)
     )
     
     if not np.any(can_fire_mask):
@@ -298,10 +314,10 @@ def simd_batch_neural_update(
         consecutive_fire_limits, valid_mask, excitability, rng
     )
     
-    # Step 3: Update consecutive fire counts
+    # Step 3: Update consecutive fire counts (skip if limits are 0)
     not_firing_mask = ~firing_mask
     simd_consecutive_fire_update(consecutive_fire_counts, firing_mask, 
-                                not_firing_mask, valid_mask)
+                                not_firing_mask, valid_mask, consecutive_fire_limits)
     
     # Step 4: Reset fired neurons (membrane potentials and set refractory counters)
     simd_reset_fired_neurons(potentials, resting_potentials, refractory_periods,
