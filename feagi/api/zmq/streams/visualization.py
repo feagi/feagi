@@ -462,9 +462,6 @@ class VisualizationStream:
                     sample_data = self.fq_sampler.sample()
 
                     if sample_data:
-                        # COORDINATE DEBUG: Log what we're about to convert
-                        logger.info(f"🎨 [VIZ-STREAM] Converting sample data with {len(sample_data)} areas")
-                        
                         #  Convert UnifiedFQSampler format to visualization format
                         for_visualization = (
                             self._convert_fq_format_to_viz_format(sample_data)
@@ -1305,8 +1302,7 @@ class VisualizationStream:
                         if cortical_id_str is None:
                             logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
                             continue
-                        
-                        logger.info(f"🗺️ [COORD-DEBUG] Area {area_id} → cortical_id '{cortical_id_str}'")
+
                         area_str = cortical_id_str
                     else:
                         # Already a string, use as-is
@@ -1317,10 +1313,6 @@ class VisualizationStream:
                         cortical_id_obj = (
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
-                        # COORDINATE DEBUG: Log first few coordinates being sent to visualizer  
-                        if len(neurons_x) > 0:
-                            logger.info(f"🗺️ [COORD-DEBUG] Area '{area_str}': First neuron visualization coords = ({neurons_x[0]}, {neurons_y[0] if len(neurons_y) > 0 else 'N/A'}, {neurons_z[0] if len(neurons_z) > 0 else 'N/A'})")
-                        logger.debug(f"✅ Successfully created cortical ID object for '{area_str}'")
 
                     except ValueError as e:
                         logger.error(f"❌ Failed to create cortical ID object for '{area_str}': {e}")

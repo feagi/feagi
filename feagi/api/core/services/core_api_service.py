@@ -3267,12 +3267,14 @@ class CoreAPIService:
                     "🔥 Triggering immediate burst to process manually stimulated neurons"
                 )
                 try:
-                    #  Use the burst engine's run_with_fire_queue method to
+                    #  Use the burst engine's process_burst method to
                     #  trigger immediate processing
-                    burst_success = burst_engine.run_with_fire_queue()
+                    fired_neurons = burst_engine.process_burst()
+                    burst_success = fired_neurons is not None  # Check if process returned a result
                     if burst_success:
+                        fired_count = len(fired_neurons) if fired_neurons else 0
                         self.logger.info(
-                            "✅ Manual stimulation burst processing completed successfully"
+                            f"✅ Manual stimulation burst processing completed successfully - {fired_count} neurons fired"
                         )
                     else:
                         self.logger.warning(
