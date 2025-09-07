@@ -16,6 +16,7 @@ from .fire_ledger import FireLedgerInterface
 from .coordinate_converter import CoordinateConverter
 from .fq_sampler import FQSampler
 from .fcl_injector import FCLInjector
+from .simd_neural_ops import simd_batch_neural_update
 
 logger = setup_logger(__name__)
 
@@ -145,52 +146,26 @@ class BurstEngine:
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         fire_queue = FireQueue()
         
+        # CRITICAL: Apply neural dynamics processing BEFORE firing evaluation
+        fired_neurons = self._process_neural_dynamics(fcl)
+        
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         try:
-            fired_neurons = []
             fcl_candidate_count = fcl.get_total_candidate_count()
             
-            if fcl_candidate_count > 0:
-                # Process FCL candidates
-                # Process FCL candidates for firing evaluation
+            # Neural dynamics processing completed - fired_neurons contains results
+            total_fired = len(fired_neurons)
+            
+            if fired_neurons:
+                # Convert fired neuron IDs to FiringNeuron objects
+                firing_neurons = self._create_firing_neurons(fired_neurons)
+                # FiringNeuron objects created
                 
-                # Process each cortical area's candidates directly
-                total_fired = 0
-                for cortical_idx, candidates in fcl.candidates_by_area.items():
-                    area_fired = 0
-                    
-                    # Processing cortical area
-                    
-                    # Get actual firing thresholds from neuron properties
-                    debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-                    
-                    for candidate in candidates:
-                        # Get actual neuron firing threshold from NPU interface
-                        firing_threshold = self._get_neuron_firing_threshold(candidate.neuron_id)
-                        
-                        # Per-neuron firing evaluation
-                        
-                        if candidate.membrane_potential_delta >= firing_threshold:
-                            fired_neurons.append(candidate.neuron_id)
-                            area_fired += 1
-                    
-                    total_fired += area_fired
-                    
-                    # Area processing complete
+                fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
                 
-                # Add fired neurons to fire queue
-                if fired_neurons:
-                    # Convert fired neuron IDs to FiringNeuron objects
-                    
-                    # Convert neuron IDs to FiringNeuron objects
-                    firing_neurons = self._create_firing_neurons(fired_neurons)
-                    # FiringNeuron objects created
-                    
-                    fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
-                    
-                    # Log significant firing activity
-                    if total_fired > 0:
-                        logger.info("Burst #%d: %d neurons fired", self.burst_count, total_fired)
+                # Log significant firing activity
+                if total_fired > 0:
+                    logger.info("Burst #%d: %d neurons fired", self.burst_count, total_fired)
                     
         except Exception as e:
             # CRITICAL: Set to ERROR state if burst processing fails
@@ -1007,15 +982,25 @@ class BurstEngine:
                 # Get threshold - MUST exist in genome  
                 threshold = self._get_neuron_firing_threshold(neuron_id)
                 
-                # Create FiringNeuron with available data
+                # Get consecutive fire count and refractory counter - ACTUAL VALUES from NPU
+                consecutive_fire_count = 0
+                refractory_counter = 0
+                
+                if hasattr(neuron_array, 'consecutive_fire_counts') and neuron_index < len(neuron_array.consecutive_fire_counts):
+                    consecutive_fire_count = int(neuron_array.consecutive_fire_counts[neuron_index])
+                
+                if hasattr(neuron_array, 'refractory_counters') and neuron_index < len(neuron_array.refractory_counters):
+                    refractory_counter = int(neuron_array.refractory_counters[neuron_index])
+                
+                # Create FiringNeuron with ACTUAL neural dynamics data
                 firing_neuron = FiringNeuron(
                     neuron_id=neuron_id,
                     cortical_idx=cortical_idx,
                     membrane_potential=membrane_potential,
                     coordinates=coordinates,
                     threshold=threshold,
-                    consecutive_fire_count=0,  # Could be tracked in future
-                    refractory_counter=0,      # Could be tracked in future
+                    consecutive_fire_count=consecutive_fire_count,  # ACTUAL value from NPU neural dynamics
+                    refractory_counter=refractory_counter,          # ACTUAL value from NPU neural dynamics
                     timestamp=0.0  # RTOS-safe: no system time calls
                 )
                 
@@ -1214,6 +1199,202 @@ class BurstEngine:
         self._memory_requirements = memory_requirements
         
         logger.debug("Memory structure capacities configured for Rust conversion readiness")
+    
+    def _process_neural_dynamics(self, fcl: FireCandidateList) -> List[int]:
+        """Process neural dynamics with SIMD-optimized operations.
+        
+        Applies the complete neural processing pipeline:
+        1. Apply FCL candidate potentials to membrane potentials
+        2. Apply membrane decay with leak behavior  
+        3. Update refractory counters
+        4. Check firing with consecutive fire limits
+        5. Update consecutive fire counts
+        6. Reset fired neurons
+        
+        Args:
+            fcl: Fire Candidate List with candidate neurons and potentials
+            
+        Returns:
+            List of neuron IDs that fired after neural dynamics processing
+            
+        Note:
+            RUST-COMPATIBLE: Uses vectorized SIMD operations throughout.
+            RTOS-SAFE: Deterministic execution, pre-allocated arrays.
+            GPU-READY: Optimal memory access patterns.
+        """
+        if not self.connectome_manager:
+            logger.warning("No connectome manager available for neural dynamics processing")
+            return []
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            logger.warning("No NPU interface available for neural dynamics processing")
+            return []
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            logger.warning("No neuron array available for neural dynamics processing")
+            return []
+        
+        # Get valid neuron range for processing
+        valid_range = min(neuron_array.count, neuron_array.max_neurons)
+        if valid_range == 0:
+            return []
+        
+        # Step 1: Apply FCL candidate potentials to membrane potentials
+        self._apply_fcl_candidates_to_membrane_potentials(fcl, neuron_array, valid_range)
+        
+        # Step 2: Run complete SIMD neural dynamics processing 
+        try:
+            # Extract neural arrays for SIMD processing (slice to valid range)
+            potentials = neuron_array.membrane_potentials[:valid_range]
+            thresholds = neuron_array.thresholds[:valid_range]
+            decay_rates = neuron_array.decay_rates[:valid_range]
+            leak_coefficients = neuron_array.leak_coefficients[:valid_range]
+            resting_potentials = neuron_array.resting_potentials[:valid_range]
+            refractory_periods = neuron_array.refractory_periods[:valid_range]
+            refractory_counters = neuron_array.refractory_counters[:valid_range]
+            consecutive_fire_counts = neuron_array.consecutive_fire_counts[:valid_range]
+            consecutive_fire_limits = neuron_array.consecutive_fire_limits[:valid_range]
+            valid_mask = neuron_array.valid_mask[:valid_range]
+            excitability = neuron_array.excitabilities[:valid_range] if hasattr(neuron_array, 'excitabilities') else None
+            
+            # SIMD-optimized neural processing pipeline
+            firing_mask, num_fired = simd_batch_neural_update(
+                potentials=potentials,
+                thresholds=thresholds, 
+                decay_rates=decay_rates,
+                leak_coefficients=leak_coefficients,
+                resting_potentials=resting_potentials,
+                refractory_periods=refractory_periods,
+                refractory_counters=refractory_counters,
+                consecutive_fire_counts=consecutive_fire_counts,
+                consecutive_fire_limits=consecutive_fire_limits,
+                valid_mask=valid_mask,
+                excitability=excitability,
+                rng=None  # Deterministic mode for RTOS compatibility
+            )
+            
+            # Step 3: Convert firing mask to neuron IDs
+            if num_fired == 0:
+                return []
+                
+            firing_indices = np.where(firing_mask)[0]
+            fired_neuron_ids = []
+            
+            for idx in firing_indices:
+                # Convert array index to neuron ID
+                neuron_id = neuron_array.index_to_neuron_id.get(int(idx))
+                if neuron_id is not None:
+                    fired_neuron_ids.append(neuron_id)
+            
+            # Log neural dynamics results
+            if fired_neuron_ids:
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                if debug_enabled:
+                    logger.debug("Neural dynamics: %d neurons fired with consecutive fire limits enforced", len(fired_neuron_ids))
+                
+            return fired_neuron_ids
+            
+        except Exception as e:
+            logger.error("Error in neural dynamics processing: %s", str(e))
+            return []
+    
+    def _apply_fcl_candidates_to_membrane_potentials(self, fcl: FireCandidateList, 
+                                                    neuron_array, valid_range: int) -> None:
+        """Apply FCL candidate potentials to neuron membrane potentials.
+        
+        Args:
+            fcl: Fire Candidate List with candidates and potentials
+            neuron_array: Neuron array to update
+            valid_range: Valid neuron range for processing
+            
+        Note:
+            RUST-COMPATIBLE: Uses vectorized operations for batch updates.
+        """
+        try:
+            # Process each cortical area's candidates
+            for cortical_idx, candidates in fcl.candidates_by_area.items():
+                if not candidates:
+                    continue
+                
+                # Extract neuron IDs and potentials from candidates
+                candidate_neuron_ids = []
+                potential_deltas = []
+                
+                for candidate in candidates:
+                    candidate_neuron_ids.append(candidate.neuron_id)
+                    potential_deltas.append(candidate.membrane_potential_delta)
+                
+                # Convert to numpy arrays for vectorized processing
+                neuron_ids = np.array(candidate_neuron_ids, dtype=np.int32)
+                deltas = np.array(potential_deltas, dtype=np.float32)
+                
+                # Apply potentials to membrane potentials (vectorized)
+                for i, neuron_id in enumerate(neuron_ids):
+                    # Get neuron index from ID mapping
+                    if neuron_id in neuron_array.neuron_id_to_index:
+                        idx = neuron_array.neuron_id_to_index[neuron_id]
+                        
+                        # Bounds check
+                        if 0 <= idx < valid_range:
+                            # Add candidate potential to current membrane potential
+                            neuron_array.membrane_potentials[idx] += deltas[i]
+                        
+        except Exception as e:
+            logger.error("Error applying FCL candidates to membrane potentials: %s", str(e))
+    
+    def update_consecutive_fire_limits(self, cortical_id: str, limit: int) -> bool:
+        """Update consecutive fire limits for all neurons in a cortical area.
+        
+        This method is called when the genome parameter 'neuron_consecutive_fire_count'
+        is updated via the API to ensure the NPU neural dynamics use the correct limits.
+        
+        Args:
+            cortical_id: Cortical area ID (e.g., 'c__bac')
+            limit: New consecutive fire limit
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            if not self.connectome_manager:
+                logger.warning("Cannot update consecutive fire limits: No connectome manager")
+                return False
+                
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if not npu_interface:
+                logger.warning("Cannot update consecutive fire limits: No NPU interface")
+                return False
+                
+            neuron_array = getattr(npu_interface, 'neuron_array', None)
+            if not neuron_array:
+                logger.warning("Cannot update consecutive fire limits: No neuron array")
+                return False
+            
+            # Get cortical index from cortical ID
+            cortical_idx = None
+            if hasattr(self.connectome_manager, 'get_cortical_idx_for_id'):
+                cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_id)
+            
+            if cortical_idx is None:
+                logger.warning("Cannot update consecutive fire limits: Cortical area %s not found", cortical_id)
+                return False
+            
+            # Update consecutive fire limits for all neurons in this cortical area
+            updated_count = neuron_array.update_consecutive_fire_limits_by_cortical_area(cortical_idx, limit)
+            
+            if updated_count > 0:
+                logger.info("Updated consecutive fire limits to %d for %d neurons in cortical area %s", 
+                           limit, updated_count, cortical_id)
+                return True
+            else:
+                logger.warning("No neurons found in cortical area %s to update consecutive fire limits", cortical_id)
+                return False
+                
+        except Exception as e:
+            logger.error("Error updating consecutive fire limits for cortical area %s: %s", cortical_id, str(e))
+            return False
     
     def _initialize_injection_service(self):
         """Initialize injection service for power areas and special neuron injection."""

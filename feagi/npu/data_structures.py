@@ -200,6 +200,10 @@ class NeuronArray:
         self.refractory_periods = np.ones(max_neurons, dtype=np.uint8)
         self.refractory_counters = np.zeros(max_neurons, dtype=np.uint8)
         
+        # Consecutive fire tracking (RUST-COMPATIBLE: primitive arrays)
+        self.consecutive_fire_counts = np.zeros(max_neurons, dtype=np.uint16)
+        self.consecutive_fire_limits = np.full(max_neurons, 1, dtype=np.uint16)  # Default limit: 1
+        
         # Cortical area mapping
         self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
         
@@ -220,7 +224,7 @@ class NeuronArray:
     def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
                          neuron_types: List[int], initial_potentials: List[float],
                          thresholds: List[float], leak_coefficients: List[float],
-                         cortical_idx: int) -> List[int]:
+                         cortical_idx: int, consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
         """Add multiple neurons in batch."""
         count = len(neuron_ids)
         if self.count + count > self.max_neurons:
@@ -248,6 +252,11 @@ class NeuronArray:
         
         # Mark as valid
         self.valid_mask[start_idx:end_idx] = True
+        
+        # Set consecutive fire limits
+        if consecutive_fire_limits is not None:
+            self.consecutive_fire_limits[start_idx:end_idx] = np.array(consecutive_fire_limits, dtype=np.uint16)
+        # Note: consecutive_fire_counts remain 0 (initialized by default)
         
         # Update ID mappings
         for i, neuron_id in enumerate(neuron_ids):
@@ -293,6 +302,8 @@ class NeuronArray:
                 self.membrane_potentials[idx] = float(value)
             elif property_name == "threshold":
                 self.thresholds[idx] = float(value)
+            elif property_name == "consecutive_fire_limit":
+                self.consecutive_fire_limits[idx] = int(value)
             elif property_name == "leak_coefficient":
                 self.leak_coefficients[idx] = float(value)
     
@@ -314,6 +325,29 @@ class NeuronArray:
         if filter_invalid:
             return mapped[mapped >= 0]
         return mapped
+
+    def update_consecutive_fire_limits_by_cortical_area(self, cortical_idx: int, limit: int) -> int:
+        """Update consecutive fire limits for all neurons in a cortical area.
+        
+        Args:
+            cortical_idx: Cortical area index
+            limit: New consecutive fire limit
+            
+        Returns:
+            Number of neurons updated
+        """
+        with self._lock:
+            # Find neurons in this cortical area
+            area_mask = (self.cortical_idxs == cortical_idx) & self.valid_mask
+            
+            if not np.any(area_mask):
+                return 0
+            
+            # Update consecutive fire limits (vectorized)
+            self.consecutive_fire_limits[area_mask] = int(limit)
+            
+            # Return count of updated neurons
+            return int(np.sum(area_mask))
 
 
 class MemoryNeuronArray:

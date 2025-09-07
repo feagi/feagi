@@ -184,8 +184,28 @@ class CorticalParameterUpdater:
         if property_type == "consecutive_fire_count":
             # This is a cortical area-level parameter, not per-neuron
             # It sets the max consecutive fires allowed for the area
-            #  NOTE: The ConnectomeManager update will be handled by
-            #  GenomeService
+            
+            # CRITICAL: Update BurstEngine NPU consecutive fire limits
+            try:
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                
+                if burst_engine:
+                    update_success = burst_engine.update_consecutive_fire_limits(cortical_id, value)
+                    if update_success:
+                        self.logger.info(
+                            f"[FAST-UPDATE] Updated consecutive fire limits in NPU for cortical area {cortical_id} to {value}"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"[FAST-UPDATE] Failed to update consecutive fire limits in NPU for cortical area {cortical_id}"
+                        )
+                else:
+                    self.logger.warning("[FAST-UPDATE] BurstEngine not available for consecutive fire limit update")
+                    
+            except Exception as e:
+                self.logger.error(f"[FAST-UPDATE] Error updating BurstEngine consecutive fire limits: {e}")
+            
             self.logger.info(
                 f"[FAST-UPDATE] Updated cortical area consecutive fire limit to {value} "
                 f"(affects {len(neuron_ids)} neurons via area configuration)"
