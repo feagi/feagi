@@ -513,6 +513,58 @@ class SynapseArray:
                     connections.append((target_id, weight))
         return connections
     
+    def has_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
+        """Check if synapse exists between two neurons."""
+        if source_neuron_id not in self.source_neuron_index:
+            return False
+            
+        for synapse_idx in self.source_neuron_index[source_neuron_id]:
+            if synapse_idx < self.count and self.valid_mask[synapse_idx]:
+                if self.target_neuron_ids[synapse_idx] == target_neuron_id:
+                    return True
+        return False
+    
+    def _find_synapse_index(self, source_neuron_id: int, target_neuron_id: int) -> Optional[int]:
+        """Find synapse index by source and target neuron IDs."""
+        if source_neuron_id not in self.source_neuron_index:
+            return None
+            
+        for synapse_idx in self.source_neuron_index[source_neuron_id]:
+            if (synapse_idx < self.count and 
+                self.valid_mask[synapse_idx] and
+                self.target_neuron_ids[synapse_idx] == target_neuron_id):
+                return synapse_idx
+        
+        return None
+    
+    def delete_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
+        """Delete a single synapse between two neurons."""
+        synapse_idx = self._find_synapse_index(source_neuron_id, target_neuron_id)
+        if synapse_idx is None:
+            return False
+            
+        try:
+            # Mark as invalid and inactive
+            self.valid_mask[synapse_idx] = False
+            self.is_active[synapse_idx] = False
+            
+            # Update counts
+            self.count -= 1
+            self.synapse_count -= 1
+            
+            # Remove from index lists
+            self.source_neuron_index[source_neuron_id].remove(synapse_idx)
+            if not self.source_neuron_index[source_neuron_id]:
+                del self.source_neuron_index[source_neuron_id]
+                
+            self.target_neuron_index[target_neuron_id].remove(synapse_idx)
+            if not self.target_neuron_index[target_neuron_id]:
+                del self.target_neuron_index[target_neuron_id]
+            
+            return True
+        except Exception:
+            return False
+    
 
 
 # Export the main data structures for compatibility
