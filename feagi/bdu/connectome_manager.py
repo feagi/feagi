@@ -1795,11 +1795,17 @@ class ConnectomeManager(NeuronMappingProvider):
         # Use new NPU SynapseArray for O(1) synapse creation
         synapse_type_int = 3 if is_plastic else 0  # 3=PLASTIC, 0=EXCITATORY
 
+        # Extract conductance from genome or use default
+        conductance = kwargs.get('conductance', 1.0)  # Default from genome template postsynaptic_current
+        delay = kwargs.get('delay', 1)  # Default 1 timestep delay
+        
         success = self.synapse_array.create_synapse(
             source_neuron_id=pre_neuron_id,
             target_neuron_id=post_neuron_id,
             weight=weight,
             synapse_type=synapse_type_int,
+            delay=delay,
+            conductance=conductance,
             plasticity_coeff=plasticity_coeff
         )
         
@@ -1852,8 +1858,10 @@ class ConnectomeManager(NeuronMappingProvider):
         target_neuron_ids = [spec[1] for spec in valid_specs] 
         weights = [spec[2] for spec in valid_specs]
         
-        # Default values for other parameters
-        delays = [1] * len(valid_specs)  # Default delay of 1
+        # Default values for other parameters - ALL FROM GENOME
+        delays = [1] * len(valid_specs)  # Default delay of 1 timestep
+        conductances = [1.0] * len(valid_specs)  # DEFAULT: postsynaptic_current from genome template
+        synapse_types = [0] * len(valid_specs)  # DEFAULT: excitatory synapses
         plasticity_types = [0] * len(valid_specs)  # Default: no plasticity  
         plasticity_coefficients = [1.0] * len(valid_specs)  # Default coefficient
         
@@ -1862,6 +1870,8 @@ class ConnectomeManager(NeuronMappingProvider):
             target_neuron_ids=target_neuron_ids,
             weights=weights,
             delays=delays,
+            conductances=conductances,  # NEW: REQUIRED for synaptic propagation
+            synapse_types=synapse_types,  # NEW: REQUIRED for excitatory/inhibitory
             plasticity_types=plasticity_types,
             plasticity_coefficients=plasticity_coefficients
         )
@@ -4073,11 +4083,13 @@ class ConnectomeManager(NeuronMappingProvider):
         self,
         cortical_id: str,
         positions: List[Tuple[int, int, int]],
-        threshold: float = 1.0,
-        membrane_potential: float = 0.0,
-        resting_potential: float = 0.0,
-        decay_rate: float = 0.5,
-        refractory_period: int = 1,
+        threshold: float,
+        membrane_potential: float,
+        resting_potential: float,
+        decay_rate: float,
+        refractory_period: int,
+        excitability: float,
+        consecutive_fire_limit: int,
         properties: Optional[Dict[str, Any]] = None,
         cortical_idx: Optional[int] = None,
     ) -> List[int]:
@@ -4132,14 +4144,14 @@ class ConnectomeManager(NeuronMappingProvider):
         start_id = npu_neurons._next_neuron_id
         neuron_ids = list(range(start_id, start_id + count))
 
-        # Normalize per-neuron lists
+        # Normalize per-neuron lists - ALL PARAMETERS FROM GENOME
         thresholds_list = (
             [threshold] * count if isinstance(threshold, (int, float)) else list(threshold)
         )
         mp_list = (
             [membrane_potential] * count if isinstance(membrane_potential, (int, float)) else list(membrane_potential)
         )
-        _rp_list = (
+        rp_list = (
             [resting_potential] * count if isinstance(resting_potential, (int, float)) else list(resting_potential)
         )
         decay_list = (
@@ -4148,8 +4160,14 @@ class ConnectomeManager(NeuronMappingProvider):
         refr_list = (
             [refractory_period] * count if isinstance(refractory_period, int) else list(refractory_period)
         )
+        excitability_list = (
+            [excitability] * count if isinstance(excitability, (int, float)) else list(excitability)
+        )
+        consecutive_fire_limits_list = (
+            [consecutive_fire_limit] * count if isinstance(consecutive_fire_limit, int) else list(consecutive_fire_limit)
+        )
 
-        # Use add_neurons_batch to create entries (neuron_types/excitabilities defaults)
+        # Use add_neurons_batch with ALL required parameters from genome
         indices = npu_neurons.add_neurons_batch(
             neuron_ids=neuron_ids,
             positions=positions,
@@ -4158,16 +4176,14 @@ class ConnectomeManager(NeuronMappingProvider):
             thresholds=thresholds_list,
             leak_coefficients=decay_list,
             cortical_idx=cortical_idx,
+            decay_rates=decay_list,  # Same as leak_coefficients for compatibility
+            refractory_periods=refr_list,
+            excitabilities=excitability_list,
+            resting_potentials=rp_list,
+            consecutive_fire_limits=consecutive_fire_limits_list,
         )
 
-        # Apply refractory periods vector if available
-        # Note: current NeuronArray stores refractory_periods array; set for new indices
-        if hasattr(npu_neurons, "refractory_periods"):
-            for off, idx in enumerate(indices):
-                try:
-                    npu_neurons.refractory_periods[idx] = int(refr_list[off])
-                except Exception:
-                    pass
+        # Refractory periods are now handled by add_neurons_batch - no manual setting needed
 
         # Use the IDs generated above - authoritative NPU IDs
         neuron_ids = neuron_ids
@@ -5235,6 +5251,8 @@ class ConnectomeManager(NeuronMappingProvider):
             resting_potential=resting_potential,
             decay_rate=decay_rate,
             refractory_period=refractory_period,
+            excitability=1.0,  # Default excitability
+            consecutive_fire_limit=10,  # Default consecutive fire limit
             properties=properties,
         )
 

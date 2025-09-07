@@ -2330,13 +2330,17 @@ class GenomeService(BaseService):
                                 for _ in range(neurons_per_voxel):
                                     positions.append((x, y, z))
 
+                    # Extract ALL neural dynamics parameters from hierarchical genome
                     base_threshold = new_area.get("firing_threshold", 1.0)
                     base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
                     base_refractory = new_area.get("refractory_period", 1)
                     excitability = new_area.get("neuron_excitability", 1.0)
-
+                    consecutive_fire_limit = new_area.get("consecutive_fire_cnt_max", 10)  # Default from template is 0, use 10 if 0
+                    if consecutive_fire_limit == 0:
+                        consecutive_fire_limit = 10  # Prevent infinite consecutive firing
+                    
                     self.logger.info(
-                        f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}"
+                        f"Creating neurons with properties from genome: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}, consecutive_fire_limit={consecutive_fire_limit}"
                     )
 
                     neuron_ids = self._connectome_manager.batch_create_neurons(
@@ -2347,6 +2351,8 @@ class GenomeService(BaseService):
                         resting_potential=0.0,
                         decay_rate=base_decay_rate,
                         refractory_period=base_refractory,
+                        excitability=excitability,
+                        consecutive_fire_limit=consecutive_fire_limit,
                     )
 
                     # Update per-area excitability cache in NPU (per-area, not per-neuron)
@@ -5626,6 +5632,8 @@ class GenomeService(BaseService):
                 resting_potential=0.0,
                 decay_rate=1.0 - (properties.get("leak_c", 0) / 100.0),
                 refractory_period=properties.get("refrac", 1),
+                excitability=properties.get("neuron_excitability", 1.0),
+                consecutive_fire_limit=max(properties.get("consecutive_fire_cnt_max", 10), 1),
             )
 
             # Update per-area excitability cache in NPU
@@ -5869,6 +5877,8 @@ class GenomeService(BaseService):
                 resting_potential=0.0,
                 decay_rate=decay_rates,
                 refractory_period=base_refractory,
+                excitability=properties.get("neuron_excitability", 1.0),
+                consecutive_fire_limit=max(properties.get("consecutive_fire_cnt_max", 10), 1),
             )
 
             # CRITICAL FIX: Set excitability for all created neurons

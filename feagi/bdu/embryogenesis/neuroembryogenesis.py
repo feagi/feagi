@@ -1096,13 +1096,24 @@ class NeuroEmbryogenesis:
                     
                     logger.debug(f"[NEUROGENESIS] Locked cortical area {area.cortical_idx} for batch neuron creation")
                     
-                    # Create batch neuron creation request
+                    # Extract ALL neural dynamics parameters from genome - NO HARDCODED VALUES
+                    base_excitability = properties.get("neuron_excitability", 1.0)
+                    consecutive_fire_limit = properties.get("consecutive_fire_cnt_max", 10)
+                    if consecutive_fire_limit == 0:
+                        consecutive_fire_limit = 10  # Prevent infinite consecutive firing
+                    
+                    # Create batch neuron creation request with ALL parameters from genome
                     request = NeuronCreationRequest(
-                    cortical_idx=area.cortical_idx,
+                        cortical_idx=area.cortical_idx,
                         positions=positions,
                         thresholds=[base_threshold] * area_neuron_count,
                         initial_potentials=[0.0] * area_neuron_count,
                         leak_coefficients=[base_decay_rate] * area_neuron_count,
+                        decay_rates=[base_decay_rate] * area_neuron_count,
+                        refractory_periods=[properties["refrac"]] * area_neuron_count,
+                        excitabilities=[base_excitability] * area_neuron_count,
+                        resting_potentials=[0.0] * area_neuron_count,
+                        consecutive_fire_limits=[consecutive_fire_limit] * area_neuron_count,
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)

@@ -84,7 +84,7 @@ class FCLInjector:
                          fcl: FireCandidateList,
                          cortical_idx: int,
                          neuron_ids: List[int],
-                         base_potential: float = 1.5) -> int:
+                         base_potential: float) -> int:
         """Inject power area neurons for constant brain activity.
         
         Power areas provide foundational activity every burst cycle.

@@ -180,11 +180,11 @@ class NeuronArray:
         # Thread safety
         self._lock = threading.RLock()
         
-        # Core neuron properties (SoA format)
+        # Core neuron properties (SoA format) - NO HARDCODED VALUES, ALL FROM GENOME
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
-        self.thresholds = np.ones(max_neurons, dtype=np.float32)
-        self.decay_rates = np.full(max_neurons, 0.9, dtype=np.float32)
-        self.leak_coefficients = np.full(max_neurons, 0.1, dtype=np.float32)
+        self.thresholds = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
+        self.decay_rates = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
+        self.leak_coefficients = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         self.resting_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.neuron_types = np.zeros(max_neurons, dtype=np.int32)
         
@@ -196,13 +196,13 @@ class NeuronArray:
         self.coordinates_y = np.zeros(max_neurons, dtype=np.uint32)
         self.coordinates_z = np.zeros(max_neurons, dtype=np.uint32)
         
-        # Firing properties
-        self.refractory_periods = np.ones(max_neurons, dtype=np.uint8)
+        # Firing properties - NO HARDCODED VALUES, ALL FROM GENOME
+        self.refractory_periods = np.zeros(max_neurons, dtype=np.uint8)  # MUST be set from genome
         self.refractory_counters = np.zeros(max_neurons, dtype=np.uint8)
         
-        # Consecutive fire tracking (RUST-COMPATIBLE: primitive arrays)
+        # Consecutive fire tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
         self.consecutive_fire_counts = np.zeros(max_neurons, dtype=np.uint16)
-        self.consecutive_fire_limits = np.full(max_neurons, 1, dtype=np.uint16)  # Default limit: 1
+        self.consecutive_fire_limits = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
         
         # Cortical area mapping
         self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
@@ -217,14 +217,19 @@ class NeuronArray:
         
         # Compatibility fields
         self.next_index = 0
-        self.excitabilities = np.ones(max_neurons, dtype=np.float32)
+        self.excitabilities = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         
         logger.info("NeuronArray initialized: %d max neurons, %s backend", max_neurons, backend.value)
     
     def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
                          neuron_types: List[int], initial_potentials: List[float],
                          thresholds: List[float], leak_coefficients: List[float],
-                         cortical_idx: int, consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
+                         cortical_idx: int, 
+                         decay_rates: Optional[List[float]] = None,
+                         refractory_periods: Optional[List[int]] = None,
+                         excitabilities: Optional[List[float]] = None,
+                         resting_potentials: Optional[List[float]] = None,
+                         consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
         """Add multiple neurons in batch."""
         count = len(neuron_ids)
         if self.count + count > self.max_neurons:
@@ -234,12 +239,33 @@ class NeuronArray:
         indices = list(range(start_idx, start_idx + count))
         end_idx = start_idx + count
         
-        # Update arrays
+        # Update arrays - ALL VALUES MUST COME FROM GENOME
         self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
         self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
         self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
         self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
         self.cortical_idxs[start_idx:end_idx] = cortical_idx
+        
+        # Set additional neural dynamics parameters from genome
+        if decay_rates is not None:
+            self.decay_rates[start_idx:end_idx] = np.array(decay_rates, dtype=np.float32)
+        else:
+            raise ValueError("decay_rates parameter is required - must come from genome")
+            
+        if refractory_periods is not None:
+            self.refractory_periods[start_idx:end_idx] = np.array(refractory_periods, dtype=np.uint8)
+        else:
+            raise ValueError("refractory_periods parameter is required - must come from genome")
+            
+        if excitabilities is not None:
+            self.excitabilities[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
+        else:
+            raise ValueError("excitabilities parameter is required - must come from genome")
+            
+        if resting_potentials is not None:
+            self.resting_potentials[start_idx:end_idx] = np.array(resting_potentials, dtype=np.float32)
+        else:
+            raise ValueError("resting_potentials parameter is required - must come from genome")
         
         # Set positions
         positions_array = np.array(positions, dtype=np.int32)
@@ -253,9 +279,11 @@ class NeuronArray:
         # Mark as valid
         self.valid_mask[start_idx:end_idx] = True
         
-        # Set consecutive fire limits
+        # Set consecutive fire limits - MUST come from genome
         if consecutive_fire_limits is not None:
             self.consecutive_fire_limits[start_idx:end_idx] = np.array(consecutive_fire_limits, dtype=np.uint16)
+        else:
+            raise ValueError("consecutive_fire_limits parameter is required - must come from genome")
         # Note: consecutive_fire_counts remain 0 (initialized by default)
         
         # Update ID mappings
@@ -388,11 +416,11 @@ class MemoryNeuronArray:
         self.is_active = np.zeros(max_memory_neurons, dtype=np.bool_)
         self.valid_mask = np.zeros(max_memory_neurons, dtype=np.bool_)
         
-        # Standard neuron properties
+        # Standard neuron properties - NO HARDCODED VALUES, ALL FROM GENOME
         self.membrane_potentials = np.zeros(max_memory_neurons, dtype=np.float32)
-        self.thresholds = np.ones(max_memory_neurons, dtype=np.float32)
-        self.leak_coefficients = np.full(max_memory_neurons, 0.1, dtype=np.float32)
-        self.excitabilities = np.ones(max_memory_neurons, dtype=np.float32)
+        self.thresholds = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
+        self.leak_coefficients = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
+        self.excitabilities = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
         
         # Memory neuron ID mapping
         self.neuron_id_to_index: Dict[int, int] = {}
@@ -408,8 +436,10 @@ class MemoryNeuronArray:
         logger.info("MemoryNeuronArray initialized: %d max memory neurons", max_memory_neurons)
     
     def create_memory_neuron(self, pattern_key: MemoryPatternKey, cortical_area_id: str,
-                           current_burst: int, initial_lifespan: int = 9,
-                           lifespan_growth_rate: float = 1.0) -> int:
+                           current_burst: int, initial_lifespan: int,
+                           lifespan_growth_rate: float,
+                           membrane_potential: float,
+                           firing_threshold: float) -> int:
         """Create a single memory neuron representing a temporal pattern."""
         if self.deleted_indices:
             idx = self.deleted_indices.pop()
@@ -435,8 +465,8 @@ class MemoryNeuronArray:
         self.activation_count[idx] = 1
         
         self.cortical_area_id[idx] = str(cortical_area_id)
-        self.membrane_potentials[idx] = 1.5  # Above threshold to fire
-        self.thresholds[idx] = 1.0
+        self.membrane_potentials[idx] = float(membrane_potential)  # FROM GENOME - no hardcoded values
+        self.thresholds[idx] = float(firing_threshold)  # FROM GENOME - no hardcoded values
         
         self.count += 1
         self.pattern_to_index[pattern_key] = idx
@@ -469,17 +499,17 @@ class SynapseArray:
         self.source_neuron_ids = np.zeros(max_synapses, dtype=np.uint32)
         self.target_neuron_ids = np.zeros(max_synapses, dtype=np.uint32)
         
-        # Synaptic properties
+        # Synaptic properties - NO HARDCODED VALUES, ALL FROM GENOME
         self.weights = np.zeros(max_synapses, dtype=np.float32)
-        self.delays = np.ones(max_synapses, dtype=np.uint8)
+        self.delays = np.zeros(max_synapses, dtype=np.uint8)  # MUST be set from genome
         self.types = np.zeros(max_synapses, dtype=np.uint8)
-        self.conductances = np.ones(max_synapses, dtype=np.float32)
+        self.conductances = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
-        # Plasticity properties
+        # Plasticity properties - NO HARDCODED VALUES, ALL FROM GENOME
         self.is_plastic_flags = np.zeros(max_synapses, dtype=np.bool_)
         self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)
-        self.plasticity_coeffs = np.ones(max_synapses, dtype=np.float32)
-        self.decay_rates = np.full(max_synapses, 0.95, dtype=np.float32)
+        self.plasticity_coeffs = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
+        self.decay_rates = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
         # Synapse state
         self.valid_mask = np.zeros(max_synapses, dtype=np.bool_)
@@ -491,12 +521,41 @@ class SynapseArray:
         
         logger.info("SynapseArray initialized: %d max synapses, %s backend", max_synapses, backend.value)
     
+    def create_synapse(self, source_neuron_id: int, target_neuron_id: int, 
+                      weight: float, synapse_type: int = 0, 
+                      delay: int = 1, conductance: float = 1.0,
+                      plasticity_coeff: float = 0.0) -> bool:
+        """Create a single synapse."""
+        if self.count >= self.max_synapses:
+            return False
+            
+        # Determine plasticity type based on synapse_type
+        plasticity_type = 1 if synapse_type == 3 else 0  # 3=PLASTIC, 0=NON_PLASTIC
+        
+        success = self.add_synapses_batch(
+            source_neuron_ids=[source_neuron_id],
+            target_neuron_ids=[target_neuron_id],
+            weights=[weight],
+            delays=[delay],
+            conductances=[conductance],
+            synapse_types=[synapse_type],
+            plasticity_types=[plasticity_type],
+            plasticity_coefficients=[plasticity_coeff]
+        )
+        
+        return success == 1
+    
     def add_synapses_batch(self, source_neuron_ids: List[int], target_neuron_ids: List[int],
                           weights: List[float], delays: List[int], 
+                          conductances: List[float],
+                          synapse_types: List[int], 
                           plasticity_types: List[int], plasticity_coefficients: List[float]) -> int:
         """Add multiple synapses in batch."""
         count = len(source_neuron_ids)
-        if count != len(target_neuron_ids) or count != len(weights):
+        if (count != len(target_neuron_ids) or count != len(weights) or 
+            count != len(delays) or count != len(conductances) or 
+            count != len(synapse_types) or count != len(plasticity_types) or 
+            count != len(plasticity_coefficients)):
             raise ValueError("All input lists must have same length")
             
         if self.count + count > self.max_synapses:
@@ -508,11 +567,13 @@ class SynapseArray:
         start_idx = self.count
         end_idx = start_idx + count
         
-        # Batch assignment
+        # Batch assignment - ALL VALUES FROM GENOME
         self.source_neuron_ids[start_idx:end_idx] = np.array(source_neuron_ids, dtype=np.uint32)
         self.target_neuron_ids[start_idx:end_idx] = np.array(target_neuron_ids, dtype=np.uint32)
         self.weights[start_idx:end_idx] = np.array(weights, dtype=np.float32)
         self.delays[start_idx:end_idx] = np.array(delays, dtype=np.uint8)
+        self.conductances[start_idx:end_idx] = np.array(conductances, dtype=np.float32)  # FROM GENOME
+        self.types[start_idx:end_idx] = np.array(synapse_types, dtype=np.uint8)  # FROM GENOME
         self.plasticity_types[start_idx:end_idx] = np.array(plasticity_types, dtype=np.uint8)
         self.plasticity_coeffs[start_idx:end_idx] = np.array(plasticity_coefficients, dtype=np.float32)
         

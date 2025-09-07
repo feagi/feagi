@@ -64,7 +64,12 @@ class NeuronCreationRequest:
     initial_potentials: Optional[List[float]] = None
     thresholds: Optional[List[float]] = None
     leak_coefficients: Optional[List[float]] = None
+    # New required neural dynamics parameters from genome
+    decay_rates: Optional[List[float]] = None
+    refractory_periods: Optional[List[int]] = None
     excitabilities: Optional[List[float]] = None
+    resting_potentials: Optional[List[float]] = None
+    consecutive_fire_limits: Optional[List[int]] = None
 
 
 @dataclass
@@ -110,20 +115,39 @@ class NPUInterface:
             num_neurons = len(request.positions)
             neuron_ids = list(range(self.neuron_array.count + 1, self.neuron_array.count + num_neurons + 1))
             
-            # Use defaults if not provided
+            # ARCHITECTURE COMPLIANCE: ALL parameters must be provided - no defaults
+            if request.thresholds is None:
+                raise ValueError("thresholds parameter is required - must come from genome")
+            if request.leak_coefficients is None:
+                raise ValueError("leak_coefficients parameter is required - must come from genome")
+            if request.decay_rates is None:
+                raise ValueError("decay_rates parameter is required - must come from genome")
+            if request.refractory_periods is None:
+                raise ValueError("refractory_periods parameter is required - must come from genome")
+            if request.excitabilities is None:
+                raise ValueError("excitabilities parameter is required - must come from genome")
+            if request.resting_potentials is None:
+                raise ValueError("resting_potentials parameter is required - must come from genome")
+            if request.consecutive_fire_limits is None:
+                raise ValueError("consecutive_fire_limits parameter is required - must come from genome")
+            
+            # Use provided parameters - NO DEFAULTS
             neuron_types = request.neuron_types or [0] * num_neurons
             initial_potentials = request.initial_potentials or [0.0] * num_neurons
-            thresholds = request.thresholds or [1.0] * num_neurons
-            leak_coefficients = request.leak_coefficients or [0.1] * num_neurons
             
             indices = self.neuron_array.add_neurons_batch(
                 neuron_ids=neuron_ids,
                 positions=request.positions,
                 neuron_types=neuron_types,
                 initial_potentials=initial_potentials,
-                thresholds=thresholds,
-                leak_coefficients=leak_coefficients,
-                cortical_idx=request.cortical_idx
+                thresholds=request.thresholds,
+                leak_coefficients=request.leak_coefficients,
+                cortical_idx=request.cortical_idx,
+                decay_rates=request.decay_rates,
+                refractory_periods=request.refractory_periods,
+                excitabilities=request.excitabilities,
+                resting_potentials=request.resting_potentials,
+                consecutive_fire_limits=request.consecutive_fire_limits,
             )
             
             # Update neuron to area mapping

@@ -1427,6 +1427,9 @@ class PowerInjectionService:
         self._cache_valid = False
         
         logger.info("PowerInjectionService created")
+        
+        # Invalidate cache to ensure power neurons get refractory_periods = 0 on first detection
+        self.invalidate_cache()
     
     def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
         """Get the actual firing threshold for a specific neuron.
@@ -1513,9 +1516,33 @@ class PowerInjectionService:
                 if periodic_debug:
                     logger.debug("PowerInjectionService: Converting %d power neurons to SoA format", len(power_neurons))
                 
-                # Convert to numpy arrays for SoA format
+                # Convert to numpy arrays for SoA format - NO HARDCODED VALUES
                 neuron_ids = np.array(power_neurons, dtype=np.uint32)
-                potential_deltas = np.full(len(power_neurons), 75.0, dtype=np.float32)  # High potential for power neurons (above threshold)
+                
+                # Get actual firing thresholds from genome for each power neuron
+                potential_deltas = []
+                npu_interface = self.connectome_manager._npu_interface
+                neuron_array = npu_interface.neuron_array if npu_interface else None
+                
+                if neuron_array:
+                    for power_neuron_id in power_neurons:
+                        try:
+                            # Get actual threshold from genome - NO HARDCODED FALLBACKS
+                            if power_neuron_id in neuron_array.neuron_id_to_index:
+                                idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                                threshold = neuron_array.thresholds[idx]
+                                # Set potential to exactly the threshold to ensure firing
+                                potential_deltas.append(threshold)
+                            else:
+                                raise ValueError(f"Power neuron {power_neuron_id} not found in neuron array")
+                        except Exception as e:
+                            # ARCHITECTURE COMPLIANCE: No fallbacks allowed
+                            raise ValueError(f"Cannot get firing threshold for power neuron {power_neuron_id} from genome: {e}")
+                    
+                    potential_deltas = np.array(potential_deltas, dtype=np.float32)
+                else:
+                    raise ValueError("Cannot inject power neurons: No neuron array available from genome")
+                
                 excitatory_mask = np.ones(len(power_neurons), dtype=bool)  # All excitatory
                 
                 if periodic_debug:
@@ -1932,6 +1959,26 @@ class PowerInjectionService:
                     if debug_enabled:
                         logger.debug("PowerInjectionService: NPU interface has no cortical_areas attribute")
             
+            # CRITICAL: Set refractory periods to 0 for power neurons (so they can fire every burst)
+            if power_neurons and hasattr(self.connectome_manager, '_npu_interface'):
+                npu_interface = self.connectome_manager._npu_interface
+                neuron_array = getattr(npu_interface, 'neuron_array', None)
+                
+                if neuron_array and hasattr(neuron_array, 'refractory_periods'):
+                    updated_count = 0
+                    for power_neuron_id in power_neurons:
+                        if power_neuron_id in neuron_array.neuron_id_to_index:
+                            idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                            if idx < len(neuron_array.refractory_periods):
+                                # Set refractory period to 0 so power neurons fire EVERY burst
+                                neuron_array.refractory_periods[idx] = 0
+                                updated_count += 1
+                    
+                    if updated_count > 0:
+                        logger.info("Set refractory periods to 0 for %d power neurons (enables every-burst firing)", updated_count)
+                    elif debug_enabled:
+                        logger.debug("PowerInjectionService: Could not update refractory periods for power neurons")
+            
             # Cache the result
             self._power_neurons_cache = power_neurons
             self._cache_valid = True
@@ -1957,3 +2004,6 @@ class PowerInjectionService:
         """Invalidate power neuron cache (call when genome changes)."""
         self._cache_valid = False
         self._power_neurons_cache = None
+        
+        # When cache is invalidated, power neurons will be re-detected and 
+        # their refractory periods will be set to 0 on next access
