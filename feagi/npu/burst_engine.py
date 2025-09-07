@@ -157,11 +157,8 @@ class BurstEngine:
                 # Process FCL candidates
                 debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
                 if debug_enabled:
-                    logger.info("🔥 [FIRING-DEBUG] Processing %d total FCL candidates across %d areas", 
+                    logger.debug("[FIRING] Processing %d FCL candidates across %d areas", 
                                fcl_candidate_count, len(fcl.candidates_by_area))
-                    for area_idx, area_candidates in fcl.candidates_by_area.items():
-                        logger.info("🔥 [FIRING-DEBUG] Area %d: %d candidates ready for firing evaluation", 
-                                   area_idx, len(area_candidates))
                 
                 # Process each cortical area's candidates directly
                 total_fired = 0
@@ -177,20 +174,11 @@ class BurstEngine:
                         # Get actual neuron firing threshold from NPU interface
                         firing_threshold = self._get_neuron_firing_threshold(candidate.neuron_id)
                         
-                        if debug_enabled:
-                            logger.info("🔥 [FIRING-DEBUG] Area %d, Neuron %d: potential=%.1f, threshold=%.1f, will_fire=%s", 
-                                       cortical_idx, candidate.neuron_id, candidate.membrane_potential_delta, 
-                                       firing_threshold, candidate.membrane_potential_delta >= firing_threshold)
+                        # Per-neuron firing evaluation
                         
                         if candidate.membrane_potential_delta >= firing_threshold:
                             fired_neurons.append(candidate.neuron_id)
                             area_fired += 1
-                            if debug_enabled:
-                                logger.info("🔥 [FIRING-DEBUG] ✅ Neuron %d FIRED with potential %.1f", 
-                                           candidate.neuron_id, candidate.membrane_potential_delta)
-                        elif debug_enabled:
-                            logger.info("🔥 [FIRING-DEBUG] ❌ Neuron %d did NOT fire: %.1f < %.1f", 
-                                       candidate.neuron_id, candidate.membrane_potential_delta, firing_threshold)
                     
                     total_fired += area_fired
                     
@@ -781,33 +769,21 @@ class BurstEngine:
                 # Debug logging for NPU debug mode
                 debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
                 if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] Starting synaptic propagation phase with %d previously fired neurons", prev_neuron_count)
+                    logger.debug("[SYNAPTIC-PROP] Processing %d fired neurons", prev_neuron_count)
                 
                 propagation_data = self._compute_synaptic_propagation()
                 if propagation_data:
-                    if debug_enabled:
-                        logger.info("🔗 [SYNAPTIC-DEBUG] Propagation data computed, injecting into FCL...")
                     injected_count = self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
                     total_targets = sum(len(targets) for targets in propagation_data.values())
                     logger.info("Synaptic propagation: %d candidates injected from %d fired neurons → %d target neurons", 
                                injected_count, prev_neuron_count, total_targets)
-                    if debug_enabled:
-                        logger.info("🔗 [SYNAPTIC-DEBUG] FCL injection complete: %d candidates added", injected_count)
                 else:
                     logger.info("Synaptic propagation: No synaptic connections found for %d fired neurons", prev_neuron_count)
-                    if debug_enabled:
-                        logger.info("🔗 [SYNAPTIC-DEBUG] No propagation data - check if neurons have outgoing synapses")
-            else:
-                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-                if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] No previous fire queue - synaptic propagation skipped (first burst?)")
+            # No previous fire queue - first burst or no synaptic propagation
+            pass
         else:
-            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-            if debug_enabled:
-                logger.info("🔗 [SYNAPTIC-DEBUG] FCL injector not available - no connectome manager or initialization issue")
-                logger.info("🔗 [SYNAPTIC-DEBUG] Connectome manager: %s", self.connectome_manager is not None)
-                if self.connectome_manager:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] FCL injector available: %s", self.fcl_injector is not None)
+            # FCL injector not available - connectome initialization issue
+            pass
         
         if periodic_debug:
             logger.debug("FCL injection complete - all injection sources processed")
@@ -828,18 +804,11 @@ class BurstEngine:
         # Get NPU interface for synapse data access
         npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
         if not npu_interface:
-            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-            if debug_enabled:
-                logger.info("🔗 [SYNAPTIC-DEBUG] No NPU interface available in connectome_manager")
             return {}
             
         synapse_array = getattr(npu_interface, 'synapse_array', None)
         neuron_array = getattr(npu_interface, 'neuron_array', None)
         if not synapse_array or not neuron_array:
-            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-            if debug_enabled:
-                logger.info("🔗 [SYNAPTIC-DEBUG] Missing data arrays - synapse_array: %s, neuron_array: %s", 
-                           synapse_array is not None, neuron_array is not None)
             return {}
             
         # Get all fired neuron IDs from previous timestep
@@ -853,11 +822,7 @@ class BurstEngine:
             # Debug logging
             debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
             if debug_enabled:
-                logger.info("🔗 [SYNAPTIC-DEBUG] Starting synaptic propagation for %d fired neurons: %s", 
-                           len(fired_neuron_ids), fired_neuron_ids[:5])
-                logger.info("🔗 [SYNAPTIC-DEBUG] Synapse array stats: total=%d, source_index_size=%d", 
-                           getattr(synapse_array, 'synapse_count', 0),
-                           len(getattr(synapse_array, 'source_neuron_index', {})))
+                logger.debug("[SYNAPTIC-PROP] Processing %d fired neurons", len(fired_neuron_ids))
             
             # For each fired neuron, find outgoing synapses
             total_synapses_found = 0
@@ -867,9 +832,7 @@ class BurstEngine:
                 # Get outgoing synapses for this source neuron
                 synapse_indices = getattr(synapse_array, 'source_neuron_index', {}).get(src_neuron_id, [])
                 
-                if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Found %d outgoing synapses", 
-                               src_neuron_id, len(synapse_indices))
+                # Neuron has outgoing synapses - process them
                 
                 if not synapse_indices:
                     continue
@@ -885,9 +848,6 @@ class BurstEngine:
                 if valid_mask is not None:
                     valid_syn_mask = valid_mask[syn_indices]
                     valid_count = np.sum(valid_syn_mask)
-                    if debug_enabled:
-                        logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: %d/%d synapses are valid", 
-                                   src_neuron_id, valid_count, len(syn_indices))
                     if not np.any(valid_syn_mask):
                         continue
                     syn_indices = syn_indices[valid_syn_mask]
@@ -896,9 +856,7 @@ class BurstEngine:
                 target_neuron_ids = synapse_array.target_neuron_ids[syn_indices].astype(np.int32)
                 weights = synapse_array.weights[syn_indices].astype(np.float32)
                 
-                if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Target neurons: %s, Weights: %s", 
-                               src_neuron_id, target_neuron_ids[:3].tolist(), weights[:3].tolist())
+                # Process synaptic targets and weights
                 
                 # Apply conductance and excitatory/inhibitory type
                 conductances = getattr(synapse_array, 'conductances', None)
@@ -919,9 +877,7 @@ class BurstEngine:
                 # Compute synaptic contributions
                 synaptic_contributions = weights * conductances_array * sign
                 
-                if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Computed contributions: %s", 
-                               src_neuron_id, synaptic_contributions[:3].tolist())
+                # Contributions computed
                 
                 # Group by target cortical areas
                 neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
@@ -947,21 +903,12 @@ class BurstEngine:
                     
                     propagation_data[cortical_idx].append((target_id, contribution))
                 
-                if debug_enabled:
-                    logger.info("🔗 [SYNAPTIC-DEBUG] Neuron %d: Targets by area: %s", 
-                               src_neuron_id, targets_by_area)
+                # Group targets by area completed
             
             if debug_enabled:
                 total_targets = sum(len(targets) for targets in propagation_data.values())
-                logger.info("🔗 [SYNAPTIC-DEBUG] SUMMARY: %d/%d fired neurons had synapses", 
-                           neurons_with_synapses, len(fired_neuron_ids))
-                logger.info("🔗 [SYNAPTIC-DEBUG] SUMMARY: Found %d total synapses → %d target neurons across %d areas", 
-                           total_synapses_found, total_targets, len(propagation_data))
-                if propagation_data:
-                    for area_idx, targets in propagation_data.items():
-                        sample_targets = [f"{t[0]}({t[1]:.1f})" for t in targets[:3]]
-                        logger.info("🔗 [SYNAPTIC-DEBUG] Area %d: %d targets, samples: %s", 
-                                   area_idx, len(targets), sample_targets)
+                logger.debug("[SYNAPTIC-PROP] %d/%d neurons → %d targets across %d areas", 
+                           neurons_with_synapses, len(fired_neuron_ids), total_targets, len(propagation_data))
                            
             return propagation_data
             
