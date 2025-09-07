@@ -2137,11 +2137,8 @@ class FeagiStateManager:
     def get_genome_counter(self) -> int:
         """Get the current genome counter/version number."""
         # This tracks how many times genomes have been loaded
-        # Return a simple counter based on genome state
-        current_state = self.get_genome_state()
-        if current_state == GenomeState.LOADED:
-            return 1  # Simple implementation - first loaded genome
-        return 0  # No genome loaded
+        # Return the actual genome counter that gets incremented
+        return getattr(self._state, "genome_counter", 0)
     
     def get_genome_timestamp(self) -> int:
         """Get the current genome timestamp."""

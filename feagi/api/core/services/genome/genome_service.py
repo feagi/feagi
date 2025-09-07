@@ -1087,6 +1087,8 @@ class GenomeService(BaseService):
                     post_sync_brain_stats = self.state_manager.get_brain_stats() if self.state_manager else {}
                     self.logger.info(f"🧠 [GENOME-SERVICE] POST-SYNC StateManager brain_stats: {post_sync_brain_stats}")
                     self.logger.info("🧠 [GENOME-SERVICE] ✅ _force_state_manager_sync() completed")
+                    
+                    # Genome counter already incremented during loading phase
 
                     # Log current burst engine state for monitoring
 
@@ -1361,19 +1363,21 @@ class GenomeService(BaseService):
 
                 #  CRITICAL: Only increment genome counter for ACTUALLY NEW
                 #  genomes
+                #  Check if this is genuinely a NEW genome (different from
+                #  what we had before) - define outside state_manager check
+                is_new_genome = False
+                old_genome_counter = 0
+                
                 if self.state_manager:
                     old_genome_counter = (
                         self.state_manager.get_genome_counter()
                     )
-
-                    #  Check if this is genuinely a NEW genome (different from
-                    #  what we had before)
-                    is_new_genome = False
                     if (
                         not old_genome_data
                         or old_genome_data != self._current_genome
                         or old_genome_filename != filename
                     ):
+                        is_new_genome = True
                         #  Update timestamp to signal change to downstream
                         #  clients
                         new_genome_timestamp = int(
