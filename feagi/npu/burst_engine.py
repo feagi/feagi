@@ -113,10 +113,7 @@ class BurstEngine:
         Returns:
             List[int]: Neuron IDs that fired in current timestep
         """
-        import time
-        current_time = time.time()
-        logger.debug("⚡ [BURST-DEBUG] process_burst() called at %.3f (burst #%d)", 
-                    current_time, self.burst_count + 1)
+        # Process burst - no excessive logging
         
         self.current_timestep = self.burst_count
         
@@ -155,10 +152,7 @@ class BurstEngine:
             
             if fcl_candidate_count > 0:
                 # Process FCL candidates
-                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-                if debug_enabled:
-                    logger.debug("[FIRING] Processing %d FCL candidates across %d areas", 
-                               fcl_candidate_count, len(fcl.candidates_by_area))
+                # Process FCL candidates for firing evaluation
                 
                 # Process each cortical area's candidates directly
                 total_fired = 0
@@ -530,15 +524,9 @@ class BurstEngine:
                         try:
                             # FIXED: Calculate interval dynamically instead of using cached variable
                             current_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
-                            logger.debug("🕐 [FREQUENCY-DEBUG] Sleeping for %.3fs (%.2fHz target)", 
-                                       current_interval, self.desired_frequency)
-                            sleep_start = time.time()
                             time.sleep(current_interval)
-                            sleep_actual = time.time() - sleep_start
-                            logger.debug("🕐 [FREQUENCY-DEBUG] Sleep completed: actual %.3fs", sleep_actual)
                         except Exception:
                             # Fallback if config unavailable
-                            logger.warning("🕐 [FREQUENCY-DEBUG] Sleep failed, using 0.1s fallback")
                             time.sleep(0.1)  # @architecture:acceptable - emergency fallback
                         
                         # Check for exit condition
@@ -736,11 +724,7 @@ class BurstEngine:
                 
             try:
                 injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
-                
-                if periodic_debug:
-                    logger.debug("Power injection complete: %d neurons added to FCL", injected_count)
-                elif injected_count > 0:
-                    logger.debug("Power injection: %d neurons added to FCL", injected_count)
+                # Power injection completed
                     
             except Exception as e:
                 if debug_enabled:
@@ -768,8 +752,7 @@ class BurstEngine:
                 
                 # Debug logging for NPU debug mode
                 debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-                if debug_enabled:
-                    logger.debug("[SYNAPTIC-PROP] Processing %d fired neurons", prev_neuron_count)
+                # Process synaptic propagation
                 
                 propagation_data = self._compute_synaptic_propagation()
                 if propagation_data:
@@ -785,10 +768,7 @@ class BurstEngine:
             # FCL injector not available - connectome initialization issue
             pass
         
-        if periodic_debug:
-            logger.debug("FCL injection complete - all injection sources processed")
-        else:
-            logger.debug("FCL injection complete - power neurons and synaptic propagation processed")
+        # FCL injection phase completed
     
     def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
         """Compute synaptic propagation data from previous fire queue.
@@ -821,8 +801,7 @@ class BurstEngine:
             
             # Debug logging
             debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-            if debug_enabled:
-                logger.debug("[SYNAPTIC-PROP] Processing %d fired neurons", len(fired_neuron_ids))
+            # Process synaptic propagation for fired neurons
             
             # For each fired neuron, find outgoing synapses
             total_synapses_found = 0
@@ -905,10 +884,7 @@ class BurstEngine:
                 
                 # Group targets by area completed
             
-            if debug_enabled:
-                total_targets = sum(len(targets) for targets in propagation_data.values())
-                logger.debug("[SYNAPTIC-PROP] %d/%d neurons → %d targets across %d areas", 
-                           neurons_with_synapses, len(fired_neuron_ids), total_targets, len(propagation_data))
+            # Synaptic propagation completed
                            
             return propagation_data
             
@@ -1046,8 +1022,7 @@ class BurstEngine:
                 # Use append instead of index assignment to avoid range errors
                 firing_neurons.append(firing_neuron)
             
-            # No need to filter None values since we use append
-            logger.debug("Created %d FiringNeuron objects", len(firing_neurons))
+            # FiringNeuron objects created successfully
             
         except Exception as e:
             logger.error("Error creating firing neurons: %s", str(e))
