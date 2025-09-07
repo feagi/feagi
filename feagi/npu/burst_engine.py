@@ -1277,6 +1277,53 @@ class PowerInjectionService:
         
         logger.info("PowerInjectionService created")
     
+    def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
+        """Get the actual firing threshold for a specific neuron.
+        
+        RUST-COMPATIBLE: 100% deterministic lookup. NO FALLBACKS.
+        Raises error if genome data is missing - FEAGI must be deterministic.
+        
+        Args:
+            neuron_id: The neuron ID to get threshold for
+            
+        Returns:
+            Actual firing threshold from neuron properties (from genome)
+            
+        Raises:
+            ValueError: If neuron data is missing from genome/NPU interface
+        """
+        if not self.connectome_manager:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No connectome manager available")
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No NPU interface in connectome manager")
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron array in NPU interface")
+            
+        # Get neuron index from ID - MUST exist in genome
+        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+        if not neuron_id_to_index:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron ID mapping in genome")
+            
+        if neuron_id not in neuron_id_to_index:
+            raise ValueError(f"Neuron {neuron_id} not found in genome neuron array - missing from neuroembryogenesis")
+            
+        neuron_index = neuron_id_to_index[neuron_id]
+        
+        # Get threshold array - MUST exist in genome
+        thresholds = getattr(neuron_array, 'thresholds', None)
+        if thresholds is None:
+            raise ValueError(f"No firing thresholds array in genome neuron data")
+            
+        if neuron_index >= len(thresholds):
+            raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in thresholds array")
+            
+        actual_threshold = float(thresholds[neuron_index])
+        return actual_threshold
+    
     def inject_power_neurons(self, fcl: FireCandidateList, current_timestep: int) -> int:
         """Inject power neurons into FCL every burst for constant brain activity."""
         
