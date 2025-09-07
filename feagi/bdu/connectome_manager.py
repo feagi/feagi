@@ -3016,6 +3016,64 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.error(f"❌ [SPATIAL HASH] Failed to initialize: {e}")
             return False
 
+    def _convert_hierarchical_to_flat_parameters(self, hierarchical_params: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert hierarchical genome property names to flat parameter names expected by API.
+        
+        This handles the mapping between:
+        - Hierarchical format (consecutive_fire_cnt_max) used internally
+        - Flat format (c_fr_c) expected by API consumers
+        
+        Args:
+            hierarchical_params: Parameters in hierarchical genome format
+            
+        Returns:
+            Parameters in flat format for API compatibility
+        """
+        # Map hierarchical property names to flat parameter names
+        hierarchical_to_flat = {
+            "consecutive_fire_cnt_max": "c_fr_c",
+            "synapse_attractivity": "synatt", 
+            "postsynaptic_current": "pstcr",
+            "postsynaptic_current_max": "pstcrm",
+            "firing_threshold": "fire_t",
+            "refractory_period": "refrac",
+            "leak_coefficient": "leak_c",
+            "leak_variability": "leak_v",
+            "snooze_length": "snooze",
+            "degeneration": "de_gen",
+            "psp_uniform_distribution": "pspuni",
+            "firing_threshold_increment_x": "ftincx",
+            "firing_threshold_increment_y": "ftincy", 
+            "firing_threshold_increment_z": "ftincz",
+            "firing_threshold_limit": "fthlim",
+            "mp_charge_accumulation": "mp_acc",
+            "mp_driven_psp": "mp_psp",
+            "longterm_mem_threshold": "mem__t",
+            "lifespan_growth_rate": "mem_gr",
+            "init_lifespan": "mem_ls",
+            "temporal_depth": "temporal_depth",  # Same in both formats
+            "neuron_excitability": "excite",
+            # Structural properties - pass through unchanged
+            "per_voxel_neuron_cnt": "per_voxel_neuron_cnt",
+            "visualization": "gd_vis",
+            "group_id": "_group", 
+            "sub_group_id": "subgrp",
+            "mapping": "mapping",  # Pass through unchanged
+        }
+        
+        flat_params = {}
+        
+        # Convert known hierarchical properties to flat format
+        for hierarchical_key, hierarchical_value in hierarchical_params.items():
+            if hierarchical_key in hierarchical_to_flat:
+                flat_key = hierarchical_to_flat[hierarchical_key]
+                flat_params[flat_key] = hierarchical_value
+            else:
+                # Keep unknown properties unchanged
+                flat_params[hierarchical_key] = hierarchical_value
+                
+        return flat_params
+
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
         """Get properties of a cortical area.
 
@@ -3115,6 +3173,10 @@ class ConnectomeManager(NeuronMappingProvider):
                 if _neuron_ids_for_count is None:
                     _neuron_ids_for_count = []
 
+                # Convert hierarchical genome properties to flat API parameter format
+                hierarchical_params = area.properties.copy() if area.properties else {}
+                flat_parameters = self._convert_hierarchical_to_flat_parameters(hierarchical_params)
+                
                 properties = {
                     "id": cortical_id,
                     "cortical_idx": (
@@ -3124,9 +3186,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     "coordinates": tuple(coordinates),
                     "dimensions": tuple(dimensions),
                     "type": area.area_type,
-                    "parameters": (
-                        area.properties.copy() if area.properties else {}
-                    ),
+                    "parameters": flat_parameters,
                     "neuron_count": int(len(_neuron_ids_for_count)),
                 }
             except Exception as conversion_error:
