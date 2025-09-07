@@ -113,6 +113,11 @@ class BurstEngine:
         Returns:
             List[int]: Neuron IDs that fired in current timestep
         """
+        import time
+        current_time = time.time()
+        logger.debug("⚡ [BURST-DEBUG] process_burst() called at %.3f (burst #%d)", 
+                    current_time, self.burst_count + 1)
+        
         self.current_timestep = self.burst_count
         
         # NPU Debug logging (enabled with --debug-npu)
@@ -245,10 +250,21 @@ class BurstEngine:
         # Return fired neuron IDs for external systems
         fired_ids = fire_queue.get_all_neuron_ids()
         
-        # Set to READY after first successful burst processing
-        if self.burst_count == 1:  # First successful burst
+        # Set to READY after successful burst processing (if not already READY)
+        # This handles cases where the first burst failed but subsequent ones succeed
+        current_state = None
+        if self.state_manager:
+            try:
+                current_state = self.state_manager.get_burst_engine_state()
+            except Exception:
+                pass
+        
+        if current_state != ServiceState.READY:
             self._set_burst_engine_state(ServiceState.READY)
-            logger.info("Burst engine initialized and ready")
+            if self.burst_count == 1:
+                logger.info("Burst engine initialized and ready")
+            else:
+                logger.info("Burst engine recovered and ready (burst #%d)", self.burst_count)
             
         return fired_ids
     
@@ -413,20 +429,27 @@ class BurstEngine:
     def update_frequency(self, frequency_hz: float) -> bool:
         """Update burst engine frequency and sync with state manager."""
         try:
+            logger.info("🔄 [API-UPDATE] update_frequency() called with %.2fHz (current: %.2fHz)", 
+                       frequency_hz, self.desired_frequency)
+            
             if frequency_hz <= 0 or frequency_hz > 10000:
                 logger.error("Invalid frequency %dHz (must be 0 < freq <= 10000)", frequency_hz)
                 return False
             
+            old_frequency = self.desired_frequency
             self.desired_frequency = frequency_hz
             
             # Update state manager
             if self.state_manager:
                 self.state_manager.set_burst_frequency(frequency_hz)
-                logger.info("BurstEngine: Updated frequency to %dHz in state manager", frequency_hz)
+                logger.info("✅ [API-UPDATE] Frequency updated: %.2fHz → %.2fHz (dynamic timing will pick up immediately)", 
+                           old_frequency, frequency_hz)
+            else:
+                logger.warning("⚠️  [API-UPDATE] No state manager available for frequency update")
             
             return True
-        except Exception:
-            logger.error("Failed to update burst engine frequency")
+        except Exception as e:
+            logger.error("❌ [API-UPDATE] Failed to update burst engine frequency: %s", str(e))
             return False
     
     def start(self) -> bool:
@@ -472,15 +495,32 @@ class BurstEngine:
         The loop continues until stop() is called or an exit condition is met.
         """
         try:
-            logger.info("Burst engine starting main processing loop")
+            logger.info("🚀 [RUN-DEBUG] Burst engine run() method called - starting main processing loop")
             self.start()
             
             # Enter the main processing loop
             if self._running:
                 logger.info("Main loop started at %dHz", self.desired_frequency) 
                 
-                # Calculate burst interval from frequency
-                burst_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
+                # CRITICAL: Re-sync frequency from state manager before starting loop
+                logger.info("🔄 [STARTUP-DEBUG] About to sync frequency from state manager...")
+                try:
+                    if self.state_manager:
+                        logger.info("🔄 [STARTUP-DEBUG] State manager available, checking frequency...")
+                        state_frequency = self.state_manager.get_burst_frequency()
+                        logger.info("🔄 [STARTUP-DEBUG] State manager frequency: %.2fHz, Engine frequency: %.2fHz", 
+                                   state_frequency or 0.0, self.desired_frequency)
+                        if state_frequency and state_frequency > 0:
+                            if abs(state_frequency - self.desired_frequency) > 0.001:
+                                logger.warning("🚨 [FREQUENCY-SYNC] Frequency mismatch detected! Engine: %.2fHz, State Manager: %.2fHz", 
+                                              self.desired_frequency, state_frequency)
+                                self.desired_frequency = float(state_frequency)
+                                logger.info("🔄 [FREQUENCY-SYNC] Updated engine frequency to match state manager: %.2fHz", 
+                                           self.desired_frequency)
+                except Exception as e:
+                    logger.error("🚨 [FREQUENCY-SYNC] Failed to sync frequency from state manager: %s", str(e))
+                
+                logger.info("🔄 [FREQUENCY-DEBUG] Starting main loop with frequency: %.2fHz", self.desired_frequency)
                 
                 # Main burst processing loop
                 while self._running:
@@ -500,9 +540,17 @@ class BurstEngine:
                         # Timing control: Add sleep to prevent runaway CPU usage
                         import time
                         try:
-                            time.sleep(burst_interval)
+                            # FIXED: Calculate interval dynamically instead of using cached variable
+                            current_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
+                            logger.debug("🕐 [FREQUENCY-DEBUG] Sleeping for %.3fs (%.2fHz target)", 
+                                       current_interval, self.desired_frequency)
+                            sleep_start = time.time()
+                            time.sleep(current_interval)
+                            sleep_actual = time.time() - sleep_start
+                            logger.debug("🕐 [FREQUENCY-DEBUG] Sleep completed: actual %.3fs", sleep_actual)
                         except Exception:
                             # Fallback if config unavailable
+                            logger.warning("🕐 [FREQUENCY-DEBUG] Sleep failed, using 0.1s fallback")
                             time.sleep(0.1)  # @architecture:acceptable - emergency fallback
                         
                         # Check for exit condition
