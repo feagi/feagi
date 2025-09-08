@@ -240,6 +240,16 @@ class CorticalParameterUpdater:
                 except Exception:
                     pass
 
+                # CRITICAL: Invalidate BurstEngine excitability cache after changes
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine:
+                        burst_engine.invalidate_excitability_cache()
+                        self.logger.debug("Invalidated BurstEngine excitability cache after parameter update")
+                except Exception as cache_err:
+                    self.logger.warning(f"Could not invalidate excitability cache: {cache_err}")
+
                 self.logger.info(
                     f"[FAST-UPDATE] Updated neuron_excitability to {value} for area {cortical_id} (cortical_idx={cortical_idx})"
                 )

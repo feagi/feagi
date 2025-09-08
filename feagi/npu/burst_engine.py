@@ -67,6 +67,11 @@ class BurstEngine:
         self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
         self.fcl_injector = FCLInjector(self.coordinate_converter) if self.coordinate_converter else None
         
+        # Per-area excitability cache for performance optimization (like old NPU)
+        self._area_excitability_cache: Dict[int, float] = {}
+        self._excitability_cache_dirty = True
+        self._rng = np.random.default_rng()  # RNG for excitability (when needed)
+        
         # Injection service for automatic power and special area injection
         self.injection_service = None
         self.enable_injection = True  # Enable automatic injection by default
@@ -1200,6 +1205,63 @@ class BurstEngine:
         
         logger.debug("Memory structure capacities configured for Rust conversion readiness")
     
+    def _build_excitability_cache(self) -> None:
+        """Build per-area excitability cache for optimal performance.
+        
+        This mirrors the old NPU implementation where excitability was cached
+        per cortical area instead of per neuron for better performance.
+        """
+        if not self.connectome_manager:
+            return
+            
+        self._area_excitability_cache.clear()
+        
+        # Build cache from cortical area properties
+        for area_id, area in self.connectome_manager.cortical_areas.items():
+            if hasattr(area, 'properties') and area.properties:
+                excitability = area.properties.get('neuron_excitability', 1.0)
+            else:
+                excitability = 1.0  # Default excitability
+                
+            cortical_idx = area.cortical_idx
+            self._area_excitability_cache[cortical_idx] = float(excitability)
+            
+        self._excitability_cache_dirty = False
+        self.logger.debug(f"Built excitability cache for {len(self._area_excitability_cache)} areas")
+    
+    def _any_low_excitability_areas(self) -> bool:
+        """Check if any cortical areas have excitability < 0.999.
+        
+        This determines whether we need RNG for probabilistic firing
+        or can use the fast deterministic path.
+        """
+        if self._excitability_cache_dirty:
+            self._build_excitability_cache()
+            
+        return any(ex < 0.999 for ex in self._area_excitability_cache.values())
+    
+    def _get_excitability_tuple(self, neuron_array, valid_range: int) -> tuple:
+        """Create excitability tuple in the format expected by SIMD functions.
+        
+        Returns tuple format: (area_ex_map, cortical_idxs, any_low_flag)
+        This matches the old NPU implementation for optimal performance.
+        """
+        if self._excitability_cache_dirty:
+            self._build_excitability_cache()
+            
+        cortical_idxs = neuron_array.cortical_idxs[:valid_range]
+        any_low_flag = self._any_low_excitability_areas()
+        
+        return (self._area_excitability_cache, cortical_idxs, any_low_flag)
+    
+    def invalidate_excitability_cache(self) -> None:
+        """Invalidate the excitability cache to force rebuild on next access.
+        
+        Should be called when cortical area properties change.
+        """
+        self._excitability_cache_dirty = True
+        self.logger.debug("Excitability cache invalidated - will rebuild on next access")
+    
     def _process_neural_dynamics(self, fcl: FireCandidateList) -> List[int]:
         """Process neural dynamics with SIMD-optimized operations.
         
@@ -1257,9 +1319,18 @@ class BurstEngine:
             consecutive_fire_counts = neuron_array.consecutive_fire_counts[:valid_range]
             consecutive_fire_limits = neuron_array.consecutive_fire_limits[:valid_range]
             valid_mask = neuron_array.valid_mask[:valid_range]
-            excitability = neuron_array.excitabilities[:valid_range] if hasattr(neuron_array, 'excitabilities') else None
+            # CRITICAL FIX: Use optimized excitability system like old NPU
+            # Get excitability tuple format for optimal performance
+            excitability_tuple = self._get_excitability_tuple(neuron_array, valid_range)
             
-            # SIMD-optimized neural processing pipeline
+            # Determine if we need RNG based on excitability values
+            # Only use RNG when there are areas with excitability < 0.999
+            needs_rng = self._any_low_excitability_areas()
+            rng_for_excitability = self._rng if needs_rng else None
+            
+            self.logger.debug(f"Excitability processing: needs_rng={needs_rng}, areas_count={len(self._area_excitability_cache)}")
+            
+            # SIMD-optimized neural processing pipeline with proper excitability
             firing_mask, num_fired = simd_batch_neural_update(
                 potentials=potentials,
                 thresholds=thresholds, 
@@ -1271,8 +1342,8 @@ class BurstEngine:
                 consecutive_fire_counts=consecutive_fire_counts,
                 consecutive_fire_limits=consecutive_fire_limits,
                 valid_mask=valid_mask,
-                excitability=excitability,
-                rng=None  # Deterministic mode for RTOS compatibility
+                excitability=excitability_tuple,  # Use optimized tuple format
+                rng=rng_for_excitability  # RNG only when needed for probabilistic firing
             )
             
             # Step 3: Convert firing mask to neuron IDs

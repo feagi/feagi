@@ -200,24 +200,73 @@ def simd_firing_check_with_consecutive_limits(
     if not np.any(can_fire_mask):
         return np.zeros_like(potentials, dtype=bool)
     
-    # Step 2: Apply excitability if provided (optional stochastic component)
-    if excitability is not None and rng is not None:
-        # Get indices of neurons that can potentially fire
-        candidate_indices = np.where(can_fire_mask)[0]
-        
-        if len(candidate_indices) > 0:
-            # Generate random values for excitability check (vectorized)
-            random_vals = rng.random(len(candidate_indices))
-            excitability_vals = excitability[candidate_indices]
+    # Step 2: Apply excitability if provided (supports both array and tuple formats)
+    if excitability is not None:
+        # Handle tuple format from old NPU implementation: (area_ex_map, cortical_idxs, any_low_flag)
+        if isinstance(excitability, tuple):
+            area_ex_map, cortical_idxs, any_low_flag = excitability
             
-            # Apply excitability threshold (vectorized)
-            excitability_mask = random_vals < excitability_vals
+            # Fast path: if no areas have low excitability, skip RNG entirely
+            if not any_low_flag:
+                return can_fire_mask
             
-            # Update firing mask based on excitability
-            final_firing_mask = np.zeros_like(potentials, dtype=bool)
-            final_firing_mask[candidate_indices[excitability_mask]] = True
+            # Only use probabilistic firing when needed AND RNG is provided
+            if rng is not None:
+                # Get indices of neurons that can potentially fire
+                candidate_indices = np.where(can_fire_mask)[0]
+                
+                if len(candidate_indices) > 0:
+                    # Build area excitability values for candidate neurons
+                    relevant_ex_values = np.fromiter(
+                        (area_ex_map.get(int(cidx), 1.0) for cidx in cortical_idxs[candidate_indices].tolist()),
+                        dtype=np.float32,
+                        count=candidate_indices.size,
+                    )
+                    
+                    # Fast path for neurons with excitability >= 0.999 (certain fire)
+                    certain_fire_mask = relevant_ex_values >= 0.999
+                    
+                    # Probabilistic check for neurons with excitability < 0.999
+                    uncertain_mask = ~certain_fire_mask
+                    
+                    if np.any(uncertain_mask):
+                        uncertain_count = int(np.sum(uncertain_mask))
+                        random_values = rng.random(uncertain_count)
+                        uncertain_ex_vals = relevant_ex_values[uncertain_mask]
+                        probabilistic_fire = random_values < uncertain_ex_vals
+                        
+                        firing_decisions = np.copy(certain_fire_mask)
+                        firing_decisions[uncertain_mask] = probabilistic_fire
+                    else:
+                        firing_decisions = certain_fire_mask
+                    
+                    # Create final firing mask
+                    final_firing_mask = np.zeros_like(potentials, dtype=bool)
+                    final_firing_mask[candidate_indices] = firing_decisions
+                    
+                    return final_firing_mask
             
-            return final_firing_mask
+            # Fallback: deterministic firing for all neurons
+            return can_fire_mask
+            
+        # Handle legacy per-neuron array format
+        elif rng is not None:
+            # Get indices of neurons that can potentially fire
+            candidate_indices = np.where(can_fire_mask)[0]
+            
+            if len(candidate_indices) > 0:
+                # Generate random values for excitability check (vectorized)
+                random_vals = rng.random(len(candidate_indices))
+                excitability_vals = excitability[candidate_indices]
+                
+                # Apply excitability threshold (vectorized)
+                excitability_mask = random_vals < excitability_vals
+                
+                # Update firing mask based on excitability
+                final_firing_mask = np.zeros_like(potentials, dtype=bool)
+                final_firing_mask[candidate_indices[excitability_mask]] = True
+                
+                return final_firing_mask
     
     # Return basic firing mask (deterministic mode)
     return can_fire_mask
