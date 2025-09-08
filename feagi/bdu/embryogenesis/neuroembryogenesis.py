@@ -2422,6 +2422,24 @@ class NeuroEmbryogenesis:
                                 )
                                 continue
 
+                            # DIAGNOSTIC: Log EXACT parameters being passed to _apply_morphology_mapping
+                            logger.info(
+                                f"🧠 [API-DIAGNOSTIC] EXACT PARAMETERS for _apply_morphology_mapping:"
+                            )
+                            logger.info(f"   src_area_id: {src_area_id}")
+                            logger.info(f"   dst_area_id: {dst_area_id}")
+                            logger.info(f"   src_neurons count: {len(src_neurons)}")
+                            logger.info(f"   dst_neurons count: {len(dst_neurons)}")
+                            logger.info(f"   src_neurons sample: {sorted(src_neurons)[:5] if src_neurons else []}")
+                            logger.info(f"   dst_neurons sample: {sorted(dst_neurons)[:5] if dst_neurons else []}")
+                            logger.info(f"   morphology_id: {morphology_id}")
+                            logger.info(f"   morphology_scalar: {morphology_scalar}")
+                            logger.info(f"   psc_multiplier: {psc_multiplier}")
+                            logger.info(f"   plasticity_flag: {plasticity_flag}")
+                            logger.info(f"   plasticity_constant: {plasticity_constant}")
+                            logger.info(f"   ltp_multiplier: {ltp_multiplier}")
+                            logger.info(f"   ltd_multiplier: {ltd_multiplier}")
+                            
                             # Apply morphology-based synaptogenesis
                             synapses_created = self._apply_morphology_mapping(
                                 src_area_id=src_area_id,
