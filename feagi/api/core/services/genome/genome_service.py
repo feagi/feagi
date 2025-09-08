@@ -5304,128 +5304,74 @@ class GenomeService(BaseService):
                     )
                     neurons_per_voxel = properties.get("neurons_per_voxel", 1)
 
+                    # Handle neuron count changes based on volume difference
                     if new_volume > old_volume:
                         additional_neurons_needed = (
                             new_volume - old_volume
                         ) * neurons_per_voxel
                         self.logger.info(
-                            f"[LOCALIZED-REBUILD] Need {additional_neurons_needed} additional neurons - reusing from free pool"
+                            f"[LOCALIZED-REBUILD] EXPANSION: Need {additional_neurons_needed} additional neurons"
                         )
 
-                        # Reuse neurons from free pool - NO MEMORY ALLOCATION
+                        # Create additional neurons for expansion
                         new_neurons = self._reuse_neurons_for_area_expansion(
                             cortical_id, additional_neurons_needed, properties
                         )
-
-                        #  🔍 CHECKPOINT 3: INTELLIGENT PATTERN EXTENSION -
-                        #  Extend existing synaptic patterns to new neurons
+                        
+                    elif new_volume < old_volume:
+                        neurons_to_remove = (
+                            old_volume - new_volume
+                        ) * neurons_per_voxel
                         self.logger.info(
-                            f"🔍 [EXPANSION-DEBUG] CHECKPOINT 3 - Starting pattern extension for {cortical_id}"
+                            f"[LOCALIZED-REBUILD] CONTRACTION: Need to remove {neurons_to_remove} neurons"
                         )
-                        try:
-                            from feagi.api.core.services.expansion import (
-                                ConnectionAnalyzer,
-                                PatternExtender,
-                            )
+                        
+                        # Remove excess neurons for contraction
+                        self._remove_neurons_for_area_contraction(
+                            cortical_id, neurons_to_remove, properties
+                        )
+                    else:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] RESHAPING: Same volume, neuron count unchanged"
+                        )
 
-                            #  🔍 CHECKPOINT 4: Analyze existing connectivity
-                            #  patterns
-                            self.logger.info(
-                                f"🔍 [EXPANSION-DEBUG] CHECKPOINT 4 - Analyzing connectivity for {cortical_id}"
-                            )
-                            analyzer = ConnectionAnalyzer(
-                                self._connectome_manager, self.state_manager
-                            )
-                            analysis = analyzer.analyze_area_connectivity(
-                                cortical_id
-                            )
+                    # 🔍 CHECKPOINT 4: COMPLETE SYNAPTIC REBUILDING
+                    # CRITICAL: Always rebuild ALL synapses for ANY dimensional change
+                    try:
+                        from feagi.api.core.services.expansion import (
+                            SynapticRebuilder,
+                        )
 
-                            self.logger.info(
-                                "🔍 [EXPANSION-DEBUG] Connectivity analysis results:"
-                            )
-                            self.logger.info(
-                                f"🔍 [EXPANSION-DEBUG]   - Internal mappings: {analysis.get('internal_count', 0)}"
-                            )
-                            self.logger.info(
-                                f"🔍 [EXPANSION-DEBUG]   - Incoming mappings: {analysis.get('incoming_count', 0)}"
-                            )
-                            self.logger.info(
-                                f"🔍 [EXPANSION-DEBUG]   - Outgoing mappings: {analysis.get('outgoing_count', 0)}"
-                            )
-                            self.logger.info(
-                                f"🔍 [EXPANSION-DEBUG]   - Total mappings: {analysis.get('total_mappings', 0)}"
-                            )
+                        self.logger.info(
+                            f"🔄 [DIMENSION-CHANGE] Starting complete synaptic rebuild for {cortical_id}"
+                        )
+                        
+                        rebuilder = SynapticRebuilder(
+                            self._connectome_manager,
+                            self.state_manager,
+                        )
+                        synapses_created = rebuilder.rebuild_all_connectivity(
+                            cortical_id=cortical_id,
+                            old_dimensions=old_dimensions,
+                            new_dimensions=new_dimensions,
+                        )
 
-                            if analysis.get("total_mappings", 0) > 0:
-                                #  🔍 CHECKPOINT 5: Use the exact newly created
-                                #  neurons from expansion
-                                self.logger.info(
-                                    "🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - Using newly created neurons"
-                                )
+                        self.logger.info(
+                            f"🔄 [DIMENSION-CHANGE] Synaptic rebuild completed for {cortical_id}: {synapses_created} synapses"
+                        )
 
-                                self.logger.info(
-                                    f"🔍 [EXPANSION-DEBUG]   - New neurons created: {len(new_neurons)}"
-                                )
-                                self.logger.info(
-                                    f"🔍 [EXPANSION-DEBUG]   - New neuron IDs: {sorted(list(new_neurons))[:10]}{'...' if len(new_neurons) > 10 else ''}"
-                                )
-
-                                if new_neurons:
-                                    #  🔍 CHECKPOINT 6: Extend existing patterns
-                                    #  to new neurons
-                                    self.logger.info(
-                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - Starting pattern extension"
-                                    )
-                                    extender = PatternExtender(
-                                        self._connectome_manager,
-                                        self.state_manager,
-                                    )
-                                    synapses_created = (
-                                        extender.extend_patterns_for_expansion(
-                                            cortical_id=cortical_id,
-                                            old_dimensions=old_dimensions,
-                                            new_dimensions=new_dimensions,
-                                            new_neurons=set(new_neurons),
-                                        )
-                                    )
-
-                                    self.logger.info(
-                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 7 - Pattern extension completed"
-                                    )
-                                    self.logger.info(
-                                        f"🔍 [EXPANSION-DEBUG]   - New synapses created: {synapses_created}"
-                                    )
-                                    self.logger.info(
-                                        f"[LOCALIZED-REBUILD] Extended connectivity patterns: {synapses_created} new synapses created for {cortical_id}"
-                                    )
-                                else:
-                                    self.logger.warning(
-                                        "🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - No new neurons identified for pattern extension"
-                                    )
-                                    self.logger.warning(
-                                        "[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension"
-                                    )
-                            else:
-                                self.logger.info(
-                                    "🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - No cortical mappings found"
-                                )
-                                self.logger.info(
-                                    f"[LOCALIZED-REBUILD] No cortical mappings found for {cortical_id} - skipping pattern extension"
-                                )
-
-                        except ImportError as e:
-                            self.logger.warning(
-                                f"[LOCALIZED-REBUILD] Pattern extension unavailable: {e}"
-                            )
-                        except Exception as e:
-                            self.logger.error(
-                                f"[LOCALIZED-REBUILD] Error during pattern extension: {e}"
-                            )
-                            import traceback
-
-                            self.logger.error(
-                                f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}"
-                            )
+                    except ImportError as e:
+                        self.logger.error(
+                            f"[LOCALIZED-REBUILD] SynapticRebuilder unavailable: {e}"
+                        )
+                    except Exception as e:
+                        self.logger.error(
+                            f"[LOCALIZED-REBUILD] Error during synaptic rebuild: {e}"
+                        )
+                        import traceback
+                        self.logger.error(
+                            f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}"
+                        )
 
                     self.logger.info(
                         f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized - {len(self._connectome_manager.neuron_array.free_indices)} neurons in free pool"
@@ -5617,10 +5563,22 @@ class GenomeService(BaseService):
             area = self._connectome_manager.cortical_areas[cortical_id]
 
             #  Generate positions for additional neurons distributed across
-            #  expanded area
+            #  expanded area (use current dimensions which should be the NEW expanded dimensions)
             positions = self._generate_positions_for_expansion(
                 cortical_id, additional_neurons_needed, properties
             )
+
+            # CRITICAL FIX: Handle case where no positions are available (should not happen with fallback logic)
+            if len(positions) == 0:
+                self.logger.error(
+                    f"[EXPANSION] Cannot create {additional_neurons_needed} neurons for {cortical_id}: "
+                    f"no positions generated (this should not happen with fallback logic). "
+                    f"Area dimensions: {area.dimensions}"
+                )
+                raise RuntimeError(
+                    f"Expansion failed for {cortical_id}: no positions generated for {additional_neurons_needed} new neurons. "
+                    f"Area dimensions: {area.dimensions}. This indicates a serious error in position generation."
+                )
 
             #  Use ConnectomeManager's batch creation method (handles position
             #  mapping automatically)
@@ -5687,6 +5645,11 @@ class GenomeService(BaseService):
         width, height, depth = area.dimensions
         positions = []
 
+        self.logger.info(
+            f"[EXPANSION] Generating positions for {cortical_id}: area dimensions = [{width}, {height}, {depth}], "
+            f"need {neuron_count} neurons"
+        )
+
         # Find all voxels that DON'T have neurons yet (NPU SoA authoritative)
         empty_voxels = []
         try:
@@ -5727,9 +5690,31 @@ class GenomeService(BaseService):
         #  Distribute neurons across the empty voxels (the newly expanded
         #  regions)
         if len(empty_voxels) == 0:
-            # No empty voxels available in the expanded region; return no positions
+            # No empty voxels available - try to use all voxels (allowing multiple neurons per voxel)
             self.logger.warning(
-                f"[EXPANSION] No empty voxels available for {cortical_id}; generated 0 positions"
+                f"[EXPANSION] No empty voxels available for {cortical_id}; falling back to all voxels (allowing multiple neurons per voxel)"
+            )
+            
+            # Generate all possible positions within the area dimensions
+            all_voxels = []
+            for x in range(width):
+                for y in range(height):
+                    for z in range(depth):
+                        all_voxels.append((x, y, z))
+            
+            if len(all_voxels) == 0:
+                self.logger.error(
+                    f"[EXPANSION] Area {cortical_id} has zero volume: dimensions [{width}, {height}, {depth}]"
+                )
+                return positions
+            
+            # Distribute neurons across all available voxels
+            for i in range(neuron_count):
+                voxel_idx = i % len(all_voxels)
+                positions.append(all_voxels[voxel_idx])
+            
+            self.logger.info(
+                f"[EXPANSION] Generated {len(positions)} positions using all {len(all_voxels)} voxels (multiple neurons per voxel allowed)"
             )
             return positions
 
@@ -5745,6 +5730,40 @@ class GenomeService(BaseService):
             f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}"
         )
         return positions
+
+    def _remove_neurons_for_area_contraction(
+        self,
+        cortical_id: str,
+        neurons_to_remove: int,
+        properties: Dict[str, Any],
+    ) -> List[int]:
+        """Remove neurons from a cortical area during contraction.
+        
+        PLACEHOLDER IMPLEMENTATION: This method currently logs the action but does not
+        actually remove neurons. The synaptic rebuilding will handle connectivity cleanup.
+        
+        Args:
+            cortical_id: ID of the cortical area being contracted
+            neurons_to_remove: Number of neurons to remove
+            properties: Area properties
+            
+        Returns:
+            List of neuron IDs that were removed
+        """
+        self.logger.info(
+            f"[CONTRACTION] PLACEHOLDER: Would remove {neurons_to_remove} neurons from {cortical_id}"
+        )
+        self.logger.info(
+            f"[CONTRACTION] For now, synaptic rebuilding will handle connectivity cleanup"
+        )
+        
+        # TODO: Implement actual neuron removal logic
+        # This could involve:
+        # 1. Identifying which neurons to remove (e.g., those in expanded regions)
+        # 2. Marking them for removal in the NPU
+        # 3. Updating the area's neuron tracking
+        
+        return []  # Return empty list for now
 
     def _extract_area_properties_from_genome(
         self, cortical_id: str, genome: Dict[str, Any]

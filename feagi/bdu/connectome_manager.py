@@ -4182,6 +4182,14 @@ class ConnectomeManager(NeuronMappingProvider):
 
         area = self.cortical_areas[cortical_id]
 
+        # CRITICAL FIX: Handle empty positions list 
+        if not positions:
+            self.logger.warning(
+                f"batch_create_neurons called with empty positions list for {cortical_id}. "
+                f"This typically indicates an expansion logic error."
+            )
+            return []  # Return empty list instead of causing indexing errors
+
         # Validate positions
         for pos in positions:
             if not area.contains_position(pos):

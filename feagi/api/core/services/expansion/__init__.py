@@ -1,11 +1,11 @@
 """Expansion Services Module.
 
-This module provides intelligent synapse management during cortical area
-expansion, implementing dimension-sensitive morphology handling and pattern
-extension.
+This module provides complete synaptic rebuilding during cortical area
+dimensional changes (expansion, contraction, reshaping), implementing 
+morphology-based connection reconstruction.
 """
 
 from .connection_analyzer import ConnectionAnalyzer
-from .pattern_extender import PatternExtender
+from .synaptic_rebuilder import SynapticRebuilder
 
-__all__ = ["PatternExtender", "ConnectionAnalyzer"]
+__all__ = ["SynapticRebuilder", "ConnectionAnalyzer"]
