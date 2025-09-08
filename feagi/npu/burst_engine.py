@@ -54,6 +54,9 @@ class BurstEngine:
 
         self.connectome_manager = connectome_manager
         
+        # Initialize logger
+        self.logger = setup_logger(__name__)
+        
         # STATE MANAGER INTEGRATION - Cache instance for performance 
         # Always use singleton instance as single source of truth
         self.state_manager = FeagiStateManager.instance()

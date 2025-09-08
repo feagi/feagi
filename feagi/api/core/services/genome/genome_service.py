@@ -894,13 +894,14 @@ class GenomeService(BaseService):
                                         genome_data
                                     )
                                 )
-                                if resize_result.get("success"):
+                                # CRITICAL FIX: resize_for_genome returns boolean, not dict
+                                if resize_result:
                                     self.logger.info(
-                                        f"[GENOME] ✅ Connectome resized: {resize_result.get('message', 'Success')}"
+                                        f"[GENOME] ✅ Connectome resized successfully"
                                     )
                                 else:
                                     self.logger.error(
-                                        f"[GENOME] ❌ Connectome resize failed: {resize_result.get('message', 'Unknown')}"
+                                        f"[GENOME] ❌ Connectome resize failed or not needed"
                                     )
                                     if self.state_manager:
                                         from feagi.core.state_manager import (
