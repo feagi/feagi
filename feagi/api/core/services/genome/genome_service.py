@@ -5893,47 +5893,75 @@ class GenomeService(BaseService):
     def _extract_area_properties_from_genome(
         self, cortical_id: str, genome: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Extract cortical area properties from hierarchical genome format."""
+        """Extract cortical area properties from hierarchical genome format.
+        
+        CRITICAL FIX: Extract ALL properties from genome blueprint to prevent data loss
+        during relocation operations. Previous version only extracted ~10 properties,
+        causing corruption of connection mappings and neuron parameters.
+        """
         try:
             area_def = genome["blueprint"][cortical_id]
-
-            # Build base properties
-            props = {
-                "name": area_def.get("cortical_name", cortical_id),
-                "dimensions": area_def.get("cortical_dimensions", [1, 1, 1]),
-                "position": (
-                    area_def.get("coordinates_3d")
-                    or area_def.get("coordinates")
-                    or area_def.get("relative_coordinate")
-                    or [0, 0, 0]
-                ),
-                "area_type": area_def.get("cortical_type", "custom"),
-                "neurons_per_voxel": area_def.get("parameters", {}).get(
-                    "per_voxel_neuron_cnt", 1
-                ),
-                "fire_t": area_def.get("parameters", {}).get(
-                    "firing_threshold", 1.0
-                ),
-                "leak_c": area_def.get("parameters", {}).get(
-                    "leak_coefficient", 0.0
-                ),
-                "refrac": area_def.get("parameters", {}).get(
-                    "refractory_period", 1
-                ),
-                "fire_increment": area_def.get("parameters", {}).get(
-                    "fire_increment", 0.0
-                ),
-                "leak_variability": area_def.get("parameters", {}).get(
-                    "leak_variability", 0.0
-                ),
+            
+            # COMPREHENSIVE EXTRACTION: Start with ALL area definition data
+            props = {}
+            
+            # Direct area properties (preserve everything)
+            for key, value in area_def.items():
+                if key not in ["parameters"]:  # Handle parameters separately
+                    props[key] = value
+            
+            # Extract parameters (preserve everything)
+            parameters = area_def.get("parameters", {})
+            for param_key, param_value in parameters.items():
+                props[param_key] = param_value
+            
+            # Ensure critical base properties have proper field names for ConnectomeManager
+            if "cortical_name" in area_def:
+                props["name"] = area_def["cortical_name"]
+            if "cortical_dimensions" in area_def:  
+                props["dimensions"] = area_def["cortical_dimensions"]
+            if "cortical_type" in area_def:
+                props["area_type"] = area_def["cortical_type"]
+                
+            # Handle coordinate mappings (multiple possible field names)
+            position_3d = (
+                area_def.get("coordinates_3d")
+                or area_def.get("coordinates") 
+                or area_def.get("relative_coordinate")
+                or parameters.get("coordinates_3d")
+                or [0, 0, 0]
+            )
+            props["position"] = position_3d
+            
+            coords_2d = (
+                area_def.get("2d_coordinate")
+                or area_def.get("coordinates_2d") 
+                or parameters.get("coordinates_2d")
+                or [0, 0]
+            )
+            props["coordinates_2d"] = coords_2d
+            
+            # Ensure critical neuron parameter mappings (handle field name variations)
+            neuron_props_mapping = {
+                "neurons_per_voxel": ["per_voxel_neuron_cnt", "neurons_per_voxel"],
+                "fire_t": ["firing_threshold", "fire_t"],
+                "leak_c": ["leak_coefficient", "leak_c"], 
+                "refrac": ["refractory_period", "refrac"],
+                "fire_increment": ["fire_increment"],
+                "leak_variability": ["leak_variability"],
             }
-            # Include 2D coordinates if available to preserve UI placement
-            coords_2d = area_def.get("2d_coordinate")
-            if coords_2d is None:
-                coords_2d = area_def.get("parameters", {}).get("coordinates_2d")
-            if coords_2d is not None:
-                props["coordinates_2d"] = coords_2d
+            
+            for prop_name, possible_keys in neuron_props_mapping.items():
+                for key in possible_keys:
+                    if key in parameters:
+                        props[prop_name] = parameters[key] 
+                        break
+            
+            self.logger.debug(f"🔄 [GENOME-EXTRACT] Extracted {len(props)} properties for {cortical_id}")
+            self.logger.debug(f"🔄 [GENOME-EXTRACT] Includes cortical_destinations: {'cortical_destinations' in props}")
+            
             return props
+            
         except KeyError as e:
             raise ValueError(
                 f"Missing required property in genome for area {cortical_id}: {e}"

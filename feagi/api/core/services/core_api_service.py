@@ -5516,7 +5516,6 @@ class CoreAPIService:
                     outputs.append(area_id)
                     self.logger.debug(f"🔍 I/O: {area_id} → OUTPUT (OPU group)")
         
-        self.logger.info(f"🔍 I/O Analysis FINAL: inputs={inputs}, outputs={outputs}")
         return inputs, outputs
 
     def delete_brain_region(
