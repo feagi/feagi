@@ -2339,7 +2339,7 @@ class GenomeService(BaseService):
                     consecutive_fire_limit = new_area.get("consecutive_fire_cnt_max", 10)  # Default from template is 0, use 10 if 0
                     if consecutive_fire_limit == 0:
                         consecutive_fire_limit = 10  # Prevent infinite consecutive firing
-                    
+
                     self.logger.info(
                         f"Creating neurons with properties from genome: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}, consecutive_fire_limit={consecutive_fire_limit}"
                     )
@@ -4212,22 +4212,96 @@ class GenomeService(BaseService):
                 if self.state_manager:
                     self.state_manager.genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                #  Apply the brain region creation by triggering brain
-                #  development
-                #  ARCHITECTURE: Pass hierarchical genome directly (single
-                #  source of truth)
-                success = embryogenesis.develop_brain_from_genome_data(
-                    current_genome
-                )
+                # ARCHITECTURE FIX: Brain regions are PURELY organizational
+                # They should NOT trigger neurogenesis or affect neural data structures
+                # Only update ConnectomeManager's organizational mappings
+                success = True
+                
+                if self._connectome_manager:
+                    try:
+                        # Create brain region in ConnectomeManager (organizational only)
+                        returned_region_id = self._connectome_manager.add_brain_region(
+                            name=region_name, 
+                            region_type="custom",
+                            properties=clean_parameters,
+                            region_id=region_id
+                        )
+                        brain_region_success = (returned_region_id == region_id)
+                        
+                        # Assign areas to the new region (organizational only) 
+                        if brain_region_success and areas:
+                            for area_id in areas:
+                                try:
+                                    self._connectome_manager.assign_area_to_region(area_id, region_id)
+                                except Exception as assign_error:
+                                    self.logger.warning(f"Could not assign area {area_id} to region {region_id}: {assign_error}")
+                        
+                        success = brain_region_success
+                    except Exception as cm_error:
+                        self.logger.warning(f"ConnectomeManager brain region creation failed: {cm_error}")
+                        # Continue with success=True since genome was updated successfully
+                        success = True
+                
+                # CRITICAL FIX: Reload brain region hierarchy from updated genome
+                # This ensures real-time changes are reflected in the hierarchy for automatic I/O designation
+                if success and self._connectome_manager:
+                    try:
+                        if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+                            self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+                            self.logger.info(f"✅ Reloaded brain region hierarchy after creating region {region_id}")
+                        
+                        # Also sync cached brain_regions structure for consistency
+                        if hasattr(self._connectome_manager, "brain_regions") and "brain_regions" in current_genome:
+                            self._connectome_manager.brain_regions.update(current_genome["brain_regions"])
+                            self.logger.debug("Synced ConnectomeManager brain_regions cache")
+                        
+                        # CRITICAL FIX: Apply cross-region mapping rules to determine I/O designation
+                        # This analyzes existing cortical mappings to set proper inputs/outputs for the new region
+                        try:
+                            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+                            # Create NeuroEmbryogenesis instance ONLY for the mapping analysis function
+                            # Do NOT pass state_manager as config - this could trigger unintended behavior
+                            embryo = NeuroEmbryogenesis(self._connectome_manager, config=None)
+                            # Load genome data for mapping analysis only - no neurogenesis
+                            embryo._load_genome_data(current_genome)
+                            
+                            brain_regions = current_genome.get("brain_regions", {})
+                            blueprint = current_genome.get("blueprint", {})
+                            
+                            if brain_regions and blueprint:
+                                embryo._apply_cross_region_mapping_rules(brain_regions, blueprint)
+                                self.logger.info(f"✅ Applied cross-region mapping rules for region {region_id}")
+                                
+                                # Update genome with the I/O designations
+                                current_genome["brain_regions"] = brain_regions
+                                self.state_manager.genome = current_genome
+                                
+                                # Reload hierarchy with updated I/O designations
+                                self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+                                
+                                # CRITICAL FIX: Invalidate power neuron cache after brain region changes
+                                # This prevents stale neuron ID caches when areas are moved between regions
+                                try:
+                                    from feagi.npu.burst_engine import BurstEngine
+                                    burst_engine = BurstEngine.get_instance()
+                                    if burst_engine and hasattr(burst_engine, 'injection_service'):
+                                        if burst_engine.injection_service and hasattr(burst_engine.injection_service, 'invalidate_cache'):
+                                            burst_engine.injection_service.invalidate_cache()
+                                            self.logger.info(f"✅ Invalidated power neuron cache after brain region creation")
+                                except Exception as cache_error:
+                                    self.logger.warning(f"Could not invalidate power neuron cache: {cache_error}")
+                                    # Don't fail - this is just cache management
+                                
+                            else:
+                                self.logger.warning(f"Cannot apply cross-region mapping rules: missing brain_regions or blueprint")
+                                
+                        except Exception as mapping_error:
+                            self.logger.warning(f"Failed to apply cross-region mapping rules: {mapping_error}")
+                            # Don't fail the creation - I/O designation is supplementary
+                        
+                    except Exception as sync_error:
+                        self.logger.warning(f"Failed to sync brain region hierarchy after creation: {sync_error}")
+                        # Don't fail the creation - this is a sync issue, not a creation failure
 
                 if success and transaction:
                     transaction.commit()
@@ -4546,19 +4620,52 @@ class GenomeService(BaseService):
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # Apply the brain region deletion
-                success = embryogenesis.develop_brain_from_genome_data(
-                    current_genome
-                )
+                # ARCHITECTURE FIX: Brain regions are PURELY organizational
+                # They should NOT trigger neurogenesis or affect neural data structures
+                # Only update ConnectomeManager's organizational mappings
+                success = True
+                
+                if self._connectome_manager:
+                    try:
+                        # Delete brain region in ConnectomeManager (organizational only)
+                        brain_region_success = self._connectome_manager.delete_brain_region(
+                            region_id, delete_areas=delete_members
+                        )
+                        success = brain_region_success
+                    except Exception as cm_error:
+                        self.logger.warning(f"ConnectomeManager brain region deletion failed: {cm_error}")
+                        # Continue with success=True since genome was updated successfully
+                        success = True
+                
+                # CRITICAL FIX: Reload brain region hierarchy from updated genome
+                # This ensures real-time changes are reflected in the hierarchy for automatic I/O designation
+                if success and self._connectome_manager:
+                    try:
+                        if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+                            self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+                            self.logger.info(f"✅ Reloaded brain region hierarchy after deleting region {region_id}")
+                        
+                        # Also sync cached brain_regions structure for consistency
+                        if hasattr(self._connectome_manager, "brain_regions") and "brain_regions" in current_genome:
+                            self._connectome_manager.brain_regions.update(current_genome["brain_regions"])
+                            self.logger.debug("Synced ConnectomeManager brain_regions cache")
+                        
+                        # CRITICAL FIX: Invalidate power neuron cache after brain region deletion
+                        # This prevents stale neuron ID caches when regions are deleted
+                        try:
+                            from feagi.npu.burst_engine import BurstEngine
+                            burst_engine = BurstEngine.get_instance()
+                            if burst_engine and hasattr(burst_engine, 'injection_service'):
+                                if burst_engine.injection_service and hasattr(burst_engine.injection_service, 'invalidate_cache'):
+                                    burst_engine.injection_service.invalidate_cache()
+                                    self.logger.info(f"✅ Invalidated power neuron cache after brain region deletion")
+                        except Exception as cache_error:
+                            self.logger.warning(f"Could not invalidate power neuron cache: {cache_error}")
+                            # Don't fail - this is just cache management
+                            
+                    except Exception as sync_error:
+                        self.logger.warning(f"Failed to sync brain region hierarchy after deletion: {sync_error}")
+                        # Don't fail the deletion - this is a sync issue, not a deletion failure
 
                 if success and transaction:
                     transaction.commit()
@@ -5318,7 +5425,7 @@ class GenomeService(BaseService):
                         new_neurons = self._reuse_neurons_for_area_expansion(
                             cortical_id, additional_neurons_needed, properties
                         )
-                        
+
                     elif new_volume < old_volume:
                         neurons_to_remove = (
                             old_volume - new_volume
@@ -5579,7 +5686,7 @@ class GenomeService(BaseService):
                 raise RuntimeError(
                     f"Expansion failed for {cortical_id}: no positions generated for {additional_neurons_needed} new neurons. "
                     f"Area dimensions: {area.dimensions}. This indicates a serious error in position generation."
-                )
+            )
 
             #  Use ConnectomeManager's batch creation method (handles position
             #  mapping automatically)

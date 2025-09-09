@@ -3810,6 +3810,24 @@ class ConnectomeManager(NeuronMappingProvider):
             target_area_id: Target cortical area ID
         """
         try:
+            # CRITICAL FIX: Ensure brain region hierarchy is loaded before I/O designation
+            # This handles the case where mappings are created but hierarchy wasn't loaded at startup
+            if not self.brain_region_hierarchy.nodes:
+                logger.info("🔄 Brain region hierarchy empty during mapping creation - loading from genome")
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    
+                    if hasattr(state_manager, 'genome') and state_manager.genome:
+                        self.brain_region_hierarchy.load_from_genome(state_manager.genome)
+                        logger.info(f"✅ Loaded brain region hierarchy: {len(self.brain_region_hierarchy.nodes)} regions, {len(self.brain_region_hierarchy.area_to_region)} areas")
+                    else:
+                        logger.warning("Cannot load brain region hierarchy: no genome in StateManager")
+                        return  # Can't do I/O designation without hierarchy
+                except Exception as load_error:
+                    logger.error(f"Failed to load brain region hierarchy: {load_error}")
+                    return  # Can't do I/O designation without hierarchy
+            
             # Check if we should designate I/O based on hierarchy rules
             should_output, should_input = self.brain_region_hierarchy.should_designate_io(
                 source_area_id, target_area_id
@@ -3888,7 +3906,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 
             # Create NeuroEmbryogenesis instance for validation
             from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
-            embryo = NeuroEmbryogenesis(self, state_manager)
+            embryo = NeuroEmbryogenesis(self, config=None)
             
             # Run the brain region mapping validation
             success = embryo._validate_and_update_brain_region_mappings()
@@ -3989,6 +4007,7 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(
             f"Assigned cortical area {cortical_id} ({area.name}) to brain region {region_id} ({self.brain_regions[region_id]['name']})"
         )
+        
         return True
 
     def remove_cortical_area_from_region(
@@ -4027,6 +4046,7 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(
             f"Removed cortical area {cortical_id} ({area.name}) from brain region {region_id}"
         )
+        
         return True
 
     def get_areas_in_region(self, region_id: str) -> List[str]:
