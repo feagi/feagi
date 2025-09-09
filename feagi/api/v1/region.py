@@ -21,12 +21,8 @@ from feagi.utils.logger import setup_logger
 
 from .decorators import endpoint
 from .schemas import (
-    CreateRegionRequest,
-    RegionInfoResponse,
-    RegionListResponse,
     RegionMemberRelocationRequest,
     SuccessResponse,
-    UpdateRegionRequest,
 )
 
 logger = setup_logger(__name__)
@@ -117,11 +113,11 @@ class RegionAPI:
         "POST",
         "/region",
         request_model=NewRegionProperties,
-        response_model=Dict[str, str],
+        response_model=Dict[str, Any],
     )
     def create_brain_region(
         self, region_data: NewRegionProperties
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """Create a new brain region."""
         try:
             # Check if connectome is ready
@@ -177,7 +173,158 @@ class RegionAPI:
             if not success:
                 raise ValueError("Failed to create brain region")
             
-            return {"region_id": region_id}
+            # Get complete brain region data structure using proper service method
+            try:
+                logger.debug(f"Attempting to retrieve complete data for region: {region_id}")
+                
+                # Use the core API service to get all regions with proper normalization
+                # This ensures we get the data after all synchronization is complete
+                all_regions = self.core_api_service.get_brain_regions()
+                logger.debug(f"Retrieved {len(all_regions)} total regions from core service")
+                logger.debug(f"Available region IDs: {[r.get('region_id', 'NO_ID') for r in all_regions]}")
+                
+                # Log a sample of the data structure
+                if all_regions:
+                    sample_region = all_regions[0]
+                    logger.debug(f"Sample region structure: {sample_region}")
+                    logger.debug(f"Sample region keys: {list(sample_region.keys()) if isinstance(sample_region, dict) else 'NOT_DICT'}")
+                
+                # Find our newly created region
+                for region in all_regions:
+                    if region.get("region_id") == region_id:
+                        logger.debug(f"Found complete region data for {region_id}")
+                        logger.debug(f"Complete region structure: {region}")
+                        
+                        # Verify the structure has all expected fields
+                        required_fields = ['region_id', 'title', 'areas', 'inputs', 'outputs']
+                        missing_fields = [field for field in required_fields if field not in region]
+                        if missing_fields:
+                            logger.warning(f"Region {region_id} missing fields: {missing_fields}")
+                        
+                        logger.info(f"🎯 [REGION-RESPONSE] Returning complete data for {region_id}: {region}")
+                        return region
+                
+                # If not found in normalized list, try direct access as fallback
+                logger.warning(f"Region {region_id} not found in normalized list, trying direct access")
+                logger.warning(f"Available regions were: {[r.get('region_id', 'NO_ID') for r in all_regions]}")
+                from feagi.core.state_manager import FeagiStateManager
+                state_manager = FeagiStateManager.instance()
+                
+                if hasattr(state_manager, 'genome') and state_manager.genome:
+                    brain_regions = state_manager.genome.get("brain_regions", {})
+                    blueprint = state_manager.genome.get("blueprint", {})
+                    
+                    if region_id in brain_regions:
+                        region_info = brain_regions[region_id]
+                        logger.debug(f"Found region in genome: {region_info}")
+                        logger.debug(f"Blueprint available: {bool(blueprint)}")
+                        logger.debug(f"Areas to process: {region_info.get('areas', region_data.areas or [])}")
+                        
+                        # Normalize the region structure with inputs/outputs
+                        complete_region_data = {
+                            "region_id": region_id,
+                            "title": region_info.get("title", region_info.get("region_name", f"Region {region_id}")),
+                            "description": region_info.get("description", ""),
+                            "parent_region_id": region_info.get("parent_region_id"),
+                            "coordinate_2d": region_info.get("coordinate_2d", region_data.coordinates_2d or [0, 0]),
+                            "coordinate_3d": region_info.get("coordinate_3d", region_data.coordinates_3d or [0, 0, 0]),
+                            "areas": region_info.get("areas", region_data.areas or []),
+                            "regions": region_info.get("regions", region_data.regions or []),
+                            "inputs": region_info.get("inputs", []),
+                            "outputs": region_info.get("outputs", []),
+                            "signature": region_info.get("signature", "")
+                        }
+                        
+                        # Auto-assign I/O based on cortical area types if areas exist
+                        areas = complete_region_data["areas"]
+                        if areas and blueprint:
+                            auto_inputs = []
+                            auto_outputs = []
+                            
+                            for area_id in areas:
+                                area_props = blueprint.get(area_id, {})
+                                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+                                
+                                # IPU areas become inputs
+                                if area_group == "IPU":
+                                    auto_inputs.append(area_id)
+                                    logger.debug(f"Added {area_id} to inputs (IPU)")
+                                # OPU areas become outputs
+                                elif area_group == "OPU":
+                                    auto_outputs.append(area_id)
+                                    logger.debug(f"Added {area_id} to outputs (OPU)")
+                            
+                            # Merge with existing I/O (avoid duplicates)
+                            existing_inputs = complete_region_data["inputs"]
+                            existing_outputs = complete_region_data["outputs"]
+                            complete_region_data["inputs"] = list(set(existing_inputs + auto_inputs))
+                            complete_region_data["outputs"] = list(set(existing_outputs + auto_outputs))
+                            
+                            logger.debug(f"Final I/O assignment - inputs: {complete_region_data['inputs']}, outputs: {complete_region_data['outputs']}")
+                        logger.debug(f"Complete data structure being returned: {complete_region_data}")
+                        
+                        return complete_region_data
+                
+                # Final fallback - return structure with request data
+                logger.warning(f"Could not retrieve region data for {region_id} from any source, using request data")
+                logger.debug(f"Fallback data will include areas: {region_data.areas}")
+                fallback_response = {
+                    "region_id": region_id,
+                    "title": region_data.title,
+                    "description": "",
+                    "parent_region_id": region_data.parent_region_id,
+                    "coordinate_2d": region_data.coordinates_2d or [0, 0],
+                    "coordinate_3d": region_data.coordinates_3d or [0, 0, 0],
+                    "areas": region_data.areas or [],
+                    "regions": region_data.regions or [],
+                    "inputs": [],  # Will be populated by I/O logic if areas exist
+                    "outputs": [],  # Will be populated by I/O logic if areas exist 
+                    "signature": ""
+                }
+                logger.debug(f"Final fallback response structure: {fallback_response}")
+                return fallback_response
+                
+            except Exception as region_fetch_error:
+                logger.error(f"Error fetching complete region data for {region_id}: {region_fetch_error}")
+                # Return structure with request data and basic I/O assignment
+                fallback_data = {
+                    "region_id": region_id,
+                    "title": region_data.title,
+                    "description": "",
+                    "parent_region_id": region_data.parent_region_id,
+                    "coordinate_2d": region_data.coordinates_2d or [0, 0],
+                    "coordinate_3d": region_data.coordinates_3d or [0, 0, 0],
+                    "areas": region_data.areas or [],
+                    "regions": region_data.regions or [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": ""
+                }
+                
+                # Try basic I/O assignment even in error case
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    if hasattr(state_manager, 'genome') and state_manager.genome:
+                        blueprint = state_manager.genome.get("blueprint", {})
+                        areas = fallback_data["areas"]
+                        if areas and blueprint:
+                            auto_inputs = []
+                            auto_outputs = []
+                            for area_id in areas:
+                                area_props = blueprint.get(area_id, {})
+                                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+                                if area_group == "IPU":
+                                    auto_inputs.append(area_id)
+                                elif area_group == "OPU":
+                                    auto_outputs.append(area_id)
+                            fallback_data["inputs"] = auto_inputs
+                            fallback_data["outputs"] = auto_outputs
+                except Exception as io_error:
+                    logger.warning(f"Could not assign I/O in fallback: {io_error}")
+                
+                return fallback_data
+                
         except Exception as e:
             logger.error(f"Error creating brain region: {e}")
             raise ValueError(f"Failed to create brain region: {str(e)}")
@@ -186,11 +333,11 @@ class RegionAPI:
         "PUT",
         "/region",
         request_model=UpdateRegionProperties,
-        response_model=SuccessResponse,
+        response_model=Dict[str, Any],
     )
     def update_region_properties(
         self, region_data: UpdateRegionProperties
-    ) -> SuccessResponse:
+    ) -> Dict[str, Any]:
         """Update brain region properties (title, coordinates)."""
         try:
             region_dict = region_data.dict(exclude_unset=True)
@@ -232,9 +379,50 @@ class RegionAPI:
             if not success:
                 raise ValueError("Failed to update brain region properties")
 
-            return SuccessResponse(
-                message="Brain region properties updated successfully"
-            )
+            # Get complete brain region data structure using proper service method
+            try:
+                logger.debug(f"Attempting to retrieve updated data for region: {region_id}")
+                
+                # Use the core API service to get all regions with proper normalization
+                all_regions = self.core_api_service.get_brain_regions()
+                
+                # Find our updated region
+                for region in all_regions:
+                    if region.get("region_id") == region_id:
+                        logger.debug(f"Found updated region data for {region_id}")
+                        return region
+                
+                logger.warning(f"Updated region {region_id} not found, using fallback structure")
+                return {
+                    "region_id": region_id,
+                    "title": region_name or f"Region {region_id}",
+                    "description": "",
+                    "parent_region_id": None,
+                    "coordinate_2d": region_data.coordinate_2d or [0, 0],
+                    "coordinate_3d": region_data.coordinate_3d or [0, 0, 0],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": ""
+                }
+                
+            except Exception as region_fetch_error:
+                logger.error(f"Error fetching updated region data for {region_id}: {region_fetch_error}")
+                return {
+                    "region_id": region_id,
+                    "title": region_name or f"Region {region_id}",
+                    "description": "",
+                    "parent_region_id": None,
+                    "coordinate_2d": region_data.coordinate_2d or [0, 0],
+                    "coordinate_3d": region_data.coordinate_3d or [0, 0, 0],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": ""
+                }
+                
         except Exception as e:
             logger.error(f"Error updating region properties: {e}")
             raise ValueError(f"Failed to update region properties: {str(e)}")
@@ -350,7 +538,7 @@ class RegionAPI:
     def list_all_regions_and_members(self) -> Dict[str, Any]:
         """List all brain regions and their members with consistent schema."""
         try:
-            # Use the same normalization logic as /v1/region/list for consistency
+            # Use the same normalization logic as core API service for consistency
             regions_list = self.core_api_service.get_brain_regions()
             
             # Convert list to dictionary format expected by this endpoint
@@ -544,90 +732,8 @@ class RegionAPI:
             logger.error(f"Error relocating region members: {e}")
             raise ValueError(f"Failed to relocate region members: {str(e)}")
 
-    # ===== New API Endpoints (for future use) =====
+    # ===== Legacy endpoints provide complete functionality - new endpoints removed =====
 
-    @region_endpoint("GET", "/list", response_model=RegionListResponse)
-    async def get_regions_list(self) -> RegionListResponse:
-        """Get list of all brain regions."""
-        try:
-            regions = self.core_api_service.get_brain_regions()
-            return RegionListResponse(regions=regions)
-        except Exception as e:
-            logger.error(f"Error getting regions list: {e}")
-            raise ValueError(f"Failed to get regions list: {str(e)}")
-
-    @region_endpoint(
-        "GET", "/info/{region_id}", response_model=RegionInfoResponse
-    )
-    async def get_region_info(self, region_id: str) -> RegionInfoResponse:
-        """Get information about a specific brain region."""
-        try:
-            region_info = self.core_api_service.get_brain_region_info(
-                region_id
-            )
-            return RegionInfoResponse(region_info=region_info)
-        except Exception as e:
-            logger.error(f"Error getting region info: {e}")
-            raise ValueError(f"Failed to get region info: {str(e)}")
-
-    @region_endpoint(
-        "POST",
-        "/create",
-        request_model=CreateRegionRequest,
-        response_model=SuccessResponse,
-    )
-    async def create_region(
-        self, request: CreateRegionRequest
-    ) -> SuccessResponse:
-        """Create a new brain region."""
-        try:
-            success = self.core_api_service.create_brain_region(
-                request.region_data
-            )
-            if not success:
-                raise ValueError("Failed to create brain region")
-
-            return SuccessResponse(message="Brain region created successfully")
-        except Exception as e:
-            logger.error(f"Error creating region: {e}")
-            raise ValueError(f"Failed to create region: {str(e)}")
-
-    @region_endpoint(
-        "PUT",
-        "/update",
-        request_model=UpdateRegionRequest,
-        response_model=SuccessResponse,
-    )
-    async def update_region(
-        self, request: UpdateRegionRequest
-    ) -> SuccessResponse:
-        """Update an existing brain region."""
-        try:
-            success = self.core_api_service.update_brain_region(
-                request.region_id, request.updates
-            )
-            if not success:
-                raise ValueError("Failed to update brain region")
-
-            return SuccessResponse(message="Brain region updated successfully")
-        except Exception as e:
-            logger.error(f"Error updating region: {e}")
-            raise ValueError(f"Failed to update region: {str(e)}")
-
-    @region_endpoint(
-        "DELETE", "/delete/{region_id}", response_model=SuccessResponse
-    )
-    async def delete_region_new_api(self, region_id: str) -> SuccessResponse:
-        """Delete a brain region."""
-        try:
-            success = self.core_api_service.delete_brain_region(region_id)
-            if not success:
-                raise ValueError("Failed to delete brain region")
-
-            return SuccessResponse(message="Brain region deleted successfully")
-        except Exception as e:
-            logger.error(f"Error deleting region: {e}")
-            raise ValueError(f"Failed to delete region: {str(e)}")
 
 
 # ===== Factory Function =====
