@@ -691,28 +691,32 @@ class RegionAPI:
     @region_endpoint(
         "PUT", "/relocate_members", 
         request_model=RegionMemberRelocationRequest,
-        response_model=SuccessResponse
+        response_model=Dict[str, Any]
     )
     def brain_region_member_relocation(
         self, relocation_data: RegionMemberRelocationRequest
-    ) -> SuccessResponse:
+    ) -> Dict[str, Any]:
         """Brain region member relocation.
 
-        Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
+        Accepts a dictionary for updating coordinates and/or parent region assignments
+        of one or more cortical areas. At least one of coordinate_2d or parent_region_id
+        must be provided for each entry.
+
+        Returns the complete brain region data structure for the destination region
+        (same format as POST/PUT /region/region endpoints).
 
         Input format:
         {
-            "region_id_1": {
+            "cortical_area_1": {
                 "coordinate_2d": [10, 9],
-                "parent_region_id": "fhafsihwfiuhr23r_b",
+                "parent_region_id": "region_1",
             },
-            "region_id_2": {
+            "cortical_area_2": {
                 "coordinate_2d": [4, 93],
-                "parent_region_id": "dhdfsihwfiuhr23r_b",
+                "parent_region_id": "region_2",
             },
-            "cortical_area_id": {
-                "coordinate_2d": [30, 29],
-                "parent_region_id": "gdfsihwfiuhr23r_b",
+            "cortical_area_3": {
+                "parent_region_id": "region_3",  # coordinates optional
             }
         }
         """
@@ -725,9 +729,52 @@ class RegionAPI:
             if not success:
                 raise ValueError("Failed to relocate region members")
 
-            return SuccessResponse(
-                message="Region members relocated successfully"
-            )
+            # Get the destination brain region and return complete data structure
+            try:
+                # Extract the first (and likely only) destination region from the relocation data
+                destination_region_id = None
+                relocation_dict = relocation_data.root
+                
+                for member_id, member_data in relocation_dict.items():
+                    parent_region_id = member_data.get("parent_region_id")
+                    if parent_region_id:
+                        destination_region_id = parent_region_id
+                        break
+                
+                if not destination_region_id:
+                    logger.warning("No destination region found in relocation data, returning success message only")
+                    return {"message": "Region members relocated successfully"}
+                
+                logger.info(f"Fetching complete data for destination region: {destination_region_id}")
+                
+                # Use the same approach as create/update region endpoints
+                all_regions = self.core_api_service.get_brain_regions()
+                
+                # Find the destination region
+                for region in all_regions:
+                    if region.get("region_id") == destination_region_id:
+                        logger.info(f"Found complete region data for destination {destination_region_id}")
+                        return region
+                
+                logger.warning(f"Destination region {destination_region_id} not found, returning minimal structure")
+                return {
+                    "region_id": destination_region_id,
+                    "title": f"Region {destination_region_id}",
+                    "description": "",
+                    "parent_region_id": "root",
+                    "coordinate_2d": [0, 0],
+                    "coordinate_3d": [0, 0, 0],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": ""
+                }
+                
+            except Exception as fetch_error:
+                logger.warning(f"Failed to fetch destination region data: {fetch_error}")
+                return {"message": "Region members relocated successfully", "warning": "Could not fetch updated region data"}
+                
         except Exception as e:
             logger.error(f"Error relocating region members: {e}")
             raise ValueError(f"Failed to relocate region members: {str(e)}")

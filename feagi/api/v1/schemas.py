@@ -703,16 +703,20 @@ class RegionMemberRelocationRequest(RootModel):
     """Request model for relocating brain region members.
     
     Accepts a dictionary where keys are cortical area IDs and values contain
-    coordinate information and optional parent region assignments.
+    coordinate information and/or parent region assignments. At least one of
+    coordinate_2d or parent_region_id must be provided.
     
     Example:
     {
         "iic300": {
             "coordinate_2d": [-514, 114],
-            "parent_region_id": "region_1"  # optional
+            "parent_region_id": "region_1"
         },
         "iic400": {
             "coordinate_2d": [-490, -82]
+        },
+        "iic500": {
+            "parent_region_id": "region_2"  # coordinates optional
         }
     }
     """

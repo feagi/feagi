@@ -5408,40 +5408,79 @@ class CoreAPIService:
         return normalized
 
     def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
-        """Automatically assign inputs and outputs based on cortical area types.
+        """Automatically assign inputs and outputs based on actual cortical connections.
+        
+        Logic:
+        - OUTPUT: Areas in region that have connections to areas OUTSIDE the region
+        - INPUT: Areas in region that receive connections from areas OUTSIDE the region
         
         Args:
             areas: List of cortical area IDs in the region
-            blueprint: Genome blueprint for type detection
+            blueprint: Genome blueprint for connection analysis
             
         Returns:
             Tuple of (inputs, outputs) lists
         """
         inputs = []
         outputs = []
+        area_set = set(areas)  # For fast lookup
         
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Processing {len(areas)} areas for I/O assignment")
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Blueprint keys sample: {list(blueprint.keys())[:5]}")
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Processing {len(areas)} areas for connection-based I/O assignment")
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Areas in region: {areas}")
         
+        # STEP 1: Find OUTPUTS - areas with connections to areas outside the region
         for area_id in areas:
             area_props = blueprint.get(area_id, {})
-            # Check both 'group' and 'cortical_group' for compatibility
-            area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+            cortical_destinations = area_props.get("cortical_destinations", {})
             
-            self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Area {area_id}: props={area_props}, group='{area_group}'")
+            self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] Checking {area_id} destinations: {list(cortical_destinations.keys())}")
             
-            # IPU areas become inputs
-            if area_group == "IPU":
-                inputs.append(area_id)
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as INPUT (IPU)")
-            # OPU areas become outputs  
-            elif area_group == "OPU":
+            # Check if any destination is outside this brain region
+            external_destinations = [dest for dest in cortical_destinations.keys() if dest not in area_set]
+            
+            if external_destinations:
                 outputs.append(area_id)
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (OPU)")
+                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (connections to {external_destinations})")
             else:
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ❌ Skipped {area_id} (group='{area_group}')")
+                self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] {area_id} has no external outputs")
         
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Final result: inputs={inputs}, outputs={outputs}")
+        # STEP 2: Find INPUTS - areas that receive connections from outside the region
+        self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] Scanning all blueprint areas for inputs to region...")
+        
+        for source_area_id, source_props in blueprint.items():
+            # Skip if source area is in our region (internal connections don't count)
+            if source_area_id in area_set:
+                continue
+                
+            source_destinations = source_props.get("cortical_destinations", {})
+            
+            # Check if this external area connects to any area in our region
+            for dest_area in source_destinations.keys():
+                if dest_area in area_set and dest_area not in inputs:
+                    inputs.append(dest_area)
+                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {dest_area} as INPUT (receives from external {source_area_id})")
+        
+        # STEP 3: Fallback to group-based assignment for areas with no connections
+        areas_with_io = set(inputs + outputs)
+        unassigned_areas = [area for area in areas if area not in areas_with_io]
+        
+        if unassigned_areas:
+            self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Fallback: Checking group types for unassigned areas: {unassigned_areas}")
+            
+            for area_id in unassigned_areas:
+                area_props = blueprint.get(area_id, {})
+                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
+                
+                if area_group == "IPU":
+                    inputs.append(area_id)
+                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as INPUT (IPU group fallback)")
+                elif area_group == "OPU":
+                    outputs.append(area_id)
+                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (OPU group fallback)")
+                else:
+                    self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] {area_id} unassigned (group='{area_group}', no connections)")
+        
+        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Final connection-based result: inputs={inputs}, outputs={outputs}")
         return inputs, outputs
 
     def delete_brain_region(
@@ -5500,54 +5539,57 @@ class CoreAPIService:
             
             for member_id, member_data in relocation_data.items():
                 try:
-                    # Extract coordinate information
+                    # Extract coordinate and parent region information
                     coordinate_2d = member_data.get("coordinate_2d")
                     parent_region_id = member_data.get("parent_region_id")
                     
-                    if coordinate_2d is None:
-                        self.logger.warning(f"No coordinate_2d provided for {member_id}, skipping")
+                    # Check if we have at least one operation to perform
+                    if coordinate_2d is None and parent_region_id is None:
+                        self.logger.warning(f"No coordinate_2d or parent_region_id provided for {member_id}, skipping")
                         continue
                     
-                    # Convert 2D coordinates to 3D format expected by update methods
-                    # Assume z-coordinate is 0 if not provided
-                    coordinates_3d = {
-                        "x": coordinate_2d[0],
-                        "y": coordinate_2d[1], 
-                        "z": 0  # Default z-coordinate
-                    }
-                    
-                    # Check if this is a cortical area or brain region
-                    # Try updating as cortical area first
-                    cortical_area_updated = False
-                    try:
-                        result = self.update_cortical_area(
-                            cortical_id=member_id,
-                            coordinates=coordinates_3d
-                        )
-                        if result is not None:
-                            cortical_area_updated = True
-                            self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
-                    except Exception as e:
-                        self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
-                    
-                    # If cortical area update failed, try as brain region
-                    if not cortical_area_updated:
+                    # Handle coordinate updates if provided
+                    coordinate_updated = False
+                    if coordinate_2d is not None:
+                        # Convert 2D coordinates to 3D format expected by update methods
+                        coordinates_3d = {
+                            "x": coordinate_2d[0],
+                            "y": coordinate_2d[1], 
+                            "z": 0  # Default z-coordinate
+                        }
+                        
+                        # Try updating as cortical area first
                         try:
-                            # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
-                            region_result = self.update_brain_region(
-                                region_id=member_id,
-                                parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
+                            result = self.update_cortical_area(
+                                cortical_id=member_id,
+                                coordinates=coordinates_3d
                             )
-                            if region_result:
-                                self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
-                            else:
-                                self.logger.warning(f"Failed to update {member_id} as brain region")
-                                continue
+                            if result is not None:
+                                coordinate_updated = True
+                                self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
                         except Exception as e:
-                            self.logger.warning(f"Failed to update {member_id} as brain region: {e}")
-                            continue
+                            self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
+                        
+                        # If cortical area update failed, try as brain region
+                        if not coordinate_updated:
+                            try:
+                                # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
+                                region_result = self.update_brain_region(
+                                    region_id=member_id,
+                                    parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
+                                )
+                                if region_result:
+                                    coordinate_updated = True
+                                    self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
+                                else:
+                                    self.logger.warning(f"Failed to update {member_id} coordinates as brain region")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to update {member_id} coordinates as brain region: {e}")
+                    else:
+                        self.logger.debug(f"No coordinate update requested for {member_id}")
                     
                     # Handle parent region change if specified
+                    parent_updated = False
                     if parent_region_id is not None:
                         try:
                             parent_result = self.change_cortical_area_parent(
@@ -5555,13 +5597,21 @@ class CoreAPIService:
                                 new_parent_id=parent_region_id
                             )
                             if parent_result:
+                                parent_updated = True
                                 self.logger.debug(f"Updated {member_id} parent to {parent_region_id}")
                             else:
                                 self.logger.warning(f"Failed to update {member_id} parent region")
                         except Exception as e:
                             self.logger.warning(f"Failed to update {member_id} parent region: {e}")
+                    else:
+                        self.logger.debug(f"No parent region update requested for {member_id}")
                     
-                    success_count += 1
+                    # Count as successful if either coordinate or parent update succeeded
+                    if coordinate_updated or parent_updated or (coordinate_2d is None and parent_region_id is None):
+                        success_count += 1
+                        self.logger.info(f"Successfully processed {member_id} (coords: {coordinate_updated}, parent: {parent_updated})")
+                    else:
+                        self.logger.warning(f"Failed to process any updates for {member_id}")
                     
                 except Exception as e:
                     self.logger.error(f"Error relocating {member_id}: {e}")
