@@ -47,6 +47,8 @@ class CorticalChangeClassifier:
         "neurons_per_voxel",  # Yet another neuron density parameter name
         "group_id",  # May affect area classification
         "sub_group_id",  # May affect area classification
+        "region_id",  # Brain region assignment changes
+        "brain_region_id",  # Alternative brain region assignment field
     }
 
     # Simple metadata that can be updated without affecting neurons

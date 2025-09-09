@@ -5379,31 +5379,73 @@ class CoreAPIService:
             "signature": region_data.get("signature", "")
         }
         
-        # Normalize areas field (handle both 'areas' and 'cortical_areas')
-        areas = region_data.get("areas", region_data.get("cortical_areas", []))
-        normalized["areas"] = areas
+        # HYBRID AREA DETECTION: Use dynamic blueprint detection with static fallback
+        areas = []
+        if blueprint:
+            # Dynamic detection: scan blueprint for actual region assignments
+            for cortical_id, cortical_def in blueprint.items():
+                # Check all possible region assignment fields
+                assigned_region = (
+                    cortical_def.get("brain_region_id") or
+                    cortical_def.get("parameters", {}).get("brain_region_id") or
+                    cortical_def.get("parameters", {}).get("region_id")
+                )
+                
+                if assigned_region == region_id:
+                    areas.append(cortical_id)
+                    self.logger.debug(f"🔍 Dynamic: Found {cortical_id} assigned to region {region_id}")
+        
+        # HYBRID APPROACH: COMBINE dynamic and static areas (don't use either/or)
+        static_areas = region_data.get("areas", region_data.get("cortical_areas", []))
+        
+        # Combine both sources - areas from blueprint + areas from static data
+        all_areas = set(areas)  # Dynamic areas
+        all_areas.update(static_areas)  # Add static areas
+        
+        areas = list(all_areas)
+        
+        if areas:
+            self.logger.info(f"🔍 Combined area detection: {len(areas)} total areas (dynamic + static)")
+        else:
+            self.logger.info("🔍 No areas found in dynamic or static data")
+        
+        normalized["areas"] = sorted(areas)
         
         # Normalize regions field (handle both 'regions' and 'child_regions')
         regions = region_data.get("regions", region_data.get("child_regions", []))
         normalized["regions"] = regions
         
-        # Get existing inputs/outputs or initialize empty
-        inputs = region_data.get("inputs", [])
-        outputs = region_data.get("outputs", [])
-        
-        # Automatic I/O assignment based on cortical area types
+        # HYBRID I/O ASSIGNMENT: Dynamic calculation with static validation
         if areas and blueprint:
-            auto_inputs, auto_outputs = self._auto_assign_region_io(areas, blueprint)
+            dynamic_inputs, dynamic_outputs = self._auto_assign_region_io(areas, blueprint)
             
-            # Merge with existing I/O (avoid duplicates)
-            all_inputs = list(set(inputs + auto_inputs))
-            all_outputs = list(set(outputs + auto_outputs))
-            
-            normalized["inputs"] = all_inputs
-            normalized["outputs"] = all_outputs
+            if dynamic_inputs or dynamic_outputs:
+                # Use dynamic results when found
+                normalized["inputs"] = sorted(dynamic_inputs)
+                normalized["outputs"] = sorted(dynamic_outputs)
+                self.logger.info(f"🔍 I/O: Dynamic assignment - inputs={len(dynamic_inputs)}, outputs={len(dynamic_outputs)}")
+            else:
+                # Dynamic found nothing - filter static I/O to only areas currently in region
+                static_inputs = region_data.get("inputs", [])
+                static_outputs = region_data.get("outputs", [])
+                area_set = set(areas)
+                
+                # Only keep static I/O entries that are actually in the current region
+                filtered_inputs = [area for area in static_inputs if area in area_set]
+                filtered_outputs = [area for area in static_outputs if area in area_set]
+                
+                normalized["inputs"] = sorted(filtered_inputs)
+                normalized["outputs"] = sorted(filtered_outputs)
+                
+                if filtered_inputs != static_inputs or filtered_outputs != static_outputs:
+                    self.logger.info(f"🔍 I/O: Filtered static data - inputs={len(filtered_inputs)}, outputs={len(filtered_outputs)} (removed stale entries)")
+                else:
+                    self.logger.info(f"🔍 I/O: Using static data - inputs={len(filtered_inputs)}, outputs={len(filtered_outputs)}")
         else:
-            normalized["inputs"] = inputs
-            normalized["outputs"] = outputs
+            # No areas or blueprint, use empty I/O
+            normalized["inputs"] = []
+            normalized["outputs"] = []
+            self.logger.info("🔍 I/O: No areas found, using empty I/O")
         
         return normalized
 
@@ -5425,28 +5467,24 @@ class CoreAPIService:
         outputs = []
         area_set = set(areas)  # For fast lookup
         
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Processing {len(areas)} areas for connection-based I/O assignment")
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Areas in region: {areas}")
+        self.logger.info(f"🔍 I/O Analysis: Processing {len(areas)} areas: {areas} for connection-based assignment")
+        
+        # Get all cortical areas in blueprint for reference
+        all_cortical_ids = set(blueprint.keys())
         
         # STEP 1: Find OUTPUTS - areas with connections to areas outside the region
         for area_id in areas:
             area_props = blueprint.get(area_id, {})
             cortical_destinations = area_props.get("cortical_destinations", {})
             
-            self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] Checking {area_id} destinations: {list(cortical_destinations.keys())}")
-            
             # Check if any destination is outside this brain region
             external_destinations = [dest for dest in cortical_destinations.keys() if dest not in area_set]
             
             if external_destinations:
                 outputs.append(area_id)
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (connections to {external_destinations})")
-            else:
-                self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] {area_id} has no external outputs")
+                self.logger.debug(f"🔍 I/O: {area_id} → OUTPUT (connects to {external_destinations})")
         
         # STEP 2: Find INPUTS - areas that receive connections from outside the region
-        self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] Scanning all blueprint areas for inputs to region...")
-        
         for source_area_id, source_props in blueprint.items():
             # Skip if source area is in our region (internal connections don't count)
             if source_area_id in area_set:
@@ -5458,14 +5496,14 @@ class CoreAPIService:
             for dest_area in source_destinations.keys():
                 if dest_area in area_set and dest_area not in inputs:
                     inputs.append(dest_area)
-                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {dest_area} as INPUT (receives from external {source_area_id})")
+                    self.logger.debug(f"🔍 I/O: {dest_area} → INPUT (from external {source_area_id})")
         
         # STEP 3: Fallback to group-based assignment for areas with no connections
         areas_with_io = set(inputs + outputs)
         unassigned_areas = [area for area in areas if area not in areas_with_io]
         
         if unassigned_areas:
-            self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Fallback: Checking group types for unassigned areas: {unassigned_areas}")
+            self.logger.debug(f"🔍 I/O: Checking group types for {len(unassigned_areas)} unassigned areas")
             
             for area_id in unassigned_areas:
                 area_props = blueprint.get(area_id, {})
@@ -5473,14 +5511,12 @@ class CoreAPIService:
                 
                 if area_group == "IPU":
                     inputs.append(area_id)
-                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as INPUT (IPU group fallback)")
+                    self.logger.debug(f"🔍 I/O: {area_id} → INPUT (IPU group)")
                 elif area_group == "OPU":
                     outputs.append(area_id)
-                    self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (OPU group fallback)")
-                else:
-                    self.logger.debug(f"🔍 [BRAIN-IO-DEBUG] {area_id} unassigned (group='{area_group}', no connections)")
+                    self.logger.debug(f"🔍 I/O: {area_id} → OUTPUT (OPU group)")
         
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Final connection-based result: inputs={inputs}, outputs={outputs}")
+        self.logger.info(f"🔍 I/O Analysis FINAL: inputs={inputs}, outputs={outputs}")
         return inputs, outputs
 
     def delete_brain_region(
@@ -5642,18 +5678,135 @@ class CoreAPIService:
         try:
             #  This is a cortical area modification, so route through cortical
             #  area update
-            return (
-                self._cortical_area_service.update_area(
-                    cortical_area_id, parameters={"region_id": new_parent_id}
-                )
-                is not None
+            # CRITICAL FIX: Get current assignment BEFORE updating blueprint
+            old_parent_id = self._get_current_region_assignment(cortical_area_id)
+            
+            # Use both field names to ensure compatibility
+            # Some parts of the system expect 'region_id', others expect 'brain_region_id'
+            result = self._cortical_area_service.update_area(
+                cortical_area_id, 
+                parameters={
+                    "region_id": new_parent_id,
+                    "brain_region_id": new_parent_id
+                }
             )
+            
+            if result is not None:
+                self.logger.info(f"Successfully updated {cortical_area_id} parent region to {new_parent_id}")
+                
+                # CRITICAL FIX: Update static region membership when areas are moved
+                try:
+                    self._update_static_region_membership_after_move(cortical_area_id, new_parent_id, old_parent_id)
+                except Exception as e:
+                    self.logger.warning(f"Failed to update static region membership for {cortical_area_id}: {e}")
+                
+                return True
+            else:
+                self.logger.warning(f"Failed to update {cortical_area_id} parent region")
+                return False
 
         except Exception as e:
             self.logger.error(f"Error changing cortical area parent: {str(e)}")
             raise ValueError(
                 f"Failed to change cortical area parent: {str(e)}"
             ) from e
+
+    def _get_current_region_assignment(self, cortical_area_id: str) -> str:
+        """Get the current region assignment for a cortical area from blueprint.
+        
+        Returns the region ID where the area is currently assigned, or 'root' as fallback.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                return "root"
+                
+            blueprint = state_manager.genome.get("blueprint", {})
+            if cortical_area_id not in blueprint:
+                return "root"
+                
+            cortical_def = blueprint[cortical_area_id]
+            current_assignment = (
+                cortical_def.get("brain_region_id") or 
+                cortical_def.get("parameters", {}).get("brain_region_id") or
+                cortical_def.get("parameters", {}).get("region_id") or
+                "root"
+            )
+            
+            return current_assignment
+            
+        except Exception as e:
+            self.logger.warning(f"Error getting current region assignment for {cortical_area_id}: {e}")
+            return "root"
+
+    def _update_static_region_membership_after_move(self, cortical_area_id: str, new_parent_id: str, old_parent_id: str = None) -> None:
+        """Update static brain region membership data when a cortical area is moved.
+        
+        This ensures that the static region data stays in sync with dynamic cortical area assignments.
+        """
+        try:
+            # Get current genome from StateManager
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                self.logger.warning("No genome available for static region membership update")
+                return
+                
+            genome = state_manager.genome
+            brain_regions = genome.get("brain_regions", {})
+            
+            self.logger.info(f"🔄 [REGION-SYNC] Moving {cortical_area_id} from {old_parent_id} to {new_parent_id}")
+            
+            # Remove from old region (using the assignment we captured before the update)
+            areas_removed_from = []
+            if old_parent_id and old_parent_id in brain_regions:
+                old_region_areas = brain_regions[old_parent_id].get("areas", brain_regions[old_parent_id].get("cortical_areas", []))
+                if cortical_area_id in old_region_areas:
+                    old_region_areas.remove(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    areas_removed_from.append(old_parent_id)
+                    self.logger.info(f"🔄 [REGION-SYNC] Removed {cortical_area_id} from {old_parent_id}")
+                else:
+                    # Not in static data, add it first then remove it (sync static with reality)
+                    old_region_areas.append(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    self.logger.info(f"🔄 [REGION-SYNC] Added {cortical_area_id} to static data for {old_parent_id} (was missing)")
+                    
+                    # Now remove it
+                    old_region_areas.remove(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    areas_removed_from.append(old_parent_id)
+                    self.logger.info(f"🔄 [REGION-SYNC] Removed {cortical_area_id} from {old_parent_id}")
+            else:
+                self.logger.warning(f"🔄 [REGION-SYNC] Old parent {old_parent_id} not found in brain_regions")
+            
+            # Add to new region (CRITICAL FIX: ensure we don't overwrite existing areas)
+            if new_parent_id in brain_regions:
+                # Get current areas list - make a COPY to avoid reference issues
+                current_new_region_areas = brain_regions[new_parent_id].get("areas", brain_regions[new_parent_id].get("cortical_areas", []))
+                new_region_areas = list(current_new_region_areas)  # Make a copy
+                
+                self.logger.info(f"🔄 [REGION-SYNC] Target region {new_parent_id} currently has areas: {new_region_areas}")
+                
+                if cortical_area_id not in new_region_areas:
+                    new_region_areas.append(cortical_area_id)
+                    brain_regions[new_parent_id]["areas"] = new_region_areas
+                    self.logger.info(f"🔄 [REGION-SYNC] Added {cortical_area_id} to region {new_parent_id}. New areas list: {new_region_areas}")
+                else:
+                    self.logger.info(f"🔄 [REGION-SYNC] {cortical_area_id} already in region {new_parent_id}")
+            else:
+                self.logger.warning(f"🔄 [REGION-SYNC] Target region {new_parent_id} not found in brain_regions")
+            
+            # Update StateManager's genome
+            state_manager.genome = genome
+            self.logger.info(f"🔄 [REGION-SYNC] Completed: {cortical_area_id} moved from {old_parent_id} to {new_parent_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating static region membership: {str(e)}")
+            raise
 
     def change_brain_region_parent(
         self, region_id: str, new_parent_id: str

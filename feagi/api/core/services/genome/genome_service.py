@@ -5244,6 +5244,14 @@ class GenomeService(BaseService):
                     "cortical_type",
                 ]:
                     area_def[key] = value
+                elif key in ["region_id", "brain_region_id"]:
+                    # Special handling for region assignment - update both fields for consistency
+                    area_def["brain_region_id"] = value
+                    if "parameters" not in area_def:
+                        area_def["parameters"] = {}
+                    area_def["parameters"]["region_id"] = value
+                    area_def["parameters"]["brain_region_id"] = value
+                    self.logger.info(f"Updated region assignment for {cortical_id}: brain_region_id={value}")
                 else:
                     # Parameter changes
                     if "parameters" not in area_def:
