@@ -5450,72 +5450,68 @@ class CoreAPIService:
         return normalized
 
     def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
-        """Automatically assign inputs and outputs based on actual cortical connections.
-        
-        Logic:
-        - OUTPUT: Areas in region that have connections to areas OUTSIDE the region
-        - INPUT: Areas in region that receive connections from areas OUTSIDE the region
-        
-        Args:
-            areas: List of cortical area IDs in the region
-            blueprint: Genome blueprint for connection analysis
-            
-        Returns:
-            Tuple of (inputs, outputs) lists
+        """Assign region inputs/outputs from connections using a single, robust source.
+
+        Rules:
+        - OUTPUT: Any area in the region that connects to an area outside the region
+        - INPUT: Any area in the region that receives a connection from outside the region
+
+        The genome may store connections under different keys; we normalize by
+        reading all known destinations:
+        - "cortical_destinations": {dst_id: [...]}
+        - "cortical_mapping_dst": {dst_id: [...]} (newer path)
+        - parameters.mapping (legacy) is ignored unless normalized into the above
         """
-        inputs = []
-        outputs = []
-        area_set = set(areas)  # For fast lookup
-        
-        self.logger.info(f"🔍 I/O Analysis: Processing {len(areas)} areas: {areas} for connection-based assignment")
-        
-        # Get all cortical areas in blueprint for reference
-        all_cortical_ids = set(blueprint.keys())
-        
-        # STEP 1: Find OUTPUTS - areas with connections to areas outside the region
+        inputs: List[str] = []
+        outputs: List[str] = []
+        area_set = set(areas)
+
+        def extract_destinations(props: Dict[str, Any]) -> set:
+            """Return set of destination area IDs from genome props (all variants)."""
+            dests: set = set()
+            # Newer and primary representation
+            mapping_dst = props.get("cortical_mapping_dst")
+            if isinstance(mapping_dst, dict):
+                dests.update(mapping_dst.keys())
+            # Legacy representation mirrored in cortical properties
+            c_dests = props.get("cortical_destinations")
+            if isinstance(c_dests, dict):
+                dests.update(c_dests.keys())
+            # Some genomes may nest under parameters; include if present
+            params = props.get("parameters")
+            if isinstance(params, dict):
+                p_map = params.get("cortical_mapping_dst") or params.get("cortical_destinations")
+                if isinstance(p_map, dict):
+                    dests.update(p_map.keys())
+            return dests
+
+        # Compute OUTPUTS: region areas that point outside
         for area_id in areas:
-            area_props = blueprint.get(area_id, {})
-            cortical_destinations = area_props.get("cortical_destinations", {})
-            
-            # Check if any destination is outside this brain region
-            external_destinations = [dest for dest in cortical_destinations.keys() if dest not in area_set]
-            
-            if external_destinations:
+            props = blueprint.get(area_id, {}) or {}
+            dests = extract_destinations(props)
+            if any(dst not in area_set for dst in dests):
                 outputs.append(area_id)
-                self.logger.debug(f"🔍 I/O: {area_id} → OUTPUT (connects to {external_destinations})")
-        
-        # STEP 2: Find INPUTS - areas that receive connections from outside the region
-        for source_area_id, source_props in blueprint.items():
-            # Skip if source area is in our region (internal connections don't count)
-            if source_area_id in area_set:
+
+        # Compute INPUTS: external areas that point into the region
+        for src_id, src_props in blueprint.items():
+            if src_id in area_set:
                 continue
-                
-            source_destinations = source_props.get("cortical_destinations", {})
-            
-            # Check if this external area connects to any area in our region
-            for dest_area in source_destinations.keys():
-                if dest_area in area_set and dest_area not in inputs:
-                    inputs.append(dest_area)
-                    self.logger.debug(f"🔍 I/O: {dest_area} → INPUT (from external {source_area_id})")
-        
-        # STEP 3: Fallback to group-based assignment for areas with no connections
-        areas_with_io = set(inputs + outputs)
-        unassigned_areas = [area for area in areas if area not in areas_with_io]
-        
-        if unassigned_areas:
-            self.logger.debug(f"🔍 I/O: Checking group types for {len(unassigned_areas)} unassigned areas")
-            
-            for area_id in unassigned_areas:
-                area_props = blueprint.get(area_id, {})
-                area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
-                
-                if area_group == "IPU":
-                    inputs.append(area_id)
-                    self.logger.debug(f"🔍 I/O: {area_id} → INPUT (IPU group)")
-                elif area_group == "OPU":
-                    outputs.append(area_id)
-                    self.logger.debug(f"🔍 I/O: {area_id} → OUTPUT (OPU group)")
-        
+            for dst in extract_destinations(src_props):
+                if dst in area_set and dst not in inputs:
+                    inputs.append(dst)
+
+        # Fallback by group for areas with no detected connections
+        areas_with_io = set(inputs) | set(outputs)
+        for area_id in areas:
+            if area_id in areas_with_io:
+                continue
+            props = blueprint.get(area_id, {}) or {}
+            group = str(props.get("group", props.get("cortical_group", ""))).upper()
+            if group == "IPU":
+                inputs.append(area_id)
+            elif group == "OPU":
+                outputs.append(area_id)
+
         return inputs, outputs
 
     def delete_brain_region(
@@ -5680,13 +5676,14 @@ class CoreAPIService:
             # CRITICAL FIX: Get current assignment BEFORE updating blueprint
             old_parent_id = self._get_current_region_assignment(cortical_area_id)
             
-            # Use both field names to ensure compatibility
-            # Some parts of the system expect 'region_id', others expect 'brain_region_id'
+            # Use ALL field names to ensure compatibility across different parts of the system
+            # Some expect 'region_id', others 'brain_region_id', others 'parent_region_id'
             result = self._cortical_area_service.update_area(
                 cortical_area_id, 
                 parameters={
                     "region_id": new_parent_id,
-                    "brain_region_id": new_parent_id
+                    "brain_region_id": new_parent_id,
+                    "parent_region_id": new_parent_id  # CRITICAL: Update cortical area's own parent field
                 }
             )
             

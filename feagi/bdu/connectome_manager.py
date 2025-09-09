@@ -3406,9 +3406,15 @@ class ConnectomeManager(NeuronMappingProvider):
 
             area = self.cortical_areas[cortical_id]
 
-            # Ensure area has properties dictionary
+            # Ensure area has properties dictionary - PRESERVE existing properties
+            existing_props_count = len(getattr(area, 'properties', {})) if hasattr(area, 'properties') and area.properties else 0
+            existing_has_destinations = hasattr(area, 'properties') and area.properties and 'cortical_destinations' in area.properties
+            
             if not hasattr(area, "properties") or area.properties is None:
                 area.properties = {}
+            
+            self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: existing={existing_props_count} props, has_destinations={existing_has_destinations}")
+            self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: updating {len(property_updates)} properties: {list(property_updates.keys())}")
 
             # Update each property
             updated_properties = []
@@ -3494,6 +3500,14 @@ class ConnectomeManager(NeuronMappingProvider):
                         )
                 except Exception:
                     pass
+
+                # CRITICAL DEBUG: Check if cortical_destinations survived the update
+                final_has_destinations = 'cortical_destinations' in area.properties
+                final_destinations_count = len(area.properties.get('cortical_destinations', {}))
+                self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: AFTER update - has_destinations={final_has_destinations}, count={final_destinations_count}")
+                
+                if existing_has_destinations and not final_has_destinations:
+                    self.logger.error(f"💥 [CONNECTOME-UPDATE] CORRUPTION DETECTED: {cortical_id} lost cortical_destinations during update!")
 
                 # Update StateManager cortical areas cache
                 try:

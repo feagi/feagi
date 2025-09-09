@@ -2232,12 +2232,22 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
-                # Update the source area's properties with mapping information
-                if (
-                    not hasattr(src_area, "properties")
-                    or src_area.properties is None
-                ):
-                    src_area.properties = {}
+                # CRITICAL: All cortical areas should ALWAYS have properties initialized
+                # If not, this indicates a serious bug in area creation
+                if not hasattr(src_area, "properties"):
+                    logger.error(f"💥 [NEURO-MAPPING] CRITICAL BUG: {src_area_id} missing properties attribute!")
+                    raise RuntimeError(f"Cortical area {src_area_id} is missing properties attribute - this indicates a bug in area creation")
+                
+                if src_area.properties is None:
+                    logger.error(f"💥 [NEURO-MAPPING] CRITICAL BUG: {src_area_id} has None properties!")
+                    raise RuntimeError(f"Cortical area {src_area_id} has None properties - this indicates a bug in area creation")
+                
+                # Properties should always exist and be a dict - log current state
+                existing_count = len(src_area.properties)
+                has_destinations = 'cortical_destinations' in src_area.properties
+                logger.info(f"🧠 [NEURO-MAPPING] {src_area_id}: existing_props={existing_count}, has_destinations={has_destinations}")
+                
+                # Properties are guaranteed to exist and be a dict - just proceed with adding mapping
 
                 # Convert the mapping data to the format expected by the API
                 #  The API expects mapping in array format: [morphology_id,
@@ -2276,10 +2286,16 @@ class NeuroEmbryogenesis:
                 logger.info(
                     f"🧠 [MAPPING-DEBUG] Current properties: {src_area.properties}"
                 )
-                logger.info(
-                    f"🧠 [MAPPING-DEBUG] Setting mapping to: {api_mapping}"
-                )
+                logger.info(f"🧠 [NEURO-MAPPING] {src_area_id}: Setting mapping with {len(api_mapping)} destinations")
                 src_area.properties["mapping"] = api_mapping
+                
+                # CRITICAL DEBUG: Verify cortical_destinations survived mapping assignment
+                final_count = len(src_area.properties)
+                final_has_destinations = 'cortical_destinations' in src_area.properties
+                logger.info(f"🧠 [NEURO-MAPPING] {src_area_id}: AFTER mapping - total_props={final_count}, has_destinations={final_has_destinations}")
+                
+                if has_destinations and not final_has_destinations:
+                    logger.error(f"💥 [NEURO-MAPPING] CORRUPTION: {src_area_id} lost cortical_destinations during mapping assignment!")
                 
                 # Trigger automatic I/O designation for each target area
                 # Only when crossing region boundaries

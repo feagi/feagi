@@ -5244,14 +5244,15 @@ class GenomeService(BaseService):
                     "cortical_type",
                 ]:
                     area_def[key] = value
-                elif key in ["region_id", "brain_region_id"]:
-                    # Special handling for region assignment - update both fields for consistency
+                elif key in ["region_id", "brain_region_id", "parent_region_id"]:
+                    # Special handling for region assignment - update ALL region fields for consistency
                     area_def["brain_region_id"] = value
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
                     area_def["parameters"]["region_id"] = value
                     area_def["parameters"]["brain_region_id"] = value
-                    self.logger.info(f"Updated region assignment for {cortical_id}: brain_region_id={value}")
+                    area_def["parameters"]["parent_region_id"] = value  # CRITICAL: Ensure cortical properties show correct parent
+                    self.logger.info(f"Updated region assignment for {cortical_id}: brain_region_id={value}, parent_region_id={value}")
                 else:
                     # Parameter changes
                     if "parameters" not in area_def:
@@ -5534,17 +5535,18 @@ class GenomeService(BaseService):
                     area.area_type = properties["area_type"]
 
                 # Update additional properties
-                for key, value in properties.items():
-                    if key not in [
-                        "name",
-                        "position",
-                        "area_type",
-                        "dimensions",
-                    ]:
-                        area.properties[key] = value
+                properties_to_update = {k: v for k, v in properties.items() 
+                                       if k not in ["name", "position", "area_type", "dimensions"]}
+                
+                self.logger.info(f"🔄 [LOCALIZED-REBUILD] Updating {len(properties_to_update)} properties for {cortical_id}")
+                self.logger.info(f"🔄 [LOCALIZED-REBUILD] Properties: {list(properties_to_update.keys())}")
+                self.logger.info(f"🔄 [LOCALIZED-REBUILD] Has cortical_destinations: {'cortical_destinations' in properties_to_update}")
+                
+                for key, value in properties_to_update.items():
+                    area.properties[key] = value
 
                 self.logger.info(
-                    f"[LOCALIZED-REBUILD] Updated properties for existing area {cortical_id}"
+                    f"[LOCALIZED-REBUILD] Updated {len(properties_to_update)} properties for existing area {cortical_id}"
                 )
 
             # 5. Update connections if needed (preserve existing structure)
@@ -5957,8 +5959,11 @@ class GenomeService(BaseService):
                         props[prop_name] = parameters[key] 
                         break
             
-            self.logger.debug(f"🔄 [GENOME-EXTRACT] Extracted {len(props)} properties for {cortical_id}")
-            self.logger.debug(f"🔄 [GENOME-EXTRACT] Includes cortical_destinations: {'cortical_destinations' in props}")
+            self.logger.info(f"🔄 [GENOME-EXTRACT] Extracted {len(props)} properties for {cortical_id}")
+            self.logger.info(f"🔄 [GENOME-EXTRACT] cortical_destinations: {'YES' if 'cortical_destinations' in props else 'MISSING'}")
+            if 'cortical_destinations' in props:
+                dest_count = len(props['cortical_destinations'])
+                self.logger.info(f"🔄 [GENOME-EXTRACT] cortical_destinations has {dest_count} connections")
             
             return props
             
