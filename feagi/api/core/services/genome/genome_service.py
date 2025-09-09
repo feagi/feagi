@@ -3683,6 +3683,15 @@ class GenomeService(BaseService):
                             f"Removed {dst_cortical_area} from {src_cortical_area} mapping parameters"
                         )
 
+                # CRITICAL FIX: Remove from cortical_destinations (shown in cortical area properties)
+                if "cortical_destinations" in src_area_def:
+                    cortical_destinations = src_area_def["cortical_destinations"]
+                    if dst_cortical_area in cortical_destinations:
+                        del cortical_destinations[dst_cortical_area]
+                        self.logger.info(
+                            f"Removed {dst_cortical_area} from {src_cortical_area} cortical destinations"
+                        )
+
                 # Step 2: Update genome in state manager
                 self._current_genome = current_genome
                 if self.state_manager:
