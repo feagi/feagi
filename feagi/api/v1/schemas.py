@@ -824,6 +824,9 @@ class CorticalMappingConnection(BaseModel):
     plasticity_constant: float
     ltp_multiplier: float
     ltd_multiplier: float
+    # Optional context: normalized brain region objects for source/destination areas
+    src_region: Optional[Dict[str, Any]] = None
+    dst_region: Optional[Dict[str, Any]] = None
 
 
 class CorticalMappingPropertiesResponse(BaseModel):
@@ -839,6 +842,18 @@ class UpdateCorticalMappingPropertiesRequest(BaseModel):
     src_cortical_area: str
     dst_cortical_area: str
     mapping_string: List[Dict[str, Any]]  # List of connection dictionaries
+
+
+class UpdateCorticalMappingPropertiesResponse(SuccessResponse):
+    """Response for updating cortical mapping properties with region context.
+
+    Extends the standard success response by including the normalized brain
+    region objects for the source and destination cortical areas (when
+    available).
+    """
+
+    src_region: Optional[Dict[str, Any]] = None
+    dst_region: Optional[Dict[str, Any]] = None
 
 
 class CreateCorticalMappingRequest(BaseModel):
