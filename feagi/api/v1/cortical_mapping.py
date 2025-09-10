@@ -160,23 +160,8 @@ class CorticalMappingAPI:
                     ltp_multiplier=prop["ltp_multiplier"],
                     ltd_multiplier=prop["ltd_multiplier"],
                 )
-                # Attach brain region context for source and destination areas
-                try:
-                    regions = self.core_api_service.get_brain_regions()
-                    region_by_id = {r.get("region_id"): r for r in regions}
-                    # Determine area->region via hierarchy
-                    cm = self.core_api_service.get_connectome_manager()
-                    src_region_id = None
-                    dst_region_id = None
-                    if hasattr(cm, "brain_region_hierarchy"):
-                        src_region_id = cm.brain_region_hierarchy.get_region_for_area(request.src_cortical_area)
-                        dst_region_id = cm.brain_region_hierarchy.get_region_for_area(request.dst_cortical_area)
-                    if src_region_id and src_region_id in region_by_id:
-                        connection.src_region = region_by_id[src_region_id]
-                    if dst_region_id and dst_region_id in region_by_id:
-                        connection.dst_region = region_by_id[dst_region_id]
-                except Exception as e:
-                    logger.warning(f"Failed to attach brain region context: {e}")
+                
+
                 connections.append(connection)
 
             return connections
@@ -207,7 +192,7 @@ class CorticalMappingAPI:
                     "Failed to update cortical mapping properties"
                 )
 
-            # Build region context for response (optional enrichment)
+            # Attach brain region context (both source and destination) to response
             src_region_obj = None
             dst_region_obj = None
             try:
@@ -224,7 +209,7 @@ class CorticalMappingAPI:
                 if dst_region_id and dst_region_id in region_by_id:
                     dst_region_obj = region_by_id[dst_region_id]
             except Exception as e:
-                logger.warning(f"Failed to build brain region context for update response: {e}")
+                logger.warning(f"Failed to attach brain regions to PUT response: {e}")
 
             return UpdateCorticalMappingPropertiesResponse(
                 message=(

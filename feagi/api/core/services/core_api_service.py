@@ -2746,79 +2746,57 @@ class CoreAPIService:
         """Get cortical mapping properties between two cortical areas."""
         try:
             genome = self.get_genome()
-            if not genome or "blueprint" not in genome:
+            blueprint = (genome or {}).get("blueprint", {})
+
+            raw_connections: List[Any] = []
+
+            # 1) Primary: parameters.mapping in genome blueprint
+            if src_cortical_area in blueprint:
+                area_def = blueprint[src_cortical_area] or {}
+                params = area_def.get("parameters", {}) or {}
+                mapping_param = params.get("mapping")
+                if isinstance(mapping_param, dict):
+                    candidate = mapping_param.get(dst_cortical_area)
+                    if isinstance(candidate, list) and candidate:
+                        raw_connections = candidate
+
+                # 2) Alternate genome key: cortical_mapping_dst
+                if not raw_connections:
+                    mapping_dst = area_def.get("cortical_mapping_dst")
+                    if isinstance(mapping_dst, dict):
+                        candidate = mapping_dst.get(dst_cortical_area)
+                        if isinstance(candidate, list) and candidate:
+                            raw_connections = candidate
+
+            # Nothing found
+            if not raw_connections:
                 return []
 
-            blueprint = genome["blueprint"]
-
-            # ARCHITECTURE COMPLIANCE: Use hierarchical genome structure
-            #  Look for mapping in:
-            #  blueprint[src_cortical_area]["parameters"]["mapping"][dst_cortical_area]
-            if src_cortical_area not in blueprint:
-                self.logger.debug(
-                    f"Source cortical area '{src_cortical_area}' not found in blueprint"
-                )
-                return []
-
-            area_def = blueprint[src_cortical_area]
-            if not isinstance(area_def, dict) or "parameters" not in area_def:
-                self.logger.debug(
-                    f"No parameters found for source cortical area '{src_cortical_area}'"
-                )
-                return []
-
-            parameters = area_def["parameters"]
-            if not isinstance(parameters, dict) or "mapping" not in parameters:
-                self.logger.debug(
-                    f"No mapping found for source cortical area '{src_cortical_area}'"
-                )
-                return []
-
-            mapping_data = parameters["mapping"]
-            if not isinstance(mapping_data, dict):
-                return []
-
-            # Check if destination area is mapped from source
-            if dst_cortical_area not in mapping_data:
-                self.logger.debug(
-                    f"No mapping found from '{src_cortical_area}' to '{dst_cortical_area}'"
-                )
-                return []
-
-            # Return the mapping data
-            connections = mapping_data[dst_cortical_area]
-            if not connections:
-                return []
-
-            # Convert to expected format
-            formatted_connections = []
-            for connection in connections:
-                if isinstance(connection, list) and len(connection) >= 4:
-                    #  Handle the genome format: [morphology_id, scalar,
-                    #  multiplier, plasticity_flag, ...]
-                    # Pad with default values for missing fields
-                    formatted_connection = {
-                        "morphology_id": connection[0],
-                        "morphology_scalar": (
-                            connection[1] if len(connection) > 1 else [1, 1, 1]
-                        ),
-                        "postSynapticCurrent_multiplier": (
-                            connection[2] if len(connection) > 2 else 1
-                        ),
-                        "plasticity_flag": (
-                            connection[3] if len(connection) > 3 else False
-                        ),
-                        "plasticity_constant": (
-                            connection[4] if len(connection) > 4 else 1
-                        ),
-                        "ltp_multiplier": (
-                            connection[5] if len(connection) > 5 else 1
-                        ),
-                        "ltd_multiplier": (
-                            connection[6] if len(connection) > 6 else 1
-                        ),
-                    }
-                    formatted_connections.append(formatted_connection)
+            # Normalize to expected format
+            formatted_connections: List[Dict[str, Any]] = []
+            for connection in raw_connections:
+                if isinstance(connection, list):
+                    # Array format: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                    formatted_connections.append({
+                        "morphology_id": connection[0] if len(connection) > 0 else "",
+                        "morphology_scalar": connection[1] if len(connection) > 1 else [1, 1, 1],
+                        "postSynapticCurrent_multiplier": connection[2] if len(connection) > 2 else 1,
+                        "plasticity_flag": connection[3] if len(connection) > 3 else False,
+                        "plasticity_constant": connection[4] if len(connection) > 4 else 1,
+                        "ltp_multiplier": connection[5] if len(connection) > 5 else 1,
+                        "ltd_multiplier": connection[6] if len(connection) > 6 else 1,
+                    })
+                elif isinstance(connection, dict):
+                    # Dict format already in expected schema
+                    formatted_connections.append({
+                        "morphology_id": connection.get("morphology_id", ""),
+                        "morphology_scalar": connection.get("morphology_scalar", [1, 1, 1]),
+                        "postSynapticCurrent_multiplier": connection.get("postSynapticCurrent_multiplier", 1),
+                        "plasticity_flag": connection.get("plasticity_flag", False),
+                        "plasticity_constant": connection.get("plasticity_constant", 1),
+                        "ltp_multiplier": connection.get("ltp_multiplier", 1),
+                        "ltd_multiplier": connection.get("ltd_multiplier", 1),
+                    })
 
             self.logger.info(
                 f"Retrieved {len(formatted_connections)} mapping properties from {src_cortical_area} to {dst_cortical_area}"
@@ -2914,74 +2892,82 @@ class CoreAPIService:
         Returns:
             Dict[str, Any]: Mapping data in the expected format
         """
-        logger.info("Getting detailed cortical map...")
+        logger.info("Getting detailed cortical map (genome source)...")
 
         try:
-            # Get all cortical areas using the correct service method
-            all_areas_list = self._cortical_area_service.get_all_areas()
+            genome = self.get_genome()
+            blueprint = (genome or {}).get("blueprint", {})
 
-            # Build the mapping response
-            mapping_response = {}
+            # Build the mapping response strictly from hierarchical genome
+            mapping_response: Dict[str, Any] = {}
 
-            for area_data in all_areas_list:
-                area_id = area_data.get("id")
-                if not area_id:
+            for area_id, area_def in blueprint.items():
+                if not isinstance(area_def, dict):
                     continue
 
-                #  Initialize area entry (empty dict for areas with no outgoing
-                #  connections)
                 mapping_response[area_id] = {}
 
-                # Get the area's mapping data from its parameters
-                area_parameters = area_data.get("parameters", {})
-                area_mapping = area_parameters.get("mapping", {})
+                params = area_def.get("parameters", {}) or {}
+                # Prefer parameters.mapping if present, otherwise cortical_mapping_dst
+                area_mapping: Dict[str, Any] = {}
+                mapping_param = params.get("mapping")
+                mapping_dst = area_def.get("cortical_mapping_dst")
+                if isinstance(mapping_param, dict) and mapping_param:
+                    area_mapping = mapping_param
+                elif isinstance(mapping_dst, dict) and mapping_dst:
+                    area_mapping = mapping_dst
 
-                if area_mapping:
-                    #  Convert each target area's mapping data to the expected
-                    #  format
-                    for (
-                        target_area_id,
-                        connection_list,
-                    ) in area_mapping.items():
-                        if not connection_list:
-                            continue
+                if not area_mapping:
+                    continue
 
-                        #  Convert each connection from array format to object
-                        #  format
-                        formatted_connections = []
-                        for connection_data in connection_list:
-                            if (
-                                isinstance(connection_data, list)
-                                and len(connection_data) >= 7
-                            ):  # Ensure we have all required fields
-                                formatted_connection = {
-                                    "morphology_id": connection_data[0],
-                                    "morphology_scalar": connection_data[1],
-                                    "postSynapticCurrent_multiplier": connection_data[
-                                        2
-                                    ],
-                                    "plasticity_flag": connection_data[3],
-                                    "plasticity_constant": connection_data[4],
-                                    "ltp_multiplier": connection_data[5],
-                                    "ltd_multiplier": connection_data[6],
+                for target_area_id, connection_list in area_mapping.items():
+                    if not isinstance(connection_list, list) or not connection_list:
+                        continue
+
+                    formatted_connections: List[Dict[str, Any]] = []
+                    for connection_data in connection_list:
+                        if isinstance(connection_data, list):
+                            # Array format: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                            formatted_connections.append(
+                                {
+                                    "morphology_id": connection_data[0] if len(connection_data) > 0 else "",
+                                    "morphology_scalar": connection_data[1] if len(connection_data) > 1 else [1, 1, 1],
+                                    "postSynapticCurrent_multiplier": connection_data[2] if len(connection_data) > 2 else 1,
+                                    "plasticity_flag": connection_data[3] if len(connection_data) > 3 else False,
+                                    "plasticity_constant": connection_data[4] if len(connection_data) > 4 else 1,
+                                    "ltp_multiplier": connection_data[5] if len(connection_data) > 5 else 1,
+                                    "ltd_multiplier": connection_data[6] if len(connection_data) > 6 else 1,
                                 }
-                                formatted_connections.append(
-                                    formatted_connection
-                                )
+                            )
+                        elif isinstance(connection_data, dict):
+                            # Already normalized
+                            formatted_connections.append(
+                                {
+                                    "morphology_id": connection_data.get("morphology_id", ""),
+                                    "morphology_scalar": connection_data.get("morphology_scalar", [1, 1, 1]),
+                                    "postSynapticCurrent_multiplier": connection_data.get(
+                                        "postSynapticCurrent_multiplier", 1
+                                    ),
+                                    "plasticity_flag": connection_data.get("plasticity_flag", False),
+                                    "plasticity_constant": connection_data.get("plasticity_constant", 1),
+                                    "ltp_multiplier": connection_data.get("ltp_multiplier", 1),
+                                    "ltd_multiplier": connection_data.get("ltd_multiplier", 1),
+                                }
+                            )
 
-                        if formatted_connections:
-                            mapping_response[area_id][
-                                target_area_id
-                            ] = formatted_connections
+                    if formatted_connections:
+                        mapping_response[area_id][target_area_id] = formatted_connections
 
             logger.info(
-                f"Generated detailed cortical map for {len(mapping_response)} areas"
+                f"Generated detailed cortical map (genome) for {len(mapping_response)} areas"
             )
             return mapping_response
 
         except Exception as e:
-            logger.error(f"Error generating detailed cortical map: {e}")
-            raise
+            self.logger.error(f"Error getting detailed cortical map: {str(e)}")
+            raise ValueError(
+                f"Failed to get detailed cortical map: {str(e)}"
+            ) from e
 
     def get_data_path(self) -> str:
         """Get data path."""
