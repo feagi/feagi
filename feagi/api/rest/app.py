@@ -411,60 +411,55 @@ async def log_requests(request: Request, call_next):
         for name, value in response.headers.items():
             logger.info(f"🟢 [API-DEBUG]   {name}: {value}")
 
-        # Try to capture and log response body
-        response_body = None
+        # Try to capture and log response body (route-scoped capture for JSON)
         try:
-            # For streaming responses, we need to be careful
-            if hasattr(response, "body_iterator"):
-                #  This is a streaming response, we can't easily capture the
-                #  body
-                logger.info(
-                    "🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
-                )
-            else:
-                # Try to get the response body
-                original_body = b""
-                async for chunk in response.body_iterator:
-                    original_body += chunk
-
-                if original_body:
-                    response_body = original_body.decode("utf-8")
-
-                    # Pretty print JSON if possible
+            should_capture = request.url.path in (
+                "/v1/cortical_mapping/mapping_properties",
+                "/v1/cortical_mapping/mapping",
+            )
+            content_type = response.headers.get("content-type", "")
+            if should_capture and content_type.startswith("application/json"):
+                # Safely materialize the response body for both standard and streaming responses
+                body_bytes = b""
+                if hasattr(response, "body_iterator") and response.body_iterator is not None:
                     try:
-                        import json
+                        async for chunk in response.body_iterator:
+                            if chunk:
+                                body_bytes += chunk
+                    except Exception:
+                        body_bytes = b""
+                else:
+                    # Starlette Response exposes raw body as bytes
+                    try:
+                        body_bytes = response.body  # type: ignore[attr-defined]
+                    except Exception:
+                        body_bytes = b""
 
-                        parsed_json = json.loads(response_body)
-                        formatted_json = json.dumps(parsed_json, indent=2)
+                if body_bytes:
+                    try:
+                        parsed = json.loads(body_bytes)
+                        pretty = json.dumps(parsed, indent=2)
                         logger.info("🟢 [API-DEBUG] Response Body (JSON):")
-                        for line in formatted_json.split("\n"):
+                        for line in pretty.split("\n"):
                             logger.info(f"🟢 [API-DEBUG]   {line}")
-                    except (json.JSONDecodeError, ValueError):
-                        # Not JSON, log as plain text (truncate if too long)
-                        if len(response_body) > 2000:
-                            truncated_body = (
-                                response_body[:2000] + "... (truncated)"
-                            )
-                            logger.info(
-                                f"🟢 [API-DEBUG] Response Body (truncated): {truncated_body}"
-                            )
-                        else:
-                            logger.info(
-                                f"🟢 [API-DEBUG] Response Body: {response_body}"
-                            )
+                    except Exception:
+                        # Not JSON or parse failed, log as text (truncate)
+                        text = body_bytes.decode("utf-8", errors="replace")
+                        if len(text) > 2000:
+                            text = text[:2000] + "... (truncated)"
+                        logger.info(f"🟢 [API-DEBUG] Response Body: {text}")
 
-                    # Recreate the response with the captured body
-                    from fastapi.responses import Response
-
+                    # Rebuild response so downstream can still read the body
                     response = Response(
-                        content=original_body,
+                        content=body_bytes,
                         status_code=response.status_code,
                         headers=dict(response.headers),
-                        media_type=response.headers.get("content-type"),
+                        media_type=content_type,
                     )
                 else:
                     logger.info("🟢 [API-DEBUG] Response Body: <empty>")
-
+            else:
+                logger.info("🟢 [API-DEBUG] Response Body: <streaming/uncaptured>")
         except Exception as e:
             logger.info(
                 f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>"

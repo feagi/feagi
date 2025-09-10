@@ -3692,6 +3692,22 @@ class GenomeService(BaseService):
                             f"Removed {dst_cortical_area} from {src_cortical_area} cortical destinations"
                         )
 
+                # Also update ConnectomeManager live properties mirror so reads reflect deletion immediately
+                if self._connectome_manager and hasattr(self._connectome_manager, "cortical_areas"):
+                    try:
+                        area_obj = self._connectome_manager.cortical_areas.get(src_cortical_area)
+                        if area_obj and hasattr(area_obj, "properties") and isinstance(area_obj.properties, dict):
+                            mapping_prop = area_obj.properties.get("mapping")
+                            if isinstance(mapping_prop, dict) and dst_cortical_area in mapping_prop:
+                                del mapping_prop[dst_cortical_area]
+                                self.logger.info(
+                                    f"[LIVE] Removed {dst_cortical_area} from ConnectomeManager mapping for {src_cortical_area}"
+                                )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to update ConnectomeManager mapping mirror for {src_cortical_area}: {e}"
+                        )
+
                 # Step 2: Update genome in state manager
                 self._current_genome = current_genome
                 if self.state_manager:
@@ -6407,3 +6423,37 @@ class GenomeService(BaseService):
         except Exception as e:
             self.logger.error(f"Failed to update physiology: {e}")
             return False
+
+    def _sync_region_registry_after_mapping_change(self, current_genome: Dict[str, Any]) -> None:
+        """Synchronize brain region registry and hierarchy after mapping changes.
+
+        - Reloads `brain_region_hierarchy` from genome
+        - Applies cross-region mapping rules to update genome `brain_regions` inputs/outputs
+        - Persists updated genome back to StateManager and reloads hierarchy
+        """
+        if not self._connectome_manager:
+            return
+
+        # Reload hierarchy base from genome
+        if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+            self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+
+        # Apply cross-region rules to update I/O
+        try:
+            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+
+            embryo = NeuroEmbryogenesis(self._connectome_manager, config=None)
+            embryo._load_genome_data(current_genome)
+
+            brain_regions = current_genome.get("brain_regions", {})
+            blueprint = current_genome.get("blueprint", {})
+            if brain_regions and blueprint:
+                embryo._apply_cross_region_mapping_rules(brain_regions, blueprint)
+                # persist in StateManager
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
+                # reload hierarchy with updated I/O
+                if hasattr(self._connectome_manager, "brain_region_hierarchy"):
+                    self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+        except Exception as e:
+            self.logger.warning(f"Failed to apply cross-region mapping rules: {e}")
