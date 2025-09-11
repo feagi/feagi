@@ -1613,13 +1613,27 @@ class NeuroEmbryogenesis:
 
         Mutates the provided genome in-place.
         """
-        if not genome or "blueprint" not in genome or "brain_regions" not in genome:
-            raise ValueError("Genome missing required sections (blueprint/brain_regions)")
+        if not genome or "blueprint" not in genome:
+            raise ValueError("Genome missing required section: blueprint")
 
         blueprint = genome["blueprint"]
+        # Initialize brain_regions/root if missing
+        if "brain_regions" not in genome:
+            genome["brain_regions"] = {}
         regions = genome["brain_regions"]
         if "root" not in regions:
-            raise ValueError("Missing root brain region in genome")
+            regions["root"] = {
+                "title": "Root Brain Region",
+                "description": "Default root region for brain organization",
+                "parent_region_id": None,
+                "coordinate_2d": [0, 0],
+                "coordinate_3d": [0, 0, 0],
+                "areas": [],
+                "regions": [],
+                "inputs": [],
+                "outputs": [],
+                "signature": "",
+            }
 
         def get_region_for_area(area_def: Dict[str, Any]) -> str:
             params = area_def.get("parameters", {}) if isinstance(area_def, dict) else {}
@@ -1631,7 +1645,10 @@ class NeuroEmbryogenesis:
                 or "root"
             )
 
-        def classify(area_def: Dict[str, Any]) -> str:
+        def classify(area_def: Dict[str, Any], area_id: str) -> str:
+            # Treat special maintenance areas as CORE
+            if isinstance(area_id, str) and area_id.startswith("_"):
+                return "CORE"
             group_id = str(area_def.get("group_id", "")).upper()
             if group_id in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
                 return group_id
@@ -1653,7 +1670,7 @@ class NeuroEmbryogenesis:
             current_region = get_region_for_area(adef)
             if current_region == "root":
                 continue
-            category = classify(adef)
+            category = classify(adef, aid)
             if category not in constraints.subregion_allowed_area_categories:
                 adef["brain_region_id"] = "root"
                 adef["region_id"] = "root"
@@ -1675,7 +1692,7 @@ class NeuroEmbryogenesis:
         for aid, adef in blueprint.items():
             if get_region_for_area(adef) != "root":
                 continue
-            if classify(adef) in constraints.subregion_allowed_area_categories:
+            if classify(adef, aid) in constraints.subregion_allowed_area_categories:
                 movers.append(aid)
 
         if movers and constraints.auto_create_subregion_for_custom_in_root:
@@ -1701,10 +1718,14 @@ class NeuroEmbryogenesis:
                         x2 = params.get("2dcorx")
                         y2 = params.get("2dcory")
                         if x2 is None or y2 is None:
-                            raise ValueError("Missing coordinates for custom/memory area under root")
-                        xs.append(int(x2))
-                        ys.append(int(y2))
-                        zs.append(0)
+                            # Default to origin when 2D coordinates are missing, only for centroid calculation
+                            xs.append(0)
+                            ys.append(0)
+                            zs.append(0)
+                        else:
+                            xs.append(int(x2))
+                            ys.append(int(y2))
+                            zs.append(0)
                 cx = sum(xs) // len(xs)
                 cy = sum(ys) // len(ys)
                 cz = sum(zs) // len(zs)
@@ -1721,6 +1742,11 @@ class NeuroEmbryogenesis:
                     "outputs": [],
                     "signature": "",
                 }
+                # Ensure root lists new subregion
+                root_regions = regions["root"].get("regions", []) or []
+                if new_region_id not in root_regions:
+                    root_regions.append(new_region_id)
+                    regions["root"]["regions"] = root_regions
 
             for m in movers_sorted:
                 adef = blueprint.get(m, {})
@@ -1737,6 +1763,15 @@ class NeuroEmbryogenesis:
                 if m not in lst:
                     lst.append(m)
                     regions[new_region_id]["areas"] = lst
+
+        # Rebuild root.areas from blueprint assignments to ensure consistency
+        root_allowed = set(constraints.root_allowed_area_categories)
+        rebuilt_root_areas: list[str] = []
+        for aid, adef in blueprint.items():
+            reg = get_region_for_area(adef)
+            if reg == "root" and classify(adef, aid) in root_allowed:
+                rebuilt_root_areas.append(aid)
+        regions["root"]["areas"] = rebuilt_root_areas
 
     def develop_brain_from_genome_data(
         self, genome_data: Dict[str, Any]
@@ -1763,8 +1798,14 @@ class NeuroEmbryogenesis:
                 # Mutate in-place
                 self._normalize_region_membership_for_embryogenesis(genome_data, constraints)
                 # Persist normalized genome into StateManager before proceeding
-                if self.state_manager and hasattr(self.state_manager, 'set_genome'):
-                    _ = self.state_manager.set_genome(genome_data)
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    if hasattr(sm, 'set_genome'):
+                        _ = sm.set_genome(genome_data)
+                except Exception:
+                    # Do not fail development if state manager persistence is unavailable here
+                    pass
         except Exception as norm_err:
             logger.error(f"Region membership normalization failed in embryogenesis: {norm_err}")
             return False

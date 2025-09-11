@@ -19,6 +19,8 @@ Supporting Genome Versions: 2.0
 """
 
 from feagi.utils.logger import setup_logger
+from feagi.evo.genome_properties import genome_properties
+from feagi.evo.templates import cortical_types
 
 logger = setup_logger(__name__)
 
@@ -28,10 +30,6 @@ class Bcolors:
     OKGREEN = "\033[92m"
     RED = "\033[91m"
     ENDC = "\033[0m"
-
-
-from feagi.evo.genome_properties import *
-from feagi.evo.templates import cortical_types
 
 
 def cortical_list_gen(blueprint):
@@ -1297,6 +1295,17 @@ def sanitize_invalid_morphologies(genome):
 
         genome["cortical_mappings"] = valid_mappings
 
+    # Normalize brain region membership (system constraint)
+    try:
+        region_norm = normalize_brain_region_membership(genome)
+        if region_norm.get("created_region") or region_norm.get("moved_to_subregion"):
+            fixed_references.append(
+                "Normalized brain region membership: "
+                + (region_norm.get("created_region") or "no new region")
+            )
+    except Exception as e:
+        validation_warnings.append(f"Brain region normalization failed: {e}")
+
     # Generate recovery summary
     recovery_actions = []
     if removed_morphologies:
@@ -1328,6 +1337,161 @@ def sanitize_invalid_morphologies(genome):
         "recovery_summary": recovery_summary,
         "validation_warnings": validation_warnings,
     }
+
+
+def normalize_brain_region_membership(genome: dict) -> dict:
+    """Normalize brain region membership per system constraints.
+
+    - Ensure brain_regions.root exists
+    - Move IPU/OPU/CORE out of subregions to root
+    - Create deterministic subregion for CUSTOM/MEMORY under root and move them
+
+    Works on legacy gene-based blueprint. Uses genes of form
+    _____10c-AREA-<prop> where <prop> includes _group, sub_group_id, rcordx/rcordy/rcordz.
+
+    Returns a dict with summary information.
+    """
+    summary = {"created_region": None, "moved_to_root": [], "moved_to_subregion": []}
+
+    try:
+        from feagi.config.toml_loader import get_region_constraints_config
+
+        constraints = get_region_constraints_config({})
+    except Exception as e:
+        logger.error(f"Region constraint loader error: {e}")
+        return summary
+
+    if "blueprint" not in genome:
+        return summary
+
+    blueprint = genome["blueprint"]
+
+    # Initialize brain_regions and root container if missing
+    if "brain_regions" not in genome:
+        genome["brain_regions"] = {}
+    regions = genome["brain_regions"]
+    if "root" not in regions:
+        regions["root"] = {
+            "title": "Root Brain Region",
+            "description": "Default root region for brain organization",
+            "parent_region_id": None,
+            "coordinate_2d": [0, 0],
+            "coordinate_3d": [0, 0, 0],
+            "areas": [],
+            "regions": [],
+            "inputs": [],
+            "outputs": [],
+            "signature": "",
+        }
+
+    # Build per-area group and sub_group and coords from gene-based blueprint
+    area_group: dict[str, str] = {}
+    area_subgroup: dict[str, str] = {}
+    area_coords: dict[str, dict] = {}
+
+    for gene_key, gene_val in blueprint.items():
+        if not isinstance(gene_key, str):
+            continue
+        parts = gene_key.split("-")
+        if len(parts) < 4:
+            continue
+        area_id = parts[1]
+        prop = parts[3]
+        if prop == "_group" and isinstance(gene_val, str):
+            area_group[area_id] = gene_val.upper()
+        elif prop == "sub_group_id" and isinstance(gene_val, str):
+            area_subgroup[area_id] = gene_val.upper()
+        elif prop in ("rcordx", "rcordy", "rcordz"):
+            coords = area_coords.setdefault(area_id, {})
+            coords[prop] = gene_val
+
+    def classify(area_id: str) -> str:
+        # Special maintenance areas always CORE
+        if area_id.startswith("_"):
+            return "CORE"
+        g = area_group.get(area_id, "").upper()
+        if g in {"IPU", "OPU", "CORE"}:
+            return g
+        # Memory detection via sub_group_id
+        if area_subgroup.get(area_id, "").upper() == "MEMORY":
+            return "MEMORY"
+        return "CUSTOM"
+
+    # Build movers for root subregion and ensure non-root only contain allowed
+    movers_under_root: list[str] = []
+    # Non-root membership is not explicitly present in legacy genomes; treat all as root unless a future field exists
+    # So only handle CUSTOM/MEMORY under root here
+    for area_id in set(list(area_group.keys()) | list(area_subgroup.keys())):
+        cat = classify(area_id)
+        if cat in constraints.subregion_allowed_area_categories:
+            movers_under_root.append(area_id)
+
+    # Create deterministic subregion if needed
+    if movers_under_root and constraints.auto_create_subregion_for_custom_in_root:
+        import hashlib
+
+        movers_sorted = sorted(movers_under_root)
+        digest = hashlib.sha1("|".join(movers_sorted).encode("utf-8")).hexdigest()[:8]
+        new_region_id = f"region_autogen_{digest}"
+        if new_region_id not in regions:
+            # Compute centroid from available coords
+            xs: list[int] = []
+            ys: list[int] = []
+            zs: list[int] = []
+            for aid in movers_sorted:
+                c = area_coords.get(aid, {})
+                if all(k in c for k in ("rcordx", "rcordy", "rcordz")):
+                    xs.append(int(c["rcordx"]))
+                    ys.append(int(c["rcordy"]))
+                    zs.append(int(c["rcordz"]))
+                elif all(k in c for k in ("rcordx", "rcordy")):
+                    xs.append(int(c["rcordx"]))
+                    ys.append(int(c["rcordy"]))
+                    zs.append(0)
+                else:
+                    # If coordinates are missing, skip from centroid
+                    continue
+            cx = sum(xs) // len(xs) if xs else 0
+            cy = sum(ys) // len(ys) if ys else 0
+            cz = sum(zs) // len(zs) if zs else 0
+
+            regions[new_region_id] = {
+                "title": "Autogen Region",
+                "description": "Auto-created to house custom/memory areas",
+                "parent_region_id": "root",
+                "coordinate_2d": [cx, cy],
+                "coordinate_3d": [cx, cy, cz],
+                "areas": [],
+                "regions": [],
+                "inputs": [],
+                "outputs": [],
+                "signature": "",
+            }
+            # Link under root
+            root_regions = regions["root"].get("regions", []) or []
+            if new_region_id not in root_regions:
+                root_regions.append(new_region_id)
+                regions["root"]["regions"] = root_regions
+            summary["created_region"] = new_region_id
+
+        # Move areas into new subregion membership list
+        dst_list = regions[new_region_id].get("areas", []) or []
+        for aid in movers_sorted:
+            if aid not in dst_list:
+                dst_list.append(aid)
+                summary["moved_to_subregion"].append(aid)
+        regions[new_region_id]["areas"] = dst_list
+
+    # Rebuild root.areas based on categories (keep only CORE/IPU/OPU)
+    root_allowed = set(constraints.root_allowed_area_categories)
+    root_areas = [aid for aid, _ in area_group.items() if classify(aid) in root_allowed]
+    # Guarantee special maintenance areas
+    for aid in list(area_group.keys()):
+        if aid.startswith("_") and aid not in root_areas:
+            root_areas.append(aid)
+    regions["root"]["areas"] = sorted(set(root_areas))
+
+    return summary
 
 
 def sanitize_missing_physiology(genome):
