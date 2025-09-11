@@ -5435,6 +5435,88 @@ class CoreAPIService:
         
         return normalized
 
+    # =================================================================
+    # REGION MEMBERSHIP CONSTRAINTS
+    # =================================================================
+
+    def _load_region_constraints(self):
+        """Load brain region constraints from configuration.
+
+        Returns a RegionConstraintsConfiguration dataclass.
+        """
+        try:
+            from feagi.config.toml_loader import load_feagi_config, get_region_constraints_config
+
+            config = load_feagi_config()
+            return get_region_constraints_config(config)
+        except Exception as e:
+            # Fail fast: constraints must be configured explicitly
+            raise ValueError(f"Region constraints configuration error: {e}")
+
+    def _classify_area_category(self, area_def: Dict[str, Any]) -> str:
+        """Classify cortical area into one of {IPU, OPU, CORE, CUSTOM, MEMORY} deterministically.
+
+        Prefers stable fields in priority order:
+        - group_id
+        - type ("memory"/"custom")
+        - parameters.sub_group_id == "MEMORY" -> MEMORY
+        - parameters.cortical_group (legacy): IPU/OPU/CORE/CUSTOM
+        """
+        if not isinstance(area_def, dict):
+            raise ValueError("Invalid cortical area definition for classification")
+
+        group_id = str(area_def.get("group_id", "")).upper()
+        if group_id in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+            return group_id
+
+        area_type = str(area_def.get("type", "")).lower()
+        if area_type == "memory":
+            return "MEMORY"
+        if area_type == "custom":
+            return "CUSTOM"
+
+        params = area_def.get("parameters", {})
+        if isinstance(params, dict) and str(params.get("sub_group_id", "")).upper() == "MEMORY":
+            return "MEMORY"
+
+        legacy_group = str(params.get("cortical_group", area_def.get("cortical_group", "")).upper())
+        if legacy_group in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+            return legacy_group
+
+        # Unknown -> treat as CUSTOM to avoid unintended elevation to root-only types
+        return "CUSTOM"
+
+    def _get_area_def_from_blueprint(self, cortical_id: str) -> Dict[str, Any]:
+        from feagi.core.state_manager import FeagiStateManager
+
+        state_manager = FeagiStateManager.instance()
+        genome = getattr(state_manager, "genome", None)
+        if not genome or "blueprint" not in genome:
+            raise ValueError("Genome blueprint not available for area classification")
+        return genome["blueprint"].get(cortical_id, {})
+
+    def _assert_region_accepts_area(self, cortical_id: str, destination_region_id: str) -> None:
+        """Enforce membership constraints for a cortical area to a destination region.
+
+        Raises ValueError if violation is detected.
+        """
+        constraints = self._load_region_constraints()
+
+        area_def = self._get_area_def_from_blueprint(cortical_id)
+        category = self._classify_area_category(area_def)
+
+        is_root = destination_region_id == "root"
+        if is_root:
+            if category not in constraints.root_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: Area {cortical_id} (category={category}) not allowed in root"
+                )
+        else:
+            if category not in constraints.subregion_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: Area {cortical_id} (category={category}) not allowed in subregion {destination_region_id}"
+                )
+
     def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
         """Assign region inputs/outputs from connections using a single, robust source.
 
@@ -5657,6 +5739,12 @@ class CoreAPIService:
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
         """
         try:
+            # Enforce region membership constraints before applying change
+            try:
+                self._assert_region_accepts_area(cortical_area_id, new_parent_id)
+            except Exception as e:
+                raise ValueError(str(e))
+
             #  This is a cortical area modification, so route through cortical
             #  area update
             # CRITICAL FIX: Get current assignment BEFORE updating blueprint

@@ -1605,6 +1605,139 @@ class NeuroEmbryogenesis:
         """Get statistics about the brain development process."""
         return self.development_stats
 
+    # ------------------------------------------------------------------
+    # Region membership normalization (embryogenesis-level)
+    # ------------------------------------------------------------------
+    def _normalize_region_membership_for_embryogenesis(self, genome: Dict[str, Any], constraints) -> None:
+        """Normalize region membership per system constraints for old genomes.
+
+        Mutates the provided genome in-place.
+        """
+        if not genome or "blueprint" not in genome or "brain_regions" not in genome:
+            raise ValueError("Genome missing required sections (blueprint/brain_regions)")
+
+        blueprint = genome["blueprint"]
+        regions = genome["brain_regions"]
+        if "root" not in regions:
+            raise ValueError("Missing root brain region in genome")
+
+        def get_region_for_area(area_def: Dict[str, Any]) -> str:
+            params = area_def.get("parameters", {}) if isinstance(area_def, dict) else {}
+            return (
+                area_def.get("brain_region_id")
+                or area_def.get("region_id")
+                or params.get("brain_region_id")
+                or params.get("region_id")
+                or "root"
+            )
+
+        def classify(area_def: Dict[str, Any]) -> str:
+            group_id = str(area_def.get("group_id", "")).upper()
+            if group_id in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+                return group_id
+            area_type = str(area_def.get("type", "")).lower()
+            if area_type == "memory":
+                return "MEMORY"
+            if area_type == "custom":
+                return "CUSTOM"
+            params = area_def.get("parameters", {}) if isinstance(area_def, dict) else {}
+            if str(params.get("sub_group_id", "")).upper() == "MEMORY":
+                return "MEMORY"
+            legacy_group = str(params.get("cortical_group", area_def.get("cortical_group", "")).upper())
+            if legacy_group in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+                return legacy_group
+            return "CUSTOM"
+
+        # Move forbidden categories out of subregions to root
+        for aid, adef in blueprint.items():
+            current_region = get_region_for_area(adef)
+            if current_region == "root":
+                continue
+            category = classify(adef)
+            if category not in constraints.subregion_allowed_area_categories:
+                adef["brain_region_id"] = "root"
+                adef["region_id"] = "root"
+                params = adef.get("parameters")
+                if isinstance(params, dict):
+                    params["brain_region_id"] = "root"
+                    params["region_id"] = "root"
+                if current_region in regions:
+                    old_list = regions[current_region].get("areas", []) or []
+                    if aid in old_list:
+                        regions[current_region]["areas"] = [x for x in old_list if x != aid]
+                root_list = regions["root"].get("areas", []) or []
+                if aid not in root_list:
+                    root_list.append(aid)
+                    regions["root"]["areas"] = root_list
+
+        # Gather custom/memory under root
+        movers = []
+        for aid, adef in blueprint.items():
+            if get_region_for_area(adef) != "root":
+                continue
+            if classify(adef) in constraints.subregion_allowed_area_categories:
+                movers.append(aid)
+
+        if movers and constraints.auto_create_subregion_for_custom_in_root:
+            import hashlib
+
+            movers_sorted = sorted(movers)
+            digest = hashlib.sha1("|".join(movers_sorted).encode("utf-8")).hexdigest()[:8]
+            new_region_id = f"region_autogen_{digest}"
+            if new_region_id not in regions:
+                # Compute centroid from 2D/3D info
+                xs: list[int] = []
+                ys: list[int] = []
+                zs: list[int] = []
+                for m in movers_sorted:
+                    adef = blueprint.get(m, {})
+                    coords = adef.get("coordinates")
+                    if isinstance(coords, dict) and {"x", "y", "z"}.issubset(coords.keys()):
+                        xs.append(int(coords["x"]))
+                        ys.append(int(coords["y"]))
+                        zs.append(int(coords["z"]))
+                    else:
+                        params = adef.get("parameters", {})
+                        x2 = params.get("2dcorx")
+                        y2 = params.get("2dcory")
+                        if x2 is None or y2 is None:
+                            raise ValueError("Missing coordinates for custom/memory area under root")
+                        xs.append(int(x2))
+                        ys.append(int(y2))
+                        zs.append(0)
+                cx = sum(xs) // len(xs)
+                cy = sum(ys) // len(ys)
+                cz = sum(zs) // len(zs)
+
+                regions[new_region_id] = {
+                    "title": "Autogen Region",
+                    "description": "Auto-created to house custom/memory areas",
+                    "parent_region_id": "root",
+                    "coordinate_2d": [cx, cy],
+                    "coordinate_3d": [cx, cy, cz],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": "",
+                }
+
+            for m in movers_sorted:
+                adef = blueprint.get(m, {})
+                adef["brain_region_id"] = new_region_id
+                adef["region_id"] = new_region_id
+                params = adef.get("parameters")
+                if isinstance(params, dict):
+                    params["brain_region_id"] = new_region_id
+                    params["region_id"] = new_region_id
+                root_list = regions["root"].get("areas", []) or []
+                if m in root_list:
+                    regions["root"]["areas"] = [x for x in root_list if x != m]
+                lst = regions[new_region_id].get("areas", []) or []
+                if m not in lst:
+                    lst.append(m)
+                    regions[new_region_id]["areas"] = lst
+
     def develop_brain_from_genome_data(
         self, genome_data: Dict[str, Any]
     ) -> bool:
@@ -1620,6 +1753,21 @@ class NeuroEmbryogenesis:
             True if brain developed successfully, False otherwise
         """
         self.development_stats["start_time"] = datetime.datetime.now()
+
+        # Enforce brain region membership normalization (handles legacy genomes)
+        try:
+            # Use the same system constants as the service layer
+            from feagi.config.toml_loader import get_region_constraints_config
+            constraints = get_region_constraints_config({})
+            if isinstance(genome_data, dict):
+                # Mutate in-place
+                self._normalize_region_membership_for_embryogenesis(genome_data, constraints)
+                # Persist normalized genome into StateManager before proceeding
+                if self.state_manager and hasattr(self.state_manager, 'set_genome'):
+                    _ = self.state_manager.set_genome(genome_data)
+        except Exception as norm_err:
+            logger.error(f"Region membership normalization failed in embryogenesis: {norm_err}")
+            return False
 
         #  CRITICAL: Reset brain state before development to ensure consistent
         #  performance
@@ -1715,7 +1863,7 @@ class NeuroEmbryogenesis:
             actual_synapse_count = self.connectome_manager.synapse_count if hasattr(self.connectome_manager, 'synapse_count') else "N/A"
             actual_cortical_areas = len(getattr(self.connectome_manager, 'cortical_areas', {}))
             
-            logger.info(f"🧠 [NEUROEMBRYOGENESIS] ConnectomeManager actual counts:")
+            logger.info("🧠 [NEUROEMBRYOGENESIS] ConnectomeManager actual counts:")
             logger.info(f"  - Neurons: {actual_neuron_count}")
             logger.info(f"  - Synapses: {actual_synapse_count}")
             logger.info(f"  - Cortical areas: {actual_cortical_areas}")
@@ -1725,7 +1873,7 @@ class NeuroEmbryogenesis:
             brain_stats = self.state_manager.get_brain_stats() if hasattr(self.state_manager, 'get_brain_stats') else None
             genome_loaded = self.state_manager.is_genome_loaded() if hasattr(self.state_manager, 'is_genome_loaded') else "N/A"
             
-            logger.info(f"🧠 [NEUROEMBRYOGENESIS] StateManager counters:")
+            logger.info("🧠 [NEUROEMBRYOGENESIS] StateManager counters:")
             logger.info(f"  - Brain stats: {brain_stats}")
             logger.info(f"  - Genome loaded: {genome_loaded}")
             
@@ -2440,7 +2588,7 @@ class NeuroEmbryogenesis:
 
                             # DIAGNOSTIC: Log EXACT parameters being passed to _apply_morphology_mapping
                             logger.info(
-                                f"🧠 [API-DIAGNOSTIC] EXACT PARAMETERS for _apply_morphology_mapping:"
+                                "🧠 [API-DIAGNOSTIC] EXACT PARAMETERS for _apply_morphology_mapping:"
                             )
                             logger.info(f"   src_area_id: {src_area_id}")
                             logger.info(f"   dst_area_id: {dst_area_id}")

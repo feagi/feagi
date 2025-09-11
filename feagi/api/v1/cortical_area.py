@@ -519,6 +519,26 @@ class CorticalAreaAPI:
             #  direct ConnectomeManager access
             genome_service = self.core_api_service._genome_service
 
+            # Enforce region membership constraints at API layer (defense in depth)
+            try:
+                from feagi.config.toml_loader import load_feagi_config, get_region_constraints_config
+                config = load_feagi_config()
+                constraints = get_region_constraints_config(config)
+            except Exception as e:
+                raise ValueError(f"Region constraints configuration error: {e}")
+
+            # Classify requested area category deterministically
+            requested_category = "MEMORY" if is_memory else "CUSTOM"
+            is_root = parent_region_id == "root"
+            if is_root and requested_category not in constraints.root_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: {requested_category} areas are not allowed in root"
+                )
+            if not is_root and requested_category not in constraints.subregion_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: {requested_category} areas are not allowed in subregions"
+                )
+
             #  Create cortical area through proper pipeline: hierarchical
             #  genome -> GenomeService -> connectome
             result = genome_service.create_cortical_area(

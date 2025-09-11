@@ -262,7 +262,7 @@ class GenomeService(BaseService):
             old_synapse_count = current_brain_stats.get("synapse_count", 0)
             old_cortical_count = current_brain_stats.get("cortical_area_count", 0)
             
-            self.logger.info(f"🔍 SYNC COMPARISON:")
+            self.logger.info("🔍 SYNC COMPARISON:")
             self.logger.info(f"  Connectome: neurons={neuron_count}, synapses={synapse_count}, areas={cortical_area_count}")
             self.logger.info(f"  StateManager: neurons={old_neuron_count}, synapses={old_synapse_count}, areas={old_cortical_count}")
             
@@ -279,7 +279,7 @@ class GenomeService(BaseService):
             if result.is_err:
                 self.logger.error(f"Failed to sync brain stats: {result.unwrap_err()}")
             else:
-                self.logger.info(f"✅ SYNC COMPLETE: Updated state manager with actual counts")
+                self.logger.info("✅ SYNC COMPLETE: Updated state manager with actual counts")
                 
             # Also update cortical list
             cortical_ids = list(getattr(self._connectome_manager, "cortical_areas", {}).keys())
@@ -365,14 +365,14 @@ class GenomeService(BaseService):
             if hasattr(self.state_manager, 'set_neuroembryogenesis_stage'):
                 try:
                     self.state_manager.set_neuroembryogenesis_stage(0)  # INITIALIZATION
-                except Exception as e:
-                    self.logger.debug(f"Could not reset neuroembryogenesis stage: {e}")
+                except Exception:
+                    pass
                     
             if hasattr(self.state_manager, 'set_neuroembryogenesis_progress'):
                 try:
                     self.state_manager.set_neuroembryogenesis_progress(0)
-                except Exception as e:
-                    self.logger.debug(f"Could not reset neuroembryogenesis progress: {e}")
+                except Exception:
+                    pass
             
             # Clear external state tracking
             result = self.state_manager.set_changes_saved_externally(False)
@@ -738,6 +738,7 @@ class GenomeService(BaseService):
                                 "recovery_error": str(sanitization_error),
                                 "original_errors": specific_errors,
                             }
+
                 else:
                     #  Validation passed initially - keep the original
                     #  auto_recovery_details (no changes needed)
@@ -897,11 +898,11 @@ class GenomeService(BaseService):
                                 # CRITICAL FIX: resize_for_genome returns boolean, not dict
                                 if resize_result:
                                     self.logger.info(
-                                        f"[GENOME] ✅ Connectome resized successfully"
+                                        "[GENOME] ✅ Connectome resized successfully"
                                     )
                                 else:
                                     self.logger.error(
-                                        f"[GENOME] ❌ Connectome resize failed or not needed"
+                                        "[GENOME] ❌ Connectome resize failed or not needed"
                                     )
                                     if self.state_manager:
                                         from feagi.core.state_manager import (
@@ -2158,7 +2159,7 @@ class GenomeService(BaseService):
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
                     NeuroEmbryogenesis,
                 )
-                embryogenesis = NeuroEmbryogenesis(
+                NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
                 # CRITICAL FIX: Ensure group_id is set for proper classification
@@ -2344,7 +2345,7 @@ class GenomeService(BaseService):
                         f"Creating neurons with properties from genome: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}, consecutive_fire_limit={consecutive_fire_limit}"
                     )
 
-                    neuron_ids = self._connectome_manager.batch_create_neurons(
+                    self._connectome_manager.batch_create_neurons(
                         cortical_id=cortical_id,
                         positions=positions,
                         threshold=base_threshold,
@@ -2683,7 +2684,7 @@ class GenomeService(BaseService):
                     NeuroEmbryogenesis,
                 )
 
-                embryogenesis = NeuroEmbryogenesis(
+                NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
 
@@ -2692,7 +2693,9 @@ class GenomeService(BaseService):
                 #  ARCHITECTURE: Pass hierarchical genome directly (single
                 #  source of truth)
                 # NeuroEmbryogenesis now supports hierarchical format natively
-                success = embryogenesis.develop_brain_from_genome_data(
+                success = NeuroEmbryogenesis(
+                    self._connectome_manager, self.state_manager
+                ).develop_brain_from_genome_data(
                     current_genome
                 )
 
@@ -2887,14 +2890,16 @@ class GenomeService(BaseService):
                     NeuroEmbryogenesis,
                 )
 
-                embryogenesis = NeuroEmbryogenesis(
+                NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
 
                 # Apply the morphology update by triggering brain development
                 #  ARCHITECTURE: Pass hierarchical genome directly (single
                 #  source of truth)
-                success = embryogenesis.develop_brain_from_genome_data(
+                success = NeuroEmbryogenesis(
+                    self._connectome_manager, self.state_manager
+                ).develop_brain_from_genome_data(
                     current_genome
                 )
 
@@ -3145,7 +3150,7 @@ class GenomeService(BaseService):
                     NeuroEmbryogenesis,
                 )
 
-                embryogenesis = NeuroEmbryogenesis(
+                NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
 
@@ -4312,13 +4317,13 @@ class GenomeService(BaseService):
                                     if burst_engine and hasattr(burst_engine, 'injection_service'):
                                         if burst_engine.injection_service and hasattr(burst_engine.injection_service, 'invalidate_cache'):
                                             burst_engine.injection_service.invalidate_cache()
-                                            self.logger.info(f"✅ Invalidated power neuron cache after brain region creation")
+                                            self.logger.info("✅ Invalidated power neuron cache after brain region creation")
                                 except Exception as cache_error:
                                     self.logger.warning(f"Could not invalidate power neuron cache: {cache_error}")
                                     # Don't fail - this is just cache management
                                 
                             else:
-                                self.logger.warning(f"Cannot apply cross-region mapping rules: missing brain_regions or blueprint")
+                                self.logger.warning("Cannot apply cross-region mapping rules: missing brain_regions or blueprint")
                                 
                         except Exception as mapping_error:
                             self.logger.warning(f"Failed to apply cross-region mapping rules: {mapping_error}")
@@ -4683,7 +4688,7 @@ class GenomeService(BaseService):
                             if burst_engine and hasattr(burst_engine, 'injection_service'):
                                 if burst_engine.injection_service and hasattr(burst_engine.injection_service, 'invalidate_cache'):
                                     burst_engine.injection_service.invalidate_cache()
-                                    self.logger.info(f"✅ Invalidated power neuron cache after brain region deletion")
+                                    self.logger.info("✅ Invalidated power neuron cache after brain region deletion")
                         except Exception as cache_error:
                             self.logger.warning(f"Could not invalidate power neuron cache: {cache_error}")
                             # Don't fail - this is just cache management
@@ -5456,7 +5461,7 @@ class GenomeService(BaseService):
                         )
 
                         # Create additional neurons for expansion
-                        new_neurons = self._reuse_neurons_for_area_expansion(
+                        self._reuse_neurons_for_area_expansion(
                             cortical_id, additional_neurons_needed, properties
                         )
 
@@ -5474,7 +5479,7 @@ class GenomeService(BaseService):
                         )
                     else:
                         self.logger.info(
-                            f"[LOCALIZED-REBUILD] RESHAPING: Same volume, neuron count unchanged"
+                            "[LOCALIZED-REBUILD] RESHAPING: Same volume, neuron count unchanged"
                         )
 
                     # 🔍 CHECKPOINT 4: COMPLETE SYNAPTIC REBUILDING
@@ -5897,7 +5902,7 @@ class GenomeService(BaseService):
             f"[CONTRACTION] PLACEHOLDER: Would remove {neurons_to_remove} neurons from {cortical_id}"
         )
         self.logger.info(
-            f"[CONTRACTION] For now, synaptic rebuilding will handle connectivity cleanup"
+            "[CONTRACTION] For now, synaptic rebuilding will handle connectivity cleanup"
         )
         
         # TODO: Implement actual neuron removal logic
@@ -6076,7 +6081,7 @@ class GenomeService(BaseService):
 
             # CRITICAL FIX: Set excitability for all created neurons
             excitability = properties.get("neuron_excitability", 1.0)
-            neuron_array = self._connectome_manager.neuron_array
+            _ = self._connectome_manager.neuron_array
             # Per-neuron excitability removed; handled via per-area cache
 
             self.logger.info(
@@ -6457,3 +6462,145 @@ class GenomeService(BaseService):
                     self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
         except Exception as e:
             self.logger.warning(f"Failed to apply cross-region mapping rules: {e}")
+
+    # =====================================================================
+    # REGION MEMBERSHIP NORMALIZATION ON GENOME LOAD
+    # =====================================================================
+    def _normalize_region_membership_on_load(self, genome: Dict[str, Any], constraints) -> None:
+        """Normalize brain region membership to satisfy configured constraints.
+
+        - Move IPU/OPU/CORE areas out of non-root regions to root
+        - For CUSTOM/MEMORY areas under root, create deterministic subregion
+          and move them into it
+
+        Mutates the provided genome dict in-place.
+        """
+        if not genome or "blueprint" not in genome or "brain_regions" not in genome:
+            raise ValueError("Genome missing required sections for normalization (blueprint/brain_regions)")
+
+        blueprint = genome["blueprint"]
+        regions = genome["brain_regions"]
+
+        if "root" not in regions:
+            raise ValueError("Genome missing root brain region")
+
+        def get_region_for_area(area_id: str, area_def: Dict[str, Any]) -> str:
+            params = area_def.get("parameters", {}) if isinstance(area_def, dict) else {}
+            return (
+                area_def.get("brain_region_id")
+                or area_def.get("region_id")
+                or params.get("brain_region_id")
+                or params.get("region_id")
+                or "root"
+            )
+
+        def classify(area_def: Dict[str, Any]) -> str:
+            group_id = str(area_def.get("group_id", "")).upper()
+            if group_id in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+                return group_id
+            area_type = str(area_def.get("type", "")).lower()
+            if area_type == "memory":
+                return "MEMORY"
+            if area_type == "custom":
+                return "CUSTOM"
+            params = area_def.get("parameters", {}) if isinstance(area_def, dict) else {}
+            if str(params.get("sub_group_id", "")).upper() == "MEMORY":
+                return "MEMORY"
+            legacy_group = str(params.get("cortical_group", area_def.get("cortical_group", "")).upper())
+            if legacy_group in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+                return legacy_group
+            return "CUSTOM"
+
+        # Move forbidden categories out of subregions to root
+        for area_id, area_def in blueprint.items():
+            current_region = get_region_for_area(area_id, area_def)
+            category = classify(area_def)
+            if current_region == "root":
+                continue
+            if category not in constraints.subregion_allowed_area_categories:
+                # Move to root
+                area_def["brain_region_id"] = "root"
+                area_def["region_id"] = "root"
+                params = area_def.get("parameters")
+                if isinstance(params, dict):
+                    params["brain_region_id"] = "root"
+                    params["region_id"] = "root"
+                if current_region in regions:
+                    old_list = regions[current_region].get("areas", []) or []
+                    if area_id in old_list:
+                        regions[current_region]["areas"] = [a for a in old_list if a != area_id]
+                root_list = regions["root"].get("areas", []) or []
+                if area_id not in root_list:
+                    root_list.append(area_id)
+                    regions["root"]["areas"] = root_list
+
+        # Collect CUSTOM/MEMORY areas under root
+        custom_in_root: list[str] = []
+        for area_id, area_def in blueprint.items():
+            region_id = get_region_for_area(area_id, area_def)
+            if region_id != "root":
+                continue
+            if classify(area_def) in constraints.subregion_allowed_area_categories:
+                custom_in_root.append(area_id)
+
+        if custom_in_root and constraints.auto_create_subregion_for_custom_in_root:
+            import hashlib
+
+            sorted_ids = sorted(custom_in_root)
+            digest = hashlib.sha1("|".join(sorted_ids).encode("utf-8")).hexdigest()[:8]
+            new_region_id = f"region_autogen_{digest}"
+            if new_region_id not in regions:
+                # Compute centroid
+                def _coord3(area_def: Dict[str, Any]) -> tuple[int, int, int]:
+                    coords = area_def.get("coordinates")
+                    if isinstance(coords, dict) and {"x", "y", "z"}.issubset(coords.keys()):
+                        return int(coords["x"]), int(coords["y"]), int(coords["z"])
+                    params = area_def.get("parameters", {})
+                    if isinstance(params, dict):
+                        x2 = params.get("2dcorx")
+                        y2 = params.get("2dcory")
+                        if x2 is not None and y2 is not None:
+                            return int(x2), int(y2), 0
+                    raise ValueError("Missing coordinates for custom/memory area in root")
+
+                xs: list[int] = []
+                ys: list[int] = []
+                zs: list[int] = []
+                for aid in sorted_ids:
+                    cdef = blueprint.get(aid, {})
+                    x, y, z = _coord3(cdef)
+                    xs.append(x)
+                    ys.append(y)
+                    zs.append(z)
+                cx = sum(xs) // len(xs)
+                cy = sum(ys) // len(ys)
+                cz = sum(zs) // len(zs)
+
+                regions[new_region_id] = {
+                    "title": "Autogen Region",
+                    "description": "Auto-created to house custom/memory areas",
+                    "parent_region_id": "root",
+                    "coordinate_2d": [cx, cy],
+                    "coordinate_3d": [cx, cy, cz],
+                    "areas": [],
+                    "regions": [],
+                    "inputs": [],
+                    "outputs": [],
+                    "signature": "",
+                }
+
+            for aid in sorted_ids:
+                area_def = blueprint.get(aid, {})
+                area_def["brain_region_id"] = new_region_id
+                area_def["region_id"] = new_region_id
+                params = area_def.get("parameters")
+                if isinstance(params, dict):
+                    params["brain_region_id"] = new_region_id
+                    params["region_id"] = new_region_id
+                root_list = regions["root"].get("areas", []) or []
+                if aid in root_list:
+                    regions["root"]["areas"] = [a for a in root_list if a != aid]
+                new_list = regions[new_region_id].get("areas", []) or []
+                if aid not in new_list:
+                    new_list.append(aid)
+                    regions[new_region_id]["areas"] = new_list
