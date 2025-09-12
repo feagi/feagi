@@ -28,7 +28,7 @@ from typing import Dict, Any, Optional, List, Union, Tuple, Callable, Awaitable
 
 import zmq
 import zmq.asyncio
-from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
+# from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
 # Import constants
 from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ

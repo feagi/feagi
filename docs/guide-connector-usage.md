@@ -154,7 +154,7 @@ client = FeagiClient(
     host="localhost",
     command_port=5555,  # REQ/REP for commands
     sensory_port=5558,  # DEALER/ROUTER for sensory/motor data
-    viz_port=5560       # DEALER/ROUTER for visualization data
+    viz_port=5562       # DEALER/ROUTER for visualization data
 )
 ```
 

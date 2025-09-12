@@ -1,5 +1,7 @@
-from src.feagi_interfaces import FEAGIConnectionStatus, AbstractFeagiInterface, DummyFeagiInterface # wtf is going on here
-from src.cache import SensorCache
+from .feagi_interfaces.feagi_connection_status import FEAGIConnectionStatus
+from .feagi_interfaces.abstract_feagi_interface import AbstractFeagiInterface
+from .feagi_interfaces.dummy_interface.dummy_feagi_interface import DummyFeagiInterface
+from .cache.sensor_cache import SensorCache
 
 
 class FeagiAgentConnector:

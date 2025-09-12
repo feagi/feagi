@@ -1,6 +1,6 @@
 import asyncio
-from src.feagi_interfaces.abstract_feagi_interface import AbstractFeagiInterface
-from src.feagi_interfaces import FEAGIConnectionStatus
+from ..abstract_feagi_interface import AbstractFeagiInterface
+from ..feagi_connection_status import FEAGIConnectionStatus
 
 class DummyFeagiInterface(AbstractFeagiInterface):
     def __init__(self):

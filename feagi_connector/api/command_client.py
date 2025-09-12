@@ -73,7 +73,11 @@ class FeagiControlClient:
             if 'error' in result:
                 logger.error(f"Failed to connect to control stream: {result['error']}")
                 return False
-            return True
+            # Check for successful ping response (FEAGI returns {"pong": True, ...})
+            if result.get('pong') is True:
+                return True
+            logger.error(f"Unexpected ping response: {result}")
+            return False
         except Exception as e:
             logger.error(f"Error connecting to control stream: {e}")
             return False
@@ -192,6 +196,8 @@ class FeagiControlClient:
         # Create a new socket for this request (important for REQ/REP state)
         socket = self.context.socket(zmq.REQ)
         socket.setsockopt(zmq.RCVTIMEO, self.timeout)
+        socket.setsockopt(zmq.SNDTIMEO, self.timeout)
+        socket.setsockopt(zmq.LINGER, 0)
         
         try:
             # Connect to the server

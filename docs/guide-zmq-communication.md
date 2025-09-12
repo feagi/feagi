@@ -10,7 +10,7 @@ FEAGI uses several ZMQ ports, each with a specific communication pattern:
 |------|---------|---------|-------|
 | 5555 | REQ/REP | Command API | For commands like health checks, getting status, etc. |
 | 5558 | DEALER/ROUTER | Sensorimotor data | For sending sensory data and receiving motor data |
-| 5560 | DEALER/ROUTER | Visualization data | For receiving neural activity visualization |
+| 5562 | DEALER/ROUTER | Visualization data | For receiving neural activity visualization |
 
 ## Command API (REQ/REP Pattern)
 
@@ -137,7 +137,7 @@ if header.get("message_type") == "motor_data":
 
 ## Visualization API (DEALER/ROUTER Pattern)
 
-The Visualization API uses the ZMQ DEALER/ROUTER pattern on port 5560.
+The Visualization API uses the ZMQ DEALER/ROUTER pattern on port 5562.
 
 ### Message Format
 

@@ -49,7 +49,7 @@ class FeagiVizClient:
     def __init__(
         self,
         host: str = "127.0.0.1",
-        port: int = 5560,
+        port: int = 5562,
         agent_id: str = "",
         socket_timeout: int = 5000,
     ):
@@ -58,7 +58,7 @@ class FeagiVizClient:
         
         Args:
             host: FEAGI hostname or IP
-            port: Visualization Stream port (default 5560)
+            port: Visualization Stream port (default 5562)
             agent_id: Agent ID for subscription identification
             socket_timeout: Socket timeout in milliseconds
         """

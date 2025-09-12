@@ -88,7 +88,7 @@ Currently implemented using ZeroMQ with the following patterns:
 
 - **REQ/REP**: For command-based API (port 5555)
 - **DEALER/ROUTER**: For sensorimotor data (port 5558)
-- **DEALER/ROUTER**: For visualization data (port 5560)
+- **DEALER/ROUTER**: For visualization data (port 5562)
 
 ## Data Flow
 

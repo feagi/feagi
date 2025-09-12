@@ -32,7 +32,7 @@ async def main():
     raw_image = np.ones((resolution_size_input[0], resolution_size_input[1], 3), dtype=np.float32) * 1.0
 
     #converts raw numpy data into an image frame, this func takes np array, color space, memory order
-    image_frame = frpl.data_structures.data.ImageFrame.from_array(raw_image, color_space, memory_order)
+    image_frame = frpl.data_structures.data.ImageFrame.new_from_array(raw_image, color_space, memory_order)
 
     # Define an image properties, takes in resolution, colorslpace, colorchannels
     image_properties = frpl.data_structures.data.image_descriptors.ImageFrameProperties(resolution, color_space, color_channels)

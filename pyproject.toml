@@ -25,8 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.20.0",
-    "pyzmq>=24.0.0",
-    "feagi_bytes>=0.1.0",
+    "pyzmq>=24.0.0"
 ]
 
 [project.optional-dependencies]
@@ -49,7 +48,7 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
-    "feagi-rust-py-libs>=0.0.45",
+    "feagi-rust-py-libs>=0.0.48",
 ]
 
 [project.urls]

@@ -5,14 +5,14 @@ from .sensor_types import SensorDevice
 temp_sensors_dict = {
     "ImageFrame": {
         "image_camera_center" : {
-            "register_name": "register_cortical_group_center_image_camera_input",
-            "write_name": "write_image_for_center_image_camera_input"
+            "register_name": "register_image_frame",
+            "write_name": "store_image_frame"
         },
     },
     "SegmentedImageFrame": {
         "segmented_image_camera": {
-            "register_name": "register_cortical_group_for_image_camera_with_peripheral",
-            "write_name": "write_image_for_center_image_camera_input_with_peripheral"
+            "register_name": "register_image_camera_with_peripheral",
+            "write_name": "store_image_camera_with_peripheral"
         }
     }
 }
@@ -28,9 +28,6 @@ class SensorCache:
 
                 instance = SensorDevice(self, register_name, write_name)
                 setattr(self, sensor_name, instance)
-
-            else:
-                print("Unknown sensor type!")
 
 
     def encode_cached_data_into_bytes(self):

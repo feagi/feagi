@@ -33,7 +33,7 @@ from typing import Dict, Any, Optional, List, Union, Tuple, Callable, Awaitable
 
 import zmq
 import zmq.asyncio
-from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
+# from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
 from feagi_connector.api.command_client import FeagiControlClient
 from feagi_connector.api.sensory_client import FeagiSensoryClient
@@ -69,7 +69,7 @@ class FeagiClient:
         rest_port: int = 5563,
         sensory_port: int = 5558,
         motor_port: int = 5564,
-        visualization_port: int = 5560,
+        visualization_port: int = 5562,
         agent_id: Optional[str] = None,
         agent_type: str = "external",
         timeout: int = 5000,
@@ -83,7 +83,7 @@ class FeagiClient:
             rest_port: REST Stream API port (default 5563)
             sensory_port: Sensory stream port (default 5558)
             motor_port: Motor stream port (default 5564)
-            visualization_port: Visualization stream port (default 5560)
+            visualization_port: Visualization stream port (default 5562)
             agent_id: Agent ID for FEAGI registration (default: auto-generated)
             agent_type: Agent type for categorization
             timeout: Socket timeout in milliseconds

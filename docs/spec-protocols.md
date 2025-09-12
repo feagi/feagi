@@ -168,7 +168,7 @@ Where `json_heartbeat_message` is:
 ### Transport
 
 - **Pattern**: DEALER/ROUTER
-- **Port**: 5560
+- **Port**: 5562
 - **Format**: Multipart messages with empty delimiter frame
 
 ### Message Types
