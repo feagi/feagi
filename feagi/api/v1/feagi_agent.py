@@ -152,6 +152,7 @@ class FeagiAgentAPI:
                 agent_version=request.agent_version,
                 controller_version=request.controller_version,
                 agent_ip=request.agent_ip,  # Let RegistrationRequest handle None with configuration
+                metadata=(request.metadata or {}),
             )
 
             # Process registration through Registration Manager
@@ -193,6 +194,41 @@ class FeagiAgentAPI:
             raise HTTPException(
                 status_code=500, detail=f"Error registering agent: {str(e)}"
             ) from e
+
+    @agent_endpoint("GET", "/shared_mem")
+    async def list_agents_with_shared_mem(self) -> Dict[str, Any]:
+        """Return agents that provided shared memory details during registration.
+
+        Response format:
+            { "agent_id": { "video_preview_shared_mem_path": str, "metadata": {...} }, ... }
+        """
+        try:
+            from feagi.pns.registration_manager import get_registration_manager
+
+            registration_manager = get_registration_manager()
+            if not registration_manager:
+                self.logger.warning("Registration Manager not available - returning empty map")
+                return {}
+
+            result: Dict[str, Any] = {}
+            # Access internal registry via get_agent_properties over ids from list_agents
+            all_agents = registration_manager.list_agents().get("agents", [])
+            for agent in all_agents:
+                aid = agent.get("agent_id")
+                if not aid:
+                    continue
+                props = registration_manager.get_agent_properties(aid) or {}
+                meta = props.get("metadata", {}) or {}
+                shm_path = meta.get("video_preview_shared_mem_path")
+                if shm_path:
+                    result[aid] = {
+                        "video_preview_shared_mem_path": shm_path,
+                        "metadata": meta,
+                    }
+            return result
+        except Exception as e:
+            self.logger.error(f"Error listing shared memory agents: {e}")
+            return {}
 
     @agent_endpoint(
         "DELETE",

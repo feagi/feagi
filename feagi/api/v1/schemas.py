@@ -945,6 +945,8 @@ class AgentRegistrationRequest(BaseModel):
     agent_ip: Optional[str] = (
         None  # If not provided, will be extracted from request
     )
+    # Optional metadata for additional agent-provided info
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class AgentDeregistrationRequest(BaseModel):

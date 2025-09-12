@@ -222,6 +222,7 @@ else:
                 "POST:/v1/agent/register": self._handle_register_agent,
                 "DELETE:/v1/agent/deregister": self._handle_deregister_agent,
                 "GET:/v1/agent/properties/{agent_id}": self._handle_get_agent_properties,
+                "GET:/v1/agent/shared_mem": self._handle_get_agent_shared_mem,
                 "GET:/v1/agent/properties": self._handle_get_agent_properties_query,
                 "GET:/v1/agent/fq_sampler_status": self._handle_get_fq_sampler_status,
                 # ===== Connectome Endpoints (using v1 API) =====
@@ -802,6 +803,10 @@ else:
             if not agent_id:
                 raise ValueError("Missing required query parameter: agent_id")
             return await self.agent_api.get_agent_properties(agent_id)
+
+        async def _handle_get_agent_shared_mem(self, params, query, body, headers):
+            """Handler for GET /v1/agent/shared_mem."""
+            return await self.agent_api.list_agents_with_shared_mem()
 
         async def _handle_get_fq_sampler_status(
             self, params, query, body, headers
