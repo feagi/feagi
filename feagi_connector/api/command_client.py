@@ -98,7 +98,8 @@ class FeagiControlClient:
         capabilities: Optional[Dict[str, Any]] = None,
         full_capabilities: Optional[Dict[str, Any]] = None,
         agent_version: Optional[str] = None,
-        agent_ip: Optional[str] = None
+        agent_ip: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict:
         """
         Register agent with FEAGI using REST Stream format.
@@ -129,7 +130,8 @@ class FeagiControlClient:
                 "agent_version": agent_version or "1.0.0",
                 "controller_version": "2.0.0",
                 "agent_data_port": 0,  # 0 indicates no specific port requirement
-                "agent_ip": agent_ip or "127.0.0.1"
+                "agent_ip": agent_ip or "127.0.0.1",
+                "metadata": metadata or {},
             },
             "timestamp": int(time.time() * 1000)
         }
