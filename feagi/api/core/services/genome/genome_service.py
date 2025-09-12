@@ -4438,6 +4438,9 @@ class GenomeService(BaseService):
                 if dimensions is not None:
                     region_def["dimensions"] = dimensions
                 if parameters is not None:
+                    # Ensure parameters key exists before updating
+                    if "parameters" not in region_def:
+                        region_def["parameters"] = {}
                     region_def["parameters"].update(parameters)
                     # Mirror normalized 2D coordinates to top-level for readers
                     if isinstance(parameters.get("coordinates_2d"), list):
