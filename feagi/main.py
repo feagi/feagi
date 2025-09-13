@@ -277,6 +277,11 @@ def main():
         "--gpu", action="store_true", help="Use GPU acceleration if available"
     )
     parser.add_argument(
+        "--shared-mem",
+        action="store_true",
+        help="Enable shared-memory data transport as default (streams prefer SHM)",
+    )
+    parser.add_argument(
         "--cpu-cores",
         type=int,
         default=None,
@@ -657,6 +662,28 @@ def main():
     
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
+    # If shared memory mode enabled, create core stream SHM files
+    if getattr(args, "shared_mem", False):
+        try:
+            # Visualization, motor, sensory core streams
+            # Registry lives in the State Manager; creation is delegated to its manager
+            if hasattr(state_manager, "_shm_manager") and state_manager._shm_manager:
+                viz_path = state_manager._shm_manager.create_stream_file("visualization-stream")
+                motor_path = state_manager._shm_manager.create_stream_file("motor-stream")
+                sensory_path = state_manager._shm_manager.create_stream_file("sensory-stream")
+                # Record registry
+                state_manager.set_shared_memory_registry(
+                    {
+                        "visualization_stream": viz_path,
+                        "motor_stream": motor_path,
+                        "sensory_stream": sensory_path,
+                    }
+                )
+                logger.info(
+                    f"[SHM] Core streams initialized: viz={viz_path}, motor={motor_path}, sensory={sensory_path}"
+                )
+        except Exception as e:
+            logger.warning(f"[SHM] Failed to initialize core stream SHM files: {e}")
     # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
     try:
         if not hasattr(state_manager, "_debug_config"):

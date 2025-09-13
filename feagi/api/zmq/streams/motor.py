@@ -37,6 +37,7 @@ This stream does NOT handle:
 import asyncio
 import time
 from typing import Any, Dict, Optional
+from pathlib import Path
 
 # CRITICAL FIX: Import numpy at module level to prevent scoping issues
 import numpy as np
@@ -51,6 +52,10 @@ from feagi.utils.zmq_debug import MessageType, log_outbound
 # Import the unified CoreAPIService
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
+
+import mmap as _mmap
+import os as _os
+import struct as _struct
 
 logger = setup_logger(__name__)
 
@@ -131,6 +136,22 @@ class MotorStream:
         # Motor stream processing task
         self._motor_data_task: Optional[asyncio.Task] = None
         self._subscriber_monitor_task: Optional[asyncio.Task] = None
+
+        # Optional SHM writer for motor data
+        self._shm_writer = None
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+            motor_path = shm.get("motor_stream", "")
+            if motor_path:
+                self._shm_writer = _ShmRingWriter(Path(motor_path))
+                logger.info(f"[SHM] Motor stream writing to: {motor_path}")
+            else:
+                logger.info("[SHM] Motor shared memory not configured; using ZMQ PUB only")
+        except Exception as e:
+            logger.info(f"[SHM] Motor SHM registry unavailable; using ZMQ PUB only ({e})")
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
@@ -273,6 +294,11 @@ class MotorStream:
         if self.socket:
             self.socket.close()
             self.socket = None
+
+        # RTOS-friendly: Simple SHM cleanup
+        if self._shm_writer:
+            self._shm_writer.close()
+            self._shm_writer = None
 
         logger.info("Motor Stream server stopped")
 
@@ -517,7 +543,14 @@ class MotorStream:
             except Exception:
                 pass
 
-            # Send data on specified motor channel
+            # Write to SHM if configured
+            if self._shm_writer:
+                try:
+                    self._shm_writer.write_payload(binary_data)
+                except Exception as e:
+                    logger.debug(f"[SHM] Motor write failed: {e}")
+
+            # Send data on specified motor channel (retain ZMQ path)
             await self.socket.send_multipart(
                 [channel.encode("utf-8"), binary_data]
             )
@@ -901,3 +934,82 @@ def handle_motor_stream(
     except Exception as e:
         logger.error(f"Error in motor stream processing: {e}")
         return None
+
+
+class _ShmRingWriter:
+    MAGIC = b"FEAGIMOT"
+    VERSION = 1
+    HEADER_SIZE = 256
+    HEADER_FMT = "<8sIIIQI"
+
+    def __init__(self, path: Path, num_slots: int = 64, slot_size: int = 1 * 1024 * 1024):
+        self.path = Path(path)
+        self.num_slots = int(max(2, num_slots))
+        self.slot_size = int(max(1024, slot_size))
+        self._mm = None
+        self._fd = None
+        self._frame_seq = 0
+        self._write_index = 0
+        self._open()
+
+    def _open(self) -> None:
+        total_size = self.HEADER_SIZE + self.num_slots * self.slot_size
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = _os.open(str(self.path), _os.O_CREAT | _os.O_RDWR)
+        _os.ftruncate(self._fd, total_size)
+        self._mm = _mmap.mmap(self._fd, total_size, access=_mmap.ACCESS_WRITE)
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            0,
+            0,
+        )
+        self._mm.seek(0)
+        self._mm.write(header)
+        if self.HEADER_SIZE > len(header):
+            self._mm.write(b"\x00" * (self.HEADER_SIZE - len(header)))
+
+    def write_payload(self, payload: bytes) -> None:
+        if not self._mm:
+            return
+        if len(payload) + 4 > self.slot_size:
+            payload = payload[: self.slot_size - 4]
+        slot_off = self.HEADER_SIZE + self._write_index * self.slot_size
+        self._mm.seek(slot_off)
+        self._mm.write(_struct.pack("<I", len(payload)))
+        self._mm.write(payload)
+        rem = self.slot_size - 4 - len(payload)
+        if rem > 0:
+            self._mm.write(b"\x00" * rem)
+        self._frame_seq += 1
+        self._write_index = (self._write_index + 1) % self.num_slots
+        # Update header
+        self._mm.seek(0)
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            self._frame_seq,
+            self._write_index,
+        )
+        self._mm.write(header)
+
+    def close(self) -> None:
+        try:
+            if self._mm:
+                self._mm.flush()
+                self._mm.close()
+        except Exception:
+            pass
+        if self._fd is not None:
+            try:
+                _os.close(self._fd)
+            except Exception:
+                pass
+        self._mm = None
+        self._fd = None

@@ -1,0 +1,115 @@
+"""Shared Memory Manager
+
+Centralized coordinator for shared-memory file lifecycle.
+
+- Uses pathlib for cross-OS path handling
+- Stores runtime artifacts under feagi_core/tmp/bin
+- Provides creation, lookup, and cleanup utilities
+
+Design notes:
+- Runtime-only artifacts; directory is git-ignored
+- Naming convention: feagi-shared-mem-{agent_id}-<suffix>.bin
+  Examples:
+    - feagi-shared-mem-{agent_id}-video.bin         (agent → Brain Visualizer)
+    - feagi-shared-mem-{agent_id}-neurons.bin       (agent → FEAGI)
+    - feagi-shared-mem-visualization-stream.bin     (FEAGI → Brain Visualizer)
+    - feagi-shared-mem-motor-stream.bin             (FEAGI → Controllers)
+    - feagi-shared-mem-sensory-stream.bin           (Controllers → FEAGI)
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Dict, Optional
+
+
+class SharedMemoryManager:
+    """Manage shared-memory file paths and lifecycle.
+
+    All paths are under the module-local tmp/bin folder to avoid OS-specific paths.
+    """
+
+    def __init__(self) -> None:
+        self._base_dir: Path = self._resolve_base_dir()
+        self.ensure_base_dir()
+
+    @staticmethod
+    def _resolve_base_dir() -> Path:
+        # feagi_core/feagi/core/shared_memory.py → feagi_core
+        core_root = Path(__file__).resolve().parents[2]
+        return core_root / "tmp" / "bin"
+
+    @property
+    def base_dir(self) -> Path:
+        return self._base_dir
+
+    def ensure_base_dir(self) -> None:
+        self._base_dir.mkdir(parents=True, exist_ok=True)
+
+    def cleanup_all(self) -> None:
+        """Remove all .bin files in the shared memory bin directory."""
+        if not self._base_dir.exists():
+            return
+        for p in self._base_dir.glob("*.bin"):
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                # Best-effort cleanup; avoid raising during shutdown
+                pass
+
+    # -------- Naming helpers --------
+    def _agent_file(self, agent_id: str, suffix: str) -> Path:
+        filename = f"feagi-shared-mem-{agent_id}-{suffix}.bin"
+        return self._base_dir / filename
+
+    def _stream_file(self, stream_name: str) -> Path:
+        filename = f"feagi-shared-mem-{stream_name}.bin"
+        return self._base_dir / filename
+
+    # -------- Agent artifacts --------
+    def create_agent_files(self, agent_id: str) -> Dict[str, str]:
+        """Create (touch) agent SHM files and return their absolute paths as strings.
+
+        Returns mapping keys:
+        - video_stream
+        - neurons_stream
+        """
+        self.ensure_base_dir()
+        video = self._agent_file(agent_id, "video")
+        neurons = self._agent_file(agent_id, "neurons")
+        for p in (video, neurons):
+            try:
+                p.touch(exist_ok=True)
+            except Exception:
+                # Directory exists; if creation fails, still return planned path
+                pass
+        return {
+            "video_stream": str(video),
+            "neurons_stream": str(neurons),
+        }
+
+    def delete_agent_files(self, agent_id: str) -> None:
+        for suffix in ("video", "neurons"):
+            try:
+                self._agent_file(agent_id, suffix).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    # -------- Core stream artifacts --------
+    def create_stream_file(self, stream_key: str) -> str:
+        """Create (touch) a core stream SHM file and return absolute path."""
+        self.ensure_base_dir()
+        p = self._stream_file(stream_key)
+        try:
+            p.touch(exist_ok=True)
+        except Exception:
+            pass
+        return str(p)
+
+    def delete_stream_file(self, stream_key: str) -> None:
+        try:
+            self._stream_file(stream_key).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+

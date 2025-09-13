@@ -11,6 +11,7 @@ import time
 from collections import defaultdict
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Set
+from pathlib import Path
 
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
@@ -407,6 +408,18 @@ class FeagiStateManager:
         # Initialize GPU keep-alive eligibility based on current brain size
         self._update_gpu_keepalive_eligibility()
         
+        # Shared Memory: manager and registries
+        self._shared_memory_registry: Dict[str, str] = {}
+        self._agent_shared_memory: Dict[str, Dict[str, str]] = {}
+        try:
+            from feagi.core.shared_memory import SharedMemoryManager
+
+            self._shm_manager = SharedMemoryManager()
+            # Cleanup any stale SHM files on startup
+            self._shm_manager.cleanup_all()
+        except Exception:
+            self._shm_manager = None
+
         logger.info("FeagiStateManager initialized")
         logger.info(
             f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}"
@@ -1645,6 +1658,12 @@ class FeagiStateManager:
         """Cleanup state manager resources for graceful shutdown."""
         try:
             logger.info("FeagiStateManager cleanup initiated")
+            # Best-effort: cleanup SHM files on FEAGI exit
+            try:
+                if hasattr(self, "_shm_manager") and self._shm_manager:
+                    self._shm_manager.cleanup_all()
+            except Exception:
+                pass
             
             # Set exit condition
             self.set_exit_condition(True)

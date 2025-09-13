@@ -164,7 +164,25 @@ class FeagiAgentAPI:
                     f"FQ samplers coordinated: {response.fq_samplers_enabled}"
                 )
 
-                return SuccessResponse(message=response.message, success=True)
+                # Create per-agent SHM files (centralized) and return file names
+                shm_details = {}
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    sm = FeagiStateManager.instance()
+                    if hasattr(sm, "create_agent_shm"):
+                        shm_details = sm.create_agent_shm(request.agent_id) or {}
+                except Exception as e:
+                    self.logger.warning(
+                        f"SHM setup skipped for agent {request.agent_id}: {e}"
+                    )
+
+                # Include SHM details in the success message payload (JSON)
+                import json
+                payload = {"agent_id": request.agent_id}
+                if shm_details:
+                    payload["shared_memory"] = shm_details
+                return SuccessResponse(message=json.dumps(payload), success=True)
             else:
                 self.logger.error(
                     f"❌ Registration Manager failed: {response.message}"
@@ -203,28 +221,15 @@ class FeagiAgentAPI:
             { "agent_id": { "video_preview_shared_mem_path": str, "metadata": {...} }, ... }
         """
         try:
-            from feagi.pns.registration_manager import get_registration_manager
+            # Prefer authoritative StateManager SHM registry
+            from feagi.core.state_manager import FeagiStateManager
 
-            registration_manager = get_registration_manager()
-            if not registration_manager:
-                self.logger.warning("Registration Manager not available - returning empty map")
-                return {}
-
+            sm = FeagiStateManager.instance()
             result: Dict[str, Any] = {}
-            # Access internal registry via get_agent_properties over ids from list_agents
-            all_agents = registration_manager.list_agents().get("agents", [])
-            for agent in all_agents:
-                aid = agent.get("agent_id")
-                if not aid:
-                    continue
-                props = registration_manager.get_agent_properties(aid) or {}
-                meta = props.get("metadata", {}) or {}
-                shm_path = meta.get("video_preview_shared_mem_path")
-                if shm_path:
-                    result[aid] = {
-                        "video_preview_shared_mem_path": shm_path,
-                        "metadata": meta,
-                    }
+            if hasattr(sm, "_agent_shared_memory"):
+                for aid, mapping in getattr(sm, "_agent_shared_memory", {}).items():
+                    if mapping:
+                        result[aid] = {**mapping}
             return result
         except Exception as e:
             self.logger.error(f"Error listing shared memory agents: {e}")
@@ -259,6 +264,18 @@ class FeagiAgentAPI:
                     f"✅ Agent '{request.agent_id}' deregistered via Registration Manager - "
                     f"FQ samplers coordinated: {response.fq_samplers_enabled}"
                 )
+
+                # Cleanup per-agent SHM files
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    sm = FeagiStateManager.instance()
+                    if hasattr(sm, "delete_agent_shm"):
+                        sm.delete_agent_shm(request.agent_id)
+                except Exception as e:
+                    self.logger.warning(
+                        f"SHM cleanup skipped for agent {request.agent_id}: {e}"
+                    )
 
                 return SuccessResponse(message=response.message, success=True)
             else:

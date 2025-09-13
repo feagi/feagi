@@ -37,6 +37,12 @@ Design principles:
 import threading
 import time
 from typing import Any, Dict, Optional
+from pathlib import Path
+import threading
+import time
+import struct as _struct
+import mmap as _mmap
+import os as _os
 
 # CRITICAL FIX: Import numpy at module level to prevent scoping issues
 import numpy as np
@@ -185,6 +191,22 @@ class VisualizationStream:
         # Add flag to prevent duplicate logging
         self._fq_sampler_unavailable_logged = False
 
+        # Optional SHM writer for BV
+        self._shm_writer = None
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+            viz_path = shm.get("visualization_stream", "")
+            if viz_path:
+                self._shm_writer = _ShmRingWriter(Path(viz_path))
+                logger.info(f"[SHM] Visualization stream writing to: {viz_path}")
+            else:
+                logger.info("[SHM] Visualization shared memory not configured; using ZMQ PUB only")
+        except Exception as e:
+            logger.info(f"[SHM] Visualization SHM registry unavailable; using ZMQ PUB only ({e})")
+
     def _setup_socket(self) -> None:
         """Set up the ZMQ PUB socket with optimal settings."""
         self.socket = self.context.socket(zmq.PUB)
@@ -297,198 +319,97 @@ class VisualizationStream:
         total_threads = len(self.worker_threads)
         if total_threads > 0:
             logger.debug(
-                f"Waiting for {total_threads} worker threads to stop "
-                "before socket cleanup..."
+                f"Waiting for {total_threads} worker threads to stop..."
             )
+            for t in self.worker_threads:
+                try:
+                    if t.is_alive():
+                        t.join(timeout=1.0)
+                except Exception:
+                    pass
 
-            MAX_TOTAL_WAIT = 3.0  # Maximum 3 seconds total wait
-            PER_THREAD_TIMEOUT = min(
-                1.0, MAX_TOTAL_WAIT / max(total_threads, 1)
-            )
-
-            import time
-
-            start_time = time.time()
-
-            for i, thread in enumerate(self.worker_threads, 1):
-                # Check global timeout
-                elapsed = time.time() - start_time
-                if elapsed >= MAX_TOTAL_WAIT:
-                    logger.warning(
-                        f"Global timeout reached, abandoning remaining "
-                        f"{total_threads - i + 1} threads"
-                    )
-                    break
-
-                if thread.is_alive():
-                    remaining_timeout = min(
-                        PER_THREAD_TIMEOUT, MAX_TOTAL_WAIT - elapsed
-                    )
-                    logger.debug(
-                        f"Waiting for thread {i}/{total_threads}: {thread.name} "
-                        f"(timeout: {remaining_timeout:.1f}s)"
-                    )
-
-                    thread.join(timeout=remaining_timeout)
-
-                    if thread.is_alive():
-                        logger.warning(
-                            f"Thread {thread.name} didn't stop after "
-                            f"{remaining_timeout:.1f}s - continuing anyway"
-                        )
-                    else:
-                        logger.debug(
-                            f"Thread {thread.name} stopped gracefully"
-                        )
-                else:
-                    logger.debug(
-                        f"Thread {i}/{total_threads}: {thread.name} "
-                        f"already stopped"
-                    )
-
-        # Close socket AFTER worker threads have stopped
+        # Close socket AFTER threads stop
         if self.socket:
-            logger.debug("Closing ZMQ socket after worker threads stopped...")
             try:
-                self.socket.close(linger=0)  # Don't wait for pending messages
-                logger.debug("Socket closed successfully")
-            except Exception as e:
-                logger.warning(f"Error closing socket: {e}")
-            finally:
-                self.socket = None
+                self.socket.close(linger=0)
+            except Exception:
+                pass
+        self.socket = None
 
-        # Clear worker thread list
+        # Ensure threads list is cleared
         self.worker_threads.clear()
-
         logger.info("[OK] Visualization stream stopped")
+
+        if self._shm_writer:
+            try:
+                self._shm_writer.close()
+            except Exception:
+                pass
+            self._shm_writer = None
 
     def _data_worker(self) -> None:
         """Data processing worker using UnifiedFQSampler cortical area format
         only.
 
-        RUST/RTOS COMPATIBLE: FQ sampler exists from startup, uses
-        enable/disable states.
+        This worker:
+        1. Gets the latest cortical area data from the UnifiedFQSampler
+        2. Encodes data to binary format using feagi_bytes/feagi_data_processing
+        3. Publishes to ZMQ (and writes to SHM if available)
         """
-        logger.debug("Visualization data worker started")
-
-        while self.running and not self._stop_event.is_set():
+        while self.running:
             try:
-                # Quick exit check for shutdown
-                if self._stop_event.is_set():
-                    logger.debug("Data worker received stop signal")
-                    break
-
-                # Skip processing if in standby mode (genome not loaded)
-                if not self._active_mode:
-                    self._update_active_mode()
-                    if not self._active_mode:
-                        time.sleep(
-                            0.5
-                        )  # @architecture:acceptable - standby mode
-                        continue
-
-                # RTOS/RUST COMPATIBLE: Fail fast if FQ sampler dependency not
-                # satisfied. Instead of dynamic discovery, require explicit
-                # dependency injection at startup
                 if not self.fq_sampler:
-                    if self.process_manager:
-                        # Try to get FQ sampler from process manager
-                        viz_fq_sampler = (
-                            self.process_manager.get_viz_fq_sampler()
-                        )
-                        if viz_fq_sampler:
-                            self.fq_sampler = viz_fq_sampler
-                            logger.info(
-                                f"🎨 [VIZ-STREAM] Visualization FQ sampler dependency resolved: "
-                                f"{viz_fq_sampler.instance_id}"
-                            )
-                            # Ensure sampler samples when clients are connected
-                            try:
-                                with self._client_lock:
-                                    has_clients = len(self.client_last_heartbeat) > 0
-                                if hasattr(self.fq_sampler, "set_visualization_subscribers"):
-                                    self.fq_sampler.set_visualization_subscribers(has_clients)
-                                    logger.debug(
-                                        f"Visualization sampler subscriber flag set to {has_clients}"
-                                    )
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to set visualization subscribers on sampler: {e}"
-                                )
-                        else:
-                            # RTOS: Log dependency failure but continue
-                            # (fail gracefully). Only log once to prevent spam
-                            if not self._fq_sampler_unavailable_logged:
-                                logger.debug(
-                                    "🔧 Visualization FQ sampler not available - "
-                                    "visualization disabled"
-                                )
-                                self._fq_sampler_unavailable_logged = True
-                    else:
-                        # RTOS: Dependency injection failure - this should be
-                        # caught at startup
+                    # Handle FQ sampler unavailability with reduced logging frequency
+                    if not self._fq_sampler_unavailable_logged:
                         logger.warning(
-                            "⚠️ Process manager not available - visualization "
-                            "stream dependency not satisfied"
+                            "Visualization FQ sampler is not available yet; data worker waiting"
                         )
+                        self._fq_sampler_unavailable_logged = True
+                    time.sleep(0.5)
                     continue
 
-                # RUST/RTOS COMPATIBLE: FQ sampler exists but may be disabled
-                # Skip processing if no FQ sampler exists (stream disabled) OR
-                # if sampler is disabled (no clients)
-                #  PROFESSIONAL FIX: Check the FQ sampler's actual state
-                #  instead of our own flag
-                fq_sampler_has_subscribers = (
-                    getattr(
-                        self.fq_sampler,
-                        "_has_visualization_subscribers",
-                        False,
-                    )
-                    if self.fq_sampler
-                    else False
-                )
+                self._fq_sampler_unavailable_logged = False
 
-                if not self.fq_sampler or not fq_sampler_has_subscribers:
-                    #  Brief wait to avoid busy-waiting when no clients
-                    #  connected
-                    time.sleep(
-                        0.1
-                    )  # @architecture:acceptable - no clients connected
+                # Get latest cortical area data from UnifiedFQSampler
+                cortical_data = self.fq_sampler.get_latest_sample()
+
+                if not cortical_data:
+                    time.sleep(0.01)
                     continue
 
-                #  Get data from UnifiedFQSampler ONLY when enabled (clients
-                #  connected)
+                # Encode to binary format for efficient transmission
                 try:
-                    sample_data = self.fq_sampler.sample()
+                    # Import lazily to avoid module import overhead when idle
+                    from feagi.utils.cortical_encoding import (
+                        encode_cortical_area_binary,
+                    )
 
-                    if sample_data:
-                        #  Convert UnifiedFQSampler format to visualization format
-                        for_visualization = (
-                            self._convert_fq_format_to_viz_format(sample_data)
+                    binary_data = encode_cortical_area_binary(cortical_data)
+
+                    # Debug logging for first few messages
+                    if logger.isEnabledFor(20):
+                        total_neurons = sum(
+                            len(area.get("neurons", []))
+                            for area in cortical_data.values()
+                        )
+                        logger.debug(
+                            f"Encoded cortical area data: {len(cortical_data)} areas, "
+                            f"{total_neurons} neurons, {len(binary_data)} bytes"
                         )
 
-                        # Only broadcast if we have visualization clients
-                        with self._client_lock:
-                            client_count = len(self.client_last_heartbeat)
-                            if client_count > 0:
-                                broadcast_data = self._prepare_broadcast_data(
-                                    for_visualization
-                                )
-                                self._broadcast_to_clients(broadcast_data)
+                    # Publish or write to SHM
+                    self._publish_data(binary_data)
 
+                except ImportError:
+                    logger.error(
+                        "feagi_data_processing library not available - "
+                        "cannot encode binary data"
+                    )
                 except Exception as e:
-                    logger.error(f"Error sampling from FQ sampler: {e}")
-
-                # Maintain sample rate timing
-                time.sleep(
-                    1.0 / self.sample_rate
-                )  # @architecture:acceptable - sample timing
+                    logger.error(f"Error encoding cortical area binary data: {e}")
 
             except Exception as e:
-                logger.error(f"Error in visualization data worker: {e}")
-                time.sleep(0.1)  # @architecture:acceptable - error recovery
-
-        logger.debug("Visualization data worker stopped")
+                logger.error(f"Error processing cortical area data: {e}")
 
     def _process_cortical_area_data(
         self, cortical_data: Dict[str, Any]
@@ -681,11 +602,12 @@ class VisualizationStream:
         handling.
 
         Includes optional LZ4/Zstandard compression for reduced network usage.
+        Also writes uncompressed payload into SHM if configured.
         """
         # Defensive null check to prevent race condition
-        if not self.socket:
+        if not self.socket and not self._shm_writer:
             logger.debug(
-                "Cannot publish data: socket is None (likely during shutdown)"
+                "Cannot publish data: no socket and no SHM writer (likely during shutdown)"
             )
             return
 
@@ -694,12 +616,19 @@ class VisualizationStream:
             logger.debug("Cannot publish data: stream is not running")
             return
 
+        # Write to SHM uncompressed if available
+        if self._shm_writer:
+            try:
+                self._shm_writer.write_payload(data)
+            except Exception as e:
+                logger.debug(f"[SHM] Visualization write failed: {e}")
+
         # 🗜️ COMPRESSION: Apply LZ4 compression if enabled
         final_data = data
         compression_ratio = 1.0
         compression_time_ms = 0.0
 
-        if self.compressor:
+        if self.compressor and self.socket:
             try:
                 final_data, compression_info = self.compressor.compress(data)
                 compression_time_ms = compression_info["time_ms"]
@@ -721,179 +650,115 @@ class VisualizationStream:
                         logger.debug(
                             f"[LZ4] {len(data)} → {len(final_data)} bytes "
                             f"({compression_ratio * 100:.1f}%) in "
-                            f"{compression_time_ms:.1f}ms"
+                            f"{compression_time_ms:.3f}ms"
                         )
-                else:
-                    #  Compression didn't help, use original data - gate with
-                    #  debug flag
-                    from feagi.core.state_manager import FeagiStateManager
-
-                    state_manager = FeagiStateManager.instance()
-                    if state_manager.is_debug_zmq_outbound_enabled():
-                        logger.info(
-                            f"[ZMQ-OUT-DEBUG] LZ4 Skipped - {compression_info['reason']}"
-                        )
-
             except Exception as e:
-                logger.warning(
-                    f"[LZ4] Compression failed: {e}, sending uncompressed"
-                )
+                logger.warning(f"Compression error, sending uncompressed: {e}")
                 final_data = data
-                compression_ratio = 1.0
 
-        try:
-            # Atomic socket reference to prevent mid-operation changes
-            socket_ref = self.socket
-            if not socket_ref:
-                logger.debug("Socket became None during operation")
-                return
-
-            # Debug logging for outbound visualization data
-            try:
-                from feagi.core.state_manager import FeagiStateManager
-                if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
-                    debug_endpoint = f"tcp://{self.host}:{self.port}"
-                    log_outbound(
-                        endpoint=debug_endpoint,
-                        data=[b"activity", final_data],  # PUB/SUB multipart message
-                        message_type=MessageType.VISUALIZATION,
-                        topic="activity",
-                        context=f"vis_msg_{self.stats['data_sent'] + 1}",
-                    )
-            except Exception:
-                pass
-
-            # Use synchronous send operations
-            socket_ref.send(b"activity", zmq.SNDMORE)
-            socket_ref.send(final_data)
-
-            # Update statistics
-            self.stats["data_sent"] += 1
-            self.stats["bytes_sent"] += len(
-                final_data
-            )  # Track actual bytes sent (compressed size)
-
-            # Periodic status logging (every 100 messages)
-            from feagi.core.state_manager import FeagiStateManager
-            if self.stats["data_sent"] % 100 == 0 and FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
-                total_saved = self.stats["bytes_saved_compression"]
-                avg_compression_time = self.stats["compression_time_ms"] / max(
-                    self.stats["data_sent"], 1
-                )
-                logger.debug(
-                    f"Published {self.stats['data_sent']} messages, "
-                    f"{self.stats['bytes_sent']} bytes total "
-                    f"(saved {total_saved} bytes via compression, "
-                    f"avg {avg_compression_time:.1f}ms/msg)"
-                )
-
-            # Log first few messages to confirm publishing is working (gated)
-            if self.stats["data_sent"] <= 3 and FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
-                savings_info = (
-                    f", saved {len(data) - len(final_data)} bytes"
-                    if len(final_data) < len(data)
-                    else ""
-                )
-                logger.info(
-                    f"[ZMQ-OUT-DEBUG] Published message #{self.stats['data_sent']} "
-                    f"({len(final_data)} bytes{savings_info})"
-                )
-
-        except AttributeError as e:
-            # Specific handling for socket = None race condition
-            if "'NoneType' object has no attribute 'send'" in str(e):
-                logger.debug(
-                    "Socket became None during send operation "
-                    "(race condition during shutdown)"
-                )
-                return
-            else:
-                logger.error(f"Unexpected AttributeError in publish_data: {e}")
-
-        except zmq.ZMQError as e:
-            # Enhanced ZMQ-specific error handling
-            if e.errno == zmq.ETERM:
-                logger.debug(
-                    "ZMQ context terminated - stopping publish operations"
-                )
-                return
-            elif e.errno == zmq.EAGAIN:
-                logger.warning(
-                    "ZMQ socket not ready for sending (EAGAIN) - dropping message"
-                )
-                return
-            elif "Operation cannot be accomplished in current state" in str(e):
-                logger.warning(
-                    "ZMQ socket corrupted, attempting recreation..."
-                )
-                try:
-                    self._recreate_socket()
-                    # Retry once with null check
-                    if self.socket and self.running:
-                        self.socket.send(b"activity", zmq.SNDMORE)
-                        self.socket.send(final_data)
-                        logger.info("Socket recreated and retry successful")
-                    else:
-                        logger.debug(
-                            "Cannot retry: socket or stream not available "
-                            "after recreation"
-                        )
-                except Exception as retry_error:
-                    logger.error(f"Socket recreation failed: {retry_error}")
-            else:
-                logger.error(
-                    f"ZMQ error in publish_data: {e} (errno: {e.errno})"
-                )
-
-        except Exception as e:
-            # Generic exception handling with detailed logging
-            logger.error(f"Failed to publish data: {e}")
-            logger.error(f"Publishing error type: {type(e).__name__}")
-            if logger.isEnabledFor(10):  # DEBUG level
-                import traceback
-
-                logger.debug(f"Publishing traceback: {traceback.format_exc()}")
-
-    def _recreate_socket(self):
-        """Recreate the ZMQ socket when it gets corrupted."""
-        logger.warning("Recreating corrupted ZMQ socket...")
-
-        if not self.running:
-            logger.debug("Not recreating socket: stream is shutting down")
-            return
-
-        if not self.context:
-            logger.error("Cannot recreate socket: ZMQ context is None")
-            return
-
-        # Close old socket if it exists
+        # Publish to ZMQ if socket present
         if self.socket:
             try:
-                self.socket.close(linger=0)
-                logger.debug("Old socket closed")
+                self.socket.send_multipart([b"activity", final_data])
+                if logger.isEnabledFor(10):
+                    log_outbound(
+                        MessageType.VISUALIZATION,
+                        "activity",
+                        len(final_data),
+                        compression_ratio,
+                        compression_time_ms,
+                    )
             except Exception as e:
-                logger.warning(f"Error closing old socket (continuing): {e}")
+                logger.error(f"Error publishing visualization data: {e}")
 
-        # Recreate socket with same settings
+        self.stats["data_sent"] += 1
+        self.stats["bytes_sent"] += len(final_data)
+
+
+class _ShmRingWriter:
+    """Simple ring writer for variable-length byte payloads.
+
+    Header (256 bytes total):
+      '<8sIIIQI' => magic, version, num_slots, slot_size, frame_seq, write_index
+    Then num_slots slots, each slot has u32 length + payload bytes up to slot_size-4.
+    """
+
+    MAGIC = b"FEAGIVIS"
+    VERSION = 1
+    HEADER_SIZE = 256
+    HEADER_FMT = "<8sIIIQI"
+
+    def __init__(self, path: Path, num_slots: int = 64, slot_size: int = 1 * 1024 * 1024):
+        self.path = Path(path)
+        self.num_slots = int(max(2, num_slots))
+        self.slot_size = int(max(1024, slot_size))
+        self._mm = None
+        self._fd = None
+        self._frame_seq = 0
+        self._write_index = 0
+        self._open()
+
+    def _open(self) -> None:
+        total_size = self.HEADER_SIZE + self.num_slots * self.slot_size
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = _os.open(str(self.path), _os.O_CREAT | _os.O_RDWR)
+        _os.ftruncate(self._fd, total_size)
+        self._mm = _mmap.mmap(self._fd, total_size, access=_mmap.ACCESS_WRITE)
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            0,
+            0,
+        )
+        self._mm.seek(0)
+        self._mm.write(header)
+        if self.HEADER_SIZE > len(header):
+            self._mm.write(b"\x00" * (self.HEADER_SIZE - len(header)))
+
+    def write_payload(self, payload: bytes) -> None:
+        if not self._mm:
+            return
+        if len(payload) + 4 > self.slot_size:
+            payload = payload[: self.slot_size - 4]
+        slot_off = self.HEADER_SIZE + self._write_index * self.slot_size
+        self._mm.seek(slot_off)
+        self._mm.write(_struct.pack("<I", len(payload)))
+        self._mm.write(payload)
+        rem = self.slot_size - 4 - len(payload)
+        if rem > 0:
+            self._mm.write(b"\x00" * rem)
+        self._frame_seq += 1
+        self._write_index = (self._write_index + 1) % self.num_slots
+        # Update header
+        self._mm.seek(0)
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            self._frame_seq,
+            self._write_index,
+        )
+        self._mm.write(header)
+
+    def close(self) -> None:
         try:
-            self.socket = self.context.socket(zmq.PUB)
-            self.socket.setsockopt(zmq.SNDHWM, 1000)
-            self.socket.setsockopt(zmq.LINGER, 1000)
-
-            bind_addr = f"tcp://{self.host}:{self.port}"
-            self.socket.bind(bind_addr)
-            logger.info(f"Socket recreated and bound to {bind_addr}")
-
-        except zmq.ZMQError as e:
-            logger.error(
-                f"ZMQ error recreating socket: {e} (errno: {e.errno})"
-            )
-            self.socket = None
-            raise
-        except Exception as e:
-            logger.error(f"Failed to recreate socket: {e}")
-            self.socket = None
-            raise
+            if self._mm:
+                self._mm.flush()
+                self._mm.close()
+        except Exception:
+            pass
+        if self._fd is not None:
+            try:
+                _os.close(self._fd)
+            except Exception:
+                pass
+        self._mm = None
+        self._fd = None
 
     def get_stats(self) -> Dict[str, Any]:
         """Get visualization stream statistics including compression
