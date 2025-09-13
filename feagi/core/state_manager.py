@@ -598,6 +598,19 @@ class FeagiStateManager:
             if viz_path:
                 mappings[viz_key] = viz_path
 
+            # Create per-agent SHM artifacts (unique files per agent)
+            try:
+                agent_files = self._shm_manager.create_agent_files(agent_id)
+                if agent_files:
+                    mappings.update(agent_files)
+                    logger.info(
+                        f"𒓉 [SHM] Created per-agent SHM for '{agent_id}': {agent_files}"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"[SHM] Failed to create per-agent SHM files for {agent_id}: {e}"
+                )
+
             # Save per-agent view of mappings (even if currently only visualization provided)
             self._agent_shared_memory[agent_id] = dict(mappings)
             if mappings:
@@ -619,6 +632,12 @@ class FeagiStateManager:
             if agent_id in self._agent_shared_memory:
                 del self._agent_shared_memory[agent_id]
                 logger.info(f"𒓉 [SHM] Cleared SHM mappings for agent {agent_id}")
+            # Attempt to remove agent-specific SHM files as part of cleanup
+            if getattr(self, "_shm_manager", None):
+                try:
+                    self._shm_manager.delete_agent_files(agent_id)
+                except Exception:
+                    pass
         except Exception:
             pass
     

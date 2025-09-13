@@ -170,7 +170,7 @@ class FeagiAgentAPI:
                     from feagi.core.state_manager import FeagiStateManager
 
                     sm = FeagiStateManager.instance()
-                    # Always attempt to attach the visualization stream path for visualizers
+                    # Always attempt to attach the visualization stream and per-agent unique SHM files
                     shm_details = sm.create_agent_shm(request.agent_id) or {}
                     if not shm_details:
                         self.logger.info(

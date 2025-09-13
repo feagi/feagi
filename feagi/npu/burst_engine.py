@@ -173,7 +173,7 @@ class BurstEngine:
                 
                 # Log significant firing activity
                 if total_fired > 0:
-                    logger.info("Burst #%d: %d neurons fired", self.burst_count, total_fired)
+                    logger.debug("Burst #%d: %d neurons fired", self.burst_count, total_fired)
                     
         except Exception as e:
             # CRITICAL: Set to ERROR state if burst processing fails
@@ -229,7 +229,7 @@ class BurstEngine:
             if self.burst_count == 1:
                 logger.info("Burst engine initialized and ready")
             else:
-                logger.info("Burst engine recovered and ready (burst #%d)", self.burst_count)
+                logger.debug("Burst engine recovered and ready (burst #%d)", self.burst_count)
             
         return fired_ids
     
@@ -248,7 +248,7 @@ class BurstEngine:
             sample_frequency_hz=sample_frequency_hz,
             sampling_mode=sampling_mode
         )
-        logger.info("FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
+        logger.debug("FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
         return self.fq_sampler
     
     def get_fq_sampler(self) -> Optional[FQSampler]:
@@ -276,7 +276,7 @@ class BurstEngine:
                 self.registered_fq_samplers[self._fq_sampler_count] = fq_sampler
                 self._fq_sampler_count += 1
                 sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
-                logger.info("FQ sampler [%s] registered with BurstEngine", sampler_id)
+                logger.debug("FQ sampler [%s] registered with BurstEngine", sampler_id)
             else:
                 logger.error("Cannot register FQ sampler: maximum limit reached (%d)", self._max_fq_samplers)
         else:
