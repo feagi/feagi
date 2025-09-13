@@ -131,6 +131,7 @@ class FeagiClient:
         self.registered = False
         self.motor_callback = None
         self.visualization_callback = None
+        self.shared_memory_paths: Dict[str, str] = {}
         
         # Tasks
         self.heartbeat_task = None
@@ -198,6 +199,18 @@ class FeagiClient:
         if response_status == 200:
             response_body = registration_result.get("body", {})
             logger.info(f"✅ Agent registered successfully: {response_body.get('message', 'OK')}")
+            # Parse SHM paths if included in message (JSON)
+            try:
+                msg = response_body.get("message", "")
+                if isinstance(msg, str) and msg:
+                    import json as _json
+                    parsed = _json.loads(msg)
+                    shm = parsed.get("shared_memory") or {}
+                    if isinstance(shm, dict):
+                        self.shared_memory_paths = {str(k): str(v) for k, v in shm.items()}
+                        logger.info(f"[SHM] Received shared memory paths: {self.shared_memory_paths}")
+            except Exception as e:
+                logger.debug(f"[SHM] Unable to parse shared memory from registration: {e}")
             
             # Log FQ sampler coordination info if available
             fq_info = response_body.get("fq_samplers_enabled", {})
@@ -209,6 +222,10 @@ class FeagiClient:
         else:
             logger.error(f"❌ Agent registration failed with status {response_status}: {registration_result}")
             return False
+
+    def get_shared_memory_paths(self) -> Dict[str, str]:
+        """Return shared memory paths provided by FEAGI (if any)."""
+        return dict(self.shared_memory_paths)
 
     async def connect(self) -> bool:
         """Connect to FEAGI with proper registration."""
