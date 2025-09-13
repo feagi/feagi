@@ -170,8 +170,12 @@ class FeagiAgentAPI:
                     from feagi.core.state_manager import FeagiStateManager
 
                     sm = FeagiStateManager.instance()
-                    if hasattr(sm, "create_agent_shm"):
-                        shm_details = sm.create_agent_shm(request.agent_id) or {}
+                    # Always attempt to attach the visualization stream path for visualizers
+                    shm_details = sm.create_agent_shm(request.agent_id) or {}
+                    if not shm_details:
+                        self.logger.info(
+                            f"[SHM] No shared memory mappings available for agent {request.agent_id}"
+                        )
                 except Exception as e:
                     self.logger.warning(
                         f"SHM setup skipped for agent {request.agent_id}: {e}"
@@ -182,6 +186,21 @@ class FeagiAgentAPI:
                 payload = {"agent_id": request.agent_id}
                 if shm_details:
                     payload["shared_memory"] = shm_details
+
+                # Pretty-print payload for API debug visibility
+                try:
+                    pretty = json.dumps(payload, indent=2, sort_keys=True)
+                    self.logger.info(
+                        "[API-DEBUG] Agent registration success response payload:\n%s",
+                        pretty,
+                    )
+                except Exception:
+                    # Fallback to compact format if pretty-print fails
+                    self.logger.info(
+                        "[API-DEBUG] Agent registration success response payload: %s",
+                        payload,
+                    )
+
                 return SuccessResponse(message=json.dumps(payload), success=True)
             else:
                 self.logger.error(
@@ -199,6 +218,16 @@ class FeagiAgentAPI:
                 }
 
                 status_code = status_map.get(response.error_code, 500)
+
+                # Log pretty error for API debug visibility
+                try:
+                    self.logger.error(
+                        "[API-DEBUG] Agent registration error: code=%s message=%s",
+                        response.error_code,
+                        response.message,
+                    )
+                except Exception:
+                    pass
 
                 raise HTTPException(
                     status_code=status_code, detail=response.message

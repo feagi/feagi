@@ -47,15 +47,27 @@ class SharedMemoryManager:
         self._base_dir.mkdir(parents=True, exist_ok=True)
 
     def cleanup_all(self) -> None:
-        """Remove all .bin files in the shared memory bin directory."""
+        """Remove all .bin files in the shared memory bin directory safely.
+
+        Safety hardening:
+        - Only operates within feagi_core/tmp/bin
+        - Best-effort close by other processes is not required (we only remove files we created)
+        - On permission or OS lock errors, truncate the file instead of raising
+        - Files are created with 0o600 (owner read/write) when possible
+        """
         if not self._base_dir.exists():
             return
         for p in self._base_dir.glob("*.bin"):
             try:
                 p.unlink(missing_ok=True)
             except Exception:
-                # Best-effort cleanup; avoid raising during shutdown
-                pass
+                # If unlink fails (e.g., Windows file lock), try truncate
+                try:
+                    with p.open("r+b") as fh:
+                        fh.truncate(0)
+                except Exception:
+                    # Suppress to avoid blocking startup/shutdown
+                    pass
 
     # -------- Naming helpers --------
     def _agent_file(self, agent_id: str, suffix: str) -> Path:
@@ -63,7 +75,9 @@ class SharedMemoryManager:
         return self._base_dir / filename
 
     def _stream_file(self, stream_name: str) -> Path:
-        filename = f"feagi-shared-mem-{stream_name}.bin"
+        # Normalize keys like "visualization-stream" to "visualization_stream"
+        safe_key = stream_name.replace("-", "_")
+        filename = f"feagi-shared-mem-{safe_key}.bin"
         return self._base_dir / filename
 
     # -------- Agent artifacts --------
@@ -80,6 +94,12 @@ class SharedMemoryManager:
         for p in (video, neurons):
             try:
                 p.touch(exist_ok=True)
+                try:
+                    # Restrict permissions (owner read/write) when possible
+                    import os as _os
+                    _os.chmod(str(p), 0o600)
+                except Exception:
+                    pass
             except Exception:
                 # Directory exists; if creation fails, still return planned path
                 pass
@@ -102,14 +122,25 @@ class SharedMemoryManager:
         p = self._stream_file(stream_key)
         try:
             p.touch(exist_ok=True)
+            try:
+                import os as _os
+                _os.chmod(str(p), 0o600)
+            except Exception:
+                pass
         except Exception:
             pass
         return str(p)
 
     def delete_stream_file(self, stream_key: str) -> None:
         try:
-            self._stream_file(stream_key).unlink(missing_ok=True)
+            target = self._stream_file(stream_key)
+            target.unlink(missing_ok=True)
         except Exception:
-            pass
+            # Fallback: truncate to zero length
+            try:
+                with target.open("r+b") as fh:
+                    fh.truncate(0)
+            except Exception:
+                pass
 
 

@@ -668,20 +668,20 @@ def main():
             # Visualization, motor, sensory core streams
             # Registry lives in the State Manager; creation is delegated to its manager
             if hasattr(state_manager, "_shm_manager") and state_manager._shm_manager:
-                viz_path = state_manager._shm_manager.create_stream_file("visualization-stream")
-                motor_path = state_manager._shm_manager.create_stream_file("motor-stream")
-                sensory_path = state_manager._shm_manager.create_stream_file("sensory-stream")
-                # Record registry
-                state_manager.set_shared_memory_registry(
-                    {
-                        "visualization_stream": viz_path,
-                        "motor_stream": motor_path,
-                        "sensory_stream": sensory_path,
-                    }
-                )
-                logger.info(
-                    f"[SHM] Core streams initialized: viz={viz_path}, motor={motor_path}, sensory={sensory_path}"
-                )
+                # Use consistent underscore naming for stream keys and filenames
+                viz_path = state_manager._shm_manager.create_stream_file("visualization_stream")
+                motor_path = state_manager._shm_manager.create_stream_file("motor_stream")
+                sensory_path = state_manager._shm_manager.create_stream_file("sensory_stream")
+                # Register each path individually in the StateManager registry
+                try:
+                    state_manager.register_core_shared_memory_path("visualization_stream", viz_path)
+                    state_manager.register_core_shared_memory_path("motor_stream", motor_path)
+                    state_manager.register_core_shared_memory_path("sensory_stream", sensory_path)
+                    logger.info(
+                        f"[SHM] Core streams initialized: viz={viz_path}, motor={motor_path}, sensory={sensory_path}"
+                    )
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to register core SHM paths: {e}")
         except Exception as e:
             logger.warning(f"[SHM] Failed to initialize core stream SHM files: {e}")
     # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config

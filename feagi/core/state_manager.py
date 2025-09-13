@@ -539,6 +539,88 @@ class FeagiStateManager:
                 return store_result
         
         return Result.ok(None)
+
+    # === SHARED MEMORY REGISTRATION/LOOKUP ===
+    def register_core_shared_memory_path(self, key: str, path: str) -> None:
+        """Register a core shared memory file path (e.g., visualization_stream).
+
+        Args:
+            key: Registry key (e.g., "visualization_stream")
+            path: Absolute file path to the SHM file
+        """
+        try:
+            if not isinstance(key, str) or not key:
+                return
+            if not isinstance(path, str) or not path:
+                return
+            self._shared_memory_registry[key] = path
+            logger.info(f"𒓉 [SHM] Registered core SHM path: {key} → {path}")
+        except Exception as e:
+            logger.warning(f"Failed to register core SHM path for {key}: {e}")
+
+    def get_shared_memory_registry(self) -> Dict[str, str]:
+        """Return a copy of the core shared memory registry."""
+        return dict(self._shared_memory_registry)
+
+    def create_agent_shm(self, agent_id: str) -> Dict[str, str]:
+        """Create and register per-agent SHM mappings for client consumption.
+
+        For visualizer clients, we expose the core visualization stream path so
+        they can subscribe via shared memory.
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+            Example: {"visualization_stream": "/.../feagi-shared-mem-visualization-stream.bin"}
+        """
+        if not isinstance(agent_id, str) or not agent_id:
+            return {}
+
+        mappings: Dict[str, str] = {}
+
+        try:
+            # Ensure we have a SHM manager
+            if not getattr(self, "_shm_manager", None):
+                logger.info("[SHM] No SHM manager available; cannot create mappings")
+                return {}
+
+            # Ensure core visualization stream exists in registry; create on-demand
+            viz_key = "visualization_stream"
+            viz_path = self._shared_memory_registry.get(viz_key, "")
+            if not viz_path:
+                try:
+                    viz_path = self._shm_manager.create_stream_file(viz_key)
+                    self._shared_memory_registry[viz_key] = viz_path
+                    logger.info(f"𒓉 [SHM] Created core visualization stream SHM: {viz_path}")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create core visualization SHM: {e}")
+                    viz_path = ""
+
+            if viz_path:
+                mappings[viz_key] = viz_path
+
+            # Save per-agent view of mappings (even if currently only visualization provided)
+            self._agent_shared_memory[agent_id] = dict(mappings)
+            if mappings:
+                logger.info(f"𒓉 [SHM] Agent {agent_id} SHM mappings: {mappings}")
+            else:
+                logger.info(f"[SHM] Agent {agent_id} has no SHM mappings (shared-mem disabled or unavailable)")
+
+            return mappings
+        except Exception as e:
+            logger.error(f"[SHM] Error creating agent SHM for {agent_id}: {e}")
+            return {}
+
+    def delete_agent_shm(self, agent_id: str) -> None:
+        """Remove per-agent SHM mappings from the registry.
+
+        Note: Does not delete core visualization SHM files.
+        """
+        try:
+            if agent_id in self._agent_shared_memory:
+                del self._agent_shared_memory[agent_id]
+                logger.info(f"𒓉 [SHM] Cleared SHM mappings for agent {agent_id}")
+        except Exception:
+            pass
     
     # === BURST ENGINE STATE MANAGEMENT ===
     
