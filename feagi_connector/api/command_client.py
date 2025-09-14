@@ -199,8 +199,17 @@ class FeagiControlClient:
             logger.error(error_msg)
             return {"error": error_msg}
         finally:
-            if socket is not None:
-                socket.close()
+            # Always close the socket to prevent FD leaks
+            try:
+                if socket is not None:
+                    # Best-effort immediate close
+                    socket.close(0)
+            except Exception:
+                try:
+                    if socket is not None:
+                        socket.close()
+                except Exception:
+                    pass
 
     async def make_request(self, command: str, params: Optional[Dict] = None) -> Dict:
         """
