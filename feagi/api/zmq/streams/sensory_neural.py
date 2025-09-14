@@ -534,6 +534,22 @@ class SensoryNeuralStream:
 
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
+                # Detailed area mapping diagnostics to aid BV issues
+                try:
+                    area_results = result.get("area_results") or {}
+                    for aid, meta in area_results.items():
+                        logger.info(
+                            f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                            f"found={meta.get('total_neurons_found')}, "
+                            f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                            f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                        )
+                    logger.info(
+                        f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
+                        f"total_stimulated={result.get('total_stimulated', 0)}"
+                    )
+                except Exception:
+                    pass
 
                 if result.get("success", False):
                     if self._is_debug_npu_enabled():
@@ -590,6 +606,90 @@ class SensoryNeuralStream:
     async def _process_neural_payload_bytes(self, raw_bytes: bytes) -> None:
         """Process neural payload provided as bytes (from SHM)."""
         try:
+            # Zero-serialize fast path: 'ZS1N' magic
+            if len(raw_bytes) >= 8 and raw_bytes[:4] == b"ZS1N":
+                import struct as _struct
+                import numpy as _np
+
+                try:
+                    # Header: magic(4), version u8, num_areas u8, pad u16
+                    version = raw_bytes[4]
+                    num_areas = raw_bytes[5]
+                    offset = 8
+
+                    cortical_areas: Dict[str, Dict[str, Any]] = {}
+                    total_points = 0
+
+                    for _ in range(num_areas):
+                        if offset + 6 > len(raw_bytes):
+                            raise ValueError("ZS1N truncated before area id")
+                        cid_bytes = raw_bytes[offset:offset+6]
+                        offset += 6
+                        if offset + 4 > len(raw_bytes):
+                            raise ValueError("ZS1N truncated before count")
+                        (count,) = _struct.unpack_from("<I", raw_bytes, offset)
+                        offset += 4
+                        # Required sizes
+                        need = count * 2 * 3 + count * 4  # x,y,z (u16) + p (f32)
+                        if offset + need > len(raw_bytes):
+                            raise ValueError("ZS1N truncated in arrays")
+
+                        # Slices
+                        xs_b = raw_bytes[offset:offset + count*2]; offset += count*2
+                        ys_b = raw_bytes[offset:offset + count*2]; offset += count*2
+                        zs_b = raw_bytes[offset:offset + count*2]; offset += count*2
+                        ps_b = raw_bytes[offset:offset + count*4]; offset += count*4
+
+                        # Views
+                        xs = _np.frombuffer(xs_b, dtype=_np.uint16, count=count)
+                        ys = _np.frombuffer(ys_b, dtype=_np.uint16, count=count)
+                        zs = _np.frombuffer(zs_b, dtype=_np.uint16, count=count)
+                        ps = _np.frombuffer(ps_b, dtype=_np.float32, count=count)
+
+                        cid = cid_bytes.decode("ascii", errors="ignore").strip().strip("'\"")
+                        if not cid:
+                            continue
+                        cortical_areas[cid] = {
+                            "coordinates_x": xs.copy(),
+                            "coordinates_y": ys.copy(),
+                            "coordinates_z": zs.copy(),
+                            "membrane_potentials": ps.copy(),
+                        }
+                        total_points += int(count)
+
+                    # Build neural_data
+                    neural_data = {
+                        cid: {
+                            "coordinates_x": _np.asarray(data["coordinates_x"], dtype=_np.uint16),
+                            "coordinates_y": _np.asarray(data["coordinates_y"], dtype=_np.uint16),
+                            "coordinates_z": _np.asarray(data["coordinates_z"], dtype=_np.uint16),
+                            "membrane_potentials": _np.asarray(data["membrane_potentials"], dtype=_np.float32),
+                        }
+                        for cid, data in cortical_areas.items()
+                    }
+
+                    if neural_data:
+                        result = self.core_api.stimulate_neurons(neural_data)
+                        try:
+                            area_results = result.get("area_results") or {}
+                            for aid, meta in area_results.items():
+                                logger.info(
+                                    f"𒓉 [ZS] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                                    f"found={meta.get('total_neurons_found')}, "
+                                    f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                                    f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                                )
+                            logger.info(
+                                f"𒓉 [ZS] Injection summary: injected={result.get('injected_count', 0)}, "
+                                f"total_stimulated={result.get('total_stimulated', 0)}"
+                            )
+                        except Exception:
+                            pass
+                    return
+                except Exception as e:
+                    logger.debug(f"[ZS] Zero-serialize parse failed, falling back: {e}")
+
+            # Fallback: standard feagi_data_processing byte structure
             import feagi_data_processing as fdp
 
             byte_structure = fdp.io_processing.bytes.FeagiByteStructure(raw_bytes)
@@ -650,6 +750,22 @@ class SensoryNeuralStream:
                 }
             if neural_data:
                 result = self.core_api.stimulate_neurons(neural_data)
+                # Detailed area mapping diagnostics
+                try:
+                    area_results = result.get("area_results") or {}
+                    for aid, meta in area_results.items():
+                        logger.info(
+                            f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                            f"found={meta.get('total_neurons_found')}, "
+                            f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                            f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                        )
+                    logger.info(
+                        f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
+                        f"total_stimulated={result.get('total_stimulated', 0)}"
+                    )
+                except Exception:
+                    pass
                 try:
                     _tid_list = list(neural_data.keys())
                     _tid_preview = ", ".join(_tid_list[:6])
