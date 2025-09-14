@@ -115,7 +115,7 @@ class SensoryNeuralStream:
             NeuralProtocolID.CORTICAL_MAP: self._handle_cortical_map,
         }
 
-        # Optional SHM readers (per-agent neurons_stream)
+        # Optional SHM readers (per-agent sensory/neurons_stream)
         self._shm_readers: Dict[str, _ShmRingReader] = {}
         try:
             from feagi.core.state_manager import FeagiStateManager
@@ -123,13 +123,14 @@ class SensoryNeuralStream:
             sm = FeagiStateManager.instance()
             agent_map = getattr(sm, "_agent_shared_memory", {})
             for aid, mapping in agent_map.items():
-                p = mapping.get("neurons_stream")
+                # Support both new capability key 'sensory' and legacy 'neurons_stream'
+                p = mapping.get("sensory") or mapping.get("neurons_stream")
                 if p:
                     try:
                         self._shm_readers[aid] = _ShmRingReader(Path(p))
-                        logger.info(f"[SHM] Sensory stream reading from agent {aid}: {p}")
+                        logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                     except Exception as e:
-                        logger.warning(f"[SHM] Failed to open neurons SHM for {aid}: {e}")
+                        logger.warning(f"[SHM] Failed to open sensory SHM for {aid}: {e}")
         except Exception as e:
             logger.info(f"[SHM] Sensory SHM registry unavailable; using ZMQ only ({e})")
 
@@ -173,8 +174,8 @@ class SensoryNeuralStream:
 
         # Start processing tasks
         self._process_task = asyncio.create_task(self._process_loop())
-        if self._shm_readers:
-            self._shm_task = asyncio.create_task(self._process_shm_loop())
+        # Always start SHM poller; it will attach readers dynamically
+        self._shm_task = asyncio.create_task(self._process_shm_loop())
 
         logger.info("Neural sensory stream started")
 
@@ -308,11 +309,11 @@ class SensoryNeuralStream:
                     # Add new readers
                     for aid, mapping in agent_map.items():
                         if aid not in self._shm_readers:
-                            p = mapping.get("neurons_stream")
+                            p = mapping.get("sensory") or mapping.get("neurons_stream")
                             if p:
                                 try:
                                     self._shm_readers[aid] = _ShmRingReader(Path(p))
-                                    logger.info(f"[SHM] Sensory stream reading from agent {aid}: {p}")
+                                    logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                                 except Exception:
                                     pass
                     # Remove stale readers
@@ -329,7 +330,12 @@ class SensoryNeuralStream:
                 for aid, reader in list(self._shm_readers.items()):
                     payload = reader.read_latest()
                     if payload:
-                        await self._process_neural_payload_bytes(payload)
+                        try:
+                            logger.info(f"𒓉 [SHM] Sensory payload from {aid}: {len(payload)} bytes")
+                            await self._process_neural_payload_bytes(payload)
+                            self._stats["shm_payloads"] = self._stats.get("shm_payloads", 0) + 1
+                        except Exception as pe:
+                            logger.debug(f"[SHM] Sensory payload decode error from {aid}: {pe}")
                 await asyncio.sleep(0.005)  # 5ms poll
             except asyncio.CancelledError:
                 break
@@ -614,6 +620,13 @@ class SensoryNeuralStream:
                 cortical_areas[cortical_id]["membrane_potentials"].extend(potentials.tolist())
                 neuron_count += len(x_coords)
 
+            # Log decoded summary for diagnostics
+            try:
+                area_count = len(cortical_areas)
+                logger.info(f"𒓉 [SHM] Sensory decoded: areas={area_count}, points={neuron_count}")
+            except Exception:
+                pass
+
             neural_data = {}
             import numpy as _np
             for cid, data in cortical_areas.items():
@@ -624,7 +637,11 @@ class SensoryNeuralStream:
                     "membrane_potentials": _np.array(data["membrane_potentials"], dtype=_np.float32),
                 }
             if neural_data:
-                self.core_api.stimulate_neurons(neural_data)
+                result = self.core_api.stimulate_neurons(neural_data)
+                try:
+                    logger.info(f"𒓉 [SHM] Sensory injected: areas={len(neural_data)}, points={neuron_count}, ok={result.get('success', False)}")
+                except Exception:
+                    pass
         except Exception as e:
             logger.debug(f"[SHM] Sensory decode failed: {e}")
 

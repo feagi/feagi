@@ -583,32 +583,49 @@ class FeagiStateManager:
                 logger.info("[SHM] No SHM manager available; cannot create mappings")
                 return {}
 
-            # Ensure core visualization stream exists in registry; create on-demand
-            viz_key = "visualization_stream"
-            viz_path = self._shared_memory_registry.get(viz_key, "")
-            if not viz_path:
-                try:
-                    viz_path = self._shm_manager.create_stream_file(viz_key)
-                    self._shared_memory_registry[viz_key] = viz_path
-                    logger.info(f"𒓉 [SHM] Created core visualization stream SHM: {viz_path}")
-                except Exception as e:
-                    logger.warning(f"[SHM] Failed to create core visualization SHM: {e}")
-                    viz_path = ""
-
-            if viz_path:
-                mappings[viz_key] = viz_path
-
-            # Create per-agent SHM artifacts (unique files per agent)
+            # Determine agent capabilities (authoritative source)
+            from feagi.pns.registration_manager import get_registration_manager
+            caps: Dict[str, bool] = {}
             try:
-                agent_files = self._shm_manager.create_agent_files(agent_id)
+                reg = get_registration_manager()
+                if reg:
+                    props = reg.get_agent_properties(agent_id) or {}
+                    caps = props.get("capabilities", {}) or {}
+            except Exception:
+                caps = {}
+
+            # Only expose core visualization stream to visualization-capable clients
+            wants_viz = bool(
+                caps.get("visualization")
+                or caps.get("neuron_visualization")
+                or caps.get("brain_visualizer")
+                or caps.get("3d_visualization")
+            )
+            if wants_viz:
+                viz_key = "visualization_stream"
+                viz_path = self._shared_memory_registry.get(viz_key, "")
+                if not viz_path:
+                    try:
+                        viz_path = self._shm_manager.create_stream_file(viz_key)
+                        self._shared_memory_registry[viz_key] = viz_path
+                        logger.info(f"𒓉 [SHM] Created core visualization stream SHM: {viz_path}")
+                    except Exception as e:
+                        logger.warning(f"[SHM] Failed to create core visualization SHM: {e}")
+                        viz_path = ""
+                if viz_path:
+                    mappings[viz_key] = viz_path
+
+            # Create per-agent SHM artifacts (capability-based)
+            try:
+                agent_files = self._shm_manager.create_agent_capability_files(agent_id, caps)
                 if agent_files:
                     mappings.update(agent_files)
                     logger.info(
-                        f"𒓉 [SHM] Created per-agent SHM for '{agent_id}': {agent_files}"
+                        f"𒓉 [SHM] Created capability SHM for '{agent_id}': {agent_files}"
                     )
             except Exception as e:
                 logger.warning(
-                    f"[SHM] Failed to create per-agent SHM files for {agent_id}: {e}"
+                    f"[SHM] Failed to create capability SHM files for {agent_id}: {e}"
                 )
 
             # Save per-agent view of mappings (even if currently only visualization provided)

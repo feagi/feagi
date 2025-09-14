@@ -70,8 +70,15 @@ class SharedMemoryManager:
                     pass
 
     # -------- Naming helpers --------
-    def _agent_file(self, agent_id: str, suffix: str) -> Path:
+    def _agent_file_legacy(self, agent_id: str, suffix: str) -> Path:
+        # Legacy naming used prior to capability-specific bins
         filename = f"feagi-shared-mem-{agent_id}-{suffix}.bin"
+        return self._base_dir / filename
+
+    def _agent_capability_file(self, agent_id: str, capability: str) -> Path:
+        # New naming: feagi-shm-{agent_id}-{capability}.bin
+        safe_cap = capability.replace(" ", "_")
+        filename = f"feagi-shm-{agent_id}-{safe_cap}.bin"
         return self._base_dir / filename
 
     def _stream_file(self, stream_name: str) -> Path:
@@ -80,38 +87,45 @@ class SharedMemoryManager:
         filename = f"feagi-shared-mem-{safe_key}.bin"
         return self._base_dir / filename
 
-    # -------- Agent artifacts --------
-    def create_agent_files(self, agent_id: str) -> Dict[str, str]:
-        """Create (touch) agent SHM files and return their absolute paths as strings.
+    # -------- Agent artifacts (capability-based) --------
+    def create_agent_capability_files(self, agent_id: str, capabilities: Dict[str, bool]) -> Dict[str, str]:
+        """Create per-capability SHM files for an agent.
 
-        Returns mapping keys:
-        - video_stream
-        - neurons_stream
+        Known capabilities: 'video_stream', 'sensory', 'motor', 'neuron_visualization'
+
+        Returns:
+            Mapping of capability name -> absolute path string
         """
         self.ensure_base_dir()
-        video = self._agent_file(agent_id, "video")
-        neurons = self._agent_file(agent_id, "neurons")
-        for p in (video, neurons):
-            try:
-                p.touch(exist_ok=True)
+        created: Dict[str, str] = {}
+        if not isinstance(capabilities, dict):
+            return created
+        for cap in ("video_stream", "sensory", "motor", "neuron_visualization"):
+            if capabilities.get(cap, False):
+                p = self._agent_capability_file(agent_id, cap)
                 try:
-                    # Restrict permissions (owner read/write) when possible
-                    import os as _os
-                    _os.chmod(str(p), 0o600)
+                    p.touch(exist_ok=True)
+                    try:
+                        import os as _os
+                        _os.chmod(str(p), 0o600)
+                    except Exception:
+                        pass
                 except Exception:
                     pass
-            except Exception:
-                # Directory exists; if creation fails, still return planned path
-                pass
-        return {
-            "video_stream": str(video),
-            "neurons_stream": str(neurons),
-        }
+                created[cap] = str(p)
+        return created
 
     def delete_agent_files(self, agent_id: str) -> None:
+        # Remove legacy files
         for suffix in ("video", "neurons"):
             try:
-                self._agent_file(agent_id, suffix).unlink(missing_ok=True)
+                self._agent_file_legacy(agent_id, suffix).unlink(missing_ok=True)
+            except Exception:
+                pass
+        # Remove capability-based files
+        for cap in ("video_stream", "sensory", "motor", "neuron_visualization"):
+            try:
+                self._agent_capability_file(agent_id, cap).unlink(missing_ok=True)
             except Exception:
                 pass
 
