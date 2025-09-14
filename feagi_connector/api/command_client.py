@@ -23,6 +23,7 @@ Client for the FEAGI control API using ZMQ REQ/REP pattern.
 import json
 import logging
 import time
+import uuid
 from typing import Dict, Any, Optional, List, Union
 
 import zmq
@@ -154,24 +155,41 @@ class FeagiControlClient:
         """
         socket = None
         try:
-            socket = self.context.socket(zmq.REQ)
-            socket.setsockopt(zmq.RCVTIMEO, self.timeout)
+            # Use DEALER to match FEAGI's REST stream (ROUTER/DEALER)
+            socket = self.context.socket(zmq.DEALER)
+            # Assign a unique identity so ROUTER can route replies
+            identity = f"feagi_connector_rest_{uuid.uuid4().hex[:8]}".encode("utf-8")
+            socket.setsockopt(zmq.IDENTITY, identity)
+            # Real-time client behavior
             socket.setsockopt(zmq.LINGER, 0)
+            socket.setsockopt(zmq.RCVTIMEO, self.timeout)
+            socket.setsockopt(zmq.SNDTIMEO, self.timeout)
             socket.connect(f"tcp://{self.host}:{self.port}")
-            
+
             logger.debug(f"Sending REST request to {self.host}:{self.port}")
             logger.debug(f"REST message: {json.dumps(rest_message, indent=2)}")
-            
-            # Send REST Stream format message
-            await socket.send_string(json.dumps(rest_message))
-            
-            # Receive response
-            response_str = await socket.recv_string()
-            response = json.loads(response_str)
-            
+
+            # Send REST Stream format as multipart: [empty, json_bytes]
+            request_bytes = json.dumps(rest_message).encode("utf-8")
+            await socket.send_multipart([b"", request_bytes])
+
+            # Receive multipart response; expect [empty, json_bytes]
+            parts = await socket.recv_multipart()
+            if not parts:
+                logger.error("Empty REST response frames")
+                return {"error": "empty_response"}
+
+            # Be tolerant to extra addressing frames; JSON payload is the last part
+            payload = parts[-1]
+            try:
+                response = json.loads(payload.decode("utf-8"))
+            except Exception as e:
+                logger.error(f"Failed to decode REST response JSON: {e}")
+                return {"error": f"invalid_json: {e}"}
+
             logger.debug(f"Received REST response: {json.dumps(response, indent=2)}")
             return response
-            
+
         except zmq.error.Again:
             error_msg = f"REST request timed out after {self.timeout/1000.0} seconds"
             logger.error(error_msg)
@@ -181,7 +199,7 @@ class FeagiControlClient:
             logger.error(error_msg)
             return {"error": error_msg}
         finally:
-            if socket:
+            if socket is not None:
                 socket.close()
 
     async def make_request(self, command: str, params: Optional[Dict] = None) -> Dict:
