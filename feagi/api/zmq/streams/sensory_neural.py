@@ -81,9 +81,10 @@ class SensoryNeuralStream:
         self.debug_endpoint = f"tcp://{self.host}:{self.port}"
 
         # Zero-copy ring buffer for incoming data
+        # Reduce backlog for real-time behavior
         self.ring_buffer = ZeroCopyRingBuffer(
-            slots=ring_buffer_slots,
-            slot_size=slot_size,
+            slots=min(ring_buffer_slots, 128),
+            slot_size=min(slot_size, 524288),
             use_shared_memory=True,
         )
 
@@ -603,10 +604,14 @@ class SensoryNeuralStream:
             neuron_count = 0
             for (cortical_id_obj, neuron_arrays) in cortical_mapped.iter_full():
                 x_coords, y_coords, z_coords, potentials = neuron_arrays
+                # Normalize cortical ID to plain 6-char ID (e.g., "iic400")
                 if hasattr(cortical_id_obj, "as_ascii_string"):
-                    cortical_id = cortical_id_obj.as_ascii_string()
+                    cortical_id = str(cortical_id_obj.as_ascii_string())
                 else:
                     cortical_id = str(cortical_id_obj)
+                # Strip wrapper like "CorticalID(iic400)" if present
+                if cortical_id.startswith("CorticalID(") and cortical_id.endswith(")"):
+                    cortical_id = cortical_id[len("CorticalID("):-1]
                 if cortical_id not in cortical_areas:
                     cortical_areas[cortical_id] = {
                         "coordinates_x": [],
@@ -624,6 +629,13 @@ class SensoryNeuralStream:
             try:
                 area_count = len(cortical_areas)
                 logger.info(f"𒓉 [SHM] Sensory decoded: areas={area_count}, points={neuron_count}")
+                # Include cortical IDs (short preview to avoid log spam)
+                if area_count:
+                    _ids = list(cortical_areas.keys())
+                    _preview = ", ".join(_ids[:6])
+                    _more = area_count - 6
+                    _suffix = f" (+{_more} more)" if _more > 0 else ""
+                    logger.info(f"𒓉 [SHM] Sensory areas: {_preview}{_suffix}")
             except Exception:
                 pass
 
@@ -639,7 +651,14 @@ class SensoryNeuralStream:
             if neural_data:
                 result = self.core_api.stimulate_neurons(neural_data)
                 try:
-                    logger.info(f"𒓉 [SHM] Sensory injected: areas={len(neural_data)}, points={neuron_count}, ok={result.get('success', False)}")
+                    _tid_list = list(neural_data.keys())
+                    _tid_preview = ", ".join(_tid_list[:6])
+                    _more = len(_tid_list) - 6
+                    _suffix = f" (+{_more} more)" if _more > 0 else ""
+                    logger.info(
+                        f"𒓉 [SHM] Sensory injected: areas={len(neural_data)}, points={neuron_count}, "
+                        f"ok={result.get('success', False)}, targets=[{_tid_preview}{_suffix}]"
+                    )
                 except Exception:
                     pass
         except Exception as e:

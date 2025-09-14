@@ -171,6 +171,10 @@ class VisualizationStream:
         # Initialize state based on current genome availability
         self._update_active_mode()
 
+        # Real-time: inactivity TTL config and last-send tracker
+        self._inactivity_ttl_sec = 0.5
+        self._last_shm_send_time = 0.0
+
         # Statistics (enhanced with compression stats)
         self.stats = {
             "data_sent": 0,
@@ -446,6 +450,16 @@ class VisualizationStream:
                 cortical_data = self.fq_sampler.sample()
 
                 if not cortical_data:
+                    # Real-time: if idle beyond TTL, send empty to clear BV
+                    if self._shm_writer:
+                        now = time.time()
+                        last = getattr(self, "_last_shm_send_time", 0.0)
+                        if (now - last) > self._inactivity_ttl_sec:
+                            try:
+                                self._publish_data(bytes([1, 1]) + b'{"type":11,"areas":{}}')
+                                self._last_shm_send_time = now
+                            except Exception:
+                                pass
                     time.sleep(0.01)
                     continue
 
@@ -698,6 +712,8 @@ class VisualizationStream:
                 self.stats["bytes_sent"] = self.stats.get("bytes_sent", 0) + len(data)
                 if self.stats["data_sent"] <= 3:
                     logger.info(f"𒓉 [SHM] Visualization wrote {len(data)} bytes to SHM")
+                # Real-time: update last sent time for inactivity TTL
+                self._last_shm_send_time = time.time()
             except Exception as e:
                 logger.debug(f"𒓉 [SHM] Visualization write failed: {e}")
             # When SHM is active, skip network compression and ZMQ publish entirely
@@ -784,20 +800,48 @@ class VisualizationStream:
                 neuron_ids = area.get("neuron_ids", [])
                 coords = area.get("coordinates", [])
                 pots = area.get("membrane_potentials", [])
-                if not neuron_ids or not coords:
+                if not neuron_ids:
                     continue
-                count = min(len(neuron_ids), len(coords))
-                # Trim arrays consistently
-                ids = neuron_ids[:count]
-                xs = [int(c[0]) for c in coords[:count]]
-                ys = [int(c[1]) for c in coords[:count]]
-                zs = [int(c[2]) for c in coords[:count]]
+                ids = list(neuron_ids)
+                xs = ys = zs = None
+                # Prefer provided coordinates; otherwise fetch from core_api
+                if coords and len(coords) >= len(ids):
+                    xs = [int(c[0]) for c in coords[: len(ids)]]
+                    ys = [int(c[1]) for c in coords[: len(ids)]]
+                    zs = [int(c[2]) for c in coords[: len(ids)]]
+                else:
+                    try:
+                        if self.core_api and hasattr(self.core_api, "get_neuron_coordinates"):
+                            coord_res = self.core_api.get_neuron_coordinates(ids)
+                            if coord_res and "coordinates_x" in coord_res:
+                                xs = list(map(int, coord_res.get("coordinates_x", [])))
+                                ys = list(map(int, coord_res.get("coordinates_y", [])))
+                                zs = list(map(int, coord_res.get("coordinates_z", [])))
+                                valid = coord_res.get("valid_indices")
+                                if valid and len(valid) == len(ids):
+                                    # Filter to valid
+                                    ids = [nid for nid, ok in zip(ids, valid) if ok]
+                                    xs = [x for x, ok in zip(xs, valid) if ok]
+                                    ys = [y for y, ok in zip(ys, valid) if ok]
+                                    zs = [z for z, ok in zip(zs, valid) if ok]
+                    except Exception:
+                        xs = ys = zs = None
+                if xs is None or ys is None or zs is None or len(xs) == 0:
+                    # Unable to resolve coordinates; skip this area
+                    continue
+                count = min(len(ids), len(xs), len(ys), len(zs))
+                ids = ids[:count]
+                xs = xs[:count]
+                ys = ys[:count]
+                zs = zs[:count]
                 ps = [float(p) for p in pots[:count]] if pots else [0.0] * count
-                # Convert cortical_idx -> proper cortical_id string if possible
+                # Convert to 6-letter cortical_id if possible
                 area_key = None
                 try:
                     if isinstance(area_id, int) and self.core_api and hasattr(self.core_api, "get_cortical_id_for_idx"):
-                        area_key = self.core_api.get_cortical_id_for_idx(area_id) or str(area_id)
+                        area_key = self.core_api.get_cortical_id_for_idx(area_id)
+                    elif isinstance(area_id, str) and len(area_id) == 6:
+                        area_key = area_id
                     else:
                         area_key = str(area_id)
                 except Exception:
