@@ -100,7 +100,7 @@ class SharedMemoryManager:
         created: Dict[str, str] = {}
         if not isinstance(capabilities, dict):
             return created
-        for cap in ("video_stream", "sensory", "motor", "neuron_visualization"):
+        for cap in ("video_stream", "video_stream_raw", "video_stream_feagi", "sensory", "motor", "neuron_visualization"):
             if capabilities.get(cap, False):
                 p = self._agent_capability_file(agent_id, cap)
                 try:
@@ -123,7 +123,7 @@ class SharedMemoryManager:
             except Exception:
                 pass
         # Remove capability-based files
-        for cap in ("video_stream", "sensory", "motor", "neuron_visualization"):
+        for cap in ("video_stream", "video_stream_raw", "video_stream_feagi", "sensory", "motor", "neuron_visualization"):
             try:
                 self._agent_capability_file(agent_id, cap).unlink(missing_ok=True)
             except Exception:

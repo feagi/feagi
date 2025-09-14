@@ -57,7 +57,7 @@ class SensoryNeuralStream:
         port: int = 5558,
         context: Optional[zmq.asyncio.Context] = None,
         ring_buffer_slots: int = 1024,
-        slot_size: int = 1048576,  # 1MB per slot
+        slot_size: int = 2097152,  # 2MB per slot (min cap applied below)
         cortical_config: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
         """Initialize neural sensory stream.
@@ -82,9 +82,10 @@ class SensoryNeuralStream:
 
         # Zero-copy ring buffer for incoming data
         # Reduce backlog for real-time behavior
+        # Ensure sufficient slot size for large sensory frames while keeping slot count bounded
         self.ring_buffer = ZeroCopyRingBuffer(
             slots=min(ring_buffer_slots, 128),
-            slot_size=min(slot_size, 524288),
+            slot_size=max(524288, int(slot_size)),
             use_shared_memory=True,
         )
 
@@ -378,6 +379,7 @@ class SensoryNeuralStream:
         except Exception:
             # If state check fails, proceed anyway to avoid breaking stream
             pass
+        
         
         slot = None
         data_processed = False
