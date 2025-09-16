@@ -1,11 +1,10 @@
-## Creates a "Dummy" connection, as in merely pretends to connect to FEAGI, however makes no external
-## connections at all. Useful for testing and debugging only
+## Example: Build an ImageFrame and encode to bytes via SensorCache
 
 import asyncio
 import time
 import numpy as np
 
-from feagi_connector.agent_connector import FeagiAgentConnector
+from feagi_connector.cache.sensor_cache import SensorCache
 import feagi_rust_py_libs as frpl
 
 #agent.sensors.register_camera(1, 1, true, )
@@ -45,20 +44,17 @@ async def main():
     #segmented_properties = frpl.data_structures.data.image_descriptors.SegmentedImageFrameProperties(segmented_resolutions, color_channels, color_channels, color_space)
     #segmented_gaze = frpl.data_structures.data.image_descriptors.GazeProperties.create_default_centered()
 
-    # Creates an instance of connector under the dummy method (for now)
-    agent = FeagiAgentConnector.create_dummy_connector()
-
-    await agent.server.connect()
+    cache = SensorCache()
 
 
 
     # segmented_image_camera
 
     # cortical group index, number of channels, send stale data, properties of image going in, properties of image being sent to feagi
-    agent.sensors.image_camera_center.register(1, 1, True, image_properties, image_properties)
+    cache.image_camera_center.register(1, 1, True, image_properties, image_properties)
 
     # cortical group index, channel index, sending data (this func stores cache data, doesnt encode anything to bytes or neurons)
-    agent.sensors.image_camera_center.store(1, 0, image_frame)
+    cache.image_camera_center.store(1, 0, image_frame)
 
     time_start = time.perf_counter()
 
@@ -67,11 +63,11 @@ async def main():
 
 
     # converts cached data to neurons -> bytes
-    agent.encode_cache_to_bytes()
+    cache.encode_cached_data_into_bytes()
 
 
     # retrieve byte data from neurons
-    byte_neuron = agent.get_most_recent_sensor_bytes()
+    byte_neuron = cache.get_most_recent_sensor_bytes()
 
     time_end = time.perf_counter()
 

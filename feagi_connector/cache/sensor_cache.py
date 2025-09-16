@@ -26,7 +26,14 @@ class SensorCache:
                 register_name = sensor_details["register_name"]
                 write_name = sensor_details["write_name"]
 
-                instance = SensorDevice(self, register_name, write_name)
+                # Map sensor_name to Rust SensorCorticalType if known
+                sensor_enum = None
+                try:
+                    sensor_enum = getattr(frpl.data_structures.genomic.SensorCorticalType, ''.join(part.capitalize() for part in sensor_name.split('_')))
+                except Exception:
+                    sensor_enum = None
+
+                instance = SensorDevice(self, register_name, write_name, sensor_enum)
                 setattr(self, sensor_name, instance)
 
 

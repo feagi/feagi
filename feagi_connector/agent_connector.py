@@ -1,6 +1,5 @@
 from .feagi_interfaces.feagi_connection_status import FEAGIConnectionStatus
 from .feagi_interfaces.abstract_feagi_interface import AbstractFeagiInterface
-from .feagi_interfaces.dummy_interface.dummy_feagi_interface import DummyFeagiInterface
 from .cache.sensor_cache import SensorCache
 
 
@@ -24,10 +23,7 @@ class FeagiAgentConnector:
         obj._py_sensor_cache = SensorCache()
         return obj
 
-
-    @staticmethod
-    def create_dummy_connector() -> "FeagiAgentConnector":
-        return FeagiAgentConnector._internal_init(DummyFeagiInterface())
+    # Dummy connector removed per new architecture; use real interfaces only
 
     @property
     def server(self) -> AbstractFeagiInterface:
