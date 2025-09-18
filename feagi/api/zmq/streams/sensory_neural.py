@@ -125,7 +125,7 @@ class SensoryNeuralStream:
             slot_size: Size of each slot in bytes
             cortical_config: Cortical area configuration for buffer pools
         """
-        logger.info("Initializing sensory stream.")
+        logger.info(f"🔧 [DEBUG] SensoryNeuralStream.__init__ called on {host}:{port}")
         self.core_api = core_api
         self.host = host
         self.port = port
@@ -149,8 +149,8 @@ class SensoryNeuralStream:
         else:
             self.neural_buffers = None
 
-        # Socket setup
-        self.socket = self._setup_socket()
+        # Socket setup - delay until start() is called
+        self.socket = None
 
         # State
         self.running = False
@@ -219,6 +219,7 @@ class SensoryNeuralStream:
 
     def _setup_socket(self) -> zmq.Socket:
         """Set up optimized PULL socket for neural data."""
+        logger.error(f"🚨 [DEBUG] _setup_socket() called! This should only happen when burst engine is READY!")
         socket = self.context.socket(zmq.PULL)
 
         # Apply platform-specific optimizations
@@ -226,7 +227,7 @@ class SensoryNeuralStream:
 
         # Bind to address
         bind_addr = f"tcp://{self.host}:{self.port}"
-        logger.info(f"Binding neural sensory PULL socket to {bind_addr}")
+        logger.error(f"🚨 [DEBUG] BINDING socket to {bind_addr} - this allows connections!")
         socket.bind(bind_addr)
 
         return socket
@@ -236,9 +237,25 @@ class SensoryNeuralStream:
         if self.running:
             return
 
+        # Check burst engine state before starting
+        from feagi.core.state_manager import FeagiStateManager, ServiceState
+        state_manager = FeagiStateManager.instance()
+        burst_engine_state = state_manager.get_burst_engine_state()
+        
+        if burst_engine_state != ServiceState.READY.value:
+            logger.warning(
+                f"🔒 Sensory stream startup blocked - burst engine not ready "
+                f"(state={burst_engine_state}, expected={ServiceState.READY.value}). "
+                f"Agents will not be able to connect until burst engine is started."
+            )
+            return
+
         logger.info(
-            f"Starting neural sensory stream on {self.host}:{self.port}"
+            f"✅ Burst engine ready - starting neural sensory stream on {self.host}:{self.port}"
         )
+        
+        # Create and bind socket now that burst engine is ready
+        self.socket = self._setup_socket()
         self.running = True
 
         # Start processing tasks
@@ -246,7 +263,44 @@ class SensoryNeuralStream:
         # Always start SHM poller; it will attach readers dynamically
         self._shm_task = asyncio.create_task(self._process_shm_loop())
 
-        logger.info("Neural sensory stream started")
+        logger.info("Neural sensory stream started - agents can now connect")
+
+    async def start_when_burst_engine_ready(self) -> None:
+        """Check burst engine state and start if ready. Called by burst engine startup."""
+        if self.running:
+            return
+            
+        from feagi.core.state_manager import FeagiStateManager, ServiceState
+        state_manager = FeagiStateManager.instance()
+        burst_engine_state = state_manager.get_burst_engine_state()
+        
+        if burst_engine_state == ServiceState.READY.value:
+            logger.info("🚀 Burst engine became ready - starting sensory stream")
+            await self.start()
+        else:
+            logger.debug(f"Burst engine not ready yet (state={burst_engine_state})")
+
+    async def _monitor_burst_engine_state(self) -> None:
+        """Monitor burst engine state and start when ready."""
+        from feagi.core.state_manager import FeagiStateManager, ServiceState
+        
+        while not self.running:
+            try:
+                state_manager = FeagiStateManager.instance()
+                burst_engine_state = state_manager.get_burst_engine_state()
+                
+                if burst_engine_state == ServiceState.READY.value:
+                    logger.info("🚀 Burst engine became ready - starting sensory stream")
+                    await self.start()
+                    break
+                else:
+                    # Check every 2 seconds
+                    await asyncio.sleep(2.0)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"Error monitoring burst engine state: {e}")
+                await asyncio.sleep(2.0)
 
     async def stop(self) -> None:
         """Stop the neural sensory stream."""
@@ -451,6 +505,10 @@ class SensoryNeuralStream:
 
     async def _process_neural_data(self) -> StreamResult:
         """Process incoming neural data - feagi_data_processing format only."""
+        
+        # Check if socket is available (stream may not be started yet)
+        if not self.socket:
+            return StreamResult.NO_DATA
         
         # CRITICAL: Check burst engine readiness before processing sensory data
         try:

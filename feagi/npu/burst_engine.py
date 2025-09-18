@@ -231,6 +231,8 @@ class BurstEngine:
             else:
                 logger.debug("Burst engine recovered and ready (burst #%d)", self.burst_count)
             
+            # Note: Sensory stream monitors burst engine state and will start automatically
+            
         return fired_ids
     
     def get_current_fire_queue(self) -> Optional[FireQueue]:
@@ -345,9 +347,46 @@ class BurstEngine:
         """Set burst engine state in the state manager."""
         try:
             if self.state_manager:
-                self.state_manager.set_burst_engine_state(state)
-        except Exception:
-            logger.error("Failed to update burst engine state")
+                logger.debug(f"Setting burst engine state to {state.name} ({state.value})")
+                result = self.state_manager.set_burst_engine_state(state.value)
+                logger.debug(f"State manager set result: {result}")
+                # Verify the state was set
+                current_state = self.state_manager.get_burst_engine_state()
+                logger.debug(f"Verified state after set: {current_state}")
+                if current_state != state.value:
+                    logger.error(f"State manager failed to update: expected {state.value}, got {current_state}")
+            else:
+                logger.error("No state manager available for burst engine state update")
+        except Exception as e:
+            logger.error(f"Failed to update burst engine state: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    def _notify_sensory_stream_ready(self):
+        """Notify the sensory stream that the burst engine is ready."""
+        try:
+            # Get the ZMQ server instance from the process manager
+            from feagi.process_manager import ProcessManager
+            process_manager = ProcessManager.get_instance()
+            if process_manager and hasattr(process_manager, '_zmq_server'):
+                zmq_server = process_manager._zmq_server
+                if zmq_server and hasattr(zmq_server, '_sensory') and zmq_server._sensory:
+                    # Schedule the sensory stream start in the ZMQ server's event loop
+                    import asyncio
+                    if zmq_server._loop and zmq_server._loop.is_running():
+                        asyncio.run_coroutine_threadsafe(
+                            zmq_server._sensory.start_when_burst_engine_ready(),
+                            zmq_server._loop
+                        )
+                        logger.info("🔔 Notified sensory stream that burst engine is ready")
+                    else:
+                        logger.debug("ZMQ server event loop not available for sensory stream notification")
+                else:
+                    logger.debug("Sensory stream not available for notification")
+            else:
+                logger.debug("Process manager or ZMQ server not available for sensory stream notification")
+        except Exception as e:
+            logger.debug(f"Failed to notify sensory stream: {e}")
     
     def _initialize_frequency_from_state_manager(self):
         """Initialize burst frequency from state manager (single source of truth).

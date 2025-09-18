@@ -573,6 +573,10 @@ class ZmqServer:
 
             if self._sensory:
                 await self._sensory.start()
+                # If sensory stream didn't start (burst engine not ready), start monitoring
+                if not self._sensory.running:
+                    logger.info("Starting burst engine state monitor for sensory stream")
+                    asyncio.create_task(self._sensory._monitor_burst_engine_state())
             if self._motor:
                 await self._motor.start()
 
