@@ -5,6 +5,7 @@ with pre-allocated buffers and platform-specific optimizations.
 """
 
 import asyncio
+import threading
 import time
 from enum import IntEnum
 from typing import Any, Dict, Optional
@@ -24,6 +25,50 @@ from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
 from ..platform import optimize_socket_for_neural_data
 
 logger = setup_logger(__name__)
+
+# Global pool to deduplicate SHM readers per-path within the process
+_GLOBAL_SHM_READERS: Dict[str, tuple] = {}
+_GLOBAL_SHM_LOCK = threading.Lock()
+_SHM_OPEN_COUNTER: Dict[str, int] = {}
+
+def _log_shm_open(path: Path) -> None:
+    try:
+        p = str(path)
+        cnt = _SHM_OPEN_COUNTER.get(p, 0) + 1
+        _SHM_OPEN_COUNTER[p] = cnt
+        if cnt <= 5 or cnt in (10, 50, 100, 200, 500, 1000, 2000):
+            logger.warning(f"[SHM-OPEN] {p} open_count={cnt}")
+    except Exception:
+        pass
+
+def _acquire_shared_reader(path: Path):
+    """Get or create a shared _ShmRingReader for a given path with refcounting."""
+    p = str(path)
+    with _GLOBAL_SHM_LOCK:
+        entry = _GLOBAL_SHM_READERS.get(p)
+        if entry:
+            reader, count = entry
+            _GLOBAL_SHM_READERS[p] = (reader, count + 1)
+            return reader
+        reader = _ShmRingReader(Path(p))  # type: ignore  # defined later
+        _GLOBAL_SHM_READERS[p] = (reader, 1)
+        return reader
+
+def _release_shared_reader(path: Path) -> None:
+    p = str(path)
+    with _GLOBAL_SHM_LOCK:
+        entry = _GLOBAL_SHM_READERS.get(p)
+        if not entry:
+            return
+        reader, count = entry
+        if count <= 1:
+            try:
+                reader.close()
+            except Exception:
+                pass
+            _GLOBAL_SHM_READERS.pop(p, None)
+        else:
+            _GLOBAL_SHM_READERS[p] = (reader, count - 1)
 
 
 class StreamResult(IntEnum):
@@ -119,18 +164,23 @@ class SensoryNeuralStream:
 
         # Optional SHM readers (per-agent sensory/neurons_stream)
         self._shm_readers: Dict[str, _ShmRingReader] = {}
+        self._shm_lock = threading.Lock()
         try:
             from feagi.core.state_manager import FeagiStateManager
 
             sm = FeagiStateManager.instance()
             agent_map = getattr(sm, "_agent_shared_memory", {})
             for aid, mapping in agent_map.items():
-                # Support both new capability key 'sensory' and legacy 'neurons_stream'
-                p = mapping.get("sensory") or mapping.get("neurons_stream")
+                # Only attach legacy 'neurons_stream' via SHM; skip 'sensory' to avoid FD churn
+                p = mapping.get("neurons_stream")
                 if p:
                     try:
-                        self._shm_readers[aid] = _ShmRingReader(Path(p))
-                        logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                        with self._shm_lock:
+                            if aid not in self._shm_readers:
+                                reader = _acquire_shared_reader(Path(p))
+                                self._shm_readers[aid] = reader
+                                _log_shm_open(Path(p))
+                                logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                     except Exception as e:
                         logger.warning(f"[SHM] Failed to open sensory SHM for {aid}: {e}")
         except Exception as e:
@@ -235,10 +285,10 @@ class SensoryNeuralStream:
 
         logger.info("Neural sensory stream stopped")
 
-        # Close SHM readers
+        # Close SHM readers (refcounted)
         for reader in self._shm_readers.values():
             try:
-                reader.close()
+                _release_shared_reader(reader.path)
             except Exception:
                 pass
         self._shm_readers.clear()
@@ -311,10 +361,13 @@ class SensoryNeuralStream:
                     # Add new readers
                     for aid, mapping in agent_map.items():
                         if aid not in self._shm_readers:
-                            p = mapping.get("sensory") or mapping.get("neurons_stream")
+                            # Only attach legacy 'neurons_stream' via SHM; skip 'sensory'
+                            p = mapping.get("neurons_stream")
                             if p:
                                 try:
-                                    self._shm_readers[aid] = _ShmRingReader(Path(p))
+                                    reader = _acquire_shared_reader(Path(p))
+                                    self._shm_readers[aid] = reader
+                                    _log_shm_open(Path(p))
                                     logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                                 except Exception:
                                     pass
@@ -322,7 +375,7 @@ class SensoryNeuralStream:
                     for aid in list(self._shm_readers.keys()):
                         if aid not in agent_map:
                             try:
-                                self._shm_readers[aid].close()
+                                _release_shared_reader(self._shm_readers[aid].path)
                             except Exception:
                                 pass
                             self._shm_readers.pop(aid, None)

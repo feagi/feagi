@@ -43,7 +43,7 @@ from pathlib import Path
 import numpy as np
 import zmq
 import zmq.asyncio
-import feagi_data_processing as fdp
+import feagi_rust_py_libs as fdp
 
 from feagi.core.state_manager import GenomeState
 from feagi.utils.logger import setup_logger
@@ -56,6 +56,7 @@ from ...utils.rate_limit import RateLimiter
 import mmap as _mmap
 import os as _os
 import struct as _struct
+import threading
 
 logger = setup_logger(__name__)
 
@@ -140,6 +141,7 @@ class MotorStream:
         # Optional SHM writer for core motor data and per-agent motor writers
         self._shm_writer = None
         self._agent_shm_writers: Dict[str, _ShmRingWriter] = {}
+        self._shm_lock = threading.Lock()
         try:
             from feagi.core.state_manager import FeagiStateManager
 
@@ -147,8 +149,10 @@ class MotorStream:
             shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
             motor_path = shm.get("motor_stream", "")
             if motor_path:
-                self._shm_writer = _ShmRingWriter(Path(motor_path))
-                logger.info(f"[SHM] Motor stream writing to: {motor_path}")
+                with self._shm_lock:
+                    if self._shm_writer is None:
+                        self._shm_writer = _ShmRingWriter(Path(motor_path))
+                        logger.info(f"[SHM] Motor stream writing to: {motor_path}")
             else:
                 logger.info("[SHM] Motor shared memory not configured; using ZMQ PUB only")
         except Exception as e:
@@ -618,9 +622,12 @@ class MotorStream:
                     writer = self._agent_shm_writers.get(aid)
                     if writer is None:
                         try:
-                            writer = _ShmRingWriter(Path(path))
-                            self._agent_shm_writers[aid] = writer
-                            logger.info(f"[SHM] Motor fan-out enabled for agent {aid}: {path}")
+                            with self._shm_lock:
+                                writer = self._agent_shm_writers.get(aid)
+                                if writer is None:
+                                    writer = _ShmRingWriter(Path(path))
+                                    self._agent_shm_writers[aid] = writer
+                                    logger.info(f"[SHM] Motor fan-out enabled for agent {aid}: {path}")
                         except Exception as we:
                             logger.debug(f"[SHM] Failed to open agent motor SHM for {aid}: {we}")
                             continue

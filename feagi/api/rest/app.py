@@ -257,6 +257,7 @@ _INFLIGHT_WARN_THRESHOLD: int = 25
 _inflight_by_ip: Dict[str, int] = {}
 _inflight_lock = threading.Lock()
 _fd_hot_until: float = 0.0
+_hot_stats: Dict[str, Any] = {"start": 0.0, "count": 0, "per_path": {}, "per_ip": {}, "per_ua": {}}
 
 
 def _fd_monitor_thread() -> None:
@@ -268,6 +269,7 @@ def _fd_monitor_thread() -> None:
         soft, hard = (256, 256)
     warn_ratio = 0.8
     last_detail = 0.0
+    was_hot = False
     while True:
         try:
             import os as _os
@@ -291,26 +293,31 @@ def _fd_monitor_thread() -> None:
                     shm = 0
                     path_counts: Dict[str, int] = {}
                     try:
+                        import stat as _stat
                         for name in _os.listdir("/dev/fd"):
                             p = f"/dev/fd/{name}"
                             try:
-                                target = _os.readlink(p)
+                                st = _os.stat(p)
                             except Exception:
                                 continue
-                            t = str(target)
-                            if "socket:" in t:
+                            mode = st.st_mode
+                            if _stat.S_ISSOCK(mode):
                                 sockets += 1
-                            elif "pipe:" in t:
+                            elif _stat.S_ISFIFO(mode):
                                 pipes += 1
                             else:
                                 files += 1
-                                if "feagi-shm" in t or "feagi-shared-mem" in t:
-                                    shm += 1
-                                # Tally top paths (trim long)
-                                key = t
-                                if len(key) > 80:
-                                    key = key[:77] + "..."
-                                path_counts[key] = path_counts.get(key, 0) + 1
+                                try:
+                                    t = str(_os.readlink(p))
+                                    if "feagi-shm" in t or "feagi-shared-mem" in t:
+                                        shm += 1
+                                    # Tally top SHM paths
+                                    key = t
+                                    if len(key) > 80:
+                                        key = key[:77] + "..."
+                                    path_counts[key] = path_counts.get(key, 0) + 1
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
                     logger.warning(
@@ -319,6 +326,8 @@ def _fd_monitor_thread() -> None:
                     # Enable hot request sampling for next 5 seconds
                     try:
                         globals()["_fd_hot_until"] = now + 5.0
+                        globals()["_hot_stats"] = {"start": now, "count": 0, "per_path": {}, "per_ip": {}, "per_ua": {}}
+                        was_hot = True
                     except Exception:
                         pass
                     # Log top file targets
@@ -327,6 +336,26 @@ def _fd_monitor_thread() -> None:
                         if top:
                             for k, v in top:
                                 logger.warning(f"[FD-DETAIL] {v} × {k}")
+                    except Exception:
+                        pass
+            else:
+                # If hot window just ended, summarize the captured calls
+                now = time.time()
+                if was_hot and now >= globals().get("_fd_hot_until", 0.0):
+                    was_hot = False
+                    try:
+                        hs = globals().get("_hot_stats", {})
+                        total = int(hs.get("count", 0) or 0)
+                        if total > 0:
+                            logger.warning(f"[FD-HOT-SUM] total_reqs={total} window={(now - float(hs.get('start', now))):.2f}s")
+                            for label, bucket in (("path", hs.get("per_path", {})), ("ua", hs.get("per_ua", {})), ("ip", hs.get("per_ip", {}))):
+                                try:
+                                    items = sorted(bucket.items(), key=lambda kv: kv[1], reverse=True)[:5]
+                                    parts = [f"{k}={(v*100.0/total):.1f}%" for k, v in items]
+                                    if parts:
+                                        logger.warning(f"[FD-HOT-SUM] by_{label}: " + ", ".join(parts))
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
         except Exception:
@@ -382,13 +411,28 @@ async def log_requests(request: Request, call_next):
     except Exception:
         pass
 
-    # If FD pressure is hot, sample request sources for quick identification
+    # If FD pressure is hot, sample request sources for quick identification and accumulate stats
     try:
         import time as _t
         hot_until = globals().get('_fd_hot_until', 0.0)
         if _t.time() < hot_until:
             ua = request.headers.get("user-agent", "<none>")
             logger.warning(f"[FD-HOT] {client_ip} → {path} UA={ua}")
+            try:
+                hs = globals().get("_hot_stats", {})
+                hs['count'] = int(hs.get('count', 0) or 0) + 1
+                pp = hs.get('per_path', {})
+                pp[path] = pp.get(path, 0) + 1
+                hs['per_path'] = pp
+                pu = hs.get('per_ua', {})
+                pu[ua] = pu.get(ua, 0) + 1
+                hs['per_ua'] = pu
+                pi = hs.get('per_ip', {})
+                pi[client_ip] = pi.get(client_ip, 0) + 1
+                hs['per_ip'] = pi
+                globals()['_hot_stats'] = hs
+            except Exception:
+                pass
     except Exception:
         pass
 

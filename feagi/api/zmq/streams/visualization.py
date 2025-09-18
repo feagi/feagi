@@ -191,6 +191,7 @@ class VisualizationStream:
         self.running = False
         self._stop_event = threading.Event()
         self._client_lock = threading.Lock()
+        self._shm_lock = threading.Lock()
 
         # Add flag to prevent duplicate logging
         self._fq_sampler_unavailable_logged = False
@@ -204,8 +205,10 @@ class VisualizationStream:
             shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
             viz_path = shm.get("visualization_stream", "")
             if viz_path:
-                self._shm_writer = _ShmRingWriter(Path(viz_path))
-                logger.info(f"𒓉 [SHM] Visualization stream writing to: {viz_path}")
+                with self._shm_lock:
+                    if self._shm_writer is None:
+                        self._shm_writer = _ShmRingWriter(Path(viz_path))
+                        logger.info(f"𒓉 [SHM] Visualization stream writing to: {viz_path}")
             else:
                 logger.info("𒓉 [SHM] Visualization shared memory not configured; using ZMQ PUB only")
         except Exception as e:
@@ -332,11 +335,13 @@ class VisualizationStream:
                         )
                         viz_path = shm.get("visualization_stream", "")
                         if viz_path:
-                            self._shm_writer = _ShmRingWriter(Path(viz_path))
-                            logger.info(
-                                f"𒓉 [SHM] Visualization stream attached early to: {viz_path}"
-                            )
-                            return
+                            with self._shm_lock:
+                                if self._shm_writer is None:
+                                    self._shm_writer = _ShmRingWriter(Path(viz_path))
+                                    logger.info(
+                                        f"𒓉 [SHM] Visualization stream attached early to: {viz_path}"
+                                    )
+                                    return
                     except Exception as e:
                         logger.debug(f"𒓉 [SHM] Early attach attempt failed: {e}")
                     time.sleep(0.25)
@@ -699,8 +704,10 @@ class VisualizationStream:
                 shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
                 viz_path = shm.get("visualization_stream", "")
                 if viz_path:
-                    self._shm_writer = _ShmRingWriter(Path(viz_path))
-                    logger.info(f"𒓉 [SHM] Visualization stream attached to: {viz_path}")
+                    with self._shm_lock:
+                        if not self._shm_writer:
+                            self._shm_writer = _ShmRingWriter(Path(viz_path))
+                            logger.info(f"𒓉 [SHM] Visualization stream attached to: {viz_path}")
             except Exception as e:
                 logger.debug(f"[SHM] Attach failed: {e}")
 
@@ -1190,7 +1197,7 @@ class VisualizationStream:
         try:
             # Encode using feagi_data_processing binary format - USE
             # HIGH-PERFORMANCE NUMPY APPROACH
-            import feagi_data_processing as fdp
+            import feagi_rust_py_libs as fdp
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
@@ -1747,7 +1754,7 @@ class _ShmRingWriter:
         try:
             # Encode using feagi_data_processing binary format - USE
             # HIGH-PERFORMANCE NUMPY APPROACH
-            import feagi_data_processing as fdp
+            import feagi_rust_py_libs as fdp
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
