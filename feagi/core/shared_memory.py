@@ -79,7 +79,9 @@ class SharedMemoryManager:
         # New naming: feagi-shm-{agent_id}-{capability}.bin
         safe_cap = capability.replace(" ", "_")
         filename = f"feagi-shm-{agent_id}-{safe_cap}.bin"
-        return self._base_dir / filename
+        path = self._base_dir / filename
+        
+        return path
 
     def _stream_file(self, stream_name: str) -> Path:
         # Normalize keys like "visualization-stream" to "visualization_stream"
@@ -96,6 +98,8 @@ class SharedMemoryManager:
         Returns:
             Mapping of capability name -> absolute path string
         """
+        # Removed debug logging to reduce overhead
+        
         self.ensure_base_dir()
         created: Dict[str, str] = {}
         if not isinstance(capabilities, dict):

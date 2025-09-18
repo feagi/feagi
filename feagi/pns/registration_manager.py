@@ -241,6 +241,12 @@ class RegistrationManager:
                 # 8. Update State Manager - call register_agent method
                 if self._state_manager:
                     try:
+                        # Proactively clear any stale SHM mappings on re-registration
+                        if is_re_registration and hasattr(self._state_manager, "delete_agent_shm"):
+                            try:
+                                self._state_manager.delete_agent_shm(agent_id)
+                            except Exception:
+                                pass
                         self._state_manager.register_agent(
                             agent_id=request.agent_id,
                             agent_type=request.agent_type,

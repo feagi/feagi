@@ -629,6 +629,30 @@ class FeagiStateManager:
                 )
 
             # Save per-agent view of mappings (even if currently only visualization provided)
+            # Ensure there is only one agent_id per unique mapping: remove duplicates
+            try:
+                signature_parts = []
+                for k in sorted(mappings.keys()):
+                    signature_parts.append(f"{k}={mappings.get(k, '')}")
+                signature = "|".join(signature_parts)
+                to_remove = []
+                for aid, mapping in self._agent_shared_memory.items():
+                    try:
+                        parts = []
+                        for k in sorted(mapping.keys()):
+                            parts.append(f"{k}={mapping.get(k, '')}")
+                        if "|".join(parts) == signature and aid != agent_id:
+                            to_remove.append(aid)
+                    except Exception:
+                        continue
+                for aid in to_remove:
+                    try:
+                        del self._agent_shared_memory[aid]
+                        logger.info(f"𒓉 [SHM] Removed duplicate SHM mapping under agent '{aid}' → canonical '{agent_id}'")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             self._agent_shared_memory[agent_id] = dict(mappings)
             if mappings:
                 logger.info(f"𒓉 [SHM] Agent {agent_id} SHM mappings: {mappings}")
@@ -2150,7 +2174,19 @@ class FeagiStateManager:
         if agent_id in current_agents:
             del current_agents[agent_id]
             result = self.set_connected_agents(current_agents)
+            # Also clear per-agent SHM view and try to delete files
+            try:
+                if hasattr(self, "delete_agent_shm"):
+                    self.delete_agent_shm(agent_id)
+            except Exception:
+                pass
             return result
+        # Even if agent not present, ensure SHM view is cleared
+        try:
+            if hasattr(self, "delete_agent_shm"):
+                self.delete_agent_shm(agent_id)
+        except Exception:
+            pass
         return Result.ok(None)
 
     # === MISSING METHODS FOR TEST COMPATIBILITY ===

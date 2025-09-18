@@ -49,10 +49,17 @@ def _acquire_shared_reader(path: Path):
         if entry:
             reader, count = entry
             _GLOBAL_SHM_READERS[p] = (reader, count + 1)
+            logger.info(f"[SHM-POOL] Reusing reader for {Path(p).name}, refcount: {count} -> {count + 1}")
             return reader
-        reader = _ShmRingReader(Path(p))  # type: ignore  # defined later
-        _GLOBAL_SHM_READERS[p] = (reader, 1)
-        return reader
+        try:
+            reader = _ShmRingReader(Path(p))  # type: ignore  # defined later
+            _GLOBAL_SHM_READERS[p] = (reader, 1)
+            logger.info(f"[SHM-POOL] Created new reader for {Path(p).name}, refcount: 1")
+            return reader
+        except Exception as e:
+            logger.error(f"[SHM-POOL] Failed to create reader for {Path(p).name}: {e}")
+            # Return None to prevent repeated attempts
+            return None
 
 def _release_shared_reader(path: Path) -> None:
     p = str(path)
@@ -67,8 +74,10 @@ def _release_shared_reader(path: Path) -> None:
             except Exception:
                 pass
             _GLOBAL_SHM_READERS.pop(p, None)
+            logger.info(f"[SHM-POOL] Closed and removed reader for {Path(p).name}, refcount: {count} -> 0")
         else:
             _GLOBAL_SHM_READERS[p] = (reader, count - 1)
+            logger.info(f"[SHM-POOL] Released reader for {Path(p).name}, refcount: {count} -> {count - 1}")
 
 
 class StreamResult(IntEnum):
@@ -163,7 +172,9 @@ class SensoryNeuralStream:
         }
 
         # Optional SHM readers (per-agent sensory/neurons_stream)
+        # Maintain both per-agent and per-path maps to prevent duplicate opens
         self._shm_readers: Dict[str, _ShmRingReader] = {}
+        self._shm_readers_by_path: Dict[str, _ShmRingReader] = {}
         self._shm_lock = threading.Lock()
         try:
             from feagi.core.state_manager import FeagiStateManager
@@ -171,15 +182,19 @@ class SensoryNeuralStream:
             sm = FeagiStateManager.instance()
             agent_map = getattr(sm, "_agent_shared_memory", {})
             for aid, mapping in agent_map.items():
-                # Only attach legacy 'neurons_stream' via SHM; skip 'sensory' to avoid FD churn
-                p = mapping.get("neurons_stream")
+                # Attach either new 'sensory' capability or legacy 'neurons_stream' via SHM
+                p = mapping.get("sensory") or mapping.get("neurons_stream")
                 if p:
                     try:
                         with self._shm_lock:
+                            path_str = str(Path(p))
                             if aid not in self._shm_readers:
-                                reader = _acquire_shared_reader(Path(p))
+                                reader = self._shm_readers_by_path.get(path_str)
+                                if reader is None:
+                                    reader = _acquire_shared_reader(Path(path_str))
+                                    self._shm_readers_by_path[path_str] = reader
+                                    _log_shm_open(Path(path_str))
                                 self._shm_readers[aid] = reader
-                                _log_shm_open(Path(p))
                                 logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                     except Exception as e:
                         logger.warning(f"[SHM] Failed to open sensory SHM for {aid}: {e}")
@@ -286,12 +301,23 @@ class SensoryNeuralStream:
         logger.info("Neural sensory stream stopped")
 
         # Close SHM readers (refcounted)
-        for reader in self._shm_readers.values():
-            try:
-                _release_shared_reader(reader.path)
-            except Exception:
-                pass
-        self._shm_readers.clear()
+        try:
+            with self._shm_lock:
+                # Release by unique path
+                released_paths = set()
+                for reader in self._shm_readers.values():
+                    try:
+                        if hasattr(reader, 'path'):
+                            p = str(reader.path)
+                            if p not in released_paths:
+                                _release_shared_reader(reader.path)
+                                released_paths.add(p)
+                    except Exception:
+                        pass
+                self._shm_readers.clear()
+                self._shm_readers_by_path.clear()
+        except Exception:
+            pass
 
     def __del__(self):
         """Destructor to ensure cleanup even if stop() isn't called
@@ -361,21 +387,35 @@ class SensoryNeuralStream:
                     # Add new readers
                     for aid, mapping in agent_map.items():
                         if aid not in self._shm_readers:
-                            # Only attach legacy 'neurons_stream' via SHM; skip 'sensory'
-                            p = mapping.get("neurons_stream")
+                            # Attach either new 'sensory' capability or legacy 'neurons_stream' via SHM
+                            p = mapping.get("sensory") or mapping.get("neurons_stream")
                             if p:
                                 try:
-                                    reader = _acquire_shared_reader(Path(p))
-                                    self._shm_readers[aid] = reader
-                                    _log_shm_open(Path(p))
-                                    logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                                    with self._shm_lock:
+                                        path_str = str(Path(p))
+                                        reader = self._shm_readers_by_path.get(path_str)
+                                        if reader is None:
+                                            reader = _acquire_shared_reader(Path(path_str))
+                                            if reader is not None:
+                                                self._shm_readers_by_path[path_str] = reader
+                                                _log_shm_open(Path(path_str))
+                                                self._shm_readers[aid] = reader
+                                                logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                                            else:
+                                                logger.warning(f"[SHM] Skipping failed reader for agent {aid}: {p}")
+                                        else:
+                                            self._shm_readers[aid] = reader
+                                            logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                                 except Exception:
                                     pass
                     # Remove stale readers
                     for aid in list(self._shm_readers.keys()):
                         if aid not in agent_map:
                             try:
-                                _release_shared_reader(self._shm_readers[aid].path)
+                                with self._shm_lock:
+                                    reader = self._shm_readers.get(aid)
+                                    if reader and hasattr(reader, 'path'):
+                                        _release_shared_reader(reader.path)
                             except Exception:
                                 pass
                             self._shm_readers.pop(aid, None)
@@ -482,17 +522,17 @@ class SensoryNeuralStream:
                 raw_bytes = slot.memory_view[:nbytes].tobytes()
                 byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
 
-                # Get structure type using FEAGI's API
-                structure_type = byte_structure.structure_type
-
-                if structure_type != 11:
-                    logger.warning(
-                        f"Unexpected structure type: {structure_type}, expected 11 (NEURON_CATEGORIES)"
-                    )
-                    logger.debug(
-                        f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}"
-                    )
-                    return StreamResult.SUCCESS
+                # Get structure type using FEAGI's API (informational only)
+                try:
+                    structure_type = byte_structure.structure_type
+                    # Log once if not the typical neuron categories type; do not early-return
+                    if structure_type != 11 and not hasattr(self, "_stype_warned"):
+                        logger.info(
+                            f"[NPU] structure_type={structure_type} (proceeding to decode)"
+                        )
+                        self._stype_warned = True
+                except Exception:
+                    structure_type = None
 
                 # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
                 cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
@@ -747,8 +787,12 @@ class SensoryNeuralStream:
 
             byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
             structure_type = byte_structure.structure_type
-            if structure_type != 11:
-                return
+            # Log once if not the typical neuron categories type; do not early-return
+            if structure_type != 11 and not hasattr(self, "_stype_warned_fallback"):
+                logger.info(
+                    f"[NPU-FALLBACK] structure_type={structure_type} (proceeding to decode)"
+                )
+                self._stype_warned_fallback = True
 
             print(">> >>", byte_structure)
             cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
@@ -1028,17 +1072,33 @@ class _ShmRingReader:
 
     def _open(self) -> None:
         self._fd = _os.open(str(self.path), _os.O_RDWR)
-        self._mm = _mmap.mmap(self._fd, 0, access=_mmap.ACCESS_READ)
-        self._mm.seek(0)
-        header = self._mm.read(self.HEADER_SIZE)
-        magic, version, num_slots, slot_size, frame_seq, write_index = _struct.unpack(
-            self.HEADER_FMT, header[: _struct.calcsize(self.HEADER_FMT)]
-        )
-        if magic not in self.MAGIC_SET:
-            raise ValueError("Invalid SHM magic")
-        self.num_slots = int(num_slots)
-        self.slot_size = int(slot_size)
-        self.last_seq = int(frame_seq) - 1
+        try:
+            self._mm = _mmap.mmap(self._fd, 0, access=_mmap.ACCESS_READ)
+            self._mm.seek(0)
+            header = self._mm.read(self.HEADER_SIZE)
+            magic, version, num_slots, slot_size, frame_seq, write_index = _struct.unpack(
+                self.HEADER_FMT, header[: _struct.calcsize(self.HEADER_FMT)]
+            )
+            if magic not in self.MAGIC_SET:
+                raise ValueError("Invalid SHM magic")
+            self.num_slots = int(num_slots)
+            self.slot_size = int(slot_size)
+            self.last_seq = int(frame_seq) - 1
+        except Exception:
+            # Close the file descriptor if mmap or header parsing fails
+            if self._fd is not None:
+                try:
+                    _os.close(self._fd)
+                except Exception:
+                    pass
+                self._fd = None
+            if self._mm is not None:
+                try:
+                    self._mm.close()
+                except Exception:
+                    pass
+                self._mm = None
+            raise
 
     def read_latest(self) -> Optional[bytes]:
         try:
