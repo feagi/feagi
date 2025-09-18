@@ -425,11 +425,9 @@ class SensoryNeuralStream:
             try:
                 import feagi_rust_py_libs as fdp
 
-                # Create FeagiByteStructure directly from raw bytes
+                # Create FeagiByteStructure directly from raw bytes (modern API)
                 raw_bytes = slot.memory_view[:nbytes].tobytes()
-                byte_structure = fdp.io_processing.bytes.FeagiByteStructure(
-                    raw_bytes
-                )
+                byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
 
                 # Get structure type using FEAGI's API
                 structure_type = byte_structure.structure_type
@@ -443,8 +441,8 @@ class SensoryNeuralStream:
                     )
                     return StreamResult.SUCCESS
                 print(">> > >", byte_structure)
-                # Create CorticalMappedXYZPNeuronData from the byte structure
-                cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
+                cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                     byte_structure
                 )
 
@@ -694,13 +692,13 @@ class SensoryNeuralStream:
             # Fallback: standard feagi_data_processing byte structure
             import feagi_rust_py_libs as fdp
 
-            byte_structure = fdp.io_processing.bytes.FeagiByteStructure(raw_bytes)
+            byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
             structure_type = byte_structure.structure_type
             if structure_type != 11:
                 return
 
             print(">> >>", byte_structure)
-            cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+            cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                 byte_structure
             )
             cortical_areas: Dict[str, Dict[str, Any]] = {}
