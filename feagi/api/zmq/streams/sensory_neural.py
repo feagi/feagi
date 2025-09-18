@@ -176,6 +176,8 @@ class SensoryNeuralStream:
         self._shm_readers: Dict[str, _ShmRingReader] = {}
         self._shm_readers_by_path: Dict[str, _ShmRingReader] = {}
         self._shm_lock = threading.Lock()
+        # Track failed SHM paths to avoid repeated retry spam
+        self._failed_shm_paths: set = set()
         try:
             from feagi.core.state_manager import FeagiStateManager
 
@@ -393,6 +395,10 @@ class SensoryNeuralStream:
                                 try:
                                     with self._shm_lock:
                                         path_str = str(Path(p))
+                                        # Skip paths that have previously failed
+                                        if path_str in self._failed_shm_paths:
+                                            continue
+                                        
                                         reader = self._shm_readers_by_path.get(path_str)
                                         if reader is None:
                                             reader = _acquire_shared_reader(Path(path_str))
@@ -402,7 +408,9 @@ class SensoryNeuralStream:
                                                 self._shm_readers[aid] = reader
                                                 logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
                                             else:
-                                                logger.warning(f"[SHM] Skipping failed reader for agent {aid}: {p}")
+                                                # Mark this path as failed to avoid repeated attempts
+                                                self._failed_shm_paths.add(path_str)
+                                                logger.warning(f"[SHM] Marking path as failed, will not retry: {Path(p).name}")
                                         else:
                                             self._shm_readers[aid] = reader
                                             logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
@@ -415,7 +423,10 @@ class SensoryNeuralStream:
                                 with self._shm_lock:
                                     reader = self._shm_readers.get(aid)
                                     if reader and hasattr(reader, 'path'):
+                                        path_str = str(reader.path)
                                         _release_shared_reader(reader.path)
+                                        # Clear failed status when agent disconnects to allow retry on reconnect
+                                        self._failed_shm_paths.discard(path_str)
                             except Exception:
                                 pass
                             self._shm_readers.pop(aid, None)
