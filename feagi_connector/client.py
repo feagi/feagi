@@ -262,6 +262,9 @@ class FeagiClient:
             
             self.connected = True
             logger.info("✅ Successfully connected to FEAGI")
+            # Start heartbeat after successful connect
+            if not self.heartbeat_task:
+                self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             return True
             
         except Exception as e:
@@ -305,6 +308,17 @@ class FeagiClient:
                 pass
             self.viz_listen_task = None
         
+        # REST deregistration (best-effort)
+        try:
+            # REST Stream wrapper: route and method recognized by FEAGI transport
+            await self.rest_client.make_rest_request({
+                "route": "/v1/agent/deregister",
+                "method": "POST",
+                "body": {"agent_id": self.agent_id},
+            })
+        except Exception:
+            pass
+
         # Close clients
         await self.command_client.close()
         self.sensory_client.close()  # This is now a synchronous method
