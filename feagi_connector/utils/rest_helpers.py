@@ -10,7 +10,7 @@ All functions are OS-agnostic and avoid hardcoding environment variables.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 
 def _requests():
@@ -96,35 +96,4 @@ def set_simulation_timestep(host: str, rest_port: int, timestep_seconds: float) 
     except Exception:
         return False
 
-
-# --- Additional helpers ---
-def get_shared_memory_paths(host: str, rest_port: int, agent_id: Optional[str]) -> Dict[str, str]:
-    """Fetch FEAGI-assigned shared memory paths for a specific agent.
-
-    Args:
-        host: FEAGI host address.
-        rest_port: FEAGI REST port.
-        agent_id: Agent identifier used during registration.
-
-    Returns:
-        Mapping of logical stream name to SHM path, e.g. {"sensory": "/tmp/feagi_sensory.bin", ...}
-        Returns empty dict if not available.
-    """
-    if not agent_id:
-        return {}
-    requests = _requests()
-    url = f"http://{host}:{int(rest_port)}/v1/agent/shared_mem"
-    try:
-        r = requests.get(url, timeout=5.0)
-        if r.status_code != 200:
-            return {}
-        data = r.json() or {}
-        if not isinstance(data, dict):
-            return {}
-        paths = data.get(str(agent_id)) or {}
-        if isinstance(paths, dict):
-            return {str(k): str(v) for k, v in paths.items()}
-        return {}
-    except Exception:
-        return {}
 

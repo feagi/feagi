@@ -32,6 +32,12 @@ dependencies = [
 rust = [
     "feagi-rust-py-libs>=0.0.53",
 ]
+video = [
+    "opencv-python>=4.9.0",
+]
+rest = [
+    "requests>=2.31.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -49,6 +55,8 @@ docs = [
 ]
 full = [
     "feagi-rust-py-libs>=0.0.53",
+    "requests>=2.31.0",
+    "opencv-python>=4.9.0",
 ]
 
 [project.urls]

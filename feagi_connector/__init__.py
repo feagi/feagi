@@ -18,7 +18,6 @@ from feagi_connector.utils.rest_helpers import (
     get_cortical_dimensions,
     get_segmented_3x3_dimensions,
     set_simulation_timestep,
-    get_shared_memory_paths,
 )
 from feagi_connector.vision.processor import SegmentedVisionProcessor, bgr_to_rgb_uint8, numpy_to_image_frame
 from feagi_connector.vision.visualize import build_segmented_mosaic, build_neural_image
@@ -46,7 +45,6 @@ __all__ = [
     "get_cortical_dimensions",
     "get_segmented_3x3_dimensions",
     "set_simulation_timestep",
-    "get_shared_memory_paths",
     # Vision
     "SegmentedVisionProcessor",
     "bgr_to_rgb_uint8",
