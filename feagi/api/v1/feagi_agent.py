@@ -256,9 +256,30 @@ class FeagiAgentAPI:
             sm = FeagiStateManager.instance()
             result: Dict[str, Any] = {}
             if hasattr(sm, "_agent_shared_memory"):
+                seen_signatures = set()
                 for aid, mapping in getattr(sm, "_agent_shared_memory", {}).items():
-                    if mapping:
-                        result[aid] = {**mapping}
+                    if not mapping:
+                        continue
+                    # Create a stable signature of the mapping to collapse duplicates
+                    try:
+                        signature_parts = []
+                        for k in sorted(mapping.keys()):
+                            v = mapping.get(k, "")
+                            signature_parts.append(f"{k}={v}")
+                        signature = "|".join(signature_parts)
+                    except Exception:
+                        signature = str(mapping)
+                    if signature in seen_signatures:
+                        # Duplicate mapping under a different agent_id; keep first
+                        try:
+                            self.logger.info(
+                                f"[SHM] Deduplicating shared_mem entry for agent '{aid}' (duplicate mapping)"
+                            )
+                        except Exception:
+                            pass
+                        continue
+                    seen_signatures.add(signature)
+                    result[aid] = {**mapping}
             return result
         except Exception as e:
             self.logger.error(f"Error listing shared memory agents: {e}")
