@@ -137,8 +137,9 @@ class MotorStream:
         self._motor_data_task: Optional[asyncio.Task] = None
         self._subscriber_monitor_task: Optional[asyncio.Task] = None
 
-        # Optional SHM writer for motor data
+        # Optional SHM writer for core motor data and per-agent motor writers
         self._shm_writer = None
+        self._agent_shm_writers: Dict[str, _ShmRingWriter] = {}
         try:
             from feagi.core.state_manager import FeagiStateManager
 
@@ -238,6 +239,31 @@ class MotorStream:
             logger.error(f"Error handling genome state change: {e}")
             # Default to standby mode on error
             self._active_mode = False
+
+    def _has_shm_consumers(self) -> bool:
+        """Return True if there is any SHM consumer configured for motor data.
+
+        This includes either a core motor SHM writer or at least one
+        per-agent motor SHM mapping registered in the state manager.
+        """
+        try:
+            if self._shm_writer is not None:
+                return True
+            # Check cached per-agent writers first
+            if getattr(self, "_agent_shm_writers", None):
+                if len(self._agent_shm_writers) > 0:
+                    return True
+            # Check registry for any agent with a motor SHM path
+            from feagi.core.state_manager import FeagiStateManager
+            sm = FeagiStateManager.instance()
+            agent_map = getattr(sm, "_agent_shared_memory", {})
+            for _aid, mapping in agent_map.items():
+                if mapping.get("motor") or mapping.get("motor_stream"):
+                    return True
+            return False
+        except Exception:
+            # Be conservative on error
+            return False
 
     async def start(self) -> None:
         """Start the motor stream server."""
@@ -354,14 +380,17 @@ class MotorStream:
         """Process motor data in the cortical area format from
         UnifiedFQSampler."""
         try:
-            # Check if we have connected clients
+            # Check if we have active consumers
             client_count = self.get_connected_client_count()
+            has_shm = self._has_shm_consumers()
 
-            if client_count == 0:
+            if client_count == 0 and not has_shm:
                 logger.debug(
-                    "No motor clients connected, skipping cortical area data"
+                    "No motor consumers (no ZMQ clients, no SHM), skipping cortical area data"
                 )
                 return
+            elif client_count == 0 and has_shm:
+                logger.info("𒓉 [MOTOR] ZMQ has no subscribers, but SHM consumers detected → proceeding with SHM fan-out")
 
             logger.debug(
                 f"Processing new cortical area format for motor: "
@@ -369,7 +398,35 @@ class MotorStream:
             )
 
             # Process each cortical area separately for motor control
-            for area_id, area_data in cortical_data.items():
+            for area_key, area_data in cortical_data.items():
+                # Resolve cortical ID string from sampler key (int index or str)
+                cortical_id_str = None
+                try:
+                    if isinstance(area_key, int):
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(area_key)
+                    elif isinstance(area_key, str) and area_key.isdigit():
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(int(area_key))
+                    elif isinstance(area_key, str):
+                        cortical_id_str = area_key
+                except Exception:
+                    cortical_id_str = None
+
+                if not cortical_id_str:
+                    continue
+
+                # Filter to OPU (OU) areas only
+                try:
+                    cm = self.core_api.get_connectome_manager() if hasattr(self.core_api, "get_connectome_manager") else None
+                    if cm and hasattr(cm, "get_area_info"):
+                        info = cm.get_area_info(cortical_id_str) or {}
+                        area_type = str(info.get("type", "")).upper()
+                        if area_type != "OPU":
+                            continue
+                except Exception:
+                    # If metadata unavailable, heuristic: require 'o' prefix
+                    if not cortical_id_str.startswith("o"):
+                        continue
+
                 if not area_data or not area_data.get("neuron_ids"):
                     continue
 
@@ -428,7 +485,7 @@ class MotorStream:
 
                     #  Create cortical ID using modern feagi-rust-py-libs
                     #  approach
-                    area_str = str(area_id)
+                    area_str = str(cortical_id_str)
 
                     try:
                         #  Try to create cortical ID directly from string -
@@ -505,12 +562,12 @@ class MotorStream:
                         )
 
                     await self._send_motor_binary_data(
-                        binary_data, channel=area_id
+                        binary_data, channel=cortical_id_str
                     )
 
                 except Exception as e:
                     logger.error(
-                        f"Error encoding motor data for area {area_id}: {e}"
+                        f"Error encoding motor data for area {cortical_id_str}: {e}"
                     )
 
         except Exception as e:
@@ -549,6 +606,30 @@ class MotorStream:
                     self._shm_writer.write_payload(binary_data)
                 except Exception as e:
                     logger.debug(f"[SHM] Motor write failed: {e}")
+            # Also fan-out to per-agent motor SHM files if available
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                agent_map = getattr(sm, "_agent_shared_memory", {})
+                for aid, mapping in agent_map.items():
+                    path = mapping.get("motor") or mapping.get("motor_stream")
+                    if not path:
+                        continue
+                    writer = self._agent_shm_writers.get(aid)
+                    if writer is None:
+                        try:
+                            writer = _ShmRingWriter(Path(path))
+                            self._agent_shm_writers[aid] = writer
+                            logger.info(f"[SHM] Motor fan-out enabled for agent {aid}: {path}")
+                        except Exception as we:
+                            logger.debug(f"[SHM] Failed to open agent motor SHM for {aid}: {we}")
+                            continue
+                    try:
+                        writer.write_payload(binary_data)
+                    except Exception as wre:
+                        logger.debug(f"[SHM] Agent motor write failed for {aid}: {wre}")
+            except Exception:
+                pass
 
             # Send data on specified motor channel (retain ZMQ path)
             await self.socket.send_multipart(

@@ -58,7 +58,7 @@ setup(
         "zmq",
         "capnp",
         "toml",
-        "feagi-rust-py-libs>=0.0.45",
+        "feagi-rust-py-libs>=0.0.54",
         "tomli",
         "tomli-w",
         "pathlib",

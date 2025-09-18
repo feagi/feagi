@@ -440,7 +440,7 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [25, 0, 0],
             },
-            "ov_mod": {
+            "omod00": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Central vision modulation",
@@ -449,7 +449,7 @@ cortical_types = {
                 "resolution": [2, 1, 10],
                 "coordinate_3d": [30, 0, 0],
             },
-            "ov_ecc": {
+            "oecc00": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Central vision eccentricity",

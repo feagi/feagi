@@ -423,7 +423,7 @@ class SensoryNeuralStream:
 
             # Decode feagi_data_processing format
             try:
-                import feagi_data_processing as fdp
+                import feagi_rust_py_libs as fdp
 
                 # Create FeagiByteStructure directly from raw bytes
                 raw_bytes = slot.memory_view[:nbytes].tobytes()
@@ -442,7 +442,7 @@ class SensoryNeuralStream:
                         f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}"
                     )
                     return StreamResult.SUCCESS
-
+                print(">> > >", byte_structure)
                 # Create CorticalMappedXYZPNeuronData from the byte structure
                 cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                     byte_structure
@@ -692,13 +692,14 @@ class SensoryNeuralStream:
                     logger.debug(f"[ZS] Zero-serialize parse failed, falling back: {e}")
 
             # Fallback: standard feagi_data_processing byte structure
-            import feagi_data_processing as fdp
+            import feagi_rust_py_libs as fdp
 
             byte_structure = fdp.io_processing.bytes.FeagiByteStructure(raw_bytes)
             structure_type = byte_structure.structure_type
             if structure_type != 11:
                 return
 
+            print(">> >>", byte_structure)
             cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                 byte_structure
             )
