@@ -743,8 +743,7 @@ class BurstEngine:
                     total_targets = sum(len(targets) for targets in propagation_data.values())
                     logger.info("Synaptic propagation: %d candidates injected from %d fired neurons → %d target neurons", 
                                injected_count, prev_neuron_count, total_targets)
-                else:
-                    logger.info("Synaptic propagation: No synaptic connections found for %d fired neurons", prev_neuron_count)
+
             # No previous fire queue - first burst or no synaptic propagation
             pass
         else:

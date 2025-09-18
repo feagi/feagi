@@ -943,6 +943,8 @@ class ProcessManager:
                                 access_log=api_config.get("access_log", True),
                                 log_level=uvicorn_log_level,
                                 loop="asyncio",
+                                timeout_keep_alive=1,
+                                limit_concurrency=256,
                             )
                         except Exception as e:
                             logger.error(f"Failed to start uvicorn: {e}")
@@ -1112,6 +1114,8 @@ class ProcessManager:
                         port=config["port"],
                         log_level=uvicorn_log_level,
                         loop="asyncio",
+                        timeout_keep_alive=1,
+                        limit_concurrency=256,
                     )
                 except Exception as e:
                     logger.error(f"API service task failed: {e}")

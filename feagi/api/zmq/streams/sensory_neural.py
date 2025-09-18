@@ -440,7 +440,7 @@ class SensoryNeuralStream:
                         f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}"
                     )
                     return StreamResult.SUCCESS
-                print(">> > >", byte_structure)
+
                 # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
                 cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                     byte_structure
@@ -534,22 +534,22 @@ class SensoryNeuralStream:
 
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
-                # Detailed area mapping diagnostics to aid BV issues
-                try:
-                    area_results = result.get("area_results") or {}
-                    for aid, meta in area_results.items():
-                        logger.info(
-                            f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
-                            f"found={meta.get('total_neurons_found')}, "
-                            f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
-                            f"ok={meta.get('success')}, err={meta.get('error', '')}"
-                        )
-                    logger.info(
-                        f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
-                        f"total_stimulated={result.get('total_stimulated', 0)}"
-                    )
-                except Exception:
-                    pass
+                # # Detailed area mapping diagnostics to aid BV issues
+                # try:
+                #     area_results = result.get("area_results") or {}
+                #     for aid, meta in area_results.items():
+                #         logger.info(
+                #             f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                #             f"found={meta.get('total_neurons_found')}, "
+                #             f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                #             f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                #         )
+                #     logger.info(
+                #         f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
+                #         f"total_stimulated={result.get('total_stimulated', 0)}"
+                #     )
+                # except Exception:
+                #     pass
 
                 if result.get("success", False):
                     if self._is_debug_npu_enabled():
@@ -751,22 +751,22 @@ class SensoryNeuralStream:
                 }
             if neural_data:
                 result = self.core_api.stimulate_neurons(neural_data)
-                # Detailed area mapping diagnostics
-                try:
-                    area_results = result.get("area_results") or {}
-                    for aid, meta in area_results.items():
-                        logger.info(
-                            f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
-                            f"found={meta.get('total_neurons_found')}, "
-                            f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
-                            f"ok={meta.get('success')}, err={meta.get('error', '')}"
-                        )
-                    logger.info(
-                        f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
-                        f"total_stimulated={result.get('total_stimulated', 0)}"
-                    )
-                except Exception:
-                    pass
+                # # Detailed area mapping diagnostics
+                # try:
+                #     area_results = result.get("area_results") or {}
+                #     for aid, meta in area_results.items():
+                #         logger.info(
+                #             f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                #             f"found={meta.get('total_neurons_found')}, "
+                #             f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                #             f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                #         )
+                #     logger.info(
+                #         f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
+                #         f"total_stimulated={result.get('total_stimulated', 0)}"
+                #     )
+                # except Exception:
+                #     pass
                 try:
                     _tid_list = list(neural_data.keys())
                     _tid_preview = ", ".join(_tid_list[:6])

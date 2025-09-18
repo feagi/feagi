@@ -21,12 +21,13 @@ import time
 import traceback
 
 from feagi.utils.logger import setup_logger
+import threading
 
 logger = setup_logger(name="feagi.api.rest.app")
 logger.info("...")
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -247,6 +248,92 @@ app.add_middleware(
 )
 
 
+# --- Lightweight rate/concurrency tracker (always on) ---
+_RATE_WINDOW_SEC: float = 1.0
+_RATE_WARN_THRESHOLD: int = 20
+_RATE_SUPPRESS_SEC: float = 10.0
+_rate_track: Dict[Tuple[str, str], Dict[str, float]] = {}
+_INFLIGHT_WARN_THRESHOLD: int = 25
+_inflight_by_ip: Dict[str, int] = {}
+_inflight_lock = threading.Lock()
+_fd_hot_until: float = 0.0
+
+
+def _fd_monitor_thread() -> None:
+    """Background FD usage monitor; logs WARN when nearing soft limit."""
+    try:
+        import resource as _resource  # type: ignore
+        soft, hard = _resource.getrlimit(_resource.RLIMIT_NOFILE)
+    except Exception:
+        soft, hard = (256, 256)
+    warn_ratio = 0.8
+    last_detail = 0.0
+    while True:
+        try:
+            import os as _os
+            fd_count = 0
+            try:
+                # macOS/Linux
+                fd_count = len(_os.listdir("/dev/fd"))
+            except Exception:
+                fd_count = 0
+            if soft and fd_count > int(soft * warn_ratio):
+                logger.warning(
+                    f"[FD] Open file descriptors near limit: {fd_count}/{soft} (hard {hard})."
+                )
+                # Detailed breakdown no more than every 5 seconds
+                now = time.time()
+                if now - last_detail > 5.0:
+                    last_detail = now
+                    sockets = 0
+                    pipes = 0
+                    files = 0
+                    shm = 0
+                    path_counts: Dict[str, int] = {}
+                    try:
+                        for name in _os.listdir("/dev/fd"):
+                            p = f"/dev/fd/{name}"
+                            try:
+                                target = _os.readlink(p)
+                            except Exception:
+                                continue
+                            t = str(target)
+                            if "socket:" in t:
+                                sockets += 1
+                            elif "pipe:" in t:
+                                pipes += 1
+                            else:
+                                files += 1
+                                if "feagi-shm" in t or "feagi-shared-mem" in t:
+                                    shm += 1
+                                # Tally top paths (trim long)
+                                key = t
+                                if len(key) > 80:
+                                    key = key[:77] + "..."
+                                path_counts[key] = path_counts.get(key, 0) + 1
+                    except Exception:
+                        pass
+                    logger.warning(
+                        f"[FD-DETAIL] sockets={sockets}, pipes={pipes}, files={files}, shm_like={shm}"
+                    )
+                    # Enable hot request sampling for next 5 seconds
+                    try:
+                        globals()["_fd_hot_until"] = now + 5.0
+                    except Exception:
+                        pass
+                    # Log top file targets
+                    try:
+                        top = sorted(path_counts.items(), key=lambda kv: kv[1], reverse=True)[:5]
+                        if top:
+                            for k, v in top:
+                                logger.warning(f"[FD-DETAIL] {v} × {k}")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        time.sleep(2.0)
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Enhanced API debug logging middleware for comprehensive request/response
@@ -260,6 +347,51 @@ async def log_requests(request: Request, call_next):
 
     Enhanced to capture request body and response details for comprehensive debugging.
     """
+    # === ALWAYS-ON: request-rate tracking to detect abusive callers ===
+    try:
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        now = time.time()
+        key = (client_ip, path)
+        st = _rate_track.get(key)
+        if not st or (now - st.get("window_start", 0.0)) > _RATE_WINDOW_SEC:
+            _rate_track[key] = {"window_start": now, "count": 1.0, "last_warn": st.get("last_warn", 0.0) if st else 0.0}
+        else:
+            st["count"] = st.get("count", 0.0) + 1.0
+            # Warn when rate crosses threshold, suppress repeated warnings briefly
+            if st["count"] >= _RATE_WARN_THRESHOLD and (now - st.get("last_warn", 0.0)) > _RATE_SUPPRESS_SEC:
+                ua = request.headers.get("user-agent", "<none>")
+                logger.warning(
+                    f"[API-RATE] High call rate: {client_ip} → {path}: {int(st['count'])} req in {_RATE_WINDOW_SEC:.1f}s; UA={ua}"
+                )
+                st["last_warn"] = now
+    except Exception:
+        # Never fail request due to diagnostics
+        pass
+
+    # Track in-flight concurrently per client
+    client_ip = request.client.host if request.client else "unknown"
+    try:
+        with _inflight_lock:
+            _inflight_by_ip[client_ip] = _inflight_by_ip.get(client_ip, 0) + 1
+            if _inflight_by_ip[client_ip] >= _INFLIGHT_WARN_THRESHOLD:
+                ua = request.headers.get("user-agent", "<none>")
+                logger.warning(
+                    f"[API-CONC] High concurrent requests from {client_ip}: {_inflight_by_ip[client_ip]} in-flight; UA={ua}"
+                )
+    except Exception:
+        pass
+
+    # If FD pressure is hot, sample request sources for quick identification
+    try:
+        import time as _t
+        hot_until = globals().get('_fd_hot_until', 0.0)
+        if _t.time() < hot_until:
+            ua = request.headers.get("user-agent", "<none>")
+            logger.warning(f"[FD-HOT] {client_ip} → {path} UA={ua}")
+    except Exception:
+        pass
+
     # Check if debug API logging is enabled - try multiple methods to detect it
     state_manager = FeagiStateManager.instance()
     debug_api_enabled = False
@@ -291,8 +423,17 @@ async def log_requests(request: Request, call_next):
         log_requests._diagnostic_shown = True
 
     if not debug_api_enabled:
-        # If debug is not enabled, just pass through without logging
-        return await call_next(request)
+        # If debug is not enabled, still ensure inflight tracking is decremented
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            try:
+                with _inflight_lock:
+                    if client_ip in _inflight_by_ip:
+                        _inflight_by_ip[client_ip] = max(0, _inflight_by_ip[client_ip] - 1)
+            except Exception:
+                pass
 
     # Show debug enabled message on first request (if not already shown)
     if not hasattr(log_requests, "_debug_shown"):
@@ -487,6 +628,14 @@ async def log_requests(request: Request, call_next):
 
         # Re-raise the exception
         raise
+    finally:
+        # Decrement inflight counter
+        try:
+            with _inflight_lock:
+                if client_ip in _inflight_by_ip:
+                    _inflight_by_ip[client_ip] = max(0, _inflight_by_ip[client_ip] - 1)
+        except Exception:
+            pass
 
 
 @app.middleware("http")
@@ -535,6 +684,12 @@ standard_response = {
 async def set_api_state_ready():
     state = FeagiStateManager.instance()
     state.set_api_state(ServiceState.READY)
+    # Start FD monitor thread
+    try:
+        t = threading.Thread(target=_fd_monitor_thread, daemon=True)
+        t.start()
+    except Exception:
+        pass
 
 
 def create_rest_app_direct(config: Dict[str, Any]):
