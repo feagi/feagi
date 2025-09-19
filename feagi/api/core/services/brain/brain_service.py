@@ -890,6 +890,9 @@ class BrainService(BaseService):
                     except Exception:
                         pass
 
+                    # Initialize position to neurons mapping
+                    position_to_neurons = {}
+                    
                     # Get all neuron positions in batch (if available)
                     if hasattr(
                         self._connectome_manager, "batch_get_neuron_positions"

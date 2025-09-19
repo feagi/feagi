@@ -756,59 +756,28 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Integer cortical_idx if found, None otherwise
         """
-        result = self.cortical_mapping.get_idx(cortical_id)
+        # CRITICAL FIX: Strip literal quotes that may be embedded in cortical_id
+        # This handles cases where cortical_id comes in as "'iic400'" instead of "iic400"
+        cleaned_cortical_id = cortical_id.strip("'\"") if cortical_id else cortical_id
+        
+        result = self.cortical_mapping.get_idx(cleaned_cortical_id)
         if result is None:
             # Check if cortical mapping is empty and try to rebuild it
             try:
                 all_mappings = self.cortical_mapping.get_all_mappings() if hasattr(self.cortical_mapping, 'get_all_mappings') else {}
                 all_ids = list(all_mappings.keys())
                 
-                # If mapping is empty but we have cortical areas, rebuild the mapping
-                if not all_ids and hasattr(self, 'cortical_areas') and self.cortical_areas:
-                    logger.info(f"[CORTICAL-MAP] Mapping empty but cortical areas exist. Rebuilding mapping...")
-                    rebuild_success = self.rebuild_cortical_mapping_from_existing_areas()
-                    if rebuild_success:
-                        logger.info(f"[CORTICAL-MAP] Successfully rebuilt mapping. Retrying lookup for {cortical_id}")
-                        result = self.cortical_mapping.get_idx(cortical_id)
-                        if result is not None:
-                            return result
-                    else:
-                        logger.error(f"[CORTICAL-MAP] Failed to rebuild mapping")
+                # Fallback: Check if cleaned cortical_id exists in get_all_mappings
+                if cleaned_cortical_id in all_mappings:
+                    expected_idx = all_mappings[cleaned_cortical_id]
+                    logger.info(f"[CORTICAL-MAP] SUCCESS: After cleaning quotes, {cleaned_cortical_id} found -> {expected_idx}")
+                    # Return the result since we found it after cleaning
+                    return expected_idx
                 
-                # If still not found, show debug info
-                if result is None:
-                    # Use the proper public interface
-                    all_mappings = self.cortical_mapping.get_all_mappings() if hasattr(self.cortical_mapping, 'get_all_mappings') else {}
-                    all_ids = list(all_mappings.keys())
-                    
-                    logger.error(f"[CORTICAL-MAP] {cortical_id} not found. Available IDs: {all_ids[:10]}")
-                    logger.error(f"[CORTICAL-MAP] Total mappings: {len(all_mappings)}")
-                    
-                    # Debug: Check if the specific ID exists in the mapping
-                    if cortical_id in all_mappings:
-                        expected_idx = all_mappings[cortical_id]
-                        logger.error(f"[CORTICAL-MAP] BUG: {cortical_id} exists in get_all_mappings() -> {expected_idx}, but get_idx() returns None")
-                        # Try direct access to see what's wrong
-                        direct_result = self.cortical_mapping.get_idx(cortical_id)
-                        logger.error(f"[CORTICAL-MAP] Direct get_idx({cortical_id}) = {direct_result}")
-                    else:
-                        logger.error(f"[CORTICAL-MAP] {cortical_id} not in get_all_mappings() either")
-                    
-                    # Additional debug: Check if genome is loaded
-                    from feagi.core.state_manager import FeagiStateManager, GenomeState
-                    state_manager = FeagiStateManager.instance()
-                    genome_state = state_manager.get_genome_state()
-                    logger.error(f"[CORTICAL-MAP] Genome state: {genome_state}, Expected: {GenomeState.LOADED.value}")
-                    
-                    # Check cortical areas
-                    if hasattr(self, 'cortical_areas') and self.cortical_areas:
-                        ca_keys = list(self.cortical_areas.keys())[:10]
-                        logger.error(f"[CORTICAL-MAP] cortical_areas keys: {ca_keys}")
-                    else:
-                        logger.error(f"[CORTICAL-MAP] No cortical_areas or empty")
-                    
+                # Not found even after cleaning
+                logger.error(f"[CORTICAL-MAP] {cortical_id} (cleaned: {cleaned_cortical_id}) not found. Available IDs: {all_ids[:10]}")
             except Exception as e:
-                logger.error(f"[CORTICAL-MAP] Error during mapping rebuild for {cortical_id}: {e}")
+                logger.error(f"[CORTICAL-MAP] Error during debug logging for {cortical_id}: {e}")
         return result
 
     def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
@@ -890,7 +859,23 @@ class ConnectomeManager(NeuronMappingProvider):
             cortical_id: String identifier for cortical area
             cortical_idx: Integer index for cortical area
         """
-        self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+        logger.info(f"[CORTICAL-MAP] _sync_cortical_mapping called: {cortical_id} -> {cortical_idx}")
+        success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+        if success:
+            logger.info(f"[CORTICAL-MAP] Successfully added mapping: {cortical_id} -> {cortical_idx}")
+        else:
+            logger.error(f"[CORTICAL-MAP] FAILED to add mapping: {cortical_id} -> {cortical_idx}")
+            # Verify what went wrong
+            logger.error(f"[CORTICAL-MAP] Input validation: cortical_id='{cortical_id}' (len={len(cortical_id) if cortical_id else 0}), cortical_idx={cortical_idx}")
+            if cortical_idx in (0, 1) and cortical_id not in ("_death", "_power"):
+                logger.error(f"[CORTICAL-MAP] Rejected: Trying to use reserved cortical_idx {cortical_idx} for non-core area {cortical_id}")
+        
+        # Verify the mapping was actually added
+        verification = self.cortical_mapping.get_idx(cortical_id)
+        if verification != cortical_idx:
+            logger.error(f"[CORTICAL-MAP] VERIFICATION FAILED: get_idx({cortical_id}) returned {verification}, expected {cortical_idx}")
+        else:
+            logger.info(f"[CORTICAL-MAP] Verification passed: get_idx({cortical_id}) = {cortical_idx}")
 
     def _remove_cortical_mapping(self, cortical_id: str) -> None:
         """Remove cortical mapping for an area.
@@ -2255,6 +2240,8 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             ValueError: If an area with the same name already exists or dimensions exceed Morton limits
         """
+        logger.info(f"[CORTICAL-MAP] add_cortical_area called: name='{name}', cortical_id='{cortical_id}', dimensions={dimensions}, position={position}")
+        
         # Validate cortical area dimensions against Morton spatial hash limits
         from feagi.core.state_manager import get_state_manager
 
