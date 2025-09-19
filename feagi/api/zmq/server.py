@@ -726,32 +726,30 @@ class ZmqServer:
             # Signal the monitor loop to stop
             self._shutdown_event.set()
 
-            #  Create a new event loop for shutdown if we're not in the server
-            #  thread
-            if threading.current_thread() != self._thread:
-                # We're in a different thread, create a new event loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    # Run the shutdown in this new loop with timeout
-                    loop.run_until_complete(
-                        asyncio.wait_for(self._stop_services(), timeout=15.0)
-                    )
-                except asyncio.TimeoutError:
-                    print(
-                        "[WARN]  Shutdown timed out after 15 seconds - forcing exit",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                finally:
+            # Always stop services on the server's own event loop to avoid
+            # cross-loop cancellation errors
+            if self._loop and self._loop.is_running():
+                if threading.current_thread() != self._thread:
+                    # Schedule shutdown coroutine on server loop and wait
                     try:
-                        loop.close()
-                    except Exception:
-                        pass  # Ignore loop closing errors
-            else:
-                # We're in the server thread, use its loop
-                if self._loop and self._loop.is_running():
+                        fut = asyncio.run_coroutine_threadsafe(
+                            asyncio.wait_for(self._stop_services(), timeout=15.0),
+                            self._loop,
+                        )
+                        # Add a small grace timeout to collect the result
+                        fut.result(timeout=18.0)
+                    except Exception as e:
+                        print(
+                            f"[WARN]  Error waiting for ZMQ services to stop: {e}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                else:
+                    # We are on the server thread; schedule and let the loop drain
                     asyncio.ensure_future(self._stop_services())
+            else:
+                # Loop not running (or missing) - nothing to await, proceed
+                pass
 
             # Wait for the server thread to finish with timeout
             if self._thread and self._thread.is_alive():
