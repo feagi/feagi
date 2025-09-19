@@ -927,7 +927,6 @@ class SensoryNeuralStream:
                 )
                 self._stype_warned_fallback = True
 
-            print(">> >>", byte_structure)
             cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                 byte_structure
             )
