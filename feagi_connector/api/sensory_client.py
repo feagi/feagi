@@ -37,6 +37,17 @@ class FeagiSensoryClient:
             self.socket = self.context.socket(zmq.PUSH)
             self.socket.setsockopt(zmq.LINGER, 1000)
             self.socket.setsockopt(zmq.SNDHWM, 100)  # Prevent buffer overflow
+            # Bounded-send behavior: avoid indefinite blocks and silent drops
+            # - IMMEDIATE: do not queue when no peer; fail fast to trigger reconnect
+            # - SNDTIMEO: bounded blocking on backpressure (200 ms)
+            try:
+                self.socket.setsockopt(zmq.IMMEDIATE, 1)
+            except Exception:
+                pass
+            try:
+                self.socket.setsockopt(zmq.SNDTIMEO, 200)
+            except Exception:
+                pass
             
             address = f"tcp://{self.host}:{self.port}"
             self.socket.connect(address)
