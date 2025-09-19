@@ -227,6 +227,162 @@ class FeagiClient:
         """Return shared memory paths provided by FEAGI (if any)."""
         return dict(self.shared_memory_paths)
 
+    async def check_feagi_readiness(self) -> Dict[str, Any]:
+        """
+        Check if FEAGI is ready to accept agent connections.
+        
+        Returns:
+            Dict containing readiness status from health_check endpoint
+        """
+        try:
+            # Use health_check endpoint to determine readiness
+            response = await self.rest_client.make_rest_request({
+                "route": "/v1/system/health_check",
+                "method": "GET"
+            })
+            
+            if response.get("status") == 200 and "body" in response:
+                health_data = response["body"]
+                
+                # FEAGI is ready if genome is available and burst engine is running
+                genome_available = health_data.get("genome_availability", False)
+                burst_engine_ready = health_data.get("burst_engine", False)
+                brain_ready = health_data.get("brain_readiness", False)
+                
+                ready = genome_available and burst_engine_ready and brain_ready
+                
+                # Determine reason and required actions
+                required_actions = []
+                reason = None
+                
+                if not genome_available:
+                    required_actions.append("Load a genome via /v1/genome/upload/file")
+                    reason = "genome_not_loaded"
+                
+                if not burst_engine_ready:
+                    required_actions.append("Start burst engine via /v1/burst_engine/start")
+                    if reason:
+                        reason = "genome_not_loaded_and_burst_engine_not_ready"
+                    else:
+                        reason = "burst_engine_not_ready"
+                
+                return {
+                    "ready": ready,
+                    "reason": reason,
+                    "details": {
+                        "genome_available": genome_available,
+                        "burst_engine_ready": burst_engine_ready,
+                        "brain_ready": brain_ready
+                    },
+                    "required_actions": required_actions
+                }
+            else:
+                return {
+                    "ready": False,
+                    "reason": "health_check_failed",
+                    "details": {"error": "Failed to get health status"},
+                    "required_actions": ["Check if FEAGI is running"]
+                }
+                
+        except Exception as e:
+            return {
+                "ready": False,
+                "reason": "connection_failed",
+                "details": {"error": str(e)},
+                "required_actions": ["Check if FEAGI is running and accessible"]
+            }
+
+    async def connect_with_readiness_check(self, timeout: float = 60.0, show_guidance: bool = True) -> bool:
+        """
+        Connect to FEAGI with readiness validation and user guidance.
+        
+        Args:
+            timeout: Maximum time to wait for FEAGI to become ready
+            show_guidance: Whether to show user guidance messages
+            
+        Returns:
+            True if connected successfully, False otherwise
+        """
+        start_time = time.time()
+        attempt = 0
+        guidance_shown = False
+        
+        logger.info("Connecting to FEAGI...")
+        
+        while time.time() - start_time < timeout:
+            attempt += 1
+            
+            # Check if FEAGI is ready
+            readiness = await self.check_feagi_readiness()
+            
+            if readiness["ready"]:
+                # FEAGI is ready, proceed with normal connection
+                logger.info("✅ FEAGI is ready - establishing connection...")
+                return await self.connect()
+            else:
+                # Not ready, provide user guidance
+                reason = readiness.get("reason", "unknown")
+                actions = readiness.get("required_actions", [])
+                
+                if attempt == 1:
+                    logger.warning(f"🔒 FEAGI not ready: {reason}")
+                    
+                    if show_guidance and not guidance_shown:
+                        guidance_shown = True
+                        self._show_readiness_guidance(reason, actions)
+                
+                # Calculate delay with exponential backoff (max 10s)
+                delay = min(2.0 * (1.5 ** (attempt - 1)), 10.0)
+                logger.info(f"Retrying in {delay:.1f}s... (attempt {attempt})")
+                await asyncio.sleep(delay)
+        
+        logger.error(f"❌ FEAGI did not become ready within {timeout:.1f}s timeout")
+        return False
+
+    def _show_readiness_guidance(self, reason: str, required_actions: List[str]) -> None:
+        """Show user-friendly guidance for making FEAGI ready."""
+        if reason == "genome_not_loaded":
+            logger.info("""
+🧠 FEAGI needs a genome to process neural data.
+
+To load a genome:
+1. Open FEAGI web interface at http://localhost:8000
+2. Go to Genome → Upload
+3. Select a .json genome file
+4. Or use API: POST /v1/genome/upload/file
+
+Once loaded, your agent will automatically connect.
+            """.strip())
+        elif reason == "burst_engine_not_ready":
+            logger.info("""
+⚡ FEAGI's burst engine needs to be started.
+
+To start the burst engine:
+1. Ensure a genome is loaded first
+2. Use API: POST /v1/burst_engine/start
+3. Or restart FEAGI with a genome
+
+Once started, your agent will automatically connect.
+            """.strip())
+        elif reason == "genome_not_loaded_and_burst_engine_not_ready":
+            logger.info("""
+🧠⚡ FEAGI needs both a genome and the burst engine to be ready.
+
+To get FEAGI ready:
+1. Load a genome:
+   - Open FEAGI web interface at http://localhost:8000
+   - Go to Genome → Upload and select a .json file
+   - Or use API: POST /v1/genome/upload/file
+
+2. Start the burst engine:
+   - Use API: POST /v1/burst_engine/start
+   - Or restart FEAGI (it will auto-start with a loaded genome)
+
+Once both are ready, your agent will automatically connect.
+            """.strip())
+        else:
+            logger.info(f"Required actions: {', '.join(required_actions)}")
+
     async def connect(self) -> bool:
         """Connect to FEAGI with proper registration."""
         try:
@@ -388,14 +544,18 @@ class FeagiClient:
         """Send periodic heartbeats to keep the connection alive."""
         try:
             while self.connected:
-                await self.command_client.make_request("heartbeat", {"agent_id": self.agent_id, "agent_type": self.agent_type})
-                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+                try:
+                    # Use ping for widest server compatibility
+                    await self.command_client.ping()
+                except Exception as _:
+                    # Non-fatal; keep connection state and retry later
+                    pass
+                await asyncio.sleep(30)
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully
             pass
         except Exception as e:
             logger.error(f"Error in heartbeat loop: {e}")
-            self.connected = False
     
     async def _motor_listen_loop(self) -> None:
         """Listen for motor data."""
