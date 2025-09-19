@@ -124,6 +124,9 @@ class BurstEngine:
         """
         # Process burst - no excessive logging
         
+        # ALWAYS log burst processing to verify it's running
+        logger.info(f"[BURST-ENGINE] Processing burst #{self.burst_count}")
+        
         self.current_timestep = self.burst_count
         
         # NPU Debug logging (enabled with --debug-npu)
@@ -1379,6 +1382,37 @@ class BurstEngine:
             
             self.logger.debug(f"Excitability processing: needs_rng={needs_rng}, areas_count={len(self._area_excitability_cache)}")
             
+            # Debug firing threshold checks for sensory areas
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            
+            # ALWAYS log this to verify neural dynamics are running
+            logger.info(f"[NEURAL-DYNAMICS] Processing {valid_range} neurons, debug_enabled={debug_enabled}")
+            
+            if debug_enabled:
+                # Check ALL neurons for high thresholds (not just first 10)
+                high_threshold_indices = []
+                high_threshold_count = 0
+                for i in range(valid_range):
+                    if valid_mask[i] and thresholds[i] > 1000:  # High threshold neurons
+                        high_threshold_count += 1
+                        if len(high_threshold_indices) < 5:  # Show first 5 examples
+                            high_threshold_indices.append(i)
+                
+                logger.info(f"[NEURAL-DEBUG] Found {high_threshold_count} neurons with threshold > 1000")
+                
+                if high_threshold_indices:
+                    logger.info("[NEURAL-DEBUG] Pre-firing check - High threshold neurons (first 5):")
+                    for i in high_threshold_indices:
+                        logger.info(f"  Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}, refractory={refractory_counters[i]}")
+                
+                # Also check some random neurons to see typical threshold values
+                import random
+                sample_indices = random.sample(range(valid_range), min(5, valid_range))
+                logger.info("[NEURAL-DEBUG] Random neuron sample:")
+                for i in sample_indices:
+                    if valid_mask[i]:
+                        logger.info(f"  Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+
             # SIMD-optimized neural processing pipeline with proper excitability
             firing_mask, num_fired = simd_batch_neural_update(
                 potentials=potentials,
@@ -1394,6 +1428,20 @@ class BurstEngine:
                 excitability=excitability_tuple,  # Use optimized tuple format
                 rng=rng_for_excitability  # RNG only when needed for probabilistic firing
             )
+            
+            # Debug post-firing results for high threshold neurons
+            if debug_enabled and high_threshold_indices:
+                fired_high_threshold = []
+                for i in range(valid_range):
+                    if valid_mask[i] and thresholds[i] > 1000 and firing_mask[i]:
+                        fired_high_threshold.append(i)
+                        if len(fired_high_threshold) <= 10:  # Show first 10 examples
+                            logger.error(f"[NEURAL-DEBUG] ❌ HIGH THRESHOLD NEURON FIRED: Neuron[{i}] potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+                
+                if fired_high_threshold:
+                    logger.error(f"[NEURAL-DEBUG] ❌ TOTAL HIGH THRESHOLD NEURONS FIRED: {len(fired_high_threshold)} (BUG!)")
+                else:
+                    logger.info("[NEURAL-DEBUG] ✅ All high threshold neurons correctly blocked from firing")
             
             # Step 3: Convert firing mask to neuron IDs
             if num_fired == 0:

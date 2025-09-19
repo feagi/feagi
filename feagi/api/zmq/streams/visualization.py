@@ -453,6 +453,31 @@ class VisualizationStream:
 
                 # Get latest cortical area data from UnifiedFQSampler
                 cortical_data = self.fq_sampler.sample()
+                
+                # Debug: Check if we're getting sensory data that shouldn't be firing
+                from feagi.core.state_manager import FeagiStateManager
+                state_manager = FeagiStateManager.instance()
+                
+                # ALWAYS log this to verify FQ sampler is working
+                if cortical_data:
+                    area_count = len(cortical_data)
+                    total_neurons = sum(len(area_data.get("neuron_ids", [])) for area_data in cortical_data.values() if area_data)
+                    logger.info(f"[VIZ-SAMPLER] FQ sampler returned {area_count} areas, {total_neurons} total neurons")
+                
+                if state_manager and state_manager.is_debug_npu_enabled() and cortical_data:
+                    sensory_areas_found = []
+                    for area_id, area_data in cortical_data.items():
+                        # Convert area_id to string for comparison (it might be an int)
+                        area_id_str = str(area_id)
+                        if area_id_str.startswith('iic') and area_data and area_data.get("neuron_ids"):
+                            neuron_count = len(area_data.get("neuron_ids", []))
+                            potentials = area_data.get("membrane_potentials", [])
+                            avg_potential = sum(potentials) / len(potentials) if potentials else 0
+                            sensory_areas_found.append(f"{area_id_str}({neuron_count}n,avg_p={avg_potential:.3f})")
+                    
+                    if sensory_areas_found:
+                        logger.error("[VIZ-DEBUG] ❌ FQ SAMPLER RETURNING SENSORY DATA: %s", ", ".join(sensory_areas_found))
+                        logger.error("[VIZ-DEBUG] This indicates neurons with high thresholds are incorrectly firing!")
 
                 if not cortical_data:
                     # Real-time: if idle beyond TTL, send empty to clear BV

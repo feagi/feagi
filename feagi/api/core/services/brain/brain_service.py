@@ -1069,11 +1069,22 @@ class BrainService(BaseService):
                         except Exception:
                             pass
 
-                        # Debug: Log what we're about to inject
+                        # Debug: Log what we're about to inject (first 10 per area)
                         try:
                             from feagi.core.state_manager import FeagiStateManager
                             if FeagiStateManager.instance().is_debug_npu_enabled():
-                                self.logger.info(f"[SENSORY-DEBUG] About to inject: {_pending_activations}")
+                                debug_summary = {}
+                                for area_id, neuron_list in _pending_activations.items():
+                                    if isinstance(neuron_list, list) and len(neuron_list) > 0:
+                                        first_10 = neuron_list[:10]
+                                        total_count = len(neuron_list)
+                                        if total_count > 10:
+                                            debug_summary[area_id] = f"{first_10}... (+{total_count-10} more)"
+                                        else:
+                                            debug_summary[area_id] = first_10
+                                    else:
+                                        debug_summary[area_id] = neuron_list
+                                self.logger.info(f"[SENSORY-DEBUG] About to inject: {debug_summary}")
                         except Exception:
                             pass
                         
