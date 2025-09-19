@@ -436,6 +436,47 @@ class ZmqServer:
         finally:
             self._cleanup()
 
+    async def _monitor_and_create_sensory_stream(self) -> None:
+        """Monitor FEAGI readiness and create sensory stream when ready."""
+        from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
+        from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
+        
+        logger.info("🔍 Starting FEAGI readiness monitor for sensory stream")
+        
+        while self._running and not self._sensory:
+            try:
+                state_manager = FeagiStateManager.instance()
+                genome_state = state_manager.get_genome_state()
+                burst_engine_state = state_manager.get_burst_engine_state()
+                
+                genome_loaded = genome_state == GenomeState.LOADED.value
+                burst_engine_ready = burst_engine_state == ServiceState.READY.value
+                
+                if genome_loaded and burst_engine_ready:
+                    # FEAGI is now ready - create and start sensory stream
+                    logger.info("🚀 FEAGI became ready - creating sensory stream")
+                    
+                    self._sensory = SensoryStream(
+                        core_api=self.core_api,
+                        host=self.host,
+                        port=self.sensory_port,
+                        context=self._context,
+                    )
+                    
+                    await self._sensory.start()
+                    
+                    logger.info(f"✅ Sensory stream started on port {self.sensory_port} - agents can now connect")
+                    break
+                else:
+                    # Still not ready, wait and check again
+                    await asyncio.sleep(2.0)
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in sensory stream monitor: {e}")
+                await asyncio.sleep(2.0)
+
     async def _start_server(self):
         """Start the ZMQ server components.
 
@@ -486,15 +527,41 @@ class ZmqServer:
 
             # Only create enabled streams (port != None)
             if self.sensory_port is not None:
-                self._sensory = SensoryStream(
-                    core_api=self.core_api,
-                    host=self.host,
-                    port=self.sensory_port,
-                    context=self._context,
-                )
-                logger.info(
-                    f"Sensory stream enabled on port {self.sensory_port}"
-                )
+                # Check if FEAGI is ready before creating sensory stream
+                from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
+                
+                state_manager = FeagiStateManager.instance()
+                genome_state = state_manager.get_genome_state()
+                burst_engine_state = state_manager.get_burst_engine_state()
+                
+                genome_loaded = genome_state == GenomeState.LOADED.value
+                burst_engine_ready = burst_engine_state == ServiceState.READY.value
+                
+                if genome_loaded and burst_engine_ready:
+                    # FEAGI is ready - create sensory stream normally
+                    self._sensory = SensoryStream(
+                        core_api=self.core_api,
+                        host=self.host,
+                        port=self.sensory_port,
+                        context=self._context,
+                    )
+                    logger.info(
+                        f"✅ FEAGI ready - sensory stream enabled on port {self.sensory_port}"
+                    )
+                else:
+                    # FEAGI not ready - don't create sensory stream
+                    self._sensory = None
+                    logger.warning(
+                        f"🔒 FEAGI not ready - sensory stream blocked on port {self.sensory_port}"
+                    )
+                    logger.warning(
+                        f"   Genome loaded: {genome_loaded}, Burst engine ready: {burst_engine_ready}"
+                    )
+                    logger.warning(
+                        f"   Agents will not be able to connect until FEAGI is ready"
+                    )
+                    # Start monitoring task to create stream when ready
+                    asyncio.create_task(self._monitor_and_create_sensory_stream())
             else:
                 logger.info("Sensory stream disabled")
 
@@ -573,10 +640,6 @@ class ZmqServer:
 
             if self._sensory:
                 await self._sensory.start()
-                # If sensory stream didn't start (burst engine not ready), start monitoring
-                if not self._sensory.running:
-                    logger.info("Starting burst engine state monitor for sensory stream")
-                    asyncio.create_task(self._sensory._monitor_burst_engine_state())
             if self._motor:
                 await self._motor.start()
 
