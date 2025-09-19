@@ -817,6 +817,8 @@ class BrainService(BaseService):
                     coords_z = coords_z_array.astype(np.uint16)
                     potentials = np.asarray(potentials, dtype=np.float32)
 
+                    # Strict path: no converter usage here. Proceed with SIMD/NPU batch mapping only.
+
                     # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
                     #  Stack coordinates and find unique positions in one
                     #  operation
@@ -830,6 +832,15 @@ class BrainService(BaseService):
                     #  Convert to set for batch lookup (ConnectomeManager API
                     #  requirement)
                     candidate_positions = set(map(tuple, unique_coords))
+                    
+                    # Debug: Log sample coordinates being looked up
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
+                            sample_coords = list(candidate_positions)[:5]
+                            self.logger.info(f"[SENSORY-DEBUG] Looking up {len(candidate_positions)} positions for {cortical_id}: {sample_coords}")
+                    except Exception:
+                        pass
 
                     # SIMD-optimized batch lookup: coordinates → neuron_ids
                     #  This uses the existing batch_voxel_to_neuron_lookup
@@ -843,18 +854,41 @@ class BrainService(BaseService):
                     )
 
                     if not neuron_weight_pairs:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(
+                                    f"[SENSORY-DEBUG] No neurons found for {cortical_id} via batch voxel lookup. Skipping FCL injection for this area."
+                                )
+                        except Exception:
+                            pass
                         area_results[cortical_id] = {
                             "success": False,
                             "error": f"No neurons found at coordinates in area {cortical_id}",
                         }
                         continue
 
-                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping
-                    # Build efficient lookup using numpy operations
-                    position_to_neurons = {}
+                    # Extract neuron IDs directly from batch lookup results
                     neuron_ids_array = np.array(
                         [nid for nid, _ in neuron_weight_pairs], dtype=np.int64
                     )
+                    
+                    # Accumulate activations for FCL injection (direct from batch lookup)
+                    if "activations_for_area" not in locals():
+                        activations_for_area = []
+                    activations_for_area.extend([int(n) for n in neuron_ids_array.tolist()])
+                    
+                    area_stimulated = len(neuron_ids_array)
+                    area_failed = 0
+
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
+                            self.logger.info(
+                                f"[SENSORY-DEBUG] Batch voxel lookup used for {cortical_id}: found={len(neuron_weight_pairs)}"
+                            )
+                    except Exception:
+                        pass
 
                     # Get all neuron positions in batch (if available)
                     if hasattr(
@@ -902,14 +936,15 @@ class BrainService(BaseService):
                                     neuron_id
                                 )
 
-                    # SIMD OPTIMIZATION 4: Vectorized stimulation application
-                    #  Group coordinates by unique positions and apply
-                    #  stimulation in batches
-                    area_stimulated = 0
-                    area_failed = 0
+                    # Deterministic: accumulate neuron IDs for FCL injection (list form)
+                    if len(neuron_ids_array) > 0:
+                        if "activations_for_area" not in locals():
+                            activations_for_area = []
+                        activations_for_area.extend([int(n) for n in neuron_ids_array.tolist()])
 
-                    # Accumulate activations per area to feed FCL injection
-                    activations_for_area: List[int] = []
+                    # area_stimulated and area_failed already set above from batch lookup
+
+                    # activations_for_area already populated above from batch lookup
 
                     # Process each unique coordinate position
                     for unique_idx, unique_coord in enumerate(unique_coords):
@@ -1023,17 +1058,44 @@ class BrainService(BaseService):
                         try:
                             from feagi.core.state_manager import FeagiStateManager
                             if FeagiStateManager.instance().is_debug_npu_enabled():
+                                # Summarize per-area counts for visibility
+                                _area_counts = {aid: (len(v) if isinstance(v, (list, tuple)) else (len(v.get('coordinates_x', [])) if isinstance(v, dict) else 0)) for aid, v in _pending_activations.items()}
                                 self.logger.info(
-                                    f"[SENSORY-DEBUG] Injecting activations into FCL at t={current_timestep}: areas={list(_pending_activations.keys())}"
+                                    f"[SENSORY-DEBUG] Injecting activations into FCL at t={current_timestep}: areas={list(_pending_activations.keys())} counts={_area_counts}"
                                 )
                         except Exception:
                             pass
 
+                        # Debug: Log what we're about to inject
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(f"[SENSORY-DEBUG] About to inject: {_pending_activations}")
+                        except Exception:
+                            pass
+                        
                         injected_count = burst_engine.injection_service.inject_external_activations(
                             activations=_pending_activations,
                             current_timestep=current_timestep,
                             source="sensory_neural",
                         )
+                        
+                        # Debug: Log injection result
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(f"[SENSORY-DEBUG] Injection service returned: {injected_count}")
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                self.logger.info(
+                                    "[SENSORY-DEBUG] Skipping FCL injection: injection_service not available"
+                                )
+                        except Exception:
+                            pass
             except Exception as inj_err:
                 self.logger.error(f"Error injecting sensory activations: {inj_err}")
 

@@ -56,10 +56,61 @@ class FCLInjector:
         if len(x_coords) == 0:
             return 0
             
-        # Convert SoA voxel coordinates to neuron IDs
-        neuron_ids, valid_potentials, cortical_idx = self.coordinate_converter.convert_soa_to_neuron_ids(
-            cortical_id, x_coords, y_coords, z_coords, potentials
+        # STRICT: Use NPU batch xyz→id mapping via ConnectomeManager (Vectorized)
+        from feagi.core.state_manager import FeagiStateManager  # local import for test isolation
+        cm = getattr(self.coordinate_converter, 'connectome_manager', None)
+        if cm is None:
+            return 0
+        # Unique positions
+        coordinate_matrix = np.column_stack((x_coords, y_coords, z_coords))
+        unique_coords, inverse_indices = np.unique(coordinate_matrix, axis=0, return_inverse=True)
+        candidate_positions = set(map(tuple, unique_coords))
+        neuron_weight_pairs = cm.batch_voxel_to_neuron_lookup(
+            cortical_id=cortical_id,
+            candidate_positions=candidate_positions,
+            post_synaptic_current=1.0,
         )
+        if not neuron_weight_pairs:
+            return 0
+        # Build pos→ids
+        position_to_neurons = {}
+        neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
+        if hasattr(cm, 'batch_get_neuron_positions'):
+            neuron_positions = cm.batch_get_neuron_positions(neuron_ids_array)
+            for i, neuron_id in enumerate(neuron_ids_array):
+                pos = neuron_positions[i]
+                if pos is None:
+                    continue
+                pos_tuple = (pos[1], pos[2], pos[3]) if len(pos) >= 4 else tuple(pos[:3])
+                position_to_neurons.setdefault(pos_tuple, []).append(int(neuron_id))
+        else:
+            for neuron_id, _ in neuron_weight_pairs:
+                neuron_pos = cm.get_neuron_position(neuron_id)
+                if neuron_pos:
+                    pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3]) if len(neuron_pos) >= 4 else tuple(neuron_pos[:3])
+                    position_to_neurons.setdefault(pos_tuple, []).append(int(neuron_id))
+        # Aggregate ids/potentials
+        aggregated_ids = []
+        aggregated_pots = []
+        for unique_idx, unique_coord in enumerate(unique_coords):
+            coord_tuple = tuple(unique_coord)
+            ids_at = position_to_neurons.get(coord_tuple, [])
+            if not ids_at:
+                continue
+            mask = (inverse_indices == unique_idx)
+            if not np.any(mask):
+                continue
+            pval = float(np.asarray(potentials, dtype=np.float32)[mask][0])
+            aggregated_ids.extend(ids_at)
+            aggregated_pots.extend([pval] * len(ids_at))
+        if not aggregated_ids:
+            return 0
+        # Strict id→idx via ConnectomeManager
+        cortical_idx = cm.get_cortical_idx_for_id(cortical_id)
+        if cortical_idx is None:
+            return 0
+        neuron_ids = np.array(aggregated_ids, dtype=np.int32)
+        valid_potentials = np.array(aggregated_pots, dtype=np.float32)
         
         if len(neuron_ids) == 0:
             # No valid neurons found for injection

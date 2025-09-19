@@ -74,16 +74,61 @@ class CoordinateConverter:
                 neuron_ids.append(neuron_id)
                 valid_potentials.append(potentials[i])
                 
+        # --debug-npu: log mapping stats and a small coordinate sample
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                total = int(len(x_coords))
+                mapped = int(len(neuron_ids))
+                sample_n = min(10, mapped)
+                sample_pairs = [
+                    (int(neuron_ids[j]), float(valid_potentials[j])) for j in range(sample_n)
+                ]
+                # Also include coordinate range preview
+                if total > 0:
+                    xmin, xmax = int(np.min(x_coords)), int(np.max(x_coords))
+                    ymin, ymax = int(np.min(y_coords)), int(np.max(y_coords))
+                    zmin, zmax = int(np.min(z_coords)), int(np.max(z_coords))
+                    logger.info(
+                        f"[NPU] [Convert] {cortical_id}: mapped={mapped}/{total} "
+                        f"x=[{xmin},{xmax}] y=[{ymin},{ymax}] z=[{zmin},{zmax}] sample(neuron_id,delta)={sample_pairs}"
+                    )
+        except Exception:
+            pass
+
         return np.array(neuron_ids, dtype=np.int32), np.array(valid_potentials, dtype=np.float32), cortical_idx
     
     def _get_cortical_idx(self, cortical_id: str) -> Optional[int]:
-        """Get cortical area index from cortical ID."""
-        if not hasattr(self.connectome_manager, 'cortical_areas'):
-            return None
-            
-        for area_id, area in self.connectome_manager.cortical_areas.items():
-            if area_id == cortical_id:
-                return getattr(area, 'cortical_idx', None)
+        """Get cortical area index from cortical ID.
+
+        Uses the authoritative mapping on ConnectomeManager to avoid relying
+        on internal dict key shapes (which are indices, not IDs).
+        """
+        try:
+            if hasattr(self.connectome_manager, 'get_cortical_idx_for_id'):
+                idx = self.connectome_manager.get_cortical_idx_for_id(cortical_id)
+                if idx is not None:
+                    return idx
+        except Exception:
+            pass
+
+        # Deterministic resolution via NPU interface when cortical mapping is not yet populated
+        try:
+            npu_iface = getattr(self.connectome_manager, '_npu_interface', None)
+            areas = getattr(npu_iface, 'cortical_areas', None) if npu_iface is not None else None
+            if isinstance(areas, dict) and areas:
+                for idx, meta in areas.items():
+                    if isinstance(meta, dict) and meta.get('cortical_id') == cortical_id:
+                        # Optional debug: note that we resolved via NPU interface
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_npu_enabled():
+                                logger.info(f"[NPU] [Convert] Resolved cortical_idx={int(idx)} for area '{cortical_id}' via NPU interface")
+                        except Exception:
+                            pass
+                        return int(idx)
+        except Exception:
+            pass
         return None
     
     def _get_neuron_at_coordinate(self, cortical_id: str, x: int, y: int, z: int) -> Optional[int]:

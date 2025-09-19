@@ -163,6 +163,44 @@ class SensoryNeuralStream:
             "last_message_time": 0,
         }
 
+        # Enable SHM debug when configured via StateManager.debug_shm (set by --debug-shm)
+        self._debug_shm = False
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            dbg = getattr(sm, "_debug_config", {}) or {}
+            self._debug_shm = bool(dbg.get("debug_shm", False))
+        except Exception:
+            self._debug_shm = False
+
+    def _shm_log(self, message: str) -> None:
+        """Emit SHM diagnostics to both logger and stdout when debug_shm is enabled."""
+        if not getattr(self, "_debug_shm", False):
+            return
+        try:
+            logger.info(f"𒓉 [SHM] {message}")
+        except Exception:
+            pass
+        try:
+            print(f"𒓉 [SHM-DBG] {message}", flush=True)
+        except Exception:
+            pass
+
+    def _ensure_shm_structures(self) -> None:
+        """Ensure SHM reader structures exist to avoid attribute errors."""
+        if not hasattr(self, "_shm_lock"):
+            import threading as _threading
+            self._shm_lock = _threading.Lock()
+        if not hasattr(self, "_shm_readers"):
+            self._shm_readers = {}
+        if not hasattr(self, "_shm_readers_by_path"):
+            self._shm_readers_by_path = {}
+        if not hasattr(self, "_failed_shm_paths"):
+            self._failed_shm_paths = set()
+        if self._debug_shm:
+            self._shm_log("Initialized SHM reader structures")
+
         # Protocol handlers
         self._protocol_handlers = {
             NeuralProtocolID.NEURON_FLAT: self._handle_neuron_flat,
@@ -240,6 +278,9 @@ class SensoryNeuralStream:
             f"Starting neural sensory stream on {self.host}:{self.port}"
         )
         
+        # Ensure SHM structures initialized before tasks start
+        self._ensure_shm_structures()
+
         # Create and bind socket
         self.socket = self._setup_socket()
         self.running = True
@@ -248,6 +289,12 @@ class SensoryNeuralStream:
         self._process_task = asyncio.create_task(self._process_loop())
         # Always start SHM poller; it will attach readers dynamically
         self._shm_task = asyncio.create_task(self._process_shm_loop())
+        # Optional periodic SHM summary
+        if self._debug_shm:
+            try:
+                self._shm_summary_task = asyncio.create_task(self._log_shm_summary_loop())
+            except Exception:
+                self._shm_summary_task = None
 
         logger.info("Neural sensory stream started")
 
@@ -382,6 +429,8 @@ class SensoryNeuralStream:
 
     async def _process_shm_loop(self) -> None:
         """Poll SHM ring buffers and process latest payloads."""
+        # Defensive: ensure SHM structures exist
+        self._ensure_shm_structures()
         while self.running:
             try:
                 # Refresh readers from StateManager in case of new agents
@@ -399,8 +448,27 @@ class SensoryNeuralStream:
                                 try:
                                     with self._shm_lock:
                                         path_str = str(Path(p))
-                                        # Skip paths that have previously failed
+                                        # If we previously marked this path as failed but the file
+                                        # now has content (header written by writer), allow retry
                                         if path_str in self._failed_shm_paths:
+                                            try:
+                                                if _os.path.getsize(path_str) >= _ShmRingReader.HEADER_SIZE:
+                                                    self._failed_shm_paths.discard(path_str)
+                                                else:
+                                                    # Still empty - wait for writer to initialize header
+                                                    if self._debug_shm:
+                                                        logger.info(f"𒓉 [SHM] Waiting for writer header for {Path(p).name} (size=0)")
+                                                    continue
+                                            except Exception:
+                                                continue
+
+                                        # Avoid mmap on empty files (agent not initialized yet)
+                                        try:
+                                            if _os.path.getsize(path_str) < _ShmRingReader.HEADER_SIZE:
+                                                if self._debug_shm:
+                                                    logger.info(f"𒓉 [SHM] Waiting for writer header for {Path(p).name} (size={_os.path.getsize(path_str)})")
+                                                continue
+                                        except Exception:
                                             continue
                                         
                                         reader = self._shm_readers_by_path.get(path_str)
@@ -411,13 +479,23 @@ class SensoryNeuralStream:
                                                 _log_shm_open(Path(path_str))
                                                 self._shm_readers[aid] = reader
                                                 logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                                                self._shm_log(f"Sensory stream reading from agent {aid}: {p}")
                                             else:
-                                                # Mark this path as failed to avoid repeated attempts
+                                                # Failed to create reader - if the file is still empty, do not
+                                                # permanently mark as failed; otherwise, mark to suppress retries
+                                                try:
+                                                    if _os.path.getsize(path_str) < _ShmRingReader.HEADER_SIZE:
+                                                        if self._debug_shm:
+                                                            logger.info(f"𒓉 [SHM] Reader creation deferred for {Path(p).name} (header not ready)")
+                                                        continue
+                                                except Exception:
+                                                    pass
                                                 self._failed_shm_paths.add(path_str)
                                                 logger.warning(f"[SHM] Marking path as failed, will not retry: {Path(p).name}")
                                         else:
                                             self._shm_readers[aid] = reader
                                             logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                                            self._shm_log(f"Sensory stream reading from agent {aid}: {p}")
                                 except Exception:
                                     pass
                     # Remove stale readers
@@ -442,6 +520,7 @@ class SensoryNeuralStream:
                     if payload:
                         try:
                             logger.info(f"𒓉 [SHM] Sensory payload from {aid}: {len(payload)} bytes")
+                            self._shm_log(f"Payload from {aid}: {len(payload)} bytes")
                             await self._process_neural_payload_bytes(payload)
                             self._stats["shm_payloads"] = self._stats.get("shm_payloads", 0) + 1
                         except Exception as pe:
@@ -452,6 +531,33 @@ class SensoryNeuralStream:
             except Exception as e:
                 logger.debug(f"[SHM] Sensory poll error: {e}")
                 await asyncio.sleep(0.05)
+
+    async def _log_shm_summary_loop(self) -> None:
+        """Periodically log attached SHM readers and last observed sequence when --debug-shm is enabled."""
+        while self.running and self._debug_shm:
+            try:
+                items = []
+                with self._shm_lock:
+                    for aid, r in self._shm_readers.items():
+                        try:
+                            path = str(getattr(r, "path", "?"))
+                            last_seq = int(getattr(r, "last_seq", -1))
+                            items.append((aid, path, last_seq))
+                        except Exception:
+                            pass
+                if items:
+                    for aid, path, last_seq in items[:6]:
+                        logger.info(f"𒓉 [SHM] Summary: aid={aid} path={path} last_seq={last_seq}")
+                    extra = len(items) - 6
+                    if extra > 0:
+                        logger.info(f"𒓉 [SHM] Summary: (+{extra} more readers)")
+                else:
+                    logger.info("𒓉 [SHM] Summary: no readers attached")
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                pass
+            await asyncio.sleep(1.0)
 
     async def _process_neural_data(self) -> StreamResult:
         """Process incoming neural data - feagi_data_processing format only."""
@@ -782,6 +888,14 @@ class SensoryNeuralStream:
 
                     if neural_data:
                         result = self.core_api.stimulate_neurons(neural_data)
+                        # SHM-debug: surface FCL injection count returned by brain service
+                        try:
+                            if self._debug_shm:
+                                inj = result.get("injected_count")
+                                tot = result.get("total_stimulated")
+                                logger.info(f"𒓉 [SHM] FCL injection result: injected_count={inj}, total_stimulated={tot}")
+                        except Exception:
+                            pass
                         try:
                             area_results = result.get("area_results") or {}
                             for aid, meta in area_results.items():
@@ -853,6 +967,26 @@ class SensoryNeuralStream:
                     _more = area_count - 6
                     _suffix = f" (+{_more} more)" if _more > 0 else ""
                     logger.info(f"𒓉 [SHM] Sensory areas: {_preview}{_suffix}")
+                # Log first 10 (x,y,z,p) tuples per cortical area for diagnostics
+                # Gate on --debug-shm, env FEAGI_DEBUG_SHM=1, or --debug-npu
+                if (
+                    getattr(self, "_debug_shm", False)
+                    or self._is_debug_npu_enabled()
+                    or (__import__("os").environ.get("FEAGI_DEBUG_SHM") == "1")
+                ):
+                    try:
+                        for _cid, _data in cortical_areas.items():
+                            _xs = _data["coordinates_x"][:10]
+                            _ys = _data["coordinates_y"][:10]
+                            _zs = _data["coordinates_z"][:10]
+                            _ps = _data["membrane_potentials"][:10]
+                            _tuples = ", ".join(
+                                f"({int(x)},{int(y)},{int(z)},{float(p):.3f})"
+                                for x, y, z, p in zip(_xs, _ys, _zs, _ps)
+                            )
+                            logger.info(f"𒓉 [SHM] { _cid } xyzp first10: {_tuples}")
+                    except Exception:
+                        pass
             except Exception:
                 pass
 

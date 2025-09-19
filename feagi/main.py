@@ -376,6 +376,11 @@ def main():
         action="store_true",
         help="Enable detailed memory system debugging - shows memory neuron creation, pattern detection, and long-term conversion",
     )
+    parser.add_argument(
+        "--debug-shm",
+        action="store_true",
+        help="Enable detailed shared-memory debugging (attach/readers/payload/injection summaries)",
+    )
 
     # Performance profiling arguments
     parser.add_argument(
@@ -438,6 +443,7 @@ def main():
             "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
             "debug_zmq_outbound": bool(getattr(args, "debug_zmq_outbound", False)),
             "mem_debug": bool(getattr(args, "debug_mem", False)),
+            "debug_shm": bool(getattr(args, "debug_shm", False)),
         }
 
         # Keep env vars for newly created loggers
@@ -457,6 +463,8 @@ def main():
             os.environ["FEAGI_DEBUG_ZMQ"] = "1"
         if debug_cfg["mem_debug"]:
             os.environ["FEAGI_DEBUG_MEM"] = "1"
+        if debug_cfg["debug_shm"]:
+            os.environ["FEAGI_DEBUG_SHM"] = "1"
 
         baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
         baseline_level = getattr(logging, baseline.upper(), logging.INFO)
@@ -532,6 +540,19 @@ def main():
             except Exception:
                 pass
 
+        # SHM debug flag: make available via overrides, env, and StateManager immediately
+        if getattr(args, "debug_shm", False):
+            cli_overrides["debug_shm"] = True
+            os.environ["FEAGI_DEBUG_SHM"] = "1"
+            logger.info("SHM debugging enabled via --debug-shm flag")
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_shm"] = True
+            except Exception:
+                pass
+
         if args.debug_zmq_outbound or args.debug_zmq_inbound:
             if args.debug_zmq_outbound:
                 cli_overrides["debug_zmq_outbound"] = True
@@ -571,6 +592,8 @@ def main():
 
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
+        if args.debug_shm:
+            cli_overrides["debug_shm"] = True
             os.environ["FEAGI_DEBUG_MEM"] = "1"
             print("🔍 [MAIN-PRINT] --debug-mem flag detected! (using print to bypass logging)")
             logger.info("🔍 [MAIN-DEBUG] Memory debugging enabled via --debug-mem flag")
@@ -658,6 +681,15 @@ def main():
         return 1
 
     # Initialize state manager and set debug configuration
+    # Ensure CLI debug flags like --debug-shm are reflected in config.debug
+    try:
+        dbg_section = config.get("debug", {}) if isinstance(config, dict) else {}
+        dbg_section = dict(dbg_section)
+        if getattr(args, "debug_shm", False):
+            dbg_section["debug_shm"] = True
+        config["debug"] = dbg_section
+    except Exception:
+        pass
     print(f"🔍 [CONFIG-PRINT] Config being passed to set_debug_config: {config.get('debug', 'NO_DEBUG_SECTION')}")
     
     state_manager = FeagiStateManager.instance()

@@ -756,7 +756,60 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Integer cortical_idx if found, None otherwise
         """
-        return self.cortical_mapping.get_idx(cortical_id)
+        result = self.cortical_mapping.get_idx(cortical_id)
+        if result is None:
+            # Check if cortical mapping is empty and try to rebuild it
+            try:
+                all_mappings = self.cortical_mapping.get_all_mappings() if hasattr(self.cortical_mapping, 'get_all_mappings') else {}
+                all_ids = list(all_mappings.keys())
+                
+                # If mapping is empty but we have cortical areas, rebuild the mapping
+                if not all_ids and hasattr(self, 'cortical_areas') and self.cortical_areas:
+                    logger.info(f"[CORTICAL-MAP] Mapping empty but cortical areas exist. Rebuilding mapping...")
+                    rebuild_success = self.rebuild_cortical_mapping_from_existing_areas()
+                    if rebuild_success:
+                        logger.info(f"[CORTICAL-MAP] Successfully rebuilt mapping. Retrying lookup for {cortical_id}")
+                        result = self.cortical_mapping.get_idx(cortical_id)
+                        if result is not None:
+                            return result
+                    else:
+                        logger.error(f"[CORTICAL-MAP] Failed to rebuild mapping")
+                
+                # If still not found, show debug info
+                if result is None:
+                    # Use the proper public interface
+                    all_mappings = self.cortical_mapping.get_all_mappings() if hasattr(self.cortical_mapping, 'get_all_mappings') else {}
+                    all_ids = list(all_mappings.keys())
+                    
+                    logger.error(f"[CORTICAL-MAP] {cortical_id} not found. Available IDs: {all_ids[:10]}")
+                    logger.error(f"[CORTICAL-MAP] Total mappings: {len(all_mappings)}")
+                    
+                    # Debug: Check if the specific ID exists in the mapping
+                    if cortical_id in all_mappings:
+                        expected_idx = all_mappings[cortical_id]
+                        logger.error(f"[CORTICAL-MAP] BUG: {cortical_id} exists in get_all_mappings() -> {expected_idx}, but get_idx() returns None")
+                        # Try direct access to see what's wrong
+                        direct_result = self.cortical_mapping.get_idx(cortical_id)
+                        logger.error(f"[CORTICAL-MAP] Direct get_idx({cortical_id}) = {direct_result}")
+                    else:
+                        logger.error(f"[CORTICAL-MAP] {cortical_id} not in get_all_mappings() either")
+                    
+                    # Additional debug: Check if genome is loaded
+                    from feagi.core.state_manager import FeagiStateManager, GenomeState
+                    state_manager = FeagiStateManager.instance()
+                    genome_state = state_manager.get_genome_state()
+                    logger.error(f"[CORTICAL-MAP] Genome state: {genome_state}, Expected: {GenomeState.LOADED.value}")
+                    
+                    # Check cortical areas
+                    if hasattr(self, 'cortical_areas') and self.cortical_areas:
+                        ca_keys = list(self.cortical_areas.keys())[:10]
+                        logger.error(f"[CORTICAL-MAP] cortical_areas keys: {ca_keys}")
+                    else:
+                        logger.error(f"[CORTICAL-MAP] No cortical_areas or empty")
+                    
+            except Exception as e:
+                logger.error(f"[CORTICAL-MAP] Error during mapping rebuild for {cortical_id}: {e}")
+        return result
 
     def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
         """Get cortical_id from cortical_idx.
@@ -7139,15 +7192,25 @@ class ConnectomeManager(NeuronMappingProvider):
         try:
             npu = getattr(self, "_npu_interface", None)
             if npu is None:
+                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup for {cortical_id}")
                 raise RuntimeError("NPU Interface required for voxel lookup")
 
-            # Resolve to cortical_idx (authoritative key)
-            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            # Resolve to cortical_idx (authoritative key) - use ConnectomeManager method
+            cortical_idx = self.get_cortical_idx_for_id(cortical_id)
             if cortical_idx is None:
+                # Debug: Show what cortical areas actually exist
+                try:
+                    available_areas = list(self._cortical_areas.keys()) if hasattr(self, '_cortical_areas') else []
+                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}. Available areas: {available_areas[:10]}")
+                except Exception:
+                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
                 return []
+            
+            logger.info(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
 
             na = npu.neuron_array
             if na is None or na.neuron_count == 0:
+                logger.error(f"[BATCH-LOOKUP] No neuron array or empty for {cortical_id}")
                 return []
 
             import numpy as np
@@ -7156,7 +7219,10 @@ class ConnectomeManager(NeuronMappingProvider):
             valid_count = int(na.neuron_count)
             cort_mask = (na.cortical_idxs[:valid_count] == cortical_idx)
             if not np.any(cort_mask):
+                logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
+            
+            logger.info(f"[BATCH-LOOKUP] Found {np.sum(cort_mask)} neurons in {cortical_id}")
 
             idxs = np.nonzero(cort_mask)[0]
             xs = na.coordinates_x[idxs]
@@ -7166,6 +7232,7 @@ class ConnectomeManager(NeuronMappingProvider):
             # Build a hash set of target positions for O(1) membership checks
             targets = set(candidate_positions)
             if not targets:
+                logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
                 return []
 
             found: List[Tuple[int, float]] = []
@@ -7175,6 +7242,14 @@ class ConnectomeManager(NeuronMappingProvider):
                     nid = npu.neuron_array.index_to_neuron_id.get(int(idx))
                     if nid is not None:
                         found.append((int(nid), float(post_synaptic_current)))
+            
+            logger.info(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
+            if len(found) == 0:
+                # Debug: show first few target positions and neuron positions
+                sample_targets = list(targets)[:5]
+                sample_neurons = [(int(xs[i]), int(ys[i]), int(zs[i])) for i in range(min(5, len(idxs)))]
+                logger.error(f"[BATCH-LOOKUP] No matches for {cortical_id}. Targets: {sample_targets}, Neurons: {sample_neurons}")
+            
             return found
 
         except Exception as e:

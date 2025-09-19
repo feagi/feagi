@@ -1340,7 +1340,15 @@ class BurstEngine:
             return []
         
         # Get valid neuron range for processing
-        valid_range = min(neuron_array.count, neuron_array.max_neurons)
+        # FIX: use correct attribute name 'neuron_count' with safe fallback to 'count'
+        try:
+            _valid_count = getattr(neuron_array, "neuron_count", None)
+            if _valid_count is None:
+                _valid_count = getattr(neuron_array, "count", 0)
+            _max_neurons = getattr(neuron_array, "max_neurons", int(_valid_count))
+            valid_range = min(int(_valid_count), int(_max_neurons))
+        except Exception:
+            valid_range = 0
         if valid_range == 0:
             return []
         
@@ -1443,6 +1451,9 @@ class BurstEngine:
                 deltas = np.array(potential_deltas, dtype=np.float32)
                 
                 # Apply potentials to membrane potentials (vectorized)
+                matched = 0
+                skipped_unmapped = 0
+                out_of_range = 0
                 for i, neuron_id in enumerate(neuron_ids):
                     # Get neuron index from ID mapping
                     if neuron_id in neuron_array.neuron_id_to_index:
@@ -1452,6 +1463,23 @@ class BurstEngine:
                         if 0 <= idx < valid_range:
                             # Add candidate potential to current membrane potential
                             neuron_array.membrane_potentials[idx] += deltas[i]
+                            matched += 1
+                        else:
+                            out_of_range += 1
+                    else:
+                        skipped_unmapped += 1
+
+                # Optional debug logging (gated by --debug-npu)
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    if FeagiStateManager.instance().is_debug_npu_enabled():
+                        total = int(len(neuron_ids))
+                        logger.info(
+                            f"[SENSORY-DEBUG] Applied FCL candidates: area_idx={cortical_idx} matched={matched}/{total} "
+                            f"unmapped={skipped_unmapped} out_of_range={out_of_range}"
+                        )
+                except Exception:
+                    pass
                         
         except Exception as e:
             logger.error("Error applying FCL candidates to membrane potentials: %s", str(e))
@@ -1717,68 +1745,94 @@ class PowerInjectionService:
                         # Handle both coordinate dict format and neuron ID list format
                         if isinstance(area_data, dict) and 'coordinates_x' in area_data:
                             # COORDINATE DICT FORMAT: {'coordinates_x': [...], 'coordinates_y': [...], ...}
-                            coords_x = area_data.get('coordinates_x', np.array([]))
-                            coords_y = area_data.get('coordinates_y', np.array([]))  
-                            coords_z = area_data.get('coordinates_z', np.array([]))
-                            potentials = area_data.get('membrane_potentials', np.array([]))
-                            
+                            coords_x = np.asarray(area_data.get('coordinates_x', np.array([])))
+                            coords_y = np.asarray(area_data.get('coordinates_y', np.array([])))
+                            coords_z = np.asarray(area_data.get('coordinates_z', np.array([])))
+                            potentials = np.asarray(area_data.get('membrane_potentials', np.array([])), dtype=np.float32)
+
                             if periodic_debug:
-                                logger.debug("PowerInjectionService: Area %s - %d coordinates to convert", area_id, len(coords_x))
-                            
+                                logger.debug("PowerInjectionService: Area %s - %d coordinates to convert (NPU batch)", area_id, len(coords_x))
+
                             if len(coords_x) > 0:
-                                # Convert coordinates to neuron IDs using coordinate converter
-                                if self.fcl_injector and hasattr(self.fcl_injector, 'coordinate_converter'):
-                                    converter = self.fcl_injector.coordinate_converter
-                                    if periodic_debug:
-                                        logger.debug("PowerInjectionService: Coordinate converter available: %s", converter is not None)
-                                    
-                                    if converter and hasattr(converter, 'convert_soa_to_neuron_ids'):
-                                        try:
-                                            if periodic_debug:
-                                                logger.debug("PowerInjectionService: Calling convert_soa_to_neuron_ids for area %s", area_id)
-                                            
-                                            neuron_ids, valid_potentials, cortical_idx = converter.convert_soa_to_neuron_ids(
-                                                area_id, coords_x, coords_y, coords_z, potentials
-                                            )
-                                            
-                                            if periodic_debug:
-                                                logger.debug("PowerInjectionService: Conversion result - %d neuron_ids, cortical_idx=%d", 
-                                                              len(neuron_ids) if neuron_ids is not None else 0, cortical_idx)
-                                            
-                                            if len(neuron_ids) > 0:
-                                                # Inject external neurons into FCL
-                                                excitatory_mask = np.ones(len(neuron_ids), dtype=bool)
-                                                
-                                                if periodic_debug:
-                                                    logger.debug("PowerInjectionService: Calling FCL.add_candidates_soa with %d neurons", len(neuron_ids))
-                                                
-                                                ext_injected = fcl.add_candidates_soa(
-                                                    cortical_idx=cortical_idx,
-                                                    neuron_ids=neuron_ids.astype(np.uint32),
-                                                    potential_deltas=valid_potentials.astype(np.float32),
-                                                    excitatory_mask=excitatory_mask
-                                                )
-                                                external_count += ext_injected
-                                                
-                                                if periodic_debug:
-                                                    logger.debug("PowerInjectionService: FCL.add_candidates_soa returned %d for area %s", 
-                                                                  ext_injected, area_id)
-                                            else:
-                                                if periodic_debug:
-                                                    logger.debug("PowerInjectionService: No valid neuron_ids generated for area %s", area_id)
-                                                
-                                        except Exception as convert_err:
-                                            if debug_enabled:
-                                                logger.error("PowerInjectionService: Error converting external coordinates: %s", str(convert_err))
-                                                if periodic_debug:  # Only show traceback periodically
-                                                    import traceback
-                                                    logger.error("PowerInjectionService: Conversion traceback: %s", traceback.format_exc())
-                                    else:
+                                try:
+                                    # SIMD-style: unique positions mapping
+                                    coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
+                                    unique_coords, inverse_indices = np.unique(coordinate_matrix, axis=0, return_inverse=True)
+
+                                    candidate_positions = set(map(tuple, unique_coords))
+
+                                    # Use ConnectomeManager/NPU batch lookup (authoritative xyz→id)
+                                    neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                                        cortical_id=area_id,
+                                        candidate_positions=candidate_positions,
+                                        post_synaptic_current=1.0,
+                                    )
+
+                                    if not neuron_weight_pairs:
                                         if periodic_debug:
-                                            logger.debug("PowerInjectionService: Coordinate converter missing convert_soa_to_neuron_ids method")
-                                else:
+                                            logger.debug("PowerInjectionService: No neurons found for area %s via batch lookup", area_id)
+                                        continue
+
+                                    # Build position→neuron_ids map
+                                    position_to_neurons = {}
+                                    neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
+                                    if hasattr(self.connectome_manager, 'batch_get_neuron_positions'):
+                                        neuron_positions = self.connectome_manager.batch_get_neuron_positions(neuron_ids_array)
+                                        for i, neuron_id in enumerate(neuron_ids_array):
+                                            pos = neuron_positions[i]
+                                            if pos is None:
+                                                continue
+                                            pos_tuple = (pos[1], pos[2], pos[3]) if len(pos) >= 4 else tuple(pos[:3])
+                                            position_to_neurons.setdefault(pos_tuple, []).append(int(neuron_id))
+                                    else:
+                                        for neuron_id, _ in neuron_weight_pairs:
+                                            neuron_pos = self.connectome_manager.get_neuron_position(neuron_id)
+                                            if neuron_pos:
+                                                pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3]) if len(neuron_pos) >= 4 else tuple(neuron_pos[:3])
+                                                position_to_neurons.setdefault(pos_tuple, []).append(int(neuron_id))
+
+                                    # Aggregate neuron_ids and potentials by unique coordinate
+                                    aggregated_ids = []
+                                    aggregated_pots = []
+                                    for unique_idx, unique_coord in enumerate(unique_coords):
+                                        coord_tuple = tuple(unique_coord)
+                                        neurons_at_coord = position_to_neurons.get(coord_tuple, [])
+                                        if not neurons_at_coord:
+                                            continue
+                                        coord_mask = (inverse_indices == unique_idx)
+                                        if not np.any(coord_mask):
+                                            continue
+                                        potential_value = float(potentials[coord_mask][0])
+                                        aggregated_ids.extend(neurons_at_coord)
+                                        aggregated_pots.extend([potential_value] * len(neurons_at_coord))
+
+                                    if not aggregated_ids:
+                                        if periodic_debug:
+                                            logger.debug("PowerInjectionService: No aggregated neuron IDs for area %s after mapping", area_id)
+                                        continue
+
+                                    # Strict cortical_id→idx via ConnectomeManager
+                                    cortical_idx = self.connectome_manager.get_cortical_idx_for_id(area_id)
+                                    if cortical_idx is None:
+                                        if debug_enabled:
+                                            logger.info("[SENSORY-DEBUG] Skipping FCL enqueue for area '%s': cortical_idx unresolved (ConnectomeManager)", area_id)
+                                        continue
+
+                                    # Enqueue to FCL
+                                    excitatory_mask = np.ones(len(aggregated_ids), dtype=bool)
+                                    list_injected = fcl.add_candidates_soa(
+                                        cortical_idx=int(cortical_idx),
+                                        neuron_ids=np.array(aggregated_ids, dtype=np.uint32),
+                                        potential_deltas=np.array(aggregated_pots, dtype=np.float32),
+                                        excitatory_mask=excitatory_mask,
+                                    )
+                                    external_count += list_injected
+
                                     if periodic_debug:
-                                        logger.debug("PowerInjectionService: No coordinate converter available")
+                                        logger.debug("PowerInjectionService: FCL.add_candidates_soa (NPU batch) returned %d for area %s", list_injected, area_id)
+                                except Exception as e:
+                                    if debug_enabled:
+                                        logger.error("PowerInjectionService: Error in NPU batch xyz→id mapping for area %s: %s", area_id, str(e))
                             else:
                                 if periodic_debug:
                                     logger.debug("PowerInjectionService: Area %s has no coordinates to process", area_id)
@@ -1801,35 +1855,47 @@ class PowerInjectionService:
                                     potentials.append(actual_threshold)
                                 potentials = np.array(potentials, dtype=np.float32)
                                 
-                                # Get cortical index for this area
+                                # Get cortical index for this area (authoritative mapping), with deterministic NPU fallback
                                 if self.fcl_injector and hasattr(self.fcl_injector, 'coordinate_converter'):
                                     converter = self.fcl_injector.coordinate_converter
+                                    cortical_idx = None
                                     if hasattr(converter, 'connectome_manager') and hasattr(converter.connectome_manager, 'get_cortical_idx_for_id'):
                                         cortical_idx = converter.connectome_manager.get_cortical_idx_for_id(area_id)
-                                        
-                                        if cortical_idx is not None:
-                                            # Inject neuron ID list directly into FCL
-                                            excitatory_mask = np.ones(len(neuron_ids), dtype=bool)
-                                            
-                                            if periodic_debug:
-                                                logger.debug("PowerInjectionService: Injecting %d neuron IDs for area %s (cortical_idx=%d)", len(neuron_ids), area_id, cortical_idx)
-                                            
-                                            list_injected = fcl.add_candidates_soa(
-                                                cortical_idx=cortical_idx,
-                                                neuron_ids=neuron_ids,
-                                                potential_deltas=potentials,
-                                                excitatory_mask=excitatory_mask
-                                            )
-                                            external_count += list_injected
-                                            
-                                            if periodic_debug:
-                                                logger.debug("PowerInjectionService: FCL.add_candidates_soa returned %d for neuron ID list in area %s", list_injected, area_id)
-                                        else:
-                                            if periodic_debug:
-                                                logger.debug("PowerInjectionService: Could not get cortical_idx for area %s", area_id)
-                                    else:
+
+                                    # Deterministic fallback via NPU interface if mapping is missing
+                                    if cortical_idx is None and hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface is not None:
+                                        try:
+                                            npu_iface = self.connectome_manager._npu_interface
+                                            areas = getattr(npu_iface, 'cortical_areas', {}) or {}
+                                            for idx, meta in areas.items():
+                                                if isinstance(meta, dict) and meta.get('cortical_id') == area_id:
+                                                    cortical_idx = int(idx)
+                                                    break
+                                            if debug_enabled and cortical_idx is not None:
+                                                logger.info("[SENSORY-DEBUG] Resolved cortical_idx=%d for area '%s' via NPU interface", cortical_idx, area_id)
+                                        except Exception:
+                                            pass
+
+                                    if cortical_idx is not None:
+                                        # Inject neuron ID list directly into FCL
+                                        excitatory_mask = np.ones(len(neuron_ids), dtype=bool)
+
                                         if periodic_debug:
-                                            logger.debug("PowerInjectionService: Coordinate converter or connectome manager not available for neuron ID list processing")
+                                            logger.debug("PowerInjectionService: Injecting %d neuron IDs for area %s (cortical_idx=%d)", len(neuron_ids), area_id, cortical_idx)
+
+                                        list_injected = fcl.add_candidates_soa(
+                                            cortical_idx=cortical_idx,
+                                            neuron_ids=neuron_ids,
+                                            potential_deltas=potentials,
+                                            excitatory_mask=excitatory_mask
+                                        )
+                                        external_count += list_injected
+
+                                        if periodic_debug:
+                                            logger.debug("PowerInjectionService: FCL.add_candidates_soa returned %d for neuron ID list in area %s", list_injected, area_id)
+                                    else:
+                                        if debug_enabled:
+                                            logger.info("[SENSORY-DEBUG] Skipping FCL enqueue for area '%s': cortical_idx unresolved", area_id)
                                             
                             except Exception as list_err:
                                 if debug_enabled:
@@ -2043,7 +2109,8 @@ class PowerInjectionService:
                     # Second: Scan all areas for power naming patterns (fallback)
                     for area_data in npu_interface.cortical_areas.values():
                         cortical_id = area_data.get('cortical_id', '')
-                        cortical_idx = area_data.get('cortical_idx')
+                        # Use ConnectomeManager for authoritative cortical_idx resolution
+                        cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_id) if cortical_id else None
                         
                         # Skip cortical_idx=1 since we already checked it above
                         if cortical_idx == 1:

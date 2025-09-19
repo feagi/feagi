@@ -20,6 +20,19 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
+def _is_debug_npu_enabled() -> bool:
+    """Return True when --debug-npu is enabled via StateManager.
+
+    This gates verbose NPU logs so they only appear when explicitly requested.
+    """
+    try:
+        from feagi.core.state_manager import FeagiStateManager
+
+        return FeagiStateManager.instance().is_debug_npu_enabled()
+    except Exception:
+        return False
+
+
 @dataclass
 class FCLCandidate:
     """Single neuron candidate with membrane potential delta."""
@@ -85,7 +98,20 @@ class FireCandidateList:
             added_count += 1
             
         self.total_candidates += added_count
-        
+        # --debug-npu: show enqueue details and a small sample
+        if _is_debug_npu_enabled():
+            try:
+                sample_n = min(10, len(neuron_ids))
+                sample_pairs = [
+                    (int(neuron_ids[i]), float(potential_deltas[i])) for i in range(sample_n)
+                ]
+                logger.info(
+                    f"[NPU] [FCL] Enqueued candidates: area_idx={cortical_idx} added={added_count} "
+                    f"total_now={self.total_candidates} sample={sample_pairs}"
+                )
+            except Exception:
+                pass
+
         # Candidates added to cortical area
         return added_count
     
