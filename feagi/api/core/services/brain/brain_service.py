@@ -739,6 +739,15 @@ class BrainService(BaseService):
                     coords_y = area_data["coordinates_y"]
                     coords_z = area_data["coordinates_z"]
                     potentials = area_data["membrane_potentials"]
+                    
+                    # DEBUG: Log actual potential values to understand why neurons are firing
+                    if len(potentials) > 0:
+                        min_pot = float(np.min(potentials))
+                        max_pot = float(np.max(potentials))
+                        mean_pot = float(np.mean(potentials))
+                        self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: {len(potentials)} potentials - min={min_pot:.6f}, max={max_pot:.6f}, mean={mean_pot:.6f}, threshold=10000")
+                        if max_pot >= 10000:
+                            self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: HIGH VALUES DETECTED! Max potential {max_pot:.6f} >= threshold 10000")
 
                     # Validate array lengths match
                     if not (
@@ -1031,13 +1040,17 @@ class BrainService(BaseService):
                     total_stimulated += area_stimulated
                     total_failed += area_failed
 
-                    # Store per-area activations to inject later
+                    # Store per-area activations with potentials to inject later
                     if activations_for_area:
                         if "_pending_activations" not in locals():
                             _pending_activations = {}
-                        _pending_activations[cortical_id] = list(
-                            dict.fromkeys(activations_for_area)
-                        )
+                        # Build proper format with coordinates and potentials for injection service
+                        _pending_activations[cortical_id] = {
+                            "coordinates_x": coords_x,
+                            "coordinates_y": coords_y, 
+                            "coordinates_z": coords_z,
+                            "membrane_potentials": potentials
+                        }
 
                 except Exception as e:
                     self.logger.error(

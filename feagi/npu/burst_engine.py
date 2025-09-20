@@ -1546,8 +1546,34 @@ class BurstEngine:
                             old_potential = neuron_array.membrane_potentials[idx]
                             delta = deltas[i]
                             
-                            # Add candidate potential to current membrane potential
-                            neuron_array.membrane_potentials[idx] += deltas[i]
+                            # Check mp_charge_accumulation setting for this cortical area
+                            cortical_id = None
+                            mp_accumulation = True  # Default to accumulation
+                            try:
+                                # Get cortical_id from cortical_idx
+                                if hasattr(self.connectome_manager, 'get_cortical_id_for_idx'):
+                                    cortical_id = self.connectome_manager.get_cortical_id_for_idx(cortical_idx)
+                                    if cortical_id and hasattr(self.connectome_manager, 'cortical_areas'):
+                                        area = self.connectome_manager.cortical_areas.get(cortical_id)
+                                        if area and hasattr(area, 'properties'):
+                                            mp_accumulation = area.properties.get('mp_acc', True)
+                            except Exception:
+                                pass  # Use default accumulation behavior
+                            
+                            # Apply potential based on accumulation setting
+                            if mp_accumulation:
+                                # ACCUMULATE: Add delta to current potential
+                                neuron_array.membrane_potentials[idx] += deltas[i]
+                                # DEBUG: Log accumulation behavior
+                                if matched < 3:  # Only log first few for performance
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] ACCUMULATE: {old_potential:.6f} + {delta:.6f} = {old_potential + delta:.6f}")
+                            else:
+                                # REPLACE: Set potential to delta value
+                                neuron_array.membrane_potentials[idx] = deltas[i]
+                                # DEBUG: Log replacement behavior
+                                if matched < 3:  # Only log first few for performance
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] REPLACE: {old_potential:.6f} -> {delta:.6f}")
+                            
                             new_potential = neuron_array.membrane_potentials[idx]
                             
                             # Log if potential becomes inflated
