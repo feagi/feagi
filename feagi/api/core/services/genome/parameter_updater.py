@@ -271,6 +271,8 @@ class CorticalParameterUpdater:
             "lifespan_growth_rate",
             "init_lifespan",
             "temporal_depth",
+            "mp_charge_accumulation",
+            "mp_driven_psp",
         ]:
             #  These are cortical area-level parameters that affect neuron
             #  behavior

@@ -463,6 +463,8 @@ class NeuroEmbryogenesis:
             "postsynaptic_current_max": "postsynaptic_current_max",
             "degeneration": "degeneration",
             "psp_uniform_distribution": "psp_uniform_distribution",
+            "mp_charge_accumulation": "mp_charge_accumulation",
+            "mp_driven_psp": "mp_driven_psp",
             "visualization": "visualization",
             "2d_coordinate": "2d_coordinate",
             # Memory properties

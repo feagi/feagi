@@ -126,6 +126,11 @@ class CorticalChangeClassifier:
             "temporal_depth",
             int,
         ),  # Same name for API and genome
+        # Membrane potential properties - fast updates
+        "mp_charge_accumulation": ("mp_charge_accumulation", bool),
+        "neuron_mp_charge_accumulation": ("mp_charge_accumulation", bool),  # API parameter name
+        "mp_driven_psp": ("mp_driven_psp", bool),
+        "neuron_mp_driven_psp": ("mp_driven_psp", bool),  # API parameter name
     }
 
     # Parameters that need special handling (require rebuild for now)
@@ -138,8 +143,6 @@ class CorticalChangeClassifier:
         "neuron_leak_variability",  # API parameter name
         "psp_uniform_distribution",
         "neuron_psp_uniform_distribution",  # API parameter name
-        "mp_charge_accumulation",
-        "mp_driven_psp",
         "is_mem_type",
         "dev_count",
         "synapse_attractivity",
