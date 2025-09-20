@@ -157,8 +157,15 @@ class BurstEngine:
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         fire_queue = FireQueue()
         
+        # ALWAYS log before neural dynamics
+        logger.info(f"[BURST-ENGINE] About to process neural dynamics with FCL count: {fcl_candidate_count}")
+        
         # CRITICAL: Apply neural dynamics processing BEFORE firing evaluation
         fired_neurons = self._process_neural_dynamics(fcl)
+        
+        # ALWAYS log after neural dynamics
+        fired_count = len(fired_neurons) if fired_neurons else 0
+        logger.info(f"[BURST-ENGINE] Neural dynamics completed: {fired_count} neurons fired")
         
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         try:
@@ -1328,6 +1335,9 @@ class BurstEngine:
             RTOS-SAFE: Deterministic execution, pre-allocated arrays.
             GPU-READY: Optimal memory access patterns.
         """
+        # ALWAYS log entry to neural dynamics
+        fcl_count = fcl.get_total_candidate_count() if fcl else 0
+        logger.info(f"[NEURAL-DYNAMICS] ENTRY: FCL has {fcl_count} candidates")
         if not self.connectome_manager:
             logger.warning("No connectome manager available for neural dynamics processing")
             return []
@@ -1413,6 +1423,14 @@ class BurstEngine:
                     if valid_mask[i]:
                         logger.info(f"  Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
 
+            # Debug: Check potentials BEFORE SIMD processing
+            if debug_enabled:
+                high_pot_indices = np.where((valid_mask) & (potentials > 1000))[0]
+                if len(high_pot_indices) > 0:
+                    logger.error(f"[PRE-SIMD-BUG] {len(high_pot_indices)} neurons have inflated potentials BEFORE SIMD!")
+                    for i in high_pot_indices[:3]:
+                        logger.error(f"  PRE-SIMD Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+
             # SIMD-optimized neural processing pipeline with proper excitability
             firing_mask, num_fired = simd_batch_neural_update(
                 potentials=potentials,
@@ -1430,10 +1448,11 @@ class BurstEngine:
             )
             
             # Debug post-firing results for high threshold neurons
-            if debug_enabled and high_threshold_indices:
+            if debug_enabled:
+                # Count high threshold neurons that fired
                 fired_high_threshold = []
                 for i in range(valid_range):
-                    if valid_mask[i] and thresholds[i] > 1000 and firing_mask[i]:
+                    if valid_mask[i] and thresholds[i] >= 1000 and firing_mask[i]:
                         fired_high_threshold.append(i)
                         if len(fired_high_threshold) <= 10:  # Show first 10 examples
                             logger.error(f"[NEURAL-DEBUG] ❌ HIGH THRESHOLD NEURON FIRED: Neuron[{i}] potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
@@ -1442,6 +1461,20 @@ class BurstEngine:
                     logger.error(f"[NEURAL-DEBUG] ❌ TOTAL HIGH THRESHOLD NEURONS FIRED: {len(fired_high_threshold)} (BUG!)")
                 else:
                     logger.info("[NEURAL-DEBUG] ✅ All high threshold neurons correctly blocked from firing")
+                
+                # Also show which areas are firing
+                if num_fired > 0:
+                    firing_by_area = {}
+                    for i in range(valid_range):
+                        if valid_mask[i] and firing_mask[i]:
+                            threshold = thresholds[i]
+                            potential = potentials[i]
+                            area_key = f"thresh_{threshold:.1f}"
+                            if area_key not in firing_by_area:
+                                firing_by_area[area_key] = 0
+                            firing_by_area[area_key] += 1
+                    
+                    logger.info(f"[NEURAL-DEBUG] Firing summary by threshold: {firing_by_area}")
             
             # Step 3: Convert firing mask to neuron IDs
             if num_fired == 0:
@@ -1509,8 +1542,18 @@ class BurstEngine:
                         
                         # Bounds check
                         if 0 <= idx < valid_range:
+                            # DEBUG: Log potential accumulation bug
+                            old_potential = neuron_array.membrane_potentials[idx]
+                            delta = deltas[i]
+                            
                             # Add candidate potential to current membrane potential
                             neuron_array.membrane_potentials[idx] += deltas[i]
+                            new_potential = neuron_array.membrane_potentials[idx]
+                            
+                            # Log if potential becomes inflated
+                            if new_potential > 1000 and matched < 3:
+                                logger.error(f"[FCL-BUG] Neuron[{idx}] potential inflated: {old_potential:.6f} + {delta:.6f} = {new_potential:.6f}")
+                            
                             matched += 1
                         else:
                             out_of_range += 1

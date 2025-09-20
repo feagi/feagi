@@ -1421,7 +1421,7 @@ def normalize_brain_region_membership(genome: dict) -> dict:
     movers_under_root: list[str] = []
     # Non-root membership is not explicitly present in legacy genomes; treat all as root unless a future field exists
     # So only handle CUSTOM/MEMORY under root here
-    for area_id in set(list(area_group.keys()) | list(area_subgroup.keys())):
+    for area_id in set(area_group.keys()) | set(area_subgroup.keys()):
         cat = classify(area_id)
         if cat in constraints.subregion_allowed_area_categories:
             movers_under_root.append(area_id)

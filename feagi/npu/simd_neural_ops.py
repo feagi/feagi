@@ -190,10 +190,27 @@ def simd_firing_check_with_consecutive_limits(
     limit_active = consecutive_fire_limits > 0
     consecutive_fire_constraint[limit_active] = (consecutive_fire_counts < consecutive_fire_limits)[limit_active]
     
+    # Debug the threshold comparison for high-threshold neurons
+    threshold_mask = (potentials >= thresholds)
+    
+    # Check for obvious bugs: high threshold neurons passing the test
+    high_threshold_indices = np.where((thresholds >= 1000) & threshold_mask)[0]
+    if len(high_threshold_indices) > 0:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[SIMD-BUG] {len(high_threshold_indices)} high-threshold neurons passed threshold check!")
+        for i in high_threshold_indices[:5]:  # Show first 5
+            pot_val = potentials[i]
+            thresh_val = thresholds[i]
+            comparison_result = pot_val >= thresh_val
+            logger.error(f"  Neuron[{i}]: potential={pot_val:.6f} >= threshold={thresh_val:.1f} = {comparison_result}")
+            logger.error(f"    Raw values: pot={pot_val} thresh={thresh_val} types=({type(pot_val)}, {type(thresh_val)})")
+            logger.error(f"    Array dtypes: potentials={potentials.dtype} thresholds={thresholds.dtype}")
+    
     can_fire_mask = (
         valid_mask &                            # Valid neurons
         (refractory_counters == 0) &           # Not in refractory
-        (potentials >= thresholds) &           # Above threshold
+        threshold_mask &                       # Above threshold
         consecutive_fire_constraint            # Under consecutive limit (only if limit > 0)
     )
     

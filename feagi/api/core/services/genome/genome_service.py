@@ -4741,18 +4741,31 @@ class GenomeService(BaseService):
             }
         """
         try:
-            # Use existing GenomeProcessor to parse genome properly
-            from feagi.evo.genome_processor import GenomeProcessor
+            # Use production genome_2_1_convertor for consistency
+            from feagi.evo.genome_processor import genome_2_1_convertor
 
-            # Handle version 2.1 by treating it as 2.0 for analysis purposes
-            analysis_genome_data = genome_data.copy()
-            if analysis_genome_data.get("version") == "2.1":
-                analysis_genome_data["version"] = "2.0"
-                self.logger.debug("Treating genome version 2.1 as 2.0 for analysis purposes")
-
-            processor = GenomeProcessor(analysis_genome_data)
-            cortical_areas = processor.extract_cortical_areas()
-            cortical_mappings = processor.extract_cortical_mappings()
+            # Extract cortical areas from genome blueprint
+            blueprint = genome_data.get("blueprint", {})
+            
+            # Check if it's flat format and convert if needed
+            if blueprint and isinstance(blueprint, dict):
+                # Check for flat genome format
+                sample_keys = list(blueprint.keys())[:5]
+                if sample_keys and any("10c-" in key and "-cx-" in key for key in sample_keys):
+                    # Convert flat to hierarchical format
+                    hierarchical_genome = genome_2_1_convertor(blueprint)
+                    cortical_areas = hierarchical_genome["blueprint"]
+                else:
+                    # Already hierarchical
+                    cortical_areas = blueprint
+            else:
+                cortical_areas = {}
+            
+            # For mappings, extract from cortical areas
+            cortical_mappings = {}
+            for area_id, area_data in cortical_areas.items():
+                if "cortical_mapping_dst" in area_data:
+                    cortical_mappings[area_id] = area_data["cortical_mapping_dst"]
 
             total_neurons = 0
             total_synapses = 0
