@@ -4543,7 +4543,8 @@ class GenomeService(BaseService):
             from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 
             embryogenesis = NeuroEmbryogenesis(self._connectome_manager, self.state_manager)
-            success = embryogenesis.develop_brain_from_genome_data(merged_genome)
+            # Use additive mode to preserve existing brain structures during cloning
+            success = embryogenesis.develop_brain_from_genome_data(merged_genome, additive_mode=True)
             if not success:
                 self.logger.error("NeuroEmbryogenesis failed after amalgamation merge")
                 return False

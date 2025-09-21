@@ -702,6 +702,21 @@ class NeuroEmbryogenesis:
             total_remaining = len(remaining_areas)
 
             for i, cortical_id in enumerate(remaining_areas):
+                # In additive mode, check if cortical area already exists
+                if hasattr(self, 'additive_mode') and self.additive_mode:
+                    existing_area = None
+                    for area_id, area in self.connectome_manager.cortical_areas.items():
+                        if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                            existing_area = area
+                            break
+                    
+                    if existing_area is not None:
+                        logger.info(f"Additive mode: Skipping existing cortical area {cortical_id}")
+                        # Update mappings for existing area
+                        self.cortical_id_map[existing_area.cortical_idx] = cortical_id
+                        self.reverse_cortical_id_map[cortical_id] = existing_area.cortical_idx
+                        continue
+                
                 properties = self._extract_cortical_properties(cortical_id)
 
                 # Skip if required properties are missing
@@ -855,95 +870,121 @@ class NeuroEmbryogenesis:
 
         These areas are ALWAYS created regardless of genome content to ensure
         system reliability and proper cortical_idx reservation.
+        
+        In additive mode, skips creation if core areas already exist.
 
         Returns:
             True if successful, False otherwise
         """
         try:
+            # Check if core areas already exist (for additive mode)
+            existing_death = None
+            existing_power = None
+            
+            for area_id, area in self.connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id'):
+                    if area.cortical_id == "_death":
+                        existing_death = area
+                        logger.info(f"Core area _death already exists at cortical_idx={area.cortical_idx}")
+                    elif area.cortical_id == "_power":
+                        existing_power = area
+                        logger.info(f"Core area _power already exists at cortical_idx={area.cortical_idx}")
+            
             # Import cortical_types and cortical_template from templates
             from feagi.evo.templates import cortical_types, cortical_template
 
             core_devices = cortical_types["CORE"]["supported_devices"]
-
-            # Create _death area (cortical_idx=0)
+            
+            # Get templates (needed for genome sync later)
             death_template = core_devices["_death"]
-            
-            # Merge cortical_template properties with core-specific properties
-            death_properties = cortical_template.copy()
-            death_properties.update({
-                "template_source": "core",
-                "enabled": death_template["enabled"],
-                "structure": death_template["structure"],
-                # Map template properties to expected names
-                "neurons_per_voxel": death_properties["per_voxel_neuron_cnt"],
-                "fire_t": death_properties["firing_threshold"],
-                "leak_c": death_properties["leak_coefficient"],
-                "refrac": death_properties["refractory_period"],
-            })
-            
-            death_id = self.connectome_manager.add_cortical_area(
-                name=death_template["cortical_name"],
-                dimensions=tuple(death_template["resolution"]),
-                position=tuple(death_template["coordinate_3d"]),
-                area_type="CORE",
-                properties=death_properties,
-                cortical_id="_death",
-            )
+            pwr_template = core_devices["_power"]
 
-            #  Verify area was created and get from connectome_manager (single
-            #  source of truth)
-            if death_id not in self.connectome_manager.cortical_areas:
-                raise RuntimeError(
-                    "CRITICAL: _death area was not created in connectome_manager"
+            # Create _death area (cortical_idx=0) only if it doesn't exist
+            if existing_death is None:
+                
+                # Merge cortical_template properties with core-specific properties
+                death_properties = cortical_template.copy()
+                death_properties.update({
+                    "template_source": "core",
+                    "enabled": death_template["enabled"],
+                    "structure": death_template["structure"],
+                    # Map template properties to expected names
+                    "neurons_per_voxel": death_properties["per_voxel_neuron_cnt"],
+                    "fire_t": death_properties["firing_threshold"],
+                    "leak_c": death_properties["leak_coefficient"],
+                    "refrac": death_properties["refractory_period"],
+                })
+                
+                death_id = self.connectome_manager.add_cortical_area(
+                    name=death_template["cortical_name"],
+                    dimensions=tuple(death_template["resolution"]),
+                    position=tuple(death_template["coordinate_3d"]),
+                    area_type="CORE",
+                    properties=death_properties,
+                    cortical_id="_death",
                 )
 
-            death_area = self.connectome_manager.get_cortical_area(death_id)
+                #  Verify area was created and get from connectome_manager (single
+                #  source of truth)
+                if death_id not in self.connectome_manager.cortical_areas:
+                    raise RuntimeError(
+                        "CRITICAL: _death area was not created in connectome_manager"
+                    )
+
+                death_area = self.connectome_manager.get_cortical_area(death_id)
+                logger.info(
+                    f"Created core area _death at cortical_idx={death_area.cortical_idx}"
+                )
+            else:
+                death_area = existing_death
+                logger.info(f"Using existing core area _death at cortical_idx={death_area.cortical_idx}")
+            
+            # Update mappings for death area (whether new or existing)
             self.cortical_id_map[death_area.cortical_idx] = "_death"
             self.reverse_cortical_id_map["_death"] = death_area.cortical_idx
 
-            logger.info(
-                f"Created core area _death at cortical_idx={death_area.cortical_idx}"
-            )
-
-            # Create _power area (cortical_idx=1)
-            pwr_template = core_devices["_power"]
-            
-            # Merge cortical_template properties with core-specific properties
-            pwr_properties = cortical_template.copy()
-            pwr_properties.update({
-                "template_source": "core",
-                "enabled": True,  # Always enable power area regardless of template default
-                "structure": pwr_template["structure"],
-                # Map template properties to expected names
-                "neurons_per_voxel": pwr_properties["per_voxel_neuron_cnt"],
-                "fire_t": pwr_properties["firing_threshold"],
-                "leak_c": pwr_properties["leak_coefficient"],
-                "refrac": pwr_properties["refractory_period"],
-            })
-            
-            pwr_id = self.connectome_manager.add_cortical_area(
-                name=pwr_template["cortical_name"],
-                dimensions=tuple(pwr_template["resolution"]),
-                position=tuple(pwr_template["coordinate_3d"]),
-                area_type="CORE",
-                properties=pwr_properties,
-                cortical_id="_power",
-            )
-
-            #  Verify area was created and get from connectome_manager (single
-            #  source of truth)
-            if pwr_id not in self.connectome_manager.cortical_areas:
-                raise RuntimeError(
-                    "CRITICAL: _power area was not created in connectome_manager"
+            # Create _power area (cortical_idx=1) only if it doesn't exist
+            if existing_power is None:
+                # Merge cortical_template properties with core-specific properties
+                pwr_properties = cortical_template.copy()
+                pwr_properties.update({
+                    "template_source": "core",
+                    "enabled": True,  # Always enable power area regardless of template default
+                    "structure": pwr_template["structure"],
+                    # Map template properties to expected names
+                    "neurons_per_voxel": pwr_properties["per_voxel_neuron_cnt"],
+                    "fire_t": pwr_properties["firing_threshold"],
+                    "leak_c": pwr_properties["leak_coefficient"],
+                    "refrac": pwr_properties["refractory_period"],
+                })
+                
+                pwr_id = self.connectome_manager.add_cortical_area(
+                    name=pwr_template["cortical_name"],
+                    dimensions=tuple(pwr_template["resolution"]),
+                    position=tuple(pwr_template["coordinate_3d"]),
+                    area_type="CORE",
+                    properties=pwr_properties,
+                    cortical_id="_power",
                 )
 
-            pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
+                #  Verify area was created and get from connectome_manager (single
+                #  source of truth)
+                if pwr_id not in self.connectome_manager.cortical_areas:
+                    raise RuntimeError(
+                        "CRITICAL: _power area was not created in connectome_manager"
+                    )
+
+                pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
+                logger.info(
+                    f"Created core area _power at cortical_idx={pwr_area.cortical_idx}"
+                )
+            else:
+                pwr_area = existing_power
+                logger.info(f"Using existing core area _power at cortical_idx={pwr_area.cortical_idx}")
+            
+            # Update mappings for power area (whether new or existing)
             self.cortical_id_map[pwr_area.cortical_idx] = "_power"
             self.reverse_cortical_id_map["_power"] = pwr_area.cortical_idx
-
-            logger.info(
-                f"Created core area _power at cortical_idx={pwr_area.cortical_idx}"
-            )
 
             # Verify correct cortical_idx assignment
             if death_area.cortical_idx != 0:
@@ -1120,6 +1161,16 @@ class NeuroEmbryogenesis:
                 if str(area.area_type).upper() == "CORE" or cortical_id in ("_death", "_power"):
                     logger.info(f"Skipping neurogenesis for core area {cortical_id}")
                     continue
+                
+                # In additive mode, skip neurogenesis for areas that already have neurons
+                if hasattr(self, 'additive_mode') and self.additive_mode:
+                    # Check if this area already has neurons
+                    npu_interface = getattr(self.connectome_manager, "_npu_interface", None)
+                    if npu_interface:
+                        existing_neurons = npu_interface.get_neurons_by_area(area.cortical_idx)
+                        if len(existing_neurons) > 0:
+                            logger.info(f"Additive mode: Skipping neurogenesis for area {cortical_id} (already has {len(existing_neurons)} neurons)")
+                            continue
 
                 # Calculate neuron count for this area
                 width, height, depth = area.dimensions
@@ -1949,7 +2000,7 @@ class NeuroEmbryogenesis:
         regions["root"]["areas"] = rebuilt_root_areas
 
     def develop_brain_from_genome_data(
-        self, genome_data: Dict[str, Any]
+        self, genome_data: Dict[str, Any], additive_mode: bool = False
     ) -> bool:
         """Develop a brain from genome data directly (not from file).
 
@@ -1958,10 +2009,14 @@ class NeuroEmbryogenesis:
 
         Args:
             genome_data: The genome dictionary data
+            additive_mode: If True, skip brain reset and only add new structures (for cloning)
 
         Returns:
             True if brain developed successfully, False otherwise
         """
+        # Store additive mode for use in other methods
+        self.additive_mode = additive_mode
+        
         self.development_stats["start_time"] = datetime.datetime.now()
 
         # Enforce brain region membership normalization (handles legacy genomes)
@@ -1985,26 +2040,32 @@ class NeuroEmbryogenesis:
             logger.error(f"Region membership normalization failed in embryogenesis: {norm_err}")
             return False
 
-        #  CRITICAL: Reset brain state before development to ensure consistent
-        #  performance
-        # This prevents neuron array accumulation between genome loads
-        logger.info(
-            "Preparing connectome for new genome (resetting brain state)"
-        )
-        if hasattr(self.connectome_manager, "prepare_for_new_genome"):
-            reset_result = self.connectome_manager.prepare_for_new_genome(
-                genome_data, save_current_state=False
-            )
-            if not reset_result.get("success", False):
-                self.error = "Failed to reset brain state for new genome"
-                logger.error(self.error)
-                return False
+        # Brain reset logic - skip in additive mode (for cloning operations)
+        if not additive_mode:
+            #  CRITICAL: Reset brain state before development to ensure consistent
+            #  performance
+            # This prevents neuron array accumulation between genome loads
             logger.info(
-                f"Brain reset completed: {reset_result.get('message', 'Unknown result')}"
+                "Preparing connectome for new genome (resetting brain state)"
             )
+            if hasattr(self.connectome_manager, "prepare_for_new_genome"):
+                reset_result = self.connectome_manager.prepare_for_new_genome(
+                    genome_data, save_current_state=False
+                )
+                if not reset_result.get("success", False):
+                    self.error = "Failed to reset brain state for new genome"
+                    logger.error(self.error)
+                    return False
+                logger.info(
+                    f"Brain reset completed: {reset_result.get('message', 'Unknown result')}"
+                )
+            else:
+                logger.warning(
+                    "ConnectomeManager lacks prepare_for_new_genome method - performance may be inconsistent"
+                )
         else:
-            logger.warning(
-                "ConnectomeManager lacks prepare_for_new_genome method - performance may be inconsistent"
+            logger.info(
+                "Additive mode: Skipping brain reset, preserving existing structures"
             )
 
         # Validate and load genome data directly
