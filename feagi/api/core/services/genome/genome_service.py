@@ -4186,10 +4186,17 @@ class GenomeService(BaseService):
             existing_area_ids = set((current_genome.get("blueprint") or {}).keys())
 
             try:
-                from feagi.api.v1.utils import generate_cortical_id as _gen_id
+                # Use canonical generator that guarantees 6-character IDs
+                from feagi.bdu.models.cortical_area import (
+                    generate_cortical_id as _gen_id,
+                )
             except Exception:
+                # Safe fallback that still produces 6-character IDs
+                import random, string
                 def _gen_id(prefix: str = "c", seed: str = "AAA") -> str:
-                    return f"{prefix}{seed}"
+                    cleaned = ("".join([c for c in seed if c.isalnum()]).upper() + "AAA")[:3]
+                    rand2 = "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(2))
+                    return (f"{prefix}{rand2}{cleaned}")[:6]
 
             def _is_memory_area(area_def: Dict[str, Any]) -> bool:
                 params = area_def.get("parameters", {}) or {}
@@ -4211,6 +4218,9 @@ class GenomeService(BaseService):
                 candidate = None
                 for _ in range(256):
                     cand = _gen_id(prefix=prefix, seed=seed_source)
+                    # Enforce 6-character format
+                    if not isinstance(cand, str) or len(cand) != 6:
+                        continue
                     if cand not in existing_area_ids and cand not in area_id_map.values():
                         candidate = cand
                         break
@@ -4320,6 +4330,9 @@ class GenomeService(BaseService):
                     if "relative_coordinate" in new_area and isinstance(new_area["relative_coordinate"], (list, tuple)):
                         rx, ry, rz = new_area["relative_coordinate"][0], new_area["relative_coordinate"][1], new_area["relative_coordinate"][2]
                         new_area["relative_coordinate"] = [int(rx) + ox, int(ry) + oy, int(rz) + oz]
+                    # If missing, provide a sane default so area creation is not skipped
+                    if not isinstance(new_area.get("relative_coordinate"), (list, tuple)) or len(new_area.get("relative_coordinate")) < 3:
+                        new_area["relative_coordinate"] = [int(ox), int(oy), int(oz)]
                     # Optional 2D coordinate shift
                     if "2d_coordinate" in new_area and isinstance(new_area["2d_coordinate"], (list, tuple)):
                         x2, y2 = new_area["2d_coordinate"][0], new_area["2d_coordinate"][1]
@@ -4343,6 +4356,20 @@ class GenomeService(BaseService):
 
                 # Ensure valid neuron generation properties for embryogenesis
                 try:
+                    # Deterministic neural dynamics defaults (from cortical_template)
+                    from feagi.evo.templates import cortical_template as _ct
+                    # Map hierarchical keys expected by property extractor
+                    if "refractory_period" not in new_area:
+                        new_area["refractory_period"] = int(_ct.get("refractory_period", 1))
+                    if "firing_threshold" not in new_area:
+                        new_area["firing_threshold"] = float(_ct.get("firing_threshold", 1.0))
+                    if "leak_coefficient" not in new_area:
+                        new_area["leak_coefficient"] = float(_ct.get("leak_coefficient", 0.0))
+                    if "neuron_excitability" not in new_area:
+                        new_area["neuron_excitability"] = float(_ct.get("neuron_excitability", 1.0))
+                    if "postsynaptic_current" not in new_area:
+                        new_area["postsynaptic_current"] = float(_ct.get("postsynaptic_current", 1.0))
+
                     # Dimensions: block_boundaries (width, height, depth) must be >= 1
                     bb = new_area.get("block_boundaries") or new_area.get("cortical_dimensions")
                     if not (isinstance(bb, (list, tuple)) and len(bb) >= 3):
@@ -4472,32 +4499,40 @@ class GenomeService(BaseService):
                     params["region_id"] = rid
                     adef["parameters"] = params
 
-            # Global safety pass: remap any lingering mapping targets across the entire genome
-            # This ensures external areas referencing appended areas use the new IDs
+            # Global pass: remap and then strictly validate mapping targets
+            # Deterministic rule: keep only targets that exist in merged_genome["blueprint"] (6-char ids)
             try:
+                blueprint_ids = set((merged_genome.get("blueprint", {}) or {}).keys())
+
+                def _remap_and_filter(mapping_dict: Dict[str, Any]) -> Dict[str, Any]:
+                    filtered: Dict[str, Any] = {}
+                    for tgt_id, conns in mapping_dict.items():
+                        # First, remap internal targets produced by clone
+                        mapped = area_id_map.get(tgt_id)
+                        final_tgt = mapped if mapped else tgt_id
+                        # Strict filter: keep only if target is a known cortical_id
+                        if final_tgt in blueprint_ids:
+                            filtered[final_tgt] = conns
+                        else:
+                            self.logger.warning(
+                                f"[AMALGAMATION] Dropping invalid mapping target '{tgt_id}' → '{final_tgt}' (not a known cortical_id)")
+                    return filtered
+
                 for src_id, src_def in (merged_genome.get("blueprint", {}) or {}).items():
                     if not isinstance(src_def, dict):
                         continue
-                    # Remap in primary location
+                    # Primary location
                     c_dst = src_def.get("cortical_mapping_dst")
                     if isinstance(c_dst, dict) and c_dst:
-                        new_dst = {}
-                        for tgt_id, conns in c_dst.items():
-                            mapped = area_id_map.get(tgt_id)
-                            new_dst[mapped if mapped else tgt_id] = conns
-                        src_def["cortical_mapping_dst"] = new_dst
-                    # Remap in parameters.mapping for completeness
+                        src_def["cortical_mapping_dst"] = _remap_and_filter(c_dst)
+                    # Parameters.mapping
                     params = src_def.get("parameters", {}) or {}
                     p_map = params.get("mapping")
                     if isinstance(p_map, dict) and p_map:
-                        new_p_map = {}
-                        for tgt_id, conns in p_map.items():
-                            mapped = area_id_map.get(tgt_id)
-                            new_p_map[mapped if mapped else tgt_id] = conns
-                        params["mapping"] = new_p_map
+                        params["mapping"] = _remap_and_filter(p_map)
                         src_def["parameters"] = params
             except Exception as remap_err:
-                self.logger.warning(f"Global mapping remap encountered issues: {remap_err}")
+                self.logger.warning(f"Global mapping remap/validate encountered issues: {remap_err}")
 
             # Commit merged genome into state and run full neuroembryogenesis
             self._current_genome = merged_genome

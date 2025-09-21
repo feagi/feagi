@@ -161,7 +161,12 @@ class NPUInterface:
             return BatchOperationResult(
                 result=OperationResult.SUCCESS,
                 successful_count=len(indices),
-                failed_indices=[]
+                failed_indices=[],
+                data={
+                    "neuron_ids": neuron_ids,
+                    "indices": indices,
+                    "cortical_idx": request.cortical_idx,
+                },
             )
             
         except ValueError as e:
@@ -375,9 +380,31 @@ class NPUInterface:
         return OperationResult.SUCCESS
     
     def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
-        """Get all neuron IDs in a cortical area."""
-        neuron_ids = []
-        for neuron_id, area_idx in self.neuron_to_area.items():
-            if area_idx == cortical_idx:
-                neuron_ids.append(neuron_id)
-        return neuron_ids
+        """Get all neuron IDs in a cortical area.
+
+        Deterministic and authoritative: uses NeuronArray SoA state rather than
+        auxiliary dictionaries to avoid stale mappings.
+        """
+        try:
+            na = self.neuron_array
+            if na is None:
+                return []
+
+            valid_count = int(na.neuron_count)
+            if valid_count <= 0:
+                return []
+
+            import numpy as np
+
+            area_mask = (na.cortical_idxs[:valid_count] == int(cortical_idx)) & na.valid_mask[:valid_count]
+            if not np.any(area_mask):
+                return []
+
+            idxs = np.nonzero(area_mask)[0]
+            # Map indices to neuron IDs using authoritative lookup
+            ids = na.indices_to_neuron_ids(idxs)
+            # Filter any invalid (-1)
+            return [int(x) for x in ids.tolist() if int(x) >= 0]
+        except Exception:
+            # Fallback: return empty to force fail-fast rather than stale data
+            return []

@@ -5909,40 +5909,40 @@ class ConnectomeManager(NeuronMappingProvider):
                 status="[OK]",
             )
 
-        # 9. CRITICAL FIX: Clear FCL manager to prevent stale cortical indices
+        # 9. CRITICAL FIX: Clear FCL state via NPU-owned managers to prevent stale cortical indices
         fcl_cleared = False
-        if hasattr(self, "fcl_manager") and self.fcl_manager:
-            try:
+        try:
+            # Prefer clearing through NPU BurstEngine if available
+            burst_engine = getattr(self, "_npu_interface", None)
+            if burst_engine and hasattr(burst_engine, "fcl_manager") and burst_engine.fcl_manager:
+                fcl = burst_engine.fcl_manager
+                if hasattr(fcl, "clear_all_fcl_history"):
+                    fcl.clear_all_fcl_history()
+                    fcl_cleared = True
+                elif hasattr(fcl, "clear_all_window_caches"):
+                    fcl.clear_all_window_caches()
+                    fcl_cleared = True
+            
+            # Legacy local reference fallback
+            if not fcl_cleared and hasattr(self, "fcl_manager") and self.fcl_manager:
                 if hasattr(self.fcl_manager, "clear_all_fcl_history"):
                     self.fcl_manager.clear_all_fcl_history()
                     fcl_cleared = True
-                    logger.info(
-                        "Cleared FCL manager history and caches to prevent stale cortical indices",
-                        status="[OK]",
-                    )
                 elif hasattr(self.fcl_manager, "clear_all_window_caches"):
-                    # Fallback to partial clearing
                     self.fcl_manager.clear_all_window_caches()
-                    # Also clear history manually
-                    if hasattr(self.fcl_manager, "global_fcl_history"):
-                        for bitmap in self.fcl_manager.global_fcl_history:
-                            bitmap.clear()
-                    if hasattr(self.fcl_manager, "cortical_fcl_history"):
-                        self.fcl_manager.cortical_fcl_history.clear()
-                    if hasattr(self.fcl_manager, "custom_cortical_history"):
-                        self.fcl_manager.custom_cortical_history.clear()
                     fcl_cleared = True
-                    logger.info(
-                        "Manually cleared FCL manager history to prevent stale cortical indices",
-                        status="[OK]",
-                    )
-            except Exception as e:
-                logger.warning(f"Error clearing FCL manager: {e}")
-        
-        if not fcl_cleared and hasattr(self, "fcl_manager"):
-            logger.warning(
-                "FCL manager found but could not be cleared - may cause stale cortical index warnings"
-            )
+
+            if fcl_cleared:
+                logger.info(
+                    "Cleared FCL caches/history to prevent stale cortical indices",
+                    status="[OK]",
+                )
+            else:
+                logger.warning(
+                    "FCL manager found but could not be cleared - may cause stale cortical index warnings"
+                )
+        except Exception as e:
+            logger.warning(f"Error clearing FCL state: {e}")
 
         #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
         #  synchronized
