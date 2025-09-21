@@ -373,6 +373,7 @@ class CorticalAreaAPI:
                 ),
                 coordinates_3d=request.coordinates_3d,
                 coordinates_2d=request.coordinates_2d,
+                cortical_name=request.cortical_name,
             )
             if not result or "new_area_id" not in result:
                 raise ValueError("Clone operation failed")

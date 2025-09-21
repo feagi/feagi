@@ -2673,6 +2673,7 @@ class CoreAPIService:
         clone_cortical_mapping: bool = True,
         coordinates_3d: Optional[List[int]] = None,
         coordinates_2d: Optional[List[int]] = None,
+        cortical_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Clone an existing cortical area, leveraging existing services.
 
@@ -2787,6 +2788,39 @@ class CoreAPIService:
                     if key in source_params and source_params.get(key) is not None:
                         new_params[key] = source_params.get(key)
 
+            # Copy ALL neural properties from the source parameters except mapping/region/coordinates overrides
+            try:
+                banned_param_keys = {
+                    "mapping",
+                    "cortical_mapping_dst",
+                    "brain_region_id",
+                    "parent_region_id",
+                    "coordinates_2d",
+                }
+                for k, v in (source_params or {}).items():
+                    if k in banned_param_keys:
+                        continue
+                    # Keep our explicit overrides for group/subgroup and per_voxel count
+                    if k in ("cortical_group", "sub_group_id", "cortical_sub_group", "per_voxel_neuron_cnt"):
+                        # Already set above; still let exact matches through to preserve exact values
+                        pass
+                    new_params[k] = v
+            except Exception:
+                pass
+
+            # Also copy select top-level neural properties from source area to ensure exact match in readers
+            try:
+                top_level_passthrough_keys = [
+                    "firing_threshold",
+                    "refractory_period",
+                    "leak_coefficient",
+                ]
+                for k in top_level_passthrough_keys:
+                    if k in (source_area or {}):
+                        new_params[k] = source_area[k]
+            except Exception:
+                pass
+
             # Generate a standard cortical_id matching FEAGI's convention
             try:
                 from feagi.bdu.models.cortical_area import generate_cortical_id as _gen_id
@@ -2821,8 +2855,23 @@ class CoreAPIService:
                 pass
 
             # Create area via GenomeService (single source of truth)
+            # Resolve target cortical name
+            target_name = cortical_name.strip() if cortical_name else f"{source_name}_clone"
+            # Ensure uniqueness of cortical_name; append numeric suffix if needed
+            try:
+                existing_names = set(self.get_cortical_area_name_list() or [])
+            except Exception:
+                existing_names = set()
+            if target_name in existing_names:
+                suffix = 2
+                base = target_name
+                while f"{base}_{suffix}" in existing_names and suffix < 1000:
+                    suffix += 1
+                if f"{base}_{suffix}" not in existing_names:
+                    target_name = f"{base}_{suffix}"
+
             created = self._genome_service.create_cortical_area(
-                name=f"{source_name}_clone",
+                name=target_name,
                 coordinates={"x": coordinates_3d[0], "y": coordinates_3d[1], "z": coordinates_3d[2]},
                 dimensions=dims,
                 area_type=("memory" if is_memory else ("custom" if source_type == "custom" else source_type)),

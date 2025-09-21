@@ -338,12 +338,15 @@ class CloneCorticalAreaRequest(BaseModel):
         clone_cortical_mapping: Whether to duplicate incoming/outgoing/recursive mappings (default: True)
         coordinates_3d: Optional override for new area's 3D coordinates [x, y, z]
         coordinates_2d: Optional override for new area's 2D coordinates [x, y]
+        cortical_name: Optional new name for the cloned area. If omitted, a unique
+            name will be auto-generated based on the source area name.
     """
 
     source_area_id: str
     clone_cortical_mapping: Optional[bool] = True
     coordinates_3d: Optional[List[int]] = None
     coordinates_2d: Optional[List[int]] = None
+    cortical_name: Optional[str] = None
 
 
 class CloneCorticalAreaResponse(BaseModel):
