@@ -356,6 +356,30 @@ class CloneCorticalAreaResponse(BaseModel):
     message: str
 
 
+class CloneBrainRegionRequest(BaseModel):
+    """Request model for cloning a brain region (circuit).
+
+    Fields:
+        source_region_id: Region ID of the circuit to clone
+        region_name: Optional new title for the cloned region subtree (used as genome_title during amalgamation)
+        coordinates_3d: Optional [x, y, z] placement to prefill; final placement occurs during amalgamation finalize
+        coordinates_2d: Optional [x, y] placement to prefill; informational only for clone stage
+    """
+
+    source_region_id: str
+    region_name: Optional[str] = None
+    coordinates_3d: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+
+
+class CloneBrainRegionResponse(BaseModel):
+    """Response model for brain region clone operation (pending amalgamation)."""
+
+    amalgamation_id: str
+    circuit_size: List[int]
+    message: str
+
+
 # ===== Common Request Schemas =====
 
 

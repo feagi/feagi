@@ -23,6 +23,8 @@ from .decorators import endpoint
 from .schemas import (
     RegionMemberRelocationRequest,
     SuccessResponse,
+    CloneBrainRegionRequest,
+    CloneBrainRegionResponse,
 )
 
 logger = setup_logger(__name__)
@@ -778,6 +780,56 @@ class RegionAPI:
         except Exception as e:
             logger.error(f"Error relocating region members: {e}")
             raise ValueError(f"Failed to relocate region members: {str(e)}")
+
+    # ===== Region Clone (pending amalgamation) =====
+
+    @region_endpoint(
+        "POST",
+        "/clone",
+        request_model=CloneBrainRegionRequest,
+        response_model=CloneBrainRegionResponse,
+        description=(
+            "Prepare a clone of a brain region using amalgamation pending workflow. "
+            "No genome changes until amalgamation destination is submitted."
+        ),
+    )
+    def clone_brain_region(self, request: CloneBrainRegionRequest) -> CloneBrainRegionResponse:
+        """Initiate region clone via amalgamation pending.
+
+        - Extract subtree genome from source_region_id
+        - Set pending amalgamation with optional region_name
+        - Return amalgamation_id and circuit_size for BV to finalize later
+        """
+        try:
+            # Build genome payload from region subtree
+            from feagi.bdu.models.brain_region import construct_genome_from_region
+
+            genome_payload = construct_genome_from_region(request.source_region_id)
+
+            # Override genome title if provided
+            genome_title = request.region_name or genome_payload.get("genome_title", "Cloned Region")
+
+            # Kick off amalgamation pending using core API service
+            result = self.core_api_service.process_amalgamation_request(
+                genome_payload=genome_payload,
+                genome_id=genome_payload.get("genome_id", request.source_region_id),
+                genome_title=genome_title,
+            )
+
+            if not result.get("success"):
+                raise ValueError(result.get("error", "Failed to start region clone (amalgamation pending)"))
+
+            amalgamation_id: str = result.get("amalgamation_id", "")
+            circuit_size = result.get("circuit_size", [1, 1, 1])
+
+            return CloneBrainRegionResponse(
+                amalgamation_id=amalgamation_id,
+                circuit_size=circuit_size,
+                message="Region clone pending created. Finalize via amalgamation destination.",
+            )
+        except Exception as e:
+            logger.error(f"Error initiating region clone: {e}")
+            raise ValueError(f"Failed to initiate region clone: {str(e)}")
 
     # ===== Legacy endpoints provide complete functionality - new endpoints removed =====
 
