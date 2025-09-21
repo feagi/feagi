@@ -6264,6 +6264,18 @@ class CoreAPIService:
                 f"Failed to append circuit to genome: {str(e)}"
             ) from e
 
+    def apply_amalgamation_destination(self, dest_data: Dict[str, Any]) -> bool:
+        """Finalize amalgamation by merging payload and running full NeuroEmbryogenesis.
+
+        ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
+        to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
+        """
+        try:
+            return self._genome_service.apply_amalgamation_destination(dest_data)
+        except Exception as e:
+            self.logger.error(f"Error applying amalgamation destination: {str(e)}")
+            return False
+
     def complete_amalgamation(self, amalgamation_data: Dict[str, Any]) -> bool:
         """Complete an amalgamation.
 

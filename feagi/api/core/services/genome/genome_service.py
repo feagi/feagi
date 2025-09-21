@@ -4116,6 +4116,421 @@ class GenomeService(BaseService):
             self.logger.error(f"Error appending file to genome: {str(e)}")
             return False
 
+    def apply_amalgamation_destination(self, dest_data: Dict[str, Any]) -> bool:
+        """Finalize a pending amalgamation by merging the provided circuit payload
+        into the current genome and running full NeuroEmbryogenesis.
+
+        Architecture:
+        API → Service → GenomeService → StateManager.genome (merge) → NeuroEmbryogenesis.develop_brain_from_genome_data
+
+        Args:
+            dest_data: {
+                "genome_str": Dict[str, Any],            # payload genome (may be flat or hierarchical)
+                "circuit_origin": List[int],            # [x,y,z] origin offset for placement
+                "parent_brain_region": str,             # region ID under which to attach the new subtree
+                "rewire_mode": str,                     # "rewire_all" | "no_rewiring"
+                "amalgamation_id": Optional[str]
+            }
+
+        Returns:
+            True on success, False otherwise.
+        """
+        try:
+            # Validate context
+            current_genome = self.get_genome()
+            if not current_genome:
+                self.logger.error("Cannot finalize amalgamation: no genome loaded")
+                return False
+
+            payload = dest_data.get("genome_str") or {}
+            if not isinstance(payload, dict) or "blueprint" not in payload:
+                self.logger.error("Invalid amalgamation payload: missing blueprint")
+                return False
+
+            origin = dest_data.get("circuit_origin") or [0, 0, 0]
+            try:
+                ox, oy, oz = int(origin[0]), int(origin[1]), int(origin[2])
+            except Exception:
+                ox, oy, oz = 0, 0, 0
+
+            parent_region_id = dest_data.get("parent_brain_region") or "root"
+            rewire_mode = str(dest_data.get("rewire_mode") or "rewire_all")
+            amalgamation_id = dest_data.get("amalgamation_id") or ""
+
+            # Convert flat blueprint to hierarchical if needed
+            blueprint_payload = payload.get("blueprint", {})
+            if not isinstance(blueprint_payload, dict):
+                self.logger.error("Invalid payload blueprint structure")
+                return False
+
+            def _is_flat_blueprint(blueprint_dict: Dict[str, Any]) -> bool:
+                keys = list(blueprint_dict.keys())
+                return bool(keys and any("10c-" in k and "-cx-" in k for k in keys[: min(5, len(keys))]))
+
+            if _is_flat_blueprint(blueprint_payload):
+                from feagi.evo.genome_processor import genome_2_1_convertor
+
+                self.logger.info("Converting flat blueprint to hierarchical for amalgamation merge")
+                converted = genome_2_1_convertor(flat_genome=blueprint_payload)
+                payload_blueprint_hier = converted.get("blueprint", {})
+            else:
+                payload_blueprint_hier = blueprint_payload
+
+            # Prepare region dictionary from payload
+            payload_regions = payload.get("brain_regions", {})
+            if not isinstance(payload_regions, dict) or "root" not in payload_regions:
+                # Create a minimal root if missing to attach the appended areas
+                payload_regions = {"root": {"title": payload.get("genome_title", "Cloned Region"), "parent_region_id": None, "areas": list(payload_blueprint_hier.keys()), "regions": [], "coordinate_2d": [0, 0], "coordinate_3d": [0, 0, 0], "inputs": [], "outputs": [], "signature": ""}}
+
+            # Build mapping of original (payload) area IDs to new unique IDs in current genome
+            existing_area_ids = set((current_genome.get("blueprint") or {}).keys())
+
+            try:
+                from feagi.api.v1.utils import generate_cortical_id as _gen_id
+            except Exception:
+                def _gen_id(prefix: str = "c", seed: str = "AAA") -> str:
+                    return f"{prefix}{seed}"
+
+            def _is_memory_area(area_def: Dict[str, Any]) -> bool:
+                params = area_def.get("parameters", {}) or {}
+                if str(params.get("sub_group_id", "")).upper() == "MEMORY":
+                    return True
+                # legacy aliases
+                return bool(area_def.get("cortical_type", "").lower() == "memory")
+
+            area_id_map: Dict[str, str] = {}
+            for old_id, area_def in payload_blueprint_hier.items():
+                # Determine prefix
+                prefix = "m" if _is_memory_area(area_def) else "c"
+                # Seed from name if available, else old_id
+                seed_source = str(area_def.get("cortical_name") or old_id)
+                seed_source = "".join([c for c in seed_source if c.isalnum()]).upper()
+                seed_source = (seed_source + "000")[:3]
+
+                # Generate unique new id
+                candidate = None
+                for _ in range(256):
+                    cand = _gen_id(prefix=prefix, seed=seed_source)
+                    if cand not in existing_area_ids and cand not in area_id_map.values():
+                        candidate = cand
+                        break
+                    # perturb seed slightly to avoid collisions
+                    seed_source = (seed_source[1:] + seed_source[:1])
+                if candidate is None:
+                    # As last resort, append a numeric suffix loop
+                    base = f"{prefix}{seed_source}"
+                    for i in range(2, 1024):
+                        cand = f"{base}_{i}"
+                        if cand not in existing_area_ids and cand not in area_id_map.values():
+                            candidate = cand
+                            break
+                if candidate is None:
+                    self.logger.error(f"Failed to generate unique cortical_id for appended area {old_id}")
+                    return False
+                area_id_map[old_id] = candidate
+
+            # Build region ID map for all regions in payload (including root)
+            existing_regions = set((current_genome.get("brain_regions") or {}).keys())
+            import hashlib
+
+            region_id_map: Dict[str, str] = {}
+            for old_region_id in payload_regions.keys():
+                if old_region_id == "root":
+                    digest = hashlib.sha1((payload_regions.get("root", {}).get("title", "Region") + str(len(existing_regions))).encode("utf-8")).hexdigest()[:8]
+                    new_region_id = f"region_autogen_{digest}"
+                else:
+                    digest = hashlib.sha1((old_region_id + str(len(existing_regions))).encode("utf-8")).hexdigest()[:8]
+                    new_region_id = f"region_autogen_{digest}"
+                # Ensure uniqueness
+                inc = 2
+                base = new_region_id
+                while new_region_id in existing_regions or new_region_id in region_id_map.values():
+                    new_region_id = f"{base}_{inc}"
+                    inc += 1
+                region_id_map[old_region_id] = new_region_id
+
+            # Merge blueprint: remap IDs, adjust coordinates by origin, remap mappings per rewire_mode
+            from copy import deepcopy
+
+            merged_genome = deepcopy(current_genome)
+            if "blueprint" not in merged_genome:
+                merged_genome["blueprint"] = {}
+            if "brain_regions" not in merged_genome:
+                merged_genome["brain_regions"] = {}
+
+            def _remap_connections(area_mapping: Dict[str, Any]) -> Dict[str, Any]:
+                """Remap mapping dict {target_id: [connections]} according to area_id_map.
+                Apply rewiring rules for targets outside the appended subtree.
+                """
+                if not isinstance(area_mapping, dict):
+                    return {}
+                new_map: Dict[str, Any] = {}
+                for tgt, conns in area_mapping.items():
+                    if tgt in area_id_map:
+                        # internal edge → remap to the new id
+                        new_tgt = area_id_map[tgt]
+                        new_map[new_tgt] = conns
+                    else:
+                        # external edge
+                        if rewire_mode == "rewire_all":
+                            new_map[tgt] = conns
+                        else:
+                            # no_rewiring: drop external edges
+                            continue
+                return new_map
+
+            # Track existing cortical area names to avoid duplicates during append
+            existing_names: set = set()
+            try:
+                for _eid, _edef in (merged_genome.get("blueprint", {}) or {}).items():
+                    nm = None
+                    if isinstance(_edef, dict):
+                        nm = _edef.get("cortical_name") or _edef.get("name")
+                    if isinstance(nm, str) and nm:
+                        existing_names.add(nm)
+            except Exception:
+                pass
+
+            def _unique_name(base: str) -> str:
+                if not isinstance(base, str) or not base:
+                    base = "Area"
+                candidate = base
+                suffix = 2
+                while candidate in existing_names:
+                    candidate = f"{base}_{suffix}"
+                    suffix += 1
+                existing_names.add(candidate)
+                return candidate
+
+            for old_id, area_def in payload_blueprint_hier.items():
+                new_id = area_id_map[old_id]
+                new_area = deepcopy(area_def)
+
+                # Update identity
+                new_area["cortical_id"] = new_id
+                # Ensure unique cortical_name across the whole brain
+                try:
+                    base_name = new_area.get("cortical_name") or new_area.get("name") or new_id
+                    new_area["cortical_name"] = _unique_name(str(base_name))
+                except Exception:
+                    new_area["cortical_name"] = _unique_name(new_id)
+
+                # Coordinates: shift by origin if relative coordinate present
+                try:
+                    if "relative_coordinate" in new_area and isinstance(new_area["relative_coordinate"], (list, tuple)):
+                        rx, ry, rz = new_area["relative_coordinate"][0], new_area["relative_coordinate"][1], new_area["relative_coordinate"][2]
+                        new_area["relative_coordinate"] = [int(rx) + ox, int(ry) + oy, int(rz) + oz]
+                    # Optional 2D coordinate shift
+                    if "2d_coordinate" in new_area and isinstance(new_area["2d_coordinate"], (list, tuple)):
+                        x2, y2 = new_area["2d_coordinate"][0], new_area["2d_coordinate"][1]
+                        new_area["2d_coordinate"] = [int(x2) + ox, int(y2) + oy]
+                    # Legacy/alternate coordinates key
+                    coords = new_area.get("coordinates")
+                    if isinstance(coords, dict) and {"x", "y", "z"}.issubset(coords.keys()):
+                        new_area["coordinates"] = {"x": int(coords["x"]) + ox, "y": int(coords["y"]) + oy, "z": int(coords["z"]) + oz}
+                except Exception:
+                    pass
+
+                # Remap mappings
+                params = new_area.get("parameters", {}) or {}
+                # Primary mapping
+                if isinstance(params.get("mapping"), dict):
+                    params["mapping"] = _remap_connections(params.get("mapping"))
+                # Alternate mapping key
+                if isinstance(new_area.get("cortical_mapping_dst"), dict):
+                    new_area["cortical_mapping_dst"] = _remap_connections(new_area.get("cortical_mapping_dst"))
+                new_area["parameters"] = params
+
+                # Ensure valid neuron generation properties for embryogenesis
+                try:
+                    # Dimensions: block_boundaries (width, height, depth) must be >= 1
+                    bb = new_area.get("block_boundaries") or new_area.get("cortical_dimensions")
+                    if not (isinstance(bb, (list, tuple)) and len(bb) >= 3):
+                        bb = [1, 1, 1]
+                    # Clamp to >= 1
+                    bw = max(1, int(bb[0]))
+                    bh = max(1, int(bb[1]))
+                    bd = max(1, int(bb[2]))
+                    new_area["block_boundaries"] = [bw, bh, bd]
+                    new_area["cortical_dimensions"] = [bw, bh, bd]
+
+                    # Neurons per voxel: default to 1 if missing/invalid
+                    pv = new_area.get("per_voxel_neuron_cnt")
+                    if pv is None:
+                        pv = new_area.get("neurons_per_voxel")
+                    try:
+                        pv_i = int(pv) if pv is not None else 1
+                    except Exception:
+                        pv_i = 1
+                    if pv_i <= 0:
+                        pv_i = 1
+                    new_area["per_voxel_neuron_cnt"] = pv_i
+                    # Also reflect inside parameters for readers that pull from there
+                    if not isinstance(new_area.get("parameters"), dict):
+                        new_area["parameters"] = {}
+                    new_area["parameters"]["per_voxel_neuron_cnt"] = pv_i
+
+                    # Default grouping/type for custom areas when unspecified
+                    if _is_memory_area(new_area):
+                        new_area.setdefault("group_id", "MEMORY")
+                        new_area.setdefault("cortical_type", "memory")
+                    else:
+                        new_area.setdefault("group_id", "CUSTOM")
+                        new_area.setdefault("cortical_type", "custom")
+
+                    # Ensure 2D coordinate exists
+                    if not isinstance(new_area.get("2d_coordinate"), (list, tuple)):
+                        new_area["2d_coordinate"] = [int(ox), int(oy)]
+                except Exception as ensure_err:
+                    self.logger.warning(f"Ensuring neuron properties failed for {new_id}: {ensure_err}")
+
+                # Assign region membership placeholders; will finalize after region map is merged
+                merged_genome["blueprint"][new_id] = new_area
+
+            # Merge regions: create new region entries and set membership lists remapped to new IDs
+            def _copy_region(old_region_id: str, old_region: Dict[str, Any]) -> Dict[str, Any]:
+                nr = {
+                    "title": old_region.get("title", "Region"),
+                    "description": old_region.get("description", ""),
+                    "parent_region_id": None,
+                    "coordinate_2d": list(old_region.get("coordinate_2d", [0, 0])),
+                    "coordinate_3d": list(old_region.get("coordinate_3d", [0, 0, 0])),
+                    "areas": [],
+                    "regions": [],
+                    "inputs": list(old_region.get("inputs", [])),
+                    "outputs": list(old_region.get("outputs", [])),
+                    "signature": old_region.get("signature", ""),
+                }
+                # Remap area membership
+                for a in old_region.get("areas", []) or []:
+                    if a in area_id_map:
+                        nr["areas"].append(area_id_map[a])
+                # Child regions remapped later after all ids known
+                for r in old_region.get("regions", []) or []:
+                    if r in region_id_map:
+                        nr["regions"].append(region_id_map[r])
+                return nr
+
+            new_regions_block: Dict[str, Any] = {}
+            for old_rid, old_rdef in payload_regions.items():
+                new_rid = region_id_map[old_rid]
+                new_regions_block[new_rid] = _copy_region(old_rid, old_rdef)
+
+            # Wire parent relationships
+            for old_rid, old_rdef in payload_regions.items():
+                new_rid = region_id_map[old_rid]
+                if old_rid == "root":
+                    # Attach cloned root under requested destination region
+                    new_regions_block[new_rid]["parent_region_id"] = parent_region_id
+                    # Place the root region at origin
+                    new_regions_block[new_rid]["coordinate_3d"] = [ox, oy, oz]
+                else:
+                    parent_old = old_rdef.get("parent_region_id", "root")
+                    new_regions_block[new_rid]["parent_region_id"] = region_id_map.get(parent_old, parent_region_id)
+
+            # Insert regions into merged genome and update parent's child list
+            if parent_region_id not in merged_genome["brain_regions"]:
+                self.logger.warning(f"Parent region '{parent_region_id}' not found. Attaching to 'root'.")
+                parent_region_id = "root"
+
+            # Add new regions
+            for nid, rdef in new_regions_block.items():
+                merged_genome["brain_regions"][nid] = rdef
+
+            # Update parent/child links for ALL newly added regions
+            # 1) Ensure each new region appears in its parent's 'regions' list
+            for nid, rdef in new_regions_block.items():
+                parent_id = rdef.get("parent_region_id") or "root"
+                parent_entry = merged_genome["brain_regions"].get(parent_id)
+                if parent_entry is not None:
+                    # Modern key
+                    siblings = list(parent_entry.get("regions", []))
+                    if nid not in siblings:
+                        siblings.append(nid)
+                        parent_entry["regions"] = siblings
+                    # Legacy alias for backward compatibility
+                    legacy_siblings = list(parent_entry.get("child_regions", [])) if isinstance(parent_entry.get("child_regions"), list) else []
+                    if nid not in legacy_siblings:
+                        legacy_siblings.append(nid)
+                        parent_entry["child_regions"] = legacy_siblings
+
+            # Ensure each new area's brain_region_id is set consistently
+            area_to_region: Dict[str, str] = {}
+            for old_rid, old_rdef in payload_regions.items():
+                mapped_rid = region_id_map[old_rid]
+                for a in old_rdef.get("areas", []) or []:
+                    if a in area_id_map:
+                        area_to_region[area_id_map[a]] = mapped_rid
+
+            for new_aid, adef in list(merged_genome["blueprint"].items()):
+                if new_aid in area_to_region:
+                    rid = area_to_region[new_aid]
+                    adef["brain_region_id"] = rid
+                    adef["region_id"] = rid
+                    params = adef.get("parameters", {}) or {}
+                    params["brain_region_id"] = rid
+                    params["region_id"] = rid
+                    adef["parameters"] = params
+
+            # Global safety pass: remap any lingering mapping targets across the entire genome
+            # This ensures external areas referencing appended areas use the new IDs
+            try:
+                for src_id, src_def in (merged_genome.get("blueprint", {}) or {}).items():
+                    if not isinstance(src_def, dict):
+                        continue
+                    # Remap in primary location
+                    c_dst = src_def.get("cortical_mapping_dst")
+                    if isinstance(c_dst, dict) and c_dst:
+                        new_dst = {}
+                        for tgt_id, conns in c_dst.items():
+                            mapped = area_id_map.get(tgt_id)
+                            new_dst[mapped if mapped else tgt_id] = conns
+                        src_def["cortical_mapping_dst"] = new_dst
+                    # Remap in parameters.mapping for completeness
+                    params = src_def.get("parameters", {}) or {}
+                    p_map = params.get("mapping")
+                    if isinstance(p_map, dict) and p_map:
+                        new_p_map = {}
+                        for tgt_id, conns in p_map.items():
+                            mapped = area_id_map.get(tgt_id)
+                            new_p_map[mapped if mapped else tgt_id] = conns
+                        params["mapping"] = new_p_map
+                        src_def["parameters"] = params
+            except Exception as remap_err:
+                self.logger.warning(f"Global mapping remap encountered issues: {remap_err}")
+
+            # Commit merged genome into state and run full neuroembryogenesis
+            self._current_genome = merged_genome
+            if self.state_manager:
+                self.state_manager.genome = merged_genome
+
+            # Run full embryogenesis on merged genome for correctness
+            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+
+            embryogenesis = NeuroEmbryogenesis(self._connectome_manager, self.state_manager)
+            success = embryogenesis.develop_brain_from_genome_data(merged_genome)
+            if not success:
+                self.logger.error("NeuroEmbryogenesis failed after amalgamation merge")
+                return False
+
+            # Update amalgamation bookkeeping: mark complete
+            try:
+                if self.state_manager and hasattr(self.state_manager, "amalgamation_history") and amalgamation_id:
+                    self.state_manager.amalgamation_history[amalgamation_id] = "complete"
+                if self.state_manager and hasattr(self.state_manager, "pending_amalgamation"):
+                    self.state_manager.pending_amalgamation = {}
+            except Exception as _e:
+                self.logger.warning(f"Failed to update amalgamation state: {_e}")
+
+            # Force state sync after full rebuild
+            self._force_state_manager_sync()
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error applying amalgamation destination: {str(e)}")
+            return False
+
     # ===== BRAIN REGION WRITE OPERATIONS =====
     # These methods handle brain region modifications through proper data flow:
     #  API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis

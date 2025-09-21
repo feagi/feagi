@@ -740,7 +740,7 @@ class GenomeAPI:
                 from fastapi import HTTPException
                 raise HTTPException(status_code=400, detail="No pending amalgamation request found")
 
-            # Prepare amalgamation payload (legacy format)
+            # Prepare finalized amalgamation payload
             payload = {
                 "genome_str": self.core_api_service.get_pending_amalgamation_genome(),
                 "circuit_origin": [
@@ -750,30 +750,18 @@ class GenomeAPI:
                 ],
                 "parent_brain_region": brain_region_id,
                 "rewire_mode": rewire_mode.value,
+                "amalgamation_id": amalgamation_id,
             }
 
-            # Send to core service for processing
-            data = {'append_circuit': payload}
-            logger.info(f"Amalgamation destination data: {data}")
-            
-            # For now, we'll simulate the legacy behavior
-            # TODO: Implement actual circuit appending through proper channels
-            
-            genome_title = (
-                self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
-            )
-            
-            # Mark pending amalgamation as complete without calling cancel (to avoid misleading cancel log)
-            try:
-                sm = self.core_api_service.state_manager
-                if sm and hasattr(sm, 'pending_amalgamation'):
-                    sm.pending_amalgamation = {}
-                if sm and hasattr(sm, 'amalgamation_history'):
-                    sm.amalgamation_history[amalgamation_id] = "complete"
-                logger.info(f"Amalgamation {amalgamation_id} completed successfully")
-            except Exception as _e:
-                logger.warning(f"Unable to update amalgamation state to complete for {amalgamation_id}: {_e}")
+            logger.info(f"Amalgamation destination data: {{'append_circuit': payload}}")
 
+            # Apply via core service: merge and run full NeuroEmbryogenesis
+            success = self.core_api_service.apply_amalgamation_destination(payload)
+            if not success:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=422, detail="Failed to apply amalgamation destination")
+
+            genome_title = self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
             return f'Amalgamation for "{genome_title}" is complete.'
         except Exception as e:
             logger.error(f"Error completing amalgamation destination: {e}")
