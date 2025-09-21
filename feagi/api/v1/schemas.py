@@ -330,6 +330,29 @@ class NeuronCountResponse(BaseModel):
     neuron_count: int
 
 
+class CloneCorticalAreaRequest(BaseModel):
+    """Request model for cloning a cortical area.
+
+    Fields:
+        source_area_id: Cortical ID of the area to clone
+        clone_cortical_mapping: Whether to duplicate incoming/outgoing/recursive mappings (default: True)
+        coordinates_3d: Optional override for new area's 3D coordinates [x, y, z]
+        coordinates_2d: Optional override for new area's 2D coordinates [x, y]
+    """
+
+    source_area_id: str
+    clone_cortical_mapping: Optional[bool] = True
+    coordinates_3d: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+
+
+class CloneCorticalAreaResponse(BaseModel):
+    """Response model for cortical area clone operation."""
+
+    new_area_id: str
+    message: str
+
+
 # ===== Common Request Schemas =====
 
 

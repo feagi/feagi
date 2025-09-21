@@ -4103,6 +4103,119 @@ class ConnectomeManager(NeuronMappingProvider):
         
         return True
 
+    def plan_clone_cortical_area(
+        self,
+        source_area_id: str,
+        coordinates_3d: Optional[List[int]] = None,
+        coordinates_2d: Optional[List[int]] = None,
+    ) -> Dict[str, Any]:
+        """Prepare a clone plan for a cortical area without performing writes.
+
+        Uses existing property/mapping readers to avoid duplicating logic.
+        """
+        if source_area_id not in self.cortical_areas:
+            raise KeyError(f"Cortical area {source_area_id} does not exist")
+
+        source_props = self.get_cortical_area_properties(source_area_id)
+        if not source_props:
+            raise ValueError(f"Failed to retrieve properties for {source_area_id}")
+
+        params = source_props.get("parameters", {}) or {}
+        dims_tuple = tuple(source_props.get("dimensions", (1, 1, 1)))
+        pos_tuple = tuple(source_props.get("coordinates", (0, 0, 0)))
+
+        # Parent region
+        parent_region_id: Optional[str] = None
+        try:
+            if hasattr(self, "brain_region_hierarchy") and self.brain_region_hierarchy:
+                parent_region_id = self.brain_region_hierarchy.get_region_for_area(source_area_id)
+        except Exception:
+            parent_region_id = None
+        if not parent_region_id:
+            parent_region_id = params.get("parent_region_id")
+        if not parent_region_id:
+            raise ValueError("Cannot determine parent region for clone plan")
+
+        # 3D coords
+        if coordinates_3d is None:
+            sx, sy, sz = int(pos_tuple[0]), int(pos_tuple[1]), int(pos_tuple[2])
+            coordinates_3d = [sx + 1, sy, sz]
+        else:
+            coordinates_3d = [int(coordinates_3d[0]), int(coordinates_3d[1]), int(coordinates_3d[2])]
+
+        # 2D coords
+        if coordinates_2d is None:
+            c2d = params.get("coordinates_2d")
+            if not c2d:
+                x2d = params.get("2dcorx")
+                y2d = params.get("2dcory")
+                if x2d is not None and y2d is not None:
+                    c2d = [int(x2d), int(y2d)]
+            if isinstance(c2d, (list, tuple)) and len(c2d) >= 2:
+                coordinates_2d = [int(c2d[0]) + 1, int(c2d[1])]
+            else:
+                coordinates_2d = [0, 0]
+        else:
+            coordinates_2d = [int(coordinates_2d[0]), int(coordinates_2d[1])]
+
+        cortical_group = params.get("cortical_group") or source_props.get("group_id") or "CUSTOM"
+        sub_group_id = params.get("sub_group_id") or params.get("cortical_sub_group") or source_props.get("subgroup")
+        is_memory = sub_group_id == "MEMORY"
+
+        dims_dict = {"width": int(dims_tuple[0]), "height": int(dims_tuple[1]), "depth": int(dims_tuple[2])}
+
+        pv = None
+        if not is_memory:
+            pv = params.get("per_voxel_neuron_cnt") or params.get("neurons_per_voxel")
+            if pv is not None:
+                pv = int(pv)
+
+        outgoing_mapping: Dict[str, Any] = {}
+        try:
+            if isinstance(params.get("mapping"), dict):
+                outgoing_mapping = params.get("mapping")
+        except Exception:
+            outgoing_mapping = {}
+
+        incoming_sources: List[Dict[str, Any]] = []
+        try:
+            for other_area_id in list(self.cortical_areas.keys()):
+                if other_area_id == source_area_id:
+                    continue
+                try:
+                    oprops = self.get_cortical_area_properties(other_area_id)
+                    oparams = (oprops or {}).get("parameters", {}) or {}
+                    omap = oparams.get("mapping", {}) or {}
+                    if isinstance(omap, dict) and source_area_id in omap:
+                        incoming_sources.append({
+                            "src": other_area_id,
+                            "connections": omap.get(source_area_id, []),
+                        })
+                except Exception:
+                    continue
+        except Exception:
+            incoming_sources = []
+
+        has_recursive = False
+        try:
+            has_recursive = isinstance(outgoing_mapping, dict) and source_area_id in outgoing_mapping
+        except Exception:
+            has_recursive = False
+
+        return {
+            "parent_region_id": parent_region_id,
+            "dimensions": dims_dict,
+            "coordinates_3d": coordinates_3d,
+            "coordinates_2d": coordinates_2d,
+            "cortical_group": cortical_group,
+            "sub_group_id": sub_group_id or "CUSTOM",
+            "is_memory": bool(is_memory),
+            "per_voxel_neuron_cnt": pv,
+            "outgoing_mapping": outgoing_mapping,
+            "incoming_sources": incoming_sources,
+            "has_recursive": has_recursive,
+        }
+
     def get_areas_in_region(self, region_id: str) -> List[str]:
         """Get all cortical areas in a brain region.
 

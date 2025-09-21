@@ -25,6 +25,8 @@ from pydantic import BaseModel, root_validator
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.schemas import (
+    CloneCorticalAreaRequest,
+    CloneCorticalAreaResponse,
     CorticalAreaIdListResponse,
     CorticalAreaIndexListResponse,
     CorticalAreaMappingRestrictionRequest,
@@ -349,6 +351,37 @@ class CorticalAreaAPI:
             raise ValueError(
                 f"Error retrieving cortical properties: {str(e)}"
             ) from e
+
+    @cortical_area_endpoint(
+        "POST",
+        "/clone",
+        request_model=CloneCorticalAreaRequest,
+        response_model=CloneCorticalAreaResponse,
+    )
+    def clone_cortical_area(self, request: CloneCorticalAreaRequest) -> CloneCorticalAreaResponse:
+        """Clone a cortical area with optional coordinate overrides and mapping duplication.
+
+        - Cloned area will be created in the same brain region as its source
+        - clone_cortical_mapping defaults to True
+        - If coordinates are not provided, new coordinates will be auto-suggested near the source
+        """
+        try:
+            result = self.core_api_service.clone_cortical_area(
+                source_area_id=request.source_area_id,
+                clone_cortical_mapping=(
+                    True if request.clone_cortical_mapping is None else bool(request.clone_cortical_mapping)
+                ),
+                coordinates_3d=request.coordinates_3d,
+                coordinates_2d=request.coordinates_2d,
+            )
+            if not result or "new_area_id" not in result:
+                raise ValueError("Clone operation failed")
+            return CloneCorticalAreaResponse(
+                new_area_id=result["new_area_id"],
+                message=result.get("message", "Cortical area cloned successfully"),
+            )
+        except Exception as e:
+            raise ValueError(f"Error cloning cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
         "PUT",

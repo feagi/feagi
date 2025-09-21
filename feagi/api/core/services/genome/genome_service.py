@@ -2147,6 +2147,21 @@ class GenomeService(BaseService):
                     "2d_coordinate": parameters.get("coordinates_2d", [0, 0]) if parameters else [0, 0],
                 }
 
+                # Ensure region assignment is present at top-level and parameters for downstream consumers
+                try:
+                    region_for_new_area = None
+                    if parameters and parameters.get("brain_region_id"):
+                        region_for_new_area = parameters.get("brain_region_id")
+                    if region_for_new_area:
+                        new_area["brain_region_id"] = region_for_new_area
+                        # Preserve compatibility aliases where readers expect parent_region_id
+                        new_area["parent_region_id"] = region_for_new_area
+                        if isinstance(new_area["parameters"], dict):
+                            new_area["parameters"]["brain_region_id"] = region_for_new_area
+                            new_area["parameters"]["parent_region_id"] = region_for_new_area
+                except Exception:
+                    pass
+
                 # Apply template defaults to the new area
                 for key, default_value in template.items():
                     if key not in new_area:
@@ -2203,6 +2218,22 @@ class GenomeService(BaseService):
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
 
+                # Also append to brain_regions membership if the target region exists
+                try:
+                    target_region = None
+                    if parameters and parameters.get("brain_region_id"):
+                        target_region = parameters.get("brain_region_id")
+                    if target_region and "brain_regions" in current_genome:
+                        if target_region in current_genome["brain_regions"]:
+                            region_entry = current_genome["brain_regions"][target_region]
+                            if isinstance(region_entry, dict):
+                                areas_list = region_entry.get("areas") or []
+                                if cortical_id not in areas_list:
+                                    areas_list = list(areas_list) + [cortical_id]
+                                    current_genome["brain_regions"][target_region]["areas"] = areas_list
+                except Exception:
+                    pass
+
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
 
@@ -2242,6 +2273,16 @@ class GenomeService(BaseService):
                             properties=enhanced_properties,
                             cortical_id=cortical_id,
                         )
+
+                    # Sync runtime region membership for immediate correctness in visualizers
+                    try:
+                        region_for_new_area = None
+                        if parameters and parameters.get("brain_region_id"):
+                            region_for_new_area = parameters.get("brain_region_id")
+                        if region_for_new_area and hasattr(self._connectome_manager, "assign_area_to_region"):
+                            self._connectome_manager.assign_area_to_region(cortical_id, region_for_new_area)
+                    except Exception:
+                        pass
 
                     # MEMORY AREA: Do not create regular neurons; register with memory systems only
                     if is_memory_area:

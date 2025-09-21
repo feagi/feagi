@@ -2667,6 +2667,235 @@ class CoreAPIService:
             self.logger.error(f"Error getting cortical mapping: {str(e)}")
             return {}
 
+    def clone_cortical_area(
+        self,
+        source_area_id: str,
+        clone_cortical_mapping: bool = True,
+        coordinates_3d: Optional[List[int]] = None,
+        coordinates_2d: Optional[List[int]] = None,
+    ) -> Dict[str, Any]:
+        """Clone an existing cortical area, leveraging existing services.
+
+        - New area is created in the same brain region as the source
+        - When clone_cortical_mapping is True, duplicate incoming/outgoing/recursive
+          connections using the existing mapping update pathways
+        - Coordinates are optional; if not provided, suggest close-by coordinates
+        """
+        try:
+            # Validate source exists
+            source_area = self._cortical_area_service.get_area(source_area_id)
+            if not source_area:
+                raise ValueError(f"Source cortical area '{source_area_id}' not found")
+
+            # Extract source metadata
+            source_params = (source_area or {}).get("parameters", {})
+            source_dims = (source_area or {}).get("dimensions", {})
+            source_coords = (source_area or {}).get("coordinates", {})
+            source_name = (source_area or {}).get("name", source_area_id)
+            source_type = (source_area or {}).get("type", "custom")
+
+            # Determine brain region for new area: same as source
+            parent_region_id = source_params.get("parent_region_id")
+            if not parent_region_id:
+                # Attempt from brain region hierarchy if not stored in parameters
+                try:
+                    cm = self.get_connectome_manager()
+                    if hasattr(cm, "brain_region_hierarchy"):
+                        parent_region_id = cm.brain_region_hierarchy.get_region_for_area(source_area_id)
+                except Exception:
+                    parent_region_id = None
+
+            if not parent_region_id:
+                raise ValueError("Cannot determine source brain region for cloning")
+
+            # Coordinates: use provided or suggest near source
+            if coordinates_3d is None:
+                # Suggest a nearby 3D coordinate (shift +1 in x if free, otherwise +1 in y)
+                try:
+                    cm = self.get_connectome_manager()
+                    sx = int(source_coords.get("x", 0))
+                    sy = int(source_coords.get("y", 0))
+                    sz = int(source_coords.get("z", 0))
+                    # Basic heuristic. Avoid collisions with Morton limits; ConnectomeManager will validate
+                    candidates = [
+                        {"x": sx + 1, "y": sy, "z": sz},
+                        {"x": sx, "y": sy + 1, "z": sz},
+                        {"x": sx, "y": sy, "z": sz + 1},
+                    ]
+                    chosen = candidates[0]
+                    coordinates_3d = [chosen["x"], chosen["y"], chosen["z"]]
+                except Exception:
+                    coordinates_3d = [int(source_coords.get("x", 0)) + 1, int(source_coords.get("y", 0)), int(source_coords.get("z", 0))]
+
+            else:
+                # Normalize provided list into dict-like for downstream
+                coordinates_3d = [int(coordinates_3d[0]), int(coordinates_3d[1]), int(coordinates_3d[2])]
+
+            if coordinates_2d is None:
+                # Suggest nearby 2D coordinates if source had them
+                s2d = None
+                try:
+                    s2d = source_params.get("coordinates_2d") or source_area.get("coordinates_2d")
+                    if not s2d:
+                        x2d = source_params.get("2dcorx")
+                        y2d = source_params.get("2dcory")
+                        if x2d is not None and y2d is not None:
+                            s2d = [int(x2d), int(y2d)]
+                except Exception:
+                    s2d = None
+                if s2d and isinstance(s2d, (list, tuple)) and len(s2d) >= 2:
+                    coordinates_2d = [int(s2d[0]) + 1, int(s2d[1])]
+                else:
+                    coordinates_2d = [0, 0]
+            else:
+                coordinates_2d = [int(coordinates_2d[0]), int(coordinates_2d[1])]
+
+            # Dimensions come from source; for memory areas, GenomeService enforces 1x1x1
+            dims = source_dims
+            if isinstance(dims, tuple):
+                dims = {"width": dims[0], "height": dims[1], "depth": dims[2]}
+            elif isinstance(dims, list):
+                dims = {"width": dims[0], "height": dims[1], "depth": dims[2]}
+
+            # Determine cortical group/subgroup from source
+            cortical_group = source_params.get("cortical_group", source_area.get("group_id", "CUSTOM"))
+            sub_group_id = source_params.get("sub_group_id") or source_params.get("cortical_sub_group") or source_area.get("subgroup")
+            is_memory = sub_group_id == "MEMORY"
+
+            # Build parameters for new area creation; copy relevant parameters but do not duplicate mapping here
+            new_params: Dict[str, Any] = {}
+            # Keep per-voxel neuron count if not memory
+            if not is_memory:
+                pv = source_params.get("per_voxel_neuron_cnt") or source_params.get("neurons_per_voxel")
+                if pv is not None:
+                    new_params["per_voxel_neuron_cnt"] = int(pv)
+            # Region and grouping
+            new_params.update({
+                "brain_region_id": parent_region_id,
+                "cortical_group": cortical_group,
+                "sub_group_id": sub_group_id or source_params.get("cortical_sub_group", "CUSTOM"),
+                "coordinates_2d": coordinates_2d,
+            })
+            # Memory-specific properties: preserve if cloning a memory area
+            if is_memory:
+                for key in [
+                    "temporal_depth",
+                    "init_lifespan",
+                    "lifespan_growth_rate",
+                    "longterm_mem_threshold",
+                ]:
+                    if key in source_params and source_params.get(key) is not None:
+                        new_params[key] = source_params.get(key)
+
+            # Generate a standard cortical_id matching FEAGI's convention
+            try:
+                from feagi.bdu.models.cortical_area import generate_cortical_id as _gen_id
+
+                # Seed from source name (letters/digits), fallback to source id
+                seed_source = str(source_name or source_area_id)
+                seed_source = "".join([c for c in seed_source if c.isalnum()])
+                if len(seed_source) < 3:
+                    seed_source = (seed_source + "000")[:3]
+                else:
+                    seed_source = seed_source[:3]
+                # Ensure uniqueness vs. current genome blueprint
+                new_cortical_id = None
+                existing_ids = set()
+                try:
+                    genome = self.get_genome() or {}
+                    if "blueprint" in genome and isinstance(genome["blueprint"], dict):
+                        existing_ids = set(genome["blueprint"].keys())
+                except Exception:
+                    existing_ids = set()
+                for _ in range(100):
+                    candidate = _gen_id(prefix=("m" if is_memory else "c"), seed=seed_source.upper())
+                    if candidate not in existing_ids:
+                        new_cortical_id = candidate
+                        break
+                if not new_cortical_id:
+                    # As a last resort, one more generation
+                    new_cortical_id = _gen_id(prefix=("m" if is_memory else "c"), seed=seed_source.upper())
+                new_params["cortical_id"] = new_cortical_id
+            except Exception:
+                # As a fallback, let GenomeService assign one (it will also be fixed there)
+                pass
+
+            # Create area via GenomeService (single source of truth)
+            created = self._genome_service.create_cortical_area(
+                name=f"{source_name}_clone",
+                coordinates={"x": coordinates_3d[0], "y": coordinates_3d[1], "z": coordinates_3d[2]},
+                dimensions=dims,
+                area_type=("memory" if is_memory else ("custom" if source_type == "custom" else source_type)),
+                parameters=new_params,
+            )
+            if not created or "cortical_id" not in created:
+                raise ValueError("Failed to create cloned cortical area")
+
+            new_area_id = created["cortical_id"]
+
+            # Optionally clone mappings: duplicate incoming, outgoing, and recursive connections
+            if clone_cortical_mapping:
+                try:
+                    # Use detailed map from genome (includes normalized connection objects)
+                    detailed_map = self.get_detailed_cortical_map()
+
+                    # ---- Outgoing (source -> dst) ----
+                    try:
+                        out_map: Dict[str, Any] = detailed_map.get(source_area_id, {}) or {}
+                        # Build new mapping for the cloned source, converting any self-recursive target to the new ID
+                        new_out_map: Dict[str, Any] = {}
+                        for dst_id, connections in out_map.items():
+                            if not connections or not isinstance(connections, list):
+                                continue
+                            target_id = new_area_id if dst_id == source_area_id else dst_id
+                            new_out_map[target_id] = connections
+                        if new_out_map:
+                            self.update_cortical_mapping({new_area_id: new_out_map})
+                            # Trigger region I/O designation for each created mapping
+                            cm = self.get_connectome_manager()
+                            if hasattr(cm, 'on_cortical_mapping_created'):
+                                for dst_created in new_out_map.keys():
+                                    cm.on_cortical_mapping_created(new_area_id, dst_created)
+                    except Exception as map_err:
+                        self.logger.warning(f"Failed to clone outgoing mappings: {map_err}")
+
+                    # ---- Incoming (src -> source) becomes (src -> new) ----
+                    try:
+                        for src_id, dsts in detailed_map.items():
+                            if not isinstance(dsts, dict):
+                                continue
+                            if source_area_id in dsts:
+                                connections = dsts.get(source_area_id, [])
+                                if not connections or not isinstance(connections, list):
+                                    continue
+                                self.update_cortical_mapping({src_id: {new_area_id: connections}})
+                                cm = self.get_connectome_manager()
+                                if hasattr(cm, 'on_cortical_mapping_created'):
+                                    cm.on_cortical_mapping_created(src_id, new_area_id)
+                    except Exception as map_err:
+                        self.logger.warning(f"Failed to clone incoming mappings: {map_err}")
+
+                    # ---- Ensure recursive mapping (source -> source) becomes (new -> new) if present ----
+                    try:
+                        if source_area_id in (out_map.keys() if 'out_map' in locals() else []):
+                            rec_connections = out_map.get(source_area_id, [])
+                            if rec_connections and isinstance(rec_connections, list):
+                                self.update_cortical_mapping({new_area_id: {new_area_id: rec_connections}})
+                                cm = self.get_connectome_manager()
+                                if hasattr(cm, 'on_cortical_mapping_created'):
+                                    cm.on_cortical_mapping_created(new_area_id, new_area_id)
+                    except Exception as rec_err:
+                        self.logger.warning(f"Failed to clone recursive mapping: {rec_err}")
+
+                except Exception as e:
+                    self.logger.warning(f"Clone operation succeeded but mapping duplication encountered issues: {e}")
+
+            return {"new_area_id": new_area_id, "message": "Cortical area cloned successfully"}
+
+        except Exception as e:
+            self.logger.error(f"Error cloning cortical area: {e}")
+            raise
+
     def get_simple_cortical_mapping(self) -> Dict[str, List[str]]:
         """Get simple cortical mapping showing only source -> destination
         relationships.
