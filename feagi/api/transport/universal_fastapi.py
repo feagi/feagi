@@ -1212,7 +1212,7 @@ else:
             circuit_origin_y: int = Query(..., description="Y coordinate for circuit origin"),
             circuit_origin_z: int = Query(..., description="Z coordinate for circuit origin"),
             amalgamation_id: str = Query(..., description="Amalgamation ID"),
-            brain_region_id: Optional[str] = Body(default=None, description="Brain region ID (JSON body or omit for 'root')"),
+            brain_region_id: Optional[str] = Body(default=None, embed=True, description="Brain region ID (expects {\"brain_region_id\": \"...\"} JSON; omitted defaults to 'root')"),
             rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all, description="Rewiring mode"),
             genome_api=Depends(_get_genome_api)
         ) -> str:

@@ -806,8 +806,48 @@ class RegionAPI:
 
             genome_payload = construct_genome_from_region(request.source_region_id)
 
-            # Override genome title if provided
-            genome_title = request.region_name or genome_payload.get("genome_title", "Cloned Region")
+            # Determine original title and compute default clone title if none provided
+            original_title = "Cloned Region"
+            try:
+                # Prefer the root's title in the payload
+                if "brain_regions" in genome_payload and "root" in genome_payload["brain_regions"]:
+                    original_title = genome_payload["brain_regions"]["root"].get("title", original_title)
+                else:
+                    original_title = genome_payload.get("genome_title", original_title)
+            except Exception:
+                pass
+
+            desired_title = (request.region_name or f"{original_title}_clone").strip()
+
+            # Ensure basic uniqueness against current genome region titles
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+
+                sm = FeagiStateManager.instance()
+                brain_regions = (sm.genome or {}).get("brain_regions", {})
+                existing_titles = set()
+                for _rid, _rinfo in brain_regions.items():
+                    if isinstance(_rinfo, dict):
+                        t = _rinfo.get("title")
+                        if t:
+                            existing_titles.add(str(t))
+
+                unique_title = desired_title
+                if unique_title in existing_titles:
+                    suffix = 2
+                    while f"{desired_title}_{suffix}" in existing_titles and suffix < 1000:
+                        suffix += 1
+                    unique_title = f"{desired_title}_{suffix}" if suffix < 1000 else f"{desired_title}_{int(time.time())}"
+            except Exception:
+                unique_title = desired_title
+
+            # Apply title to payload (both root region title and genome_title)
+            try:
+                if "brain_regions" in genome_payload and "root" in genome_payload["brain_regions"]:
+                    genome_payload["brain_regions"]["root"]["title"] = unique_title
+            except Exception:
+                pass
+            genome_title = unique_title
 
             # Kick off amalgamation pending using core API service
             result = self.core_api_service.process_amalgamation_request(

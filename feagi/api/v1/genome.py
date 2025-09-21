@@ -763,12 +763,16 @@ class GenomeAPI:
                 self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
             )
             
-            # Cancel pending amalgamation and mark as complete
-            self.core_api_service.cancel_pending_amalgamation(amalgamation_id)
-            
-            # Update amalgamation history to mark as complete
-            if hasattr(self.core_api_service.state_manager, 'amalgamation_history'):
-                self.core_api_service.state_manager.amalgamation_history[amalgamation_id] = "complete"
+            # Mark pending amalgamation as complete without calling cancel (to avoid misleading cancel log)
+            try:
+                sm = self.core_api_service.state_manager
+                if sm and hasattr(sm, 'pending_amalgamation'):
+                    sm.pending_amalgamation = {}
+                if sm and hasattr(sm, 'amalgamation_history'):
+                    sm.amalgamation_history[amalgamation_id] = "complete"
+                logger.info(f"Amalgamation {amalgamation_id} completed successfully")
+            except Exception as _e:
+                logger.warning(f"Unable to update amalgamation state to complete for {amalgamation_id}: {_e}")
 
             return f'Amalgamation for "{genome_title}" is complete.'
         except Exception as e:
