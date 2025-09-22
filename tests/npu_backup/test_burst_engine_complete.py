@@ -28,7 +28,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from feagi.npu.burst_engine import BurstEngine, ServiceState
+from feagi.npu.burst_engine import BurstEngine, ServiceState, UnifiedFQSampler
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
@@ -133,8 +133,8 @@ def test_burst_engine_initialization(mock_connectome_manager, mock_state_manager
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Check basic properties (note: singleton may reuse instance)
@@ -156,8 +156,8 @@ def test_burst_engine_initialization(mock_connectome_manager, mock_state_manager
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"desired_frequency_hz": 50},
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"desired_frequency_hz": 50},
         )
 
         assert engine.desired_frequency == 50
@@ -172,8 +172,8 @@ def test_update_with_genome(mock_connectome_manager, mock_state_manager):
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Initial state
@@ -220,8 +220,8 @@ def test_burst_engine_run_and_stop(mock_connectome_manager, mock_state_manager):
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 20},  # 0.05s per burst
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 20},  # 0.05s per burst
         )
 
         # Run the burst engine in a separate thread
@@ -265,8 +265,8 @@ def test_load_shedding(mock_connectome_manager, mock_state_manager):
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},  # 0.01s per burst = 100Hz
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 100},  # 0.01s per burst = 100Hz
         )
 
         # Add an area to shed
@@ -302,8 +302,8 @@ def test_run_with_fire_queue_optimized_path():
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Mock the optimized_integration import and function
@@ -367,8 +367,8 @@ def test_run_with_fire_queue_fallback_path():
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Mock the _process_burst method
@@ -450,8 +450,8 @@ def test_run_with_fire_queue_unavailable_state():
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Mark genome as loaded so the method will proceed past the early exit
@@ -503,8 +503,8 @@ def test_error_handling(mock_connectome_manager, mock_state_manager):
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 20},
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 20},
         )
 
         # Since the exception would happen in the thread, we need to monkey patch the run method
@@ -586,8 +586,8 @@ def test_process_burst_method(mock_connectome_manager, mock_state_manager):
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 20},
+            fcl_manager=mock_connectome_manager.fcl_manager,
+            config={"target_frequency": 20},
         )
 
         # Mock the update_membrane_potentials method to track calls

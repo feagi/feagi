@@ -31,7 +31,7 @@ from unittest.mock import Mock, MagicMock, patch
 import pytest
 
 from feagi.core.state_manager import SimulationState
-from feagi.npu.burst_engine import BurstEngine, ServiceState
+from feagi.npu.burst_engine import BurstEngine, ServiceState, UnifiedFQSampler
 
 
 # Test isolation

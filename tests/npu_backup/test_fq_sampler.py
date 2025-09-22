@@ -28,7 +28,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from feagi.npu.burst_engine import 
+from feagi.npu.burst_engine import UnifiedFQSampler
 
 
 class MockFireQueueProvider:

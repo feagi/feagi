@@ -98,8 +98,8 @@ def test_run_with_fire_queue_optimized_path(mock_optimized_integration):
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
     # Mock the _process_burst method for fallback testing
@@ -215,8 +215,8 @@ def test_run_with_fire_queue_log_performance():
             # Create engine
             engine = BurstEngine(
                 connectome_manager=mock_connectome_manager,
-                # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+                fcl_manager=mock_fcl_manager,
+                config={"target_frequency": 100},
             )
 
             # Run the method with our patch
@@ -251,8 +251,8 @@ def test_run_with_fire_queue_fallback():
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
     # Mock the _process_burst method
@@ -315,8 +315,8 @@ def test_run_with_fire_queue_null_core():
         # Create engine
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
-        config={"target_frequency": 100},
+            fcl_manager=mock_fcl_manager,
+            config={"target_frequency": 100},
         )
 
         # Mock the _process_burst method

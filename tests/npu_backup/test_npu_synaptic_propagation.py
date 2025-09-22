@@ -38,13 +38,8 @@ class TestNPUNeuralFiring:
             initial_potentials=[potential],
             thresholds=[threshold],
             leak_coefficients=[leak_coefficient],
-            cortical_idx=0,
-            # Required genome parameters
-            decay_rates=[0.95],
-            refractory_periods=[1],
             excitabilities=[1.0],
-            resting_potentials=[0.0],
-            consecutive_fire_limits=[10]
+            cortical_idx=0,
         )
         idx = created_indices[0]
         return npu, neuron_id, idx
@@ -134,13 +129,8 @@ class TestNPUSynapticPropagation:
             initial_potentials=[1.5, 0.0, 0.0],  # Neuron 1 will fire
             thresholds=[1.0, 1.0, 1.0],
             leak_coefficients=[1.0, 1.0, 1.0],
-            cortical_idx=0,
-            # Required genome parameters
-            decay_rates=[0.95, 0.95, 0.95],
-            refractory_periods=[1, 1, 1],
             excitabilities=[1.0, 1.0, 1.0],
-            resting_potentials=[0.0, 0.0, 0.0],
-            consecutive_fire_limits=[10, 10, 10]
+            cortical_idx=0,
         )
         # Add synapses: 1->2 (0.5), 1->3 (0.3)
         npu.synapse_array.add_synapses_batch(
