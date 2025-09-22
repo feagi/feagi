@@ -3258,37 +3258,9 @@ class ConnectomeManager(NeuronMappingProvider):
             # Start with existing mapping data from NeuroEmbryogenesis
             outgoing_mappings = existing_mapping.copy()
 
-            #  ARCHITECTURE COMPLIANCE: Only supplement with connection matrix
-            #  data
-            # if there's no existing mapping specification for that target
-            for dst_area_id in self.cortical_areas.keys():
-                if dst_area_id != cortical_id:  # Skip self-connections
-                    #  Only check connection matrix if no mapping specification
-                    #  exists
-                    if dst_area_id not in outgoing_mappings:
-                        # Get connection matrix between areas
-                        connection_matrix = self.get_connection_matrix(
-                            cortical_id, dst_area_id
-                        )
-                        if connection_matrix and connection_matrix.get(
-                            "connections"
-                        ):
-                            # Store mapping information
-                            outgoing_mappings[dst_area_id] = (
-                                connection_matrix.get("connections", [])
-                            )
-
             #  Update mapping information in parameters (preserving
-            #  NeuroEmbryogenesis data)
+            #  NeuroEmbryogenesis data only - no expensive synapse operations)
             properties["parameters"]["mapping"] = outgoing_mappings
-
-            # CRITICAL FIX: Extract actual neuron properties from neuron array
-            #  The user expects to see excitability, threshold, etc. in the
-            #  cortical area properties
-            neuron_properties = self._extract_neuron_properties_for_area(
-                cortical_id
-            )
-            properties.update(neuron_properties)
 
             #  Convert all numpy types to native Python types for JSON
             #  serialization
