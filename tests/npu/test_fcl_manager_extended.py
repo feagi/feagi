@@ -47,7 +47,11 @@ import pytest
 # DEPRECATED: 
 # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
 # Using FireCandidateList instead
-from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
+from feagi.npu.fire_candidate_list import (
+    FireCandidateList, 
+    FCLCandidate,
+)
+from feagi.npu.fcl_manager import (
     BitMap,
     EnhancedFCLManager,
     FCLManager,

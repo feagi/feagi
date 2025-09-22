@@ -15,7 +15,7 @@ import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 from typing import Dict, List, Any, Optional, Tuple
 
-from feagi.npu.simd_neural_ops import simd_batch_neural_update, SIMDDetector, SIMDConfig
+from feagi.npu.simd_neural_ops import simd_batch_neural_update
 from feagi.npu.fire_queue import FireQueue, FiringNeuron
 from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
 from feagi.npu.data_structures import NeuronArray, SynapseArray, BackendType

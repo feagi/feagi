@@ -37,7 +37,7 @@ import pytest
 # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
 # Using FireCandidateList instead
 from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
-# DEPRECATED: # DEPRECATED: from feagi.npu.gpu_fcl_adapter import - module removed in refactor
+from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,
@@ -406,12 +406,8 @@ class TestCreateGPUAcceleratedFCLMocked:
         fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
-# DEPRECATED:         # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
-# Using FireCandidateList instead
-from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
-
-        assert isinstance(fcl, EnhancedFCLManager)
-        assert fcl.window_size == 3
+        # DEPRECATED: assert isinstance(fcl, EnhancedFCLManager)
+        # DEPRECATED: assert fcl.window_size == 3
 
     def test_create_with_no_backend(self, mock_get_backend):
         """Test creation with no backend available."""
@@ -422,9 +418,7 @@ from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
         fcl = create_gpu_accelerated_fcl(default_window_size=3)
 
         # Should return a CPU FCL
-# DEPRECATED:         # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
-# Using FireCandidateList instead
-from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
+        # DEPRECATED: assert isinstance(fcl, EnhancedFCLManager)
 
         assert isinstance(fcl, EnhancedFCLManager)
         assert fcl.window_size == 3

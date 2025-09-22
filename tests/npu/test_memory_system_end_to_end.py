@@ -316,9 +316,9 @@ def test_memory_system_end_to_end():
     
     try:
         # Create FQ Sampler and test sampling
-        from feagi.npu.fq_sampler import 
+        from feagi.npu.fq_sampler import FQSampler
         
-        sampler = (
+        sampler = FQSampler(
             fire_queue_provider=cm.fcl_manager,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",

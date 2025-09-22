@@ -32,8 +32,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
-# DEPRECATED: 
-# DEPRECATED: from feagi.npu.gpu_fcl_adapter import - module removed in refactor
+from feagi.npu.gpu_fcl_adapter import (
     BitMap,
     GPUAcceleratedFCL,
     GPUBitMap,

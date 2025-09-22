@@ -63,8 +63,7 @@ def special_handler(mock_connectome_manager):
             return []
 
     return SpecialAreaHandler(
-        connectome_manager=mock_connectome_manager, )
-    )
+        connectome_manager=mock_connectome_manager)
 
 
 def test_special_area_handler_initialization(mock_connectome_manager):
@@ -73,7 +72,7 @@ def test_special_area_handler_initialization(mock_connectome_manager):
 
     assert handler.connectome_manager is mock_connectome_manager
     # injection_count attribute removed in new architecture
-        pass
+    pass
 def test_special_area_handler_with_config(mock_connectome_manager):
     """Test special area handler initialization with config (config ignored but accepted)."""
     config = {"some_setting": 50}
@@ -82,7 +81,7 @@ def test_special_area_handler_with_config(mock_connectome_manager):
 
     # Config is accepted but not used in simplified version
     # injection_count attribute removed in new architecture
-        pass
+    pass
 def test_get_power_area_neurons_success(special_handler):
     """Test getting power area neurons directly from cortical_idx=1."""
     neurons = special_handler.get_power_area_neurons()
@@ -104,8 +103,7 @@ def test_get_power_area_neurons_empty(mock_connectome_manager):
             return []
 
     special_handler = SpecialAreaHandler(
-        connectome_manager=mock_connectome_manager, )
-    )
+        connectome_manager=mock_connectome_manager)
 
     neurons = special_handler.get_power_area_neurons()
     assert neurons == []

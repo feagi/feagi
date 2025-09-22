@@ -36,7 +36,7 @@ import pytest
 # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
 # Using FireCandidateList instead
 from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
-# DEPRECATED: # DEPRECATED: from feagi.npu.gpu_fcl_adapter import - module removed in refactor
+from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,
     create_gpu_accelerated_fcl,

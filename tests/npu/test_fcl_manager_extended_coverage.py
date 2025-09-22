@@ -48,23 +48,27 @@ import pytest
 # DEPRECATED: 
 # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
 # Using FireCandidateList instead
-from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
+from feagi.npu.fire_candidate_list import (
+    FireCandidateList, 
+    FCLCandidate,
+)
+from feagi.npu.fcl_manager import (
     FCLError,
     FCLManager,
     MembraneUpdate,
     NeuronCollection,
     NeuronCollectionType,
-    RoaringBitmap,
     TimestepOutOfRangeError,
     example_enhanced_fcl_usage,
     example_fcl_usage,
     inject_neurons_into_fcl,
 )
+from feagi.npu.fire_ledger import RoaringBitmap
 
-# Aliases for compatibility with test
-BitMap = RoaringBitmap
-FallbackBitMap = RoaringBitmap
-EnhancedFCLManager = FCLManager
+# Aliases for compatibility with test - commented out as these classes don't exist
+# BitMap = RoaringBitmap  
+# FallbackBitMap = RoaringBitmap
+# EnhancedFCLManager = FCLManager  # Both classes don't exist in current implementation
 
 
 def test_fcl_error_exception():
