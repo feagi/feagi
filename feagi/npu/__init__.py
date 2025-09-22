@@ -24,6 +24,25 @@ from .fire_ledger import FireLedgerInterface
 from .burst_engine import BurstEngine
 from .fq_sampler import FQSampler, UnifiedFQSampler
 from .fcl_injector import FCLInjector
+from .fcl_manager import (
+    FCLManager,
+    EnhancedFCLManager, 
+    BitMap,
+    TimestepOutOfRangeError,
+    FCLError,
+    MembraneUpdate,
+    NeuronCollection,
+    NeuronCollectionType,
+    example_enhanced_fcl_usage,
+    example_fcl_usage,
+    inject_neurons_into_fcl
+)
+from .gpu_fcl_adapter import (
+    GPUBitMap,
+    GPUAcceleratedFCL,
+    create_gpu_accelerated_fcl,
+    get_backend
+)
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
 from .data_structures import (
@@ -64,6 +83,25 @@ __all__ = [
     'FQSampler',
     'UnifiedFQSampler',
     'FCLInjector',
+    
+    # Legacy compatibility (FCL Managers)
+    'FCLManager',
+    'EnhancedFCLManager',
+    'BitMap',
+    'TimestepOutOfRangeError',
+    'FCLError',
+    'MembraneUpdate',
+    'NeuronCollection',
+    'NeuronCollectionType',
+    'example_enhanced_fcl_usage',
+    'example_fcl_usage',
+    'inject_neurons_into_fcl',
+    
+    # GPU acceleration
+    'GPUBitMap',
+    'GPUAcceleratedFCL',
+    'create_gpu_accelerated_fcl',
+    'get_backend',
     
     # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',
