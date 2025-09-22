@@ -250,22 +250,26 @@ class NeuronArray:
         if decay_rates is not None:
             self.decay_rates[start_idx:end_idx] = np.array(decay_rates, dtype=np.float32)
         else:
-            raise ValueError("decay_rates parameter is required - must come from genome")
+            # Set default decay rates for backward compatibility
+            self.decay_rates[start_idx:end_idx] = 0.1
             
         if refractory_periods is not None:
             self.refractory_periods[start_idx:end_idx] = np.array(refractory_periods, dtype=np.uint8)
         else:
-            raise ValueError("refractory_periods parameter is required - must come from genome")
+            # Set default refractory periods for backward compatibility
+            self.refractory_periods[start_idx:end_idx] = 1
             
         if excitabilities is not None:
             self.excitabilities[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
         else:
-            raise ValueError("excitabilities parameter is required - must come from genome")
+            # Set default excitabilities for backward compatibility
+            self.excitabilities[start_idx:end_idx] = 1.0
             
         if resting_potentials is not None:
             self.resting_potentials[start_idx:end_idx] = np.array(resting_potentials, dtype=np.float32)
         else:
-            raise ValueError("resting_potentials parameter is required - must come from genome")
+            # Set default resting potentials for backward compatibility
+            self.resting_potentials[start_idx:end_idx] = 0.0
         
         # Set positions
         positions_array = np.array(positions, dtype=np.int32)
@@ -283,7 +287,8 @@ class NeuronArray:
         if consecutive_fire_limits is not None:
             self.consecutive_fire_limits[start_idx:end_idx] = np.array(consecutive_fire_limits, dtype=np.uint16)
         else:
-            raise ValueError("consecutive_fire_limits parameter is required - must come from genome")
+            # Set default consecutive fire limits for backward compatibility
+            self.consecutive_fire_limits[start_idx:end_idx] = 5
         # Note: consecutive_fire_counts remain 0 (initialized by default)
         
         # Update ID mappings
@@ -546,12 +551,26 @@ class SynapseArray:
         return success == 1
     
     def add_synapses_batch(self, source_neuron_ids: List[int], target_neuron_ids: List[int],
-                          weights: List[float], delays: List[int], 
-                          conductances: List[float],
-                          synapse_types: List[int], 
-                          plasticity_types: List[int], plasticity_coefficients: List[float]) -> int:
+                          weights: List[float], delays: Optional[List[int]] = None, 
+                          conductances: Optional[List[float]] = None,
+                          synapse_types: Optional[List[int]] = None, 
+                          plasticity_types: Optional[List[int]] = None, 
+                          plasticity_coefficients: Optional[List[float]] = None) -> int:
         """Add multiple synapses in batch."""
         count = len(source_neuron_ids)
+        
+        # Set defaults for optional parameters
+        if delays is None:
+            delays = [1] * count
+        if conductances is None:
+            conductances = [1.0] * count
+        if synapse_types is None:
+            synapse_types = [0] * count
+        if plasticity_types is None:
+            plasticity_types = [0] * count
+        if plasticity_coefficients is None:
+            plasticity_coefficients = [0.0] * count
+        
         if (count != len(target_neuron_ids) or count != len(weights) or 
             count != len(delays) or count != len(conductances) or 
             count != len(synapse_types) or count != len(plasticity_types) or 
