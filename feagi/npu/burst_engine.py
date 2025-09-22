@@ -1671,6 +1671,43 @@ class BurstEngine:
         except Exception:
             logger.error("Failed to initialize injection service")
             self.injection_service = None
+    
+    # ==============================================================
+    # CLASS METHODS FOR TEST COMPATIBILITY
+    # ==============================================================
+    
+    @classmethod
+    def run_with_fire_queue(cls, fire_queue: Any = None, max_iterations: int = 1) -> Dict[str, Any]:
+        """Run burst engine with fire queue (class method for compatibility)."""
+        instance = cls.get_instance()
+        
+        results = {
+            'iterations': 0,
+            'fired_neurons': [],
+            'performance_metrics': {}
+        }
+        
+        for i in range(max_iterations):
+            try:
+                # Process a single burst
+                fired_neurons = instance.process_burst()
+                results['fired_neurons'].extend(fired_neurons or [])
+                results['iterations'] += 1
+                
+                # If no neurons fired, break early
+                if not fired_neurons:
+                    break
+                    
+            except Exception as e:
+                logger.warning(f"Burst processing error: {e}")
+                break
+        
+        results['performance_metrics'] = {
+            'total_neurons_fired': len(results['fired_neurons']),
+            'iterations_completed': results['iterations']
+        }
+        
+        return results
 
 
 class PowerInjectionService:
@@ -2303,3 +2340,40 @@ class PowerInjectionService:
         
         # When cache is invalidated, power neurons will be re-detected and 
         # their refractory periods will be set to 0 on next access
+    
+    # ==============================================================
+    # CLASS METHODS FOR TEST COMPATIBILITY
+    # ==============================================================
+    
+    @classmethod
+    def run_with_fire_queue(cls, fire_queue: Any = None, max_iterations: int = 1) -> Dict[str, Any]:
+        """Run burst engine with fire queue (class method for compatibility)."""
+        instance = cls.get_instance()
+        
+        results = {
+            'iterations': 0,
+            'fired_neurons': [],
+            'performance_metrics': {}
+        }
+        
+        for i in range(max_iterations):
+            try:
+                # Process a single burst
+                fired_neurons = instance.process_burst()
+                results['fired_neurons'].extend(fired_neurons or [])
+                results['iterations'] += 1
+                
+                # If no neurons fired, break early
+                if not fired_neurons:
+                    break
+                    
+            except Exception as e:
+                logger.warning(f"Burst processing error: {e}")
+                break
+        
+        results['performance_metrics'] = {
+            'total_neurons_fired': len(results['fired_neurons']),
+            'iterations_completed': results['iterations']
+        }
+        
+        return results

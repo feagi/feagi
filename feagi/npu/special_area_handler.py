@@ -29,7 +29,7 @@ class SpecialAreaConfig:
 class SpecialAreaHandler:
     """Simplified special area handler for clean NPU architecture."""
     
-    def __init__(self, connectome_manager):
+    def __init__(self, connectome_manager=None):
         """Initialize special area handler."""
         self.connectome_manager = connectome_manager
         self.special_areas: Dict[CorticalId, SpecialAreaConfig] = {}

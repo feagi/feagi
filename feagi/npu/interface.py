@@ -317,10 +317,58 @@ class NPUInterface:
     
     def process_neural_burst(self, timestep: int) -> List[int]:
         """Process neural burst and return firing neuron IDs."""
-        # This is a placeholder for actual neural processing
-        # In the clean architecture, this would integrate with
-        # the Fire Queue and neural dynamics processing
-        return []
+        import numpy as np
+        
+        fired_neurons = []
+        
+        # Process all active neurons
+        with self.neuron_array._lock:
+            # Check for firing neurons (not in refractory period)
+            # Use tolerance for floating point comparison
+            firing_candidates = (
+                (self.neuron_array.membrane_potentials >= (self.neuron_array.thresholds - 1e-6)) & 
+                (self.neuron_array.refractory_counters == 0) &
+                (np.arange(len(self.neuron_array.membrane_potentials)) < self.neuron_array.count)
+            )
+            
+            firing_indices = np.where(firing_candidates)[0]
+            
+            # Record fired neurons and update states
+            for idx in firing_indices:
+                neuron_id = self.neuron_array.index_to_neuron_id.get(idx)
+                if neuron_id is not None:
+                    fired_neurons.append(neuron_id)
+                    
+                    # Reset membrane potential and start refractory period
+                    self.neuron_array.membrane_potentials[idx] = self.neuron_array.resting_potentials[idx]
+                    self.neuron_array.refractory_counters[idx] = self.neuron_array.refractory_periods[idx]
+            
+            # Update all neurons - membrane potential decay and refractory countdown
+            active_mask = np.arange(len(self.neuron_array.membrane_potentials)) < self.neuron_array.count
+            
+            # Membrane potential decay (leak) for non-firing neurons
+            non_firing_mask = active_mask & ~firing_candidates
+            if np.any(non_firing_mask):
+                decay_amount = (self.neuron_array.membrane_potentials[non_firing_mask] - 
+                              self.neuron_array.resting_potentials[non_firing_mask]) * self.neuron_array.decay_rates[non_firing_mask]
+                self.neuron_array.membrane_potentials[non_firing_mask] -= decay_amount
+                
+                # Ensure membrane potential doesn't go below resting potential
+                self.neuron_array.membrane_potentials[non_firing_mask] = np.maximum(
+                    self.neuron_array.membrane_potentials[non_firing_mask],
+                    self.neuron_array.resting_potentials[non_firing_mask]
+                )
+            
+            # Decrease refractory counters
+            refractory_mask = (self.neuron_array.refractory_counters > 0) & active_mask
+            if np.any(refractory_mask):
+                self.neuron_array.refractory_counters[refractory_mask] -= 1
+        
+        # Propagate synaptic activations from fired neurons
+        if fired_neurons:
+            self.synapse_array.propagate_activations(fired_neurons, self.neuron_array)
+        
+        return fired_neurons
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get NPU statistics."""

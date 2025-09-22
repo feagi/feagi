@@ -697,6 +697,38 @@ class SynapseArray:
         except Exception:
             return False
     
+    def propagate_activations(self, firing_neuron_ids: List[int], neuron_array: 'NeuronArray') -> None:
+        """Propagate activations from firing neurons to their targets."""
+        import numpy as np
+        
+        if not firing_neuron_ids or neuron_array is None:
+            return
+            
+        # Process each firing neuron
+        for source_neuron_id in firing_neuron_ids:
+            if source_neuron_id not in self.source_neuron_index:
+                continue
+                
+            # Get all outgoing synapses from this neuron
+            outgoing_synapses = self.source_neuron_index[source_neuron_id]
+            
+            for synapse_idx in outgoing_synapses:
+                if synapse_idx >= self.count or not self.valid_mask[synapse_idx]:
+                    continue
+                
+                target_neuron_id = int(self.target_neuron_ids[synapse_idx])
+                weight = float(self.weights[synapse_idx])
+                conductance = float(self.conductances[synapse_idx])
+                
+                # Get target neuron array index
+                if target_neuron_id in neuron_array.neuron_id_to_index:
+                    target_idx = neuron_array.neuron_id_to_index[target_neuron_id]
+                    
+                    # Update membrane potential with synaptic input
+                    with neuron_array._lock:
+                        delta_potential = weight * conductance
+                        neuron_array.membrane_potentials[target_idx] += delta_potential
+    
 
 
 # Export the main data structures for compatibility

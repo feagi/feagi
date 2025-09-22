@@ -83,6 +83,10 @@ class FireQueue:
         self.total_firing_neurons += len(neurons)
         # Firing neurons added to queue
     
+    def add_neuron(self, neuron: FiringNeuron) -> None:
+        """Add a single firing neuron to the queue (convenience method)."""
+        self.add_fired_neurons([neuron], neuron.timestamp)
+    
     def add_fired_neurons_soa(self,
                              cortical_idx: int,
                              neuron_ids: np.ndarray,

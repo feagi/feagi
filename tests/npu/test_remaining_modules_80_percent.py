@@ -171,10 +171,10 @@ class TestFQSampler:
         # Add some firing neurons to the queue
         firing_neurons = [
             FiringNeuron(neuron_id=100, cortical_idx=0, membrane_potential=1.5,
-                        position=(0, 0, 0), threshold=1.0, consecutive_fire_count=1,
+                        coordinates=(0, 0, 0), threshold=1.0, consecutive_fire_count=1,
                         refractory_counter=0),
             FiringNeuron(neuron_id=101, cortical_idx=0, membrane_potential=1.8,
-                        position=(1, 0, 0), threshold=1.0, consecutive_fire_count=1,
+                        coordinates=(1, 0, 0), threshold=1.0, consecutive_fire_count=1,
                         refractory_counter=0)
         ]
         for neuron in firing_neurons:
@@ -425,7 +425,9 @@ class TestSpecialAreaHandler:
     
     def setup_method(self):
         """Setup test environment."""
-        self.handler = SpecialAreaHandler()
+        # Create mock connectome manager
+        self.mock_connectome = Mock()
+        self.handler = SpecialAreaHandler(connectome_manager=self.mock_connectome)
     
     def test_initialization(self):
         """Test special area handler initialization."""
@@ -514,10 +516,10 @@ class TestIntegrationScenarios:
         self.fire_queue = FireQueue()
         firing_neurons = [
             FiringNeuron(neuron_id=100, cortical_idx=0, membrane_potential=1.5,
-                        position=(0, 0, 0), threshold=1.0, consecutive_fire_count=1,
+                        coordinates=(0, 0, 0), threshold=1.0, consecutive_fire_count=1,
                         refractory_counter=0),
             FiringNeuron(neuron_id=101, cortical_idx=0, membrane_potential=1.8,
-                        position=(1, 0, 0), threshold=1.0, consecutive_fire_count=1,
+                        coordinates=(1, 0, 0), threshold=1.0, consecutive_fire_count=1,
                         refractory_counter=0)
         ]
         for neuron in firing_neurons:

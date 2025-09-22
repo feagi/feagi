@@ -131,6 +131,7 @@ class FireLedgerInterface:
             default_window_size: Default number of timesteps to maintain
         """
         self.default_window_size = default_window_size
+        self.window_size = default_window_size  # Compatibility alias
         
         # Historical storage (will be replaced by Rust implementation)
         self.cortical_histories: Dict[int, CorticalHistory] = {}

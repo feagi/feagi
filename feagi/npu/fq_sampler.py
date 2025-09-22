@@ -17,9 +17,13 @@ logger = setup_logger(__name__)
 class FQSampler:
     """Clean Fire Queue Sampler - reads from current Fire Queue only."""
     
-    def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization"):
+    def __init__(self, fire_queue_provider: Any = None, fire_queue: Any = None, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization"):
         """Initialize FQ Sampler."""
-        self.fire_queue_provider = fire_queue_provider
+        # Support both fire_queue_provider and fire_queue parameters for compatibility
+        if fire_queue is not None:
+            self.fire_queue_provider = fire_queue
+        else:
+            self.fire_queue_provider = fire_queue_provider
         self.sample_frequency_hz = sample_frequency_hz
         self.sampling_mode = sampling_mode
         self.samples_taken = 0
@@ -154,13 +158,14 @@ class UnifiedFQSampler:
     """
     
     def __init__(self, 
-                 fire_queue_provider: Any,
-                 sample_frequency_hz: float,
+                 fire_queue_provider: Any = None,
+                 sample_frequency_hz: float = 10.0,
                  sampling_mode: str = "visualization",
                  output_queue: Optional[Any] = None,
                  connectome_manager: Optional[Any] = None,
                  target_areas: Optional[List[str]] = None,
-                 state_manager: Optional[Any] = None):
+                 state_manager: Optional[Any] = None,
+                 backend: Optional[str] = None):
         """Initialize UnifiedFQSampler with compatibility interface."""
         
         # Create underlying clean FQ sampler
@@ -200,9 +205,18 @@ class UnifiedFQSampler:
         return self._fq_sampler._has_visualization_subscribers
     
     # Delegate methods to underlying FQ sampler
-    def sample(self) -> Optional[Dict[str, Any]]:
+    def sample(self, fire_queue: Any = None) -> Optional[Dict[str, Any]]:
         """Sample fire queue data."""
+        if fire_queue is not None:
+            # If fire_queue provided, use it for sampling
+            return fire_queue.get_firing_neurons_by_area() if hasattr(fire_queue, 'get_firing_neurons_by_area') else {}
         return self._fq_sampler.sample()
+    
+    def sample_fire_queue(self, fire_queue: Any) -> Dict[int, List[int]]:
+        """Sample provided fire queue (legacy compatibility)."""
+        if hasattr(fire_queue, 'get_firing_neurons_by_area'):
+            return fire_queue.get_firing_neurons_by_area()
+        return {}
     
     def get_area_fire_queue(self, area_id: str) -> Optional[Dict[str, Any]]:
         """Get fire queue data for specific area."""
