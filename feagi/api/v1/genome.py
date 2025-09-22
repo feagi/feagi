@@ -723,7 +723,7 @@ class GenomeAPI:
 
     # ===== Missing Critical Legacy Endpoints =====
 
-    @genome_endpoint("POST", "/amalgamation_destination", response_model=str)
+    @genome_endpoint("POST", "/amalgamation_destination", response_model=dict)
     async def amalgamation_destination(
         self,
         circuit_origin_x: int = Form(..., description="X coordinate for circuit origin"),
@@ -762,7 +762,14 @@ class GenomeAPI:
                 raise HTTPException(status_code=422, detail="Failed to apply amalgamation destination")
 
             genome_title = self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
-            return f'Amalgamation for "{genome_title}" is complete.'
+            
+            # Get updated brain region registry to help BV update visualizations
+            brain_regions = self.core_api_service.get_brain_regions()
+            
+            return {
+                "message": f'Amalgamation for "{genome_title}" is complete.',
+                "brain_regions": brain_regions
+            }
         except Exception as e:
             logger.error(f"Error completing amalgamation destination: {e}")
             if "No pending amalgamation request found" in str(e):

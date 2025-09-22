@@ -1206,7 +1206,7 @@ else:
             return create_genome_api(core_api_service)
         
         # Manually create the amalgamation_destination endpoint with proper parameter handling
-        @router.post("/amalgamation_destination", response_model=str)
+        @router.post("/amalgamation_destination", response_model=dict)
         async def amalgamation_destination(
             circuit_origin_x: int = Query(..., description="X coordinate for circuit origin"),
             circuit_origin_y: int = Query(..., description="Y coordinate for circuit origin"),
@@ -1215,7 +1215,7 @@ else:
             brain_region_id: Optional[str] = Body(default=None, embed=True, description="Brain region ID (expects {\"brain_region_id\": \"...\"} JSON; omitted defaults to 'root')"),
             rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all, description="Rewiring mode"),
             genome_api=Depends(_get_genome_api)
-        ) -> str:
+        ) -> dict:
             """Complete amalgamation by specifying destination coordinates."""
             if brain_region_id is None:
                 brain_region_id = "root"
