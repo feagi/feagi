@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 class FQSampler:
     """Clean Fire Queue Sampler - reads from current Fire Queue only."""
     
-    def __init__(self, fire_queue_provider: Any = None, fire_queue: Any = None, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization"):
+    def __init__(self, fire_queue_provider: Any = None, fire_queue: Any = None, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization", output_queue: Any = None, connectome_manager: Any = None, target_areas: List[str] = None):
         """Initialize FQ Sampler."""
         # Support both fire_queue_provider and fire_queue parameters for compatibility
         if fire_queue is not None:
@@ -25,7 +25,9 @@ class FQSampler:
         else:
             self.fire_queue_provider = fire_queue_provider
         self.sample_frequency_hz = sample_frequency_hz
+        self.sample_frequency = sample_frequency_hz  # Compatibility alias 
         self.sampling_mode = sampling_mode
+        self.output_queue = output_queue  # Store output_queue for compatibility
         self.samples_taken = 0
         self.last_sample_time = 0.0
         self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
@@ -35,6 +37,12 @@ class FQSampler:
         
         # Visualization subscriber tracking
         self._has_visualization_subscribers = False
+        self._has_motor_subscribers = False
+        
+        # Compatibility attributes
+        self.connectome_manager = connectome_manager
+        self.running = False
+        self.target_areas = target_areas or []
         
         # FQ Sampler initialized
     
@@ -147,6 +155,11 @@ class FQSampler:
         """
         if frequency_hz > 0:
             self.sample_frequency_hz = frequency_hz
+
+
+    def set_motor_subscribers(self, has_subscribers: bool) -> None:
+        """Set whether there are motor subscribers (compatibility method)."""  
+        self._has_motor_subscribers = has_subscribers
 
 
 class UnifiedFQSampler:

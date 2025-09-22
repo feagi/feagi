@@ -34,7 +34,59 @@ class SpecialAreaHandler:
         self.connectome_manager = connectome_manager
         self.special_areas: Dict[CorticalId, SpecialAreaConfig] = {}
         
+        # Initialize power area neuron cache
+        self._power_neurons_cache = []
+        self._cache_valid = False
+        self._injection_count = 0
+        self._last_injection_time = None
+        
         # Special Area Handler initialized
+    
+    def get_power_area_neurons(self) -> List[int]:
+        """Get neurons from power areas (compatibility method)."""
+        if self._cache_valid and self._power_neurons_cache:
+            return self._power_neurons_cache
+            
+        power_neurons = []
+        
+        try:
+            if self.connectome_manager:
+                # Get cortical area 1 (power area) neurons
+                cortical_areas = getattr(self.connectome_manager, 'cortical_areas', {})
+                if 1 in cortical_areas or '_power' in cortical_areas:
+                    power_area = cortical_areas.get(1) or cortical_areas.get('_power')
+                    if power_area:
+                        # Get neurons from power area
+                        if hasattr(power_area, 'neurons'):
+                            power_neurons.extend(power_area.neurons)
+                        elif hasattr(self.connectome_manager, 'get_area_neurons'):
+                            power_neurons = self.connectome_manager.get_area_neurons(1) or []
+                            
+            # Cache the result
+            self._power_neurons_cache = power_neurons
+            self._cache_valid = True
+            
+        except Exception as e:
+            logger.debug(f"Error getting power area neurons: {e}")
+            
+        return power_neurons
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get special area handler statistics (compatibility method)."""
+        return {
+            'special_areas_count': len(self.special_areas),
+            'power_neurons_cached': len(self._power_neurons_cache),
+            'cache_valid': self._cache_valid,
+            'injection_count': self._injection_count,
+            'last_injection_time': self._last_injection_time,
+            'core_power_area': "cortical_idx=1 (_power)"
+        }
+    
+    def record_injection(self, area_id: str = "default", neuron_count: int = 1) -> None:
+        """Record injection statistics (compatibility method)."""
+        import time
+        self._injection_count += 1
+        self._last_injection_time = time.time()
     
     def register_special_area(self, config: SpecialAreaConfig):
         """Register a special cortical area."""
