@@ -1,22 +1,13 @@
 """
 Copyright 2025 Neuraville Inc.
-# Mock class for deprecated FCLManager
-class FCLManager:
-    def __init__(self, *args, **kwargs):
-        pass
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
-# Mock class for deprecated EnhancedFCLManager
-class EnhancedFCLManager:
-    def __init__(self, *args, **kwargs):
-        pass
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
+FCL Manager Simple Tests - Testing basic FCL manager functionality.
+"""
+
+# Import the actual FCL manager classes
+from feagi.npu.fcl_manager import FCLManager, EnhancedFCLManager
 
 
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
