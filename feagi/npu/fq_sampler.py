@@ -46,18 +46,18 @@ class FQSampler:
         
         # FQ Sampler initialized
     
-    def sample(self) -> Optional[Dict[str, Any]]:
+    def sample(self) -> Dict[str, Any]:
         """Sample current Fire Queue data organized by cortical areas."""
         current_time = time.time()
         
         # Respect sampling frequency
         if current_time - self.last_sample_time < self.sample_interval:
-            return None
+            return {}  # Return empty dict for consistent interface during rate limiting
         
         # Get current fire queue
         fire_queue = self._get_current_fire_queue()
         if fire_queue is None or fire_queue.is_empty():
-            return None
+            return {}  # Return empty dict instead of None for consistent interface
         
         active_areas = fire_queue.get_active_areas()
         
