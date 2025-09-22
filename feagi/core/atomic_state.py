@@ -284,6 +284,9 @@ class RustCompatibleState(ctypes.Structure):
         self.genome_timestamp = 0  # Genome timestamp for change detection
         self.genome_counter = 0  # Genome counter for version tracking
         
+        # FEAGI session tracking - timestamp when FEAGI instance was created
+        self.feagi_session_timestamp = int(time.time() * 1000)  # Current timestamp in ms
+        
         # Amalgamation state management (legacy compatibility)
         self.pending_amalgamation = {}  # Current pending amalgamation data
         self.amalgamation_history = {}  # History of all amalgamation attempts

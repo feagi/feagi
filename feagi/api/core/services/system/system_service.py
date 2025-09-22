@@ -137,6 +137,11 @@ class SystemService(BaseService):
             #  CRITICAL: Include genome_num for downstream clients
             #  (Bridge/Godot) to track genome counter increments
             health["genome_num"] = self.state_manager.get_genome_counter()
+            
+            # FEAGI session timestamp - unique identifier for this FEAGI instance
+            health["feagi_session"] = (
+                self.state_manager.get_feagi_session_timestamp()
+            )
 
             # Determine genome loaded state via StateManager only (single source of truth)
             if self.state_manager.is_genome_loaded():

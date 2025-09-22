@@ -6382,9 +6382,9 @@ class GenomeService(BaseService):
                 voxel_idx = i % len(empty_voxels)
                 positions.append(empty_voxels[voxel_idx])
 
-        self.logger.info(
-            f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}"
-        )
+        # self.logger.info(
+        #     f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}"
+        # )
         return positions
 
     def _remove_neurons_for_area_contraction(

@@ -87,6 +87,8 @@ class HealthCheckResponse(BaseModel):
     genome_availability: bool
     genome_validity: Optional[bool]
     brain_readiness: bool
+    # FEAGI session tracking - unique timestamp for this FEAGI instance
+    feagi_session: Optional[int] = None  # Unix timestamp (milliseconds) when FEAGI started
     # Optional fields when genome is loaded
     fitness: Optional[float] = None
     cortical_area_count: Optional[int] = None

@@ -170,6 +170,7 @@ class SystemAPI:
                 ),
                 genome_num=data.get("genome_num"),
                 genome_timestamp=data.get("genome_timestamp"),
+                feagi_session=data.get("feagi_session"),
                 simulation_timestep=data.get("simulation_timestep"),
                 memory_area_stats=data.get("memory_area_stats"),
             )
@@ -207,6 +208,7 @@ class SystemAPI:
                     genome_num=data.get("genome_num"),
                     genome_timestamp=data.get("genome_timestamp"),
                     simulation_timestep=data.get("simulation_timestep"),
+                    feagi_session=data.get("feagi_session"),
                     memory_area_stats=data.get("memory_area_stats"),
                 )
             self._hc_inflight += 1
@@ -244,6 +246,7 @@ class SystemAPI:
                 ),
                 genome_num=health.get("genome_num"),
                 genome_timestamp=health.get("genome_timestamp"),
+                feagi_session=health.get("feagi_session"),
                 simulation_timestep=health.get("simulation_timestep"),
                 memory_area_stats=health.get("memory_area_stats"),
             )

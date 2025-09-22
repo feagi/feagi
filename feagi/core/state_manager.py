@@ -2317,6 +2317,10 @@ class FeagiStateManager:
         """Get the current genome timestamp."""
         return getattr(self._state, "genome_timestamp", 0)
     
+    def get_feagi_session_timestamp(self) -> int:
+        """Get the FEAGI session timestamp (when this FEAGI instance was created)."""
+        return getattr(self._state, "feagi_session_timestamp", 0)
+    
     def set_genome_timestamp(self, timestamp: int) -> Result[None]:
         """Set genome timestamp."""
         if not isinstance(timestamp, int) or timestamp < 0:

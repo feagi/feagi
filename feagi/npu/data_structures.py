@@ -608,6 +608,24 @@ class SynapseArray:
                     connections.append((target_id, weight))
         return connections
     
+    def get_incoming_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
+        """Get incoming connections to a neuron.
+        
+        Args:
+            neuron_id: Target neuron ID
+            
+        Returns:
+            List of (source_neuron_id, weight) tuples
+        """
+        connections = []
+        if neuron_id in self.target_neuron_index:
+            for synapse_idx in self.target_neuron_index[neuron_id]:
+                if synapse_idx < self.count and self.valid_mask[synapse_idx]:
+                    source_id = int(self.source_neuron_ids[synapse_idx])
+                    weight = float(self.weights[synapse_idx])
+                    connections.append((source_id, weight))
+        return connections
+    
     def has_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
         """Check if synapse exists between two neurons."""
         if source_neuron_id not in self.source_neuron_index:
