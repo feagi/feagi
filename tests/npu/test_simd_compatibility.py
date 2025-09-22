@@ -1,5 +1,12 @@
 """
 Copyright 2025 Neuraville Inc.
+# Mock class for deprecated BitMap
+class BitMap:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

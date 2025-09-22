@@ -41,7 +41,7 @@ def reset_burst_engine_singleton():
     yield
     # Reset after each test
     try:
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
     except Exception:
         pass  # Ignore if no instance exists
 
@@ -129,7 +129,7 @@ def test_burst_engine_initialization(mock_connectome_manager, mock_state_manager
         return_value=mock_state_manager,
     ):
         # Reset singleton to ensure clean state
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
@@ -152,7 +152,7 @@ def test_burst_engine_initialization(mock_connectome_manager, mock_state_manager
         return_value=mock_state_manager_50hz,
     ):
         # Reset singleton to get fresh instance with new config
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
 
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
@@ -195,7 +195,7 @@ def test_burst_engine_run_and_stop(mock_connectome_manager, mock_state_manager):
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
-    ), patch("feagi.npu.burst_engine.time.perf_counter") as mock_perf_counter:
+    ), patch("time.perf_counter") as mock_perf_counter:
         # Create a counter for perf_counter calls to provide realistic timing
         time_values = []
         call_count = 0
@@ -256,8 +256,8 @@ def test_load_shedding(mock_connectome_manager, mock_state_manager):
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
-    ), patch("feagi.npu.burst_engine.time.sleep") as mock_sleep, patch(
-        "feagi.npu.burst_engine.time.perf_counter"
+    ), patch("time.sleep") as mock_sleep, patch(
+        "time.perf_counter"
     ) as mock_perf_counter:
         # Mock time to make sure frequency is below target
         mock_sleep.return_value = None
@@ -473,7 +473,7 @@ def test_error_handling(mock_connectome_manager, mock_state_manager):
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
-    ), patch("feagi.npu.burst_engine.time.perf_counter") as mock_perf_counter, patch(
+    ), patch("time.perf_counter") as mock_perf_counter, patch(
         "feagi.npu.burst_engine.logger"
     ) as mock_logger:
         # Create a counter for perf_counter calls to provide realistic timing
@@ -542,7 +542,7 @@ def test_fq_sampler_initialization():
 
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         output_queue=output_queue,
@@ -564,7 +564,7 @@ def test_fq_sampler_connectivity():
 
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         output_queue=output_queue,

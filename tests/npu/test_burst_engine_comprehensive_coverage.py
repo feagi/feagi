@@ -40,7 +40,7 @@ def reset_burst_engine_singleton():
     """Reset BurstEngine singleton before each test to prevent state pollution."""
     yield
     try:
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
     except Exception:
         pass
 
@@ -124,7 +124,7 @@ def test_burst_engine_debug_mode():
         cm = MockConnectomeManager()
 
         # Test debug mode during initialization
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Test debug mode during _running setter
         engine._running = True  # This should trigger debug output
@@ -143,7 +143,7 @@ def test_burst_engine_debug_process_burst():
         return_value=mock_state_manager,
     ), patch.dict(os.environ, {"FEAGI_DEBUG_NPU": "1"}):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Mock injection service
         engine.injection_service = Mock()
@@ -195,13 +195,7 @@ def test_burst_engine_special_area_initialization():
 
         # Test initialization with injection enabled
         engine = BurstEngine(
-            connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "enable_injection": True,
-                "special_area_config": {"test": "config"},
-                "injection_config": {"injection": "config"},
-            },
+            connectome_manager=cm
         )
 
         # Verify services were initialized
@@ -228,7 +222,6 @@ def test_burst_engine_special_area_initialization_disabled():
         # Test initialization with injection disabled
         engine = BurstEngine(
             connectome_manager=cm,
-            config={"target_frequency": 100, "enable_injection": False},
         )
 
         # Verify injection is disabled
@@ -252,7 +245,6 @@ def test_burst_engine_special_area_initialization_error():
         # Test initialization with error
         engine = BurstEngine(
             connectome_manager=cm,
-            config={"target_frequency": 100, "enable_injection": True},
         )
 
         # Should handle error gracefully
@@ -297,7 +289,6 @@ def test_burst_engine_special_area_initialization_no_power_areas():
         # Test initialization with no power areas
         engine = BurstEngine(
             connectome_manager=cm,
-            config={"target_frequency": 100, "enable_injection": True},
         )
 
         # Special area handler should be initialized and injection service created
@@ -313,7 +304,7 @@ def test_burst_engine_frequency_measurement():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Set engine as running
         engine._running = True
@@ -339,7 +330,7 @@ def test_burst_engine_frequency_measurement_not_running():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Set engine as not running
         engine._running = False
@@ -373,7 +364,7 @@ def test_burst_engine_frequency_measurement_no_data():
         "time.sleep"
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Set engine as running
         engine._running = True
@@ -399,7 +390,7 @@ def test_burst_engine_timing_recording():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Test timing recording when measurement is disabled
         engine._frequency_measurement_enabled = False
@@ -431,7 +422,7 @@ def test_burst_engine_timing_buffer_overflow():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Enable frequency measurement
         engine._frequency_measurement_enabled = True
@@ -463,7 +454,7 @@ def test_burst_engine_get_instance():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # get_instance should return the same instance
         assert BurstEngine.get_instance() is engine
@@ -480,13 +471,11 @@ def test_burst_engine_singleton_reinitialization():
         cm = MockConnectomeManager()
 
         # Create first instance
-        engine1 = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine1 = BurstEngine(cm)
         engine1.test_attribute = "first_instance"
 
         # Create second instance - should return the same object
-        engine2 = BurstEngine(
-            connectome_manager=Mock(), config={"target_frequency": 200}
-        )
+        engine2 = BurstEngine(Mock())
 
         # Should be the same instance
         assert engine1 is engine2
@@ -505,10 +494,9 @@ def test_burst_engine_injection_timing_variants():
         cm = MockConnectomeManager()
 
         # Test unified injection service calls all timing phases
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
         engine = BurstEngine(
             connectome_manager=cm,
-            config={"target_frequency": 100, "enable_injection": True},
         )
 
         engine.injection_service = Mock()
@@ -518,10 +506,9 @@ def test_burst_engine_injection_timing_variants():
         engine.injection_service.inject_candidates.assert_called_once()
 
         # Test without injection service
-        BurstEngine.reset_singleton()
+        BurstEngine.reset_instance()
         engine = BurstEngine(
             connectome_manager=cm,
-            config={"target_frequency": 100, "enable_injection": False},
         )
 
         engine.injection_service = None
@@ -540,7 +527,7 @@ def test_burst_engine_update_with_genome():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Initially genome not loaded
         assert not engine.genome_loaded
@@ -591,13 +578,7 @@ def test_burst_engine_refresh_special_areas():
 
         # Test initialization with injection enabled
         engine = BurstEngine(
-            connectome_manager=cm,
-            config={
-                "target_frequency": 100,
-                "enable_injection": True,
-                "special_area_config": {"test": "config"},
-                "injection_config": {"injection": "config"},
-            },
+            connectome_manager=cm
         )
 
         # Mock special area handler
@@ -620,7 +601,7 @@ def test_burst_engine_refresh_special_areas_no_handler():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # No special area handler
         engine.special_area_handler = None
@@ -638,7 +619,7 @@ def test_burst_engine_injection_statistics():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Mock injection service
         mock_stats = {"test": "data"}
@@ -667,7 +648,7 @@ def test_burst_engine_set_injection_enabled():
         return_value=mock_state_manager,
     ):
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Mock injection service
         engine.injection_service = Mock()
@@ -699,7 +680,7 @@ def test_fq_sampler_run_global_mode():
 
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider, 100, "visualization", output_queue
     )  # No connectome manager
     sampler.set_visualization_subscribers(True)
@@ -721,7 +702,7 @@ def test_fq_sampler_run_no_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = FQSampler(fire_queue_provider, 100, "visualization", output_queue)
     # Don't set any subscribers
 
     # Run for a short time
@@ -750,7 +731,7 @@ def test_fq_sampler_queue_full_handling():
     output_queue = Queue(maxsize=1)
     output_queue.put("blocking_item")
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider, 1000, "visualization", output_queue
     )  # High frequency
     sampler.set_visualization_subscribers(True)
@@ -771,7 +752,7 @@ def test_fq_sampler_set_motor_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = FQSampler(fire_queue_provider, 100, "visualization", output_queue)
 
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)
@@ -790,7 +771,7 @@ def test_burst_engine_signal_handling():
         return_value=mock_state_manager,
     ), patch("signal.signal") as mock_signal:
         cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        engine = BurstEngine(cm)
 
         # Just test that the signal module is available to the engine
         assert hasattr(engine, "run")

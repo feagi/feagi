@@ -125,9 +125,9 @@ def mock_connectome_manager():
 def test_fq_sampler_init(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test initialization of UnifiedFQSampler with different parameters."""
+    """Test initialization of FQSampler with different parameters."""
     # Test with only required parameters
-    sampler1 = UnifiedFQSampler(
+    sampler1 = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -141,7 +141,7 @@ def test_fq_sampler_init(
     assert not sampler1.running
 
     # Test with connectome manager and custom parameters
-    sampler2 = UnifiedFQSampler(
+    sampler2 = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=5,
         sampling_mode="opu",
@@ -155,9 +155,9 @@ def test_fq_sampler_init(
 
 
 def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queue):
-    """Test UnifiedFQSampler.sample without a connectome manager - expects None (correct behavior)."""
+    """Test FQSampler.sample without a connectome manager - expects None (correct behavior)."""
     # Create sampler with high frequency for faster testing in visualization mode
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -174,10 +174,10 @@ def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queu
 def test_fq_sampler_run_with_connectome(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test UnifiedFQSampler.sample with a connectome manager (custom areas mode)."""
+    """Test FQSampler.sample with a connectome manager (custom areas mode)."""
     # Use custom_areas mode to test connectome-based sampling
     target_areas = ["cortex1", "cortex2"]
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="custom_areas",
@@ -203,7 +203,7 @@ def test_set_target_areas(
 ):
     """Test custom areas sampling mode."""
     target_areas = ["cortex1", "cortex2"]
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="custom_areas",
@@ -223,9 +223,9 @@ def test_set_target_areas(
 
 
 def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_manager):
-    """Test UnifiedFQSampler with queue operations - expects None due to mock FCL manager issues."""
+    """Test FQSampler with queue operations - expects None due to mock FCL manager issues."""
     # Test sampler behavior with queue operations
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=100,
         sampling_mode="visualization",
@@ -241,11 +241,11 @@ def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_ma
 
 
 def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
-    """Test UnifiedFQSampler error handling when exceptions occur."""
+    """Test FQSampler error handling when exceptions occur."""
     # Create a provider that raises exceptions
     error_provider = MockFireQueueProvider(should_raise_exception=True)
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=error_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -261,8 +261,8 @@ def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
 def test_fq_sampler_zero_rate(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test UnifiedFQSampler with zero sampling rate (should still work with manual sampling)."""
-    sampler = UnifiedFQSampler(
+    """Test FQSampler with zero sampling rate (should still work with manual sampling)."""
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=0,  # Zero frequency
         sampling_mode="visualization",
@@ -277,7 +277,7 @@ def test_fq_sampler_zero_rate(
 def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     """Test different sampling modes."""
     # Test visualization mode
-    sampler_viz = UnifiedFQSampler(
+    sampler_viz = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -285,7 +285,7 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     assert sampler_viz.sampling_mode == "visualization"
 
     # Test OPU mode
-    sampler_opu = UnifiedFQSampler(
+    sampler_opu = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="opu",
@@ -293,7 +293,7 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     assert sampler_opu.sampling_mode == "opu"
 
     # Test custom areas mode
-    sampler_custom = UnifiedFQSampler(
+    sampler_custom = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="custom_areas",
@@ -306,8 +306,8 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
 
 
 def test_fq_sampler_performance_stats(mock_fire_queue_provider, output_queue):
-    """Test UnifiedFQSampler performance statistics."""
-    sampler = UnifiedFQSampler(
+    """Test FQSampler performance statistics."""
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -324,7 +324,7 @@ def test_fq_sampler_performance_stats(mock_fire_queue_provider, output_queue):
 
 def test_fq_sampler_always_samples(mock_fire_queue_provider, output_queue):
     """Test that FQSampler consistently returns None when no proper setup is provided."""
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -343,7 +343,7 @@ def test_fq_sampler_always_samples(mock_fire_queue_provider, output_queue):
 def test_fq_sampler_initialization():
     """Test FQ sampler initialization."""
     mock_provider = MagicMock()
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_provider,
         sample_frequency_hz=10.0,
         sampling_mode="visualization",
@@ -354,12 +354,12 @@ def test_fq_sampler_initialization():
 
 
 class TestFQSampler(unittest.TestCase):
-    """Unit test class for UnifiedFQSampler."""
+    """Unit test class for FQSampler."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.mock_provider = MockFireQueueProvider()
-        self.sampler = UnifiedFQSampler(
+        self.sampler = FQSampler(
             fire_queue_provider=self.mock_provider,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",
@@ -386,7 +386,7 @@ class TestFQSampler(unittest.TestCase):
     def test_per_area_sampling(self):
         """Test per-area sampling functionality."""
         # Create sampler for custom areas
-        area_sampler = UnifiedFQSampler(
+        area_sampler = FQSampler(
             fire_queue_provider=self.mock_provider,
             sample_frequency_hz=10.0,
             sampling_mode="custom_areas",
@@ -403,10 +403,10 @@ class TestFQSampler(unittest.TestCase):
 
     @patch("feagi.npu.fq_sampler.logger")
     def test_error_handling(self, mock_logger):
-        """Test error handling in UnifiedFQSampler."""
+        """Test error handling in FQSampler."""
         # Test with error provider
         error_provider = MockFireQueueProvider(should_raise_exception=True)
-        error_sampler = UnifiedFQSampler(
+        error_sampler = FQSampler(
             fire_queue_provider=error_provider,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",
