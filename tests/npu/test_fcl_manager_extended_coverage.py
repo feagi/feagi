@@ -87,15 +87,15 @@ def test_timestep_out_of_range_error():
 
 def test_membrane_update_dataclass():
     """Test MembraneUpdate dataclass."""
-    update = MembraneUpdate(neuron_idx=10, delta_potential=0.5)
-    assert update.neuron_idx == 10
-    assert update.delta_potential == 0.5
-    assert update.source_neuron_idx is None
+    update = MembraneUpdate(neuron_id=10, delta=0.5)
+    assert update.neuron_id == 10
+    assert update.delta == 0.5
+    assert update.is_excitatory == True  # default value
 
-    update_with_source = MembraneUpdate(
-        neuron_idx=20, delta_potential=-0.3, source_neuron_idx=5
+    update_inhibitory = MembraneUpdate(
+        neuron_id=20, delta=-0.3, is_excitatory=False
     )
-    assert update_with_source.source_neuron_idx == 5
+    assert update_inhibitory.is_excitatory == False
 
 
 def test_neuron_collection_from_list():
@@ -488,7 +488,7 @@ def test_enhanced_fcl_manager_membrane_update_queue():
 
     # Queue updates
     enhanced_fcl.queue_membrane_update(10, 0.5)
-    enhanced_fcl.queue_membrane_update(20, -0.3, source_neuron_idx=5)
+    enhanced_fcl.queue_membrane_update(20, -0.3, source_neuron_id=5)
 
     # Process queue
     updates = enhanced_fcl.process_update_queue()

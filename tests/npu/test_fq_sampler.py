@@ -169,7 +169,7 @@ def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queu
 
     # Implementation correctly returns None when no connectome manager is provided
     # This is expected behavior - can't determine areas with activity without FCL manager
-    assert sample is None
+    assert sample == {}  # FQSampler now returns empty dict instead of None
 
 
 def test_fq_sampler_run_with_connectome(
@@ -189,12 +189,11 @@ def test_fq_sampler_run_with_connectome(
     # Test direct sampling
     sample = sampler.sample()
 
-    # Check that we got a sample
-    # Accept any realistic return value from sample()
-    # Skip dict assertion - accept realistic None values
+    # Check that we got a sample - should always return a dict (empty if no data)
+    assert isinstance(sample, dict)  # FQSampler should always return a dict structure
 
     # Should have cortical area structure
-    if sample and isinstance(sample, dict):  # Handle realistic None values
+    if sample:  # Dict may be empty if no firing neurons
         for area_id, area_data in sample.items():
             assert isinstance(area_data, dict)
             assert "neuron_ids" in area_data
@@ -215,8 +214,8 @@ def test_set_target_areas(
 
     # Test sampling with target areas
     sample = sampler.sample()
-    # Accept any realistic return value from sample()
-    # Skip dict assertion - accept realistic None values
+    # Should always return a dict (empty if no data)
+    assert isinstance(sample, dict)  # FQSampler should return consistent dict interface
 
     # In the mock, all areas return the same data, so we should get some areas
     if sample and isinstance(sample, dict):  # Handle realistic None values
@@ -240,7 +239,7 @@ def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_ma
 
     # Implementation returns None when FCL manager mock doesn't have proper setup
     # This is expected behavior - mock objects don't provide real FCL functionality
-    assert sample is None
+    assert sample == {}  # FQSampler now returns empty dict instead of None
 
 
 def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
@@ -258,7 +257,7 @@ def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
     # Should handle exceptions gracefully
     sample = sampler.sample()
     # Should return None or empty dict when exceptions occur
-    assert sample is None or (isinstance(sample, dict) and len(sample) == 0)
+    assert sample == {}  # FQSampler now returns empty dict instead of None or (isinstance(sample, dict) and len(sample) == 0)
 
 
 def test_fq_sampler_zero_rate(
@@ -339,8 +338,8 @@ def test_fq_sampler_always_samples(mock_fire_queue_provider, output_queue):
 
     # Implementation correctly returns None when no connectome manager/FCL setup
     # This is expected and consistent behavior
-    assert sample1 is None
-    assert sample2 is None
+    assert sample1 == {}  # First sample should be empty due to rate limiting
+    assert sample2 == {}  # Second sample should also be empty
 
 
 def test_fq_sampler_initialization():
@@ -353,7 +352,7 @@ def test_fq_sampler_initialization():
     )
 
     assert sampler.sample_frequency == 10.0
-    assert sampler.current_strategy.mode.value == "visualization"
+    assert sampler.sampling_mode == "visualization"  # FQSampler stores mode directly
 
 
 class TestFQSampler(unittest.TestCase):
@@ -417,4 +416,4 @@ class TestFQSampler(unittest.TestCase):
 
         # Should handle exceptions gracefully
         sample = error_sampler.sample()
-        assert sample is None or isinstance(sample, dict)
+        assert sample == {}  # FQSampler now returns empty dict instead of None or isinstance(sample, dict)

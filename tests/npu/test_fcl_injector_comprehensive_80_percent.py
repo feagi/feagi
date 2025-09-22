@@ -95,6 +95,7 @@ class TestFCLInjectorSensoryData:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -110,7 +111,7 @@ class TestFCLInjectorSensoryData:
             self.fcl, cortical_id, x_coords, y_coords, z_coords, potentials
         )
         
-        assert injected_count >= 0  # Accept realistic injection count  # Mock returns 2 neurons 
+        assert injected_count == 2  # Should inject exactly 2 neurons as per input coordinates 
         assert self.injector.injection_count == 2
         assert len(self.coord_converter.conversion_calls) == 0  # Uses connectome_manager instead
         
@@ -130,8 +131,8 @@ class TestFCLInjectorSensoryData:
             self.fcl, cortical_id, x_coords, y_coords, z_coords, potentials
         )
         
-        assert injected_count >= 0  # Accept realistic return value
-        assert self.injector.injection_count >= 0  # Injection tracking works
+        assert injected_count == 1  # Should inject exactly 1 neuron as per input coordinates
+        assert self.injector.injection_count == 1  # Injection tracking should match actual count
     
     def test_inject_sensory_data_empty_arrays(self):
         """Test sensory data injection with empty arrays."""
@@ -191,6 +192,7 @@ class TestFCLInjectorPowerArea:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -252,6 +254,7 @@ class TestFCLInjectorManualStimulation:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -321,6 +324,7 @@ class TestFCLInjectorSynapticPropagation:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -380,6 +384,7 @@ class TestFCLInjectorBatchOperations:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -480,6 +485,7 @@ class TestFCLInjectorStatistics:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -537,6 +543,7 @@ class TestFCLInjectorPrivateMethods:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -608,6 +615,7 @@ class TestFCLInjectorErrorHandling:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
@@ -699,6 +707,7 @@ class TestFCLInjectorIntegration:
     def setup_method(self):
         """Setup test environment."""
         self.coord_converter = MockCoordinateConverter()
+        self.coord_converter._is_test_mode = True  # Enable test mode for proper injection simulation
         self.injector = FCLInjector(self.coord_converter)
         self.fcl = FireCandidateList()
     
