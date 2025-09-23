@@ -25,8 +25,10 @@ from feagi_connector import (
     FeagiClient,
     MediaSource,
     SegmentedVisionProcessor,
+    GazeMotorProcessor,
     get_segmented_3x3_dimensions,
     set_simulation_timestep,
+    poll_motor_shm,
 )
 from pathlib import Path
 from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter
@@ -80,11 +82,14 @@ async def stream_segmented_camera(
     center_dims: Tuple[int, int]
     per_dims: Tuple[int, int]
     processor: Optional[SegmentedVisionProcessor] = None
+    gaze_motor: Optional[GazeMotorProcessor] = None
     shm_writer: Optional[SharedFrameWriter] = None
     sensory_writer: Optional[ShmBytesWriter] = None
+    motor_reader_thread = None
+    motor_stop_flag = None
 
     async def _register_and_connect() -> bool:
-        nonlocal client, shm_paths, center_dims, per_dims, processor, shm_writer, sensory_writer, rest_port, host, agent_id
+        nonlocal client, shm_paths, center_dims, per_dims, processor, gaze_motor, shm_writer, sensory_writer, rest_port, host, agent_id, motor_reader_thread, motor_stop_flag
         # Best-effort disconnect/cleanup
         try:
             await client.disconnect()
@@ -102,7 +107,7 @@ async def stream_segmented_camera(
                 agent_type="external",
                 capabilities={
                     "sensory": True,
-                    "motor": False,
+                    "motor": True,
                     "visualization": True,
                     "video_stream_raw": True,
                     "video_stream": True,
@@ -122,6 +127,10 @@ async def stream_segmented_camera(
                             shm_paths = {str(k): str(v) for k, v in shm.items()}
                 except Exception:
                     pass
+            try:
+                logger.info(f"[SHM] Agent shared memory mappings: {shm_paths}")
+            except Exception:
+                pass
         except Exception:
             pass
         # Connect streams (sensory-only mode for video agent)
@@ -137,6 +146,17 @@ async def stream_segmented_camera(
             modularity=(0.2, 0.2),
             gaze_position=(0.5, 0.5)
         )
+        # Ensure gaze motor processor exists
+        if gaze_motor is None:
+            try:
+                gaze_motor = GazeMotorProcessor(
+                    cortical_group_index=group_index,
+                    num_channels=10,
+                    gaze_resolution=8,
+                )
+                gaze_motor.register_gaze_motor()
+            except Exception:
+                gaze_motor = None
         # Setup SHM writer if FEAGI provided a path
         # Close any previous writers without unlink
         if shm_writer is not None:
@@ -164,6 +184,72 @@ async def stream_segmented_camera(
                 sensory_writer = ShmBytesWriter(Path(sensory_shm_path))
             except Exception:
                 sensory_writer = None
+
+        # Setup motor SHM reader (for gaze) if FEAGI provided a path
+        motor_shm_path = (shm_paths.get("motor") or shm_paths.get("motor_stream"))
+        # Clean up any existing motor polling thread
+        try:
+            if motor_reader_thread is not None and motor_reader_thread.is_alive():
+                if motor_stop_flag is not None:
+                    motor_stop_flag.set()
+                motor_reader_thread.join(timeout=0.5)
+        except Exception:
+            pass
+        motor_reader_thread = None
+        motor_stop_flag = None
+
+        if isinstance(motor_shm_path, str) and len(motor_shm_path) > 0 and gaze_motor is not None:
+            try:
+                import threading
+
+                motor_stop_flag = threading.Event()
+
+                def on_motor_payload(payload: bytes) -> None:
+                    # Decode gaze from FEAGI motor data and update processor
+                    try:
+                        try:
+                            logger.debug(f"[MOTOR] Received payload: {len(payload)} bytes")
+                        except Exception:
+                            pass
+                        result = gaze_motor.process_motor_bytes(payload)
+                        if result is not None:
+                            gaze_x, gaze_y = result
+                            # Log the exact gaze values received from FEAGI
+                            # Normalized range [0,1]; approximate grid coordinates based on resolution
+                            try:
+                                grid_x = int(round(gaze_x * gaze_motor.gaze_resolution))
+                                grid_y = int(round(gaze_y * gaze_motor.gaze_resolution))
+                            except Exception:
+                                grid_x = grid_y = -1
+                            logger.info(
+                                f"🧭 FEAGI gaze update: gaze_x={gaze_x:.4f}, gaze_y={gaze_y:.4f} (grid≈{grid_x},{grid_y})"
+                            )
+                            # Apply gaze to vision processor
+                            try:
+                                if processor is not None:
+                                    processor.update_gaze(gaze_x, gaze_y)
+                            except Exception:
+                                pass
+                        else:
+                            try:
+                                logger.debug("[MOTOR] No gaze decoded from payload")
+                            except Exception:
+                                pass
+                    except Exception:
+                        # Ignore malformed payloads but keep polling
+                        pass
+
+                motor_reader_thread = threading.Thread(
+                    target=poll_motor_shm,
+                    args=(Path(motor_shm_path), motor_stop_flag.is_set, on_motor_payload, 0.02),
+                    daemon=True,
+                )
+                motor_reader_thread.start()
+                logger.info(f"🔌 Subscribed to FEAGI motor SHM for gaze: {motor_shm_path}")
+            except Exception as e:
+                logger.debug(f"Motor SHM subscription failed: {e}")
+        else:
+            logger.info("ℹ️ No motor SHM path provided by FEAGI; gaze updates will not be logged. Ensure agent requests motor capability and FEAGI SHM is enabled.")
         return True
 
     # Initial registration and connection
@@ -281,6 +367,14 @@ async def stream_segmented_camera(
         try:
             if sensory_writer is not None:
                 sensory_writer.close()
+        except Exception:
+            pass
+        # Stop motor polling thread
+        try:
+            if motor_reader_thread is not None:
+                if motor_stop_flag is not None:
+                    motor_stop_flag.set()
+                motor_reader_thread.join(timeout=0.5)
         except Exception:
             pass
         await client.disconnect()

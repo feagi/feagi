@@ -314,7 +314,8 @@ class ShmBytesReader:
             )
         except Exception as e:
             raise ValueError(f"Invalid header: {e}")
-        if magic != self.MAGIC:
+        # Accept both generic bytes ring and FEAGI motor ring headers
+        if magic not in (self.MAGIC, b"FEAGIMOT"):
             raise ValueError("Invalid MAGIC")
         self.num_slots = int(num_slots)
         self.slot_size = int(slot_size)
