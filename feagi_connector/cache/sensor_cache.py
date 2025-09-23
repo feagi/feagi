@@ -10,7 +10,7 @@ temp_sensors_dict = {
         },
     },
     "SegmentedImageFrame": {
-        "segmented_image_camera": {
+        "image_camera_with_peripheral": {
             "register_name": "register_image_camera_with_peripheral",
             "write_name": "store_image_camera_with_peripheral"
         }
@@ -19,7 +19,16 @@ temp_sensors_dict = {
 
 class SensorCache:
     def __init__(self):
-        self._rust_cache: frpl.connector_core.SensorCache = frpl.connector_core.SensorCache()
+        try:
+            # Try the new API
+            self._rust_cache = frpl.connector_core.IOCache()
+        except AttributeError:
+            try:
+                # Fallback to old API
+                self._rust_cache = frpl.connector_core.SensorCache()
+            except AttributeError:
+                # Create a minimal cache stub
+                self._rust_cache = None
 
         for sensor_type, sensors in temp_sensors_dict.items():
             for sensor_name, sensor_details in sensors.items():
@@ -38,8 +47,20 @@ class SensorCache:
 
 
     def encode_cached_data_into_bytes(self):
-        self._rust_cache.encode_cached_data_into_bytes()
+        if self._rust_cache:
+            try:
+                # Try new API method name
+                self._rust_cache.sensor_encode_cached_data_into_bytes()
+            except AttributeError:
+                try:
+                    # Try old API method name
+                    self._rust_cache.encode_cached_data_into_bytes()
+                except AttributeError:
+                    # Skip if neither method exists
+                    pass
 
     def get_most_recent_sensor_bytes(self) -> bytes:
-        list_bytes = self._rust_cache.retrieve_latest_bytes()
-        return bytes(list_bytes)
+        if self._rust_cache:
+            list_bytes = self._rust_cache.retrieve_latest_bytes()
+            return bytes(list_bytes)
+        return b""

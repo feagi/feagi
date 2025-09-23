@@ -19,7 +19,7 @@ from feagi_connector.utils.rest_helpers import (
     get_segmented_3x3_dimensions,
     set_simulation_timestep,
 )
-from feagi_connector.vision.processor import SegmentedVisionProcessor, bgr_to_rgb_uint8, numpy_to_image_frame
+from feagi_connector.vision.processor import SegmentedVisionProcessor, GazeMotorProcessor, bgr_to_rgb_uint8, numpy_to_image_frame, create_gaze_control_neurons
 from feagi_connector.vision.visualize import build_segmented_mosaic, build_neural_image
 from feagi_connector.utils.zero_serialization import build_zero_serialized_xyzp
 from feagi_connector.media.source import MediaSource, MediaInfo
@@ -47,8 +47,10 @@ __all__ = [
     "set_simulation_timestep",
     # Vision
     "SegmentedVisionProcessor",
+    "GazeMotorProcessor", 
     "bgr_to_rgb_uint8",
     "numpy_to_image_frame",
+    "create_gaze_control_neurons",
     "build_segmented_mosaic",
     "build_neural_image",
     "build_zero_serialized_xyzp",

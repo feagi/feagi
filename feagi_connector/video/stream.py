@@ -52,8 +52,8 @@ async def stream_segmented_camera(
     - Publishes bytes via FeagiClient sensory socket
     """
 
-    # FEAGI client: pass rest_port parameter for proper connection
-    client = FeagiClient(host=host, rest_port=rest_port, agent_id=agent_id or None)
+    # FEAGI client: use default ZMQ REST Stream port (5563) for agent registration
+    client = FeagiClient(host=host, agent_id=agent_id or None)
 
     # Check FEAGI readiness first
     logger.info("Checking FEAGI readiness...")
@@ -90,7 +90,7 @@ async def stream_segmented_camera(
             await client.disconnect()
         except Exception:
             pass
-        client = FeagiClient(host=host, rest_port=rest_port, agent_id=agent_id or client.agent_id)
+        client = FeagiClient(host=host, agent_id=agent_id or client.agent_id)
         # Check FEAGI readiness (shorter timeout for reconnects, no guidance)
         if not await client.connect_with_readiness_check(timeout=30.0, show_guidance=False):
             return False
@@ -127,10 +127,15 @@ async def stream_segmented_camera(
         # Connect streams (sensory-only mode for video agent)
         if not await client.connect_sensory_only():
             return False
-        # Dimensions and processor
+        # Dimensions and processor with gaze control
         center_dims, per_dims = get_segmented_3x3_dimensions(host, rest_port)
         processor = SegmentedVisionProcessor(
-            cortical_group_index=group_index, center_dims=center_dims, peripheral_dims=per_dims
+            cortical_group_index=group_index, 
+            center_dims=center_dims, 
+            peripheral_dims=per_dims,
+            eccentricity=(0.2, 0.2),
+            modularity=(0.2, 0.2),
+            gaze_position=(0.5, 0.5)
         )
         # Setup SHM writer if FEAGI provided a path
         # Close any previous writers without unlink

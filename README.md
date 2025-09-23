@@ -22,6 +22,8 @@ FEAGI Connector is a complete client-side SDK that provides a simple, high-level
 ### Sensorimotor Processing
 - **CapabilitiesManager**: JSON-based device configuration
 - **MotorProcessor**: Generic motor command processing with extensible device handlers
+- **SegmentedVisionProcessor**: Advanced 3x3 vision processing with gaze control
+- **GazeMotorProcessor**: Dynamic attention control through motor feedback
 - **Connection state management**: Standard connection lifecycle tracking
 - **Agent logging**: Structured logging for agents and neuron data
 
@@ -120,6 +122,45 @@ async def handle_motor_data(channel_id, data):
 await client.register_motor_callback(handle_motor_data)
 ```
 
+### Using Segmented Vision with Gaze Control
+
+```python
+from feagi_connector import (
+    SegmentedVisionProcessor,
+    GazeMotorProcessor,
+    create_gaze_control_neurons
+)
+
+# Set up segmented vision with gaze control
+vision_processor = SegmentedVisionProcessor(
+    cortical_group_index=0,
+    center_dims=(128, 128),
+    peripheral_dims=(64, 64),
+    eccentricity=(0.2, 0.2),    # Focus area size
+    modularity=(0.2, 0.2),      # Attention modulation
+    gaze_position=(0.5, 0.5)    # Initial center gaze
+)
+
+# Set up gaze motor processing
+gaze_motor = GazeMotorProcessor(
+    cortical_group_index=0,
+    num_channels=10,
+    gaze_resolution=8
+)
+gaze_motor.register_gaze_motor()
+
+# Process frame with current gaze
+sensor_bytes = vision_processor.process_frame(bgr_frame)
+
+# Create gaze control neurons for motor feedback
+gaze_neurons = create_gaze_control_neurons(
+    gaze_x=0.7, gaze_y=0.3, intensity=1.0
+)
+
+# Update gaze position dynamically
+vision_processor.update_gaze(0.6, 0.4)
+```
+
 ### Custom Device Handlers
 
 ```python
@@ -140,7 +181,8 @@ motor_processor.register_device_handler("my_device_type", handle_my_custom_devic
 For complete usage documentation, see:
 
 - [FEAGI Connector Usage Guide](docs/guide-connector-usage.md) - Comprehensive guide to using the connector
-- [API Reference](https://feagi.github.io/feagi_connector) - API reference documentation
+- [Gaze Control Guide](docs/guide-gaze-control.md) - Advanced segmented vision with gaze control
+- [API Reference](https://feagi.github.io/feagi_connector) - API reference documentation  
 - **[Simple Agent Project](../simple_agent/)** - Complete agent examples and reference implementations
 
 ## Integration with FEAGI
