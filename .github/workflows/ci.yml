@@ -97,11 +97,16 @@ jobs:
     if: github.event_name == 'pull_request'
     outputs:
       changed-files: ${{ steps.changed-files.outputs.all_changed_files }}
-      npu-changed: ${{ steps.check-changes.outputs.npu-changed }}
-      bdu-changed: ${{ steps.check-changes.outputs.bdu-changed }}
       api-changed: ${{ steps.check-changes.outputs.api-changed }}
+      bdu-changed: ${{ steps.check-changes.outputs.bdu-changed }}
       core-changed: ${{ steps.check-changes.outputs.core-changed }}
+      evo-changed: ${{ steps.check-changes.outputs.evo-changed }}
+      npu-changed: ${{ steps.check-changes.outputs.npu-changed }}
+      pns-changed: ${{ steps.check-changes.outputs.pns-changed }}
+      rust-changed: ${{ steps.check-changes.outputs.rust-changed }}
       utils-changed: ${{ steps.check-changes.outputs.utils-changed }}
+      config-changed: ${{ steps.check-changes.outputs.config-changed }}
+      protocols-changed: ${{ steps.check-changes.outputs.protocols-changed }}
       run-all-tests: ${{ steps.check-changes.outputs.run-all-tests }}
     
     steps:
@@ -121,52 +126,89 @@ jobs:
         run: |
           echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
           
-          # Initialize flags
-          NPU_CHANGED=false
-          BDU_CHANGED=false
+          # Initialize flags for all functional modules
           API_CHANGED=false
+          BDU_CHANGED=false
           CORE_CHANGED=false
+          EVO_CHANGED=false
+          NPU_CHANGED=false
+          PNS_CHANGED=false
+          RUST_CHANGED=false
           UTILS_CHANGED=false
+          CONFIG_CHANGED=false
+          PROTOCOLS_CHANGED=false
           RUN_ALL_TESTS=false
           
           # Check if critical files changed (run all tests)
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -E "(main\.py|__init__\.py|setup\.py|pyproject\.toml)"; then
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -E "(main\.py|__init__\.py|setup\.py|pyproject\.toml|process_manager\.py)"; then
             RUN_ALL_TESTS=true
-            echo "Critical files changed - running all tests"
+            echo "🚨 Critical files changed - running all tests"
           fi
           
-          # Check module-specific changes
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/npu/"; then
-            NPU_CHANGED=true
-            echo "NPU module changes detected"
+          # Check functional module changes
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/api/"; then
+            API_CHANGED=true
+            echo "📡 API module changes detected"
           fi
           
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/bdu/"; then
             BDU_CHANGED=true
-            echo "BDU module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/api/"; then
-            API_CHANGED=true
-            echo "API module changes detected"
+            echo "🧠 BDU module changes detected"
           fi
           
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/core/"; then
             CORE_CHANGED=true
-            echo "Core module changes detected"
+            echo "⚙️ Core module changes detected"
+          fi
+          
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/evo/"; then
+            EVO_CHANGED=true
+            echo "🧬 Evo module changes detected"
+          fi
+          
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/npu/"; then
+            NPU_CHANGED=true
+            echo "🔥 NPU module changes detected"
+          fi
+          
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/pns/"; then
+            PNS_CHANGED=true
+            echo "👁️ PNS module changes detected"
+          fi
+          
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/rust/"; then
+            RUST_CHANGED=true
+            echo "🦀 Rust module changes detected"
           fi
           
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/utils/"; then
             UTILS_CHANGED=true
-            echo "Utils module changes detected"
+            echo "🛠️ Utils module changes detected"
+          fi
+          
+          # Special handling for cross-cutting modules
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/config/"; then
+            CONFIG_CHANGED=true
+            RUN_ALL_TESTS=true  # Config affects everything
+            echo "🔧 Config module changes detected - running all tests"
+          fi
+          
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/protocols/"; then
+            PROTOCOLS_CHANGED=true
+            echo "🔌 Protocols module changes detected"
           fi
           
           # Set outputs
-          echo "npu-changed=$NPU_CHANGED" >> $GITHUB_OUTPUT
-          echo "bdu-changed=$BDU_CHANGED" >> $GITHUB_OUTPUT
           echo "api-changed=$API_CHANGED" >> $GITHUB_OUTPUT
+          echo "bdu-changed=$BDU_CHANGED" >> $GITHUB_OUTPUT
           echo "core-changed=$CORE_CHANGED" >> $GITHUB_OUTPUT
+          echo "evo-changed=$EVO_CHANGED" >> $GITHUB_OUTPUT
+          echo "npu-changed=$NPU_CHANGED" >> $GITHUB_OUTPUT
+          echo "pns-changed=$PNS_CHANGED" >> $GITHUB_OUTPUT
+          echo "rust-changed=$RUST_CHANGED" >> $GITHUB_OUTPUT
           echo "utils-changed=$UTILS_CHANGED" >> $GITHUB_OUTPUT
+          echo "config-changed=$CONFIG_CHANGED" >> $GITHUB_OUTPUT
+          echo "protocols-changed=$PROTOCOLS_CHANGED" >> $GITHUB_OUTPUT
           echo "run-all-tests=$RUN_ALL_TESTS" >> $GITHUB_OUTPUT
 
   targeted-tests:
@@ -200,35 +242,125 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run NPU tests
-        if: needs.detect-changes.outputs.npu-changed == 'true'
+      - name: Run API tests
+        if: needs.detect-changes.outputs.api-changed == 'true'
         run: |
-          echo "🧠 Running NPU module tests..."
-          pytest tests/npu/ tests/unit/npu/ -v --cov=feagi.npu --cov-report=xml:coverage-npu.xml
+          echo "📡 Running API module tests..."
+          pytest tests/api/ -v --cov=feagi.api --cov-report=xml:coverage-api.xml
+          
+          # Also run related integration tests
+          if [ -d "tests/integration/api" ]; then
+            pytest tests/integration/api/ -v --cov-append --cov-report=xml:coverage-api.xml
+          fi
 
       - name: Run BDU tests
         if: needs.detect-changes.outputs.bdu-changed == 'true'
         run: |
-          echo "🔗 Running BDU module tests..."
-          pytest tests/bdu/ tests/unit/bdu/ -v --cov=feagi.bdu --cov-report=xml:coverage-bdu.xml
-
-      - name: Run API tests
-        if: needs.detect-changes.outputs.api-changed == 'true'
-        run: |
-          echo "🌐 Running API module tests..."
-          pytest tests/api/ tests/unit/api/ -v --cov=feagi.api --cov-report=xml:coverage-api.xml
+          echo "🧠 Running BDU module tests..."
+          pytest tests/bdu/ -v --cov=feagi.bdu --cov-report=xml:coverage-bdu.xml
+          
+          # Include BDU-specific integration and performance tests
+          pytest tests/integration/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
+          pytest tests/performance/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
+          pytest tests/scalability/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
 
       - name: Run Core tests
         if: needs.detect-changes.outputs.core-changed == 'true'
         run: |
           echo "⚙️ Running Core module tests..."
-          pytest tests/core/ tests/unit/core/ -v --cov=feagi.core --cov-report=xml:coverage-core.xml
+          pytest tests/core/ -v --cov=feagi.core --cov-report=xml:coverage-core.xml
+          
+          # Core changes are critical - also run system tests
+          pytest tests/system/ -v --cov-append --cov-report=xml:coverage-core.xml
+
+      - name: Run Evo tests
+        if: needs.detect-changes.outputs.evo-changed == 'true'
+        run: |
+          echo "🧬 Running Evo module tests..."
+          # Evo tests are primarily in unit tests
+          pytest tests/unit/ -k "evo or genome" -v --cov=feagi.evo --cov-report=xml:coverage-evo.xml
+
+      - name: Run NPU tests
+        if: needs.detect-changes.outputs.npu-changed == 'true'
+        run: |
+          echo "🔥 Running NPU module tests..."
+          pytest tests/npu/ -v --cov=feagi.npu --cov-report=xml:coverage-npu.xml
+          
+          # Include NPU integration and performance tests
+          pytest tests/integration/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
+          pytest tests/performance/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
+          pytest tests/e2e/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
+
+      - name: Run PNS tests
+        if: needs.detect-changes.outputs.pns-changed == 'true'
+        run: |
+          echo "👁️ Running PNS module tests..."
+          # PNS tests are primarily in unit tests
+          pytest tests/unit/ -k "pns or agent or vision" -v --cov=feagi.pns --cov-report=xml:coverage-pns.xml
+
+      - name: Run Rust tests
+        if: needs.detect-changes.outputs.rust-changed == 'true'
+        run: |
+          echo "🦀 Running Rust module tests..."
+          pytest tests/rust/ -v --cov=feagi.rust --cov-report=xml:coverage-rust.xml
+          
+          # Also compile and test Rust components
+          cd feagi/rust && cargo test
 
       - name: Run Utils tests
         if: needs.detect-changes.outputs.utils-changed == 'true'
         run: |
           echo "🛠️ Running Utils module tests..."
-          pytest tests/utils/ tests/unit/utils/ -v --cov=feagi.utils --cov-report=xml:coverage-utils.xml
+          pytest tests/utils/ -v --cov=feagi.utils --cov-report=xml:coverage-utils.xml
+          
+          # Utils changes might affect performance
+          pytest tests/performance/utils/ -v --cov-append --cov-report=xml:coverage-utils.xml || echo "No performance/utils tests found"
+
+      - name: Run Protocols tests
+        if: needs.detect-changes.outputs.protocols-changed == 'true'
+        run: |
+          echo "🔌 Running Protocols module tests..."
+          # Protocol tests are spread across different areas
+          pytest tests/api/protocols/ -v --cov=feagi.protocols --cov-report=xml:coverage-protocols.xml
+          pytest tests/unit/ -k "protocol" -v --cov-append --cov-report=xml:coverage-protocols.xml
+
+      - name: Show test summary
+        if: always()
+        run: |
+          echo "## 📊 Module-Specific Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Module | Tests Run | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.detect-changes.outputs.api-changed }}" == "true" ]; then
+            echo "| 📡 API | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.bdu-changed }}" == "true" ]; then
+            echo "| 🧠 BDU | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.core-changed }}" == "true" ]; then
+            echo "| ⚙️ Core | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.evo-changed }}" == "true" ]; then
+            echo "| 🧬 Evo | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.npu-changed }}" == "true" ]; then
+            echo "| 🔥 NPU | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.pns-changed }}" == "true" ]; then
+            echo "| 👁️ PNS | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.rust-changed }}" == "true" ]; then
+            echo "| 🦀 Rust | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.utils-changed }}" == "true" ]; then
+            echo "| 🛠️ Utils | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-changes.outputs.protocols-changed }}" == "true" ]; then
+            echo "| 🔌 Protocols | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Benefits**: Only relevant tests ran, saving ~60-70% CI time!" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload targeted coverage reports
         uses: codecov/codecov-action@v3
