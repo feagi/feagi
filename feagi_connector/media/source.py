@@ -37,21 +37,31 @@ class MediaSource:
 
     def open(self) -> bool:
         if self.use_webcam:
-            for idx in [0, 1, 2]:
-                cap = cv2.VideoCapture(idx)
-                if cap.isOpened():
-                    ok, frame = cap.read()
-                    if ok and frame is not None:
-                        self.cap = cap
-                        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                        fps = self.cap.get(cv2.CAP_PROP_FPS)
-                        if fps <= 0:
-                            fps = 30.0
-                        w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        self.info = MediaInfo(width=w, height=h, fps=float(fps), total_frames=2**31-1, live=True)
-                        return True
-                    cap.release()
+            # Try different camera indices and backends for better macOS compatibility
+            backends = [cv2.CAP_AVFOUNDATION, cv2.CAP_ANY]  # macOS prefers AVFoundation
+            for backend in backends:
+                for idx in [0, 1, 2]:
+                    try:
+                        cap = cv2.VideoCapture(idx, backend) if backend != cv2.CAP_ANY else cv2.VideoCapture(idx)
+                        if cap.isOpened():
+                            # Test frame read with timeout-like behavior
+                            for attempt in range(3):
+                                ok, frame = cap.read()
+                                if ok and frame is not None and frame.size > 0:
+                                    self.cap = cap
+                                    self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                                    fps = self.cap.get(cv2.CAP_PROP_FPS)
+                                    if fps <= 0:
+                                        fps = 30.0
+                                    w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                                    h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                                    if w > 0 and h > 0:  # Valid dimensions
+                                        self.info = MediaInfo(width=w, height=h, fps=float(fps), total_frames=2**31-1, live=True)
+                                        return True
+                                time.sleep(0.1)  # Brief pause between attempts
+                        cap.release()
+                    except Exception:
+                        continue
             return False
         else:
             cap = cv2.VideoCapture(str(self.path))

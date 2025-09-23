@@ -14,6 +14,7 @@ asyncio.run(stream_segmented_camera(use_webcam=True))
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Optional, Tuple, Dict
 import time
 import random
@@ -27,7 +28,10 @@ from feagi_connector import (
     get_segmented_3x3_dimensions,
     set_simulation_timestep,
 )
-from feagi_connector.utils.shm import SharedFrameWriter
+from pathlib import Path
+from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter
+
+logger = logging.getLogger(__name__)
 
 
 async def stream_segmented_camera(
@@ -48,12 +52,26 @@ async def stream_segmented_camera(
     - Publishes bytes via FeagiClient sensory socket
     """
 
-    # FEAGI client: use default REST-Stream (ZMQ) port; keep rest_port for HTTP helpers only
-    client = FeagiClient(host=host, agent_id=agent_id or None)
+    # FEAGI client: pass rest_port parameter for proper connection
+    client = FeagiClient(host=host, rest_port=rest_port, agent_id=agent_id or None)
 
-    # Check FEAGI readiness with user guidance
-    if not await client.connect_with_readiness_check(timeout=60.0, show_guidance=True):
-        logger.error("❌ Failed to connect to FEAGI - please check the guidance above")
+    # Check FEAGI readiness first
+    logger.info("Checking FEAGI readiness...")
+    readiness = await client.check_feagi_readiness()
+    
+    if not readiness["ready"]:
+        reason = readiness.get("reason", "unknown")
+        actions = readiness.get("required_actions", [])
+        logger.warning(f"🔒 FEAGI not ready: {reason}")
+        logger.info(f"Required actions: {', '.join(actions)}")
+        client._show_readiness_guidance(reason, actions)
+        return
+        
+    logger.info("✅ FEAGI is ready - establishing connection...")
+    
+    # Connect in sensory-only mode (skip problematic control stream)
+    if not await client.connect_sensory_only():
+        logger.error("❌ Failed to connect to FEAGI sensory stream")
         return
 
     # Register with visualization + video preview capability so FEAGI can expose SHM paths
@@ -63,15 +81,16 @@ async def stream_segmented_camera(
     per_dims: Tuple[int, int]
     processor: Optional[SegmentedVisionProcessor] = None
     shm_writer: Optional[SharedFrameWriter] = None
+    sensory_writer: Optional[ShmBytesWriter] = None
 
     async def _register_and_connect() -> bool:
-        nonlocal client, shm_paths, center_dims, per_dims, processor, shm_writer
+        nonlocal client, shm_paths, center_dims, per_dims, processor, shm_writer, sensory_writer, rest_port, host, agent_id
         # Best-effort disconnect/cleanup
         try:
             await client.disconnect()
         except Exception:
             pass
-        client = FeagiClient(host=host, agent_id=agent_id or client.agent_id)
+        client = FeagiClient(host=host, rest_port=rest_port, agent_id=agent_id or client.agent_id)
         # Check FEAGI readiness (shorter timeout for reconnects, no guidance)
         if not await client.connect_with_readiness_check(timeout=30.0, show_guidance=False):
             return False
@@ -105,8 +124,8 @@ async def stream_segmented_camera(
                     pass
         except Exception:
             pass
-        # Connect streams
-        if not await client.connect():
+        # Connect streams (sensory-only mode for video agent)
+        if not await client.connect_sensory_only():
             return False
         # Dimensions and processor
         center_dims, per_dims = get_segmented_3x3_dimensions(host, rest_port)
@@ -114,19 +133,32 @@ async def stream_segmented_camera(
             cortical_group_index=group_index, center_dims=center_dims, peripheral_dims=per_dims
         )
         # Setup SHM writer if FEAGI provided a path
-        # Close any previous writer without unlink
+        # Close any previous writers without unlink
         if shm_writer is not None:
             try:
                 shm_writer.close()
             except Exception:
                 pass
         shm_writer = None
+        if sensory_writer is not None:
+            try:
+                sensory_writer.close()
+            except Exception:
+                pass
+        sensory_writer = None
         shm_path = (shm_paths.get("video_stream_raw") or shm_paths.get("video_stream"))
         if isinstance(shm_path, str) and len(shm_path) > 0:
             try:
                 shm_writer = SharedFrameWriter(path=shm_path)
             except Exception:
                 shm_writer = None
+        # Setup sensory SHM writer if FEAGI provided a path
+        sensory_shm_path = shm_paths.get("sensory")
+        if isinstance(sensory_shm_path, str) and len(sensory_shm_path) > 0:
+            try:
+                sensory_writer = ShmBytesWriter(Path(sensory_shm_path))
+            except Exception:
+                sensory_writer = None
         return True
 
     # Initial registration and connection
@@ -137,8 +169,20 @@ async def stream_segmented_camera(
     # Capture
     media = MediaSource(use_webcam=use_webcam, path=path, mirror=mirror)
     if not media.open():
+        if use_webcam:
+            logger.error("❌ Failed to access webcam")
+            logger.error("📱 macOS users: Go to System Preferences → Privacy & Security → Camera")
+            logger.error("🔓 Enable camera access for Terminal or Python, then restart")
+            logger.error("🔍 Tried camera indices 0, 1, 2 - none responded")
+        else:
+            logger.error(f"❌ Failed to open video file: {path}")
         return
     info = media.info
+    
+    if use_webcam:
+        logger.info(f"📹 Webcam opened successfully: {info.width}x{info.height} @ {info.fps} FPS")
+    else:
+        logger.info(f"🎬 Video file opened: {path} ({info.width}x{info.height} @ {info.fps} FPS, {info.total_frames} frames)")
 
     # Match FEAGI timestep to source FPS if available
     if sync_fps and info and info.fps > 0:
@@ -147,8 +191,13 @@ async def stream_segmented_camera(
     # Reconnect backoff state
     backoff = 1.0
     max_backoff = 10.0
+    consecutive_failures = 0
+    max_consecutive_failures = 5
+    last_reconnect_time = 0.0
+    min_reconnect_interval = 2.0  # Minimum seconds between reconnects
 
     try:
+        logger.info("🎯 Starting video streaming to FEAGI...")
         while True:
             frame_bgr = media.read()
             if frame_bgr is None:
@@ -158,27 +207,50 @@ async def stream_segmented_camera(
             # Ensure input matches center resolution for segmented pipeline
             try:
                 resized = cv2.resize(frame_bgr, center_dims, interpolation=cv2.INTER_LINEAR)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"⚠️ Frame resize failed: {e}")
                 resized = frame_bgr
 
-            # Encode to bytes and publish
             # Encode to bytes and publish (reconnect on failure)
             try:
                 assert processor is not None
                 sensor_bytes = processor.process_frame(resized)
                 if client.sensory_client.socket:
                     client.sensory_client.socket.send(sensor_bytes)
-                # Success: reset backoff
+                if sensory_writer is not None:
+                    try:
+                        sensory_writer.write(sensor_bytes)
+                    except Exception:
+                        pass
+                # Success: reset failure counters
                 backoff = 1.0
-            except Exception:
+                consecutive_failures = 0
+            except Exception as e:
+                consecutive_failures += 1
+                current_time = time.time()
+                
+                # Rate-limit reconnection attempts
+                if (consecutive_failures >= max_consecutive_failures or 
+                    current_time - last_reconnect_time < min_reconnect_interval):
+                    logger.warning(f"⚠️ Frame processing failed ({consecutive_failures} consecutive): {e}")
+                    await asyncio.sleep(0.1)
+                    continue
+                
+                logger.warning(f"🔄 Connection issue detected, attempting reconnect... ({consecutive_failures} failures)")
+                
                 # Attempt bounded backoff reconnect
                 delay = backoff + random.uniform(0, 0.25)
                 await asyncio.sleep(delay)
                 backoff = min(max_backoff, backoff * 2.0)
+                last_reconnect_time = current_time
+                
                 ok = await _register_and_connect()
                 if not ok:
-                    # Keep trying; loop will sleep again on next failure
+                    logger.error("❌ Reconnection failed, retrying...")
                     continue
+                else:
+                    logger.info("✅ Reconnected successfully")
+                    consecutive_failures = 0
 
             # Optionally write raw RGB frame for BV preview via SHM
             if shm_writer is not None:
@@ -199,6 +271,11 @@ async def stream_segmented_camera(
         try:
             if shm_writer is not None:
                 shm_writer.close()
+        except Exception:
+            pass
+        try:
+            if sensory_writer is not None:
+                sensory_writer.close()
         except Exception:
             pass
         await client.disconnect()

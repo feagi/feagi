@@ -235,55 +235,117 @@ class FeagiClient:
             Dict containing readiness status from health_check endpoint
         """
         try:
-            # Use health_check endpoint to determine readiness
-            response = await self.rest_client.make_rest_request({
-                "route": "/v1/system/health_check",
-                "method": "GET"
-            })
+            # Use HTTP REST API for health check (not ZMQ)
+            import aiohttp
+            import asyncio
             
-            if response.get("status") == 200 and "body" in response:
-                health_data = response["body"]
-                
-                # FEAGI is ready if genome is available and burst engine is running
-                genome_available = health_data.get("genome_availability", False)
-                burst_engine_ready = health_data.get("burst_engine", False)
-                brain_ready = health_data.get("brain_readiness", False)
-                
-                ready = genome_available and burst_engine_ready and brain_ready
-                
-                # Determine reason and required actions
-                required_actions = []
-                reason = None
-                
-                if not genome_available:
-                    required_actions.append("Load a genome via /v1/genome/upload/file")
-                    reason = "genome_not_loaded"
-                
-                if not burst_engine_ready:
-                    required_actions.append("Start burst engine via /v1/burst_engine/start")
-                    if reason:
-                        reason = "genome_not_loaded_and_burst_engine_not_ready"
+            # Calculate HTTP port - usually 8000 for FEAGI HTTP REST API
+            # The rest_port parameter refers to ZMQ REST Stream, but we need HTTP
+            http_port = 8000  # Standard FEAGI HTTP port
+            
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                url = f"http://{self.host}:{http_port}/v1/system/health_check"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        health_data = await response.json()
+                        
+                        # FEAGI is ready if genome is available and burst engine is running
+                        genome_available = health_data.get("genome_availability", False)
+                        burst_engine_ready = health_data.get("burst_engine", False)
+                        brain_ready = health_data.get("brain_readiness", False)
+                        
+                        ready = genome_available and burst_engine_ready and brain_ready
+                        
+                        # Determine reason and required actions
+                        required_actions = []
+                        reason = None
+                        
+                        if not genome_available:
+                            required_actions.append("Load a genome via /v1/genome/upload/file")
+                            reason = "genome_not_loaded"
+                        
+                        if not burst_engine_ready:
+                            required_actions.append("Start burst engine via /v1/burst_engine/start")
+                            if reason:
+                                reason = "genome_not_loaded_and_burst_engine_not_ready"
+                            else:
+                                reason = "burst_engine_not_ready"
+                        
+                        return {
+                            "ready": ready,
+                            "reason": reason,
+                            "details": {
+                                "genome_available": genome_available,
+                                "burst_engine_ready": burst_engine_ready,
+                                "brain_ready": brain_ready
+                            },
+                            "required_actions": required_actions
+                        }
                     else:
-                        reason = "burst_engine_not_ready"
+                        return {
+                            "ready": False,
+                            "reason": "health_check_failed",
+                            "details": {"error": f"HTTP {response.status}"},
+                            "required_actions": ["Check if FEAGI is running"]
+                        }
                 
-                return {
-                    "ready": ready,
-                    "reason": reason,
-                    "details": {
-                        "genome_available": genome_available,
-                        "burst_engine_ready": burst_engine_ready,
-                        "brain_ready": brain_ready
-                    },
-                    "required_actions": required_actions
-                }
-            else:
+        except ImportError:
+            # Fallback to requests if aiohttp not available
+            try:
+                import requests
+                http_port = 8000
+                url = f"http://{self.host}:{http_port}/v1/system/health_check"
+                response = requests.get(url, timeout=5)
+                
+                if response.status_code == 200:
+                    health_data = response.json()
+                    
+                    # FEAGI is ready if genome is available and burst engine is running
+                    genome_available = health_data.get("genome_availability", False)
+                    burst_engine_ready = health_data.get("burst_engine", False)
+                    brain_ready = health_data.get("brain_readiness", False)
+                    
+                    ready = genome_available and burst_engine_ready and brain_ready
+                    
+                    # Determine reason and required actions
+                    required_actions = []
+                    reason = None
+                    
+                    if not genome_available:
+                        required_actions.append("Load a genome via /v1/genome/upload/file")
+                        reason = "genome_not_loaded"
+                    
+                    if not burst_engine_ready:
+                        required_actions.append("Start burst engine via /v1/burst_engine/start")
+                        if reason:
+                            reason = "genome_not_loaded_and_burst_engine_not_ready"
+                        else:
+                            reason = "burst_engine_not_ready"
+                    
+                    return {
+                        "ready": ready,
+                        "reason": reason,
+                        "details": {
+                            "genome_available": genome_available,
+                            "burst_engine_ready": burst_engine_ready,
+                            "brain_ready": brain_ready
+                        },
+                        "required_actions": required_actions
+                    }
+                else:
+                    return {
+                        "ready": False,
+                        "reason": "health_check_failed", 
+                        "details": {"error": f"HTTP {response.status_code}"},
+                        "required_actions": ["Check if FEAGI is running"]
+                    }
+            except ImportError:
                 return {
                     "ready": False,
-                    "reason": "health_check_failed",
-                    "details": {"error": "Failed to get health status"},
-                    "required_actions": ["Check if FEAGI is running"]
+                    "reason": "missing_http_client",
+                    "details": {"error": "Neither aiohttp nor requests available"},
+                    "required_actions": ["Install aiohttp or requests: pip install aiohttp"]
                 }
-                
         except Exception as e:
             return {
                 "ready": False,
@@ -385,6 +447,10 @@ Once both are ready, your agent will automatically connect.
 
     async def connect(self) -> bool:
         """Connect to FEAGI with proper registration."""
+        return await self.connect_full()
+
+    async def connect_full(self) -> bool:
+        """Connect to FEAGI with all streams (full functionality)."""
         try:
             # Step 1: Connect all clients
             if not await self.command_client.connect():
@@ -415,6 +481,39 @@ Once both are ready, your agent will automatically connect.
                 logger.info("✅ Motor client started with callback")
             else:
                 logger.info("ℹ️ Motor client not started (no callback registered)")
+                
+            self.connected = True
+            logger.info("✅ Successfully connected to FEAGI")
+            # Start heartbeat after successful connect
+            if not self.heartbeat_task:
+                self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to FEAGI: {e}")
+            return False
+
+    async def connect_sensory_only(self) -> bool:
+        """Connect to FEAGI sensory stream only (for data-sending agents like video)."""
+        try:
+            logger.info("🎯 Connecting in sensory-only mode (skipping control stream)...")
+            
+            # Step 1: Connect only sensory stream
+            if not self.sensory_client.connect():
+                logger.error("Failed to connect to FEAGI sensory stream")
+                return False
+                
+            # Step 2: Try to register agent via ZMQ REST stream, but don't fail if it doesn't work
+            if not self.registered:
+                try:
+                    success = await self.rest_client.register_agent(self.agent_id, self.agent_type)
+                    if success:
+                        self.registered = True
+                        logger.info("✅ Agent registered successfully")
+                    else:
+                        logger.warning("⚠️ Agent registration failed, but continuing in sensory-only mode...")
+                except Exception as e:
+                    logger.warning(f"⚠️ Agent registration error: {e}, but continuing in sensory-only mode...")
             
             self.connected = True
             logger.info("✅ Successfully connected to FEAGI")

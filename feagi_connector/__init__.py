@@ -9,10 +9,10 @@ from feagi_connector.agent_connector import FeagiAgentConnector
 from feagi_connector.capabilities.manager import CapabilitiesManager
 from feagi_connector.motor.processor import MotorProcessor
 from feagi_connector.state.connection import ConnectionState
-from feagi_connector.logging.setup import setup_agent_logging
+from feagi_connector.agent_logging.setup import setup_agent_logging
 
 # New modular utilities
-from feagi_connector.logging.diagnostics import log_sensor_area_counts
+from feagi_connector.agent_logging.diagnostics import log_sensor_area_counts
 from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter, ShmBytesReader
 from feagi_connector.utils.rest_helpers import (
     get_cortical_dimensions,
