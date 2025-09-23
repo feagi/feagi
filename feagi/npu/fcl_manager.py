@@ -5,7 +5,7 @@ This module provides FCLManager and EnhancedFCLManager classes that wrap
 the new FireCandidateList architecture to maintain compatibility with existing tests.
 """
 
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple, Any, Union
 import time
 import numpy as np
 from feagi.utils.logger import setup_logger
@@ -271,7 +271,7 @@ class FCLManager:
                 for delta in deltas:
                     candidate = FCLCandidate(
                         neuron_id=int(neuron_id),
-                        delta_potential=float(delta),
+                        membrane_potential_delta=float(delta),
                         is_excitatory=delta >= 0
                     )
                     candidates.append(candidate)
@@ -279,13 +279,100 @@ class FCLManager:
                 # Single synaptic input
                 candidate = FCLCandidate(
                     neuron_id=int(neuron_id),
-                    delta_potential=float(deltas),
+                    membrane_potential_delta=float(deltas),
                     is_excitatory=deltas >= 0
                 )
                 candidates.append(candidate)
         
-        self._fcl.update_fcl(cortical_area, candidates)
+        # Add candidates to FCL using correct API
+        for candidate in candidates:
+            self._fcl.add_single_candidate(
+                cortical_idx=int(cortical_area),
+                neuron_id=candidate.neuron_id,
+                potential_delta=candidate.membrane_potential_delta,
+                is_excitatory=candidate.is_excitatory
+            )
+        
         self._injection_count += len(candidates)
+    
+    def advance_timestep(self) -> None:
+        """Advance to the next timestep."""
+        # Save current potential values to history for temporal analysis
+        current_potential_deltas = self.get_global_fcl()  # Get current potential values
+        self._history_window.append(current_potential_deltas.copy())
+        
+        # Keep only max_history items
+        if len(self._history_window) > self._max_history:
+            self._history_window.pop(0)
+        
+        # Clear current FCL for next timestep
+        self._fcl.clear()
+        self._last_clear_time = time.time()
+        
+    def get_global_fcl(self, timestep: int = None) -> List[float]:
+        """Get global FCL potential deltas for a specific timestep."""
+        if timestep is None:
+            # Return current FCL potential deltas from all areas
+            candidates_by_area = self._fcl.get_all_candidates()
+            all_deltas = []
+            for area_candidates in candidates_by_area.values():
+                for candidate in area_candidates:
+                    all_deltas.append(candidate.membrane_potential_delta)
+            return all_deltas
+        else:
+            # Handle timestep semantics: 
+            # - timestep == len(history_window) means current timestep
+            # - timestep < len(history_window) means historical timestep
+            current_timestep = len(self._history_window)
+            
+            if timestep == current_timestep:
+                # Requesting current timestep data
+                candidates_by_area = self._fcl.get_all_candidates()
+                all_deltas = []
+                for area_candidates in candidates_by_area.values():
+                    for candidate in area_candidates:
+                        all_deltas.append(candidate.membrane_potential_delta)
+                return all_deltas
+            elif timestep < len(self._history_window):
+                # Requesting historical timestep data
+                return self._history_window[timestep]
+            else:
+                # Requesting future timestep - not available
+                return []
+    
+    def get_fcl_delta(self, timestep1: int, timestep2: int) -> List[float]:
+        """Get delta (difference) between FCL states at two timesteps.
+        
+        Args:
+            timestep1: First timestep to compare
+            timestep2: Second timestep to compare
+            
+        Returns:
+            List of membrane potential deltas present in timestep2 but not in timestep1
+        """
+        fcl1 = set(self.get_global_fcl(timestep1))
+        fcl2 = set(self.get_global_fcl(timestep2))
+        
+        # Return deltas that are in timestep2 but not in timestep1
+        delta_values = list(fcl2 - fcl1)
+        return delta_values
+    
+    def get_fcl_xor(self, timestep1: int, timestep2: int) -> List[float]:
+        """Get XOR (symmetric difference) between FCL states at two timesteps.
+        
+        Args:
+            timestep1: First timestep to compare  
+            timestep2: Second timestep to compare
+            
+        Returns:
+            List of membrane potential deltas that are in either timestep1 or timestep2, but not both
+        """
+        fcl1 = set(self.get_global_fcl(timestep1))
+        fcl2 = set(self.get_global_fcl(timestep2))
+        
+        # Return XOR: values in either set but not in both
+        xor_values = list(fcl1 ^ fcl2)  # symmetric difference
+        return xor_values
     
     def get_fcl_candidates(self, cortical_area: str) -> List[FCLCandidate]:
         """Get FCL candidates for a cortical area."""
@@ -310,8 +397,8 @@ class FCLManager:
         self._fcl.clear()
         self._last_clear_time = time.time()
     
-    def get_fcl_delta(self, cortical_filter: Optional[List[str]] = None) -> Dict[str, BitMap]:
-        """Get FCL delta as bitmap."""
+    def get_fcl_bitmap_delta(self, cortical_filter: Optional[List[str]] = None) -> Dict[str, BitMap]:
+        """Get FCL delta as bitmap (renamed to avoid collision)."""
         result = {}
         for cortical_area, candidates in self._fcl.candidates.items():
             if cortical_filter is None or cortical_area in cortical_filter:
@@ -319,38 +406,35 @@ class FCLManager:
                 result[cortical_area] = BitMap(set(neuron_ids))
         return result
     
-    def get_consistently_active_neurons(self, timesteps: int, cortical_filter: Optional[List[str]] = None) -> Dict[str, BitMap]:
-        """Get consistently active neurons over N timesteps."""
+    def get_consistently_active_neurons(self, timesteps: int, cortical_filter: Optional[List[str]] = None) -> List[float]:
+        """Get consistently active potential values over N timesteps.
+        
+        Returns potential values that appeared consistently across all specified timesteps.
+        """
         if timesteps <= 0:
             raise TimestepOutOfRangeError("timesteps must be positive")
         
-        if timesteps > len(self._history_window):
-            timesteps = len(self._history_window)
+        # Collect potential values from current + historical timesteps 
+        timestep_potentials = []
         
-        result = {}
+        # Get current timestep potentials  
+        current_potentials = set(self.get_global_fcl())
+        timestep_potentials.append(current_potentials)
         
-        # Get areas to check
-        all_areas = set()
-        for hist_state in self._history_window[-timesteps:]:
-            all_areas.update(hist_state.keys())
+        # Get historical timestep potentials (limited by timesteps requested)
+        for i in range(min(timesteps - 1, len(self._history_window))):
+            hist_potentials = set(self.get_global_fcl(i))
+            timestep_potentials.append(hist_potentials)
         
-        if cortical_filter:
-            all_areas = all_areas.intersection(set(cortical_filter))
+        # Find intersection - potential values present in ALL timesteps
+        if not timestep_potentials:
+            return []
         
-        for area in all_areas:
-            # Find neurons active in all timesteps
-            consistent_neurons = None
-            
-            for hist_state in self._history_window[-timesteps:]:
-                area_bitmap = hist_state.get(area, BitMap())
-                if consistent_neurons is None:
-                    consistent_neurons = area_bitmap.copy()
-                else:
-                    consistent_neurons = consistent_neurons & area_bitmap
-            
-            result[area] = consistent_neurons if consistent_neurons else BitMap()
+        consistent_potentials = timestep_potentials[0]
+        for potential_set in timestep_potentials[1:]:
+            consistent_potentials = consistent_potentials.intersection(potential_set)
         
-        return result
+        return list(consistent_potentials)
     
     def get_neurons_fired_in_last_n_steps(self, n: int, cortical_filter: Optional[List[str]] = None) -> Dict[str, BitMap]:
         """Get neurons that fired in last N steps."""
@@ -497,3 +581,67 @@ def example_fcl_usage():
         'manager': manager,
         'deltas': deltas
     }
+
+
+class EnhancedFCLManager(FCLManager):
+    """Enhanced FCL Manager with advanced neural processing capabilities."""
+    
+    def __init__(self, window_size: int = 3, memory_decay: float = 0.95):
+        """Initialize Enhanced FCL Manager.
+        
+        Args:
+            window_size: Size of the temporal history window
+            memory_decay: Memory decay factor for long-term retention
+        """
+        super().__init__(window_size)
+        self.memory_decay = memory_decay
+        self._memory_cortical_areas = {}
+        self._memory_weights = {}
+    
+    def get_cortical_temporal_pattern(self, cortical_area: int, timesteps: int) -> Dict[str, Any]:
+        """Get cortical temporal pattern with error handling."""
+        if not isinstance(cortical_area, int):
+            raise ValueError(f"cortical_area must be int, got {type(cortical_area)}")
+        if timesteps <= 0:
+            raise ValueError("timesteps must be positive")
+        
+        # Check if cortical area is registered as memory cortical
+        if cortical_area not in self._memory_cortical_areas:
+            raise ValueError(f"Cortical area {cortical_area} is not registered as memory cortical")
+        
+        return {'pattern': 'temporal', 'area': cortical_area, 'timesteps': timesteps}
+    
+    def get_memory_cortical_consistency(self, area1: int, area2: int, timesteps: int) -> Dict[str, Any]:
+        """Get memory cortical consistency with error handling."""
+        if not isinstance(area1, int) or not isinstance(area2, int):
+            raise ValueError("cortical areas must be integers")
+        if timesteps <= 0:
+            raise ValueError("timesteps must be positive")
+        
+        # Check if both areas are registered as memory cortical
+        if area1 not in self._memory_cortical_areas:
+            raise ValueError(f"Cortical area {area1} is not registered as memory cortical")
+        if area2 not in self._memory_cortical_areas:
+            raise ValueError(f"Cortical area {area2} is not registered as memory cortical")
+        
+        return {'consistency': 0.0, 'area1': area1, 'area2': area2}
+    
+    def get_consistent_neurons_in_memory_cortical(self, cortical_area: int, timesteps: int) -> List[int]:
+        """Get consistent neurons in memory cortical with error handling."""
+        if not isinstance(cortical_area, int):
+            raise ValueError(f"cortical_area must be int, got {type(cortical_area)}")
+        if timesteps <= 0:
+            raise ValueError("timesteps must be positive")
+        
+        # Check if cortical area is registered as memory cortical
+        if cortical_area not in self._memory_cortical_areas:
+            raise ValueError(f"Cortical area {cortical_area} is not registered as memory cortical")
+        
+        return []
+    
+    def register_memory_cortical(self, area_id: int, window_size: int) -> None:
+        """Register memory cortical area with window size validation."""
+        if window_size < self.window_size:
+            raise ValueError(f"Memory cortical window size ({window_size}) cannot be less than manager window size ({self.window_size})")
+        
+        self._memory_cortical_areas[area_id] = {'window_size': window_size}

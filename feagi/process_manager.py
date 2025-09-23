@@ -1189,6 +1189,46 @@ class ProcessManager:
 
         logger.info("FEAGI Process Manager started successfully")
         return True
+    
+    def _init_registration_manager(self) -> bool:
+        """Initialize RegistrationManager separately.
+        
+        This method extracts RegistrationManager initialization from init_important_processes()
+        to allow it to be called independently without starting ZMQ server.
+        
+        Returns:
+            True if RegistrationManager initialized successfully, False otherwise
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            from feagi.pns.registration_manager import create_registration_manager
+            
+            logger.info("🏛️ Initializing Registration Manager...")
+            
+            # Get State Manager instance
+            state_manager = FeagiStateManager.instance()
+
+            #  Create Registration Manager with references to State Manager
+            #  and Process Manager
+            registration_manager = create_registration_manager(
+                state_manager=state_manager,
+                process_manager=self,
+            )
+
+            if registration_manager:
+                logger.info(
+                    "🏛️ Registration Manager initialized - central agent coordination ready"
+                )
+                return True
+            else:
+                logger.error(
+                    "❌ Failed to initialize Registration Manager"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Registration Manager: {e}")
+            return False
 
     def _start_monitoring(self):
         """Start the process monitoring thread."""

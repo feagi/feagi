@@ -54,6 +54,7 @@ from feagi.npu.fire_candidate_list import (
 )
 from feagi.npu.fcl_manager import (
     BitMap,
+    EnhancedFCLManager,
     FCLError,
     FCLManager,
     MembraneUpdate,

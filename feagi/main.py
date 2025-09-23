@@ -744,6 +744,11 @@ def main():
     if not process_manager.init_critical_processes(config):
         logger.error("Failed to initialize critical processes")
         return 1
+        
+    # Initialize RegistrationManager separately (needed for shared memory)
+    if not process_manager._init_registration_manager():
+        logger.warning("Failed to initialize RegistrationManager - shared memory may not work")
+        # Continue anyway - system can function without it
     
     # Get the properly configured connectome instance from ProcessManager
     connectome = process_manager._connectome_manager
