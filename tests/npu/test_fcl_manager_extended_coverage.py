@@ -53,6 +53,7 @@ from feagi.npu.fire_candidate_list import (
     FCLCandidate,
 )
 from feagi.npu.fcl_manager import (
+    BitMap,
     FCLError,
     FCLManager,
     MembraneUpdate,
@@ -65,10 +66,7 @@ from feagi.npu.fcl_manager import (
 )
 from feagi.npu.fire_ledger import RoaringBitmap
 
-# Aliases for compatibility with test - commented out as these classes don't exist
-# BitMap = RoaringBitmap  
-# FallbackBitMap = RoaringBitmap
-# EnhancedFCLManager = FCLManager  # Both classes don't exist in current implementation
+# Clean test file - no aliases needed, using proper production API
 
 
 def test_fcl_error_exception():
@@ -143,9 +141,9 @@ def test_neuron_collection_to_bitmap():
 
 
 def test_fallback_bitmap_operations():
-    """Test FallbackBitMap operations."""
-    bitmap1 = FallbackBitMap([1, 2, 3])
-    bitmap2 = FallbackBitMap([3, 4, 5])
+    """Test BitMap operations (renamed from FallbackBitMap test)."""
+    bitmap1 = BitMap([1, 2, 3])
+    bitmap2 = BitMap([3, 4, 5])
 
     # Union
     union = bitmap1 | bitmap2
@@ -175,8 +173,8 @@ def test_fallback_bitmap_operations():
 
 
 def test_fallback_bitmap_empty():
-    """Test FallbackBitMap empty operations."""
-    bitmap = FallbackBitMap()
+    """Test BitMap empty operations (renamed from FallbackBitMap test)."""
+    bitmap = BitMap()
     assert bitmap.is_empty()
     assert len(bitmap) == 0
 

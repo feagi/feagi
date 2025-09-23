@@ -57,6 +57,42 @@ class BitMap:
     def __and__(self, other: 'BitMap') -> 'BitMap':
         """Intersection operation."""
         return BitMap(self._elements & other._elements)
+    
+    def __sub__(self, other: 'BitMap') -> 'BitMap':
+        """Difference operation (elements in self but not in other)."""
+        return BitMap(self._elements - other._elements)
+    
+    def __contains__(self, item: int) -> bool:
+        """Check if item is in the bitmap."""
+        return item in self._elements
+    
+    def __xor__(self, other: 'BitMap') -> 'BitMap':
+        """XOR operation (symmetric difference - elements in either but not both)."""
+        return BitMap(self._elements ^ other._elements)
+    
+    def to_bitmap(self) -> 'BitMap':
+        """Convert to BitMap format."""
+        return BitMap(self._elements)
+    
+    def is_empty(self) -> bool:
+        """Check if bitmap is empty."""
+        return len(self._elements) == 0
+    
+    def size(self) -> int:
+        """Get number of elements in bitmap."""
+        return len(self._elements)
+    
+    def clear(self) -> None:
+        """Clear all elements from bitmap."""
+        self._elements.clear()
+    
+    def add(self, item: int) -> None:
+        """Add an element to the bitmap."""
+        self._elements.add(item)
+    
+    def remove(self, item: int) -> None:
+        """Remove an element from the bitmap."""
+        self._elements.discard(item)  # Use discard to avoid KeyError
 
 
 class FCLError(Exception):
@@ -84,6 +120,7 @@ class NeuronCollectionType:
     BITMAP = "bitmap"
     LIST = "list"
     ARRAY = "array"
+    SET = "set"  # Support for Python set collections
 
 
 class NeuronCollection:
@@ -91,6 +128,12 @@ class NeuronCollection:
     
     def __init__(self, neurons: Optional[Any] = None, collection_type: str = NeuronCollectionType.BITMAP):
         """Initialize neuron collection."""
+        # Validate collection type
+        valid_types = [NeuronCollectionType.BITMAP, NeuronCollectionType.LIST, 
+                      NeuronCollectionType.ARRAY, NeuronCollectionType.SET]
+        if collection_type not in valid_types:
+            raise TypeError(f"Invalid collection_type '{collection_type}'. Must be one of: {valid_types}")
+        
         self.collection_type = collection_type
         
         if collection_type == NeuronCollectionType.BITMAP:
@@ -100,10 +143,35 @@ class NeuronCollection:
                 self.data = BitMap(neurons)
             elif isinstance(neurons, list):
                 self.data = BitMap(set(neurons))
-            else:
+            elif neurons is None:
                 self.data = BitMap()
+            else:
+                # Try to convert unsupported types - raise TypeError if fails
+                try:
+                    self.data = BitMap(set(neurons))
+                except (TypeError, ValueError):
+                    raise TypeError(f"Cannot create BitMap from {type(neurons)}. Expected list, set, or BitMap.")
+        elif collection_type == NeuronCollectionType.SET:
+            if isinstance(neurons, set):
+                self.data = neurons
+            elif isinstance(neurons, list):
+                self.data = set(neurons)
+            elif neurons is None:
+                self.data = set()
+            else:
+                # Try to convert unsupported types - raise TypeError if fails
+                try:
+                    self.data = set(neurons)
+                except (TypeError, ValueError):
+                    raise TypeError(f"Cannot create set from {type(neurons)}. Expected iterable.")
         else:
-            self.data = neurons if neurons is not None else []
+            # LIST or ARRAY types
+            if neurons is None:
+                self.data = []
+            elif hasattr(neurons, '__iter__') and not isinstance(neurons, (str, bytes)):
+                self.data = list(neurons)
+            else:
+                raise TypeError(f"Cannot create list from {type(neurons)}. Expected iterable.")
     
     def __len__(self) -> int:
         """Get collection size."""
@@ -113,18 +181,61 @@ class NeuronCollection:
         """Iterate over collection."""
         return iter(self.data)
     
+    def to_bitmap(self) -> 'BitMap':
+        """Convert collection to BitMap format."""
+        if self.collection_type == NeuronCollectionType.BITMAP:
+            return self.data
+        elif self.collection_type == NeuronCollectionType.SET:
+            return BitMap(self.data)
+        else:
+            # LIST or ARRAY types
+            return BitMap(set(self.data))
+    
+    def to_list(self) -> List[int]:
+        """Convert collection to list format."""
+        if self.collection_type == NeuronCollectionType.LIST:
+            return self.data
+        elif self.collection_type == NeuronCollectionType.SET:
+            return list(self.data)
+        elif self.collection_type == NeuronCollectionType.BITMAP:
+            return list(self.data._elements)
+        else:
+            return list(self.data)
+    
+    def to_set(self) -> set:
+        """Convert collection to set format."""
+        if self.collection_type == NeuronCollectionType.SET:
+            return self.data
+        elif self.collection_type == NeuronCollectionType.LIST:
+            return set(self.data)
+        elif self.collection_type == NeuronCollectionType.BITMAP:
+            return self.data._elements
+        else:
+            return set(self.data)
+    
     @classmethod
     def from_any(cls, data: Any) -> 'NeuronCollection':
         """Create NeuronCollection from any input, detecting appropriate type."""
         if isinstance(data, list):
             return cls(data, NeuronCollectionType.LIST)
         elif isinstance(data, set):
-            return cls(data, NeuronCollectionType.BITMAP)
+            return cls(data, NeuronCollectionType.SET)  # Preserve set type
         elif isinstance(data, BitMap):
             return cls(data, NeuronCollectionType.BITMAP)
+        elif isinstance(data, (str, bytes)):
+            # Strings and bytes are iterable but shouldn't be treated as neuron collections
+            raise TypeError(f"Cannot create NeuronCollection from {type(data).__name__}. Strings/bytes not supported.")
+        elif hasattr(data, '__iter__'):
+            # Other iterables - convert to list
+            try:
+                return cls(list(data), NeuronCollectionType.LIST)
+            except (TypeError, ValueError) as e:
+                raise TypeError(f"Cannot create NeuronCollection from {type(data).__name__}: {e}")
         else:
-            # Default to list for other iterables
-            return cls(list(data), NeuronCollectionType.LIST)
+            # Non-iterable types
+            raise TypeError(f"Cannot create NeuronCollection from {type(data).__name__}. Expected list, set, BitMap, or iterable.")
+
+
 
 
 class FCLManager:
@@ -141,19 +252,37 @@ class FCLManager:
         self._history_window = []
         self._max_history = window_size
     
-    def update_fcl(self, cortical_area: str, neuron_updates: Dict[int, float]) -> None:
-        """Update FCL with neuron candidates."""
+    def update_fcl(self, cortical_area: str, neuron_updates: Dict[int, Union[float, List[float]]]) -> None:
+        """Update FCL with neuron candidates.
+        
+        Args:
+            cortical_area: Cortical area identifier
+            neuron_updates: Dictionary mapping neuron_id to delta(s). 
+                          Values can be single float or list of floats for multiple synaptic inputs.
+        """
         if not isinstance(neuron_updates, dict):
             raise FCLError(f"neuron_updates must be a dictionary, got {type(neuron_updates)}")
         
         candidates = []
-        for neuron_id, delta in neuron_updates.items():
-            candidate = FCLCandidate(
-                neuron_id=int(neuron_id),
-                delta_potential=float(delta),
-                is_excitatory=delta >= 0
-            )
-            candidates.append(candidate)
+        for neuron_id, deltas in neuron_updates.items():
+            # Handle both single values and lists of values
+            if isinstance(deltas, (list, tuple)):
+                # Multiple synaptic inputs for same neuron
+                for delta in deltas:
+                    candidate = FCLCandidate(
+                        neuron_id=int(neuron_id),
+                        delta_potential=float(delta),
+                        is_excitatory=delta >= 0
+                    )
+                    candidates.append(candidate)
+            else:
+                # Single synaptic input
+                candidate = FCLCandidate(
+                    neuron_id=int(neuron_id),
+                    delta_potential=float(deltas),
+                    is_excitatory=deltas >= 0
+                )
+                candidates.append(candidate)
         
         self._fcl.update_fcl(cortical_area, candidates)
         self._injection_count += len(candidates)
