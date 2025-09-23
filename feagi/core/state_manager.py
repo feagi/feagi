@@ -416,6 +416,7 @@ class FeagiStateManager:
 
             self._shm_manager = SharedMemoryManager()
             # Cleanup any stale SHM files on startup
+            logger.warning("𒓉 [SHM-CLEANUP] StateManager startup invoking cleanup_all()")
             self._shm_manager.cleanup_all()
         except Exception:
             self._shm_manager = None
@@ -594,7 +595,8 @@ class FeagiStateManager:
             except Exception:
                 caps = {}
 
-            # Only expose core visualization stream to visualization-capable clients
+            # Only expose/create FEAGI-owned core streams for eligible agents
+            # Visualization core stream (FEAGI → BV)
             wants_viz = bool(
                 caps.get("visualization")
                 or caps.get("neuron_visualization")
@@ -604,29 +606,43 @@ class FeagiStateManager:
             if wants_viz:
                 viz_key = "visualization_stream"
                 viz_path = self._shared_memory_registry.get(viz_key, "")
-                if not viz_path:
-                    try:
+                try:
+                    # If registry missing or file missing, (re)create safely
+                    from pathlib import Path as _P
+                    if not viz_path or not _P(viz_path).exists():
                         viz_path = self._shm_manager.create_stream_file(viz_key)
                         self._shared_memory_registry[viz_key] = viz_path
-                        logger.info(f"𒓉 [SHM] Created core visualization stream SHM: {viz_path}")
-                    except Exception as e:
-                        logger.warning(f"[SHM] Failed to create core visualization SHM: {e}")
-                        viz_path = ""
+                        logger.info(
+                            f"𒓉 [SHM] Ensured core visualization stream SHM exists: {viz_path}"
+                        )
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to ensure visualization SHM: {e}")
+                    viz_path = ""
                 if viz_path:
                     mappings[viz_key] = viz_path
 
-            # Create per-agent SHM artifacts (capability-based)
-            try:
-                agent_files = self._shm_manager.create_agent_capability_files(agent_id, caps)
-                if agent_files:
-                    mappings.update(agent_files)
-                    logger.info(
-                        f"𒓉 [SHM] Created capability SHM for '{agent_id}': {agent_files}"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"[SHM] Failed to create capability SHM files for {agent_id}: {e}"
-                )
+            # Motor core stream (FEAGI → motor-capable agents)
+            wants_motor = bool(caps.get("motor") or caps.get("motor_controller"))
+            if wants_motor:
+                motor_key = "motor_stream"
+                motor_path = self._shared_memory_registry.get(motor_key, "")
+                try:
+                    from pathlib import Path as _P
+                    if not motor_path or not _P(motor_path).exists():
+                        motor_path = self._shm_manager.create_stream_file(motor_key)
+                        self._shared_memory_registry[motor_key] = motor_path
+                        logger.info(
+                            f"𒓉 [SHM] Ensured core motor stream SHM exists: {motor_path}"
+                        )
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to ensure motor SHM: {e}")
+                    motor_path = ""
+                if motor_path:
+                    mappings[motor_key] = motor_path
+
+            # NOTE: Do NOT pre-create inbound agent files (sensory/video). Those
+            # must be created by the agent with correct headers. Pre-touching here
+            # causes 'Invalid SHM magic' in readers.
 
             # Save per-agent view of mappings (even if currently only visualization provided)
             # Ensure there is only one agent_id per unique mapping: remove duplicates
@@ -672,10 +688,11 @@ class FeagiStateManager:
         try:
             if agent_id in self._agent_shared_memory:
                 del self._agent_shared_memory[agent_id]
-                logger.info(f"𒓉 [SHM] Cleared SHM mappings for agent {agent_id}")
+                logger.info(f"𒓉 [SHM-AGENT] Cleared SHM mappings for agent {agent_id}")
             # Attempt to remove agent-specific SHM files as part of cleanup
             if getattr(self, "_shm_manager", None):
                 try:
+                    logger.warning(f"𒓉 [SHM-AGENT] StateManager invoking delete_agent_files for {agent_id}")
                     self._shm_manager.delete_agent_files(agent_id)
                 except Exception:
                     pass
@@ -1803,6 +1820,7 @@ class FeagiStateManager:
             # Best-effort: cleanup SHM files on FEAGI exit
             try:
                 if hasattr(self, "_shm_manager") and self._shm_manager:
+                    logger.warning("𒓉 [SHM-CLEANUP] StateManager shutdown invoking cleanup_all()")
                     self._shm_manager.cleanup_all()
             except Exception:
                 pass

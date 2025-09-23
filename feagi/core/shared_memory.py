@@ -22,6 +22,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 class SharedMemoryManager:
     """Manage shared-memory file paths and lifecycle.
@@ -57,17 +60,25 @@ class SharedMemoryManager:
         """
         if not self._base_dir.exists():
             return
+        logger.warning(
+            f"𒓉 [SHM-CLEANUP] cleanup_all invoked for {self._base_dir}"
+        )
         for p in self._base_dir.glob("*.bin"):
             try:
+                logger.warning(f"𒓉 [SHM-CLEANUP] unlink {p}")
                 p.unlink(missing_ok=True)
-            except Exception:
+            except Exception as e:
                 # If unlink fails (e.g., Windows file lock), try truncate
                 try:
+                    logger.warning(
+                        f"𒓉 [SHM-CLEANUP] unlink failed, truncating {p}: {e}"
+                    )
                     with p.open("r+b") as fh:
                         fh.truncate(0)
                 except Exception:
                     # Suppress to avoid blocking startup/shutdown
                     pass
+        logger.warning("𒓉 [SHM-CLEANUP] cleanup_all completed")
 
     # -------- Naming helpers --------
     def _agent_file_legacy(self, agent_id: str, suffix: str) -> Path:
@@ -120,16 +131,23 @@ class SharedMemoryManager:
         return created
 
     def delete_agent_files(self, agent_id: str) -> None:
+        logger.warning(
+            f"𒓉 [SHM-AGENT] delete_agent_files invoked for agent={agent_id}"
+        )
         # Remove legacy files
         for suffix in ("video", "neurons"):
             try:
-                self._agent_file_legacy(agent_id, suffix).unlink(missing_ok=True)
+                p = self._agent_file_legacy(agent_id, suffix)
+                logger.info(f"𒓉 [SHM-AGENT] unlink legacy {p}")
+                p.unlink(missing_ok=True)
             except Exception:
                 pass
         # Remove capability-based files
         for cap in ("video_stream", "video_stream_raw", "video_stream_feagi", "sensory", "motor", "neuron_visualization"):
             try:
-                self._agent_capability_file(agent_id, cap).unlink(missing_ok=True)
+                p = self._agent_capability_file(agent_id, cap)
+                logger.info(f"𒓉 [SHM-AGENT] unlink capability {p}")
+                p.unlink(missing_ok=True)
             except Exception:
                 pass
 
@@ -152,6 +170,9 @@ class SharedMemoryManager:
     def delete_stream_file(self, stream_key: str) -> None:
         try:
             target = self._stream_file(stream_key)
+            logger.warning(
+                f"𒓉 [SHM-STREAM] delete_stream_file key={stream_key} path={target}"
+            )
             target.unlink(missing_ok=True)
         except Exception:
             # Fallback: truncate to zero length

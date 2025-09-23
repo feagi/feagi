@@ -46,6 +46,7 @@ from feagi.api.v1.schemas import (
     MappingRestrictionsResponse,
     NeuronCountResponse,
     SuccessResponse,
+    AddCoreCorticalAreaRequest,
 )
 from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.utils.logger import setup_logger
@@ -435,10 +436,10 @@ class CorticalAreaAPI:
             raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
-        "POST", "/cortical_area", response_model=Dict[str, str]
+        "POST", "/cortical_area", request_model=AddCoreCorticalAreaRequest, response_model=Dict[str, str]
     )
     def add_cortical_area(
-        self, new_cortical_properties: Dict[str, Any]
+        self, request: AddCoreCorticalAreaRequest
     ) -> Dict[str, str]:
         """Add a new core cortical area."""
         try:
@@ -448,11 +449,47 @@ class CorticalAreaAPI:
             if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            cortical_id = new_cortical_properties.get("cortical_id")
-            message = {"add_core_cortical_area": new_cortical_properties}
-            connectome.add_core_cortical_area(message)
+            # Route through GenomeService for architecture compliance
+            genome_service = self.core_api_service._genome_service
+            if not genome_service:
+                raise ValueError("GenomeService not available for WRITE operations")
 
-            return {"cortical_id": cortical_id}
+            data = request.model_dump(exclude_none=True)
+
+            cortical_id = data.get("cortical_id")
+            if not cortical_id:
+                raise ValueError("cortical_id is required")
+
+            coords3d = data.get("coordinates_3d")
+            if not coords3d or len(coords3d) < 3:
+                raise ValueError("coordinates_3d must be provided as [x, y, z]")
+
+            # Minimal valid structural dimensions for core cortical areas
+            dimensions = {"width": 1, "height": 1, "depth": 1}
+
+            # Map legacy/core fields to parameters
+            parameters: Dict[str, Any] = {
+                "coordinates_2d": data.get("coordinates_2d") or [0, 0],
+                "cortical_group": data.get("cortical_type", "CUSTOM"),
+                "cortical_sub_group": data.get("cortical_type", "CUSTOM"),
+                "sub_group_id": data.get("cortical_type", "CUSTOM"),
+                "dev_count": data.get("device_count", 1),
+                "cortical_id": cortical_id,
+            }
+
+            # Create the cortical area via proper pipeline
+            result = genome_service.create_cortical_area(
+                name=cortical_id,
+                coordinates={"x": int(coords3d[0]), "y": int(coords3d[1]), "z": int(coords3d[2])},
+                dimensions=dimensions,
+                area_type=str(data.get("cortical_type") or "custom"),
+                parameters=parameters,
+            )
+
+            if not result or "cortical_id" not in result:
+                raise ValueError("Failed to add cortical area")
+
+            return {"cortical_id": result["cortical_id"]}
         except Exception as e:
             raise ValueError(f"Error adding cortical area: {str(e)}") from e
 
