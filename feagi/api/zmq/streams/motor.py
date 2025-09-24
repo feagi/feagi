@@ -1252,6 +1252,7 @@ class _ShmRingWriter:
         self.slot_size = int(max(1024, slot_size))
         self._mm = None
         self._fd = None
+        self._path_inode = None
         self._frame_seq = 0
         self._write_index = 0
         self._open()
@@ -1262,6 +1263,11 @@ class _ShmRingWriter:
         self._fd = _os.open(str(self.path), _os.O_CREAT | _os.O_RDWR)
         _os.ftruncate(self._fd, total_size)
         self._mm = _mmap.mmap(self._fd, total_size, access=_mmap.ACCESS_WRITE)
+        try:
+            st = _os.fstat(self._fd)
+            self._path_inode = st.st_ino
+        except Exception:
+            self._path_inode = None
         header = _struct.pack(
             self.HEADER_FMT,
             self.MAGIC,
@@ -1279,6 +1285,21 @@ class _ShmRingWriter:
     def write_payload(self, payload: bytes) -> None:
         if not self._mm:
             return
+        # Detect external file replacement/truncation and reopen deterministically
+        try:
+            st = _os.stat(str(self.path))
+            current_inode = st.st_ino
+            current_size = st.st_size
+            if (self._path_inode is not None and current_inode != self._path_inode) or current_size < self.HEADER_SIZE:
+                # Reopen mapping to the current on-disk file
+                try:
+                    self.close()
+                except Exception:
+                    pass
+                self._open()
+        except Exception:
+            # Best effort: proceed; write may still succeed
+            pass
         if len(payload) + 4 > self.slot_size:
             payload = payload[: self.slot_size - 4]
         slot_off = self.HEADER_SIZE + self._write_index * self.slot_size
