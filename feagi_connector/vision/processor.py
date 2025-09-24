@@ -174,11 +174,34 @@ class SegmentedVisionProcessor:
         # Update internal gaze properties; registration remains idempotent
         self._setup_gaze_properties()
 
+    def update_eccentricity(self, ecc_x: float, ecc_y: float) -> None:
+        """Update eccentricity (central region size) dynamically.
+        
+        Args:
+            ecc_x: Horizontal eccentricity (0.0 to 1.0)
+            ecc_y: Vertical eccentricity (0.0 to 1.0)
+        """
+        self._eccentricity_params = (
+            max(0.0, min(1.0, float(ecc_x))),
+            max(0.0, min(1.0, float(ecc_y)))
+        )
+        self._setup_gaze_properties()
+
     @property
     def gaze(self) -> Tuple[float, float]:
         """Get current gaze position."""
         return self._gaze_position
     
+    @property
+    def eccentricity(self) -> Tuple[float, float]:
+        """Get current eccentricity (central region sizing)."""
+        return self._eccentricity_params
+
+    @property
+    def modularity(self) -> Tuple[float, float]:
+        """Get current modularity (peripheral tiling parameters)."""
+        return self._modularity_params
+
     @property
     def gaze_properties(self):
         """Get the gaze properties object for motor integration."""

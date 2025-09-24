@@ -224,6 +224,17 @@ async def stream_segmented_camera(
                                         logger.info(
                                             f"[MOTOR-DECODE] area={str(cid_obj)} neurons={count} first=({int(x_coords[0])},{int(y_coords[0])},{int(z_coords[0])},{float(potentials[0]):.4f})"
                                         )
+                                        # Full dump for ogaz00
+                                        cid_str = str(cid_obj)
+                                        if cid_str.lower().startswith('ogaz') or cid_str == 'ogaz00':
+                                            try:
+                                                xs = [int(v) for v in x_coords]
+                                                ys = [int(v) for v in y_coords]
+                                                zs = [int(v) for v in z_coords]
+                                                ps = [float(v) for v in potentials]
+                                                logger.info(f"[MOTOR-DECODE-DUMP] area='{cid_str}' x={xs} y={ys} z={zs} p={ps}")
+                                            except Exception:
+                                                pass
                                     else:
                                         logger.info(f"[MOTOR-DECODE] area={str(cid_obj)} neurons=0")
                                 except Exception:
@@ -233,7 +244,16 @@ async def stream_segmented_camera(
                             pass
                         result = gaze_motor.process_motor_bytes(payload)
                         if result is not None:
-                            gaze_x, gaze_y = result
+                            # Support extended 4-float control: gaze (x,y) + eccentricity (x,y)
+                            try:
+                                if isinstance(result, (list, tuple)) and len(result) >= 4:
+                                    gaze_x, gaze_y, ecc_x, ecc_y = float(result[0]), float(result[1]), float(result[2]), float(result[3])
+                                else:
+                                    gaze_x, gaze_y = result
+                                    ecc_x = ecc_y = None
+                            except Exception:
+                                gaze_x, gaze_y = result
+                                ecc_x = ecc_y = None
                             # Log the exact gaze values received from FEAGI
                             # Normalized range [0,1]; approximate grid coordinates based on resolution
                             try:
@@ -244,10 +264,17 @@ async def stream_segmented_camera(
                             logger.info(
                                 f"🧭 FEAGI gaze update: gaze_x={gaze_x:.4f}, gaze_y={gaze_y:.4f} (grid≈{grid_x},{grid_y})"
                             )
-                            # Apply gaze to vision processor
+                            # Apply gaze and optional eccentricity scaling to vision processor
                             try:
                                 if processor is not None:
                                     processor.update_gaze(gaze_x, gaze_y)
+                                    if ecc_x is not None and ecc_y is not None and hasattr(processor, 'update_eccentricity'):
+                                        processor.update_eccentricity(ecc_x, ecc_y)
+                                    # Log final gaze + eccentricity + modularity for visibility
+                                    gx, gy = processor.gaze
+                                    ex, ey = processor.eccentricity
+                                    mx, my = processor.modularity
+                                    logger.info(f"[VISION] Applied gaze=({gx:.4f},{gy:.4f}) ecc=({ex:.4f},{ey:.4f}) mod=({mx:.4f},{my:.4f})")
                             except Exception:
                                 pass
                         else:
