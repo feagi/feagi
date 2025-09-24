@@ -696,6 +696,17 @@ class SensoryNeuralStream:
                             # Use as is
                             cortical_id = cortical_id_str
 
+                    # Optional anomaly log (debug only) if non-normalized forms were observed
+                    if self._is_debug_npu_enabled():
+                        try:
+                            srepr = str(cortical_id_obj)
+                            if (srepr.startswith("CorticalID(") and srepr.endswith(")")) or srepr.startswith("'") or srepr.startswith('"'):
+                                if not hasattr(self, "_cid_warned_zmq"):
+                                    logger.warning(f"[NPU] Non-normalized cortical ID observed in ZMQ path: {srepr} -> {cortical_id}")
+                                    self._cid_warned_zmq = True
+                        except Exception:
+                            pass
+
                     if cortical_id not in cortical_areas:
                         cortical_areas[cortical_id] = {
                             "coordinates_x": [],
@@ -750,24 +761,50 @@ class SensoryNeuralStream:
                             f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons"
                         )
 
+                # Optional decode summary for diagnostics (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        area_count = len(cortical_areas)
+                        logger.info(f"[NPU] Sensory decoded (ZMQ): areas={area_count}, points={neuron_count}")
+                        if area_count:
+                            _ids = list(cortical_areas.keys())
+                            _preview = ", ".join(_ids[:6])
+                            _more = area_count - 6
+                            _suffix = f" (+{_more} more)" if _more > 0 else ""
+                            logger.info(f"[NPU] Areas (ZMQ): {_preview}{_suffix}")
+                            # Log first 10 tuples for up to 3 areas
+                            for _cid in _ids[:3]:
+                                _data = cortical_areas[_cid]
+                                _xs = _data["coordinates_x"][:10]
+                                _ys = _data["coordinates_y"][:10]
+                                _zs = _data["coordinates_z"][:10]
+                                _ps = _data["membrane_potentials"][:10]
+                                _tuples = ", ".join(
+                                    f"({int(x)},{int(y)},{int(z)},{float(p):.3f})" for x, y, z, p in zip(_xs, _ys, _zs, _ps)
+                                )
+                                logger.info(f"[NPU] {_cid} xyzp first10: {_tuples}")
+                    except Exception:
+                        pass
+
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
-                # # Detailed area mapping diagnostics to aid BV issues
-                # try:
-                #     area_results = result.get("area_results") or {}
-                #     for aid, meta in area_results.items():
-                #         logger.info(
-                #             f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
-                #             f"found={meta.get('total_neurons_found')}, "
-                #             f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
-                #             f"ok={meta.get('success')}, err={meta.get('error', '')}"
-                #         )
-                #     logger.info(
-                #         f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
-                #         f"total_stimulated={result.get('total_stimulated', 0)}"
-                #     )
-                # except Exception:
-                #     pass
+                # Detailed area mapping diagnostics (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        area_results = result.get("area_results") or {}
+                        for aid, meta in area_results.items():
+                            logger.info(
+                                f"[NPU] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                                f"found={meta.get('total_neurons_found')}, "
+                                f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                                f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                            )
+                        logger.info(
+                            f"[NPU] Injection summary: injected={result.get('injected_count', 0)}, "
+                            f"total_stimulated={result.get('total_stimulated', 0)}"
+                        )
+                    except Exception:
+                        pass
 
                 if result.get("success", False):
                     if self._is_debug_npu_enabled():
@@ -824,96 +861,11 @@ class SensoryNeuralStream:
     async def _process_neural_payload_bytes(self, raw_bytes: bytes) -> None:
         """Process neural payload provided as bytes (from SHM)."""
         try:
-            # Zero-serialize fast path: 'ZS1N' magic
+            # Enforce rust_py_libs-only decoding; reject custom zero-serialize payloads
             if len(raw_bytes) >= 8 and raw_bytes[:4] == b"ZS1N":
-                import struct as _struct
-                import numpy as _np
-
-                try:
-                    # Header: magic(4), version u8, num_areas u8, pad u16
-                    version = raw_bytes[4]
-                    num_areas = raw_bytes[5]
-                    offset = 8
-
-                    cortical_areas: Dict[str, Dict[str, Any]] = {}
-                    total_points = 0
-
-                    for _ in range(num_areas):
-                        if offset + 6 > len(raw_bytes):
-                            raise ValueError("ZS1N truncated before area id")
-                        cid_bytes = raw_bytes[offset:offset+6]
-                        offset += 6
-                        if offset + 4 > len(raw_bytes):
-                            raise ValueError("ZS1N truncated before count")
-                        (count,) = _struct.unpack_from("<I", raw_bytes, offset)
-                        offset += 4
-                        # Required sizes
-                        need = count * 2 * 3 + count * 4  # x,y,z (u16) + p (f32)
-                        if offset + need > len(raw_bytes):
-                            raise ValueError("ZS1N truncated in arrays")
-
-                        # Slices
-                        xs_b = raw_bytes[offset:offset + count*2]; offset += count*2
-                        ys_b = raw_bytes[offset:offset + count*2]; offset += count*2
-                        zs_b = raw_bytes[offset:offset + count*2]; offset += count*2
-                        ps_b = raw_bytes[offset:offset + count*4]; offset += count*4
-
-                        # Views
-                        xs = _np.frombuffer(xs_b, dtype=_np.uint16, count=count)
-                        ys = _np.frombuffer(ys_b, dtype=_np.uint16, count=count)
-                        zs = _np.frombuffer(zs_b, dtype=_np.uint16, count=count)
-                        ps = _np.frombuffer(ps_b, dtype=_np.float32, count=count)
-
-                        cid = cid_bytes.decode("ascii", errors="ignore").strip().strip("'\"")
-                        if not cid:
-                            continue
-                        cortical_areas[cid] = {
-                            "coordinates_x": xs.copy(),
-                            "coordinates_y": ys.copy(),
-                            "coordinates_z": zs.copy(),
-                            "membrane_potentials": ps.copy(),
-                        }
-                        total_points += int(count)
-
-                    # Build neural_data
-                    neural_data = {
-                        cid: {
-                            "coordinates_x": _np.asarray(data["coordinates_x"], dtype=_np.uint16),
-                            "coordinates_y": _np.asarray(data["coordinates_y"], dtype=_np.uint16),
-                            "coordinates_z": _np.asarray(data["coordinates_z"], dtype=_np.uint16),
-                            "membrane_potentials": _np.asarray(data["membrane_potentials"], dtype=_np.float32),
-                        }
-                        for cid, data in cortical_areas.items()
-                    }
-
-                    if neural_data:
-                        result = self.core_api.stimulate_neurons(neural_data)
-                        # SHM-debug: surface FCL injection count returned by brain service
-                        try:
-                            if self._debug_shm:
-                                inj = result.get("injected_count")
-                                tot = result.get("total_stimulated")
-                                logger.info(f"𒓉 [SHM] FCL injection result: injected_count={inj}, total_stimulated={tot}")
-                        except Exception:
-                            pass
-                        try:
-                            area_results = result.get("area_results") or {}
-                            for aid, meta in area_results.items():
-                                logger.info(
-                                    f"𒓉 [ZS] Map {aid}: unique={meta.get('unique_coordinates')}, "
-                                    f"found={meta.get('total_neurons_found')}, "
-                                    f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
-                                    f"ok={meta.get('success')}, err={meta.get('error', '')}"
-                                )
-                            logger.info(
-                                f"𒓉 [ZS] Injection summary: injected={result.get('injected_count', 0)}, "
-                                f"total_stimulated={result.get('total_stimulated', 0)}"
-                            )
-                        except Exception:
-                            pass
-                    return
-                except Exception as e:
-                    logger.debug(f"[ZS] Zero-serialize parse failed, falling back: {e}")
+                logger.error("[SHM] Received zero-serialized 'ZS1N' payload; FEAGI is configured for Rust-only decoding. Payload rejected.")
+                self._stats["decode_errors"] = self._stats.get("decode_errors", 0) + 1
+                return
 
             # Fallback: standard feagi_data_processing byte structure
             import feagi_rust_py_libs as fdp
@@ -942,6 +894,16 @@ class SensoryNeuralStream:
                 # Strip wrapper like "CorticalID(iic400)" if present
                 if cortical_id.startswith("CorticalID(") and cortical_id.endswith(")"):
                     cortical_id = cortical_id[len("CorticalID("):-1]
+                # Optional anomaly log (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        srepr = str(cortical_id_obj)
+                        if (srepr.startswith("CorticalID(") and srepr.endswith(")")) or srepr.startswith("'") or srepr.startswith('"'):
+                            if not hasattr(self, "_cid_warned_shm"):
+                                logger.warning(f"[SHM] Non-normalized cortical ID observed: {srepr} -> {cortical_id}")
+                                self._cid_warned_shm = True
+                    except Exception:
+                        pass
                 if cortical_id not in cortical_areas:
                     cortical_areas[cortical_id] = {
                         "coordinates_x": [],
