@@ -99,7 +99,9 @@ def main():
         try:
             from feagi.core import create_core_api
 
-            core_api = create_core_api({})
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome = ConnectomeManager.instance()
+            core_api = create_core_api(connectome, {})
             logger.info("Using real core API", status="[CONFIG]")
         except ImportError:
             logger.error(

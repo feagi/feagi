@@ -56,3 +56,8 @@ class CoreAPI:
         return self._memory_manager
 
 
+def make_core_api(connectome_manager, config: Dict[str, Any]):
+    """Factory function for CoreAPI to be re-exported as create_core_api."""
+    return CoreAPI(connectome_manager, config)
+
+

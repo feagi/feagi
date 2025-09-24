@@ -30,7 +30,7 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
     Returns:
         CoreAPIService instance with all core components initialized
     """
-    from feagi.core.create_core_api import CoreAPI as CoreAPIService
+    from feagi.core.core_api_factory import make_core_api
 
     # Create and initialize the FEAGI core instance
     logger.info("Initializing FEAGI core components...")
@@ -44,7 +44,7 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
     #  removed
 
     # Create the CoreAPIService wrapper around the FEAGI core
-    core_api = CoreAPIService(connectome, config=config)
+    core_api = make_core_api(connectome, config)
 
     logger.info("FEAGI core components initialized successfully")
     return core_api
