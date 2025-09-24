@@ -1604,6 +1604,7 @@ class BurstEngine:
                 matched = 0
                 skipped_unmapped = 0
                 out_of_range = 0
+                thresholds_arr = getattr(neuron_array, 'thresholds', None)
                 for i, neuron_id in enumerate(neuron_ids):
                     # Get neuron index from ID mapping
                     if neuron_id in neuron_array.neuron_id_to_index:
@@ -1629,21 +1630,29 @@ class BurstEngine:
                             except Exception:
                                 pass  # Use default accumulation behavior
                             
-                            # Apply potential based on accumulation setting
+                            # Apply potential based on accumulation setting with clamp to threshold
                             if mp_accumulation:
                                 # ACCUMULATE: Add delta to current potential
-                                neuron_array.membrane_potentials[idx] += deltas[i]
+                                new_val = float(old_potential + delta)
                                 # DEBUG: Log accumulation behavior
                                 if matched < 3:  # Only log first few for performance
-                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] ACCUMULATE: {old_potential:.6f} + {delta:.6f} = {old_potential + delta:.6f}")
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] ACCUMULATE: {old_potential:.6f} + {delta:.6f} = {new_val:.6f}")
                             else:
                                 # REPLACE: Set potential to delta value
-                                neuron_array.membrane_potentials[idx] = deltas[i]
+                                new_val = float(delta)
                                 # DEBUG: Log replacement behavior
                                 if matched < 3:  # Only log first few for performance
-                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] REPLACE: {old_potential:.6f} -> {delta:.6f}")
-                            
-                            new_potential = neuron_array.membrane_potentials[idx]
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] REPLACE: {old_potential:.6f} -> {new_val:.6f}")
+
+                            # Clamp pre-SIMD membrane potential to neuron threshold to avoid inflation
+                            if thresholds_arr is not None and 0 <= idx < len(thresholds_arr):
+                                thr_val = float(thresholds_arr[idx])
+                                if new_val > thr_val:
+                                    new_val = thr_val
+
+                            neuron_array.membrane_potentials[idx] = new_val
+
+                            new_potential = new_val
                             
                             # Log if potential becomes inflated
                             if new_potential > 1000 and matched < 3:
