@@ -144,9 +144,9 @@ class BurstEngine:
         self._inject_all_candidates(fcl)
         
         # CRITICAL: Process any accumulated external activations via FCL injector (sensory/IPU routes)
-        if self.fcl_injector and self.injection_service and hasattr(self.injection_service, '_pending_external_activations'):
+        if self.fcl_injector and hasattr(self, '_pending_external_activations'):
             try:
-                pending_activations = getattr(self.injection_service, '_pending_external_activations', {})
+                pending_activations = getattr(self, '_pending_external_activations', {})
                 if pending_activations:
                     external_total = 0
                     # Create a safe copy to avoid mutation during iteration
@@ -158,6 +158,10 @@ class BurstEngine:
                             coords_y = np.asarray(area_data.get('coordinates_y', np.array([])))
                             coords_z = np.asarray(area_data.get('coordinates_z', np.array([])))
                             potentials = np.asarray(area_data.get('membrane_potentials', np.array([])), dtype=np.float32)
+                            # Guard: ensure arrays have the same length
+                            if not (len(coords_x) == len(coords_y) == len(coords_z) == len(potentials)):
+                                logger.error("BurstEngine: Skipping malformed external activations for area %s due to length mismatch: x=%d y=%d z=%d p=%d", area_id, len(coords_x), len(coords_y), len(coords_z), len(potentials))
+                                continue
                             if len(coords_x) > 0:
                                 injected = self.fcl_injector.inject_sensory_data(
                                     fcl=fcl,
@@ -196,12 +200,12 @@ class BurstEngine:
                                         excitatory_mask=excitatory_mask,
                                     )
                                     external_total += injected
-                    # Clear processed activations
-                    pending_activations.clear()
+                    # Clear processed activations deterministically
+                    self._pending_external_activations.clear()
                     if external_total > 0:
-                        logger.info("FCL injection: %d neurons from external activations", external_total)
+                        logger.info("BurstEngine: injected %d sensory/IPU candidates via FCLInjector", external_total)
             except Exception as ext_e:
-                logger.error("Error processing accumulated external activations: %s", str(ext_e))
+                logger.error("BurstEngine: Error processing accumulated external activations: %s", str(ext_e))
 
         fcl_candidate_count = fcl.get_total_candidate_count()
         
@@ -1946,19 +1950,7 @@ class PowerInjectionService:
             return 0
     
     def inject_external_activations(self, activations: Dict, current_timestep: int, source: str = "external") -> int:
-        """Inject external activations (from sensory streams) into the current FCL.
-        
-        This method is called by the external sensory injection system to inject
-        sensory data into the BurstEngine's processing pipeline.
-        
-        Args:
-            activations: Dictionary of activations by cortical area
-            current_timestep: Current simulation timestep
-            source: Source of the activations (for debugging)
-            
-        Returns:
-            Number of neurons successfully injected
-        """
+        """Buffer external activations deterministically for BurstEngine to inject via FCLInjector."""
         debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
                         self.connectome_manager.state_manager and 
                         self.connectome_manager.state_manager.is_debug_npu_enabled())
@@ -1966,84 +1958,27 @@ class PowerInjectionService:
         
         
         try:
-            total_injected = 0
-            
-            # CRITICAL: Accumulate external activations instead of overwriting them
-            if not hasattr(self, '_pending_external_activations'):
-                self._pending_external_activations = {}
-            
-            # Merge new activations with existing ones (accumulate, don't overwrite)
-            for area_id, area_data in activations.items():
-                if periodic_debug:
-                    logger.debug("PowerInjectionService: Processing area %s - incoming data type: %s", area_id, type(area_data))
-                
-                if area_id in self._pending_external_activations:
-                    # Merge activation data for this cortical area
-                    existing_data = self._pending_external_activations[area_id]
-                    
-                    if periodic_debug:
-                        logger.debug("PowerInjectionService: Merging with existing data type: %s", type(existing_data))
-                    
-                    if isinstance(existing_data, dict) and isinstance(area_data, dict):
-                        # Concatenate coordinate arrays
-                        if periodic_debug:
-                            logger.debug("PowerInjectionService: Concatenating arrays for area %s", area_id)
-                        
-                        for key in ['coordinates_x', 'coordinates_y', 'coordinates_z', 'membrane_potentials']:
-                            if key in existing_data and key in area_data:
-                                try:
-                                    existing_data[key] = np.concatenate([existing_data[key], area_data[key]])
-                                    if periodic_debug:
-                                        logger.debug("PowerInjectionService: Concatenated %s - new length: %d", key, len(existing_data[key]))
-                                except Exception as concat_err:
-                                    if debug_enabled:
-                                        logger.error("PowerInjectionService: Error concatenating %s: %s", key, str(concat_err))
-                                    # Fallback: overwrite with new data
-                                    existing_data[key] = area_data[key]
-                            elif key in area_data:
-                                existing_data[key] = area_data[key]
-                                if periodic_debug:
-                                    logger.debug("PowerInjectionService: Added missing %s key", key)
-                        
-                        if periodic_debug:
-                            final_count = len(existing_data.get('coordinates_x', []))
-                            logger.debug("PowerInjectionService: Merge complete - %d total coordinates in area %s", final_count, area_id)
-                            logger.debug("PowerInjectionService: Final data type for area %s: %s", area_id, type(self._pending_external_activations[area_id]))
-                    else:
-                        # If not dict format, just overwrite
-                        if periodic_debug:
-                            logger.debug("PowerInjectionService: Data types incompatible, overwriting area %s", area_id)
-                        self._pending_external_activations[area_id] = area_data
-                else:
-                    # New cortical area
+            # Deterministic buffer for BurstEngine to process; do not merge arrays here
+            if not hasattr(self.connectome_manager, 'burst_engine'):
+                # Fallback: store locally for BurstEngine to read via reference
+                if not hasattr(self, '_pending_external_activations'):
+                    self._pending_external_activations = {}
+                for area_id, area_data in activations.items():
                     self._pending_external_activations[area_id] = area_data
-                    if periodic_debug:
-                        coords_count = len(area_data.get('coordinates_x', [])) if isinstance(area_data, dict) else 1
-                        logger.debug("PowerInjectionService: Added %d new activations for new area %s", coords_count, area_id)
-                        logger.debug("PowerInjectionService: Stored data type for new area %s: %s", area_id, type(self._pending_external_activations[area_id]))
-            
-            if periodic_debug:
-                # Count total accumulated external activations
-                total_accumulated = 0
-                for area_id, area_data in self._pending_external_activations.items():
-                    if isinstance(area_data, dict) and 'coordinates_x' in area_data:
-                        total_accumulated += len(area_data['coordinates_x'])
-                    elif isinstance(area_data, (list, np.ndarray)):
-                        total_accumulated += len(area_data)
-                        
-                logger.debug("PowerInjectionService: %d total external activations accumulated across %d areas", 
-                              total_accumulated, len(self._pending_external_activations))
-            
-            # For immediate feedback, count what would be injected from the current batch
-            for area_id, area_data in activations.items():
-                if isinstance(area_data, dict):
-                    # Count coordinate arrays length
-                    if 'coordinates_x' in area_data:
-                        total_injected += len(area_data['coordinates_x'])
-                elif isinstance(area_data, (list, np.ndarray)):
-                    total_injected += len(area_data)
-            
-            return total_injected
+                return sum(
+                    len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                    for v in activations.values()
+                )
+            else:
+                be = self.connectome_manager.burst_engine
+                if not hasattr(be, '_pending_external_activations'):
+                    be._pending_external_activations = {}
+                for area_id, area_data in activations.items():
+                    be._pending_external_activations[area_id] = area_data
+                return sum(
+                    len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                    for v in activations.values()
+                )
             
         except Exception as e:
             if debug_enabled:
@@ -2086,34 +2021,45 @@ class PowerInjectionService:
                     area_data = npu_interface.cortical_areas[1]
                     cortical_id = area_data.get('cortical_id', '')
                     neurons = npu_interface.get_neurons_by_area(1)
-                    power_neurons.extend(neurons)
-                    if debug_enabled:
-                        logger.debug("PowerInjectionService: Using RESERVED power area at cortical_idx=1 (cortical_id='%s'): %d neurons", cortical_id, len(neurons))
+                    if neurons:
+                        # SINGLE KNOWN POWER NEURON: choose deterministically (minimum ID)
+                        single_power_neuron = int(min(neurons))
+                        power_neurons = [single_power_neuron]
+                        if debug_enabled:
+                            logger.debug(
+                                "PowerInjectionService: Using single power neuron %d from cortical_idx=1 (cortical_id='%s')",
+                                single_power_neuron,
+                                cortical_id,
+                            )
+                        else:
+                            logger.info(
+                                "Using single power neuron %d from reserved power area at cortical_idx=1 ('%s')",
+                                single_power_neuron,
+                                cortical_id,
+                            )
                     else:
-                        logger.info("Using reserved power area at cortical_idx=1 ('%s'): %d neurons", cortical_id, len(neurons))
+                        if debug_enabled:
+                            logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 has no neurons")
                 else:
                     if debug_enabled:
                         logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 not found")
             
-            # CRITICAL: Set refractory periods to 0 for power neurons (so they can fire every burst)
+            # CRITICAL: Set refractory period to 0 for the selected power neuron (so it can fire every burst)
             if power_neurons and hasattr(self.connectome_manager, '_npu_interface'):
                 npu_interface = self.connectome_manager._npu_interface
                 neuron_array = getattr(npu_interface, 'neuron_array', None)
                 
                 if neuron_array and hasattr(neuron_array, 'refractory_periods'):
-                    updated_count = 0
-                    for power_neuron_id in power_neurons:
-                        if power_neuron_id in neuron_array.neuron_id_to_index:
-                            idx = neuron_array.neuron_id_to_index[power_neuron_id]
-                            if idx < len(neuron_array.refractory_periods):
-                                # Set refractory period to 0 so power neurons fire EVERY burst
-                                neuron_array.refractory_periods[idx] = 0
-                                updated_count += 1
-                    
-                    if updated_count > 0:
-                        logger.info("Set refractory periods to 0 for %d power neurons (enables every-burst firing)", updated_count)
+                    power_neuron_id = power_neurons[0]
+                    if power_neuron_id in neuron_array.neuron_id_to_index:
+                        idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                        if idx < len(neuron_array.refractory_periods):
+                            neuron_array.refractory_periods[idx] = 0
+                            logger.info("Set refractory period to 0 for power neuron %d (enables every-burst firing)", power_neuron_id)
+                        elif debug_enabled:
+                            logger.debug("PowerInjectionService: Power neuron index %d out of bounds for refractory update", idx)
                     elif debug_enabled:
-                        logger.debug("PowerInjectionService: Could not update refractory periods for power neurons")
+                        logger.debug("PowerInjectionService: Power neuron %d not found in neuron_id_to_index", power_neuron_id)
             
             # Cache the result
             self._power_neurons_cache = power_neurons

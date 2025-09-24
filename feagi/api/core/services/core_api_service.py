@@ -3549,10 +3549,15 @@ class CoreAPIService:
                 f"Injecting {total_neurons_found} neurons from {len(activations)} areas into FCL via injection service"
             )
             
-            injected_count = injection_service.inject_external_activations(
-                activations=activations,
-                current_timestep=current_timestep,
-                source="manual_stimulation",
+            # Route sensory/IPU activations to BurstEngine buffer for deterministic FCL injection
+            if hasattr(burst_engine, '_pending_external_activations'):
+                for area_id, area_data in activations.items():
+                    burst_engine._pending_external_activations[area_id] = area_data
+            else:
+                burst_engine._pending_external_activations = dict(activations)
+            injected_count = sum(
+                len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                for v in activations.values()
             )
 
             #  CRITICAL FIX: Trigger an immediate burst to process the injected

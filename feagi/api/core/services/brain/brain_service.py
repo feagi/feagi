@@ -1101,10 +1101,14 @@ class BrainService(BaseService):
                         except Exception:
                             pass
                         
-                        injected_count = burst_engine.injection_service.inject_external_activations(
-                            activations=_pending_activations,
-                            current_timestep=current_timestep,
-                            source="sensory_neural",
+                        # Route to BurstEngine buffer; processed via FCLInjector during the burst
+                        if hasattr(burst_engine, '_pending_external_activations'):
+                            burst_engine._pending_external_activations.update(_pending_activations)
+                        else:
+                            burst_engine._pending_external_activations = dict(_pending_activations)
+                        injected_count = sum(
+                            len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                            for v in _pending_activations.values()
                         )
                         
                         # Debug: Log injection result
