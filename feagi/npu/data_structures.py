@@ -479,6 +479,75 @@ class MemoryNeuronArray:
         
         return idx
 
+    def reactivate_memory_neuron(self, neuron_idx: int, current_burst: int) -> bool:
+        """Reactivate an existing memory neuron: update last activation and counters."""
+        try:
+            if neuron_idx < 0 or neuron_idx >= self.max_memory_neurons:
+                return False
+            if not self.valid_mask[neuron_idx]:
+                return False
+            self.is_active[neuron_idx] = True
+            self.last_activation_burst[neuron_idx] = int(current_burst)
+            self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
+            # Lifespan growth will be applied by aging step
+            return True
+        except Exception:
+            return False
+
+    def age_memory_neurons(self, current_burst: int, decay_per_burst: int = 1) -> int:
+        """Age memory neurons deterministically by reducing lifespan for inactive neurons.
+
+        Returns the number of neurons that reached zero lifespan (can be pruned by caller).
+        """
+        try:
+            active_count = int(self.count)
+            if active_count <= 0:
+                return 0
+            import numpy as np
+            idxs = np.arange(0, active_count, dtype=np.int32)
+            valid = self.valid_mask[:active_count]
+            if not np.any(valid):
+                return 0
+            # Decrease lifespan for valid neurons that were not activated this burst
+            not_recent = valid & (self.last_activation_burst[:active_count] < int(current_burst))
+            self.lifespan_current[not_recent] = np.maximum(
+                0,
+                self.lifespan_current[not_recent] - int(decay_per_burst),
+            )
+            # Increase lifespan for those activated this burst using growth rate
+            recent = valid & (self.last_activation_burst[:active_count] == int(current_burst))
+            if np.any(recent):
+                growth = np.floor(self.lifespan_growth_rate[recent]).astype(self.lifespan_current.dtype)
+                self.lifespan_current[recent] += growth
+
+            # Count expired
+            expired = valid & (self.lifespan_current[:active_count] <= 0)
+            return int(np.sum(expired))
+        except Exception:
+            return 0
+
+    def check_longterm_conversion(self, longterm_threshold: int) -> int:
+        """Mark neurons as long-term if activation count exceeds threshold.
+
+        Returns number of converted neurons.
+        """
+        try:
+            import numpy as np
+            active_count = int(self.count)
+            if active_count <= 0:
+                return 0
+            valid = self.valid_mask[:active_count]
+            if not np.any(valid):
+                return 0
+            to_convert = valid & (self.activation_count[:active_count] >= int(longterm_threshold))
+            convert_idx = np.nonzero(to_convert)[0]
+            if convert_idx.size == 0:
+                return 0
+            self.is_longterm_memory[convert_idx] = True
+            return int(convert_idx.size)
+        except Exception:
+            return 0
+
 
 class SynapseArray:
     """Single source of truth for synapses - Clean Architecture."""
