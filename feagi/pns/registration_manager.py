@@ -121,6 +121,7 @@ class RegistrationManager:
             "visualization": 0,
             "motor": 0,
             "sensory": 0,
+            "video": 0,
         }
 
         # FQ sampler states
@@ -144,6 +145,7 @@ class RegistrationManager:
         """Return a sanitized, deterministic capability dict.
 
         Canonical keys allowed:
+        - video: bool | { enabled: bool }
         - sensory: bool | { enabled: bool }
         - visualization: bool | { enabled: bool }
         - motor: bool | { enabled: bool, sampling_frequency_hz: number|"burst", prefer_shm: bool }
@@ -158,6 +160,14 @@ class RegistrationManager:
 
         if not isinstance(capabilities, dict):
             return sanitized
+
+        # Handle video
+        vid_value = capabilities.get("video")
+        if vid_value is not None:
+            if isinstance(vid_value, dict):
+                sanitized["video"] = {"enabled": bool(vid_value.get("enabled", True))}
+            else:
+                sanitized["video"] = bool(vid_value)
 
         # Handle visualization
         viz_value = None
@@ -208,7 +218,7 @@ class RegistrationManager:
 
         # Warn on any unknown keys (ignored for now)
         for k in capabilities.keys():
-            if k not in ("sensory", "visualization", "motor", "motor_controller", "neuron_visualization", "brain_visualizer", "3d_visualization"):
+            if k not in ("video", "sensory", "visualization", "motor", "motor_controller", "neuron_visualization", "brain_visualizer", "3d_visualization"):
                 logger.warning(
                     f"[DEPRECATION] Unknown capability '{k}' will be ignored. Only 'sensory', 'visualization', and 'motor' are supported."
                 )

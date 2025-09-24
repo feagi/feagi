@@ -104,7 +104,7 @@ class SharedMemoryManager:
     def create_agent_capability_files(self, agent_id: str, capabilities: Dict[str, bool]) -> Dict[str, str]:
         """Create per-capability SHM files for an agent.
 
-        Known capabilities: 'video_stream', 'sensory', 'motor', 'neuron_visualization'
+        Canonical capabilities: 'video', 'sensory', 'motor'.
 
         Returns:
             Mapping of capability name -> absolute path string
@@ -115,7 +115,7 @@ class SharedMemoryManager:
         created: Dict[str, str] = {}
         if not isinstance(capabilities, dict):
             return created
-        for cap in ("video_stream", "video_stream_raw", "video_stream_feagi", "sensory", "motor", "neuron_visualization"):
+        for cap in ("video", "sensory", "motor"):
             if capabilities.get(cap, False):
                 p = self._agent_capability_file(agent_id, cap)
                 try:
@@ -143,7 +143,7 @@ class SharedMemoryManager:
             except Exception:
                 pass
         # Remove capability-based files
-        for cap in ("video_stream", "video_stream_raw", "video_stream_feagi", "sensory", "motor", "neuron_visualization"):
+        for cap in ("video", "sensory", "motor"):
             try:
                 p = self._agent_capability_file(agent_id, cap)
                 logger.info(f"𒓉 [SHM-AGENT] unlink capability {p}")

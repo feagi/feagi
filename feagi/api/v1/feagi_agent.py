@@ -41,6 +41,10 @@ from .schemas import (
     ManualStimulationRequest,
     SuccessResponse,
 )
+from feagi.api.shared_memory.capabilities import (
+    SharedMemoryCapability,
+    CAPABILITY_DESCRIPTIONS,
+)
 
 logger = setup_logger(__name__)
 
@@ -284,6 +288,24 @@ class FeagiAgentAPI:
         except Exception as e:
             self.logger.error(f"Error listing shared memory agents: {e}")
             return {}
+
+    @agent_endpoint("GET", "/capabilities")
+    async def list_capabilities(self) -> Dict[str, Any]:
+        """List canonical shared-memory capability types recognized by FEAGI.
+
+        Returns a JSON object with the allowed capability keys and descriptions.
+        Agents should use ONLY these keys when requesting or advertising shared
+        memory capabilities.
+        """
+        try:
+            caps = {
+                "capabilities": [c.value for c in SharedMemoryCapability],
+                "descriptions": CAPABILITY_DESCRIPTIONS,
+            }
+            return caps
+        except Exception as e:
+            self.logger.error(f"Error listing capabilities: {e}")
+            return {"capabilities": [], "descriptions": {}}
 
     @agent_endpoint(
         "DELETE",

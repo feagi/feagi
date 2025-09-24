@@ -597,21 +597,22 @@ class FeagiStateManager:
 
             # Only expose/create FEAGI-owned core streams for eligible agents
             # Visualization core stream (FEAGI → BV)
-            # Strict visualization gating: only canonical key
+            # Strict visualization gating: only canonical key 'visualization'
             wants_viz = False
             if isinstance(caps.get("visualization"), dict):
                 wants_viz = bool(caps["visualization"].get("enabled", True))
             else:
                 wants_viz = bool(caps.get("visualization"))
             if wants_viz:
-                viz_key = "visualization_stream"
-                viz_path = self._shared_memory_registry.get(viz_key, "")
+                # Core registry uses 'visualization_stream'. Expose to agents as 'visualization'
+                core_viz_key = "visualization_stream"
+                viz_path = self._shared_memory_registry.get(core_viz_key, "")
                 try:
                     # If registry missing or file missing, (re)create safely
                     from pathlib import Path as _P
                     if not viz_path or not _P(viz_path).exists():
-                        viz_path = self._shm_manager.create_stream_file(viz_key)
-                        self._shared_memory_registry[viz_key] = viz_path
+                        viz_path = self._shm_manager.create_stream_file(core_viz_key)
+                        self._shared_memory_registry[core_viz_key] = viz_path
                         logger.info(
                             f"𒓉 [SHM] Ensured core visualization stream SHM exists: {viz_path}"
                         )
@@ -619,11 +620,11 @@ class FeagiStateManager:
                     logger.warning(f"[SHM] Failed to ensure visualization SHM: {e}")
                     viz_path = ""
                 if viz_path:
-                    mappings[viz_key] = viz_path
+                    mappings["visualization"] = viz_path
 
             # Motor stream (FEAGI → motor-capable agents)
             # Use dedicated per-agent SHM file to avoid shared-writer contention
-            # Strict motor gating: only canonical key
+            # Strict motor gating: only canonical key (no aliases)
             wants_motor = False
             if isinstance(caps.get("motor"), dict):
                 wants_motor = bool(caps["motor"].get("enabled", True))
@@ -637,9 +638,39 @@ class FeagiStateManager:
                     logger.warning(f"[SHM] Failed to create per-agent motor SHM: {e}")
                     motor_path = ""
                 if motor_path:
-                    # Provide both keys for backward compatibility with agents
                     mappings["motor"] = motor_path
-                    mappings["motor_stream"] = motor_path
+
+            # Sensory stream (agent → FEAGI) - agent-owned writer path
+            wants_sensory = False
+            if isinstance(caps.get("sensory"), dict):
+                wants_sensory = bool(caps["sensory"].get("enabled", True))
+            else:
+                wants_sensory = bool(caps.get("sensory"))
+            if wants_sensory:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"sensory": True})
+                    sensory_path = created.get("sensory", "")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent sensory SHM: {e}")
+                    sensory_path = ""
+                if sensory_path:
+                    mappings["sensory"] = sensory_path
+
+            # Video stream (agent → BV preview) - agent-owned writer path
+            wants_video = False
+            if isinstance(caps.get("video"), dict):
+                wants_video = bool(caps["video"].get("enabled", True))
+            else:
+                wants_video = bool(caps.get("video"))
+            if wants_video:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"video": True})
+                    video_path = created.get("video", "")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent video SHM: {e}")
+                    video_path = ""
+                if video_path:
+                    mappings["video"] = video_path
 
             # NOTE: Do NOT pre-create inbound agent files (sensory/video). Those
             # must be created by the agent with correct headers. Pre-touching here
