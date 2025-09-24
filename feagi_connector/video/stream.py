@@ -107,11 +107,10 @@ async def stream_segmented_camera(
                 agent_id=client.agent_id,
                 agent_type="external",
                 capabilities={
+                    "video": True,
                     "sensory": True,
                     "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
                     "visualization": True,
-                    "video_stream_raw": True,
-                    "video_stream": True,
                 },
                 metadata={"source": "video_agent"},
             )
@@ -171,7 +170,8 @@ async def stream_segmented_camera(
             except Exception:
                 pass
         sensory_writer = None
-        shm_path = (shm_paths.get("video_stream_raw") or shm_paths.get("video_stream"))
+        # Canonical: 'video' for preview frames
+        shm_path = shm_paths.get("video")
         if isinstance(shm_path, str) and len(shm_path) > 0:
             try:
                 shm_writer = SharedFrameWriter(path=shm_path)
@@ -186,7 +186,7 @@ async def stream_segmented_camera(
                 sensory_writer = None
 
         # Setup motor SHM reader (for gaze) if FEAGI provided a path
-        motor_shm_path = (shm_paths.get("motor") or shm_paths.get("motor_stream"))
+        motor_shm_path = shm_paths.get("motor")
         # Clean up any existing motor polling thread
         try:
             if motor_reader_thread is not None and motor_reader_thread.is_alive():
