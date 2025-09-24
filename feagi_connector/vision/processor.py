@@ -44,8 +44,7 @@ class SegmentedVisionProcessor:
         center_dims: Tuple[int, int],
         peripheral_dims: Tuple[int, int],
         eccentricity: Tuple[float, float] = (0.2, 0.2),
-        modularity: Tuple[float, float] = (0.2, 0.2),
-        gaze_position: Tuple[float, float] = (0.5, 0.5),
+        modulation: Tuple[float, float] = (0.2, 0.2),
         number_of_channels: int = 1,
     ) -> None:
         import feagi_rust_py_libs as frpl  # local import to keep module light
@@ -56,10 +55,9 @@ class SegmentedVisionProcessor:
         self.per_dims = (int(peripheral_dims[0]), int(peripheral_dims[1]))
         self.number_of_channels = int(number_of_channels)
 
-        # Store gaze parameters
-        self._gaze_position = gaze_position
+        # Store gaze parameters (eccentricity and modulation)
         self._eccentricity_params = eccentricity
-        self._modularity_params = modularity
+        self._modulation_params = modulation
 
         # In-process Rust-backed sensor cache for encoding
         self._cache = SensorCache()
@@ -98,9 +96,9 @@ class SegmentedVisionProcessor:
                 self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[0]),
                 self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[1]),
             )
-            modularity = self._frpl.data_structures.data.Percentage2D(
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modularity_params[0]),
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modularity_params[1]),
+            modulation = self._frpl.data_structures.data.Percentage2D(
+                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[0]),
+                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[1]),
             )
         except AttributeError:
             try:
@@ -109,9 +107,9 @@ class SegmentedVisionProcessor:
                     self._frpl.data_structures.Percentage.new_from_0_1(self._eccentricity_params[0]),
                     self._frpl.data_structures.Percentage.new_from_0_1(self._eccentricity_params[1]),
                 )
-                modularity = self._frpl.data_structures.Percentage2D(
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._modularity_params[0]),
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._modularity_params[1]),
+                modulation = self._frpl.data_structures.Percentage2D(
+                    self._frpl.data_structures.Percentage.new_from_0_1(self._modulation_params[0]),
+                    self._frpl.data_structures.Percentage.new_from_0_1(self._modulation_params[1]),
                 )
             except AttributeError:
                 # Fallback to simple gaze properties
@@ -120,7 +118,7 @@ class SegmentedVisionProcessor:
         
         # Create the advanced gaze properties object
         self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties(
-            eccentricity, modularity
+            eccentricity, modulation
         )
 
     def _ensure_registered(self, width: int, height: int) -> None:
@@ -160,20 +158,6 @@ class SegmentedVisionProcessor:
         self._cache.encode_cached_data_into_bytes()
         return self._cache.get_most_recent_sensor_bytes()
 
-    def update_gaze(self, gaze_x: float, gaze_y: float) -> None:
-        """Update the gaze position dynamically.
-        
-        Args:
-            gaze_x: Gaze X position (0.0 to 1.0)
-            gaze_y: Gaze Y position (0.0 to 1.0)
-        """
-        self._gaze_position = (
-            max(0.0, min(1.0, gaze_x)),
-            max(0.0, min(1.0, gaze_y))
-        )
-        # Update internal gaze properties; registration remains idempotent
-        self._setup_gaze_properties()
-
     def update_eccentricity(self, ecc_x: float, ecc_y: float) -> None:
         """Update eccentricity (central region size) dynamically.
         
@@ -187,20 +171,28 @@ class SegmentedVisionProcessor:
         )
         self._setup_gaze_properties()
 
-    @property
-    def gaze(self) -> Tuple[float, float]:
-        """Get current gaze position."""
-        return self._gaze_position
-    
+    def update_modulation(self, mod_x: float, mod_y: float) -> None:
+        """Update modulation parameters dynamically.
+        
+        Args:
+            mod_x: Horizontal modulation (0.0 to 1.0)
+            mod_y: Vertical modulation (0.0 to 1.0)
+        """
+        self._modulation_params = (
+            max(0.0, min(1.0, float(mod_x))),
+            max(0.0, min(1.0, float(mod_y)))
+        )
+        self._setup_gaze_properties()
+
     @property
     def eccentricity(self) -> Tuple[float, float]:
         """Get current eccentricity (central region sizing)."""
         return self._eccentricity_params
 
     @property
-    def modularity(self) -> Tuple[float, float]:
-        """Get current modularity (peripheral tiling parameters)."""
-        return self._modularity_params
+    def modulation(self) -> Tuple[float, float]:
+        """Get current modulation (peripheral tiling parameters)."""
+        return self._modulation_params
 
     @property
     def gaze_properties(self):
@@ -289,47 +281,90 @@ class GazeMotorProcessor:
         
         return mapped_neurons
     
-    def process_motor_bytes(self, motor_bytes: bytes) -> Optional[Tuple[float, float]]:
-        """Process motor bytes to extract gaze commands.
+    def process_motor_bytes(self, motor_bytes: bytes) -> Optional[Tuple[float, float, float, float]]:
+        """Process motor bytes to extract eccentricity/modulation commands.
+        
+        This implementation expects the OGaze motor cortical area (e.g., 'ogaz00')
+        to encode parameter values across the Z dimension (0..N-1 buckets) with
+        potentials as weights, and the X coordinate selecting which parameter:
+        X=0 -> eccentricity.x, X=1 -> eccentricity.y, X=2 -> modulation.x, X=3 -> modulation.y.
         
         Args:
             motor_bytes: Raw motor data bytes from FEAGI
             
         Returns:
-            Tuple of (gaze_x, gaze_y) or None if processing failed
+            Tuple of (ecc_x, ecc_y, mod_x, mod_y) with values in [0,1], or None
+            if parameters could not be decoded.
         """
         try:
-            # Read bytes into motor system (as shown in sample)
-            # This would integrate with the agent connector's motor system
             feagi_byte_structure = self._frpl.data_serialization.FeagiByteStructure(motor_bytes)
             mapped_neurons = self._frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_byte_structure)
-            
-            # Extract gaze data - simplified implementation
-            total_x = 0.0
-            total_y = 0.0 
-            total_activation = 0.0
-            
+
+            # Accumulators per param index
+            # index -> (weighted_z_sum, activation_sum, z_max)
+            accumulators: dict[int, Tuple[float, float, int]] = {}
+
+            def _cid_to_str(cid_obj) -> str:
+                try:
+                    return str(cid_obj.as_ascii_string())
+                except Exception:
+                    return str(cid_obj)
+
             for cid_obj, neuron_arrays in mapped_neurons.iter_full():
                 try:
+                    cid_str = _cid_to_str(cid_obj).lower()
+                    if "ogaz" not in cid_str:
+                        # Ignore other motor areas
+                        continue
                     x_coords, y_coords, z_coords, potentials = neuron_arrays
+                    # Determine z resolution from max z observed
+                    try:
+                        z_max_val = int(max(z_coords)) if len(z_coords) > 0 else 0
+                    except Exception:
+                        z_max_val = 0
                     for x, y, z, p in zip(x_coords, y_coords, z_coords, potentials):
-                        # Normalize coordinates to 0-1 range
-                        gaze_x = float(x) / self.gaze_resolution
-                        gaze_y = float(y) / self.gaze_resolution
-                        total_x += gaze_x * p
-                        total_y += gaze_y * p
-                        total_activation += p
+                        try:
+                            xi = int(x)
+                            zi = int(z)
+                            pi = float(p)
+                        except Exception:
+                            continue
+                        wsum, asum, zmax = accumulators.get(xi, (0.0, 0.0, 0))
+                        wsum += zi * pi
+                        asum += pi
+                        zmax = max(zmax, z_max_val)
+                        accumulators[xi] = (wsum, asum, zmax)
                 except Exception:
                     continue
-            
-            if total_activation > 0:
+
+            def _normalize(accum: Tuple[float, float, int]) -> Optional[float]:
+                wsum, asum, zmax = accum
+                if asum <= 0.0:
+                    return None
+                denom = float(max(1, zmax))
+                val = (wsum / asum) / denom
+                return max(0.0, min(1.0, float(val)))
+
+            ecc_x = _normalize(accumulators.get(0, (0.0, 0.0, 0))) if 0 in accumulators else None
+            ecc_y = _normalize(accumulators.get(1, (0.0, 0.0, 0))) if 1 in accumulators else None
+            mod_x = _normalize(accumulators.get(2, (0.0, 0.0, 0))) if 2 in accumulators else None
+            mod_y = _normalize(accumulators.get(3, (0.0, 0.0, 0))) if 3 in accumulators else None
+
+            if any(v is not None for v in (ecc_x, ecc_y, mod_x, mod_y)):
+                # Fill missing with existing stored params (kept by caller) or defaults here as None
+                # We return None for missing and let caller selectively apply
+                # To keep type consistent, replace None with -1 sentinel and let caller check
+                def _val_or_sentinel(v):
+                    return float(v) if v is not None else -1.0
                 return (
-                    max(0.0, min(1.0, total_x / total_activation)),
-                    max(0.0, min(1.0, total_y / total_activation))
+                    _val_or_sentinel(ecc_x),
+                    _val_or_sentinel(ecc_y),
+                    _val_or_sentinel(mod_x),
+                    _val_or_sentinel(mod_y),
                 )
-                
+
             return None
-            
+
         except Exception:
             return None
 

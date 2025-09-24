@@ -563,16 +563,19 @@ Once both are ready, your agent will automatically connect.
                 pass
             self.viz_listen_task = None
         
-        # REST deregistration (best-effort)
-        try:
-            # REST Stream wrapper: route and method recognized by FEAGI transport
-            await self.rest_client.make_rest_request({
-                "route": "/v1/agent/deregister",
-                "method": "POST",
-                "body": {"agent_id": self.agent_id},
-            })
-        except Exception:
-            pass
+        # REST deregistration (best-effort) — only if we registered
+        if self.registered:
+            try:
+                # REST Stream wrapper: route and method recognized by FEAGI transport
+                await self.rest_client.make_rest_request({
+                    "route": "/v1/agent/deregister",
+                    "method": "DELETE",
+                    "body": {"agent_id": self.agent_id},
+                })
+            except Exception:
+                pass
+            finally:
+                self.registered = False
 
         # Close clients
         await self.command_client.close()
