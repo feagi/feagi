@@ -1988,6 +1988,28 @@ class FeagiStateManager:
         self._cumulative_activity_total = 0
         self._cumulative_activity_bursts = 0
 
+    # === PLASTICITY COUNTERS ===
+    def _ensure_plasticity_counters(self) -> None:
+        if not hasattr(self, "_plasticity_dropped_ops"):
+            self._plasticity_dropped_ops = 0
+
+    def increment_plasticity_dropped_ops(self, count: int) -> None:
+        """Increment number of plasticity operations dropped (queue full)."""
+        try:
+            self._ensure_plasticity_counters()
+            inc = int(count)
+            if inc < 0:
+                inc = 0
+            self._plasticity_dropped_ops += inc
+        except Exception:
+            pass
+
+    def get_plasticity_counters(self) -> Dict[str, int]:
+        self._ensure_plasticity_counters()
+        return {
+            "dropped_ops": int(self._plasticity_dropped_ops)
+        }
+
     def get_critical_services_status(self) -> Dict[str, Any]:
         """Get status of all critical services for system readiness checks."""
 

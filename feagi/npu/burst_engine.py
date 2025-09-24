@@ -256,8 +256,15 @@ class BurstEngine:
                 neurons_by_area[area_idx] = neurons
             
             # Archive neurons to fire ledger
-                    
             self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
+
+            # Notify plasticity service after archival (read-only compute)
+            try:
+                svc = getattr(self, '_plasticity_service', None)
+                if svc is not None:
+                    svc.notify_burst(self.current_timestep)
+            except Exception:
+                pass
             
             # Update state manager with activity counters
             neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
@@ -274,6 +281,19 @@ class BurstEngine:
         # Phase 5: Cleanup and prepare for next burst
             
         self.previous_fire_queue = fire_queue.copy_for_propagation()
+
+        # Apply plasticity ops at end-of-burst with strict budget
+        try:
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops') and isinstance(self.config, dict):
+                p_cfg = self.config.get('plasticity')
+                if isinstance(p_cfg, dict) and 'max_ops_per_burst' in p_cfg:
+                    budget = int(p_cfg['max_ops_per_burst'])
+                    if budget > 0:
+                        npu_interface.apply_plasticity_ops(max_ops=budget)
+        except Exception:
+            pass
+
         fcl.clear()
         self.burst_count += 1
         

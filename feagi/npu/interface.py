@@ -107,6 +107,16 @@ class NPUInterface:
         self.neuron_to_area: Dict[int, int] = {}  # neuron_id -> cortical_idx
         
         logger.info("NPU Interface initialized: %d neurons, %d synapses, %s backend", max_neurons, max_synapses, backend.value)
+
+        # Plasticity command queue (single producer/consumer in-process)
+        self._plasticity_queue_capacity: int = 0
+        self._plasticity_queue: List[Dict[str, Any]] = []
+        self._plasticity_lock = None
+        try:
+            import threading
+            self._plasticity_lock = threading.RLock()
+        except Exception:
+            self._plasticity_lock = None
     
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
         """Create neurons from a NeuronCreationRequest."""
@@ -381,6 +391,10 @@ class NPUInterface:
                 'neurons': self.neuron_array.count / self.max_neurons,
                 'synapses': self.synapse_array.count / self.max_synapses,
                 'memory_neurons': self.memory_neuron_array.count / self.max_memory_neurons
+            },
+            'plasticity_queue': {
+                'capacity': int(self._plasticity_queue_capacity),
+                'depth': int(len(self._plasticity_queue)),
             }
         }
     
@@ -456,3 +470,142 @@ class NPUInterface:
         except Exception:
             # Fallback: return empty to force fail-fast rather than stale data
             return []
+
+    # === Plasticity queue and apply ===
+    def configure_plasticity_queue(self, capacity: int) -> None:
+        """Configure bounded plasticity command queue capacity.
+
+        Deterministic: capacity must be >=0. Zero disables queue.
+        """
+        cap = int(capacity)
+        if cap < 0:
+            raise ValueError("plasticity queue capacity must be >= 0")
+        with (self._plasticity_lock or _NullContext()):
+            self._plasticity_queue_capacity = cap
+            # Trim if needed
+            if len(self._plasticity_queue) > cap:
+                self._plasticity_queue = self._plasticity_queue[-cap:]
+
+    def enqueue_plasticity_commands(self, commands: List[Dict[str, Any]]) -> int:
+        """Enqueue plasticity commands; drop excess and return dropped count.
+
+        Command schema (deterministic):
+        {'type': 'update_weights_delta', 'indices': np.ndarray[int32], 'deltas': np.ndarray[float32]}
+        {'type': 'update_thresholds', 'neuron_ids': List[int], 'new_values': List[float]}
+        """
+        if self._plasticity_queue_capacity <= 0 or not commands:
+            return len(commands)
+
+        dropped = 0
+        with (self._plasticity_lock or _NullContext()):
+            available = self._plasticity_queue_capacity - len(self._plasticity_queue)
+            if available <= 0:
+                dropped = len(commands)
+            else:
+                to_add = commands[:available]
+                self._plasticity_queue.extend(to_add)
+                dropped = len(commands) - len(to_add)
+
+        if dropped > 0:
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                FeagiStateManager.instance().increment_plasticity_dropped_ops(dropped)
+            except Exception:
+                pass
+        return dropped
+
+    def apply_plasticity_ops(self, max_ops: int) -> int:
+        """Apply up to max_ops plasticity commands deterministically.
+
+        Returns number of applied commands.
+        """
+        if max_ops <= 0 or self._plasticity_queue_capacity <= 0:
+            return 0
+        applied = 0
+        with (self._plasticity_lock or _NullContext()):
+            if not self._plasticity_queue:
+                return 0
+            # Pop in stable order
+            ops = self._plasticity_queue[:max_ops]
+            del self._plasticity_queue[:max_ops]
+
+        for cmd in ops:
+            t = cmd.get('type')
+            if t == 'update_weights_delta':
+                indices = cmd['indices']
+                deltas = cmd['deltas']
+                self._apply_update_weights_delta(indices, deltas)
+            elif t == 'update_thresholds':
+                ids = cmd['neuron_ids']
+                vals = cmd['new_values']
+                self._apply_update_thresholds(ids, vals)
+            elif t == 'create_memory_neurons':
+                self._apply_create_memory_neurons(cmd)
+            # Additional types can be added with explicit handlers only
+            applied += 1
+        return applied
+
+    def _apply_update_weights_delta(self, indices: Any, deltas: Any) -> None:
+        import numpy as np
+        try:
+            arr_idx = np.asarray(indices, dtype=np.int32)
+            arr_d = np.asarray(deltas, dtype=np.float32)
+            count = min(len(arr_idx), len(arr_d))
+            if count == 0:
+                return
+            # Bounds and validity mask
+            max_valid = int(self.synapse_array.count)
+            valid_mask = (arr_idx >= 0) & (arr_idx < max_valid)
+            if not np.any(valid_mask):
+                return
+            idx = arr_idx[valid_mask]
+            d = arr_d[valid_mask]
+            self.synapse_array.weights[idx] += d
+        except Exception:
+            # Do not raise in hot path; plasticity is best-effort within bounds
+            pass
+
+    def _apply_update_thresholds(self, neuron_ids: List[int], new_values: List[float]) -> None:
+        try:
+            count = min(len(neuron_ids), len(new_values))
+            if count <= 0:
+                return
+            for nid, val in zip(neuron_ids[:count], new_values[:count]):
+                if nid in self.neuron_array.neuron_id_to_index:
+                    self.neuron_array.set_neuron_property(int(nid), 'threshold', float(val))
+        except Exception:
+            pass
+
+    def _apply_create_memory_neurons(self, cmd: Dict[str, Any]) -> None:
+        try:
+            area_idx = int(cmd['area_idx'])
+            count = int(cmd.get('count', 1))
+            if count <= 0:
+                return
+            # Minimal creation: allocate placeholder memory neurons in the area
+            # with genome-specified defaults; here we require caller to set thresholds etc.
+            # This placeholder uses MemoryNeuronArray minimal properties.
+            created = 0
+            for _ in range(count):
+                # Create with minimal required parameters; thresholds/excitabilities must be provided by genome in real path
+                pattern_key = cmd.get('pattern_key')
+                idx = self.memory_neuron_array.create_memory_neuron(
+                    pattern_key=pattern_key,
+                    cortical_area_id=str(area_idx),
+                    current_burst=0,
+                    initial_lifespan=9,
+                    lifespan_growth_rate=1.0,
+                    membrane_potential=0.0,
+                    firing_threshold=1.0,
+                )
+                if idx >= 0:
+                    created += 1
+        except Exception:
+            pass
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        return False

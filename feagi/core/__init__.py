@@ -30,7 +30,7 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
     Returns:
         CoreAPIService instance with all core components initialized
     """
-    from feagi.api.core.services.core_api_service import CoreAPIService
+    from feagi.core.create_core_api import CoreAPI as CoreAPIService
 
     # Create and initialize the FEAGI core instance
     logger.info("Initializing FEAGI core components...")
