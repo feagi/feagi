@@ -139,6 +139,82 @@ class RegistrationManager:
             "🏛️ Registration Manager initialized - ready for agent coordination"
         )
 
+    # --- Capability canonicalization & validation ---
+    def _sanitize_capabilities(self, capabilities: Dict[str, Any]) -> Dict[str, Any]:
+        """Return a sanitized, deterministic capability dict.
+
+        Canonical keys allowed:
+        - sensory: bool | { enabled: bool }
+        - visualization: bool | { enabled: bool }
+        - motor: bool | { enabled: bool, sampling_frequency_hz: number|"burst", prefer_shm: bool }
+
+        Aliases are deprecated and will be removed. For now we WARN and map:
+        - visualization aliases → visualization: neuron_visualization, brain_visualizer, 3d_visualization
+        - motor aliases → motor: motor_controller
+
+        All other unknown keys are ignored with a WARNING (deprecation).
+        """
+        sanitized: Dict[str, Any] = {}
+
+        if not isinstance(capabilities, dict):
+            return sanitized
+
+        # Handle visualization
+        viz_value = None
+        if "visualization" in capabilities:
+            viz_value = capabilities.get("visualization")
+        else:
+            for alias in ("neuron_visualization", "brain_visualizer", "3d_visualization"):
+                if alias in capabilities:
+                    viz_value = capabilities.get(alias)
+                    logger.warning(
+                        f"[DEPRECATION] Capability '{alias}' is deprecated. Use 'visualization' instead."
+                    )
+                    break
+        if viz_value is not None:
+            if isinstance(viz_value, dict):
+                sanitized["visualization"] = {"enabled": bool(viz_value.get("enabled", True))}
+            else:
+                sanitized["visualization"] = bool(viz_value)
+
+        # Handle sensory
+        sens_value = capabilities.get("sensory")
+        if sens_value is not None:
+            if isinstance(sens_value, dict):
+                sanitized["sensory"] = {"enabled": bool(sens_value.get("enabled", True))}
+            else:
+                sanitized["sensory"] = bool(sens_value)
+
+        # Handle motor
+        motor_value = None
+        if "motor" in capabilities:
+            motor_value = capabilities.get("motor")
+        elif "motor_controller" in capabilities:
+            motor_value = capabilities.get("motor_controller")
+            logger.warning(
+                "[DEPRECATION] Capability 'motor_controller' is deprecated. Use 'motor' instead."
+            )
+        if motor_value is not None:
+            if isinstance(motor_value, dict):
+                allowed = {
+                    "enabled": bool(motor_value.get("enabled", True)),
+                    "prefer_shm": bool(motor_value.get("prefer_shm", False)),
+                }
+                if "sampling_frequency_hz" in motor_value:
+                    allowed["sampling_frequency_hz"] = motor_value.get("sampling_frequency_hz")
+                sanitized["motor"] = allowed
+            else:
+                sanitized["motor"] = {"enabled": bool(motor_value)}
+
+        # Warn on any unknown keys (ignored for now)
+        for k in capabilities.keys():
+            if k not in ("sensory", "visualization", "motor", "motor_controller", "neuron_visualization", "brain_visualizer", "3d_visualization"):
+                logger.warning(
+                    f"[DEPRECATION] Unknown capability '{k}' will be ignored. Only 'sensory', 'visualization', and 'motor' are supported."
+                )
+
+        return sanitized
+
     def register_agent(
         self, request: AgentRegistrationRequest
     ) -> AgentRegistrationResponse:
@@ -207,11 +283,12 @@ class RegistrationManager:
                 else:
                     logger.info(f"✅ New agent '{agent_id}' registering")
 
-                # 4. Create or update agent entry
+                # 4. Sanitize capabilities (deprecation-aware) and create/update agent entry
+                caps_sanitized = self._sanitize_capabilities(request.capabilities)
                 agent_data = {
                     "agent_id": agent_id,
                     "agent_type": request.agent_type,
-                    "capabilities": request.capabilities,
+                    "capabilities": caps_sanitized,
                     "agent_data_port": request.agent_data_port,
                     "agent_version": request.agent_version,
                     "controller_version": request.controller_version,
@@ -227,16 +304,10 @@ class RegistrationManager:
                 self._agents[agent_id] = agent_data
 
                 # 6. Update capability counts (add new capabilities)
-                self._update_capability_counts(
-                    request.capabilities, increment=True
-                )
+                self._update_capability_counts(caps_sanitized, increment=True)
 
                 # 7. Coordinate FQ samplers based on new agent capabilities
-                fq_coordination_result = (
-                    self._coordinate_fq_samplers_for_registration(
-                        request.capabilities
-                    )
-                )
+                fq_coordination_result = self._coordinate_fq_samplers_for_registration(caps_sanitized)
 
                 # 8. Update State Manager - call register_agent method
                 if self._state_manager:
@@ -250,7 +321,7 @@ class RegistrationManager:
                         self._state_manager.register_agent(
                             agent_id=request.agent_id,
                             agent_type=request.agent_type,
-                            capabilities=request.capabilities,
+                            capabilities=caps_sanitized,
                             agent_data_port=request.agent_data_port,
                             agent_version=request.agent_version,
                             controller_version=request.controller_version,
@@ -624,71 +695,26 @@ class RegistrationManager:
                 0, self._capability_counts["sensory"] + delta
             )
 
-    def _has_visualization_capabilities(
-        self, capabilities: Dict[str, Any]
-    ) -> bool:
-        """Check if agent has visualization capabilities."""
-        return (
-            capabilities.get("visualization", False)
-            or capabilities.get("3d_visualization", False)
-            or capabilities.get("brain_visualizer", False)
-            or capabilities.get("neural_visualization", False)
-        )
+    def _has_visualization_capabilities(self, capabilities: Dict[str, Any]) -> bool:
+        """Check if agent has visualization capabilities (canonical only)."""
+        if not isinstance(capabilities, dict):
+            return False
+        v = capabilities.get("visualization")
+        return bool(v.get("enabled", True)) if isinstance(v, dict) else bool(v)
 
     def _has_motor_capabilities(self, capabilities: Dict[str, Any]) -> bool:
-        """Check if agent has actual motor control capabilities (not just
-        visualization).
-
-        Brain visualizers that need to see motor data should NOT trigger motor
-        FQ sampler creation. Only agents that actually control motors should
-        trigger motor FQ samplers.
-        """
-        # Explicit motor control capabilities
-        has_motor_control = (
-            capabilities.get("motor", False)
-            or capabilities.get("motor_control", False)
-            or capabilities.get("actuator_control", False)
-            or capabilities.get("robot_control", False)
-        )
-
-        # Check for output capabilities, but exclude visualization-only agents
-        has_output = capabilities.get("output", False)
-        is_visualizer = (
-            capabilities.get("visualization", False)
-            or capabilities.get("3d_visualization", False)
-            or capabilities.get("brain_visualizer", False)
-            or capabilities.get("neural_visualization", False)
-        )
-
-        #  Only count output as motor capability if it's not a visualization
-        #  agent
-        has_output_control = has_output and not is_visualizer
-
-        #  Sensorimotor should only count as motor capability if it explicitly
-        #  includes motor control
-        #  Brain visualizers might have sensorimotor for displaying both
-        #  sensory and motor data
-        has_sensorimotor_control = (
-            capabilities.get("sensorimotor", False)
-            and not is_visualizer
-            and (
-                capabilities.get("motor", False)
-                or capabilities.get("motor_control", False)
-            )
-        )
-
-        return (
-            has_motor_control or has_output_control or has_sensorimotor_control
-        )
+        """Check if agent has motor capabilities (canonical only)."""
+        if not isinstance(capabilities, dict):
+            return False
+        m = capabilities.get("motor")
+        return bool(m.get("enabled", True)) if isinstance(m, dict) else bool(m)
 
     def _has_sensory_capabilities(self, capabilities: Dict[str, Any]) -> bool:
-        """Check if agent has sensory capabilities."""
-        return (
-            capabilities.get("sensory", False)
-            or capabilities.get("input", False)
-            or capabilities.get("sensorimotor", False)
-            or capabilities.get("sensory_input", False)
-        )
+        """Check if agent has sensory capabilities (canonical only)."""
+        if not isinstance(capabilities, dict):
+            return False
+        s = capabilities.get("sensory")
+        return bool(s.get("enabled", True)) if isinstance(s, dict) else bool(s)
 
     def _coordinate_fq_samplers_for_registration(
         self, capabilities: Dict[str, Any]
@@ -766,14 +792,33 @@ class RegistrationManager:
             if self._has_motor_capabilities(capabilities):
                 logger.info(f"🚗 Agent has motor capabilities: {capabilities}")
                 if not self._fq_sampler_states["motor_enabled"]:
-                    # Get frequency from config or use default
-                    motor_frequency = 100.0  # Default motor frequency
-                    if hasattr(self._process_manager, "_fq_sampler_config"):
-                        motor_frequency = (
-                            self._process_manager._fq_sampler_config.get(
-                                "motor_frequency", 100.0
-                            )
-                        )
+                    # Determine requested sampling frequency
+                    motor_cap = capabilities.get("motor")
+                    requested = None
+                    if isinstance(motor_cap, dict):
+                        requested = motor_cap.get("sampling_frequency_hz")
+                    # Default policy: if unspecified → sample every burst
+                    motor_frequency = None
+                    if isinstance(requested, (int, float)) and requested > 0:
+                        motor_frequency = float(requested)
+                    elif isinstance(requested, str) and requested.lower() == "burst":
+                        motor_frequency = None  # signal burst coupling
+                    else:
+                        # Backward-compat: take configured default if present, otherwise burst
+                        motor_frequency = None
+
+                    # If request is burst-coupled, use current burst frequency
+                    if motor_frequency is None:
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            state_manager = FeagiStateManager.instance()
+                            burst_frequency = state_manager.get_burst_frequency()
+                            if burst_frequency and burst_frequency > 0:
+                                motor_frequency = float(burst_frequency)
+                            else:
+                                motor_frequency = 100.0  # safe fallback
+                        except Exception:
+                            motor_frequency = 100.0
 
                     success = self._process_manager.create_fq_sampler(
                         "opu", motor_frequency

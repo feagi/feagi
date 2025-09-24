@@ -78,6 +78,15 @@ class FQSampler:
                     coords_z = area_data.get('coordinates_z', [])
                     if coords_x:
                         pass  # Coordinate sampling available
+
+        # Debug: log motor-targeted areas when NPU debug is enabled
+        try:
+            if self._is_debug_npu_enabled():
+                motor_like = [k for k in result.keys() if isinstance(k, int)]
+                if motor_like:
+                    logger.info(f"[NPU-DEBUG] FQSampler produced {len(motor_like)} areas for downstream streams (motor/viz)")
+        except Exception:
+            pass
         
         self.samples_taken += 1
         self.last_sample_time = current_time
@@ -265,3 +274,12 @@ class UnifiedFQSampler:
             'samples_taken': getattr(self._fq_sampler, 'samples_taken', 0),
             'has_visualization_subscribers': self.has_visualization_subscribers()
         }
+
+    # Motor-specific delegation (needed by Process Manager notifications)
+    def set_motor_subscribers(self, has_subscribers: bool) -> None:
+        """Notify underlying sampler about motor subscribers status."""
+        try:
+            if hasattr(self._fq_sampler, 'set_motor_subscribers'):
+                self._fq_sampler.set_motor_subscribers(has_subscribers)
+        except Exception:
+            pass

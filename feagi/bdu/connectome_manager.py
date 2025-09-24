@@ -794,6 +794,75 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         return self.cortical_mapping.get_id(cortical_idx)
 
+    # ======================================================================
+    # OPERATIONAL HELPERS: STRICT IPU/OPU CLASSIFICATION
+    # ======================================================================
+    def is_opu(self, cortical_id_or_idx) -> bool:
+        """Return True iff the area's cortical_group is exactly 'OPU'.
+
+        Args:
+            cortical_id_or_idx: Cortical area ID (str) or index (int)
+        """
+        try:
+            if isinstance(cortical_id_or_idx, int):
+                cid = self.get_cortical_id_for_idx(int(cortical_id_or_idx))
+            else:
+                cid = str(cortical_id_or_idx)
+            if not cid:
+                return False
+            info = self.get_cortical_area_properties(cid) or {}
+            group = str(info.get("cortical_group", "")).upper()
+            return group == "OPU"
+        except Exception:
+            return False
+
+    def is_ipu(self, cortical_id_or_idx) -> bool:
+        """Return True iff the area's cortical_group is exactly 'IPU'.
+
+        Args:
+            cortical_id_or_idx: Cortical area ID (str) or index (int)
+        """
+        try:
+            if isinstance(cortical_id_or_idx, int):
+                cid = self.get_cortical_id_for_idx(int(cortical_id_or_idx))
+            else:
+                cid = str(cortical_id_or_idx)
+            if not cid:
+                return False
+            info = self.get_cortical_area_properties(cid) or {}
+            group = str(info.get("cortical_group", "")).upper()
+            return group == "IPU"
+        except Exception:
+            return False
+
+    def list_opu_areas(self) -> list:
+        """Return a list of cortical IDs whose cortical_group is 'OPU'."""
+        result = []
+        try:
+            for cid in list(self.cortical_areas.keys()):
+                try:
+                    if self.is_opu(cid):
+                        result.append(cid)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return result
+
+    def list_ipu_areas(self) -> list:
+        """Return a list of cortical IDs whose cortical_group is 'IPU'."""
+        result = []
+        try:
+            for cid in list(self.cortical_areas.keys()):
+                try:
+                    if self.is_ipu(cid):
+                        result.append(cid)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return result
+
     def validate_cortical_mapping(self) -> bool:
         """Validate that cortical mapping is consistent with cortical_areas.
 
@@ -4130,7 +4199,16 @@ class ConnectomeManager(NeuronMappingProvider):
         else:
             coordinates_2d = [int(coordinates_2d[0]), int(coordinates_2d[1])]
 
-        cortical_group = params.get("cortical_group") or source_props.get("group_id") or "CUSTOM"
+        # Derive canonical cortical_group with strict, deterministic mapping
+        raw_group = (
+            params.get("cortical_group")
+            or params.get("group")
+            or source_props.get("cortical_group")
+            or source_props.get("type")
+            or source_props.get("group_id")
+            or ""
+        )
+        cortical_group = str(raw_group).upper() if raw_group else "CUSTOM"
         sub_group_id = params.get("sub_group_id") or params.get("cortical_sub_group") or source_props.get("subgroup")
         is_memory = sub_group_id == "MEMORY"
 

@@ -1442,6 +1442,39 @@ class CoreAPIService:
         """Get the connectome manager instance (legacy alias)."""
         return self._connectome_manager
 
+    # === Area classification helpers (strict) ===
+    def is_opu_area(self, cortical_id_or_idx) -> bool:
+        """Return True iff cortical_group == 'OPU' for the area."""
+        try:
+            cm = self._connectome_manager
+            return bool(cm and hasattr(cm, "is_opu") and cm.is_opu(cortical_id_or_idx))
+        except Exception:
+            return False
+
+    def is_ipu_area(self, cortical_id_or_idx) -> bool:
+        """Return True iff cortical_group == 'IPU' for the area."""
+        try:
+            cm = self._connectome_manager
+            return bool(cm and hasattr(cm, "is_ipu") and cm.is_ipu(cortical_id_or_idx))
+        except Exception:
+            return False
+
+    def list_opu_areas(self) -> list:
+        """Return list of cortical IDs for OPU areas."""
+        try:
+            cm = self._connectome_manager
+            return list(cm.list_opu_areas()) if cm and hasattr(cm, "list_opu_areas") else []
+        except Exception:
+            return []
+
+    def list_ipu_areas(self) -> list:
+        """Return list of cortical IDs for IPU areas."""
+        try:
+            cm = self._connectome_manager
+            return list(cm.list_ipu_areas()) if cm and hasattr(cm, "list_ipu_areas") else []
+        except Exception:
+            return []
+
     def get_fcl_manager(self):
         """Get the FCL manager instance (compatibility adapter for new architecture).
         

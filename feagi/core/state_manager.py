@@ -597,12 +597,12 @@ class FeagiStateManager:
 
             # Only expose/create FEAGI-owned core streams for eligible agents
             # Visualization core stream (FEAGI → BV)
-            wants_viz = bool(
-                caps.get("visualization")
-                or caps.get("neuron_visualization")
-                or caps.get("brain_visualizer")
-                or caps.get("3d_visualization")
-            )
+            # Strict visualization gating: only canonical key
+            wants_viz = False
+            if isinstance(caps.get("visualization"), dict):
+                wants_viz = bool(caps["visualization"].get("enabled", True))
+            else:
+                wants_viz = bool(caps.get("visualization"))
             if wants_viz:
                 viz_key = "visualization_stream"
                 viz_path = self._shared_memory_registry.get(viz_key, "")
@@ -621,24 +621,25 @@ class FeagiStateManager:
                 if viz_path:
                     mappings[viz_key] = viz_path
 
-            # Motor core stream (FEAGI → motor-capable agents)
-            wants_motor = bool(caps.get("motor") or caps.get("motor_controller"))
+            # Motor stream (FEAGI → motor-capable agents)
+            # Use dedicated per-agent SHM file to avoid shared-writer contention
+            # Strict motor gating: only canonical key
+            wants_motor = False
+            if isinstance(caps.get("motor"), dict):
+                wants_motor = bool(caps["motor"].get("enabled", True))
+            else:
+                wants_motor = bool(caps.get("motor"))
             if wants_motor:
-                motor_key = "motor_stream"
-                motor_path = self._shared_memory_registry.get(motor_key, "")
                 try:
-                    from pathlib import Path as _P
-                    if not motor_path or not _P(motor_path).exists():
-                        motor_path = self._shm_manager.create_stream_file(motor_key)
-                        self._shared_memory_registry[motor_key] = motor_path
-                        logger.info(
-                            f"𒓉 [SHM] Ensured core motor stream SHM exists: {motor_path}"
-                        )
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"motor": True})
+                    motor_path = created.get("motor", "")
                 except Exception as e:
-                    logger.warning(f"[SHM] Failed to ensure motor SHM: {e}")
+                    logger.warning(f"[SHM] Failed to create per-agent motor SHM: {e}")
                     motor_path = ""
                 if motor_path:
-                    mappings[motor_key] = motor_path
+                    # Provide both keys for backward compatibility with agents
+                    mappings["motor"] = motor_path
+                    mappings["motor_stream"] = motor_path
 
             # NOTE: Do NOT pre-create inbound agent files (sensory/video). Those
             # must be created by the agent with correct headers. Pre-touching here
