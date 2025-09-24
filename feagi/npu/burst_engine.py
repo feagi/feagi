@@ -989,17 +989,7 @@ class BurstEngine:
                     
                 npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
                 if not npu_interface:
-                    # Test-friendly fallback: create minimal FiringNeuron without full validation
-                    firing_neuron = FiringNeuron(
-                        neuron_id=neuron_id,
-                        coordinates=(0, 0, 0),  # Default coordinates for testing
-                        timestamp=self.current_timestep,
-                        cortical_idx=0,  # Default cortical index for testing
-                        threshold=1.0,  # Default threshold for testing
-                        membrane_potential=1.0  # Default firing potential
-                    )
-                    firing_neurons.append(firing_neuron)
-                    continue
+                    raise ValueError("NPU interface not initialized; cannot build firing neurons deterministically")
                 
                 # Get cortical area - MUST exist in genome
                 neuron_to_area = getattr(npu_interface, 'neuron_to_area', None)
@@ -1048,6 +1038,8 @@ class BurstEngine:
                     raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in membrane potentials array")
                     
                 membrane_potential = float(membrane_potentials[neuron_index])
+                # Deterministic rule: pre_fire_potential is defined as the firing threshold for that neuron.
+                pre_fire_potential = self._get_neuron_firing_threshold(neuron_id)
                 
                 # Get threshold - MUST exist in genome  
                 threshold = self._get_neuron_firing_threshold(neuron_id)
@@ -1067,6 +1059,7 @@ class BurstEngine:
                     neuron_id=neuron_id,
                     cortical_idx=cortical_idx,
                     membrane_potential=membrane_potential,
+                    pre_fire_potential=pre_fire_potential,
                     coordinates=coordinates,
                     threshold=threshold,
                     consecutive_fire_count=consecutive_fire_count,  # ACTUAL value from NPU neural dynamics

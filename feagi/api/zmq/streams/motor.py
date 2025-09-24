@@ -520,8 +520,35 @@ class MotorStream:
                     # Targeted debug: explain why ogaz is not included
                     try:
                         from feagi.core.state_manager import FeagiStateManager
-                        if cortical_id_str.lower().startswith("ogaz") and FeagiStateManager.instance().is_debug_npu_enabled():
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
                             logger.info(f"[MOTOR-DEBUG] Skipping area '{cortical_id_str}' - not classified as OPU")
+                            # Aggressive diagnostics for root-cause: dump classification signals
+                            try:
+                                cm = self.core_api.get_connectome_manager() if hasattr(self.core_api, 'get_connectome_manager') else None
+                                area_props = cm.get_cortical_area_properties(cortical_id_str) if cm and hasattr(cm, 'get_cortical_area_properties') else {}
+                                group = str((area_props.get('cortical_group') or '')).upper()
+                                logger.info(f"[MOTOR-DEBUG] Area '{cortical_id_str}' cortical_group='{group}', props_keys={list(area_props.keys()) if area_props else []}")
+                                # Connectome helper verdicts
+                                cm_is_opu = bool(cm and hasattr(cm, 'is_opu') and cm.is_opu(cortical_id_str))
+                                cm_is_ipu = bool(cm and hasattr(cm, 'is_ipu') and cm.is_ipu(cortical_id_str))
+                                logger.info(f"[MOTOR-DEBUG] Connectome verdicts: is_opu={cm_is_opu}, is_ipu={cm_is_ipu}")
+                                # Core API list samples
+                                try:
+                                    opu_list = self.core_api.list_opu_areas() if hasattr(self.core_api, 'list_opu_areas') else []
+                                    ipu_list = self.core_api.list_ipu_areas() if hasattr(self.core_api, 'list_ipu_areas') else []
+                                except Exception:
+                                    opu_list, ipu_list = [], []
+                                logger.info(f"[MOTOR-DEBUG] OPU areas sample (first 12): {opu_list[:12]}")
+                                logger.info(f"[MOTOR-DEBUG] IPU areas sample (first 12): {ipu_list[:12]}")
+                                # If key is index, show resolution mapping
+                                try:
+                                    if isinstance(area_key, int) and hasattr(self.core_api, 'get_cortical_id_for_idx'):
+                                        resolved = self.core_api.get_cortical_id_for_idx(area_key)
+                                        logger.info(f"[MOTOR-DEBUG] area_key={area_key} resolved to cortical_id='{resolved}'")
+                                except Exception:
+                                    pass
+                            except Exception as diag_e:
+                                logger.info(f"[MOTOR-DEBUG] Diagnostic logging failed: {diag_e}")
                     except Exception:
                         pass
                     continue
@@ -537,7 +564,7 @@ class MotorStream:
 
                 # Extract data from area (support multiple shapes)
                 neuron_ids = area_data.get("neuron_ids")
-                membrane_potentials = area_data.get("membrane_potentials", [])
+                membrane_potentials = area_data.get("pre_fire_potentials") or area_data.get("membrane_potentials", [])
                 coordinates = area_data.get("coordinates")
                 x_values = y_values = z_values = None
                 # coordinates as list of triples

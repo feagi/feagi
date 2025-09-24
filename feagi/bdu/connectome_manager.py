@@ -3286,6 +3286,17 @@ class ConnectomeManager(NeuronMappingProvider):
                 hierarchical_params = area.properties.copy() if area.properties else {}
                 flat_parameters = self._convert_hierarchical_to_flat_parameters(hierarchical_params)
                 
+                # Derive canonical cortical_group strictly from parameters/type
+                try:
+                    raw_group = (
+                        flat_parameters.get("cortical_group")
+                        or flat_parameters.get("group")
+                        or getattr(area, "area_type", "")
+                    )
+                except Exception:
+                    raw_group = ""
+                cortical_group = str(raw_group).upper() if raw_group else "CUSTOM"
+
                 properties = {
                     "id": cortical_id,
                     "cortical_idx": (
@@ -3295,6 +3306,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     "coordinates": tuple(coordinates),
                     "dimensions": tuple(dimensions),
                     "type": area.area_type,
+                    "cortical_group": cortical_group,
                     "parameters": flat_parameters,
                     "neuron_count": int(len(_neuron_ids_for_count)),
                 }
