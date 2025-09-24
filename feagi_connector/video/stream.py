@@ -107,7 +107,7 @@ async def stream_segmented_camera(
                 agent_type="external",
                 capabilities={
                     "sensory": True,
-                    "motor": True,
+                    "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
                     "visualization": True,
                     "video_stream_raw": True,
                     "video_stream": True,
@@ -209,6 +209,26 @@ async def stream_segmented_camera(
                     try:
                         try:
                             logger.debug(f"[MOTOR] Received payload: {len(payload)} bytes")
+                        except Exception:
+                            pass
+                        # TEMP: aggressively log all decoded motor data regardless of cortical area
+                        try:
+                            import feagi_rust_py_libs as frpl  # local import to avoid hard dep at module import time
+                            fbs = frpl.data_serialization.FeagiByteStructure(payload)
+                            mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(fbs)
+                            for cid_obj, neuron_arrays in mapped.iter_full():
+                                try:
+                                    x_coords, y_coords, z_coords, potentials = neuron_arrays
+                                    count = min(len(x_coords), len(y_coords), len(z_coords), len(potentials))
+                                    if count > 0:
+                                        logger.info(
+                                            f"[MOTOR-DECODE] area={str(cid_obj)} neurons={count} first=({int(x_coords[0])},{int(y_coords[0])},{int(z_coords[0])},{float(potentials[0]):.4f})"
+                                        )
+                                    else:
+                                        logger.info(f"[MOTOR-DECODE] area={str(cid_obj)} neurons=0")
+                                except Exception:
+                                    # Best-effort logging; continue on errors
+                                    continue
                         except Exception:
                             pass
                         result = gaze_motor.process_motor_bytes(payload)
@@ -320,13 +340,13 @@ async def stream_segmented_camera(
                 consecutive_failures += 1
                 current_time = time.time()
                 
-                # Rate-limit reconnection attempts
-                if (consecutive_failures >= max_consecutive_failures or 
-                    current_time - last_reconnect_time < min_reconnect_interval):
+                # Rate-limit and only reconnect after sustained failures
+                if (consecutive_failures < max_consecutive_failures or 
+                    (current_time - last_reconnect_time) < min_reconnect_interval):
                     logger.warning(f"⚠️ Frame processing failed ({consecutive_failures} consecutive): {e}")
                     await asyncio.sleep(0.1)
                     continue
-                
+
                 logger.warning(f"🔄 Connection issue detected, attempting reconnect... ({consecutive_failures} failures)")
                 
                 # Attempt bounded backoff reconnect

@@ -131,9 +131,17 @@ class SegmentedVisionProcessor:
             self._image_properties = self._frpl.data_structures.data.image_descriptors.ImageFrameProperties(in_res, cs, cc)
             
             # Use image_camera_with_peripheral as shown in the sample
-            self._cache.image_camera_with_peripheral.register(
-                self.group_index, self.number_of_channels, self._image_properties, self._seg_props, self._gaze
-            )
+            try:
+                self._cache.image_camera_with_peripheral.register(
+                    self.group_index, self.number_of_channels, self._image_properties, self._seg_props, self._gaze
+                )
+            except Exception as e:
+                # Idempotency guard: ignore duplicate registration errors
+                msg = str(e).lower()
+                if "already" in msg and "register" in msg:
+                    pass
+                else:
+                    raise
 
     def process_frame(self, frame_bgr: np.ndarray, resize_to: Optional[Tuple[int, int]] = None) -> bytes:
         import feagi_rust_py_libs as frpl  # ensure availability inside method
@@ -163,8 +171,7 @@ class SegmentedVisionProcessor:
             max(0.0, min(1.0, gaze_x)),
             max(0.0, min(1.0, gaze_y))
         )
-        # Force re-registration with new gaze properties
-        self._image_properties = None
+        # Update internal gaze properties; registration remains idempotent
         self._setup_gaze_properties()
 
     @property
