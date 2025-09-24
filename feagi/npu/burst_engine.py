@@ -1882,26 +1882,28 @@ class PowerInjectionService:
                 # Convert to numpy arrays for SoA format - NO HARDCODED VALUES
                 neuron_ids = np.array(power_neurons, dtype=np.uint32)
                 
-                # Get actual firing thresholds from genome for each power neuron
+                # Compute delta = max(0, threshold - current_potential) per neuron (deterministic, non-accumulating)
                 potential_deltas = []
                 npu_interface = self.connectome_manager._npu_interface
                 neuron_array = npu_interface.neuron_array if npu_interface else None
                 
                 if neuron_array:
+                    thresholds_arr = getattr(neuron_array, 'thresholds', None)
+                    current_pots_arr = getattr(neuron_array, 'membrane_potentials', None)
+                    if thresholds_arr is None or current_pots_arr is None:
+                        raise ValueError("Cannot inject power neurons: Missing thresholds or membrane_potentials in neuron array")
                     for power_neuron_id in power_neurons:
-                        try:
-                            # Get actual threshold from genome - NO HARDCODED FALLBACKS
-                            if power_neuron_id in neuron_array.neuron_id_to_index:
-                                idx = neuron_array.neuron_id_to_index[power_neuron_id]
-                                threshold = neuron_array.thresholds[idx]
-                                # Set potential to exactly the threshold to ensure firing
-                                potential_deltas.append(threshold)
-                            else:
-                                raise ValueError(f"Power neuron {power_neuron_id} not found in neuron array")
-                        except Exception as e:
-                            # ARCHITECTURE COMPLIANCE: No fallbacks allowed
-                            raise ValueError(f"Cannot get firing threshold for power neuron {power_neuron_id} from genome: {e}")
-                    
+                        if power_neuron_id not in neuron_array.neuron_id_to_index:
+                            raise ValueError(f"Power neuron {power_neuron_id} not found in neuron array")
+                        idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                        if idx >= len(thresholds_arr) or idx >= len(current_pots_arr):
+                            raise ValueError(f"Power neuron index {idx} out of bounds for thresholds or membrane_potentials")
+                        threshold = float(thresholds_arr[idx])
+                        current_potential = float(current_pots_arr[idx])
+                        delta = threshold - current_potential
+                        if delta < 0.0:
+                            delta = 0.0
+                        potential_deltas.append(delta)
                     potential_deltas = np.array(potential_deltas, dtype=np.float32)
                 else:
                     raise ValueError("Cannot inject power neurons: No neuron array available from genome")
