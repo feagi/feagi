@@ -621,11 +621,14 @@ cortical_template_memory = {
     "leak_coefficient": 0,
     "neuron_excitability": 1.0,
     "visualization": True,
-    # Memory-specific properties
-    "init_lifespan": 9,  # Initial neuron lifespan
-    "lifespan_growth_rate": 1.0,  # Growth rate on reactivation
-    "longterm_mem_threshold": 100,  # Long-term conversion threshold
-    "temporal_depth": 1,  # Pattern history depth
+    # Memory-specific properties (aligned with TOML configuration)
+    "init_lifespan": 20,  # Initial neuron lifespan (bursts) - matches TOML default
+    "lifespan_growth_rate": 3.0,  # Additive growth rate on reactivation - matches TOML default
+    "longterm_mem_threshold": 100,  # Long-term conversion threshold - matches TOML default
+    "temporal_depth": 3,  # Pattern history depth - PER AREA CONFIGURABLE
+    "max_reactivations": 1000,  # Maximum reactivations before forced LTM
+    "pattern_cache_size": 10000,  # Pattern cache size for performance
+    "min_activation_count": 3,  # Minimum activations required for pattern formation
 }
 
 

@@ -4,6 +4,7 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.burst_engine import BurstEngine
 from feagi.npu.fire_ledger import FireLedgerInterface
 from feagi.npu.plasticity.service import PlasticityService, PlasticityConfig
+from feagi.npu.plasticity.memory_neuron_array import MemoryNeuronArray, MemoryNeuronLifecycleConfig
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 

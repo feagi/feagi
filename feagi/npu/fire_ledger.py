@@ -318,6 +318,101 @@ class FireLedgerInterface:
             return self.memory_areas[area_idx].window_size
         return self.default_window_size
     
+    def get_area_activity(self, area_idx: int, timestep: int) -> Optional['RoaringBitmap']:
+        """
+        Get activity bitmap for any area type at specific timestep.
+        
+        Supports both regular and memory areas with unified ID space.
+        Used by memory pattern detection system.
+        
+        Args:
+            area_idx: Cortical area index (regular or memory)
+            timestep: Absolute timestep to query
+            
+        Returns:
+            RoaringBitmap of active neuron IDs, or None if no data
+        """
+        from .plasticity.neuron_id_manager import NeuronIdManager
+        
+        # Calculate timestep offset from current
+        if timestep > self.current_timestep:
+            return RoaringBitmap()  # Future timestep
+        
+        timestep_offset = timestep - self.current_timestep
+        
+        # Handle memory areas (may have memory neurons with different ID space)
+        if NeuronIdManager.is_memory_neuron_id(area_idx):
+            # This is a memory area - get memory neuron activity
+            # Memory neurons are managed separately and have global unique IDs
+            return self._get_memory_area_activity(area_idx, timestep_offset)
+        else:
+            # Regular cortical area
+            return self.get_timestep_pattern(area_idx, timestep_offset)
+    
+    def _get_memory_area_activity(self, memory_area_idx: int, timestep_offset: int) -> 'RoaringBitmap':
+        """
+        Get memory neuron activity for memory area.
+        
+        Memory neurons are stored separately and need special handling.
+        """
+        # For now, return empty - this will be populated when memory neurons
+        # are created and their activity is tracked
+        return RoaringBitmap()
+    
+    def get_combined_upstream_activity(
+        self, 
+        upstream_areas: List[int], 
+        timestep: int
+    ) -> 'RoaringBitmap':
+        """
+        Get combined activity from multiple upstream areas at timestep.
+        
+        Optimized for memory pattern detection with SIMD bitmap operations.
+        
+        Args:
+            upstream_areas: List of upstream cortical area indices
+            timestep: Absolute timestep to query
+            
+        Returns:
+            Combined RoaringBitmap with union of all upstream activity
+        """
+        combined_bitmap = RoaringBitmap()
+        
+        for area_idx in upstream_areas:
+            area_activity = self.get_area_activity(area_idx, timestep)
+            if area_activity and not area_activity.is_empty():
+                combined_bitmap = combined_bitmap.union(area_activity)
+        
+        return combined_bitmap
+    
+    def get_temporal_pattern_sequence(
+        self,
+        upstream_areas: List[int],
+        current_timestep: int,
+        temporal_depth: int
+    ) -> List['RoaringBitmap']:
+        """
+        Get sequence of combined upstream activity for temporal pattern detection.
+        
+        Optimized for memory formation pattern extraction.
+        
+        Args:
+            upstream_areas: List of upstream area indices
+            current_timestep: Current simulation timestep
+            temporal_depth: Number of timesteps to look back
+            
+        Returns:
+            List of RoaringBitmaps in temporal order [t, t-1, t-2, ...]
+        """
+        pattern_sequence = []
+        
+        for offset in range(temporal_depth):
+            timestep = current_timestep - offset
+            combined_activity = self.get_combined_upstream_activity(upstream_areas, timestep)
+            pattern_sequence.append(combined_activity)
+        
+        return pattern_sequence
+    
     def get_active_areas(self) -> List[int]:
         """Get list of cortical areas with historical data."""
         return list(self.cortical_histories.keys())
@@ -325,3 +420,20 @@ class FireLedgerInterface:
     def is_memory_area(self, area_idx: int) -> bool:
         """Check if cortical area is configured as memory area."""
         return area_idx in self.memory_areas
+    
+    def get_memory_area_config(self, area_idx: int) -> Optional[Dict]:
+        """
+        Get memory area configuration.
+        
+        Returns:
+            Dict with window_size and upstream_areas, or None if not memory area
+        """
+        if area_idx not in self.memory_areas:
+            return None
+        
+        memory_area = self.memory_areas[area_idx]
+        return {
+            'window_size': memory_area.window_size,
+            'upstream_areas': memory_area.upstream_areas.copy(),
+            'cortical_idx': memory_area.cortical_idx
+        }

@@ -109,6 +109,31 @@ batch_size = 1000              # neurons per batch
 use_sparse_computation = true   # optimize for sparse networks
 enable_plasticity = true       # learning mechanisms
 
+[plasticity]
+# Plasticity system configuration (required for memory formation and STDP)
+queue_capacity = 4096          # Maximum plasticity commands that can be queued
+max_ops_per_burst = 1024       # Maximum plasticity operations to apply per burst
+
+[plasticity.stdp]
+# Spike-Time Dependent Plasticity configuration
+lookback_steps = 20            # Number of timesteps to look back for spike timing
+tau_pre = 20.0                 # Pre-synaptic time constant
+tau_post = 20.0                # Post-synaptic time constant
+a_plus = 0.01                  # Potentiation amplitude
+a_minus = 0.012                # Depression amplitude
+
+[plasticity.memory]
+# Memory formation configuration
+lookback_steps = 50            # Number of timesteps to analyze for patterns
+pattern_duration = 10          # Duration of temporal patterns to detect
+min_activation_count = 3       # Minimum activations required to form memory
+default_temporal_depth = 3     # Default temporal depth (per-area can override)
+pattern_cache_size = 10000     # Maximum patterns to cache for performance
+initial_lifespan = 20          # Initial lifespan for new memory neurons (bursts)
+lifespan_growth_rate = 3.0     # Additive lifespan increment on reactivation
+longterm_threshold = 100       # Lifespan threshold for long-term memory conversion
+max_reactivations = 1000       # Maximum reactivations before forced LTM
+
 [burst_engine]
 # Burst Engine Memory Management Configuration
 # Controls how memory is allocated for FCL, Fire Queue, and other burst engine components
