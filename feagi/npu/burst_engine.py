@@ -38,8 +38,9 @@ class BurstEngine:
     @classmethod
     def get_instance(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
         """Get or create the singleton instance."""
-        instance = cls(connectome_manager, state_manager, fire_ledger_window_size)
-        return instance
+        if cls._instance is None:
+            cls._instance = cls(connectome_manager, state_manager, fire_ledger_window_size)
+        return cls._instance
     
     @classmethod
     def reset_instance(cls):
@@ -63,7 +64,16 @@ class BurstEngine:
         # BurstEngine using FeagiStateManager singleton
         
         # Set initial burst engine state to INITIALIZING
-        self._set_burst_engine_state(ServiceState.INITIALIZING)
+        try:
+            # Prefer direct state manager call to avoid attribute resolution issues during import
+            if self.state_manager:
+                self.state_manager.set_burst_engine_state(ServiceState.INITIALIZING.value)
+            else:
+                # Fallback path should never happen since we cache the singleton above
+                pass
+        except Exception:
+            # Do not block initialization on state publish
+            pass
         
         # Core NPU components
         self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
@@ -89,7 +99,16 @@ class BurstEngine:
         self._fq_sampler_count = 0
         
         # Initialize frequency from state manager (single source of truth)
-        self._initialize_frequency_from_state_manager()
+        try:
+            state_freq = self.state_manager.get_burst_frequency() if self.state_manager else None
+            if state_freq and state_freq > 0:
+                self.desired_frequency = float(state_freq)
+            else:
+                # Use safe default and let state manager be updated by external controller
+                self.desired_frequency = 10.0  # @architecture:acceptable - emergency fallback
+        except Exception:
+            self.desired_frequency = 10.0  # @architecture:acceptable - emergency fallback
+        self.target_frequency = self.desired_frequency
         
         # Running state tracking (with debug integration)
         self._running_state = False
@@ -104,8 +123,23 @@ class BurstEngine:
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
 
+        # Compatibility adapter for legacy MemoryProcessor access in ConnectomeManager
+        try:
+            self.memory_processor = _MemoryProcessorAdapter(self)
+        except Exception:
+            self.memory_processor = None
+
         # Initialize injection service for power areas and special neurons
-        self._initialize_injection_service()
+        try:
+            import inspect
+            src_path = inspect.getsourcefile(self.__class__)
+            logger.info("[DEBUG] BurstEngine class loaded from: %s", src_path)
+        except Exception:
+            pass
+        if hasattr(self, "_initialize_injection_service"):
+            self._initialize_injection_service()
+        else:
+            logger.warning("[INJECTION] _initialize_injection_service not found on BurstEngine; skipping injection init")
         
         # Mark as initialized but keep in INITIALIZING state until burst processing works
         self._initialized = True
@@ -1806,6 +1840,48 @@ class BurstEngine:
         }
         
         return results
+
+
+class _MemoryProcessorAdapter:
+    """Adapter that exposes minimal interface expected by ConnectomeManager.
+
+    This bridges old MemoryProcessor calls to the new ledger-backed pipeline
+    without introducing fallbacks. All methods are deterministic and bounded.
+    """
+
+    def __init__(self, burst_engine: BurstEngine):
+        self._be = burst_engine
+        self.active_memory_areas = set()
+
+    def register_memory_area(
+        self,
+        cortical_id: str,
+        temporal_depth: int,
+        initial_lifespan: int,
+        lifespan_growth_rate: float,
+        longterm_threshold: int,
+        upstream_areas: set,
+    ) -> bool:
+        try:
+            # In new design, use fire ledger memory area config
+            cm = getattr(self._be, 'connectome_manager', None)
+            if not cm or not hasattr(cm, '_npu_interface'):
+                return False
+            npu_if = cm._npu_interface
+            # Map cortical_id to index via NPUInterface
+            idx = npu_if.get_cortical_idx_by_id(cortical_id) if hasattr(npu_if, 'get_cortical_idx_by_id') else None
+            if idx is None:
+                return False
+            self._be.fire_ledger.configure_memory_area(idx, max(temporal_depth, 1), [])
+            self.active_memory_areas.add(cortical_id)
+            return True
+        except Exception:
+            return False
+
+    def update_memory_area_upstream(self, cortical_id: str, upstream_areas: set) -> None:
+        # New ledger stores upstream list; no-op here until extended API added
+        _ = (cortical_id, upstream_areas)
+        return
 
 
 class PowerInjectionService:

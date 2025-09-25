@@ -248,17 +248,25 @@ class RegistrationManager:
                 # 1. Validate agent request
                 validation_result = self._validate_agent_request(request)
                 if not validation_result.get("valid", False):
+                    logger.error(
+                        "[REGISTRATION] Validation failed for agent %s: %s",
+                        request.agent_id,
+                        validation_result,
+                    )
                     return AgentRegistrationResponse(
                         success=False,
-                        message=validation_result.get(
-                            "error", "Validation failed"
-                        ),
+                        message=validation_result.get("error", "Validation failed"),
                         agent_id=request.agent_id,
                         error_code="VALIDATION_ERROR",
                     )
 
                 # 2. Check FEAGI readiness
                 if not self._check_feagi_readiness():
+                    logger.error(
+                        "[REGISTRATION] FEAGI not ready for agent %s (type=%s)",
+                        request.agent_id,
+                        request.agent_type,
+                    )
                     return AgentRegistrationResponse(
                         success=False,
                         message="FEAGI system not ready for agent registration",
@@ -318,6 +326,11 @@ class RegistrationManager:
 
                 # 7. Coordinate FQ samplers based on new agent capabilities
                 fq_coordination_result = self._coordinate_fq_samplers_for_registration(caps_sanitized)
+                logger.info(
+                    "[REGISTRATION] FQ coordination for %s: %s",
+                    request.agent_id,
+                    fq_coordination_result,
+                )
 
                 # 8. Update State Manager - call register_agent method
                 if self._state_manager:

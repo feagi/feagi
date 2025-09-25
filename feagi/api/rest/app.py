@@ -945,7 +945,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         get_feagi_agent_router(),
         prefix="/v1/agent",
         tags=["FEAGI AGENT"],
-        dependencies=[Depends(check_burst_engine)],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
         responses=standard_response,
     )
 
