@@ -2377,7 +2377,7 @@ class CoreAPIService:
                     all_morphologies[name] = {
                         "name": name,
                         "type": morphology.get("type", "unknown"),
-                        "class": "custom",  # ✅ FIXED: Use "custom" for genome morphologies
+                        "class": morphology.get("class", "custom"),  # Use original class or default to "custom"
                         "parameters": morphology.get("parameters", {}),
                         "source": "genome",
                     }
