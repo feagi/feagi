@@ -237,7 +237,9 @@ class BurstEngineAPI:
         """
         try:
             fcl_manager = self.core_api_service.get_fcl_manager()
+            logger.info(f"[FCL-DEBUG] get_fcl_manager returned: {fcl_manager}, type: {type(fcl_manager)}")
             if not fcl_manager:
+                logger.error(f"[FCL-DEBUG] FCL manager is None or falsy")
                 raise ValueError("FCL manager not available")
             
             # Get current timestep and log manager identity when debug is on

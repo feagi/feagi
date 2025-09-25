@@ -49,8 +49,7 @@ class CoreAPI:
     def get_connectome_manager(self):
         return self._connectome_manager
 
-    def get_fcl_manager(self):
-        return self._fcl_manager
+    # get_fcl_manager() inherited from CoreAPIService - uses FCLManagerAdapter
 
     def get_memory_manager(self):
         return self._memory_manager
