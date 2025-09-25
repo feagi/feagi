@@ -10,9 +10,15 @@ Abstractions here reduce boilerplate in agents by handling:
 from __future__ import annotations
 
 from typing import Optional, Tuple
+import logging
 
 import numpy as np
 from feagi_connector.cache.sensor_cache import SensorCache
+from feagi_connector.agent_logging.diagnostics import log_sensor_area_counts
+
+
+# Module logger for detailed vision diagnostics
+logger = logging.getLogger("feagi_connector.vision")
 
 
 def bgr_to_rgb_uint8(frame_bgr: np.ndarray) -> np.ndarray:
@@ -87,6 +93,12 @@ class SegmentedVisionProcessor:
         self._setup_gaze_properties()
 
         # Registration happens on first process call when input resolution is known
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"SegmentedVisionProcessor init: group={self.group_index}, "
+                f"center={self.center_dims}, per={self.per_dims}, channels={self.number_of_channels}, "
+                f"ecc={self._eccentricity_params}, mod={self._modulation_params}"
+            )
         
     def _setup_gaze_properties(self) -> None:
         """Setup gaze properties using the advanced pattern from feagi_rust_py_libs."""
@@ -120,6 +132,13 @@ class SegmentedVisionProcessor:
         self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties(
             eccentricity, modulation
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                ex = float(self._eccentricity_params[0]); ey = float(self._eccentricity_params[1])
+                mx = float(self._modulation_params[0]); my = float(self._modulation_params[1])
+                logger.debug(f"GazeProperties set: eccentricity=({ex:.3f},{ey:.3f}), modulation=({mx:.3f},{my:.3f})")
+            except Exception:
+                pass
 
     def _ensure_registered(self, width: int, height: int) -> None:
         if self._image_properties is None:
@@ -133,11 +152,16 @@ class SegmentedVisionProcessor:
                 self._cache.image_camera_with_peripheral.register(
                     self.group_index, self.number_of_channels, self._image_properties, self._seg_props, self._gaze
                 )
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        f"Registered segmented camera: in=({width}x{height}), center={self.center_dims}, per={self.per_dims}"
+                    )
             except Exception as e:
                 # Idempotency guard: ignore duplicate registration errors
                 msg = str(e).lower()
                 if "already" in msg and "register" in msg:
-                    pass
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Segmented camera already registered; continuing")
                 else:
                     raise
 
@@ -156,7 +180,13 @@ class SegmentedVisionProcessor:
         # Use image_camera_with_peripheral.store as shown in the sample
         self._cache.image_camera_with_peripheral.store(self.group_index, 0, image_frame)
         self._cache.encode_cached_data_into_bytes()
-        return self._cache.get_most_recent_sensor_bytes()
+        sensor_bytes = self._cache.get_most_recent_sensor_bytes()
+        # Optional compact diagnostics when DEBUG is enabled
+        try:
+            log_sensor_area_counts(logger, sensor_bytes)
+        except Exception:
+            pass
+        return sensor_bytes
 
     def update_eccentricity(self, ecc_x: float, ecc_y: float) -> None:
         """Update eccentricity (central region size) dynamically.
