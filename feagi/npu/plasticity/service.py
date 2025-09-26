@@ -204,12 +204,31 @@ class PlasticityService:
         4. Reactivates existing neurons for known patterns
         5. Converts eligible neurons to long-term memory
         """
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] _compute_enqueue_memory called - mem_cfg: {self._mem_cfg is not None}, memory_areas: {len(self._memory_areas)}")
+            if self._memory_areas:
+                print(f"[DEBUG-MEM] Registered memory areas: {list(self._memory_areas.keys())}")
+                for area_idx, config in self._memory_areas.items():
+                    print(f"[DEBUG-MEM]   Area {area_idx}: temporal_depth={config['temporal_depth']}, upstream_areas={config['upstream_areas']}")
+            else:
+                print("[DEBUG-MEM] ❌ NO MEMORY AREAS REGISTERED - this is why no memory neurons are created!")
+        
         if self._mem_cfg is None or not self._memory_areas:
+            if debug_mem:
+                print(f"[DEBUG-MEM] Early return - mem_cfg is None: {self._mem_cfg is None}, no memory areas: {not self._memory_areas}")
             return
         
         current_timestep = self._latest_timestep
         if current_timestep < 0:
+            if debug_mem:
+                print(f"[DEBUG-MEM] Invalid timestep: {current_timestep}")
             return
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] Processing memory at timestep {current_timestep}")
         
         try:
             # Step 1: Age all memory neurons (vectorized operation)
@@ -227,11 +246,43 @@ class PlasticityService:
                 self._ledger, self._memory_areas, current_timestep
             )
             
+            if debug_mem:
+                print(f"[DEBUG-MEM] Pattern detection results: {len(patterns)} areas processed")
+                for area_idx, pattern in patterns.items():
+                    if pattern:
+                        print(f"[DEBUG-MEM]   Area {area_idx}: Pattern detected (hash: {pattern.pattern_hash.hex()[:8]}...)")
+                        print(f"[DEBUG-MEM]     Pattern details: temporal_depth={pattern.temporal_depth}, total_activity={pattern.total_activity}")
+                        
+                        # Show the actual pattern data for debugging
+                        upstream_areas = self._memory_areas.get(area_idx, {}).get('upstream_areas', [])
+                        print(f"[DEBUG-MEM]     Upstream areas: {upstream_areas}")
+                        
+                        # Get recent activity from fire ledger to show what pattern was detected
+                        for i in range(pattern.temporal_depth):
+                            timestep_to_check = current_timestep - i
+                            if timestep_to_check >= 0:
+                                activity_summary = []
+                                for upstream_area in upstream_areas:
+                                    activity = self._ledger.get_area_activity(upstream_area, timestep_to_check)
+                                    if activity and len(activity) > 0:
+                                        activity_summary.append(f"area_{upstream_area}:{len(activity)}neurons")
+                                if activity_summary:
+                                    print(f"[DEBUG-MEM]       T-{i} (timestep {timestep_to_check}): {', '.join(activity_summary)}")
+                                else:
+                                    print(f"[DEBUG-MEM]       T-{i} (timestep {timestep_to_check}): no activity")
+                    else:
+                        print(f"[DEBUG-MEM]   Area {area_idx}: No pattern detected")
+            
             # Step 4: Process detected patterns
             commands = []
             for memory_area_idx, pattern in patterns.items():
                 if pattern is None:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM]   Area {memory_area_idx}: Skipping - no pattern")
                     continue
+                
+                if debug_mem:
+                    print(f"[DEBUG-MEM]   Area {memory_area_idx}: Processing pattern (hash: {pattern.pattern_hash.hex()[:8]}...)")
                 
                 self._stats['memory_patterns_detected'] += 1
                 
@@ -239,6 +290,22 @@ class PlasticityService:
                 existing_neuron_idx = self._memory_neuron_array.find_neuron_by_pattern(
                     pattern.pattern_hash
                 )
+                
+                if debug_mem:
+                    if existing_neuron_idx is not None:
+                        neuron_id = self._memory_neuron_array.neuron_ids[existing_neuron_idx]
+                        is_active = self._memory_neuron_array.is_active[existing_neuron_idx]
+                        lifespan = self._memory_neuron_array.lifespan_current[existing_neuron_idx]
+                        activation_count = self._memory_neuron_array.activation_count[existing_neuron_idx]
+                        print(f"[DEBUG-MEM]     Found existing neuron at index {existing_neuron_idx} (ID: {neuron_id})")
+                        print(f"[DEBUG-MEM]       Active: {is_active}, Lifespan: {lifespan}, Activations: {activation_count}")
+                    else:
+                        print(f"[DEBUG-MEM]     No existing neuron found - will create new one")
+                        
+                        # Show current memory neuron array state
+                        total_memory_neurons = sum(1 for i in range(self._memory_neuron_array.next_available_index) 
+                                                 if self._memory_neuron_array.is_active[i])
+                        print(f"[DEBUG-MEM]     Current memory array: {total_memory_neurons} active neurons, next_index: {self._memory_neuron_array.next_available_index}")
                 
                 if existing_neuron_idx is not None:
                     # Reactivate existing memory neuron
@@ -248,12 +315,17 @@ class PlasticityService:
                     if success:
                         self._stats['memory_neurons_reactivated'] += 1
                         
-                        # Create reactivation command for NPU
+                        # Get the neuron ID for FCL injection
                         neuron_id = self._memory_neuron_array.neuron_ids[existing_neuron_idx]
+                        
+                        # CRITICAL: Add reactivated memory neuron to FCL so it can fire
                         commands.append({
-                            'type': 'reactivate_memory_neuron',
+                            'type': 'inject_memory_neuron_to_fcl',
                             'neuron_id': int(neuron_id),
                             'area_idx': memory_area_idx,
+                            'membrane_potential': 1.5,  # Above threshold to ensure firing
+                            'pattern_hash': pattern.pattern_hash.hex(),
+                            'is_reactivation': True,
                             'timestep': current_timestep,
                         })
                 else:
@@ -273,28 +345,62 @@ class PlasticityService:
                     if neuron_idx is not None:
                         self._stats['memory_neurons_created'] += 1
                         
-                        # Create neuron creation command for NPU
+                        # Get the neuron ID for FCL injection and state updates
                         neuron_id = self._memory_neuron_array.neuron_ids[neuron_idx]
+                        
+                        # CRITICAL: Register memory neuron in regular neuron array for neural dynamics
                         commands.append({
-                            'type': 'create_memory_neuron',
+                            'type': 'register_memory_neuron_in_regular_array',
                             'neuron_id': int(neuron_id),
                             'area_idx': memory_area_idx,
+                            'threshold': 1.0,  # Firing threshold
+                            'membrane_potential': 0.0,  # Initial membrane potential
+                            'coordinates': [0, 0, 0],  # Default coordinates
+                        })
+                        
+                        # CRITICAL: Add memory neuron to FCL so it can fire in next burst
+                        commands.append({
+                            'type': 'inject_memory_neuron_to_fcl',
+                            'neuron_id': int(neuron_id),
+                            'area_idx': memory_area_idx,
+                            'membrane_potential': 1.5,  # Above threshold to ensure firing
                             'pattern_hash': pattern.pattern_hash.hex(),
                             'temporal_depth': pattern.temporal_depth,
                             'total_activity': pattern.total_activity,
                             'timestep': current_timestep,
                         })
+                        
+                        # CRITICAL: Update state manager neuron counters
+                        commands.append({
+                            'type': 'update_state_counters',
+                            'memory_neurons_created': 1,
+                            'total_neurons_created': 1,
+                            'area_idx': memory_area_idx,
+                            'neuron_id': int(neuron_id),
+                        })
             
             # Step 5: Enqueue commands (with drop-on-full policy)
             if commands:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Enqueueing {len(commands)} plasticity commands:")
+                    for i, cmd in enumerate(commands):
+                        print(f"[DEBUG-MEM]   Command {i+1}: {cmd.get('type', 'unknown')} (neuron_id: {cmd.get('neuron_id', 'N/A')})")
+                
                 try:
                     self._npu.enqueue_plasticity_commands(commands)
                     self._stats['plasticity_commands_enqueued'] += len(commands)
-                except Exception:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ✅ Successfully enqueued {len(commands)} commands")
+                except Exception as e:
                     # Commands dropped due to queue saturation
                     self._stats['plasticity_commands_dropped'] += len(commands)
                     if self._state_manager:
                         self._state_manager.increment_plasticity_dropped_ops(len(commands))
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Failed to enqueue commands: {e}")
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] No commands to enqueue")
         
         except Exception as e:
             # Robust error handling - don't crash the service

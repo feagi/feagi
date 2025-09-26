@@ -31,9 +31,15 @@ class CoreAPI(CoreAPIService):
                     memory=dict(p_cfg['memory']),
                 )
                 # Start service
+                import sys
+                debug_mem = '--debug-mem' in sys.argv
+                
                 npu_interface = getattr(connectome_manager, '_npu_interface', None)
                 fire_ledger = self._burst_engine.get_fire_ledger()
                 if npu_interface and isinstance(svc_cfg.queue_capacity, int):
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Initializing PlasticityService...")
+                    
                     svc = PlasticityService(
                         fire_ledger=fire_ledger,
                         npu_interface=npu_interface,
@@ -44,6 +50,11 @@ class CoreAPI(CoreAPIService):
                     self._plasticity_service = svc
                     # Link to BurstEngine for per-burst notification
                     setattr(self._burst_engine, '_plasticity_service', svc)
+                    
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ✅ PlasticityService initialized and linked to BurstEngine")
+                elif debug_mem:
+                    print(f"[DEBUG-MEM] ❌ Failed to initialize PlasticityService - npu_interface: {npu_interface is not None}, queue_capacity: {svc_cfg.queue_capacity}")
 
     # Exposed getters for ProcessManager
     def get_burst_engine(self):

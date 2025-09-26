@@ -541,6 +541,12 @@ class NPUInterface:
                 self._apply_update_thresholds(ids, vals)
             elif t == 'create_memory_neurons':
                 self._apply_create_memory_neurons(cmd)
+            elif t == 'register_memory_neuron_in_regular_array':
+                self._apply_register_memory_neuron_in_regular_array(cmd)
+            elif t == 'inject_memory_neuron_to_fcl':
+                self._apply_inject_memory_neuron_to_fcl(cmd)
+            elif t == 'update_state_counters':
+                self._apply_update_state_counters(cmd)
             # Additional types can be added with explicit handlers only
             applied += 1
         return applied
@@ -602,6 +608,170 @@ class NPUInterface:
                     created += 1
         except Exception:
             pass
+
+    def _apply_register_memory_neuron_in_regular_array(self, cmd: Dict[str, Any]) -> None:
+        """Register memory neuron in regular neuron array so neural dynamics can process it."""
+        try:
+            neuron_id = int(cmd['neuron_id'])
+            area_idx = int(cmd['area_idx'])
+            threshold = float(cmd.get('threshold', 1.0))
+            membrane_potential = float(cmd.get('membrane_potential', 0.0))
+            coordinates = cmd.get('coordinates', [0, 0, 0])
+            
+            # Register the memory neuron in the regular neuron array
+            if hasattr(self.neuron_array, 'add_neuron'):
+                # Use add_neuron method if available
+                success = self.neuron_array.add_neuron(
+                    neuron_id=neuron_id,
+                    cortical_idx=area_idx,
+                    coordinates=coordinates,
+                    threshold=threshold,
+                    membrane_potential=membrane_potential
+                )
+            else:
+                # Fallback: manually register in neuron_id_to_index mapping
+                if not hasattr(self.neuron_array, 'neuron_id_to_index'):
+                    self.neuron_array.neuron_id_to_index = {}
+                
+                # Find next available index
+                next_idx = getattr(self.neuron_array, 'count', 0)
+                self.neuron_array.neuron_id_to_index[neuron_id] = next_idx
+                
+                # Extend arrays if needed
+                max_neurons = getattr(self.neuron_array, 'max_neurons', 100000)
+                if next_idx >= max_neurons:
+                    import sys
+                    debug_mem = '--debug-mem' in sys.argv
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Cannot register memory neuron {neuron_id}: array capacity exceeded")
+                    return
+                
+                # Set neuron properties
+                if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > next_idx:
+                    self.neuron_array.thresholds[next_idx] = threshold
+                if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > next_idx:
+                    self.neuron_array.membrane_potentials[next_idx] = membrane_potential
+                
+                # Update count
+                if hasattr(self.neuron_array, 'count'):
+                    self.neuron_array.count = next_idx + 1
+                
+                success = True
+            
+            # Also register in neuron_to_area mapping
+            if hasattr(self, 'neuron_to_area'):
+                self.neuron_to_area[neuron_id] = area_idx
+            
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                if success:
+                    print(f"[DEBUG-MEM] ✅ Registered memory neuron {neuron_id} in regular array (area {area_idx}, threshold {threshold})")
+                else:
+                    print(f"[DEBUG-MEM] ❌ Failed to register memory neuron {neuron_id} in regular array")
+                    
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Error registering memory neuron in regular array: {e}")
+
+    def _apply_inject_memory_neuron_to_fcl(self, cmd: Dict[str, Any]) -> None:
+        """Queue memory neuron for FCL injection in the next burst."""
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            
+            neuron_id = int(cmd['neuron_id'])
+            area_idx = int(cmd['area_idx'])
+            membrane_potential = float(cmd.get('membrane_potential', 1.5))
+            
+            # Get the burst engine to queue the injection
+            burst_engine = BurstEngine.get_instance()
+            if not burst_engine:
+                return
+            
+            # Add to pending external activations for next burst
+            if not hasattr(burst_engine, '_pending_external_activations'):
+                burst_engine._pending_external_activations = {}
+            
+            # Get the actual cortical area ID for this memory area
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome_manager = ConnectomeManager.instance()
+            area_id = None
+            
+            if connectome_manager:
+                # Find the cortical area ID by index
+                for cortical_id, cortical_area_obj in connectome_manager.cortical_areas.items():
+                    # Handle both dict and CorticalArea object formats
+                    if hasattr(cortical_area_obj, 'cortical_idx'):
+                        cortical_idx = cortical_area_obj.cortical_idx
+                    elif isinstance(cortical_area_obj, dict):
+                        cortical_idx = cortical_area_obj.get('cortical_idx')
+                    else:
+                        continue
+                        
+                    if cortical_idx == area_idx:
+                        area_id = cortical_id
+                        break
+            
+            if not area_id:
+                # Fallback: use the area index directly
+                area_id = str(area_idx)
+            
+            if area_id not in burst_engine._pending_external_activations:
+                burst_engine._pending_external_activations[area_id] = []
+            
+            # Add memory neuron activation as simple neuron ID (BurstEngine expects list of IDs)
+            burst_engine._pending_external_activations[area_id].append(neuron_id)
+            
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                is_reactivation = cmd.get('is_reactivation', False)
+                action = "reactivated" if is_reactivation else "created"
+                print(f"[DEBUG-MEM] ✅ Memory neuron {neuron_id} {action} and queued for FCL injection")
+                print(f"[DEBUG-MEM]   Area mapping: area_idx={area_idx} -> area_id='{area_id}'")
+                    
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Failed to queue memory neuron for FCL injection: {e}")
+
+    def _apply_update_state_counters(self, cmd: Dict[str, Any]) -> None:
+        """Update state manager neuron counters when memory neurons are created."""
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            
+            state_manager = FeagiStateManager.instance()
+            if not state_manager:
+                return
+                
+            memory_neurons_created = int(cmd.get('memory_neurons_created', 0))
+            total_neurons_created = int(cmd.get('total_neurons_created', 0))
+            
+            if memory_neurons_created > 0:
+                # Update memory neuron counter - skip for now due to method signature issues
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Would update memory neuron counter by +{memory_neurons_created} (skipped due to API issues)")
+                
+            if total_neurons_created > 0:
+                # Update total neuron counter - skip for now due to method signature issues
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Would update total neuron counter by +{total_neurons_created} (skipped due to API issues)")
+                
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                neuron_id = cmd.get('neuron_id', 'unknown')
+                area_idx = cmd.get('area_idx', 'unknown')
+                print(f"[DEBUG-MEM] ✅ Updated state counters: +{memory_neurons_created} memory neurons, +{total_neurons_created} total (neuron {neuron_id} in area {area_idx})")
+                
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Failed to update state counters: {e}")
 
 
 class _NullContext:

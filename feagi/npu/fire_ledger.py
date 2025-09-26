@@ -31,38 +31,13 @@ except ImportError:
     fire_ledger_rs = None
 
 
-class RoaringBitmap:
-    """Placeholder for roaring bitmap - will use Rust implementation."""
-    
-    def __init__(self, data=None):
-        self._data = set(data) if data else set()
-    
-    def add(self, value: int):
-        self._data.add(value)
-    
-    def union(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-        result = RoaringBitmap()
-        result._data = self._data.union(other._data)
-        return result
-    
-    def intersection(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-        result = RoaringBitmap()
-        result._data = self._data.intersection(other._data)
-        return result
-        
-    def is_empty(self) -> bool:
-        return len(self._data) == 0
-    
-    def __len__(self) -> int:
-        return len(self._data)
-    
-    def __iter__(self):
-        return iter(self._data)
-    
-    def copy(self) -> 'RoaringBitmap':
-        result = RoaringBitmap()
-        result._data = self._data.copy()
-        return result
+# Import the existing RoaringBitmap implementation
+from feagi.bdu.morton_spatial_hash import RoaringBitmap, ROARING_AVAILABLE
+
+if ROARING_AVAILABLE:
+    logger.info("Using pyroaring for high-performance bitmap operations")
+else:
+    logger.warning("pyroaring not available - using Python set fallback")
 
 
 class CorticalHistory:
@@ -98,9 +73,9 @@ class CorticalHistory:
     
     def get_timestep_pattern(self, timestep_offset: int = 0) -> RoaringBitmap:
         """Get firing pattern for specific timestep offset."""
-        if timestep_offset >= 0 or abs(timestep_offset) > len(self.firing_history):
+        if timestep_offset < 0 or timestep_offset >= len(self.firing_history):
             return RoaringBitmap()
-        return self.firing_history[timestep_offset].copy()
+        return self.firing_history[-(timestep_offset + 1)].copy()
 
 
 class MemoryArea:
@@ -338,7 +313,7 @@ class FireLedgerInterface:
         if timestep > self.current_timestep:
             return RoaringBitmap()  # Future timestep
         
-        timestep_offset = timestep - self.current_timestep
+        timestep_offset = self.current_timestep - timestep
         
         # Handle memory areas (may have memory neurons with different ID space)
         if NeuronIdManager.is_memory_neuron_id(area_idx):
@@ -380,7 +355,7 @@ class FireLedgerInterface:
         
         for area_idx in upstream_areas:
             area_activity = self.get_area_activity(area_idx, timestep)
-            if area_activity and not area_activity.is_empty():
+            if area_activity and len(area_activity) > 0:
                 combined_bitmap = combined_bitmap.union(area_activity)
         
         return combined_bitmap

@@ -177,10 +177,19 @@ class BurstEngine:
         
         self._inject_all_candidates(fcl)
         
-        # CRITICAL: Process any accumulated external activations via FCL injector (sensory/IPU routes)
+                # CRITICAL: Process any accumulated external activations via FCL injector (sensory/IPU routes)
         if self.fcl_injector and hasattr(self, '_pending_external_activations'):
             try:
+                import sys
+                debug_mem = '--debug-mem' in sys.argv
+                
                 pending_activations = getattr(self, '_pending_external_activations', {})
+                
+                if debug_mem and pending_activations:
+                    memory_areas = [area for area in pending_activations.keys() if 'memory_area' in area]
+                    if memory_areas:
+                        total_memory_neurons = sum(len(activations) for area, activations in pending_activations.items() if 'memory_area' in area)
+                        print(f"[DEBUG-MEM] Processing {total_memory_neurons} memory neuron activations from {len(memory_areas)} memory areas")
                 if pending_activations:
                     external_total = 0
                     # Create a safe copy to avoid mutation during iteration
@@ -212,10 +221,22 @@ class BurstEngine:
                             npu_iface = getattr(self.connectome_manager, '_npu_interface', None)
                             potentials_list = []
                             valid_neuron_ids = []
+                            
+                            # Check if this is a memory area (either by name pattern or by checking if neuron IDs are in memory range)
+                            is_memory_area = ('memory_area' in area_id or 
+                                            any(int(nid) >= 50000000 for nid in neuron_ids))
+                            
+                            if debug_mem and is_memory_area:
+                                print(f"[DEBUG-MEM] Processing area '{area_id}' with {len(neuron_ids)} neuron IDs: {neuron_ids}")
+                            
                             if npu_iface and hasattr(npu_iface, 'neuron_array') and hasattr(npu_iface.neuron_array, 'neuron_id_to_index'):
                                 na = npu_iface.neuron_array
                                 thresholds = getattr(na, 'thresholds', None)
                                 id_to_idx = getattr(na, 'neuron_id_to_index', {})
+                                
+                                if debug_mem and is_memory_area:
+                                    print(f"[DEBUG-MEM] Regular neuron array has {len(id_to_idx)} neurons registered")
+                                
                                 for nid in neuron_ids:
                                     nid_int = int(nid)
                                     if nid_int in id_to_idx and thresholds is not None:
@@ -223,6 +244,27 @@ class BurstEngine:
                                         if idx < len(thresholds):
                                             valid_neuron_ids.append(nid_int)
                                             potentials_list.append(float(thresholds[idx]))
+                                            if debug_mem and is_memory_area:
+                                                print(f"[DEBUG-MEM]   ✅ Found neuron {nid_int} in regular array at idx {idx}, threshold: {thresholds[idx]}")
+                                    else:
+                                        if debug_mem and is_memory_area:
+                                            print(f"[DEBUG-MEM]   ❌ Memory neuron {nid_int} NOT found in regular neuron array")
+                                            
+                            # Check memory neuron array for memory neurons
+                            if npu_iface and hasattr(npu_iface, 'memory_neuron_array') and is_memory_area:
+                                mna = npu_iface.memory_neuron_array
+                                if debug_mem:
+                                    print(f"[DEBUG-MEM] Checking memory neuron array for memory neurons...")
+                                
+                                for nid in neuron_ids:
+                                    nid_int = int(nid)
+                                    # Memory neurons should be injected with above-threshold potential
+                                    if nid_int >= 50000000:  # Memory neuron ID range
+                                        valid_neuron_ids.append(nid_int)
+                                        potentials_list.append(1.5)  # Above threshold to ensure firing
+                                        if debug_mem:
+                                            print(f"[DEBUG-MEM]   ✅ Memory neuron {nid_int} added to FCL with potential 1.5")
+                                            
                             if valid_neuron_ids:
                                 cortical_idx = self.connectome_manager.get_cortical_idx_for_id(area_id)
                                 if cortical_idx is not None:
@@ -234,6 +276,22 @@ class BurstEngine:
                                         excitatory_mask=excitatory_mask,
                                     )
                                     external_total += injected
+                                    
+                                    if debug_mem and is_memory_area:
+                                        print(f"[DEBUG-MEM] ✅ Injected {injected} memory neurons into FCL for cortical area {cortical_idx}")
+                                        # Immediately verify the injection worked
+                                        try:
+                                            total_after_injection = fcl.get_total_candidate_count()
+                                            print(f"[DEBUG-MEM] FCL candidate count after injection: {total_after_injection}")
+                                        except:
+                                            pass
+                                else:
+                                    if debug_mem and is_memory_area:
+                                        print(f"[DEBUG-MEM] ❌ Could not find cortical_idx for area_id '{area_id}'")
+                                        print(f"[DEBUG-MEM]   Available cortical areas: {list(self.connectome_manager.cortical_areas.keys())[:10]}...")
+                            else:
+                                if debug_mem and is_memory_area:
+                                    print(f"[DEBUG-MEM] ❌ No valid memory neurons found for FCL injection")
                     # Clear processed activations deterministically
                     self._pending_external_activations.clear()
                     if external_total > 0:
@@ -249,12 +307,91 @@ class BurstEngine:
         # ALWAYS log before neural dynamics
         logger.info(f"[BURST-ENGINE] About to process neural dynamics with FCL count: {fcl_candidate_count}")
         
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        if debug_mem:
+            print(f"[DEBUG-MEM] FCL has {fcl_candidate_count} candidates before neural dynamics")
+            
+            # Check if memory neuron 50000000 is in the FCL
+            try:
+                memory_neuron_found_in_fcl = False
+                
+                # Method 1: Use get_candidates_by_area
+                if hasattr(fcl, 'get_candidates_by_area'):
+                    try:
+                        candidates_by_area = fcl.get_candidates_by_area()
+                        for area_idx, candidates in candidates_by_area.items():
+                            if hasattr(candidates, 'neuron_ids'):
+                                neuron_ids = candidates.neuron_ids
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = list(neuron_ids).index(50000000)
+                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area {area_idx} with potential {potential}")
+                                    break
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error using get_candidates_by_area: {e}")
+                
+                # Method 2: Use candidates_by_area property
+                if not memory_neuron_found_in_fcl and hasattr(fcl, 'candidates_by_area'):
+                    try:
+                        candidates_by_area = fcl.candidates_by_area
+                        for area_idx, candidates in candidates_by_area.items():
+                            if hasattr(candidates, 'neuron_ids'):
+                                neuron_ids = candidates.neuron_ids
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = list(neuron_ids).index(50000000)
+                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area {area_idx} with potential {potential} (property)")
+                                    break
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error using candidates_by_area property: {e}")
+                
+                # Method 3: Use get_all_candidates
+                if not memory_neuron_found_in_fcl and hasattr(fcl, 'get_all_candidates'):
+                    try:
+                        all_candidates = fcl.get_all_candidates()
+                        if hasattr(all_candidates, 'neuron_ids'):
+                            if 50000000 in all_candidates.neuron_ids:
+                                memory_neuron_found_in_fcl = True
+                                print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL all candidates")
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error using get_all_candidates: {e}")
+                
+                if not memory_neuron_found_in_fcl:
+                    print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 NOT found in FCL candidates")
+                    # Try to get more detailed info
+                    try:
+                        if hasattr(fcl, 'get_candidate_count_by_area'):
+                            area_counts = fcl.get_candidate_count_by_area()
+                            print(f"[DEBUG-MEM] FCL candidate counts by area: {dict(list(area_counts.items())[:5])}...")
+                    except:
+                        pass
+                    
+            except Exception as e:
+                print(f"[DEBUG-MEM] Could not check FCL contents: {e}")
+        
         # CRITICAL: Apply neural dynamics processing BEFORE firing evaluation
         fired_neurons = self._process_neural_dynamics(fcl)
         
         # ALWAYS log after neural dynamics
         fired_count = len(fired_neurons) if fired_neurons else 0
         logger.info(f"[BURST-ENGINE] Neural dynamics completed: {fired_count} neurons fired")
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] Neural dynamics result: {fired_count} neurons fired")
+            if fired_neurons:
+                memory_fired = [nid for nid in fired_neurons if nid >= 50000000]
+                if memory_fired:
+                    print(f"[DEBUG-MEM] 🔥 Memory neurons fired: {memory_fired}")
+                else:
+                    print(f"[DEBUG-MEM] No memory neurons fired (all fired neurons: {fired_neurons[:10]}...)")
+                    # Check if memory neuron 50000000 was processed
+                    if 50000000 not in fired_neurons:
+                        print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 did not fire - investigating neural dynamics processing")
+            else:
+                print(f"[DEBUG-MEM] No neurons fired at all")
         
         # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
         try:
@@ -294,10 +431,19 @@ class BurstEngine:
 
             # Notify plasticity service after archival (read-only compute)
             try:
+                import sys
+                debug_mem = '--debug-mem' in sys.argv
+                
                 svc = getattr(self, '_plasticity_service', None)
                 if svc is not None:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine notifying PlasticityService at timestep {self.current_timestep}")
                     svc.notify_burst(self.current_timestep)
-            except Exception:
+                elif debug_mem:
+                    print(f"[DEBUG-MEM] ❌ No PlasticityService attached to BurstEngine!")
+            except Exception as e:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ Exception notifying PlasticityService: {e}")
                 pass
             
             # Update state manager with activity counters
@@ -318,14 +464,39 @@ class BurstEngine:
 
         # Apply plasticity ops at end-of-burst with strict budget
         try:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            
             npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops') and isinstance(self.config, dict):
-                p_cfg = self.config.get('plasticity')
-                if isinstance(p_cfg, dict) and 'max_ops_per_burst' in p_cfg:
-                    budget = int(p_cfg['max_ops_per_burst'])
+            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops'):
+                # Get plasticity config from TOML configuration
+                try:
+                    from feagi.config.toml_loader import load_feagi_config
+                    config = load_feagi_config()
+                    p_cfg = config.get('plasticity', {})
+                    budget = p_cfg.get('max_ops_per_burst', 100)  # Default budget
+                    
                     if budget > 0:
-                        npu_interface.apply_plasticity_ops(max_ops=budget)
-        except Exception:
+                        applied_ops = npu_interface.apply_plasticity_ops(max_ops=budget)
+                        if debug_mem and applied_ops > 0:
+                            print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations")
+                        elif debug_mem:
+                            print(f"[DEBUG-MEM] BurstEngine: No plasticity operations to apply (queue empty)")
+                    elif debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Plasticity budget is 0")
+                        
+                except Exception as config_error:
+                    # Fallback with default budget
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Config error ({config_error}), using default budget")
+                    applied_ops = npu_interface.apply_plasticity_ops(max_ops=100)
+                    if debug_mem and applied_ops > 0:
+                        print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations (fallback)")
+            elif debug_mem:
+                print(f"[DEBUG-MEM] BurstEngine: NPU interface not available for plasticity operations")
+        except Exception as e:
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ BurstEngine plasticity error: {e}")
             pass
 
         fcl.clear()
@@ -469,17 +640,27 @@ class BurstEngine:
                 logger.debug(f"Setting burst engine state to {state.name} ({state.value})")
                 result = self.state_manager.set_burst_engine_state(state.value)
                 logger.debug(f"State manager set result: {result}")
+                
+                # Check if the result indicates an error
+                if hasattr(result, 'is_err') and result.is_err:
+                    error_msg = result.unwrap_err() if hasattr(result, 'unwrap_err') else "Unknown error"
+                    logger.error(f"State manager returned error: {error_msg}")
+                    raise Exception(f"State manager error: {error_msg}")
+                
                 # Verify the state was set
                 current_state = self.state_manager.get_burst_engine_state()
                 logger.debug(f"Verified state after set: {current_state}")
                 if current_state != state.value:
                     logger.error(f"State manager failed to update: expected {state.value}, got {current_state}")
+                    raise Exception(f"State verification failed: expected {state.value}, got {current_state}")
             else:
                 logger.error("No state manager available for burst engine state update")
+                raise Exception("No state manager available")
         except Exception as e:
             logger.error(f"Failed to update burst engine state: {e}")
             import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise  # Re-raise to propagate the error
     
     def _notify_sensory_stream_ready(self):
         """Notify the sensory stream that the burst engine is ready."""
@@ -549,6 +730,47 @@ class BurstEngine:
         # Set target_frequency for backward compatibility
         self.target_frequency = self.desired_frequency
     
+    def update_with_genome(self, connectome_manager) -> bool:
+        """Update burst engine with genome data and connectome manager.
+        
+        This method is called after genome loading to ensure the burst engine
+        has access to the connectome manager and can process neural dynamics.
+        """
+        try:
+            logger.info("🧬 [GENOME-UPDATE] Updating burst engine with new genome...")
+            
+            if connectome_manager:
+                self.connectome_manager = connectome_manager
+                logger.info(f"🧬 [GENOME-UPDATE] Connectome manager updated: {type(connectome_manager)}")
+                
+                # Reinitialize components that depend on connectome manager
+                from feagi.npu.coordinate_converter import CoordinateConverter
+                from feagi.npu.fcl_injector import FCLInjector
+                
+                self.coordinate_converter = CoordinateConverter(connectome_manager)
+                self.fcl_injector = FCLInjector(self.coordinate_converter)
+                logger.info("🧬 [GENOME-UPDATE] Coordinate converter and FCL injector reinitialized")
+                
+                # Initialize injection service if enabled
+                if self.enable_injection:
+                    try:
+                        self.injection_service = PowerInjectionService(connectome_manager)
+                        logger.info("🧬 [GENOME-UPDATE] Power injection service initialized")
+                    except Exception as injection_error:
+                        logger.warning(f"🧬 [GENOME-UPDATE] Failed to initialize injection service: {injection_error}")
+                
+                logger.info("🧬 [GENOME-UPDATE] ✅ Burst engine updated successfully with genome")
+                return True
+            else:
+                logger.warning("🧬 [GENOME-UPDATE] ⚠️ No connectome manager provided")
+                return False
+                
+        except Exception as e:
+            logger.error(f"🧬 [GENOME-UPDATE] ❌ Failed to update burst engine with genome: {e}")
+            import traceback
+            logger.error(f"🧬 [GENOME-UPDATE] Full traceback: {traceback.format_exc()}")
+            return False
+
     def update_frequency(self, frequency_hz: float) -> bool:
         """Update burst engine frequency and sync with state manager."""
         try:
@@ -582,12 +804,30 @@ class BurstEngine:
                 logger.warning("BurstEngine: Already running")
                 return True
             
+            logger.info("🔧 [START-DEBUG] Checking connectome manager availability...")
+            if self.connectome_manager:
+                logger.info(f"🔧 [START-DEBUG] Connectome manager available: {type(self.connectome_manager)}")
+            else:
+                logger.warning("🔧 [START-DEBUG] ⚠️ No connectome manager available - burst engine will run with limited functionality")
+            
+            logger.info("🔧 [START-DEBUG] Setting burst engine state to INITIALIZING...")
+            self._set_burst_engine_state(ServiceState.INITIALIZING)
+            
             self._running = True
+            
+            logger.info("🔧 [START-DEBUG] Setting burst engine state to READY...")
+            self._set_burst_engine_state(ServiceState.READY)
+            
             logger.info("BurstEngine: Started successfully")
             return True
-        except Exception:
-            logger.error("Failed to start BurstEngine")
-            self._set_burst_engine_state(ServiceState.ERROR)
+        except Exception as e:
+            logger.error(f"Failed to start BurstEngine: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            try:
+                self._set_burst_engine_state(ServiceState.ERROR)
+            except Exception as state_error:
+                logger.error(f"Failed to set ERROR state: {state_error}")
             return False
     
     def stop(self) -> bool:
@@ -619,7 +859,17 @@ class BurstEngine:
         """
         try:
             logger.info("🚀 [RUN-DEBUG] Burst engine run() method called - starting main processing loop")
-            self.start()
+            
+            # Add detailed debug logging for startup
+            logger.info("🔧 [RUN-DEBUG] About to call self.start()...")
+            try:
+                self.start()
+                logger.info(f"🔧 [RUN-DEBUG] self.start() completed successfully - _running: {self._running}")
+            except Exception as start_error:
+                logger.error(f"🚨 [RUN-DEBUG] self.start() failed with error: {start_error}")
+                import traceback
+                logger.error(f"🚨 [RUN-DEBUG] Full traceback: {traceback.format_exc()}")
+                raise  # Re-raise to be caught by outer try-catch
             
             # Enter the main processing loop
             if self._running:

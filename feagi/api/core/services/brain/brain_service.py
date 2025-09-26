@@ -160,11 +160,15 @@ class BrainService(BaseService):
                         "BRAIN SERVICE: burst_engine.run() returned"
                     )
                 except Exception as e:
+                    import traceback
                     self.logger.debug(
                         f"BRAIN SERVICE: Exception in burst engine main loop: {str(e)}"
                     )
                     self.logger.error(
                         f"BRAIN SERVICE: Error in burst engine main loop: {str(e)}"
+                    )
+                    self.logger.error(
+                        f"BRAIN SERVICE: Full traceback: {traceback.format_exc()}"
                     )
                     # Set burst engine state to ERROR on exception
                     from feagi.core.state_manager import ServiceState
@@ -172,6 +176,8 @@ class BrainService(BaseService):
                     self.state_manager.set_burst_engine_state(
                         ServiceState.ERROR
                     )
+                    nonlocal startup_success
+                    startup_success = False
 
             self.logger.debug("BRAIN SERVICE: Creating background thread")
 

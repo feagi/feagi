@@ -2522,6 +2522,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             True if successful, False if area doesn't exist
         """
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] ConnectomeManager.register_memory_area called: cortical_id={cortical_id}, temporal_depth={temporal_depth}")
+        
         logger.info(
             f"[MEMORY-REG] Starting registration for cortical_id={cortical_id}, temporal_depth={temporal_depth}"
         )
@@ -2641,6 +2647,53 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.exception("[MEMORY-REG] FCL registration exception:")
             # Don't fail the entire registration if FCL registration fails
 
+        # CRITICAL FIX: Register memory area with PlasticityService
+        # This is the missing link that prevents memory neurons from being created!
+        try:
+            if debug_mem:
+                print(f"[DEBUG-MEM] Attempting to register with PlasticityService...")
+            
+            # Get the PlasticityService from BurstEngine
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine.get_instance()
+            plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+            
+            if plasticity_service:
+                # Get cortical area index and upstream areas
+                area = self.cortical_areas[cortical_id]
+                area_idx = area.cortical_idx
+                
+                # Get upstream areas from memory mappings
+                upstream_areas = list(self.memory_area_upstream_mappings.get(cortical_id, set()))
+                
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Registering with PlasticityService: area_idx={area_idx}, temporal_depth={temporal_depth}, upstream_areas={upstream_areas}")
+                
+                success = plasticity_service.register_memory_area(
+                    area_idx=area_idx,
+                    temporal_depth=temporal_depth,
+                    upstream_areas=upstream_areas
+                )
+                
+                if success:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ✅ Successfully registered memory area {cortical_id} with PlasticityService!")
+                    logger.info(f"[MEMORY-REG] Successfully registered {cortical_id} with PlasticityService")
+                else:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Failed to register memory area {cortical_id} with PlasticityService")
+                    logger.warning(f"[MEMORY-REG] Failed to register {cortical_id} with PlasticityService")
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ PlasticityService not available - this is why memory neurons won't be created!")
+                logger.warning("[MEMORY-REG] PlasticityService not available for memory area registration")
+                
+        except Exception as e:
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Exception registering with PlasticityService: {e}")
+            logger.warning(f"[MEMORY-REG] Failed to register with PlasticityService: {e}")
+            # Don't fail the entire registration if PlasticityService registration fails
+
         return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
@@ -2687,12 +2740,17 @@ class ConnectomeManager(NeuronMappingProvider):
             target_cortical_id: Target cortical area (memory area)
         """
         # Check if debug-mem is enabled
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
         try:
             from feagi.core.state_manager import get_state_manager
             state_manager = get_state_manager()
             mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
         except Exception:
             mem_debug = False
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] ConnectomeManager.add_memory_area_mapping called: {source_cortical_id} -> {target_cortical_id}")
             
         if mem_debug:
             logger.info(
@@ -2751,6 +2809,65 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.exception(
                     "[MEMORY-MAPPING] StateManager cache update exception:"
                 )
+
+            # CRITICAL FIX: Update PlasticityService with new upstream mapping
+            try:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Updating PlasticityService with new upstream mapping: {source_cortical_id} -> {target_cortical_id}")
+                
+                # Get the PlasticityService from BurstEngine
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+                
+                if plasticity_service:
+                    # Get cortical area index for the memory area
+                    target_area = self.cortical_areas.get(target_cortical_id)
+                    source_area = self.cortical_areas.get(source_cortical_id)
+                    
+                    if target_area and source_area:
+                        target_area_idx = target_area.cortical_idx
+                        source_area_idx = source_area.cortical_idx
+                        
+                        # Get current upstream areas for this memory area
+                        current_upstream = list(self.memory_area_upstream_mappings.get(target_cortical_id, set()))
+                        upstream_indices = []
+                        for upstream_id in current_upstream:
+                            upstream_area = self.cortical_areas.get(upstream_id)
+                            if upstream_area:
+                                upstream_indices.append(upstream_area.cortical_idx)
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Re-registering memory area {target_cortical_id} (idx={target_area_idx}) with updated upstream areas: {upstream_indices}")
+                        
+                        # Re-register the memory area with updated upstream areas
+                        temporal_depth = target_area.temporal_depth if hasattr(target_area, 'temporal_depth') else 3
+                        success = plasticity_service.register_memory_area(
+                            area_idx=target_area_idx,
+                            temporal_depth=temporal_depth,
+                            upstream_areas=upstream_indices
+                        )
+                        
+                        if success:
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ✅ Successfully updated PlasticityService with upstream mapping")
+                            logger.info(f"[MEMORY-MAPPING] Updated PlasticityService with upstream mapping: {source_cortical_id} -> {target_cortical_id}")
+                        else:
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ❌ Failed to update PlasticityService with upstream mapping")
+                            logger.warning(f"[MEMORY-MAPPING] Failed to update PlasticityService with upstream mapping")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ❌ Could not find cortical areas: target={target_area is not None}, source={source_area is not None}")
+                else:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ PlasticityService not available for upstream mapping update")
+                    logger.warning("[MEMORY-MAPPING] PlasticityService not available for upstream mapping update")
+                    
+            except Exception as e:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ Exception updating PlasticityService with upstream mapping: {e}")
+                logger.warning(f"[MEMORY-MAPPING] Failed to update PlasticityService with upstream mapping: {e}")
 
             # CRITICAL FIX: Update MemoryProcessor with new upstream mapping
             try:
