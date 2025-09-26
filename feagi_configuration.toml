@@ -133,6 +133,8 @@ initial_lifespan = 20          # Initial lifespan for new memory neurons (bursts
 lifespan_growth_rate = 3.0     # Additive lifespan increment on reactivation
 longterm_threshold = 100       # Lifespan threshold for long-term memory conversion
 max_reactivations = 1000       # Maximum reactivations before forced LTM
+firing_threshold = 1.0         # Firing threshold for memory neurons
+initial_membrane_potential = 0.0  # Initial membrane potential for memory neurons
 
 [burst_engine]
 # Burst Engine Memory Management Configuration

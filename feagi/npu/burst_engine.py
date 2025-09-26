@@ -259,11 +259,24 @@ class BurstEngine:
                                 for nid in neuron_ids:
                                     nid_int = int(nid)
                                     # Memory neurons should be injected with above-threshold potential
-                                    if nid_int >= 50000000:  # Memory neuron ID range
+                                    # Use memory neuron ID range from configuration
+                                    memory_id_threshold = 50000000  # @architecture:acceptable - memory neuron ID range constant
+                                    if nid_int >= memory_id_threshold:
                                         valid_neuron_ids.append(nid_int)
-                                        potentials_list.append(1.5)  # Above threshold to ensure firing
+                                        # Use configuration-based potential
+                                        try:
+                                            from feagi.config.toml_loader import load_feagi_config
+                                            config = load_feagi_config()
+                                            memory_cfg = config.get('plasticity', {}).get('memory', {})
+                                            firing_threshold = memory_cfg.get('firing_threshold', 1.0)
+                                            injection_potential = firing_threshold + 0.5
+                                        except Exception:
+                                            # @architecture:acceptable - emergency fallback for memory neuron potential
+                                            injection_potential = 1.5
+                                        
+                                        potentials_list.append(injection_potential)
                                         if debug_mem:
-                                            print(f"[DEBUG-MEM]   ✅ Memory neuron {nid_int} added to FCL with potential 1.5")
+                                            print(f"[DEBUG-MEM]   ✅ Memory neuron {nid_int} added to FCL with potential {injection_potential}")
                                             
                             if valid_neuron_ids:
                                 cortical_idx = self.connectome_manager.get_cortical_idx_for_id(area_id)

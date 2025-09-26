@@ -319,11 +319,13 @@ class PlasticityService:
                         neuron_id = self._memory_neuron_array.neuron_ids[existing_neuron_idx]
                         
                         # CRITICAL: Add reactivated memory neuron to FCL so it can fire
+                        # Use configuration-based potential for reactivation
+                        reactivation_potential = self._memory_cfg.get('firing_threshold', 1.0) + 0.5
                         commands.append({
                             'type': 'inject_memory_neuron_to_fcl',
                             'neuron_id': int(neuron_id),
                             'area_idx': memory_area_idx,
-                            'membrane_potential': 1.5,  # Above threshold to ensure firing
+                            'membrane_potential': reactivation_potential,
                             'pattern_hash': pattern.pattern_hash.hex(),
                             'is_reactivation': True,
                             'timestep': current_timestep,
@@ -349,21 +351,26 @@ class PlasticityService:
                         neuron_id = self._memory_neuron_array.neuron_ids[neuron_idx]
                         
                         # CRITICAL: Register memory neuron in regular neuron array for neural dynamics
+                        # Use configuration values instead of hardcoded ones
+                        memory_threshold = self._memory_cfg.get('firing_threshold', 1.0)
+                        initial_potential = self._memory_cfg.get('initial_membrane_potential', 0.0)
+                        
                         commands.append({
                             'type': 'register_memory_neuron_in_regular_array',
                             'neuron_id': int(neuron_id),
                             'area_idx': memory_area_idx,
-                            'threshold': 1.0,  # Firing threshold
-                            'membrane_potential': 0.0,  # Initial membrane potential
-                            'coordinates': [0, 0, 0],  # Default coordinates
+                            'threshold': memory_threshold,
+                            'membrane_potential': initial_potential,
+                            'coordinates': [0, 0, 0],  # Fixed coordinates for deterministic behavior
                         })
                         
                         # CRITICAL: Add memory neuron to FCL so it can fire in next burst
+                        fcl_potential = memory_threshold + 0.5  # Above threshold to ensure firing
                         commands.append({
                             'type': 'inject_memory_neuron_to_fcl',
                             'neuron_id': int(neuron_id),
                             'area_idx': memory_area_idx,
-                            'membrane_potential': 1.5,  # Above threshold to ensure firing
+                            'membrane_potential': fcl_potential,
                             'pattern_hash': pattern.pattern_hash.hex(),
                             'temporal_depth': pattern.temporal_depth,
                             'total_activity': pattern.total_activity,

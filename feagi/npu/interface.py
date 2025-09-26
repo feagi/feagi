@@ -715,7 +715,7 @@ class NPUInterface:
                         break
             
             if not area_id:
-                # Fallback: use the area index directly
+                # @architecture:acceptable - emergency fallback for memory neuron area mapping
                 area_id = str(area_idx)
             
             if area_id not in burst_engine._pending_external_activations:
