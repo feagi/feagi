@@ -642,52 +642,75 @@ class NPUInterface:
             membrane_potential = float(cmd.get('membrane_potential', 0.0))
             coordinates = cmd.get('coordinates', [0, 0, 0])
             
-            # Register the memory neuron in the regular neuron array
-            if hasattr(self.neuron_array, 'add_neuron'):
-                # Use add_neuron method if available
-                success = self.neuron_array.add_neuron(
-                    neuron_id=neuron_id,
-                    cortical_idx=area_idx,
-                    coordinates=coordinates,
-                    threshold=threshold,
-                    membrane_potential=membrane_potential
-                )
-            else:
-                # Fallback: manually register in neuron_id_to_index mapping
-                if not hasattr(self.neuron_array, 'neuron_id_to_index'):
-                    self.neuron_array.neuron_id_to_index = {}
-                
-                # Find next available index
-                next_idx = getattr(self.neuron_array, 'count', 0)
-                self.neuron_array.neuron_id_to_index[neuron_id] = next_idx
-                
-                # Also update reverse mapping
-                if not hasattr(self.neuron_array, 'index_to_neuron_id'):
-                    self.neuron_array.index_to_neuron_id = {}
-                self.neuron_array.index_to_neuron_id[next_idx] = neuron_id
-                
-                # Extend arrays if needed
-                max_neurons = getattr(self.neuron_array, 'max_neurons', 100000)
-                if next_idx >= max_neurons:
-                    import sys
-                    debug_mem = '--debug-mem' in sys.argv
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] ❌ Cannot register memory neuron {neuron_id}: array capacity exceeded")
-                    return
-                
-                # Set neuron properties
-                if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > next_idx:
-                    self.neuron_array.thresholds[next_idx] = threshold
-                if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > next_idx:
-                    self.neuron_array.membrane_potentials[next_idx] = membrane_potential
-                
-                # Update count and neuron_count (keep both in sync)
-                if hasattr(self.neuron_array, 'count'):
-                    self.neuron_array.count = next_idx + 1
-                if hasattr(self.neuron_array, 'neuron_count'):
-                    self.neuron_array.neuron_count = next_idx + 1
-                
+            # Check if memory neuron is already registered
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                has_mapping = hasattr(self.neuron_array, 'neuron_id_to_index')
+                is_registered = has_mapping and neuron_id in self.neuron_array.neuron_id_to_index
+                print(f"[DEBUG-MEM] Checking if neuron {neuron_id} already registered: has_mapping={has_mapping}, is_registered={is_registered}")
+                if has_mapping:
+                    existing_keys = list(self.neuron_array.neuron_id_to_index.keys())
+                    memory_keys = [k for k in existing_keys if k >= 50000000]
+                    print(f"[DEBUG-MEM] Existing memory neuron keys: {memory_keys}")
+            
+            if hasattr(self.neuron_array, 'neuron_id_to_index') and neuron_id in self.neuron_array.neuron_id_to_index:
+                # Memory neuron already registered - just update its properties
+                existing_idx = self.neuron_array.neuron_id_to_index[neuron_id]
+                if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > existing_idx:
+                    self.neuron_array.thresholds[existing_idx] = threshold
+                if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > existing_idx:
+                    self.neuron_array.membrane_potentials[existing_idx] = membrane_potential
                 success = True
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Memory neuron {neuron_id} already registered at index {existing_idx} - updated properties")
+            else:
+                # Register the memory neuron in the regular neuron array
+                if hasattr(self.neuron_array, 'add_neuron'):
+                    # Use add_neuron method if available
+                    success = self.neuron_array.add_neuron(
+                        neuron_id=neuron_id,
+                        cortical_idx=area_idx,
+                        coordinates=coordinates,
+                        threshold=threshold,
+                        membrane_potential=membrane_potential
+                    )
+                else:
+                    # Fallback: manually register in neuron_id_to_index mapping
+                    if not hasattr(self.neuron_array, 'neuron_id_to_index'):
+                        self.neuron_array.neuron_id_to_index = {}
+                    
+                    # Find next available index
+                    next_idx = getattr(self.neuron_array, 'count', 0)
+                    self.neuron_array.neuron_id_to_index[neuron_id] = next_idx
+                    
+                    # Also update reverse mapping
+                    if not hasattr(self.neuron_array, 'index_to_neuron_id'):
+                        self.neuron_array.index_to_neuron_id = {}
+                    self.neuron_array.index_to_neuron_id[next_idx] = neuron_id
+                    
+                    # Extend arrays if needed
+                    max_neurons = getattr(self.neuron_array, 'max_neurons', 100000)
+                    if next_idx >= max_neurons:
+                        import sys
+                        debug_mem = '--debug-mem' in sys.argv
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ❌ Cannot register memory neuron {neuron_id}: array capacity exceeded")
+                        return
+                    
+                    # Set neuron properties
+                    if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > next_idx:
+                        self.neuron_array.thresholds[next_idx] = threshold
+                    if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > next_idx:
+                        self.neuron_array.membrane_potentials[next_idx] = membrane_potential
+                    
+                    # Update count and neuron_count (keep both in sync)
+                    if hasattr(self.neuron_array, 'count'):
+                        self.neuron_array.count = next_idx + 1
+                    if hasattr(self.neuron_array, 'neuron_count'):
+                        self.neuron_array.neuron_count = next_idx + 1
+                    
+                    success = True
             
             # Also register in neuron_to_area mapping
             if hasattr(self, 'neuron_to_area'):
@@ -787,23 +810,41 @@ class NPUInterface:
                 
             memory_neurons_created = int(cmd.get('memory_neurons_created', 0))
             total_neurons_created = int(cmd.get('total_neurons_created', 0))
+            current_memory_neuron_count = cmd.get('current_memory_neuron_count')
+            is_reactivation = cmd.get('is_reactivation', False)
             
-            if memory_neurons_created > 0:
-                # Update memory neuron counter - skip for now due to method signature issues
-                if debug_mem:
-                    print(f"[DEBUG-MEM] Would update memory neuron counter by +{memory_neurons_created} (skipped due to API issues)")
-                
-            if total_neurons_created > 0:
-                # Update total neuron counter - skip for now due to method signature issues
-                if debug_mem:
-                    print(f"[DEBUG-MEM] Would update total neuron counter by +{total_neurons_created} (skipped due to API issues)")
-                
             import sys
             debug_mem = '--debug-mem' in sys.argv
+            neuron_id = cmd.get('neuron_id', 'unknown')
+            area_idx = cmd.get('area_idx', 'unknown')
+            
+            if current_memory_neuron_count is not None:
+                # For reactivation: set the total memory neuron count directly
+                try:
+                    # Try to update the state manager with current total
+                    if hasattr(state_manager, 'set_memory_neuron_count'):
+                        state_manager.set_memory_neuron_count(current_memory_neuron_count)
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ✅ Set total memory neuron count to {current_memory_neuron_count}")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ⚠️ StateManager has no set_memory_neuron_count method")
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Failed to set memory neuron count: {e}")
+            else:
+                # For creation: increment counters
+                if memory_neurons_created > 0:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Would increment memory neuron counter by +{memory_neurons_created} (method signature issues)")
+                    
+                if total_neurons_created > 0:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Would increment total neuron counter by +{total_neurons_created} (method signature issues)")
+            
             if debug_mem:
-                neuron_id = cmd.get('neuron_id', 'unknown')
-                area_idx = cmd.get('area_idx', 'unknown')
-                print(f"[DEBUG-MEM] ✅ Updated state counters: +{memory_neurons_created} memory neurons, +{total_neurons_created} total (neuron {neuron_id} in area {area_idx})")
+                action = "reactivation" if is_reactivation else "creation"
+                print(f"[DEBUG-MEM] ✅ Processed state counter update for {action}: neuron {neuron_id} in area {area_idx}")
                 
         except Exception as e:
             import sys

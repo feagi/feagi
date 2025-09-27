@@ -204,6 +204,7 @@ class CorticalMappingAPI:
                 if hasattr(cm, "brain_region_hierarchy"):
                     src_region_id = cm.brain_region_hierarchy.get_region_for_area(request.src_cortical_area)
                     dst_region_id = cm.brain_region_hierarchy.get_region_for_area(request.dst_cortical_area)
+                    
                 if src_region_id and src_region_id in region_by_id:
                     src_region_obj = region_by_id[src_region_id]
                 if dst_region_id and dst_region_id in region_by_id:

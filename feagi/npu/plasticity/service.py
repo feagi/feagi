@@ -385,7 +385,22 @@ class PlasticityService:
                             
                             commands.append(fcl_command)
                             
+                            # CRITICAL: Always update state manager with current memory neuron count
+                            # Count total active memory neurons in the memory neuron array
+                            total_memory_neurons = sum(1 for i in range(self._memory_neuron_array.next_available_index) 
+                                                     if self._memory_neuron_array.is_active[i])
+                            commands.append({
+                                'type': 'update_state_counters',
+                                'memory_neurons_created': 0,  # This is reactivation, not creation
+                                'total_neurons_created': 0,   # This is reactivation, not creation
+                                'current_memory_neuron_count': total_memory_neurons,
+                                'area_idx': memory_area_idx,
+                                'neuron_id': int(neuron_id),
+                                'is_reactivation': True,
+                            })
+                            
                             if debug_mem:
+                                print(f"[DEBUG-MEM] Added state counter update: total_memory_neurons={total_memory_neurons}")
                                 print(f"[DEBUG-MEM] ✅ Command added to list, total commands: {len(commands)}")
                                 
                         except Exception as e:

@@ -3465,6 +3465,14 @@ class GenomeService(BaseService):
                     # CRITICAL: Force state manager sync after mapping changes
                     self._force_state_manager_sync()
 
+                    # CRITICAL FIX: Reload brain region hierarchy after mapping changes
+                    # This ensures that the area_to_region mapping includes newly mapped memory areas
+                    try:
+                        self._sync_region_registry_after_mapping_change(current_genome)
+                        self.logger.info("🧠 [MAPPING-DEBUG] Brain region hierarchy reloaded after mapping update")
+                    except Exception as hierarchy_sync_error:
+                        self.logger.warning(f"Failed to sync brain region hierarchy after mapping: {hierarchy_sync_error}")
+
                     #  ARCHITECTURE COMPLIANCE: Invalidate StateManager cache
                     #  after mapping updates
                     #  This ensures /v1/cortical_mapping/mapping shows fresh
@@ -3611,6 +3619,16 @@ class GenomeService(BaseService):
                     self.logger.info(
                         "🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully"
                     )
+                    
+                    # CRITICAL FIX: Ensure brain region hierarchy is updated for API response
+                    # This ensures the API endpoint can immediately find region information
+                    try:
+                        current_genome = self.get_genome()
+                        if current_genome and self._connectome_manager:
+                            self._sync_region_registry_after_mapping_change(current_genome)
+                    except Exception as hierarchy_sync_error:
+                        self.logger.warning(f"Failed to sync brain region hierarchy for API response: {hierarchy_sync_error}")
+                        
                 else:
                     self.logger.error(
                         "🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed"
@@ -6945,11 +6963,14 @@ class GenomeService(BaseService):
         - Persists updated genome back to StateManager and reloads hierarchy
         """
         if not self._connectome_manager:
+            self.logger.warning("No connectome manager available for brain region sync")
             return
 
         # Reload hierarchy base from genome
         if hasattr(self._connectome_manager, "brain_region_hierarchy"):
             self._connectome_manager.brain_region_hierarchy.load_from_genome(current_genome)
+        else:
+            self.logger.warning("ConnectomeManager has no brain_region_hierarchy attribute")
 
         # Apply cross-region rules to update I/O
         try:
