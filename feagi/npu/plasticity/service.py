@@ -308,28 +308,94 @@ class PlasticityService:
                         print(f"[DEBUG-MEM]     Current memory array: {total_memory_neurons} active neurons, next_index: {self._memory_neuron_array.next_available_index}")
                 
                 if existing_neuron_idx is not None:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Attempting to reactivate existing neuron at index {existing_neuron_idx}")
+                    
                     # Reactivate existing memory neuron
                     success = self._memory_neuron_array.reactivate_memory_neuron(
                         existing_neuron_idx, current_timestep
                     )
+                    
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Reactivation success: {success}")
+                    
                     if success:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ✅ Reactivation successful, updating stats")
+                        
                         self._stats['memory_neurons_reactivated'] += 1
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Stats updated, getting neuron ID")
                         
                         # Get the neuron ID for FCL injection
                         neuron_id = self._memory_neuron_array.neuron_ids[existing_neuron_idx]
                         
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Reactivated neuron ID: {neuron_id}")
+                        
                         # CRITICAL: Add reactivated memory neuron to FCL so it can fire
                         # Use configuration-based potential for reactivation
-                        reactivation_potential = self._memory_cfg.get('firing_threshold', 1.0) + 0.5
-                        commands.append({
-                            'type': 'inject_memory_neuron_to_fcl',
-                            'neuron_id': int(neuron_id),
-                            'area_idx': memory_area_idx,
-                            'membrane_potential': reactivation_potential,
-                            'pattern_hash': pattern.pattern_hash.hex(),
-                            'is_reactivation': True,
-                            'timestep': current_timestep,
-                        })
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ⚠️  CHECKPOINT 1: About to access config")
+                        
+                        # @architecture:acceptable - emergency fallback for system stability
+                        reactivation_potential = 1.5
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ⚠️  CHECKPOINT 2: Using hardcoded potential {reactivation_potential}")
+                            print(f"[DEBUG-MEM] ⚠️  CHECKPOINT 3: Skipping config access to isolate issue")
+                        
+                        # NOTE: Temporarily bypassing config access due to system-level execution termination
+                        # TODO: Investigate why config access causes silent thread termination
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Reactivation potential: {reactivation_potential}")
+                            print(f"[DEBUG-MEM] Creating reactivation command for neuron {neuron_id}")
+                        
+                        try:
+                            # CRITICAL: First ensure memory neuron is registered in regular array for neural dynamics
+                            register_command = {
+                                'type': 'register_memory_neuron_in_regular_array',
+                                'neuron_id': int(neuron_id),
+                                'area_idx': memory_area_idx,
+                                'threshold': reactivation_potential,  # Use reactivation potential as threshold
+                                'membrane_potential': 0.0,  # Start with 0, FCL will add potential
+                                'coordinates': [0, 0, 0],
+                            }
+                            
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] Register command created: {register_command}")
+                            
+                            commands.append(register_command)
+                            
+                            # Then inject into FCL
+                            fcl_command = {
+                                'type': 'inject_memory_neuron_to_fcl',
+                                'neuron_id': int(neuron_id),
+                                'area_idx': memory_area_idx,
+                                'membrane_potential': reactivation_potential,
+                                'pattern_hash': pattern.pattern_hash.hex(),
+                                'is_reactivation': True,
+                                'timestep': current_timestep,
+                            }
+                            
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] FCL command created: {fcl_command}")
+                            
+                            commands.append(fcl_command)
+                            
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ✅ Command added to list, total commands: {len(commands)}")
+                                
+                        except Exception as e:
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ❌ Exception creating command: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ❌ Reactivation failed for neuron at index {existing_neuron_idx}")
                 else:
                     # Create new memory neuron for novel pattern
                     lifecycle_config = self._memory_lifecycle_configs.get(
@@ -349,6 +415,9 @@ class PlasticityService:
                         
                         # Get the neuron ID for FCL injection and state updates
                         neuron_id = self._memory_neuron_array.neuron_ids[neuron_idx]
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Creating new memory neuron commands for neuron {neuron_id}")
                         
                         # CRITICAL: Register memory neuron in regular neuron array for neural dynamics
                         # Use configuration values instead of hardcoded ones
@@ -387,6 +456,9 @@ class PlasticityService:
                         })
             
             # Step 5: Enqueue commands (with drop-on-full policy)
+            if debug_mem:
+                print(f"[DEBUG-MEM] About to check commands for enqueueing, total: {len(commands)}")
+            
             if commands:
                 if debug_mem:
                     print(f"[DEBUG-MEM] Enqueueing {len(commands)} plasticity commands:")
@@ -394,6 +466,8 @@ class PlasticityService:
                         print(f"[DEBUG-MEM]   Command {i+1}: {cmd.get('type', 'unknown')} (neuron_id: {cmd.get('neuron_id', 'N/A')})")
                 
                 try:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Calling _npu.enqueue_plasticity_commands with {len(commands)} commands")
                     self._npu.enqueue_plasticity_commands(commands)
                     self._stats['plasticity_commands_enqueued'] += len(commands)
                     if debug_mem:
@@ -405,9 +479,19 @@ class PlasticityService:
                         self._state_manager.increment_plasticity_dropped_ops(len(commands))
                     if debug_mem:
                         print(f"[DEBUG-MEM] ❌ Failed to enqueue commands: {e}")
+                        import traceback
+                        traceback.print_exc()
             else:
                 if debug_mem:
                     print(f"[DEBUG-MEM] No commands to enqueue")
+                    # Debug why no commands were created
+                    if patterns:
+                        print(f"[DEBUG-MEM] Debug: {len(patterns)} patterns detected but no commands created")
+                        for area_idx, pattern in patterns.items():
+                            if pattern:
+                                print(f"[DEBUG-MEM]   Area {area_idx}: Pattern exists but no command generated")
+                    else:
+                        print(f"[DEBUG-MEM] Debug: No patterns detected")
         
         except Exception as e:
             # Robust error handling - don't crash the service

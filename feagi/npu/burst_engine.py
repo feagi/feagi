@@ -329,21 +329,46 @@ class BurstEngine:
             try:
                 memory_neuron_found_in_fcl = False
                 
-                # Method 1: Use get_candidates_by_area
+                # Method 1: Check specific area (25) where memory neuron should be
                 if hasattr(fcl, 'get_candidates_by_area'):
                     try:
-                        candidates_by_area = fcl.get_candidates_by_area()
-                        for area_idx, candidates in candidates_by_area.items():
-                            if hasattr(candidates, 'neuron_ids'):
+                        print(f"[DEBUG-MEM] FCL checking: Method 1 - get_candidates_by_area(25)")
+                        # Check area 25 specifically (memory area)
+                        candidates = fcl.get_candidates_by_area(25)
+                        print(f"[DEBUG-MEM] FCL Method 1: candidates = {candidates}")
+                        if candidates:
+                            # Handle list of FCLCandidate objects
+                            if isinstance(candidates, list):
+                                neuron_ids = [candidate.neuron_id for candidate in candidates if hasattr(candidate, 'neuron_id')]
+                                print(f"[DEBUG-MEM] FCL Method 1: extracted neuron_ids from FCLCandidate list = {neuron_ids}")
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = neuron_ids.index(50000000)
+                                    potential = candidates[idx].membrane_potential_delta if hasattr(candidates[idx], 'membrane_potential_delta') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
+                                else:
+                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in extracted neuron_ids")
+                            # Handle structure with neuron_ids attribute
+                            elif hasattr(candidates, 'neuron_ids'):
                                 neuron_ids = candidates.neuron_ids
+                                print(f"[DEBUG-MEM] FCL Method 1: neuron_ids = {list(neuron_ids) if hasattr(neuron_ids, '__iter__') else neuron_ids}")
                                 if 50000000 in neuron_ids:
                                     memory_neuron_found_in_fcl = True
                                     idx = list(neuron_ids).index(50000000)
                                     potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
-                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area {area_idx} with potential {potential}")
-                                    break
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
+                                else:
+                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in neuron_ids")
+                            else:
+                                print(f"[DEBUG-MEM] FCL Method 1: Candidates structure not recognized: {type(candidates)}")
+                        else:
+                            print(f"[DEBUG-MEM] FCL Method 1: No candidates returned")
                     except Exception as e:
-                        print(f"[DEBUG-MEM] Error using get_candidates_by_area: {e}")
+                        print(f"[DEBUG-MEM] Error checking FCL area 25: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"[DEBUG-MEM] FCL Method 1: FCL has no get_candidates_by_area method")
                 
                 # Method 2: Use candidates_by_area property
                 if not memory_neuron_found_in_fcl and hasattr(fcl, 'candidates_by_area'):
@@ -385,7 +410,44 @@ class BurstEngine:
             except Exception as e:
                 print(f"[DEBUG-MEM] Could not check FCL contents: {e}")
         
-        # CRITICAL: Apply neural dynamics processing BEFORE firing evaluation
+        # CRITICAL: Apply plasticity ops BEFORE neural dynamics to inject memory neurons into FCL
+        try:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops'):
+                # Get plasticity config from TOML configuration
+                try:
+                    from feagi.config.toml_loader import load_feagi_config
+                    config = load_feagi_config()
+                    p_cfg = config.get('plasticity', {})
+                    budget = p_cfg.get('max_ops_per_burst', 100)  # Default budget
+                    
+                    if budget > 0:
+                        applied_ops = npu_interface.apply_plasticity_ops(max_ops=budget)
+                        if debug_mem and applied_ops > 0:
+                            print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics")
+                        elif debug_mem:
+                            print(f"[DEBUG-MEM] BurstEngine: No plasticity operations to apply (queue empty)")
+                    elif debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Plasticity budget is 0")
+                        
+                except Exception as config_error:
+                    # Fallback with default budget
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Config error ({config_error}), using default budget")
+                    applied_ops = npu_interface.apply_plasticity_ops(max_ops=100)
+                    if debug_mem and applied_ops > 0:
+                        print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics (fallback)")
+            elif debug_mem:
+                print(f"[DEBUG-MEM] BurstEngine: NPU interface not available for plasticity operations")
+        except Exception as e:
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ BurstEngine plasticity error: {e}")
+            pass
+
+        # CRITICAL: Apply neural dynamics processing AFTER plasticity operations
         fired_neurons = self._process_neural_dynamics(fcl)
         
         # ALWAYS log after neural dynamics
@@ -475,42 +537,7 @@ class BurstEngine:
             
         self.previous_fire_queue = fire_queue.copy_for_propagation()
 
-        # Apply plasticity ops at end-of-burst with strict budget
-        try:
-            import sys
-            debug_mem = '--debug-mem' in sys.argv
-            
-            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops'):
-                # Get plasticity config from TOML configuration
-                try:
-                    from feagi.config.toml_loader import load_feagi_config
-                    config = load_feagi_config()
-                    p_cfg = config.get('plasticity', {})
-                    budget = p_cfg.get('max_ops_per_burst', 100)  # Default budget
-                    
-                    if budget > 0:
-                        applied_ops = npu_interface.apply_plasticity_ops(max_ops=budget)
-                        if debug_mem and applied_ops > 0:
-                            print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations")
-                        elif debug_mem:
-                            print(f"[DEBUG-MEM] BurstEngine: No plasticity operations to apply (queue empty)")
-                    elif debug_mem:
-                        print(f"[DEBUG-MEM] BurstEngine: Plasticity budget is 0")
-                        
-                except Exception as config_error:
-                    # Fallback with default budget
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] BurstEngine: Config error ({config_error}), using default budget")
-                    applied_ops = npu_interface.apply_plasticity_ops(max_ops=100)
-                    if debug_mem and applied_ops > 0:
-                        print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations (fallback)")
-            elif debug_mem:
-                print(f"[DEBUG-MEM] BurstEngine: NPU interface not available for plasticity operations")
-        except Exception as e:
-            if debug_mem:
-                print(f"[DEBUG-MEM] ❌ BurstEngine plasticity error: {e}")
-            pass
+        # Plasticity operations now applied BEFORE neural dynamics (moved earlier in burst processing)
 
         fcl.clear()
         self.burst_count += 1
@@ -1817,6 +1844,120 @@ class BurstEngine:
                     for i in high_pot_indices[:3]:
                         logger.error(f"  PRE-SIMD Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
 
+            # CRITICAL: Handle memory neurons separately - they fire unconditionally when in FCL
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            
+            # STEP 1: First collect ALL memory neurons in FCL (regardless of valid_range)
+            memory_neurons_detected = []
+            
+            # Identify memory neurons in FCL (neuron IDs >= 50000000)
+            if debug_mem:
+                print(f"[DEBUG-MEM] Neural dynamics: Starting memory neuron detection in FCL")
+                print(f"[DEBUG-MEM] Neural dynamics: FCL object = {fcl}")
+                print(f"[DEBUG-MEM] Neural dynamics: FCL has get_all_candidates = {hasattr(fcl, 'get_all_candidates') if fcl else 'FCL is None'}")
+            
+            if fcl and hasattr(fcl, 'get_all_candidates'):
+                try:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Calling fcl.get_all_candidates()")
+                    all_candidates = fcl.get_all_candidates()
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: all_candidates = {all_candidates}")
+                        print(f"[DEBUG-MEM] Neural dynamics: all_candidates has neuron_ids = {hasattr(all_candidates, 'neuron_ids') if all_candidates else 'all_candidates is None'}")
+                    
+                    # Handle dictionary format: {area_idx: [FCLCandidate, ...]}
+                    if isinstance(all_candidates, dict):
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: Processing dictionary format with {len(all_candidates)} areas")
+                        for area_idx, candidates_list in all_candidates.items():
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] Neural dynamics: Processing area {area_idx} with {len(candidates_list)} candidates")
+                            for candidate in candidates_list:
+                                if hasattr(candidate, 'neuron_id'):
+                                    neuron_id = candidate.neuron_id
+                                    if neuron_id >= 50000000:  # Memory neuron
+                                        if debug_mem:
+                                            print(f"[DEBUG-MEM] Neural dynamics: Found memory neuron {neuron_id} in FCL")
+                                        memory_neurons_detected.append(neuron_id)
+                    # Handle legacy format with neuron_ids attribute
+                    elif hasattr(all_candidates, 'neuron_ids'):
+                        neuron_ids = all_candidates.neuron_ids
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: Found neuron_ids = {list(neuron_ids) if hasattr(neuron_ids, '__iter__') else neuron_ids}")
+                        for neuron_id in neuron_ids:
+                            if neuron_id >= 50000000:  # Memory neuron
+                                if debug_mem:
+                                    print(f"[DEBUG-MEM] Neural dynamics: Found memory neuron {neuron_id} in FCL")
+                                memory_neurons_detected.append(neuron_id)
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: all_candidates format not recognized: {type(all_candidates)}")
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Error identifying memory neurons in FCL: {e}")
+                        import traceback
+                        traceback.print_exc()
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: FCL doesn't have get_all_candidates method")
+            
+            # STEP 2: Update valid_range if memory neurons were detected
+            if len(memory_neurons_detected) > 0:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Found {len(memory_neurons_detected)} memory neurons in FCL: {memory_neurons_detected}")
+                
+                try:
+                    # Update valid_range to include newly registered memory neurons
+                    _updated_count = getattr(neuron_array, "neuron_count", None)
+                    if _updated_count is None:
+                        _updated_count = getattr(neuron_array, "count", 0)
+                    _max_neurons = getattr(neuron_array, "max_neurons", int(_updated_count))
+                    updated_valid_range = min(int(_updated_count), int(_max_neurons))
+                    
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Updating valid_range from {valid_range} to {updated_valid_range}")
+                    
+                    # Update valid_range for neural processing
+                    if updated_valid_range > valid_range:
+                        valid_range = updated_valid_range
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: ✅ Updated valid_range to {valid_range} to include memory neurons")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: No valid_range update needed (current: {valid_range}, new: {updated_valid_range})")
+                            
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Error updating valid_range: {e}")
+            
+            # STEP 3: Create memory neuron mask with updated valid_range
+            memory_neuron_mask = np.zeros(valid_range, dtype=bool)
+            memory_neurons_in_fcl = []
+            
+            # STEP 4: Now process memory neurons with the correct valid_range
+            for neuron_id in memory_neurons_detected:
+                idx = neuron_array.neuron_id_to_index.get(neuron_id)
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Processing memory neuron {neuron_id} -> array index {idx}")
+                    print(f"[DEBUG-MEM] Neural dynamics: valid_range = {valid_range}")
+                    print(f"[DEBUG-MEM] Neural dynamics: idx is not None = {idx is not None}")
+                    print(f"[DEBUG-MEM] Neural dynamics: idx < valid_range = {idx < valid_range if idx is not None else 'N/A'}")
+                if idx is not None and idx < valid_range:
+                    memory_neuron_mask[idx] = True
+                    memory_neurons_in_fcl.append(neuron_id)
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: ✅ Added memory neuron {neuron_id} to mask at index {idx}")
+                else:
+                    if debug_mem:
+                        if idx is None:
+                            print(f"[DEBUG-MEM] Neural dynamics: ❌ Memory neuron {neuron_id} not found in neuron_id_to_index")
+                        else:
+                            print(f"[DEBUG-MEM] Neural dynamics: ❌ Memory neuron {neuron_id} index {idx} >= valid_range {valid_range}")
+            
+            if debug_mem and len(memory_neurons_in_fcl) > 0:
+                print(f"[DEBUG-MEM] Neural dynamics: Successfully processed {len(memory_neurons_in_fcl)} memory neurons for unconditional firing")
+            
             # SIMD-optimized neural processing pipeline with proper excitability
             firing_mask, num_fired = simd_batch_neural_update(
                 potentials=potentials,
@@ -1832,6 +1973,19 @@ class BurstEngine:
                 excitability=excitability_tuple,  # Use optimized tuple format
                 rng=rng_for_excitability  # RNG only when needed for probabilistic firing
             )
+            
+            # CRITICAL: Force memory neurons to fire unconditionally
+            if np.any(memory_neuron_mask):
+                memory_fired_count = np.sum(memory_neuron_mask)
+                firing_mask = firing_mask | memory_neuron_mask  # Force memory neurons to fire
+                num_fired = np.sum(firing_mask)  # Recalculate total fired count
+                
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Forced {memory_fired_count} memory neurons to fire unconditionally")
+                    for i, is_memory in enumerate(memory_neuron_mask):
+                        if is_memory:
+                            neuron_id = neuron_array.index_to_neuron_id.get(i)
+                            print(f"[DEBUG-MEM] 🔥 Memory neuron {neuron_id} forced to fire (idx={i})")
             
             # Debug post-firing results for high threshold neurons
             if debug_enabled:

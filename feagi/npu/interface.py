@@ -519,18 +519,32 @@ class NPUInterface:
 
         Returns number of applied commands.
         """
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        
         if max_ops <= 0 or self._plasticity_queue_capacity <= 0:
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU plasticity ops skipped: max_ops={max_ops}, capacity={self._plasticity_queue_capacity}")
             return 0
+            
         applied = 0
         with (self._plasticity_lock or _NullContext()):
             if not self._plasticity_queue:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] NPU plasticity queue is empty")
                 return 0
             # Pop in stable order
             ops = self._plasticity_queue[:max_ops]
             del self._plasticity_queue[:max_ops]
+            
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU processing {len(ops)} plasticity commands")
 
         for cmd in ops:
             t = cmd.get('type')
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU applying command: {t} (neuron_id: {cmd.get('neuron_id', 'N/A')})")
+                
             if t == 'update_weights_delta':
                 indices = cmd['indices']
                 deltas = cmd['deltas']
@@ -547,8 +561,18 @@ class NPUInterface:
                 self._apply_inject_memory_neuron_to_fcl(cmd)
             elif t == 'update_state_counters':
                 self._apply_update_state_counters(cmd)
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ NPU unknown command type: {t}")
             # Additional types can be added with explicit handlers only
             applied += 1
+            
+            if debug_mem:
+                print(f"[DEBUG-MEM] ✅ NPU applied command {applied}: {t}")
+                
+        if debug_mem:
+            print(f"[DEBUG-MEM] NPU plasticity ops complete: applied {applied} commands")
+            
         return applied
 
     def _apply_update_weights_delta(self, indices: Any, deltas: Any) -> None:
@@ -637,6 +661,11 @@ class NPUInterface:
                 next_idx = getattr(self.neuron_array, 'count', 0)
                 self.neuron_array.neuron_id_to_index[neuron_id] = next_idx
                 
+                # Also update reverse mapping
+                if not hasattr(self.neuron_array, 'index_to_neuron_id'):
+                    self.neuron_array.index_to_neuron_id = {}
+                self.neuron_array.index_to_neuron_id[next_idx] = neuron_id
+                
                 # Extend arrays if needed
                 max_neurons = getattr(self.neuron_array, 'max_neurons', 100000)
                 if next_idx >= max_neurons:
@@ -652,9 +681,11 @@ class NPUInterface:
                 if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > next_idx:
                     self.neuron_array.membrane_potentials[next_idx] = membrane_potential
                 
-                # Update count
+                # Update count and neuron_count (keep both in sync)
                 if hasattr(self.neuron_array, 'count'):
                     self.neuron_array.count = next_idx + 1
+                if hasattr(self.neuron_array, 'neuron_count'):
+                    self.neuron_array.neuron_count = next_idx + 1
                 
                 success = True
             
@@ -666,7 +697,14 @@ class NPUInterface:
             debug_mem = '--debug-mem' in sys.argv
             if debug_mem:
                 if success:
+                    current_count = getattr(self.neuron_array, 'count', 'unknown')
+                    current_neuron_count = getattr(self.neuron_array, 'neuron_count', 'unknown')
+                    # Check if mappings are correct
+                    forward_mapping = self.neuron_array.neuron_id_to_index.get(neuron_id, 'missing')
+                    reverse_mapping = self.neuron_array.index_to_neuron_id.get(forward_mapping, 'missing') if forward_mapping != 'missing' else 'missing'
                     print(f"[DEBUG-MEM] ✅ Registered memory neuron {neuron_id} in regular array (area {area_idx}, threshold {threshold})")
+                    print(f"[DEBUG-MEM]   Updated counts: count={current_count}, neuron_count={current_neuron_count}")
+                    print(f"[DEBUG-MEM]   Mappings: {neuron_id} -> {forward_mapping} -> {reverse_mapping}")
                 else:
                     print(f"[DEBUG-MEM] ❌ Failed to register memory neuron {neuron_id} in regular array")
                     
