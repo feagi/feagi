@@ -118,19 +118,17 @@ async def stream_segmented_camera(
                 client.registered = True
                 try:
                     body = reg.get("body", {})
-                    msg = body.get("message", "")
-                    if isinstance(msg, str) and msg:
-                        import json as _json
-                        parsed = _json.loads(msg)
-                        shm = parsed.get("shared_memory") or {}
+                    # Extract SHM paths from transport field (new registration API)
+                    transport = body.get("transport", {})
+                    if isinstance(transport, dict):
+                        shm = transport.get("shm_paths", {})
                         if isinstance(shm, dict):
                             shm_paths = {str(k): str(v) for k, v in shm.items()}
-                except Exception:
-                    pass
-            try:
-                logger.info(f"[SHM] Agent shared memory mappings: {shm_paths}")
-            except Exception:
-                pass
+                            logger.info(f"✅ [SHM-PARSE] Extracted SHM paths from transport: {shm_paths}")
+                except Exception as e:
+                    logger.error(f"❌ [SHM-PARSE] Failed to parse transport/SHM paths: {e}")
+            logger.info(f"🔍 [SHM-DEBUG] Agent shared memory mappings: {shm_paths}")
+            logger.info(f"🔍 [SHM-DEBUG] Video SHM path: {shm_paths.get('video', 'NOT PROVIDED')}")
         except Exception:
             pass
         # Connect streams (sensory-only mode for video agent)
@@ -175,8 +173,12 @@ async def stream_segmented_camera(
         if isinstance(shm_path, str) and len(shm_path) > 0:
             try:
                 shm_writer = SharedFrameWriter(path=shm_path)
-            except Exception:
+                logger.info(f"[SHM-VIDEO] ✅ SharedFrameWriter created: {shm_path}")
+            except Exception as e:
+                logger.error(f"[SHM-VIDEO] ❌ Failed to create SharedFrameWriter: {e}")
                 shm_writer = None
+        else:
+            logger.info(f"[SHM-VIDEO] No video SHM path provided by FEAGI")
         # Setup sensory SHM writer if FEAGI provided a path
         sensory_shm_path = shm_paths.get("sensory")
         if isinstance(sensory_shm_path, str) and len(sensory_shm_path) > 0:
@@ -389,13 +391,16 @@ async def stream_segmented_camera(
                     logger.info("✅ Reconnected successfully")
                     consecutive_failures = 0
 
-            # Optionally write raw RGB frame for BV preview via SHM
+            # Write ORIGINAL raw RGB frame (not resized) for BV preview via SHM
             if shm_writer is not None:
                 try:
-                    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+                    rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)  # Use original frame_bgr, not resized!
                     shm_writer.write_frame(rgb)
-                except Exception:
-                    pass
+                    logger.debug(f"[SHM-VIDEO-RAW] ✅ Frame written: {rgb.shape} (original size)")
+                except Exception as e:
+                    logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to write frame: {e}")
+                    import traceback
+                    logger.error(f"[SHM-VIDEO-RAW] Traceback: {traceback.format_exc()}")
 
             # Pace by source FPS if available
             if info and info.fps > 0:
