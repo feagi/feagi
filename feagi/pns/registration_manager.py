@@ -781,10 +781,11 @@ class RegistrationManager:
                 "host": agent_ip if agent_ip != "unknown" else "127.0.0.1",
                 "port": 9050,  # Standard bridge WebSocket port
             }
-            # Prefer websocket for remote agents if bridge available
-            if not is_local and not transport_info["recommended"]:
+            # Prefer WebSocket when bridge is available and no SHM
+            # (Agents like BV don't support direct ZMQ)
+            if not transport_info["recommended"] or transport_info["recommended"] == "zmq":
                 transport_info["recommended"] = "websocket"
-                logger.info(f"[TRANSPORT] Recommending WebSocket for remote agent {request.agent_id}")
+                logger.info(f"[TRANSPORT] Recommending WebSocket via bridge for agent {request.agent_id}")
 
         return transport_info
 

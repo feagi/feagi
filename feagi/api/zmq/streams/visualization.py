@@ -463,6 +463,8 @@ class VisualizationStream:
                     area_count = len(cortical_data)
                     total_neurons = sum(len(area_data.get("neuron_ids", [])) for area_data in cortical_data.values() if area_data)
                     logger.info(f"[VIZ-SAMPLER] FQ sampler returned {area_count} areas, {total_neurons} total neurons")
+                else:
+                    logger.debug("[VIZ-SAMPLER] FQ sampler returned empty data (no neural activity)")
                 
                 if state_manager and state_manager.is_debug_npu_enabled() and cortical_data:
                     sensory_areas_found = []
@@ -493,7 +495,8 @@ class VisualizationStream:
                     time.sleep(0.01)
                     continue
 
-                # When SHM is available, bypass heavy serialization entirely
+                # Publish to BOTH SHM and ZMQ when both are available
+                # This ensures local (SHM) and remote (ZMQ/bridge) clients both receive data
                 if self._shm_writer:
                     try:
                         payload = self._build_shm_json_payload(cortical_data)
@@ -503,14 +506,21 @@ class VisualizationStream:
                             time.sleep(0.01)
                     except Exception as e:
                         logger.error(f"[SHM] Error building SHM payload: {e}")
-                else:
-                    # WebSocket path (legacy/fallback): encode using FDP
+                
+                # ALWAYS publish to ZMQ for remote clients (bridge, network agents)
+                # Even when SHM is available for local clients
+                # Use BINARY format from Rust library (bridge is passthrough to BV)
+                if self.socket:
                     try:
+                        # Use binary encoding via feagi_rust_py_libs (bridge passes through to BV)
                         binary_data = self._prepare_broadcast_data(cortical_data)
                         if binary_data and len(binary_data) > 0:
+                            logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes (BINARY) to ZMQ visualization stream")
                             self._publish_data(binary_data)
+                        else:
+                            logger.debug("[VIZ-PUBLISH] No binary data to publish (encoding returned empty)")
                     except Exception as e:
-                        logger.error(f"Error encoding cortical area binary data: {e}")
+                        logger.error(f"Error encoding visualization data for ZMQ: {e}")
 
             except Exception as e:
                 logger.error(f"Error processing cortical area data: {e}")
@@ -531,7 +541,7 @@ class VisualizationStream:
 
                 # Create the main mapped neuron data container
                 generated_mapped_neuron_data = (
-                    fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                    fdp.xyzp.CorticalMappedXYZPNeuronData()
                 )
 
                 total_neurons = 0
@@ -806,7 +816,7 @@ class VisualizationStream:
         """Build a compact Type-11 style JSON payload for SHM consumers.
 
         Structure:
-          [1][1] + JSON UTF-8 bytes where JSON has keys:
+          [11][1] + JSON UTF-8 bytes where JSON has keys:
           {
             "type": 11,
             "areas": {
@@ -832,7 +842,11 @@ class VisualizationStream:
                 neuron_ids = area.get("neuron_ids", [])
                 coords = area.get("coordinates", [])
                 pots = area.get("membrane_potentials", [])
+                
+                logger.debug(f"[JSON-PAYLOAD] Area {area_id}: {len(neuron_ids)} neurons, {len(coords)} coords, {len(pots)} potentials")
+                
                 if not neuron_ids:
+                    logger.debug(f"[JSON-PAYLOAD] Skipping area {area_id}: no neuron IDs")
                     continue
                 ids = list(neuron_ids)
                 xs = ys = zs = None
@@ -841,7 +855,9 @@ class VisualizationStream:
                     xs = [int(c[0]) for c in coords[: len(ids)]]
                     ys = [int(c[1]) for c in coords[: len(ids)]]
                     zs = [int(c[2]) for c in coords[: len(ids)]]
+                    logger.debug(f"[JSON-PAYLOAD] Area {area_id}: using provided coordinates ({len(xs)} neurons)")
                 else:
+                    logger.warning(f"[JSON-PAYLOAD] Area {area_id}: coords={len(coords) if coords else 0}, need to fetch from core_api")
                     try:
                         if self.core_api and hasattr(self.core_api, "get_neuron_coordinates"):
                             coord_res = self.core_api.get_neuron_coordinates(ids)
@@ -849,6 +865,7 @@ class VisualizationStream:
                                 xs = list(map(int, coord_res.get("coordinates_x", [])))
                                 ys = list(map(int, coord_res.get("coordinates_y", [])))
                                 zs = list(map(int, coord_res.get("coordinates_z", [])))
+                                logger.debug(f"[JSON-PAYLOAD] Area {area_id}: fetched {len(xs)} coords from core_api")
                                 valid = coord_res.get("valid_indices")
                                 if valid and len(valid) == len(ids):
                                     # Filter to valid
@@ -856,10 +873,17 @@ class VisualizationStream:
                                     xs = [x for x, ok in zip(xs, valid) if ok]
                                     ys = [y for y, ok in zip(ys, valid) if ok]
                                     zs = [z for z, ok in zip(zs, valid) if ok]
-                    except Exception:
+                                    logger.debug(f"[JSON-PAYLOAD] Area {area_id}: filtered to {len(ids)} valid neurons")
+                            else:
+                                logger.error(f"[JSON-PAYLOAD] Area {area_id}: core_api returned no coordinates")
+                        else:
+                            logger.error(f"[JSON-PAYLOAD] Area {area_id}: core_api not available for coordinate fetch")
+                    except Exception as e:
+                        logger.error(f"[JSON-PAYLOAD] Area {area_id}: error fetching coordinates: {e}")
                         xs = ys = zs = None
                 if xs is None or ys is None or zs is None or len(xs) == 0:
                     # Unable to resolve coordinates; skip this area
+                    logger.error(f"[JSON-PAYLOAD] Area {area_id}: SKIPPING - no valid coordinates (xs={xs is not None}, ys={ys is not None}, zs={zs is not None}, len={len(xs) if xs else 0})")
                     continue
                 count = min(len(ids), len(xs), len(ys), len(zs))
                 ids = ids[:count]
@@ -891,7 +915,8 @@ class VisualizationStream:
             import json
 
             body = json.dumps(out, separators=(",", ":")).encode("utf-8")
-            # Prefix with [1][1] to match existing JSON wrapper handling path
+            # Prefix with [1][1] for JSON wrapper containing Type 11 data (structure_id=1 for JSON, version=1)
+            # The JSON itself contains "type": 11 to indicate it's neuron categorical data
             return bytes([1, 1]) + body
         except Exception as e:
             logger.debug(f"[SHM] JSON payload build failed: {e}")
@@ -1226,7 +1251,7 @@ class VisualizationStream:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                fdp.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             #  Convert cortical area data to the format expected by the new
@@ -1319,7 +1344,7 @@ class VisualizationStream:
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
+                        fdp.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
@@ -1783,7 +1808,7 @@ class _ShmRingWriter:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                fdp.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             #  Convert cortical area data to the format expected by the new
@@ -1876,7 +1901,7 @@ class _ShmRingWriter:
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
+                        fdp.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
