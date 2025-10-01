@@ -1001,6 +1001,18 @@ class AgentRegistrationRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+# Import enhanced registration models from capability_rates module
+try:
+    from feagi.api.v1.capability_rates import (
+        EnhancedAgentRegistrationRequest,
+        EnhancedAgentRegistrationResponse
+    )
+except ImportError:
+    # Fallback if capability_rates module not available
+    EnhancedAgentRegistrationRequest = AgentRegistrationRequest
+    EnhancedAgentRegistrationResponse = None
+
+
 class AgentDeregistrationRequest(BaseModel):
     """Request model for agent deregistration."""
 

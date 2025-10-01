@@ -1,7 +1,7 @@
 """High-performance sensory stream for neural data ingestion.
 
 This stream implements zero-copy neural data reception from FEAGI_Connector
-with pre-allocated buffers and platform-specific optimizations.
+with latest-only shared slots to prevent temporal pattern replay bugs.
 """
 
 import asyncio
@@ -22,62 +22,60 @@ from feagi.utils.logger import setup_logger
 
 from ..memory import NeuralBufferPool
 from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
+from ..neural.latest_only_slot import (
+    LatestOnlySharedSlot, 
+    LatestOnlyReader, 
+    LatestOnlyWriter,
+    create_agent_slot_path,
+    cleanup_agent_slots
+)
 from ..platform import optimize_socket_for_neural_data
 
 logger = setup_logger(__name__)
 
-# Global pool to deduplicate SHM readers per-path within the process
-_GLOBAL_SHM_READERS: Dict[str, tuple] = {}
-_GLOBAL_SHM_LOCK = threading.Lock()
-_SHM_OPEN_COUNTER: Dict[str, int] = {}
+# Global pool for latest-only slot readers per agent
+_GLOBAL_SLOT_READERS: Dict[str, LatestOnlyReader] = {}
+_GLOBAL_SLOT_LOCK = threading.Lock()
+_SHM_BASE_DIR = Path("/tmp/feagi_shm")
 
-def _log_shm_open(path: Path) -> None:
-    try:
-        p = str(path)
-        cnt = _SHM_OPEN_COUNTER.get(p, 0) + 1
-        _SHM_OPEN_COUNTER[p] = cnt
-        if cnt <= 5 or cnt in (10, 50, 100, 200, 500, 1000, 2000):
-            logger.warning(f"[SHM-OPEN] {p} open_count={cnt}")
-    except Exception:
-        pass
-
-def _acquire_shared_reader(path: Path):
-    """Get or create a shared _ShmRingReader for a given path with refcounting."""
-    p = str(path)
-    with _GLOBAL_SHM_LOCK:
-        entry = _GLOBAL_SHM_READERS.get(p)
-        if entry:
-            reader, count = entry
-            _GLOBAL_SHM_READERS[p] = (reader, count + 1)
-            logger.info(f"[SHM-POOL] Reusing reader for {Path(p).name}, refcount: {count} -> {count + 1}")
-            return reader
+def _acquire_slot_reader(agent_id: str, max_age_ms: float = 100.0) -> Optional[LatestOnlyReader]:
+    """Get or create a latest-only slot reader for an agent.
+    
+    Args:
+        agent_id: Agent identifier
+        max_age_ms: Maximum data age before considering stale
+        
+    Returns:
+        LatestOnlyReader instance or None if creation fails
+    """
+    with _GLOBAL_SLOT_LOCK:
+        existing_reader = _GLOBAL_SLOT_READERS.get(agent_id)
+        if existing_reader:
+            logger.info(f"[SLOT] Reusing reader for agent {agent_id}")
+            return existing_reader
+            
         try:
-            reader = _ShmRingReader(Path(p))  # type: ignore  # defined later
-            _GLOBAL_SHM_READERS[p] = (reader, 1)
-            logger.info(f"[SHM-POOL] Created new reader for {Path(p).name}, refcount: 1")
+            slot_path = create_agent_slot_path(_SHM_BASE_DIR, agent_id, "sensory")
+            slot = LatestOnlySharedSlot(slot_path)
+            reader = LatestOnlyReader(slot, max_age_ms)
+            _GLOBAL_SLOT_READERS[agent_id] = reader
+            logger.info(f"[SLOT] Created reader for agent {agent_id}: {slot_path}")
             return reader
         except Exception as e:
-            logger.error(f"[SHM-POOL] Failed to create reader for {Path(p).name}: {e}")
-            # Return None to prevent repeated attempts
+            logger.error(f"[SLOT] Failed to create reader for agent {agent_id}: {e}")
             return None
 
-def _release_shared_reader(path: Path) -> None:
-    p = str(path)
-    with _GLOBAL_SHM_LOCK:
-        entry = _GLOBAL_SHM_READERS.get(p)
-        if not entry:
-            return
-        reader, count = entry
-        if count <= 1:
+def _release_slot_reader(agent_id: str) -> None:
+    """Release and cleanup latest-only slot reader for an agent."""
+    with _GLOBAL_SLOT_LOCK:
+        reader = _GLOBAL_SLOT_READERS.pop(agent_id, None)
+        if reader:
             try:
-                reader.close()
-            except Exception:
-                pass
-            _GLOBAL_SHM_READERS.pop(p, None)
-            logger.info(f"[SHM-POOL] Closed and removed reader for {Path(p).name}, refcount: {count} -> 0")
-        else:
-            _GLOBAL_SHM_READERS[p] = (reader, count - 1)
-            logger.info(f"[SHM-POOL] Released reader for {Path(p).name}, refcount: {count} -> {count - 1}")
+                reader.slot.close()
+                cleanup_agent_slots(_SHM_BASE_DIR, agent_id)
+                logger.info(f"[SLOT] Released and cleaned up reader for agent {agent_id}")
+            except Exception as e:
+                logger.warning(f"[SLOT] Error cleaning up reader for agent {agent_id}: {e}")
 
 
 class StreamResult(IntEnum):
@@ -134,14 +132,15 @@ class SensoryNeuralStream:
         # Debug endpoint for logging
         self.debug_endpoint = f"tcp://{self.host}:{self.port}"
 
-        # Zero-copy ring buffer for incoming data
-        # Reduce backlog for real-time behavior
-        # Ensure sufficient slot size for large sensory frames while keeping slot count bounded
-        self.ring_buffer = ZeroCopyRingBuffer(
-            slots=min(ring_buffer_slots, 128),
-            slot_size=max(524288, int(slot_size)),
-            use_shared_memory=True,
-        )
+        # Latest-only buffer for incoming ZMQ data to prevent temporal pattern replay
+        # CRITICAL: Uses single-slot buffer to eliminate frequency mismatch caching
+        # This prevents 20Hz agents from filling buffers when FEAGI runs at 1Hz
+        self._latest_only_buffer = {
+            'data': None,
+            'timestamp_ns': 0,
+            'lock': threading.Lock()
+        }
+        self._max_slot_size = max(524288, int(slot_size))  # Keep size limit
 
         # Neural-specific buffer pools
         if cortical_config:
@@ -187,19 +186,15 @@ class SensoryNeuralStream:
         except Exception:
             pass
 
-    def _ensure_shm_structures(self) -> None:
-        """Ensure SHM reader structures exist to avoid attribute errors."""
-        if not hasattr(self, "_shm_lock"):
+    def _ensure_slot_structures(self) -> None:
+        """Ensure latest-only slot reader structures exist."""
+        if not hasattr(self, "_slot_lock"):
             import threading as _threading
-            self._shm_lock = _threading.Lock()
-        if not hasattr(self, "_shm_readers"):
-            self._shm_readers = {}
-        if not hasattr(self, "_shm_readers_by_path"):
-            self._shm_readers_by_path = {}
-        if not hasattr(self, "_failed_shm_paths"):
-            self._failed_shm_paths = set()
+            self._slot_lock = _threading.Lock()
+        if not hasattr(self, "_slot_readers"):
+            self._slot_readers = {}
         if self._debug_shm:
-            self._shm_log("Initialized SHM reader structures")
+            self._shm_log("Initialized latest-only slot reader structures")
 
         # Protocol handlers
         self._protocol_handlers = {
@@ -209,37 +204,36 @@ class SensoryNeuralStream:
             NeuralProtocolID.CORTICAL_MAP: self._handle_cortical_map,
         }
 
-        # Optional SHM readers (per-agent sensory/neurons_stream)
-        # Maintain both per-agent and per-path maps to prevent duplicate opens
-        self._shm_readers: Dict[str, _ShmRingReader] = {}
-        self._shm_readers_by_path: Dict[str, _ShmRingReader] = {}
-        self._shm_lock = threading.Lock()
-        # Track failed SHM paths to avoid repeated retry spam
-        self._failed_shm_paths: set = set()
+        # Initialize latest-only slot readers for connected agents
+        self._slot_readers: Dict[str, LatestOnlyReader] = {}
+        self._slot_lock = threading.Lock()
+        
+        # Set maximum age for sensory data (100ms default)
+        # Data older than this will be automatically rejected
+        self._max_sensory_age_ms = 100.0
+        
         try:
             from feagi.core.state_manager import FeagiStateManager
-
             sm = FeagiStateManager.instance()
-            agent_map = getattr(sm, "_agent_shared_memory", {})
-            for aid, mapping in agent_map.items():
-                # Attach either new 'sensory' capability or legacy 'neurons_stream' via SHM
-                p = mapping.get("sensory") or mapping.get("neurons_stream")
-                if p:
+            
+            # Get connected agents instead of shared memory mappings  
+            # This avoids the StateManager registry fluctuations that caused the bug
+            connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+            
+            for agent_id, agent_data in connected_agents.items():
+                # Only create readers for agents that have sensory capabilities
+                capabilities = agent_data.get('capabilities', {})
+                if capabilities.get('sensory') or capabilities.get('neurons_stream'):
                     try:
-                        with self._shm_lock:
-                            path_str = str(Path(p))
-                            if aid not in self._shm_readers:
-                                reader = self._shm_readers_by_path.get(path_str)
-                                if reader is None:
-                                    reader = _acquire_shared_reader(Path(path_str))
-                                    self._shm_readers_by_path[path_str] = reader
-                                    _log_shm_open(Path(path_str))
-                                self._shm_readers[aid] = reader
-                                logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
+                        reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
+                        if reader:
+                            self._slot_readers[agent_id] = reader
+                            logger.info(f"✅ [SLOT] Initialized sensory slot reader for agent {agent_id}")
                     except Exception as e:
-                        logger.warning(f"[SHM] Failed to open sensory SHM for {aid}: {e}")
+                        logger.warning(f"[SLOT] Failed to initialize sensory slot reader for {agent_id}: {e}")
+                        
         except Exception as e:
-            logger.info(f"[SHM] Sensory SHM registry unavailable; using ZMQ only ({e})")
+            logger.info(f"[SLOT] Sensory slot registry unavailable; using ZMQ only ({e})")
 
     def _is_debug_npu_enabled(self) -> bool:
         """Check if NPU debug logging is enabled via state manager.
@@ -278,8 +272,8 @@ class SensoryNeuralStream:
             f"Starting neural sensory stream on {self.host}:{self.port}"
         )
         
-        # Ensure SHM structures initialized before tasks start
-        self._ensure_shm_structures()
+        # Ensure latest-only slot structures initialized before tasks start
+        self._ensure_slot_structures()
 
         # Create and bind socket
         self.socket = self._setup_socket()
@@ -287,14 +281,14 @@ class SensoryNeuralStream:
 
         # Start processing tasks
         self._process_task = asyncio.create_task(self._process_loop())
-        # Always start SHM poller; it will attach readers dynamically
-        self._shm_task = asyncio.create_task(self._process_shm_loop())
-        # Optional periodic SHM summary
+        # Start latest-only slot poller for connected agents
+        self._slot_task = asyncio.create_task(self._process_slot_loop())
+        # Optional periodic slot summary
         if self._debug_shm:
             try:
-                self._shm_summary_task = asyncio.create_task(self._log_shm_summary_loop())
+                self._slot_summary_task = asyncio.create_task(self._log_slot_summary_loop())
             except Exception:
-                self._shm_summary_task = None
+                self._slot_summary_task = None
 
         logger.info("Neural sensory stream started")
 
@@ -316,14 +310,22 @@ class SensoryNeuralStream:
                 pass
             except Exception as e:
                 logger.warning(f"Error cancelling process task: {e}")
-        if hasattr(self, "_shm_task"):
-            self._shm_task.cancel()
+        if hasattr(self, "_slot_task"):
+            self._slot_task.cancel()
             try:
-                await self._shm_task
+                await self._slot_task
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                logger.warning(f"Error cancelling shm task: {e}")
+                logger.warning(f"Error cancelling slot task: {e}")
+        if hasattr(self, "_slot_summary_task"):
+            self._slot_summary_task.cancel()
+            try:
+                await self._slot_summary_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error cancelling slot summary task: {e}")
 
         # Close socket with error handling
         if self.socket:
@@ -353,22 +355,15 @@ class SensoryNeuralStream:
 
         logger.info("Neural sensory stream stopped")
 
-        # Close SHM readers (refcounted)
+        # Close latest-only slot readers
         try:
-            with self._shm_lock:
-                # Release by unique path
-                released_paths = set()
-                for reader in self._shm_readers.values():
+            with self._slot_lock:
+                for agent_id in list(self._slot_readers.keys()):
                     try:
-                        if hasattr(reader, 'path'):
-                            p = str(reader.path)
-                            if p not in released_paths:
-                                _release_shared_reader(reader.path)
-                                released_paths.add(p)
+                        _release_slot_reader(agent_id)
                     except Exception:
                         pass
-                self._shm_readers.clear()
-                self._shm_readers_by_path.clear()
+                self._slot_readers.clear()
         except Exception:
             pass
 
@@ -427,132 +422,240 @@ class SensoryNeuralStream:
                 logger.error(f"Error in neural processing loop: {e}")
                 await asyncio.sleep(0.1)  # Error throttling
 
-    async def _process_shm_loop(self) -> None:
-        """Poll SHM ring buffers and process latest payloads."""
-        # Defensive: ensure SHM structures exist
-        self._ensure_shm_structures()
+    async def _process_slot_loop(self) -> None:
+        """Poll latest-only shared slots using capability-specific rates to prevent temporal pattern replay."""
+        # Defensive: ensure slot structures exist
+        self._ensure_slot_structures()
+        
+        # Get capability rate manager for rate-based polling
+        try:
+            from feagi.core.capability_rate_manager import get_capability_rate_manager
+            from feagi.api.v1.capability_rates import CapabilityType
+            capability_manager = get_capability_rate_manager()
+        except Exception as e:
+            logger.error(f"[RATE] Could not get capability rate manager: {e}")
+            # Fallback to old behavior if rate manager unavailable
+            await self._process_slot_loop_legacy()
+            return
+        
+        if not capability_manager:
+            logger.warning("[RATE] Capability rate manager not available, using legacy polling")
+            await self._process_slot_loop_legacy() 
+            return
+            
+        logger.info("[RATE] Starting capability-aware SHM polling for sensory data")
+        
         while self.running:
             try:
-                # Refresh readers from StateManager in case of new agents
+                # Get agents whose sensory capability should be polled now based on their registered rates
+                current_time_ns = time.time_ns()
+                agents_to_poll = capability_manager.get_agents_for_capability_polling(
+                    CapabilityType.SENSORY,
+                    current_time_ns
+                )
+                
+                # Also check for legacy neurons_stream capability
+                legacy_agents_to_poll = capability_manager.get_agents_for_capability_polling(
+                    CapabilityType.NEURONS_STREAM,
+                    current_time_ns
+                )
+                
+                # Combine both lists (avoid duplicates)
+                all_agents_to_poll = {agent.agent_id: agent for agent in agents_to_poll}
+                for agent in legacy_agents_to_poll:
+                    if agent.agent_id not in all_agents_to_poll:
+                        all_agents_to_poll[agent.agent_id] = agent
+                
+                # Process data from agents that should be polled now
+                for agent_id, rate_config in all_agents_to_poll.items():
+                    try:
+                        # Ensure we have a slot reader for this agent
+                        if agent_id not in self._slot_readers:
+                            try:
+                                reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
+                                if reader:
+                                    with self._slot_lock:
+                                        self._slot_readers[agent_id] = reader
+                                    logger.info(f"✅ [RATE] Added rate-aware slot reader for agent {agent_id} "
+                                              f"({rate_config.capability_type.value} @ {rate_config.approved_rate_hz}Hz)")
+                                else:
+                                    continue
+                            except Exception as e:
+                                logger.warning(f"[RATE] Failed to add slot reader for {agent_id}: {e}")
+                                continue
+                        
+                        # Read data from the slot
+                        reader = self._slot_readers[agent_id]
+                        slot_data = reader.read_latest()
+                        
+                        if slot_data:
+                            logger.info(
+                                f"✅ [RATE] Sensory data from {agent_id}: {len(slot_data.data)} bytes, "
+                                f"age={slot_data.age_ms:.1f}ms, rate={rate_config.approved_rate_hz}Hz"
+                            )
+                            await self._process_neural_payload_bytes(slot_data.data)
+                            self._stats["slot_payloads"] = self._stats.get("slot_payloads", 0) + 1
+                            
+                            # Mark this capability as polled to update its timing
+                            capability_manager.mark_capability_polled(
+                                agent_id,
+                                rate_config.capability_type,
+                                current_time_ns
+                            )
+                        
+                    except Exception as pe:
+                        logger.debug(f"[RATE] Sensory payload processing error from {agent_id}: {pe}")
+                
+                # Cleanup stale readers for agents that are no longer connected
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+                    
+                    for agent_id in list(self._slot_readers.keys()):
+                        if agent_id not in connected_agents:
+                            try:
+                                with self._slot_lock:
+                                    self._slot_readers.pop(agent_id, None)
+                                _release_slot_reader(agent_id)
+                                logger.info(f"🗑️ [RATE] Removed slot reader for disconnected agent {agent_id}")
+                            except Exception as e:
+                                logger.warning(f"[RATE] Error removing slot reader for {agent_id}: {e}")
+                except Exception as e:
+                    logger.debug(f"[RATE] Agent registry cleanup error: {e}")
+                
+                # Smart sleep: sleep until the next agent needs to be polled
+                next_poll_time_ns = self._calculate_next_poll_time(capability_manager, current_time_ns)
+                sleep_duration_ms = max(1.0, (next_poll_time_ns - current_time_ns) / 1_000_000.0)
+                
+                # Cap sleep duration to reasonable bounds
+                sleep_duration_ms = min(sleep_duration_ms, 100.0)  # Max 100ms
+                sleep_duration_ms = max(sleep_duration_ms, 1.0)    # Min 1ms
+                
+                await asyncio.sleep(sleep_duration_ms / 1000.0)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"[RATE] Capability-aware polling error: {e}")
+                await asyncio.sleep(0.01)  # Brief pause on error
+    
+    def _calculate_next_poll_time(self, capability_manager, current_time_ns: int) -> int:
+        """Calculate when the next agent should be polled based on registered rates."""
+        next_poll_times = []
+        
+        try:
+            from feagi.api.v1.capability_rates import CapabilityType
+            
+            # Get all registered agents
+            for agent_id in capability_manager.get_all_registered_agents():
+                registry = capability_manager.get_agent_capabilities(agent_id)
+                if registry:
+                    # Check sensory capability
+                    sensory_rate = registry.get_capability_rate(CapabilityType.SENSORY)
+                    if sensory_rate:
+                        next_poll = sensory_rate.last_poll_time_ns + sensory_rate.poll_interval_ns
+                        if next_poll > current_time_ns:  # Only future poll times
+                            next_poll_times.append(next_poll)
+                    
+                    # Check legacy neurons_stream capability
+                    neurons_rate = registry.get_capability_rate(CapabilityType.NEURONS_STREAM)
+                    if neurons_rate:
+                        next_poll = neurons_rate.last_poll_time_ns + neurons_rate.poll_interval_ns
+                        if next_poll > current_time_ns:
+                            next_poll_times.append(next_poll)
+            
+            if next_poll_times:
+                return min(next_poll_times)
+        except Exception as e:
+            logger.debug(f"[RATE] Error calculating next poll time: {e}")
+        
+        # Default to 10ms in the future if calculation fails
+        return current_time_ns + 10_000_000  # 10ms
+    
+    async def _process_slot_loop_legacy(self) -> None:
+        """Legacy slot polling loop as fallback when capability rate manager is unavailable."""
+        logger.warning("[RATE] Using legacy fixed-rate SHM polling (5ms) - capability rates not available")
+        
+        while self.running:
+            try:
+                # Refresh slot readers from StateManager in case of agent changes
                 try:
                     from feagi.core.state_manager import FeagiStateManager
 
                     sm = FeagiStateManager.instance()
-                    agent_map = getattr(sm, "_agent_shared_memory", {})
-                    # Add new readers
-                    for aid, mapping in agent_map.items():
-                        if aid not in self._shm_readers:
-                            # Attach either new 'sensory' capability or legacy 'neurons_stream' via SHM
-                            p = mapping.get("sensory") or mapping.get("neurons_stream")
-                            if p:
+                    connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+                    
+                    # Add new readers for agents with sensory capabilities
+                    for agent_id, agent_data in connected_agents.items():
+                        if agent_id not in self._slot_readers:
+                            capabilities = agent_data.get('capabilities', {})
+                            if capabilities.get('sensory') or capabilities.get('neurons_stream'):
                                 try:
-                                    with self._shm_lock:
-                                        path_str = str(Path(p))
-                                        # If we previously marked this path as failed but the file
-                                        # now has content (header written by writer), allow retry
-                                        if path_str in self._failed_shm_paths:
-                                            try:
-                                                if _os.path.getsize(path_str) >= _ShmRingReader.HEADER_SIZE:
-                                                    self._failed_shm_paths.discard(path_str)
-                                                else:
-                                                    # Still empty - wait for writer to initialize header
-                                                    if self._debug_shm:
-                                                        logger.info(f"𒓉 [SHM] Waiting for writer header for {Path(p).name} (size=0)")
-                                                    continue
-                                            except Exception:
-                                                continue
-
-                                        # Avoid mmap on empty files (agent not initialized yet)
-                                        try:
-                                            if _os.path.getsize(path_str) < _ShmRingReader.HEADER_SIZE:
-                                                if self._debug_shm:
-                                                    logger.info(f"𒓉 [SHM] Waiting for writer header for {Path(p).name} (size={_os.path.getsize(path_str)})")
-                                                continue
-                                        except Exception:
-                                            continue
-                                        
-                                        reader = self._shm_readers_by_path.get(path_str)
-                                        if reader is None:
-                                            reader = _acquire_shared_reader(Path(path_str))
-                                            if reader is not None:
-                                                self._shm_readers_by_path[path_str] = reader
-                                                _log_shm_open(Path(path_str))
-                                                self._shm_readers[aid] = reader
-                                                logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
-                                                self._shm_log(f"Sensory stream reading from agent {aid}: {p}")
-                                            else:
-                                                # Failed to create reader - if the file is still empty, do not
-                                                # permanently mark as failed; otherwise, mark to suppress retries
-                                                try:
-                                                    if _os.path.getsize(path_str) < _ShmRingReader.HEADER_SIZE:
-                                                        if self._debug_shm:
-                                                            logger.info(f"𒓉 [SHM] Reader creation deferred for {Path(p).name} (header not ready)")
-                                                        continue
-                                                except Exception:
-                                                    pass
-                                                self._failed_shm_paths.add(path_str)
-                                                logger.warning(f"[SHM] Marking path as failed, will not retry: {Path(p).name}")
-                                        else:
-                                            self._shm_readers[aid] = reader
-                                            logger.info(f"𒓉 [SHM] Sensory stream reading from agent {aid}: {p}")
-                                            self._shm_log(f"Sensory stream reading from agent {aid}: {p}")
-                                except Exception:
-                                    pass
-                    # Remove stale readers
-                    for aid in list(self._shm_readers.keys()):
-                        if aid not in agent_map:
+                                    reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
+                                    if reader:
+                                        with self._slot_lock:
+                                            self._slot_readers[agent_id] = reader
+                                        logger.info(f"✅ [LEGACY] Added sensory slot reader for agent {agent_id}")
+                                except Exception as e:
+                                    logger.warning(f"[LEGACY] Failed to add slot reader for {agent_id}: {e}")
+                    
+                    # Remove stale readers for disconnected agents
+                    for agent_id in list(self._slot_readers.keys()):
+                        if agent_id not in connected_agents:
                             try:
-                                with self._shm_lock:
-                                    reader = self._shm_readers.get(aid)
-                                    if reader and hasattr(reader, 'path'):
-                                        path_str = str(reader.path)
-                                        _release_shared_reader(reader.path)
-                                        # Clear failed status when agent disconnects to allow retry on reconnect
-                                        self._failed_shm_paths.discard(path_str)
-                            except Exception:
-                                pass
-                            self._shm_readers.pop(aid, None)
-                except Exception:
-                    pass
+                                with self._slot_lock:
+                                    self._slot_readers.pop(agent_id, None)
+                                _release_slot_reader(agent_id)
+                                logger.info(f"🗑️ [LEGACY] Removed slot reader for disconnected agent {agent_id}")
+                            except Exception as e:
+                                logger.warning(f"[LEGACY] Error removing slot reader for {agent_id}: {e}")
+                                
+                except Exception as e:
+                    logger.debug(f"[LEGACY] Agent registry update error: {e}")
 
-                for aid, reader in list(self._shm_readers.items()):
-                    payload = reader.read_latest()
-                    if payload:
-                        try:
-                            logger.info(f"𒓉 [SHM] Sensory payload from {aid}: {len(payload)} bytes")
-                            self._shm_log(f"Payload from {aid}: {len(payload)} bytes")
-                            await self._process_neural_payload_bytes(payload)
-                            self._stats["shm_payloads"] = self._stats.get("shm_payloads", 0) + 1
-                        except Exception as pe:
-                            logger.debug(f"[SHM] Sensory payload decode error from {aid}: {pe}")
-                await asyncio.sleep(0.005)  # 5ms poll
+                # Process data from all active slot readers
+                for agent_id, reader in list(self._slot_readers.items()):
+                    try:
+                        slot_data = reader.read_latest()
+                        if slot_data:
+                            logger.info(f"✅ [LEGACY] Sensory data from {agent_id}: {len(slot_data.data)} bytes, age={slot_data.age_ms:.1f}ms")
+                            await self._process_neural_payload_bytes(slot_data.data)
+                            self._stats["slot_payloads"] = self._stats.get("slot_payloads", 0) + 1
+                    except Exception as pe:
+                        logger.debug(f"[LEGACY] Sensory payload decode error from {agent_id}: {pe}")
+                        
+                await asyncio.sleep(0.005)  # 5ms poll - legacy behavior
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.debug(f"[SHM] Sensory poll error: {e}")
+                logger.debug(f"[LEGACY] Sensory poll error: {e}")
                 await asyncio.sleep(0.05)
 
-    async def _log_shm_summary_loop(self) -> None:
-        """Periodically log attached SHM readers and last observed sequence when --debug-shm is enabled."""
+    async def _log_slot_summary_loop(self) -> None:
+        """Periodically log attached slot readers and their stats when --debug-shm is enabled."""
         while self.running and self._debug_shm:
             try:
                 items = []
-                with self._shm_lock:
-                    for aid, r in self._shm_readers.items():
+                with self._slot_lock:
+                    for agent_id, reader in self._slot_readers.items():
                         try:
-                            path = str(getattr(r, "path", "?"))
-                            last_seq = int(getattr(r, "last_seq", -1))
-                            items.append((aid, path, last_seq))
+                            slot_path = str(getattr(reader.slot, "path", "?"))
+                            last_seq = getattr(reader, "_last_sequence", 0) 
+                            total_reads = reader.slot.stats.total_reads
+                            stale_rejections = reader.slot.stats.stale_data_rejections
+                            items.append((agent_id, slot_path, last_seq, total_reads, stale_rejections))
                         except Exception:
                             pass
+                            
                 if items:
-                    for aid, path, last_seq in items[:6]:
-                        logger.info(f"𒓉 [SHM] Summary: aid={aid} path={path} last_seq={last_seq}")
+                    for agent_id, path, last_seq, reads, stale in items[:6]:
+                        logger.info(f"✅ [SLOT] Summary: agent={agent_id} last_seq={last_seq} reads={reads} stale_rejected={stale}")
                     extra = len(items) - 6
                     if extra > 0:
-                        logger.info(f"𒓉 [SHM] Summary: (+{extra} more readers)")
+                        logger.info(f"✅ [SLOT] Summary: (+{extra} more readers)")
                 else:
-                    logger.info("𒓉 [SHM] Summary: no readers attached")
+                    logger.info("✅ [SLOT] Summary: no slot readers active")
             except asyncio.CancelledError:
                 break
             except Exception:
@@ -599,36 +702,26 @@ class SensoryNeuralStream:
             pass
         
         
-        slot = None
         data_processed = False
 
         try:
-            # Get write slot from ring buffer
-            slot = self.ring_buffer.get_write_slot()
-            if not slot:
-                self._stats["buffer_full"] += 1
-                # DIAGNOSTIC: Log buffer state when full
-                logger.warning(
-                    f"Ring buffer full! Used slots: {self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                    f"Write index: {self.ring_buffer.write_index.value}, "
-                    f"Read index: {self.ring_buffer.read_index.value}"
-                )
-                return StreamResult.BUFFER_FULL
-
             # ZMQ receive - async sockets use recv() not recv_into()
             try:
                 data = await self.socket.recv(flags=zmq.NOBLOCK)
                 nbytes = len(data)
 
-                # Check if data fits in the slot
-                if nbytes > len(slot.memory_view):
+                # Check if data fits in buffer limit
+                if nbytes > self._max_slot_size:
                     logger.error(
-                        f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size"
+                        f"Message too large: {nbytes} bytes > {self._max_slot_size} max size"
                     )
                     return StreamResult.BUFFER_FULL
 
-                # Copy data into the memory slot
-                slot.memory_view[:nbytes] = data
+                # Store in latest-only buffer (overwrites previous data)
+                with self._latest_only_buffer['lock']:
+                    self._latest_only_buffer['data'] = data
+                    self._latest_only_buffer['timestamp_ns'] = time.time_ns()
+                    
                 data_processed = True
 
             except zmq.Again:
@@ -842,21 +935,9 @@ class SensoryNeuralStream:
             return StreamResult.DECODE_ERROR
 
         finally:
-            #  Only commit the write slot if we actually processed data -
-            #  CORRECT METHOD
-            if data_processed and slot:
-                self.ring_buffer.commit_write(slot)
-
-                #  CRITICAL FIX: Auto-drain ring buffer after successful
-                #  processing
-                # Since we process data immediately (not in separate consumer),
-                # we need to advance read index to prevent buffer_full errors
-                read_slot = self.ring_buffer.get_read_slot()
-                if read_slot and read_slot.index == slot.index:
-                    self.ring_buffer.commit_read(read_slot)
-
-            # Clear the slot reference to help with memory cleanup
-            slot = None
+            # Latest-only buffer requires no explicit cleanup - data is automatically 
+            # overwritten on next write, eliminating temporal pattern replay bug
+            pass
 
     async def _process_neural_payload_bytes(self, raw_bytes: bytes) -> None:
         """Process neural payload provided as bytes (from SHM)."""
@@ -1161,95 +1242,43 @@ class SensoryNeuralStream:
         if self.neural_buffers:
             stats["buffer_pools"] = self.neural_buffers.get_stats()
 
+        # Add latest-only slot reader stats
+        slot_stats = {
+            "active_readers": len(getattr(self, '_slot_readers', {})),
+            "total_reads": 0,
+            "total_writes": 0, 
+            "stale_rejections": 0,
+            "overwrites": 0,
+            "readers": {}
+        }
+        
+        try:
+            if hasattr(self, '_slot_lock') and hasattr(self, '_slot_readers'):
+                with self._slot_lock:
+                    for agent_id, reader in self._slot_readers.items():
+                        reader_stats = {
+                            "total_reads": reader.slot.stats.total_reads,
+                            "total_writes": reader.slot.stats.total_writes,
+                            "stale_rejections": reader.slot.stats.stale_data_rejections,
+                            "overwrites": reader.slot.stats.overwrites,
+                            "last_sequence": getattr(reader, "_last_sequence", 0)
+                        }
+                        slot_stats["readers"][agent_id] = reader_stats
+                        slot_stats["total_reads"] += reader_stats["total_reads"]
+                        slot_stats["total_writes"] += reader_stats["total_writes"] 
+                        slot_stats["stale_rejections"] += reader_stats["stale_rejections"]
+                        slot_stats["overwrites"] += reader_stats["overwrites"]
+        except Exception:
+            pass
+            
+        stats["latest_only_slots"] = slot_stats
+
         return stats
 
     
-class _ShmRingReader:
-    """Reader for variable-length byte payloads ring buffer.
-
-    Header: '<8sIIIQI' => magic, version, num_slots, slot_size, frame_seq, write_index
-    Each slot: u32 length + data
-    """
-
-    MAGIC_SET = {b"FEAGIVIS", b"FEAGIBIN", b"FEAGIMOT"}
-    HEADER_SIZE = 256
-    HEADER_FMT = "<8sIIIQI"
-
-    def __init__(self, path: Path):
-        self.path = Path(path)
-        self._mm = None
-        self._fd = None
-        self.num_slots = 0
-        self.slot_size = 0
-        self.last_seq = -1
-        self._open()
-
-    def _open(self) -> None:
-        self._fd = _os.open(str(self.path), _os.O_RDWR)
-        try:
-            self._mm = _mmap.mmap(self._fd, 0, access=_mmap.ACCESS_READ)
-            self._mm.seek(0)
-            header = self._mm.read(self.HEADER_SIZE)
-            magic, version, num_slots, slot_size, frame_seq, write_index = _struct.unpack(
-                self.HEADER_FMT, header[: _struct.calcsize(self.HEADER_FMT)]
-            )
-            if magic not in self.MAGIC_SET:
-                raise ValueError("Invalid SHM magic")
-            self.num_slots = int(num_slots)
-            self.slot_size = int(slot_size)
-            self.last_seq = int(frame_seq) - 1
-        except Exception:
-            # Close the file descriptor if mmap or header parsing fails
-            if self._fd is not None:
-                try:
-                    _os.close(self._fd)
-                except Exception:
-                    pass
-                self._fd = None
-            if self._mm is not None:
-                try:
-                    self._mm.close()
-                except Exception:
-                    pass
-                self._mm = None
-            raise
-
-    def read_latest(self) -> Optional[bytes]:
-        try:
-            self._mm.seek(0)
-            header = self._mm.read(self.HEADER_SIZE)
-            magic, version, num_slots, slot_size, frame_seq, write_index = _struct.unpack(
-                self.HEADER_FMT, header[: _struct.calcsize(self.HEADER_FMT)]
-            )
-            if int(frame_seq) <= self.last_seq:
-                return None
-            wi = int(write_index)
-            idx = (wi - 1) % self.num_slots
-            slot_off = self.HEADER_SIZE + idx * self.slot_size
-            self._mm.seek(slot_off)
-            (length,) = _struct.unpack("<I", self._mm.read(4))
-            if length <= 0 or length > (self.slot_size - 4):
-                self.last_seq = int(frame_seq)
-                return None
-            data = self._mm.read(length)
-            self.last_seq = int(frame_seq)
-            return bytes(data)
-        except Exception:
-            return None
-
-    def close(self) -> None:
-        try:
-            if self._mm:
-                self._mm.close()
-        except Exception:
-            pass
-        if self._fd is not None:
-            try:
-                _os.close(self._fd)
-            except Exception:
-                pass
-        self._mm = None
-        self._fd = None
+# _ShmRingReader class removed - replaced with LatestOnlyReader system 
+# This eliminates the temporal pattern replay bug by using latest-only semantics
+# instead of buffering historical data that causes loops after agent death
 
     async def _handle_neuron_flat(
         self, header: NeuralDataHeader, payload: memoryview

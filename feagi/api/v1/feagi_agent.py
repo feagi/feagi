@@ -132,118 +132,54 @@ class FeagiAgentAPI:
     async def register_agent(
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
+        """Legacy agent registration endpoint - uses enhanced registration internally."""
         try:
-            #  Delegate to Registration Manager for centralized agent
-            #  coordination
-            from feagi.pns.registration_manager import (
-                AgentRegistrationRequest as RegistrationRequest,
+            from feagi.api.v1.enhanced_agent_registration import EnhancedAgentRegistrationAPI
+            
+            enhanced_api = EnhancedAgentRegistrationAPI(self.core_api_service)
+            return await enhanced_api.register_agent_legacy(request)
+            
+        except Exception as e:
+            self.logger.error(f"Agent registration failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Registration failed: {str(e)}"
             )
-            from feagi.pns.registration_manager import get_registration_manager
-
-            registration_manager = get_registration_manager()
-            if not registration_manager:
-                self.logger.error("Registration Manager not available")
+    
+    @agent_endpoint(
+        "POST", 
+        "/register/enhanced",
+        request_model=None,  # Will handle validation manually due to dynamic imports
+        response_model=None   # Will handle response manually
+    )
+    async def register_agent_enhanced(self, request: dict) -> dict:
+        """Enhanced agent registration with capability rate negotiation."""
+        try:
+            from feagi.api.v1.enhanced_agent_registration import EnhancedAgentRegistrationAPI
+            from feagi.api.v1.capability_rates import EnhancedAgentRegistrationRequest
+            
+            # Validate request manually
+            try:
+                validated_request = EnhancedAgentRegistrationRequest(**request)
+            except Exception as e:
                 raise HTTPException(
-                    status_code=503, detail="Registration service unavailable"
+                    status_code=400,
+                    detail=f"Invalid request format: {str(e)}"
                 )
-
-            # Create registration request for Registration Manager
-            reg_request = RegistrationRequest(
-                agent_id=request.agent_id,
-                agent_type=request.agent_type,
-                capabilities=request.capabilities,
-                agent_data_port=request.agent_data_port,
-                agent_version=request.agent_version,
-                controller_version=request.controller_version,
-                agent_ip=request.agent_ip,  # Let RegistrationRequest handle None with configuration
-                metadata=(request.metadata or {}),
-            )
-
-            # Process registration through Registration Manager
-            response = registration_manager.register_agent(reg_request)
-
-            if response.success:
-                self.logger.info(
-                    f"✅ Agent '{request.agent_id}' registered via Registration Manager - "
-                    f"FQ samplers coordinated: {response.fq_samplers_enabled}"
-                )
-
-                # Create per-agent SHM files (centralized) and return file names
-                shm_details = {}
-                try:
-                    from feagi.core.state_manager import FeagiStateManager
-
-                    sm = FeagiStateManager.instance()
-                    # Always attempt to attach the visualization stream and per-agent unique SHM files
-                    shm_details = sm.create_agent_shm(request.agent_id) or {}
-                    if not shm_details:
-                        self.logger.info(
-                            f"[SHM] No shared memory mappings available for agent {request.agent_id}"
-                        )
-                except Exception as e:
-                    self.logger.warning(
-                        f"SHM setup skipped for agent {request.agent_id}: {e}"
-                    )
-
-                # Include SHM details in the success message payload (JSON)
-                import json
-                payload = {"agent_id": request.agent_id}
-                if shm_details:
-                    payload["shared_memory"] = shm_details
-
-                # Pretty-print payload for API debug visibility
-                try:
-                    pretty = json.dumps(payload, indent=2, sort_keys=True)
-                    self.logger.info(
-                        "[API-DEBUG] Agent registration success response payload:\n%s",
-                        pretty,
-                    )
-                except Exception:
-                    # Fallback to compact format if pretty-print fails
-                    self.logger.info(
-                        "[API-DEBUG] Agent registration success response payload: %s",
-                        payload,
-                    )
-
-                return SuccessResponse(message=json.dumps(payload), success=True)
-            else:
-                self.logger.error(
-                    f"❌ Registration Manager failed: {response.message}"
-                )
-
-                # Map Registration Manager error codes to HTTP status codes
-                status_map = {
-                    "DUPLICATE_AGENT_ID": 409,  # Conflict
-                    "VALIDATION_FAILED": 400,  # Bad Request
-                    "FEAGI_NOT_READY": 503,  # Service Unavailable
-                    "MISSING_AGENT_ID": 400,  # Bad Request
-                    "MISSING_CAPABILITIES": 400,  # Bad Request
-                    "INVALID_CAPABILITIES_FORMAT": 400,  # Bad Request
-                }
-
-                status_code = status_map.get(response.error_code, 500)
-
-                # Log pretty error for API debug visibility
-                try:
-                    self.logger.error(
-                        "[API-DEBUG] Agent registration error: code=%s message=%s",
-                        response.error_code,
-                        response.message,
-                    )
-                except Exception:
-                    pass
-
-                raise HTTPException(
-                    status_code=status_code, detail=response.message
-                )
-
+            
+            enhanced_api = EnhancedAgentRegistrationAPI(self.core_api_service)
+            response = await enhanced_api.register_agent_enhanced(validated_request)
+            
+            # Convert response to dict for JSON serialization
+            return response.dict()
+            
         except HTTPException:
-            # Re-raise HTTP exceptions as-is
             raise
         except Exception as e:
-            self.logger.error(f"Error registering agent: {e}")
+            self.logger.error(f"Enhanced agent registration failed: {e}")
             raise HTTPException(
-                status_code=500, detail=f"Error registering agent: {str(e)}"
+                status_code=500,
+                detail=f"Enhanced registration failed: {str(e)}"
             ) from e
 
     @agent_endpoint("GET", "/shared_mem")
