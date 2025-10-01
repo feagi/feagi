@@ -1,12 +1,20 @@
 # Agent Registration & Multi-Rate Capability Architecture
 
-**Document Version**: 1.0  
+**Document Version**: 2.0  
 **Created**: 2024  
-**Last Updated**: 2024
+**Last Updated**: October 2025
 
 ## Overview
 
-This document describes FEAGI's enhanced agent registration system with multi-rate capability architecture. This system addresses the critical temporal pattern replay bug caused by frequency mismatches between agents and FEAGI's processing rate, while providing sophisticated capability-aware polling.
+This document describes FEAGI's unified agent registration system with multi-rate capability architecture and two-tier registration model. This system addresses the critical temporal pattern replay bug caused by frequency mismatches between agents and FEAGI's processing rate, while providing sophisticated capability-aware polling and clean infrastructure/agent separation.
+
+## Key Architecture Principles
+
+1. **Single Registration Path**: All registrations flow through Registration Manager - no fallbacks
+2. **Two-Tier Model**: Infrastructure (bridges) register separately from agents
+3. **Transparent Proxying**: Bridges proxy agent registrations without auto-registering agents
+4. **Clean Code**: No redundant fallback paths or legacy compatibility layers
+5. **Automatic Capability Processing**: Rates extracted transparently from standard registration
 
 ## Problem Statement
 
@@ -45,21 +53,44 @@ The original design used fixed polling rates that were decoupled from agent data
 
 ```mermaid
 graph TB
-    Agent[Agent] -->|Enhanced Registration| RegAPI[Registration API]
-    RegAPI --> RateVal[Rate Validator]
-    RegAPI --> CapMgr[Capability Rate Manager]
+    subgraph "Agent Registration"
+        Agent[Agent: brain-visualizer] -->|HTTP or via Bridge| RegAPI[/v1/agent/register]
+        Bridge[Infrastructure: feagi_bridge] -->|HTTP| RegAPI
+    end
     
-    RateVal -->|Validate Rates| StateManager[State Manager]
-    CapMgr -->|Store Rates| StateManager
+    subgraph "FEAGI Core - Single Path"
+        RegAPI --> RegMgr[Registration Manager]
+        RegMgr -->|Process Rates| CapMgr[Capability Rate Manager]
+        RegMgr -->|Unified Registry| AgentList[/v1/agent/list]
+        RegMgr -->|FQ Coordination| FQSampler[FQ Sampler]
+    end
     
-    StateManager --> SHMPoll[SHM Poller]
-    StateManager --> ZMQPoll[ZMQ Poller]
+    subgraph "Rate-Based Polling"
+        CapMgr -->|Agent Rates| SHMPoll[SHM Poller]
+        CapMgr -->|Agent Rates| ZMQPoll[ZMQ Poller]
+        SHMPoll -->|Fresh Data Only| FCL[Fire Candidate List]
+        ZMQPoll -->|Fresh Data Only| FCL
+        FCL --> BurstEngine[Burst Engine]
+    end
     
-    SHMPoll -->|Rate-Based Polling| FCL[Fire Candidate List]
-    ZMQPoll -->|Rate-Based Polling| FCL
-    
-    FCL --> BurstEngine[Burst Engine]
+    Note1["✅ No fallbacks<br/>✅ Single code path<br/>✅ Clean separation"]
 ```
+
+### Two-Tier Registration Model
+
+**Tier 1: Infrastructure Registration**
+- Purpose: Register connectivity infrastructure (bridges, gateways)
+- Agent Type: `"feagi_bridge"`, `"gateway"`, etc.
+- Capabilities: Infrastructure-specific (e.g., `{"bridge": {"rate_hz": 60.0}}`)
+- Metadata: `{"infrastructure": true, "proxy_mode": "transparent"}`
+- Behavior: Does NOT auto-register end agents
+
+**Tier 2: Agent Registration**
+- Purpose: Register actual agents (sensors, motors, visualizers)
+- Agent Type: `"visualizer"`, `"sensor"`, `"motor"`, etc.
+- Capabilities: Agent-specific with rates (e.g., `{"visualization": {"rate_hz": 30.0}}`)
+- Metadata: Optional agent-specific info
+- Behavior: Can register directly OR through bridge as transparent proxy
 
 ## Component Details
 
@@ -105,13 +136,23 @@ graph TB
 }
 ```
 
-#### Registration Flow
+#### Registration Flow (Clean Single Path)
 
-1. **Request Validation**: Validate standard registration request format
-2. **Capability Rate Processing**: Extract and convert capability rates from existing capabilities dict
-3. **Rate Registration**: Register capability rates with capability manager (warnings only if issues)
-4. **Standard Registration**: Complete agent registration through existing CoreAPIService
-5. **Response Generation**: Return standard success response
+1. **Request Reception**: `/v1/agent/register` endpoint receives `AgentRegistrationRequest`
+2. **Capability Rate Extraction**: Automatically extract rates from `capabilities` dict
+3. **Registration Manager Processing**: 
+   - Validate agent request
+   - Create unified registry entry
+   - Coordinate with FQ sampler
+   - Update State Manager for legacy compatibility
+4. **Capability Rate Storage**: Store rates for multi-rate polling coordination
+5. **Success Response**: Return standard `SuccessResponse`
+
+**Critical Design Rule**: 
+- ❌ NO fallbacks to State Manager if Registration Manager unavailable
+- ❌ NO legacy registration paths
+- ✅ Registration Manager MUST be initialized during startup
+- ✅ If Registration Manager not available → 503 Service Unavailable error
 
 ### 2. Capability Types
 
@@ -336,6 +377,52 @@ def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Opti
 ```
 
 ## Configuration Examples
+
+### Infrastructure Registration (FEAGI Bridge)
+
+```json
+{
+  "agent_id": "feagi_bridge",
+  "agent_type": "feagi_bridge",
+  "agent_data_port": 9050,
+  "agent_version": "2.0.0",
+  "controller_version": "1.0.0",
+  "capabilities": {
+    "bridge": {
+      "rate_hz": 60.0,
+      "enabled": true,
+      "proxy_types": ["websocket", "zmq"],
+      "supports_shm": true
+    }
+  },
+  "metadata": {
+    "infrastructure": true,
+    "proxy_mode": "transparent",
+    "websocket_port": 9050
+  }
+}
+```
+
+### Brain Visualizer Agent
+
+```json
+{
+  "agent_id": "brain-visualizer",
+  "agent_type": "visualizer",
+  "agent_data_port": 0,
+  "agent_version": "4.3.0",
+  "controller_version": "2.0.0",
+  "capabilities": {
+    "visualization": {
+      "rate_hz": 30.0,
+      "enabled": true
+    }
+  },
+  "metadata": {
+    "request_shared_memory": true
+  }
+}
+```
 
 ### High-Speed Vision Agent
 
@@ -659,18 +746,94 @@ def test_polling_performance():
 3. **Multi-Agent Coordination**: Coordinate rates across related agents
 4. **Quality of Service**: Priority-based rate allocation
 
+## Implementation Guidelines
+
+### For FEAGI Core Developers
+
+**Registration Manager Initialization**:
+- MUST call `ProcessManager.init_important_processes()` during startup
+- Registration Manager is a REQUIRED component, not optional
+- If initialization fails → FEAGI should not start (fail-fast)
+
+**No Fallback Policy**:
+- `/v1/agent/register` MUST NOT fall back to State Manager
+- `/v1/agent/list` MUST NOT fall back to State Manager
+- If Registration Manager unavailable → return 503 Service Unavailable
+- This forces proper initialization and prevents silent failures
+
+**Code Cleanliness**:
+- Remove all legacy registration paths
+- Remove all fallback mechanisms
+- Single source of truth: Registration Manager
+- State Manager updated via Registration Manager for legacy compatibility only
+
+### For Bridge Developers
+
+**Infrastructure Registration**:
+- Register bridge itself with `agent_type: "feagi_bridge"`
+- Include `metadata.infrastructure: true`
+- Specify `proxy_mode: "transparent"`
+- Do NOT auto-register end agents
+
+**Transparent Proxying**:
+- Agent registration requests pass through unchanged
+- Bridge forwards `/v1/agent/register` calls to FEAGI
+- FEAGI sees agent registration, not bridge registration
+- Bridge can intercept for SHM coordination if needed
+
+### For Agent Developers
+
+**Direct Registration** (agent connects directly to FEAGI):
+```python
+registration_data = {
+    "agent_id": "my_agent",
+    "agent_type": "sensor",
+    "agent_data_port": 5000,
+    "agent_version": "1.0.0",
+    "controller_version": "2.0.0",
+    "capabilities": {
+        "sensory": {"rate_hz": 30.0, "enabled": true}
+    }
+}
+response = requests.post("http://feagi:8000/v1/agent/register", json=registration_data)
+```
+
+**Via Bridge** (agent connects to bridge, which forwards to FEAGI):
+```python
+# Same payload, different endpoint
+registration_data = {
+    "agent_id": "my_agent",
+    "agent_type": "sensor",
+    "agent_data_port": 5000,
+    "agent_version": "1.0.0",
+    "controller_version": "2.0.0",
+    "capabilities": {
+        "sensory": {"rate_hz": 30.0, "enabled": true}
+    }
+}
+# Bridge proxies this to FEAGI transparently
+response = requests.post("http://bridge:8000/v1/agent/register", json=registration_data)
+```
+
 ## Conclusion
 
-The unified agent registration system with integrated multi-rate capability architecture successfully addresses the temporal pattern replay bug while maintaining complete backward compatibility. The solution eliminates the frequency mismatch problem through intelligent, capability-aware polling without requiring any changes to existing agents.
+The unified agent registration system with integrated multi-rate capability architecture successfully addresses the temporal pattern replay bug through a clean, single-path implementation. The two-tier infrastructure/agent model ensures clear separation of concerns while the transparent proxying architecture allows flexible deployment topologies.
 
 Key benefits:
 
 - **Eliminates temporal pattern replay bugs** through rate-matched polling
-- **Zero migration effort** - all existing agents work unchanged
+- **Clean single-path architecture** - no fallbacks or redundant code
+- **Two-tier registration model** - clear infrastructure/agent separation
+- **Transparent proxying** - agents work identically via bridge or direct connection
 - **Automatic capability processing** from existing registration format
-- **Intelligent default rates** applied transparently 
 - **Resource efficiency** through smart polling schedules
-- **Handles complex cases** like sensorimotor capability splitting
-- **Clean single code path** with no fallbacks or duplicate workflows
+- **Fail-fast initialization** - ensures Registration Manager availability
+- **Zero agent migration required** - existing agents work unchanged
 
-The architecture achieves sophisticated rate management through transparent integration with the existing registration system, proving that complex problems can have elegant, non-intrusive solutions. Future enhancements can be added while maintaining the core principle of backward compatibility and system simplicity.
+**Breaking Changes from Legacy System**:
+1. Registration Manager is now REQUIRED (not optional)
+2. No fallback paths to State Manager
+3. Bridge registers as infrastructure, not as agents
+4. 503 errors if Registration Manager unavailable (fail-fast, not fail-silent)
+
+The architecture achieves sophisticated rate management and clean separation of concerns through disciplined implementation without fallbacks or legacy compatibility layers. This proves that complex systems can have elegant, maintainable solutions when designed with clear principles.

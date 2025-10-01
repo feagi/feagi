@@ -80,11 +80,13 @@ class AgentRegistrationResponse:
         agent_id: str,
         fq_samplers_enabled: Optional[Dict[str, bool]] = None,
         error_code: Optional[str] = None,
+        transport_info: Optional[Dict[str, Any]] = None,
     ):
         self.success = success
         self.message = message
         self.agent_id = agent_id
         self.fq_samplers_enabled = fq_samplers_enabled or {}
+        self.transport_info = transport_info or {}
         self.error_code = error_code
 
 
@@ -381,11 +383,15 @@ class RegistrationManager:
                     f"✅ {success_message} - FQ samplers coordinated: {fq_coordination_result}"
                 )
 
+                # Determine available transports and recommend best option
+                transport_info = self._get_transport_info(request, caps_sanitized)
+
                 return AgentRegistrationResponse(
                     success=True,
                     message=success_message,
                     agent_id=agent_id,
                     fq_samplers_enabled=fq_coordination_result,
+                    transport_info=transport_info,
                 )
 
             except Exception as e:
@@ -696,6 +702,91 @@ class RegistrationManager:
         # - Check if process manager is available
         # - Check if core services are operational
         return self._feagi_ready
+
+    def _get_transport_info(
+        self, request: AgentRegistrationRequest, capabilities: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Determine available transports and recommend best option for agent.
+
+        Args:
+            request: Agent registration request with IP and metadata
+            capabilities: Sanitized capabilities dict
+
+        Returns:
+            Transport negotiation info including available transports and recommendations
+        """
+        transport_info = {
+            "available": [],
+            "recommended": None,
+            "shm_paths": {},
+            "zmq_ports": {},
+            "websocket": {},
+        }
+
+        # Check if agent is on same machine (shared memory eligible)
+        agent_ip = request.agent_ip or "unknown"
+        is_local = agent_ip in ["127.0.0.1", "localhost", "::1"]
+
+        # Check if shared memory is available
+        shm_available = False
+        shm_paths = {}
+        if self._state_manager and hasattr(self._state_manager, "get_shared_memory_registry"):
+            try:
+                shm_registry = self._state_manager.get_shared_memory_registry()
+                shm_available = bool(shm_registry)
+                
+                # Get or create agent-specific SHM paths if agent has relevant capabilities
+                if shm_available and is_local:
+                    if hasattr(self._state_manager, "create_agent_shm"):
+                        agent_shm = self._state_manager.create_agent_shm(request.agent_id)
+                        if agent_shm:
+                            shm_paths = agent_shm
+                            logger.info(f"[TRANSPORT] SHM paths created for {request.agent_id}: {shm_paths}")
+            except Exception as e:
+                logger.warning(f"[TRANSPORT] Error checking SHM availability: {e}")
+
+        # Determine transports based on capabilities
+        has_viz = self._has_visualization_capabilities(capabilities)
+        has_motor = self._has_motor_capabilities(capabilities)
+        has_sensory = self._has_sensory_capabilities(capabilities)
+
+        # Shared Memory (best for local agents)
+        if is_local and shm_available and shm_paths:
+            transport_info["available"].append("shm")
+            transport_info["shm_paths"] = shm_paths
+            transport_info["recommended"] = "shm"
+            logger.info(f"[TRANSPORT] Recommending SHM for local agent {request.agent_id}")
+
+        # Direct ZMQ (for remote agents or fallback)
+        zmq_ports = {}
+        if has_viz:
+            zmq_ports["visualization"] = 5562
+        if has_motor:
+            zmq_ports["motor"] = 5564
+        if has_sensory:
+            zmq_ports["sensory"] = 5558
+
+        if zmq_ports:
+            transport_info["available"].append("zmq")
+            transport_info["zmq_ports"] = zmq_ports
+            if not transport_info["recommended"]:
+                transport_info["recommended"] = "zmq"
+                logger.info(f"[TRANSPORT] Recommending ZMQ for agent {request.agent_id}")
+
+        # WebSocket (via bridge - check if bridge is registered)
+        bridge_available = "feagi_bridge" in self._agents
+        if bridge_available:
+            transport_info["available"].append("websocket")
+            transport_info["websocket"] = {
+                "host": agent_ip if agent_ip != "unknown" else "127.0.0.1",
+                "port": 9050,  # Standard bridge WebSocket port
+            }
+            # Prefer websocket for remote agents if bridge available
+            if not is_local and not transport_info["recommended"]:
+                transport_info["recommended"] = "websocket"
+                logger.info(f"[TRANSPORT] Recommending WebSocket for remote agent {request.agent_id}")
+
+        return transport_info
 
     def _update_capability_counts(
         self, capabilities: Dict[str, Any], increment: bool

@@ -658,7 +658,7 @@ class SensoryNeuralStream:
                 import feagi_rust_py_libs as fdp
 
                 # Create FeagiByteStructure directly from raw bytes (modern API)
-                raw_bytes = slot.memory_view[:nbytes].tobytes()
+                raw_bytes = data[:nbytes]
                 byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
 
                 # Get structure type using FEAGI's API (informational only)

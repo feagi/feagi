@@ -740,30 +740,16 @@ def main():
     # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
     process_manager = get_process_manager()
     
-    # Initialize critical processes with proper configuration
-    if not process_manager.init_critical_processes(config):
-        logger.error("Failed to initialize critical processes")
-        return 1
-        
-    # Initialize RegistrationManager separately (needed for shared memory)
-    if not process_manager._init_registration_manager():
-        logger.warning("Failed to initialize RegistrationManager - shared memory may not work")
-        # Continue anyway - system can function without it
+    # NOTE: Do NOT call init_critical_processes() or _init_registration_manager() here
+    # The process_manager.start() method below will call all initialization methods
+    # in the correct order: init_critical_processes → init_important_processes → init_background_processes
+    # Calling them early causes Registration Manager to be created twice, breaking agent list functionality
     
-    # Get the properly configured connectome instance from ProcessManager
-    connectome = process_manager._connectome_manager
-
-    #  Set the connectome instance for FastAPI dependency injection (only in
-    #  normal mode)
+    # NOTE: Connectome instance will be created during process_manager.start()
+    # The REST API will get it via dependency injection after startup completes
+    # We don't set it here because process_manager hasn't initialized it yet
+    
     embedded_mode = config.get("system", {}).get("embedded", False)
-    if not embedded_mode:
-        from feagi.api.rest.dependencies import set_connectome_instance
-
-        set_connectome_instance(connectome)
-    else:
-        logger.info(
-            "[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup"
-        )
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):

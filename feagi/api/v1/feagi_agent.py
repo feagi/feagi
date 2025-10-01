@@ -69,28 +69,43 @@ class FeagiAgentAPI:
 
     @agent_endpoint("GET", "/list", response_model=AgentListResponse)
     async def list_agents(self) -> AgentListResponse:
+        """List all registered agents.
+        
+        Returns agent IDs from the Registration Manager's unified registry.
+        Registration Manager must be initialized during startup.
+        """
         try:
-            # Delegate to Registration Manager for consistent agent listing
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
             if not registration_manager:
-                self.logger.warning("Registration Manager not available - returning empty agent list")
-                return AgentListResponse(root=[])
+                self.logger.error(
+                    "Registration Manager not initialized - this is a system error. "
+                    "Check that ProcessManager.init_important_processes() was called during startup."
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="Registration system unavailable - FEAGI not fully initialized"
+                )
 
             agents_data = registration_manager.list_agents()
-
-            #  Extract just the agent IDs for the simple list format expected
-            #  by AgentListResponse
             agent_ids = [
                 agent["agent_id"] for agent in agents_data.get("agents", [])
             ]
 
+            self.logger.info(
+                f"📋 /v1/agent/list returning {len(agent_ids)} agents: {agent_ids}"
+            )
+
             return AgentListResponse(root=agent_ids)
+        except HTTPException:
+            raise
         except Exception as e:
-            # Log error but return empty list instead of raising ValueError (which becomes 400 Bad Request)
-            self.logger.error(f"Error listing agents: {e} - returning empty list")
-            return AgentListResponse(root=[])
+            self.logger.error(f"Error listing agents: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to list agents: {str(e)}"
+            )
 
     @agent_endpoint(
         "GET", "/info/{agent_id}", response_model=AgentInfoResponse
@@ -132,41 +147,80 @@ class FeagiAgentAPI:
     async def register_agent(
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
-        """Agent registration with automatic capability rate handling."""
+        """Agent registration with automatic capability rate handling.
+
+        Registers agents through the Registration Manager, which coordinates:
+        - Unified agent registry for /v1/agent/list
+        - FQ sampler coordination for burst processing
+        - State Manager updates for legacy compatibility
+        - Capability rate processing for multi-rate polling
+
+        Registration Manager must be initialized during FEAGI startup.
+        """
         try:
-            # Process capability rates if needed
+            # Process capability rates from the capabilities dict
             capability_configs = self._process_agent_capabilities(request)
-            
-            # Perform standard registration
-            success = self.core_api_service.register_agent(
+
+            # Get Registration Manager - must be available
+            from feagi.pns.registration_manager import (
+                AgentRegistrationRequest as RMRequest,
+                get_registration_manager,
+            )
+
+            reg_mgr = get_registration_manager()
+            if not reg_mgr:
+                self.logger.error(
+                    f"Registration Manager not initialized - cannot register agent '{request.agent_id}'. "
+                    "Check that ProcessManager.init_important_processes() was called during startup."
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="Registration system unavailable - FEAGI not fully initialized"
+                )
+
+            # Register through Registration Manager
+            rm_req = RMRequest(
                 agent_id=request.agent_id,
                 agent_type=request.agent_type,
                 capabilities=request.capabilities,
                 agent_data_port=request.agent_data_port,
                 agent_version=request.agent_version,
                 controller_version=request.controller_version,
-                agent_ip=request.agent_ip
+                agent_ip=request.agent_ip,
+                metadata=request.metadata,
             )
+            rm_resp = reg_mgr.register_agent(rm_req)
             
-            if not success:
+            if not getattr(rm_resp, "success", False):
                 raise HTTPException(
                     status_code=500,
-                    detail="Agent registration failed"
+                    detail=rm_resp.message or "Registration failed"
                 )
-            
-            # Store capability rate configs if capability manager is available
+
+            # Store capability rate configs for multi-rate polling
             if capability_configs:
                 self._store_capability_rates(request.agent_id, capability_configs)
+
+            # Include transport negotiation info in response
+            transport_info = getattr(rm_resp, "transport_info", {})
             
-            return SuccessResponse(
-                success=True,
-                message=f"Agent {request.agent_id} registered successfully"
+            self.logger.info(
+                f"✅ Agent '{request.agent_id}' registered successfully "
+                f"(type: {request.agent_type}, capabilities: {list(request.capabilities.keys())}, "
+                f"transport: {transport_info.get('recommended', 'unknown')})"
             )
-            
+
+            # Return success response with transport negotiation info
+            return SuccessResponse(
+                status="success",
+                message=f"Agent {request.agent_id} registered successfully",
+                transport=transport_info if transport_info else None
+            )
+
         except HTTPException:
             raise
         except Exception as e:
-            self.logger.error(f"Agent registration failed: {e}")
+            self.logger.error(f"Agent registration failed for '{request.agent_id}': {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Registration failed: {str(e)}"

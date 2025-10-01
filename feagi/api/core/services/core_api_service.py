@@ -5456,7 +5456,11 @@ class CoreAPIService:
     def get_connected_agents(self) -> List[str]:
         """Get list of all connected agent IDs."""
         try:
-            return self.state_manager.get_connected_agents()
+            agents_dict = self.state_manager.get_connected_agents()
+            # State Manager returns a dict, extract keys as agent IDs
+            if isinstance(agents_dict, dict):
+                return list(agents_dict.keys())
+            return []
         except Exception as e:
             self.logger.error(f"Error getting connected agents: {e}")
             return []
