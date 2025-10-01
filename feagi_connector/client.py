@@ -464,14 +464,22 @@ Once both are ready, your agent will automatically connect.
             # Step 2: Register agent if not already registered
             if not self.registered:
                 try:
-                    success = await self.rest_client.register_agent(self.agent_id, self.agent_type)
-                    if success:
-                        self.registered = True
-                        logger.info("✅ Agent registered successfully")
+                    registration_result = await self.rest_client.register_agent(self.agent_id, self.agent_type)
+                    if isinstance(registration_result, dict) and "error" in registration_result:
+                        logger.warning(
+                            f"⚠️ Agent registration error: {registration_result.get('error')} — continuing..."
+                        )
                     else:
-                        logger.warning("⚠️ Agent registration failed, but continuing...")
+                        response_status = registration_result.get("status", 500) if isinstance(registration_result, dict) else 500
+                        if response_status == 200:
+                            self.registered = True
+                            logger.info("✅ Agent registered successfully")
+                        else:
+                            logger.warning(
+                                f"⚠️ Agent registration failed with status {response_status}, continuing..."
+                            )
                 except Exception as e:
-                    logger.warning(f"⚠️ Agent registration error: {e}, but continuing...")
+                    logger.warning(f"⚠️ Agent registration exception: {e}, continuing...")
             
             # Step 3: Start motor and visualization listeners ONLY if callbacks are registered
             if self.motor_callback and hasattr(self.motor_client, 'register_motor_callback'):
@@ -506,14 +514,22 @@ Once both are ready, your agent will automatically connect.
             # Step 2: Try to register agent via ZMQ REST stream, but don't fail if it doesn't work
             if not self.registered:
                 try:
-                    success = await self.rest_client.register_agent(self.agent_id, self.agent_type)
-                    if success:
-                        self.registered = True
-                        logger.info("✅ Agent registered successfully")
+                    registration_result = await self.rest_client.register_agent(self.agent_id, self.agent_type)
+                    if isinstance(registration_result, dict) and "error" in registration_result:
+                        logger.warning(
+                            f"⚠️ Agent registration error: {registration_result.get('error')} — continuing in sensory-only mode..."
+                        )
                     else:
-                        logger.warning("⚠️ Agent registration failed, but continuing in sensory-only mode...")
+                        response_status = registration_result.get("status", 500) if isinstance(registration_result, dict) else 500
+                        if response_status == 200:
+                            self.registered = True
+                            logger.info("✅ Agent registered successfully")
+                        else:
+                            logger.warning(
+                                f"⚠️ Agent registration failed with status {response_status}, continuing in sensory-only mode..."
+                            )
                 except Exception as e:
-                    logger.warning(f"⚠️ Agent registration error: {e}, but continuing in sensory-only mode...")
+                    logger.warning(f"⚠️ Agent registration exception: {e}, continuing in sensory-only mode...")
             
             self.connected = True
             logger.info("✅ Successfully connected to FEAGI")
