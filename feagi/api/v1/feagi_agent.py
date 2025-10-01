@@ -132,55 +132,160 @@ class FeagiAgentAPI:
     async def register_agent(
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
-        """Legacy agent registration endpoint - uses enhanced registration internally."""
+        """Agent registration with automatic capability rate handling."""
         try:
-            from feagi.api.v1.enhanced_agent_registration import EnhancedAgentRegistrationAPI
+            # Process capability rates if needed
+            capability_configs = self._process_agent_capabilities(request)
             
-            enhanced_api = EnhancedAgentRegistrationAPI(self.core_api_service)
-            return await enhanced_api.register_agent_legacy(request)
+            # Perform standard registration
+            success = self.core_api_service.register_agent(
+                agent_id=request.agent_id,
+                agent_type=request.agent_type,
+                capabilities=request.capabilities,
+                agent_data_port=request.agent_data_port,
+                agent_version=request.agent_version,
+                controller_version=request.controller_version,
+                agent_ip=request.agent_ip
+            )
             
+            if not success:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Agent registration failed"
+                )
+            
+            # Store capability rate configs if capability manager is available
+            if capability_configs:
+                self._store_capability_rates(request.agent_id, capability_configs)
+            
+            return SuccessResponse(
+                success=True,
+                message=f"Agent {request.agent_id} registered successfully"
+            )
+            
+        except HTTPException:
+            raise
         except Exception as e:
             self.logger.error(f"Agent registration failed: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Registration failed: {str(e)}"
             )
-    
-    @agent_endpoint(
-        "POST", 
-        "/register/enhanced",
-        request_model=None,  # Will handle validation manually due to dynamic imports
-        response_model=None   # Will handle response manually
-    )
-    async def register_agent_enhanced(self, request: dict) -> dict:
-        """Enhanced agent registration with capability rate negotiation."""
+
+    def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Optional[List[Any]]:
+        """Process agent capabilities and convert to rate specifications."""
+        if not request.capabilities:
+            return None
+            
         try:
-            from feagi.api.v1.enhanced_agent_registration import EnhancedAgentRegistrationAPI
-            from feagi.api.v1.capability_rates import EnhancedAgentRegistrationRequest
+            from feagi.api.v1.capability_rates import CapabilityType, CapabilityRateSpec
             
-            # Validate request manually
-            try:
-                validated_request = EnhancedAgentRegistrationRequest(**request)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid request format: {str(e)}"
-                )
+            capability_specs = []
+            seen_capability_types = set()
             
-            enhanced_api = EnhancedAgentRegistrationAPI(self.core_api_service)
-            response = await enhanced_api.register_agent_enhanced(validated_request)
+            # Default rates
+            default_rates = {
+                "sensory": 10.0,
+                "motor": 20.0, 
+                "visualization": 5.0,
+                "neurons_stream": 10.0,
+                "control": 1.0
+            }
             
-            # Convert response to dict for JSON serialization
-            return response.dict()
+            for cap_name, cap_config in request.capabilities.items():
+                # Handle sensorimotor as combined capability
+                if cap_name.lower() == "sensorimotor":
+                    sensory_rate = default_rates["sensory"]
+                    motor_rate = default_rates["motor"]
+                    
+                    if isinstance(cap_config, dict):
+                        if "sensory_rate_hz" in cap_config:
+                            sensory_rate = float(cap_config["sensory_rate_hz"])
+                        if "motor_rate_hz" in cap_config:
+                            motor_rate = float(cap_config["motor_rate_hz"])
+                        elif "rate_hz" in cap_config:
+                            sensory_rate = motor_rate = float(cap_config["rate_hz"])
+                    
+                    if CapabilityType.SENSORY not in seen_capability_types:
+                        capability_specs.append(CapabilityRateSpec(
+                            capability_type=CapabilityType.SENSORY,
+                            requested_rate_hz=sensory_rate,
+                            required=True
+                        ))
+                        seen_capability_types.add(CapabilityType.SENSORY)
+                    
+                    if CapabilityType.MOTOR not in seen_capability_types:
+                        capability_specs.append(CapabilityRateSpec(
+                            capability_type=CapabilityType.MOTOR,
+                            requested_rate_hz=motor_rate,
+                            required=True
+                        ))
+                        seen_capability_types.add(CapabilityType.MOTOR)
+                    continue
+                
+                # Map capability name to type
+                cap_type = None
+                default_rate = 10.0
+                
+                if cap_name.lower() in ["sensory", "sensor", "input", "sensors"]:
+                    cap_type = CapabilityType.SENSORY
+                    default_rate = default_rates["sensory"]
+                elif cap_name.lower() in ["motor", "output", "actuator", "motors", "actuators"]:
+                    cap_type = CapabilityType.MOTOR
+                    default_rate = default_rates["motor"]
+                elif cap_name.lower() in ["visualization", "viz", "visual", "display"]:
+                    cap_type = CapabilityType.VISUALIZATION
+                    default_rate = default_rates["visualization"]
+                elif cap_name.lower() in ["neurons_stream", "neuron_stream", "neural_stream"]:
+                    cap_type = CapabilityType.NEURONS_STREAM
+                    default_rate = default_rates["neurons_stream"]
+                elif cap_name.lower() in ["control", "command", "commands"]:
+                    cap_type = CapabilityType.CONTROL
+                    default_rate = default_rates["control"]
+                else:
+                    cap_type = CapabilityType.SENSORY
+                    default_rate = default_rates["sensory"]
+                
+                # Add capability if not already present
+                if cap_type not in seen_capability_types:
+                    final_rate = default_rate
+                    if isinstance(cap_config, dict) and "rate_hz" in cap_config:
+                        final_rate = float(cap_config["rate_hz"])
+                    
+                    capability_specs.append(CapabilityRateSpec(
+                        capability_type=cap_type,
+                        requested_rate_hz=final_rate,
+                        required=True
+                    ))
+                    seen_capability_types.add(cap_type)
             
-        except HTTPException:
-            raise
+            return capability_specs
+            
         except Exception as e:
-            self.logger.error(f"Enhanced agent registration failed: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Enhanced registration failed: {str(e)}"
-            ) from e
+            self.logger.warning(f"Could not process capability rates for {request.agent_id}: {e}")
+            return None
+    
+    def _store_capability_rates(self, agent_id: str, capability_specs: List[Any]) -> None:
+        """Store capability rate configurations in the capability manager."""
+        try:
+            from feagi.core.capability_rate_manager import get_capability_rate_manager
+            
+            capability_manager = get_capability_rate_manager()
+            if capability_manager:
+                approved_configs, rejections = capability_manager.register_agent_capabilities(
+                    agent_id, capability_specs
+                )
+                
+                if rejections:
+                    self.logger.warning(
+                        f"Some capabilities rejected for agent {agent_id}: {rejections}"
+                    )
+                
+                self.logger.info(
+                    f"Registered {len(approved_configs)} capability rates for agent {agent_id}"
+                )
+        except Exception as e:
+            self.logger.warning(f"Could not store capability rates for {agent_id}: {e}")
 
     @agent_endpoint("GET", "/shared_mem")
     async def list_agents_with_shared_mem(self) -> Dict[str, Any]:

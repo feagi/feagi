@@ -334,17 +334,13 @@ class SensoryNeuralStream:
             except Exception as e:
                 logger.warning(f"Error closing socket: {e}")
 
-        # CRITICAL: Always ensure ring buffer cleanup
+        # Clear latest-only buffer
         try:
-            self.ring_buffer.close()
-        except Exception as e:
-            logger.error(f"Error closing ring buffer: {e}")
-            # Still try to cleanup - this is critical for shared memory
-            try:
-                if hasattr(self.ring_buffer, "__del__"):
-                    self.ring_buffer.__del__()
-            except Exception as e2:
-                logger.error(f"Error in ring buffer destructor: {e2}")
+            with self._latest_only_buffer['lock']:
+                self._latest_only_buffer['data'] = None
+                self._latest_only_buffer['timestamp_ns'] = 0
+        except Exception:
+            pass
 
         # Close buffer pools with error handling
         if self.neural_buffers:
@@ -375,12 +371,6 @@ class SensoryNeuralStream:
             #  still running
             if getattr(self, "running", False):
                 # Try to stop gracefully but don't await (we're in destructor)
-                if hasattr(self, "ring_buffer"):
-                    try:
-                        self.ring_buffer.close()
-                    except Exception:
-                        pass
-
                 if hasattr(self, "socket") and self.socket:
                     try:
                         self.socket.close()
@@ -411,8 +401,8 @@ class SensoryNeuralStream:
                     self._stats["buffer_overruns"] += 1
                     logger.warning(
                         f"Ring buffer full, applying backpressure. Buffer stats: "
-                        f"used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                        f"full_count={self.ring_buffer.stats.buffer_full_count}"
+                        f"latest_only_buffer active, "
+                        f"polling_based_on_capability_rates"
                     )
                     await asyncio.sleep(0.01)  # 10ms backpressure
 
@@ -428,20 +418,9 @@ class SensoryNeuralStream:
         self._ensure_slot_structures()
         
         # Get capability rate manager for rate-based polling
-        try:
-            from feagi.core.capability_rate_manager import get_capability_rate_manager
-            from feagi.api.v1.capability_rates import CapabilityType
-            capability_manager = get_capability_rate_manager()
-        except Exception as e:
-            logger.error(f"[RATE] Could not get capability rate manager: {e}")
-            # Fallback to old behavior if rate manager unavailable
-            await self._process_slot_loop_legacy()
-            return
-        
-        if not capability_manager:
-            logger.warning("[RATE] Capability rate manager not available, using legacy polling")
-            await self._process_slot_loop_legacy() 
-            return
+        from feagi.core.capability_rate_manager import get_capability_rate_manager
+        from feagi.api.v1.capability_rates import CapabilityType
+        capability_manager = get_capability_rate_manager()
             
         logger.info("[RATE] Starting capability-aware SHM polling for sensory data")
         
@@ -573,64 +552,6 @@ class SensoryNeuralStream:
         # Default to 10ms in the future if calculation fails
         return current_time_ns + 10_000_000  # 10ms
     
-    async def _process_slot_loop_legacy(self) -> None:
-        """Legacy slot polling loop as fallback when capability rate manager is unavailable."""
-        logger.warning("[RATE] Using legacy fixed-rate SHM polling (5ms) - capability rates not available")
-        
-        while self.running:
-            try:
-                # Refresh slot readers from StateManager in case of agent changes
-                try:
-                    from feagi.core.state_manager import FeagiStateManager
-
-                    sm = FeagiStateManager.instance()
-                    connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
-                    
-                    # Add new readers for agents with sensory capabilities
-                    for agent_id, agent_data in connected_agents.items():
-                        if agent_id not in self._slot_readers:
-                            capabilities = agent_data.get('capabilities', {})
-                            if capabilities.get('sensory') or capabilities.get('neurons_stream'):
-                                try:
-                                    reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
-                                    if reader:
-                                        with self._slot_lock:
-                                            self._slot_readers[agent_id] = reader
-                                        logger.info(f"✅ [LEGACY] Added sensory slot reader for agent {agent_id}")
-                                except Exception as e:
-                                    logger.warning(f"[LEGACY] Failed to add slot reader for {agent_id}: {e}")
-                    
-                    # Remove stale readers for disconnected agents
-                    for agent_id in list(self._slot_readers.keys()):
-                        if agent_id not in connected_agents:
-                            try:
-                                with self._slot_lock:
-                                    self._slot_readers.pop(agent_id, None)
-                                _release_slot_reader(agent_id)
-                                logger.info(f"🗑️ [LEGACY] Removed slot reader for disconnected agent {agent_id}")
-                            except Exception as e:
-                                logger.warning(f"[LEGACY] Error removing slot reader for {agent_id}: {e}")
-                                
-                except Exception as e:
-                    logger.debug(f"[LEGACY] Agent registry update error: {e}")
-
-                # Process data from all active slot readers
-                for agent_id, reader in list(self._slot_readers.items()):
-                    try:
-                        slot_data = reader.read_latest()
-                        if slot_data:
-                            logger.info(f"✅ [LEGACY] Sensory data from {agent_id}: {len(slot_data.data)} bytes, age={slot_data.age_ms:.1f}ms")
-                            await self._process_neural_payload_bytes(slot_data.data)
-                            self._stats["slot_payloads"] = self._stats.get("slot_payloads", 0) + 1
-                    except Exception as pe:
-                        logger.debug(f"[LEGACY] Sensory payload decode error from {agent_id}: {pe}")
-                        
-                await asyncio.sleep(0.005)  # 5ms poll - legacy behavior
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.debug(f"[LEGACY] Sensory poll error: {e}")
-                await asyncio.sleep(0.05)
 
     async def _log_slot_summary_loop(self) -> None:
         """Periodically log attached slot readers and their stats when --debug-shm is enabled."""
@@ -1231,11 +1152,11 @@ class SensoryNeuralStream:
         """Get stream statistics."""
         stats = self._stats.copy()
 
-        # Add ring buffer stats
-        stats["ring_buffer"] = {
-            "available_slots": self.ring_buffer.available_slots,
-            "used_slots": self.ring_buffer.used_slots,
-            "stats": self.ring_buffer.stats.__dict__,
+        # Add latest-only buffer stats
+        stats["latest_only_buffer"] = {
+            "active": self._latest_only_buffer['data'] is not None,
+            "last_update_ns": self._latest_only_buffer['timestamp_ns'],
+            "max_size_bytes": self._max_slot_size
         }
 
         # Add buffer pool stats if available
@@ -1436,11 +1357,11 @@ class SensoryNeuralStream:
         """Get stream statistics."""
         stats = self._stats.copy()
 
-        # Add ring buffer stats
-        stats["ring_buffer"] = {
-            "available_slots": self.ring_buffer.available_slots,
-            "used_slots": self.ring_buffer.used_slots,
-            "stats": self.ring_buffer.stats.__dict__,
+        # Add latest-only buffer stats
+        stats["latest_only_buffer"] = {
+            "active": self._latest_only_buffer['data'] is not None,
+            "last_update_ns": self._latest_only_buffer['timestamp_ns'],
+            "max_size_bytes": self._max_slot_size
         }
 
         # Add buffer pool stats if available

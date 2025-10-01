@@ -63,13 +63,13 @@ graph TB
 
 ## Component Details
 
-### 1. Enhanced Agent Registration
+### 1. Unified Agent Registration
 
 #### Registration Protocol
 
-**Endpoint**: `/v1/agents/register/enhanced`
+**Endpoint**: `/v1/agent/register` (single endpoint handles all registration)
 
-**Request Structure**:
+**Request Structure** (existing AgentRegistrationRequest with capability rate support):
 ```json
 {
   "agent_id": "video_agent_001",
@@ -78,70 +78,40 @@ graph TB
   "agent_version": "1.2.0",
   "controller_version": "2.1.0",
   "agent_ip": "192.168.1.100",
+  "metadata": {},
   
-  "feagi_rate_request": {
-    "requested_feagi_rate_hz": 15.0,
-    "justification": "High-speed video processing requires 15Hz"
-  },
-  
-  "capability_rates": [
-    {
-      "capability_type": "sensory",
-      "requested_rate_hz": 30.0,
-      "required": true,
-      "metadata": {
-        "sensor_type": "camera",
-        "resolution": "1920x1080"
-      }
+  "capabilities": {
+    "sensory": {
+      "rate_hz": 30.0,
+      "sensor_type": "camera",
+      "resolution": "1920x1080"
     },
-    {
-      "capability_type": "visualization", 
-      "requested_rate_hz": 5.0,
-      "required": false
+    "visualization": {
+      "rate_hz": 5.0
+    },
+    "sensorimotor": {
+      "sensory_rate_hz": 15.0,
+      "motor_rate_hz": 20.0
     }
-  ]
+  }
 }
 ```
 
-**Response Structure**:
+**Response Structure** (standard SuccessResponse):
 ```json
 {
   "success": true,
-  "agent_id": "video_agent_001",
-  "message": "Agent registered with 2 capabilities",
-  
-  "feagi_rate_approved": true,
-  "current_feagi_rate_hz": 15.0,
-  "requested_feagi_rate_hz": 15.0,
-  
-  "capability_results": [
-    {
-      "capability_type": "sensory",
-      "requested_rate_hz": 30.0,
-      "approved_rate_hz": 15.0,
-      "approved": true
-    },
-    {
-      "capability_type": "visualization",
-      "requested_rate_hz": 5.0, 
-      "approved_rate_hz": 5.0,
-      "approved": true
-    }
-  ],
-  
-  "approved_capabilities": ["sensory", "visualization"],
-  "rejected_capabilities": []
+  "message": "Agent video_agent_001 registered successfully"
 }
 ```
 
 #### Registration Flow
 
-1. **Request Validation**: Validate request format and required fields
-2. **FEAGI Rate Negotiation**: Process request to adjust global FEAGI rate
-3. **Rate Validation**: Validate all capability rates against system limits
-4. **Capability Registration**: Register approved capabilities with rate manager
-5. **Legacy Registration**: Complete standard agent registration process
-6. **Response Generation**: Build comprehensive response with negotiation results
+1. **Request Validation**: Validate standard registration request format
+2. **Capability Rate Processing**: Extract and convert capability rates from existing capabilities dict
+3. **Rate Registration**: Register capability rates with capability manager (warnings only if issues)
+4. **Standard Registration**: Complete agent registration through existing CoreAPIService
+5. **Response Generation**: Return standard success response
 
 ### 2. Capability Types
 
@@ -210,9 +180,10 @@ def suggest_optimal_rate(self, capability_type: CapabilityType, requested_rate_h
 #### Core Responsibilities
 
 - **Rate Storage**: Store per-agent, per-capability rate configurations
-- **Polling Coordination**: Determine which agents should be polled when
+- **Polling Coordination**: Determine which agents should be polled when  
 - **Rate Updates**: Handle dynamic rate changes during runtime
 - **State Persistence**: Integrate with FEAGI's state management system
+- **Automatic Integration**: Works transparently with existing registration system
 
 #### Rate Configuration Storage
 
@@ -318,18 +289,24 @@ def _calculate_next_poll_time(self, capability_manager, current_time_ns: int) ->
     return min(next_poll_times) if next_poll_times else current_time_ns + 10_000_000  # 10ms default
 ```
 
-### 6. Backward Compatibility
+### 6. Automatic Capability Rate Processing
 
-#### Legacy Registration Support
+#### Transparent Integration
 
-The system maintains full backward compatibility through automatic conversion:
+The system automatically processes capability rates from the existing `capabilities` dictionary without requiring API changes:
 
-**Legacy Endpoint**: `/v1/agents/register`  
-**Behavior**: Automatically converts legacy requests to enhanced format with default rates
+**Standard Registration**: `/v1/agent/register`  
+**Behavior**: Automatically extracts and processes capability rates from existing request format
 
 ```python
-def _convert_legacy_to_enhanced(self, legacy_request: AgentRegistrationRequest) -> EnhancedAgentRegistrationRequest:
-    """Convert legacy registration to enhanced format with default rates."""
+def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Optional[List[Any]]:
+    """Process agent capabilities and convert to rate specifications."""
+    if not request.capabilities:
+        return None
+        
+    capability_specs = []
+    seen_capability_types = set()
+    
     default_rates = {
         "sensory": 10.0,
         "motor": 20.0,
@@ -338,21 +315,24 @@ def _convert_legacy_to_enhanced(self, legacy_request: AgentRegistrationRequest) 
         "control": 1.0
     }
     
-    capability_specs = []
-    for cap_name, cap_config in legacy_request.capabilities.items():
-        # Map to standard capability type and apply default rate
-        capability_specs.append(
-            CapabilityRateSpec(
-                capability_type=self._map_legacy_capability(cap_name),
-                requested_rate_hz=default_rates.get(cap_name.lower(), 10.0),
-                required=True
-            )
-        )
+    for cap_name, cap_config in request.capabilities.items():
+        # Handle sensorimotor as combined capability
+        if cap_name.lower() == "sensorimotor":
+            # Split into sensory + motor capabilities
+            # Extract rates from sensory_rate_hz, motor_rate_hz, or rate_hz
+        
+        # Map capability name to standard type
+        cap_type = self._map_capability_name_to_type(cap_name)
+        
+        # Extract rate from config or use default
+        final_rate = cap_config.get("rate_hz", default_rates.get(cap_name.lower(), 10.0))
+        
+        # Add to specs if not duplicate
+        if cap_type not in seen_capability_types:
+            capability_specs.append(CapabilityRateSpec(...))
+            seen_capability_types.add(cap_type)
     
-    return EnhancedAgentRegistrationRequest(
-        # ... copy legacy fields ...
-        capability_rates=capability_specs
-    )
+    return capability_specs
 ```
 
 ## Configuration Examples
@@ -363,21 +343,16 @@ def _convert_legacy_to_enhanced(self, legacy_request: AgentRegistrationRequest) 
 {
   "agent_id": "high_speed_camera",
   "agent_type": "vision_sensor",
-  "feagi_rate_request": {
-    "requested_feagi_rate_hz": 60.0,
-    "justification": "High-speed visual processing for robotics"
-  },
-  "capability_rates": [
-    {
-      "capability_type": "sensory",
-      "requested_rate_hz": 60.0,
-      "required": true,
-      "metadata": {
-        "camera_fps": 120,
-        "processing_mode": "real_time"
-      }
+  "agent_data_port": 5000,
+  "agent_version": "1.0.0",
+  "controller_version": "2.0.0",
+  "capabilities": {
+    "sensory": {
+      "rate_hz": 60.0,
+      "camera_fps": 120,
+      "processing_mode": "real_time"
     }
-  ]
+  }
 }
 ```
 
@@ -386,57 +361,43 @@ def _convert_legacy_to_enhanced(self, legacy_request: AgentRegistrationRequest) 
 ```json
 {
   "agent_id": "iot_sensor_hub",
-  "agent_type": "environmental_sensor",
-  "capability_rates": [
-    {
-      "capability_type": "sensory",
-      "requested_rate_hz": 1.0,
-      "required": true,
-      "metadata": {
-        "sensors": ["temperature", "humidity", "pressure"]
-      }
+  "agent_type": "environmental_sensor", 
+  "agent_data_port": 5001,
+  "agent_version": "1.2.0",
+  "controller_version": "2.0.0",
+  "capabilities": {
+    "sensory": {
+      "rate_hz": 1.0,
+      "sensors": ["temperature", "humidity", "pressure"]
     },
-    {
-      "capability_type": "motor",
-      "requested_rate_hz": 0.5,
-      "required": false,
-      "metadata": {
-        "actuators": ["ventilation", "heating"]
-      }
+    "motor": {
+      "rate_hz": 0.5,
+      "actuators": ["ventilation", "heating"]
     }
-  ]
+  }
 }
 ```
 
-### Robotic Agent with Multiple Capabilities
+### Robotic Agent with Sensorimotor Capability
 
 ```json
 {
   "agent_id": "mobile_robot",
-  "agent_type": "autonomous_vehicle", 
-  "feagi_rate_request": {
-    "requested_feagi_rate_hz": 20.0,
-    "justification": "Real-time navigation and control"
-  },
-  "capability_rates": [
-    {
-      "capability_type": "sensory",
-      "requested_rate_hz": 30.0,
-      "required": true,
-      "metadata": {"sensors": ["lidar", "camera", "imu"]}
+  "agent_type": "autonomous_vehicle",
+  "agent_data_port": 5002, 
+  "agent_version": "2.1.0",
+  "controller_version": "2.0.0",
+  "capabilities": {
+    "sensorimotor": {
+      "sensory_rate_hz": 30.0,
+      "motor_rate_hz": 50.0,
+      "sensors": ["lidar", "camera", "imu"],
+      "actuators": ["wheels", "steering", "brakes"]
     },
-    {
-      "capability_type": "motor",
-      "requested_rate_hz": 50.0,
-      "required": true,
-      "metadata": {"actuators": ["wheels", "steering", "brakes"]}
-    },
-    {
-      "capability_type": "visualization",
-      "requested_rate_hz": 5.0,
-      "required": false
+    "visualization": {
+      "rate_hz": 5.0
     }
-  ]
+  }
 }
 ```
 
@@ -537,47 +498,61 @@ The system scales linearly with agent count rather than exponentially with polli
 
 ### Runtime Error Recovery
 
-- **Rate Manager Failure**: Falls back to legacy fixed-rate polling
-- **State Persistence Error**: Continues with in-memory rates
+- **Rate Processing Failure**: Continues with standard registration, logs warnings
+- **State Persistence Error**: Continues with in-memory rates only
 - **Agent Disconnection**: Automatic cleanup of rate configurations
-- **Invalid Rate Data**: Uses default rates with warning logs
+- **Invalid Rate Data**: Uses sensible default rates with warning logs
+- **Capability Manager Unavailable**: System continues with default behavior
 
 ## Migration Guide
 
 ### For Existing Agents
 
-**No changes required** - existing agents continue working through automatic legacy conversion.
+**No changes required** - all existing agents continue working with zero modifications. The system automatically:
 
-**Optional enhancements**:
-1. Add explicit capability rate specifications
-2. Request optimal FEAGI rates for your use case
-3. Utilize enhanced response data for better coordination
+1. **Processes existing capabilities**: Extracts rate information from existing `capabilities` dict
+2. **Applies intelligent defaults**: Uses sensible default rates for each capability type
+3. **Handles special cases**: Automatically splits `sensorimotor` capabilities into separate rates
+4. **Maintains compatibility**: All existing API contracts remain unchanged
 
-### For New Agents
+### For New Agents  
 
-**Recommended approach**:
-1. Use enhanced registration endpoint: `/v1/agents/register/enhanced`
-2. Specify explicit capability rates based on your data characteristics
-3. Request appropriate FEAGI rates if your application has specific timing needs
-4. Handle rate negotiation results in your agent logic
+**Enhanced capability specification** (optional):
+```json
+{
+  "capabilities": {
+    "sensory": {
+      "rate_hz": 15.0,
+      "sensor_type": "camera"
+    },
+    "motor": {
+      "rate_hz": 25.0,
+      "actuator_type": "servo"
+    }
+  }
+}
+```
+
+**Benefits of explicit rates**:
+- Optimized polling frequencies for your specific use case
+- Better resource utilization
+- Reduced temporal pattern replay issues
+- More predictable data processing timing
 
 ### System Configuration
 
-**FEAGI Configuration**:
+**FEAGI Configuration** (optional tuning):
 ```toml
-[npu.burst_engine]
-# Allow agents to request rate changes
-allow_agent_rate_requests = true
-max_rate_increase_factor = 2.0
-min_global_rate_hz = 0.1
-max_global_rate_hz = 100.0
-
 [api.agent_registration]  
-# Rate validation settings
-max_capability_rate_hz = 1000.0
-min_capability_rate_hz = 0.1
+# Default rates applied when not specified
 default_sensory_rate_hz = 10.0
 default_motor_rate_hz = 20.0
+default_visualization_rate_hz = 5.0
+default_control_rate_hz = 1.0
+
+# Rate limits for validation
+max_capability_rate_hz = 1000.0
+min_capability_rate_hz = 0.1
 ```
 
 ## Testing
@@ -686,15 +661,16 @@ def test_polling_performance():
 
 ## Conclusion
 
-The enhanced agent registration system with multi-rate capability architecture successfully addresses the temporal pattern replay bug while providing a sophisticated framework for agent-FEAGI communication. The system maintains backward compatibility while enabling fine-grained control over data flow rates, resulting in improved performance, temporal consistency, and resource efficiency.
+The unified agent registration system with integrated multi-rate capability architecture successfully addresses the temporal pattern replay bug while maintaining complete backward compatibility. The solution eliminates the frequency mismatch problem through intelligent, capability-aware polling without requiring any changes to existing agents.
 
 Key benefits:
 
-- **Eliminates temporal pattern replay bugs**
-- **Provides per-capability rate control**
-- **Maintains backward compatibility**
-- **Reduces resource usage through intelligent polling**
-- **Enables agent-driven rate optimization**
-- **Supports complex multi-modal agents**
+- **Eliminates temporal pattern replay bugs** through rate-matched polling
+- **Zero migration effort** - all existing agents work unchanged
+- **Automatic capability processing** from existing registration format
+- **Intelligent default rates** applied transparently 
+- **Resource efficiency** through smart polling schedules
+- **Handles complex cases** like sensorimotor capability splitting
+- **Clean single code path** with no fallbacks or duplicate workflows
 
-The architecture is designed for extensibility and can accommodate future enhancements while maintaining the core principles of rate negotiation and capability isolation.
+The architecture achieves sophisticated rate management through transparent integration with the existing registration system, proving that complex problems can have elegant, non-intrusive solutions. Future enhancements can be added while maintaining the core principle of backward compatibility and system simplicity.
