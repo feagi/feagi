@@ -16,7 +16,7 @@ limitations under the License.
 FEAGI v1 Agent API - Single Source of Truth
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
