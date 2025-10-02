@@ -72,12 +72,6 @@ async def stream_segmented_camera(
         
     logger.info("✅ FEAGI is ready - establishing connection...")
     
-    # Connect in sensory-only mode (skip problematic control stream)
-    if not await client.connect_sensory_only():
-        logger.error("❌ Failed to connect to FEAGI sensory stream")
-        return
-
-    # Register with visualization + video preview capability so FEAGI can expose SHM paths
     # Connection/registration + resources builder
     shm_paths: Dict[str, str] = {}
     center_dims: Tuple[int, int]
@@ -85,20 +79,22 @@ async def stream_segmented_camera(
     processor: Optional[SegmentedVisionProcessor] = None
     gaze_motor: Optional[GazeMotorProcessor] = None
     shm_writer: Optional[SharedFrameWriter] = None
+    feagi_writer: Optional[SharedFrameWriter] = None
     sensory_writer: Optional[ShmBytesWriter] = None
     motor_reader_thread = None
     motor_stop_flag = None
 
     async def _register_and_connect() -> bool:
-        nonlocal client, shm_paths, center_dims, per_dims, processor, gaze_motor, shm_writer, sensory_writer, rest_port, host, agent_id, motor_reader_thread, motor_stop_flag
+        nonlocal client, shm_paths, center_dims, per_dims, processor, gaze_motor, shm_writer, feagi_writer, sensory_writer, rest_port, host, agent_id, motor_reader_thread, motor_stop_flag
         # Best-effort disconnect/cleanup
         try:
             await client.disconnect()
         except Exception:
             pass
         client = FeagiClient(host=host, agent_id=agent_id or client.agent_id)
-        # Check FEAGI readiness (shorter timeout for reconnects, no guidance)
-        if not await client.connect_with_readiness_check(timeout=30.0, show_guidance=False):
+        # Connect in sensory-only mode (skip problematic control stream)
+        if not await client.connect_sensory_only():
+            logger.error("❌ Failed to connect to FEAGI sensory stream")
             return False
         # Register to obtain SHM paths
         shm_paths = {}
@@ -108,6 +104,7 @@ async def stream_segmented_camera(
                 agent_type="external",
                 capabilities={
                     "video": True,
+                    "feagi": True,  # FEAGI processed video with segmentation overlays
                     "sensory": True,
                     "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
                     "visualization": True,
@@ -129,11 +126,9 @@ async def stream_segmented_camera(
                     logger.error(f"❌ [SHM-PARSE] Failed to parse transport/SHM paths: {e}")
             logger.info(f"🔍 [SHM-DEBUG] Agent shared memory mappings: {shm_paths}")
             logger.info(f"🔍 [SHM-DEBUG] Video SHM path: {shm_paths.get('video', 'NOT PROVIDED')}")
+            logger.info(f"🔍 [SHM-DEBUG] FEAGI SHM path: {shm_paths.get('feagi', 'NOT PROVIDED')}")
         except Exception:
             pass
-        # Connect streams (sensory-only mode for video agent)
-        if not await client.connect_sensory_only():
-            return False
         # Dimensions and processor with gaze parameters
         center_dims, per_dims = get_segmented_3x3_dimensions(host, rest_port)
         processor = SegmentedVisionProcessor(
@@ -168,17 +163,29 @@ async def stream_segmented_camera(
             except Exception:
                 pass
         sensory_writer = None
-        # Canonical: 'video' for preview frames
+        feagi_writer = None
+        # Canonical: 'video' for raw preview frames
         shm_path = shm_paths.get("video")
         if isinstance(shm_path, str) and len(shm_path) > 0:
             try:
                 shm_writer = SharedFrameWriter(path=shm_path)
-                logger.info(f"[SHM-VIDEO] ✅ SharedFrameWriter created: {shm_path}")
+                logger.info(f"[SHM-VIDEO-RAW] ✅ SharedFrameWriter created: {shm_path}")
             except Exception as e:
-                logger.error(f"[SHM-VIDEO] ❌ Failed to create SharedFrameWriter: {e}")
+                logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to create SharedFrameWriter: {e}")
                 shm_writer = None
         else:
-            logger.info(f"[SHM-VIDEO] No video SHM path provided by FEAGI")
+            logger.info(f"[SHM-VIDEO-RAW] No video SHM path provided by FEAGI")
+        # Canonical: 'feagi' for processed video with segmentation overlays
+        feagi_shm_path = shm_paths.get("feagi")
+        if isinstance(feagi_shm_path, str) and len(feagi_shm_path) > 0:
+            try:
+                feagi_writer = SharedFrameWriter(path=feagi_shm_path)
+                logger.info(f"[SHM-VIDEO-FEAGI] ✅ SharedFrameWriter created: {feagi_shm_path}")
+            except Exception as e:
+                logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to create SharedFrameWriter: {e}")
+                feagi_writer = None
+        else:
+            logger.info(f"[SHM-VIDEO-FEAGI] No feagi SHM path provided by FEAGI")
         # Setup sensory SHM writer if FEAGI provided a path
         sensory_shm_path = shm_paths.get("sensory")
         if isinstance(sensory_shm_path, str) and len(sensory_shm_path) > 0:
@@ -401,6 +408,21 @@ async def stream_segmented_camera(
                     logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to write frame: {e}")
                     import traceback
                     logger.error(f"[SHM-VIDEO-RAW] Traceback: {traceback.format_exc()}")
+
+            # Write FEAGI processed video (segmented mosaic with overlays) for BV FEAGI view via SHM
+            if feagi_writer is not None:
+                try:
+                    from feagi_connector.vision.visualize import build_segmented_mosaic
+                    mosaic_bgr = build_segmented_mosaic(sensor_bytes, center_dims, per_dims)
+                    mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
+                    feagi_writer.write_frame(mosaic_rgb)
+                    # Check if mosaic has any non-zero pixels
+                    non_zero = cv2.countNonZero(cv2.cvtColor(mosaic_rgb, cv2.COLOR_RGB2GRAY))
+                    logger.debug(f"[SHM-VIDEO-FEAGI] ✅ Mosaic written: {mosaic_rgb.shape}, non-zero pixels: {non_zero}")
+                except Exception as e:
+                    logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to write mosaic: {e}")
+                    import traceback
+                    logger.error(f"[SHM-VIDEO-FEAGI] Traceback: {traceback.format_exc()}")
 
             # Pace by source FPS if available
             if info and info.fps > 0:

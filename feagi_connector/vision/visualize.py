@@ -96,6 +96,7 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
             "iic300", "iic400", "iic500",
             "iic000", "iic100", "iic200",
         ]
+        neuron_count = 0
         for cid_key in order:
             if cid_key not in tiles:
                 continue
@@ -103,19 +104,24 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
             try:
                 cid = frpl.data_structures.genomic.CorticalID.try_new_from_string(cid_key)
                 arrays = mapped.get_neurons_of(cid)
-            except Exception:
+            except Exception as e:
+                import logging
+                logging.debug(f"[MOSAIC] Failed to get neurons for {cid_key}: {e}")
                 continue
             try:
                 x_coords, y_coords, z_coords, potentials = arrays.copy_as_tuple_of_numpy_arrays()
             except Exception:
                 try:
                     x_coords, y_coords, z_coords, potentials = arrays
-                except Exception:
+                except Exception as e:
+                    import logging
+                    logging.debug(f"[MOSAIC] Failed to extract arrays for {cid_key}: {e}")
                     continue
             xs = np.asarray(x_coords, dtype=np.int32)
             ys = np.asarray(y_coords, dtype=np.int32)
             ps = np.asarray(potentials, dtype=np.float32)
             n = min(xs.size, ys.size, ps.size)
+            neuron_count += n
             for i in range(n):
                 x = int(xs[i])
                 y = int(ys[i])
@@ -124,8 +130,25 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
                     p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
                     val = int(p * 255.0)
                     mosaic[y0 + y, x0 + x, :] = val
+        if neuron_count > 0:
+            import logging
+            logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")
+        
+        # Draw visible grid lines (white) to separate the 3x3 tiles
+        grid_color = 128  # Gray color for grid lines
+        # Vertical lines
+        mosaic[:, pw, :] = grid_color  # First vertical line
+        mosaic[:, pw + grid + cw, :] = grid_color  # Second vertical line
+        # Horizontal lines
+        mosaic[ph, :, :] = grid_color  # First horizontal line
+        mosaic[ph + grid + ch, :, :] = grid_color  # Second horizontal line
+        
         return mosaic
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.error(f"[MOSAIC] ❌ Failed to build mosaic: {e}")
+        import traceback
+        logging.error(f"[MOSAIC] Traceback: {traceback.format_exc()}")
         return mosaic
 
 
