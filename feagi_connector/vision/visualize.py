@@ -112,7 +112,12 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
 
 
 def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: int) -> np.ndarray:
-    """Internal function to build mosaic with given tile dimensions."""
+    """Internal function to build mosaic with given tile dimensions.
+    
+    Args:
+        cw, ch: Display dimensions for center tile
+        pw, ph: Display dimensions for peripheral tiles
+    """
     grid = 1
     total_w = pw + grid + cw + grid + pw
     total_h = ph + grid + ch + grid + ph
@@ -123,6 +128,7 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     except Exception:
         return mosaic
 
+    # Tile layout with display dimensions
     tiles = {
         "iic600": (0, 0, pw, ph),
         "iic700": (pw + grid, 0, cw, ph),
@@ -133,6 +139,14 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
         "iic000": (0, ph + grid + ch + grid, pw, ph),
         "iic100": (pw + grid, ph + grid + ch + grid, cw, ph),
         "iic200": (pw + grid + cw + grid, ph + grid + ch + grid, pw, ph),
+    }
+    
+    # Original neuron coordinate dimensions (from FEAGI genome)
+    # These are the dimensions neurons are encoded in
+    neuron_dims = {
+        "iic600": (16, 16), "iic700": (128, 16), "iic800": (16, 16),
+        "iic300": (16, 128), "iic400": (128, 128), "iic500": (16, 128),
+        "iic000": (16, 16), "iic100": (128, 16), "iic200": (16, 16),
     }
 
     try:
@@ -150,6 +164,12 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             if cid_key not in tiles:
                 continue
             x0, y0, tw, th = tiles[cid_key]
+            nw, nh = neuron_dims.get(cid_key, (tw, th))  # Get original neuron dimensions
+            
+            # Calculate scale factors to map neuron coords to display tile size
+            scale_x = float(tw) / float(nw) if nw > 0 else 1.0
+            scale_y = float(th) / float(nh) if nh > 0 else 1.0
+            
             try:
                 cid = frpl.data_structures.genomic.CorticalID.try_new_from_string(cid_key)
                 arrays = mapped.get_neurons_of(cid)
@@ -171,20 +191,35 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             n = min(xs.size, ys.size, ps.size)
             neuron_count += n
             if n > 0:
-                logging.info(f"[MOSAIC-DEBUG] {cid_key}: {n} neurons, tile@({x0},{y0}) size=({tw},{th}), neuron_range x=[{xs.min()},{xs.max()}] y=[{ys.min()},{ys.max()}]")
+                logging.info(f"[MOSAIC-DEBUG] {cid_key}: {n} neurons, tile@({x0},{y0}) display=({tw}x{th}), neuron_space=({nw}x{nh}), scale=({scale_x:.2f},{scale_y:.2f}), neuron_range x=[{xs.min()},{xs.max()}] y=[{ys.min()},{ys.max()}]")
             for i in range(n):
-                x = int(xs[i])
-                y = int(ys[i])
-                if 0 <= x < tw and 0 <= y < th:
+                # Scale neuron coordinates from neuron space to display space
+                x_neuron = int(xs[i])
+                y_neuron = int(ys[i])
+                x_scaled = int(x_neuron * scale_x)
+                y_scaled = int(y_neuron * scale_y)
+                
+                if 0 <= x_scaled < tw and 0 <= y_scaled < th:
                     p = float(ps[i])
                     p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
                     val = int(p * 255.0)
+                    
+                    # Calculate pixel block size (at least 1 pixel, scaled by the scale factor)
+                    block_w = max(1, int(scale_x))
+                    block_h = max(1, int(scale_y))
+                    
                     # WORKAROUND: Rust bug - Y is flipped with off-by-one (height - y instead of height - 1 - y)
                     # Compensate by flipping back: if Rust wrote (h - y), we reverse to get y
-                    # Clamp to prevent out-of-bounds
-                    mosaic_y = y0 + (th - 1 - y)
-                    if 0 <= mosaic_y < total_h:
-                        mosaic[mosaic_y, x0 + x, :] = val
+                    mosaic_y_center = y0 + (th - 1 - y_scaled)
+                    mosaic_x_center = x0 + x_scaled
+                    
+                    # Draw a block of pixels instead of a single pixel
+                    for dy in range(block_h):
+                        for dx in range(block_w):
+                            mosaic_y = mosaic_y_center + dy
+                            mosaic_x = mosaic_x_center + dx
+                            if 0 <= mosaic_y < total_h and 0 <= mosaic_x < total_w:
+                                mosaic[mosaic_y, mosaic_x, :] = val
         if neuron_count > 0:
             import logging
             logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")
