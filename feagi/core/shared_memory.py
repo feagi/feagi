@@ -115,7 +115,7 @@ class SharedMemoryManager:
         created: Dict[str, str] = {}
         if not isinstance(capabilities, dict):
             return created
-        for cap in ("video", "sensory", "motor"):
+        for cap in ("video", "feagi", "sensory", "motor"):
             if capabilities.get(cap, False):
                 p = self._agent_capability_file(agent_id, cap)
                 try:

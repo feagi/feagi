@@ -672,6 +672,27 @@ class FeagiStateManager:
                 if video_path:
                     mappings["video"] = video_path
 
+            # FEAGI processed video stream (agent → BV FEAGI view) - agent-owned writer path
+            wants_feagi = False
+            if isinstance(caps.get("feagi"), dict):
+                wants_feagi = bool(caps["feagi"].get("enabled", True))
+            else:
+                wants_feagi = bool(caps.get("feagi"))
+            logger.info(f"[SHM-FEAGI] Agent {agent_id} requested feagi capability: {wants_feagi}, caps.get('feagi')={caps.get('feagi')}")
+            if wants_feagi:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"feagi": True})
+                    feagi_path = created.get("feagi", "")
+                    logger.info(f"[SHM-FEAGI] Created feagi SHM path for {agent_id}: {feagi_path}")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent feagi SHM: {e}")
+                    feagi_path = ""
+                if feagi_path:
+                    mappings["feagi"] = feagi_path
+                    logger.info(f"[SHM-FEAGI] Added feagi path to mappings: {feagi_path}")
+                else:
+                    logger.warning(f"[SHM-FEAGI] feagi_path is empty, not adding to mappings")
+
             # NOTE: Do NOT pre-create inbound agent files (sensory/video). Those
             # must be created by the agent with correct headers. Pre-touching here
             # causes 'Invalid SHM magic' in readers.

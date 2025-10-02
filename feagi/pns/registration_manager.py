@@ -124,6 +124,7 @@ class RegistrationManager:
             "motor": 0,
             "sensory": 0,
             "video": 0,
+            "feagi": 0,  # FEAGI processed video (segmented mosaic)
         }
 
         # FQ sampler states
@@ -147,7 +148,8 @@ class RegistrationManager:
         """Return a sanitized, deterministic capability dict.
 
         Canonical keys allowed:
-        - video: bool | { enabled: bool }
+        - video: bool | { enabled: bool } (raw video preview)
+        - feagi: bool | { enabled: bool } (FEAGI processed video - segmented mosaic)
         - sensory: bool | { enabled: bool }
         - visualization: bool | { enabled: bool }
         - motor: bool | { enabled: bool, sampling_frequency_hz: number|"burst", prefer_shm: bool }
@@ -170,6 +172,14 @@ class RegistrationManager:
                 sanitized["video"] = {"enabled": bool(vid_value.get("enabled", True))}
             else:
                 sanitized["video"] = bool(vid_value)
+
+        # Handle feagi (FEAGI processed video)
+        feagi_value = capabilities.get("feagi")
+        if feagi_value is not None:
+            if isinstance(feagi_value, dict):
+                sanitized["feagi"] = {"enabled": bool(feagi_value.get("enabled", True))}
+            else:
+                sanitized["feagi"] = bool(feagi_value)
 
         # Handle visualization
         viz_value = None
@@ -220,9 +230,9 @@ class RegistrationManager:
 
         # Warn on any unknown keys (ignored for now)
         for k in capabilities.keys():
-            if k not in ("video", "sensory", "visualization", "motor", "motor_controller", "neuron_visualization", "brain_visualizer", "3d_visualization"):
+            if k not in ("video", "feagi", "sensory", "visualization", "motor", "motor_controller", "neuron_visualization", "brain_visualizer", "3d_visualization"):
                 logger.warning(
-                    f"[DEPRECATION] Unknown capability '{k}' will be ignored. Only 'sensory', 'visualization', and 'motor' are supported."
+                    f"[DEPRECATION] Unknown capability '{k}' will be ignored. Only 'video', 'feagi', 'sensory', 'visualization', and 'motor' are supported."
                 )
 
         return sanitized
