@@ -10,6 +10,7 @@ Design goals:
 - Lock-free single-writer design with N slots (ring buffer)
 - Stable binary header contracts for downstream readers (e.g., Godot/BV)
 - Minimal dependencies; only numpy required for frame writers
+- RAM-backed storage where possible (Linux: /dev/shm, macOS: /tmp, Windows: configurable)
 
 @cursor:ffi-safe
 """
@@ -18,11 +19,72 @@ from __future__ import annotations
 
 import mmap
 import os
+import platform
 import struct
+import tempfile
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
+
+
+def get_shm_directory() -> Path:
+    """Get the best directory for shared memory files based on OS.
+    
+    Priority:
+    1. FEAGI_SHM_DIR environment variable (user override)
+    2. OS-specific RAM-backed location:
+       - Linux: /dev/shm (tmpfs, RAM-backed)
+       - macOS: /tmp (often RAM-backed)
+       - Windows: system temp directory (may be on disk)
+    3. Fallback: system temp directory
+    
+    Returns:
+        Path object pointing to the SHM directory
+        
+    Notes:
+        - Linux: /dev/shm is guaranteed RAM-backed (tmpfs)
+        - macOS: /tmp is often RAM-backed but not guaranteed
+        - Windows: No built-in RAM disk, users can set FEAGI_SHM_DIR to a RAM disk
+                  (e.g., created with ImDisk Toolkit, AMD RAMDisk, etc.)
+        - For optimal SSD lifetime, configure FEAGI_SHM_DIR to a RAM disk on all platforms
+    """
+    # Priority 1: User-specified directory via environment variable
+    if "FEAGI_SHM_DIR" in os.environ:
+        custom_dir = Path(os.environ["FEAGI_SHM_DIR"])
+        if custom_dir.exists() and custom_dir.is_dir():
+            return custom_dir
+        # If specified but doesn't exist, try to create it
+        try:
+            custom_dir.mkdir(parents=True, exist_ok=True)
+            return custom_dir
+        except Exception:
+            pass  # Fall through to OS defaults
+    
+    # Priority 2: OS-specific defaults
+    system = platform.system()
+    
+    if system == "Linux":
+        # Linux: /dev/shm is tmpfs (RAM-backed filesystem)
+        shm_dir = Path("/dev/shm")
+        if shm_dir.exists() and shm_dir.is_dir():
+            return shm_dir
+        # Fallback to /tmp if /dev/shm doesn't exist (rare)
+        return Path("/tmp")
+    
+    elif system == "Darwin":  # macOS
+        # macOS: /tmp is often RAM-backed (depends on system config)
+        # Alternative: /var/run (also often RAM-backed)
+        return Path("/tmp")
+    
+    elif system == "Windows":
+        # Windows: Use system temp directory
+        # Users should set FEAGI_SHM_DIR to a RAM disk for optimal performance
+        return Path(tempfile.gettempdir())
+    
+    else:
+        # Unknown OS: use Python's standard temp directory
+        return Path(tempfile.gettempdir())
 
 
 class SharedFrameWriter:
@@ -63,10 +125,17 @@ class SharedFrameWriter:
         """Initialize the shared memory writer.
 
         Args:
-            path: Optional path to the backing file. If None, a temp path is used.
-            num_slots: Number of frame slots in the ring buffer.
+            path: Optional path to the backing file. If None, a temp path is created
+                  in the optimal SHM directory for the OS (see get_shm_directory()).
+            num_slots: Number of frame slots in the ring buffer (default: 3 for triple-buffering).
         """
-        self.path: Path = Path(path) if path else Path(os.path.expanduser("~")) / "feagi_video_shm--temp.bin"
+        if path:
+            self.path: Path = Path(path)
+        else:
+            # Use OS-appropriate SHM directory
+            shm_dir = get_shm_directory()
+            self.path: Path = shm_dir / "feagi_video_shm--temp.bin"
+        
         self.num_slots: int = max(1, int(num_slots))
         self._mm: Optional[mmap.mmap] = None
         self._fd: Optional[int] = None
@@ -208,8 +277,22 @@ class ShmBytesWriter:
     HEADER_SIZE = 256
     HEADER_FMT = "<8sIIIQI"
 
-    def __init__(self, path: Path, num_slots: int = 16, slot_size: int = 262144) -> None:
-        self.path = Path(path)
+    def __init__(self, path: Optional[Path] = None, num_slots: int = 16, slot_size: int = 262144) -> None:
+        """Initialize the shared memory bytes writer.
+        
+        Args:
+            path: Optional path to the backing file. If None, a temp path is created
+                  in the optimal SHM directory for the OS (see get_shm_directory()).
+            num_slots: Number of slots in the ring buffer (default: 16).
+            slot_size: Maximum size of each slot in bytes (default: 256KB).
+        """
+        if path:
+            self.path = Path(path)
+        else:
+            # Use OS-appropriate SHM directory
+            shm_dir = get_shm_directory()
+            self.path = shm_dir / "feagi_bytes_shm--temp.bin"
+        
         self.num_slots = int(num_slots)
         self.slot_size = int(slot_size)
         self._fd: Optional[int] = None
