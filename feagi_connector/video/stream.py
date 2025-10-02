@@ -98,9 +98,10 @@ async def stream_segmented_camera(
         if not await client.connect_sensory_only():
             logger.error("❌ Failed to connect to FEAGI sensory stream")
             return False
-        # Register to obtain SHM paths
+        # Register to obtain SHM paths - use direct HTTP if ZMQ times out
         shm_paths = {}
         try:
+            # Try ZMQ REST stream first
             reg = await client.rest_client.register_agent(
                 agent_id=client.agent_id,
                 agent_type="external",
@@ -113,24 +114,73 @@ async def stream_segmented_camera(
                 },
                 metadata={"source": "video_agent"},
             )
+            logger.info(f"🔍 [REG-RESPONSE-ZMQ] Registration response: status={reg.get('status')}")
+            
+            # If ZMQ failed or timed out, use direct HTTP
+            if not isinstance(reg, dict) or reg.get("status") != 200:
+                logger.warning("⚠️ ZMQ registration failed, trying direct HTTP...")
+                import urllib.request
+                import json as json_lib
+                
+                http_data = json_lib.dumps({
+                    "agent_id": client.agent_id,
+                    "agent_type": "external",
+                    "capabilities": {
+                        "video": True,
+                        "feagi": True,
+                        "sensory": True,
+                        "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
+                        "visualization": True,
+                    },
+                    "agent_version": "1.0.0",
+                    "controller_version": "2.0.0",
+                    "agent_data_port": 0,
+                    "agent_ip": "127.0.0.1",
+                    "metadata": {"source": "video_agent"},
+                }).encode('utf-8')
+                
+                http_req = urllib.request.Request(
+                    f"http://{host}:{rest_port}/v1/agent/register",
+                    data=http_data,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                
+                try:
+                    with urllib.request.urlopen(http_req, timeout=10) as http_resp:
+                        if http_resp.status == 200:
+                            http_body = json_lib.loads(http_resp.read().decode('utf-8'))
+                            reg = {"status": 200, "body": http_body}
+                            client.registered = True
+                            logger.info("✅ [REG-RESPONSE-HTTP] Registration via HTTP successful")
+                        else:
+                            logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP registration failed: {http_resp.status}")
+                except Exception as http_err:
+                    logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP request failed: {http_err}")
+            
+            logger.info(f"🔍 [REG-RESPONSE] Registration response: status={reg.get('status')}")
             if isinstance(reg, dict) and reg.get("status") == 200:
                 client.registered = True
-                try:
-                    body = reg.get("body", {})
-                    # Extract SHM paths from transport field (new registration API)
-                    transport = body.get("transport", {})
-                    if isinstance(transport, dict):
-                        shm = transport.get("shm_paths", {})
-                        if isinstance(shm, dict):
-                            shm_paths = {str(k): str(v) for k, v in shm.items()}
-                            logger.info(f"✅ [SHM-PARSE] Extracted SHM paths from transport: {shm_paths}")
-                except Exception as e:
-                    logger.error(f"❌ [SHM-PARSE] Failed to parse transport/SHM paths: {e}")
-            logger.info(f"🔍 [SHM-DEBUG] Agent shared memory mappings: {shm_paths}")
-            logger.info(f"🔍 [SHM-DEBUG] Video SHM path: {shm_paths.get('video', 'NOT PROVIDED')}")
-            logger.info(f"🔍 [SHM-DEBUG] FEAGI SHM path: {shm_paths.get('feagi', 'NOT PROVIDED')}")
-        except Exception:
-            pass
+                body = reg.get("body", {})
+                logger.info(f"🔍 [REG-BODY] Body keys: {list(body.keys())}")
+                # Extract SHM paths from transport field (new registration API)
+                transport = body.get("transport", {})
+                logger.info(f"🔍 [TRANSPORT] Transport type: {type(transport)}, keys: {list(transport.keys()) if isinstance(transport, dict) else 'N/A'}")
+                if isinstance(transport, dict):
+                    shm = transport.get("shm_paths", {})
+                    logger.info(f"🔍 [SHM] SHM type: {type(shm)}, content: {shm}")
+                    if isinstance(shm, dict):
+                        shm_paths = {str(k): str(v) for k, v in shm.items()}
+                        logger.info(f"✅ [SHM-PARSE] Extracted SHM paths from transport: {shm_paths}")
+                    else:
+                        logger.warning(f"⚠️ [SHM] shm_paths is not a dict: {type(shm)}")
+                else:
+                    logger.warning(f"⚠️ [TRANSPORT] transport is not a dict: {type(transport)}")
+            logger.info(f"🔍 [SHM-FINAL] Final shm_paths variable: {shm_paths}")
+        except Exception as e:
+            logger.error(f"❌ [REG-EXCEPTION] Exception during registration: {e}")
+            import traceback
+            logger.error(f"❌ [REG-TRACEBACK] {traceback.format_exc()}")
         # Dimensions and processor with gaze parameters
         center_dims, per_dims = get_segmented_3x3_dimensions(host, rest_port)
         processor = SegmentedVisionProcessor(

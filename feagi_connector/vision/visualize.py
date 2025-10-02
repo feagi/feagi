@@ -44,8 +44,10 @@ def build_neural_image(sensor_bytes: bytes, target_wh: Tuple[int, int]) -> np.nd
         ps = np.asarray(potentials, dtype=np.float32)
         n = min(xs.size, ys.size, ps.size)
         for i in range(n):
-            x = int(xs[i])
-            y = int(ys[i])
+            # WORKAROUND: Rust bug in beta.28 swaps X/Y during encoding, so we swap them back here
+            # TODO: Remove this swap once feagi_data_structures fixes the indexed_iter bug
+            y = int(xs[i])  # Rust encoded Y into X position
+            x = int(ys[i])  # Rust encoded X into Y position
             if 0 <= x < w and 0 <= y < h:
                 p = float(ps[i])
                 p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
@@ -80,16 +82,13 @@ def build_segmented_mosaic_with_gaze(
     cw, ch = int(center_wh[0]), int(center_wh[1])
     pw, ph = int(per_wh[0]), int(per_wh[1])
     
-    # Calculate tile sizes based on modulation (what fraction of source image each segment represents)
-    mod_x, mod_y = modulation
-    
-    # Center gets modulation fraction, peripherals split the rest
-    # For a square mosaic, make center tile proportional to modulation
-    base_size = 200  # Base mosaic size
-    center_display_w = int(base_size * mod_x)
-    center_display_h = int(base_size * mod_y)
-    periph_display_w = int(base_size * (1.0 - mod_x) / 2.0)
-    periph_display_h = int(base_size * (1.0 - mod_y) / 2.0)
+    # Use actual cortical dimensions from FEAGI genome
+    # The mosaic display dimensions should match the neuron space dimensions
+    # so that each neuron maps 1:1 to a pixel (or use integer scaling)
+    center_display_w = cw
+    center_display_h = ch
+    periph_display_w = pw
+    periph_display_h = ph
     
     return _build_mosaic_internal(sensor_bytes, center_display_w, center_display_h, periph_display_w, periph_display_h)
 
@@ -124,25 +123,56 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     except Exception:
         return mosaic
 
-    # Tile layout with display dimensions
-    tiles = {
-        "iic600": (0, 0, pw, ph),
-        "iic700": (pw + grid, 0, cw, ph),
-        "iic800": (pw + grid + cw + grid, 0, pw, ph),
-        "iic300": (0, ph + grid, pw, ch),
-        "iic400": (pw + grid, ph + grid, cw, ch),
-        "iic500": (pw + grid + cw + grid, ph + grid, pw, ch),
-        "iic000": (0, ph + grid + ch + grid, pw, ph),
-        "iic100": (pw + grid, ph + grid + ch + grid, cw, ph),
-        "iic200": (pw + grid + cw + grid, ph + grid + ch + grid, pw, ph),
+    # Use the passed dimensions as the tile display sizes
+    # cw, ch = center tile dimensions (e.g., 128x128)
+    # pw, ph = peripheral tile dimensions (e.g., 16x16)
+    # Middle segments use the peripheral dimensions for their display
+    neuron_dims = {
+        "iic600": (pw, ph), "iic700": (pw, ph), "iic800": (pw, ph),
+        "iic300": (pw, ph), "iic400": (cw, ch), "iic500": (pw, ph),
+        "iic000": (pw, ph), "iic100": (pw, ph), "iic200": (pw, ph),
     }
     
-    # Original neuron coordinate dimensions (from FEAGI genome)
-    # These are the dimensions neurons are encoded in
-    neuron_dims = {
-        "iic600": (16, 16), "iic700": (128, 16), "iic800": (16, 16),
-        "iic300": (16, 128), "iic400": (128, 128), "iic500": (16, 128),
-        "iic000": (16, 16), "iic100": (128, 16), "iic200": (16, 16),
+    # Center tile position and center point
+    center_x0 = pw + grid
+    center_y0 = ph + grid
+    center_cx = center_x0 + cw // 2  # Center X of iic400
+    center_cy = center_y0 + ch // 2  # Center Y of iic400
+    
+    # Middle segments: use peripheral dimensions, centered relative to center tile
+    # Top-middle (iic700)
+    top_mid_w, top_mid_h = pw, ph
+    top_mid_x0 = center_cx - top_mid_w // 2
+    
+    # Bottom-middle (iic100)
+    bot_mid_w, bot_mid_h = pw, ph
+    bot_mid_x0 = center_cx - bot_mid_w // 2
+    
+    # Middle-left (iic300)
+    mid_left_w, mid_left_h = pw, ph
+    mid_left_y0 = center_cy - mid_left_h // 2
+    
+    # Middle-right (iic500)
+    mid_right_w, mid_right_h = pw, ph
+    mid_right_y0 = center_cy - mid_right_h // 2
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(f"[MOSAIC-LAYOUT] cw={cw}, ch={ch}, pw={pw}, ph={ph}, grid={grid}")
+    logger.debug(f"[MOSAIC-LAYOUT] iic400: pos=({center_x0},{center_y0}), size=({cw},{ch}), center=({center_cx},{center_cy})")
+    logger.debug(f"[MOSAIC-LAYOUT] iic700: pos=({top_mid_x0},0), size=({top_mid_w},{top_mid_h}), center=({top_mid_x0 + top_mid_w//2},{top_mid_h//2})")
+    logger.debug(f"[MOSAIC-LAYOUT] Are centers aligned? {top_mid_x0 + top_mid_w//2} == {center_cx}? {top_mid_x0 + top_mid_w//2 == center_cx}")
+    
+    tiles = {
+        "iic600": (0, 0, pw, ph),
+        "iic700": (top_mid_x0, 0, top_mid_w, top_mid_h),  # Top-middle: centered
+        "iic800": (pw + grid + cw + grid, 0, pw, ph),
+        "iic300": (0, mid_left_y0, mid_left_w, mid_left_h),  # Middle-left: centered
+        "iic400": (center_x0, center_y0, cw, ch),
+        "iic500": (pw + grid + cw + grid, mid_right_y0, mid_right_w, mid_right_h),  # Middle-right: centered
+        "iic000": (0, ph + grid + ch + grid, pw, ph),
+        "iic100": (bot_mid_x0, ph + grid + ch + grid, bot_mid_w, bot_mid_h),  # Bottom-middle: centered
+        "iic200": (pw + grid + cw + grid, ph + grid + ch + grid, pw, ph),
     }
 
     try:
@@ -189,9 +219,12 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             if n > 0:
                 logging.info(f"[MOSAIC-DEBUG] {cid_key}: {n} neurons, tile@({x0},{y0}) display=({tw}x{th}), neuron_space=({nw}x{nh}), scale=({scale_x:.2f},{scale_y:.2f}), neuron_range x=[{xs.min()},{xs.max()}] y=[{ys.min()},{ys.max()}]")
             for i in range(n):
+                # WORKAROUND: Rust bug in beta.28 swaps X/Y during encoding, so we swap them back here
+                # TODO: Remove this swap once feagi_data_structures fixes the indexed_iter bug
+                y_neuron = int(xs[i])  # Rust encoded Y into X position
+                x_neuron = int(ys[i])  # Rust encoded X into Y position
+                
                 # Scale neuron coordinates from neuron space to display space
-                x_neuron = int(xs[i])
-                y_neuron = int(ys[i])
                 x_scaled = int(x_neuron * scale_x)
                 y_scaled = int(y_neuron * scale_y)
                 
