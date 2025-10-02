@@ -3,11 +3,11 @@
 Centralized coordinator for shared-memory file lifecycle.
 
 - Uses pathlib for cross-OS path handling
-- Stores runtime artifacts under feagi_core/tmp/bin
+- Stores runtime artifacts in optimal RAM-backed location (see get_optimal_shm_directory)
 - Provides creation, lookup, and cleanup utilities
 
 Design notes:
-- Runtime-only artifacts; directory is git-ignored
+- Runtime-only artifacts; files are temporary
 - Naming convention: feagi-shared-mem-{agent_id}-<suffix>.bin
   Examples:
     - feagi-shared-mem-{agent_id}-video.bin         (agent → Brain Visualizer)
@@ -15,10 +15,17 @@ Design notes:
     - feagi-shared-mem-visualization-stream.bin     (FEAGI → Brain Visualizer)
     - feagi-shared-mem-motor-stream.bin             (FEAGI → Controllers)
     - feagi-shared-mem-sensory-stream.bin           (Controllers → FEAGI)
+- Storage location priority:
+  1. FEAGI_SHM_DIR environment variable (user override)
+  2. OS-specific RAM-backed location (Linux: /dev/shm, macOS: /tmp, Windows: %TEMP%)
+  3. Fallback: feagi_core/tmp/bin (legacy, on SSD)
 """
 
 from __future__ import annotations
 
+import os
+import platform
+import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -26,10 +33,84 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
+def get_optimal_shm_directory() -> Path:
+    """Get the optimal directory for FEAGI's shared memory files.
+    
+    Priority:
+    1. FEAGI_SHM_DIR environment variable (user override)
+    2. OS-specific RAM-backed location:
+       - Linux: /dev/shm (tmpfs, RAM-backed)
+       - macOS: /tmp (often RAM-backed)
+       - Windows: system temp directory
+    3. Fallback: feagi_core/tmp/bin (legacy, on SSD)
+    
+    Returns:
+        Path object pointing to the optimal SHM directory
+        
+    Notes:
+        - Linux /dev/shm prevents SSD wear (guaranteed RAM-backed)
+        - macOS /tmp is often RAM-backed (system-dependent)
+        - Windows users should set FEAGI_SHM_DIR to a RAM disk for best performance
+        - Fallback to feagi_core/tmp/bin ensures backward compatibility
+    """
+    # Priority 1: User-specified directory via environment variable
+    if "FEAGI_SHM_DIR" in os.environ:
+        custom_dir = Path(os.environ["FEAGI_SHM_DIR"])
+        if custom_dir.exists() and custom_dir.is_dir():
+            logger.info(f"[SHM] Using custom directory from FEAGI_SHM_DIR: {custom_dir}")
+            return custom_dir
+        # If specified but doesn't exist, try to create it
+        try:
+            custom_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"[SHM] Created custom directory from FEAGI_SHM_DIR: {custom_dir}")
+            return custom_dir
+        except Exception as e:
+            logger.warning(f"[SHM] Failed to create FEAGI_SHM_DIR={custom_dir}: {e}, using OS defaults")
+    
+    # Priority 2: OS-specific RAM-backed locations
+    system = platform.system()
+    
+    if system == "Linux":
+        # Linux: /dev/shm is tmpfs (RAM-backed filesystem)
+        shm_dir = Path("/dev/shm")
+        if shm_dir.exists() and shm_dir.is_dir():
+            logger.info(f"[SHM] Using Linux tmpfs (RAM-backed): {shm_dir}")
+            return shm_dir
+        # Fallback to /tmp if /dev/shm doesn't exist (rare)
+        logger.info("[SHM] Using Linux /tmp (RAM-backed fallback)")
+        return Path("/tmp")
+    
+    elif system == "Darwin":  # macOS
+        # macOS: /tmp is often RAM-backed (depends on system config)
+        logger.info("[SHM] Using macOS /tmp (often RAM-backed)")
+        return Path("/tmp")
+    
+    elif system == "Windows":
+        # Windows: Use system temp directory
+        # Users should set FEAGI_SHM_DIR to a RAM disk for optimal performance
+        temp_dir = Path(tempfile.gettempdir())
+        logger.info(f"[SHM] Using Windows temp directory: {temp_dir}")
+        logger.info("[SHM] For optimal performance, set FEAGI_SHM_DIR to a RAM disk (e.g., ImDisk)")
+        return temp_dir
+    
+    # Priority 3: Fallback to legacy location (on SSD, not ideal but compatible)
+    try:
+        # feagi_core/feagi/core/shared_memory.py → feagi_core
+        core_root = Path(__file__).resolve().parents[2]
+        legacy_dir = core_root / "tmp" / "bin"
+        logger.warning(f"[SHM] Using legacy SSD location (may cause SSD wear): {legacy_dir}")
+        logger.warning("[SHM] Consider setting FEAGI_SHM_DIR to a RAM-backed location")
+        return legacy_dir
+    except Exception:
+        # Last resort: system temp directory
+        return Path(tempfile.gettempdir())
+
 class SharedMemoryManager:
     """Manage shared-memory file paths and lifecycle.
 
-    All paths are under the module-local tmp/bin folder to avoid OS-specific paths.
+    Uses get_optimal_shm_directory() to select RAM-backed storage when possible.
+    Falls back to feagi_core/tmp/bin for backward compatibility.
     """
 
     def __init__(self) -> None:
@@ -38,9 +119,11 @@ class SharedMemoryManager:
 
     @staticmethod
     def _resolve_base_dir() -> Path:
-        # feagi_core/feagi/core/shared_memory.py → feagi_core
-        core_root = Path(__file__).resolve().parents[2]
-        return core_root / "tmp" / "bin"
+        """Resolve the base directory for shared memory files.
+        
+        Uses get_optimal_shm_directory() which prioritizes RAM-backed locations.
+        """
+        return get_optimal_shm_directory()
 
     @property
     def base_dir(self) -> Path:
