@@ -747,7 +747,14 @@ class RegistrationManager:
                 
                 # Get or create agent-specific SHM paths if agent has relevant capabilities
                 if shm_available and is_local:
-                    if hasattr(self._state_manager, "create_agent_shm"):
+                    if hasattr(self._state_manager, "create_agent_shm_with_caps"):
+                        # New method that accepts capabilities directly (avoids circular lookup)
+                        agent_shm = self._state_manager.create_agent_shm_with_caps(request.agent_id, capabilities)
+                        if agent_shm:
+                            shm_paths = agent_shm
+                            logger.info(f"[TRANSPORT] SHM paths created for {request.agent_id}: {shm_paths}")
+                    elif hasattr(self._state_manager, "create_agent_shm"):
+                        # Fallback to existing method (will fetch caps from RegistrationManager)
                         agent_shm = self._state_manager.create_agent_shm(request.agent_id)
                         if agent_shm:
                             shm_paths = agent_shm

@@ -563,6 +563,21 @@ class FeagiStateManager:
         """Return a copy of the core shared memory registry."""
         return dict(self._shared_memory_registry)
 
+    def create_agent_shm_with_caps(self, agent_id: str, capabilities: Dict[str, Any]) -> Dict[str, str]:
+        """Create and register per-agent SHM mappings with explicitly provided capabilities.
+        
+        This method avoids circular dependency where create_agent_shm tries to fetch
+        capabilities from RegistrationManager during registration.
+
+        Args:
+            agent_id: Agent identifier
+            capabilities: Agent capabilities dictionary (already sanitized by RegistrationManager)
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+        """
+        return self._create_agent_shm_internal(agent_id, capabilities)
+
     def create_agent_shm(self, agent_id: str) -> Dict[str, str]:
         """Create and register per-agent SHM mappings for client consumption.
 
@@ -576,6 +591,32 @@ class FeagiStateManager:
         if not isinstance(agent_id, str) or not agent_id:
             return {}
 
+        # Determine agent capabilities (authoritative source)
+        from feagi.pns.registration_manager import get_registration_manager
+        caps: Dict[str, bool] = {}
+        try:
+            reg = get_registration_manager()
+            if reg:
+                props = reg.get_agent_properties(agent_id) or {}
+                caps = props.get("capabilities", {}) or {}
+        except Exception:
+            caps = {}
+        
+        return self._create_agent_shm_internal(agent_id, caps)
+
+    def _create_agent_shm_internal(self, agent_id: str, caps: Dict[str, Any]) -> Dict[str, str]:
+        """Internal implementation for creating agent SHM mappings.
+        
+        Args:
+            agent_id: Agent identifier
+            caps: Agent capabilities dictionary
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+        """
+        if not isinstance(agent_id, str) or not agent_id:
+            return {}
+
         mappings: Dict[str, str] = {}
 
         try:
@@ -583,17 +624,6 @@ class FeagiStateManager:
             if not getattr(self, "_shm_manager", None):
                 logger.info("[SHM] No SHM manager available; cannot create mappings")
                 return {}
-
-            # Determine agent capabilities (authoritative source)
-            from feagi.pns.registration_manager import get_registration_manager
-            caps: Dict[str, bool] = {}
-            try:
-                reg = get_registration_manager()
-                if reg:
-                    props = reg.get_agent_properties(agent_id) or {}
-                    caps = props.get("capabilities", {}) or {}
-            except Exception:
-                caps = {}
 
             # Only expose/create FEAGI-owned core streams for eligible agents
             # Visualization core stream (FEAGI → BV)
