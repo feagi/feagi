@@ -50,11 +50,7 @@ def build_neural_image(sensor_bytes: bytes, target_wh: Tuple[int, int]) -> np.nd
                 p = float(ps[i])
                 p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
                 val = int(p * 255.0)
-                # WORKAROUND: Rust bug - Y is flipped with off-by-one (height - y instead of height - 1 - y)
-                # Compensate by flipping back: if Rust wrote (h - y), we reverse to get y
-                img_y = h - 1 - y
-                if 0 <= img_y < h:
-                    img[img_y, x, :] = val
+                img[y, x, :] = val
         return img
     except Exception:
         return img
@@ -208,9 +204,8 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
                     block_w = max(1, int(scale_x))
                     block_h = max(1, int(scale_y))
                     
-                    # WORKAROUND: Rust bug - Y is flipped with off-by-one (height - y instead of height - 1 - y)
-                    # Compensate by flipping back: if Rust wrote (h - y), we reverse to get y
-                    mosaic_y_center = y0 + (th - 1 - y_scaled)
+                    # Position in mosaic
+                    mosaic_y_center = y0 + y_scaled
                     mosaic_x_center = x0 + x_scaled
                     
                     # Draw a block of pixels instead of a single pixel

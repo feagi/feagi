@@ -47,6 +47,8 @@ async def stream_segmented_camera(
     group_index: int = 0,
     mirror: bool = True,
     sync_fps: bool = True,
+    eccentricity: Tuple[float, float] = (0.5, 0.5),
+    modulation: Tuple[float, float] = (0.5, 0.5),
 ) -> None:
     """Open a webcam/video file and stream frames to FEAGI as segmented vision.
 
@@ -135,8 +137,8 @@ async def stream_segmented_camera(
             cortical_group_index=group_index,
             center_dims=center_dims,
             peripheral_dims=per_dims,
-            eccentricity=(0.5, 0.5),
-            modulation=(0.33, 0.33)
+            eccentricity=eccentricity,
+            modulation=modulation
         )
         # Ensure gaze motor processor exists
         if gaze_motor is None:
