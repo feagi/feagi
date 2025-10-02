@@ -50,10 +50,52 @@ def build_neural_image(sensor_bytes: bytes, target_wh: Tuple[int, int]) -> np.nd
                 p = float(ps[i])
                 p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
                 val = int(p * 255.0)
-                img[y, x, :] = val
+                # WORKAROUND: Rust bug - Y is flipped with off-by-one (height - y instead of height - 1 - y)
+                # Compensate by flipping back: if Rust wrote (h - y), we reverse to get y
+                img_y = h - 1 - y
+                if 0 <= img_y < h:
+                    img[img_y, x, :] = val
         return img
     except Exception:
         return img
+
+
+def build_segmented_mosaic_with_gaze(
+    sensor_bytes: bytes, 
+    center_wh: Tuple[int, int], 
+    per_wh: Tuple[int, int],
+    eccentricity: Tuple[float, float],
+    modulation: Tuple[float, float]
+) -> np.ndarray:
+    """Build a 3x3 segmented mosaic with tiles sized according to gaze parameters.
+    
+    Args:
+        sensor_bytes: Encoded neuron data
+        center_wh: Output dimensions for center tile
+        per_wh: Output dimensions for peripheral tiles
+        eccentricity: (x, y) center position (0-1)
+        modulation: (x, y) center size as fraction of total (0-1)
+    
+    Layout:
+        Row1: [iic600 | iic700 | iic800]
+        Row2: [iic300 | iic400 | iic500]
+        Row3: [iic000 | iic100 | iic200]
+    """
+    cw, ch = int(center_wh[0]), int(center_wh[1])
+    pw, ph = int(per_wh[0]), int(per_wh[1])
+    
+    # Calculate tile sizes based on modulation (what fraction of source image each segment represents)
+    mod_x, mod_y = modulation
+    
+    # Center gets modulation fraction, peripherals split the rest
+    # For a square mosaic, make center tile proportional to modulation
+    base_size = 200  # Base mosaic size
+    center_display_w = int(base_size * mod_x)
+    center_display_h = int(base_size * mod_y)
+    periph_display_w = int(base_size * (1.0 - mod_x) / 2.0)
+    periph_display_h = int(base_size * (1.0 - mod_y) / 2.0)
+    
+    return _build_mosaic_internal(sensor_bytes, center_display_w, center_display_h, periph_display_w, periph_display_h)
 
 
 def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_wh: Tuple[int, int]) -> np.ndarray:
@@ -66,6 +108,11 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
     """
     cw, ch = int(center_wh[0]), int(center_wh[1])
     pw, ph = int(per_wh[0]), int(per_wh[1])
+    return _build_mosaic_internal(sensor_bytes, cw, ch, pw, ph)
+
+
+def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: int) -> np.ndarray:
+    """Internal function to build mosaic with given tile dimensions."""
     grid = 1
     total_w = pw + grid + cw + grid + pw
     total_h = ph + grid + ch + grid + ph
@@ -97,6 +144,8 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
             "iic000", "iic100", "iic200",
         ]
         neuron_count = 0
+        import logging
+        logging.info(f"[MOSAIC-DEBUG] Available cortical IDs in data: {[str(cid) for (cid, _) in mapped.iter_full()]}")
         for cid_key in order:
             if cid_key not in tiles:
                 continue
@@ -105,7 +154,6 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
                 cid = frpl.data_structures.genomic.CorticalID.try_new_from_string(cid_key)
                 arrays = mapped.get_neurons_of(cid)
             except Exception as e:
-                import logging
                 logging.debug(f"[MOSAIC] Failed to get neurons for {cid_key}: {e}")
                 continue
             try:
@@ -122,6 +170,8 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
             ps = np.asarray(potentials, dtype=np.float32)
             n = min(xs.size, ys.size, ps.size)
             neuron_count += n
+            if n > 0:
+                logging.info(f"[MOSAIC-DEBUG] {cid_key}: {n} neurons, tile@({x0},{y0}) size=({tw},{th}), neuron_range x=[{xs.min()},{xs.max()}] y=[{ys.min()},{ys.max()}]")
             for i in range(n):
                 x = int(xs[i])
                 y = int(ys[i])
@@ -129,7 +179,12 @@ def build_segmented_mosaic(sensor_bytes: bytes, center_wh: Tuple[int, int], per_
                     p = float(ps[i])
                     p = 0.0 if p < 0.0 else (1.0 if p > 1.0 else p)
                     val = int(p * 255.0)
-                    mosaic[y0 + y, x0 + x, :] = val
+                    # WORKAROUND: Rust bug - Y is flipped with off-by-one (height - y instead of height - 1 - y)
+                    # Compensate by flipping back: if Rust wrote (h - y), we reverse to get y
+                    # Clamp to prevent out-of-bounds
+                    mosaic_y = y0 + (th - 1 - y)
+                    if 0 <= mosaic_y < total_h:
+                        mosaic[mosaic_y, x0 + x, :] = val
         if neuron_count > 0:
             import logging
             logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")

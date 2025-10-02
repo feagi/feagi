@@ -135,8 +135,8 @@ async def stream_segmented_camera(
             cortical_group_index=group_index,
             center_dims=center_dims,
             peripheral_dims=per_dims,
-            eccentricity=(0.2, 0.2),
-            modulation=(0.2, 0.2)
+            eccentricity=(0.5, 0.5),
+            modulation=(0.33, 0.33)
         )
         # Ensure gaze motor processor exists
         if gaze_motor is None:
@@ -346,12 +346,14 @@ async def stream_segmented_camera(
                 continue
 
             # Ensure input matches center resolution for segmented pipeline
+            # TODO: Pass original frame once Rust segmentation is fully implemented
+            # Currently using resized frame as workaround
             try:
                 resized = cv2.resize(frame_bgr, center_dims, interpolation=cv2.INTER_LINEAR)
             except Exception as e:
                 logger.warning(f"⚠️ Frame resize failed: {e}")
                 resized = frame_bgr
-
+            
             # Encode to bytes and publish (reconnect on failure)
             try:
                 assert processor is not None
@@ -368,6 +370,29 @@ async def stream_segmented_camera(
                         sensory_writer.write(sensor_bytes)
                     except Exception:
                         pass
+                
+                # Write FEAGI processed video (segmented mosaic with overlays) for BV FEAGI view via SHM
+                if feagi_writer is not None:
+                    try:
+                        from feagi_connector.vision.visualize import build_segmented_mosaic_with_gaze
+                        # Use processor's gaze parameters to show correct segment proportions
+                        mosaic_bgr = build_segmented_mosaic_with_gaze(
+                            sensor_bytes, 
+                            center_dims, 
+                            per_dims,
+                            processor.eccentricity,
+                            processor.modulation
+                        )
+                        mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
+                        feagi_writer.write_frame(mosaic_rgb)
+                        # Check if mosaic has any non-zero pixels
+                        non_zero = cv2.countNonZero(cv2.cvtColor(mosaic_rgb, cv2.COLOR_RGB2GRAY))
+                        logger.debug(f"[SHM-VIDEO-FEAGI] ✅ Mosaic written: {mosaic_rgb.shape}, non-zero pixels: {non_zero}")
+                    except Exception as e:
+                        logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to write mosaic: {e}")
+                        import traceback
+                        logger.error(f"[SHM-VIDEO-FEAGI] Traceback: {traceback.format_exc()}")
+                
                 # Success: reset failure counters
                 backoff = 1.0
                 consecutive_failures = 0
@@ -408,21 +433,6 @@ async def stream_segmented_camera(
                     logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to write frame: {e}")
                     import traceback
                     logger.error(f"[SHM-VIDEO-RAW] Traceback: {traceback.format_exc()}")
-
-            # Write FEAGI processed video (segmented mosaic with overlays) for BV FEAGI view via SHM
-            if feagi_writer is not None:
-                try:
-                    from feagi_connector.vision.visualize import build_segmented_mosaic
-                    mosaic_bgr = build_segmented_mosaic(sensor_bytes, center_dims, per_dims)
-                    mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
-                    feagi_writer.write_frame(mosaic_rgb)
-                    # Check if mosaic has any non-zero pixels
-                    non_zero = cv2.countNonZero(cv2.cvtColor(mosaic_rgb, cv2.COLOR_RGB2GRAY))
-                    logger.debug(f"[SHM-VIDEO-FEAGI] ✅ Mosaic written: {mosaic_rgb.shape}, non-zero pixels: {non_zero}")
-                except Exception as e:
-                    logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to write mosaic: {e}")
-                    import traceback
-                    logger.error(f"[SHM-VIDEO-FEAGI] Traceback: {traceback.format_exc()}")
 
             # Pace by source FPS if available
             if info and info.fps > 0:
