@@ -516,7 +516,8 @@ class VisualizationStream:
                         binary_data = self._prepare_broadcast_data(cortical_data)
                         if binary_data and len(binary_data) > 0:
                             logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes (BINARY) to ZMQ visualization stream")
-                            self._publish_data(binary_data)
+                            # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
+                            self._publish_zmq_only(binary_data)
                         else:
                             logger.debug("[VIZ-PUBLISH] No binary data to publish (encoding returned empty)")
                     except Exception as e:
@@ -541,7 +542,7 @@ class VisualizationStream:
 
                 # Create the main mapped neuron data container
                 generated_mapped_neuron_data = (
-                    fdp.xyzp.CorticalMappedXYZPNeuronData()
+                    fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
                 )
 
                 total_neurons = 0
@@ -648,7 +649,7 @@ class VisualizationStream:
                             else 0
                         )
 
-                        neuron_obj = fdp.neuron_data.neurons.NeuronXYZP(
+                        neuron_obj = fdp.data_structures.neurons.xyzp.NeuronXYZP(
                             x=x, y=y, z=z, p=p
                         )
                         cortical_id = (
@@ -711,6 +712,33 @@ class VisualizationStream:
         except Exception as e:
             logger.error(f"Error processing cortical area data: {e}")
 
+    def _publish_zmq_only(self, data: bytes) -> None:
+        """Publish data to ZMQ only (not SHM).
+        
+        Used when SHM already has a different format (e.g., JSON) and we don't
+        want to overwrite it with binary data.
+        """
+        if not self.socket:
+            logger.debug("Cannot publish to ZMQ: no socket")
+            return
+        
+        if not self.running:
+            logger.debug("Cannot publish to ZMQ: stream is not running")
+            return
+        
+        try:
+            # Compress if compressor is available
+            if self.compressor:
+                compressed_data = self._compress_data(data)
+                if compressed_data:
+                    self.socket.send_multipart([b"activity", compressed_data])
+                    return
+            
+            # Send uncompressed
+            self.socket.send_multipart([b"activity", data])
+        except Exception as e:
+            logger.error(f"Error publishing to ZMQ: {e}")
+    
     def _publish_data(self, data: bytes) -> None:
         """Publish data on the 'activity' topic with comprehensive error
         handling.
@@ -1251,7 +1279,7 @@ class VisualizationStream:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.xyzp.CorticalMappedXYZPNeuronData()
+                fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             #  Convert cortical area data to the format expected by the new
@@ -1334,7 +1362,7 @@ class VisualizationStream:
                     try:
                         #  Try to create cortical ID directly from proper string ID
                         cortical_id_obj = (
-                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
                         )
 
                     except ValueError as e:
@@ -1344,7 +1372,7 @@ class VisualizationStream:
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.xyzp.NeuronXYZPArrays.new_from_numpy(
+                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
@@ -1808,7 +1836,7 @@ class _ShmRingWriter:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                fdp.xyzp.CorticalMappedXYZPNeuronData()
+                fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             #  Convert cortical area data to the format expected by the new
@@ -1891,7 +1919,7 @@ class _ShmRingWriter:
                     try:
                         #  Try to create cortical ID directly from proper string ID
                         cortical_id_obj = (
-                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
                         )
 
                     except ValueError as e:
@@ -1901,7 +1929,7 @@ class _ShmRingWriter:
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.xyzp.NeuronXYZPArrays.new_from_numpy(
+                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
