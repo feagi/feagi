@@ -115,7 +115,8 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     """
     # Interior separator thickness between tiles (visual grid lines)
     # Set to 10px so middle/corner tiles remain their true sizes (e.g., 16x16)
-    grid = 10
+    grid = 5
+    outer_border_thickness = 5
     total_w = pw + grid + cw + grid + pw
     total_h = ph + grid + ch + grid + ph
     # Initialize with gray background (gaps between segments)
@@ -123,6 +124,8 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     mosaic = np.full((total_h, total_w, 3), grid_color, dtype=np.uint8)
     
     # Calculate middle segment positions (they are centered relative to iic400)
+    # Coordinates are relative to mosaic origin; outer border is drawn later and does not
+    # affect tile positions
     center_x0 = pw + grid
     center_y0 = ph + grid
     center_cx = center_x0 + cw // 2  # Center X of iic400
@@ -144,18 +147,18 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     
     # Corner segments (peripheral dimensions)
     mosaic[0:ph, 0:pw, :] = 0  # iic600 (top-left)
-    mosaic[0:ph, pw+grid+cw+grid:pw+grid+cw+grid+pw, :] = 0  # iic800 (top-right)
-    mosaic[ph+grid+ch+grid:ph+grid+ch+grid+ph, 0:pw, :] = 0  # iic000 (bottom-left)
-    mosaic[ph+grid+ch+grid:ph+grid+ch+grid+ph, pw+grid+cw+grid:pw+grid+cw+grid+pw, :] = 0  # iic200 (bottom-right)
+    mosaic[0:ph, pw + grid + cw + grid: pw + grid + cw + grid + pw, :] = 0  # iic800 (top-right)
+    mosaic[ph + grid + ch + grid : ph + grid + ch + grid + ph, 0:pw, :] = 0  # iic000 (bottom-left)
+    mosaic[ph + grid + ch + grid : ph + grid + ch + grid + ph, pw + grid + cw + grid: pw + grid + cw + grid + pw, :] = 0  # iic200 (bottom-right)
     
     # Middle segments (centered, using their ACTUAL centered positions, not overlapping corners)
     mosaic[0:ph, top_mid_x0:top_mid_x0+pw, :] = 0  # iic700 (top-middle, centered horizontally)
-    mosaic[ph+grid+ch+grid:ph+grid+ch+grid+ph, bot_mid_x0:bot_mid_x0+pw, :] = 0  # iic100 (bottom-middle, centered horizontally)
+    mosaic[ph + grid + ch + grid : ph + grid + ch + grid + ph, bot_mid_x0:bot_mid_x0+pw, :] = 0  # iic100 (bottom-middle, centered horizontally)
     
     # Middle-left and middle-right: These are in the MIDDLE row, NOT overlapping top/bottom
     # They should be at the center Y position (centered vertically relative to iic400)
     mosaic[mid_left_y0:mid_left_y0+ph, 0:pw, :] = 0  # iic300 (middle-left, centered vertically)
-    mosaic[mid_right_y0:mid_right_y0+ph, pw+grid+cw+grid:pw+grid+cw+grid+pw, :] = 0  # iic500 (middle-right, centered vertically)
+    mosaic[mid_right_y0:mid_right_y0+ph, pw + grid + cw + grid : pw + grid + cw + grid + pw, :] = 0  # iic500 (middle-right, centered vertically)
     
     # Center segment (full center dimensions)
     mosaic[center_y0:center_y0+ch, center_x0:center_x0+cw, :] = 0  # iic400 (center)
@@ -294,17 +297,17 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             import logging
             logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")
         
-    # Draw visible interior grid lines using the full gap area (no overlap with tiles)
-    grid_color = 128  # Gray color for grid lines
-    outer_border_thickness = 5
-    
-    # Vertical interior gaps
-    mosaic[:, pw:pw + grid, :] = grid_color
-    mosaic[:, pw + grid + cw: pw + grid + cw + grid, :] = grid_color
-    
-    # Horizontal interior gaps
-    mosaic[ph:ph + grid, :, :] = grid_color
-    mosaic[ph + grid + ch: ph + grid + ch + grid, :, :] = grid_color
+        # Draw visible interior grid lines using the full gap area (no overlap with tiles)
+        grid_color = 128  # Gray color for grid lines
+        outer_border_thickness = 5
+        
+        # Vertical interior gaps
+        mosaic[:, pw:pw + grid, :] = grid_color
+        mosaic[:, pw + grid + cw: pw + grid + cw + grid, :] = grid_color
+        
+        # Horizontal interior gaps
+        mosaic[ph:ph + grid, :, :] = grid_color
+        mosaic[ph + grid + ch: ph + grid + ch + grid, :, :] = grid_color
         
         # Draw 5-pixel thick border around the entire frame
         mosaic[:outer_border_thickness, :, :] = grid_color  # Top border
