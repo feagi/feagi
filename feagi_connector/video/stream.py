@@ -209,13 +209,18 @@ async def stream_segmented_camera(
             except Exception:
                 pass
         shm_writer = None
+        if feagi_writer is not None:
+            try:
+                feagi_writer.close()
+            except Exception:
+                pass
+        feagi_writer = None
         if sensory_writer is not None:
             try:
                 sensory_writer.close()
             except Exception:
                 pass
         sensory_writer = None
-        feagi_writer = None
         # Canonical: 'video' for raw preview frames
         shm_path = shm_paths.get("video")
         if isinstance(shm_path, str) and len(shm_path) > 0:

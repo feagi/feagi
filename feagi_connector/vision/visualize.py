@@ -120,7 +120,7 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     total_w = pw + grid + cw + grid + pw
     total_h = ph + grid + ch + grid + ph
     # Initialize with gray background (gaps between segments)
-    grid_color = 128
+    grid_color = 30
     mosaic = np.full((total_h, total_w, 3), grid_color, dtype=np.uint8)
     
     # Calculate middle segment positions (they are centered relative to iic400)
@@ -298,7 +298,7 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")
         
         # Draw visible interior grid lines using the full gap area (no overlap with tiles)
-        grid_color = 128  # Gray color for grid lines
+        grid_color = 30  # Gray color for grid lines
         outer_border_thickness = 5
         
         # Vertical interior gaps
