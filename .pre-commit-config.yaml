@@ -1,0 +1,74 @@
+repos:
+  # Ruff linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff
+        name: ruff (linting)
+        args: [--fix, --exit-non-zero-on-fix]
+        description: "Lint code with ruff and fix auto-fixable issues"
+      - id: ruff-format
+        name: ruff (formatting)
+        description: "Format code with ruff"
+
+  # Black code formatter
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: black
+        description: "Format code with black"
+
+  # isort import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort
+        args: ["--profile", "black"]
+        description: "Sort imports with isort"
+
+  # FEAGI Connector specific quality checks
+  - repo: local
+    hooks:
+      - id: check-connector-interfaces
+        name: Connector Interface Compliance
+        entry: python -m pytest tests/test_client.py -v --tb=short
+        language: system
+        files: ^feagi_connector/.*\.py$
+        description: "Ensure connector interfaces maintain compatibility"
+        pass_filenames: false
+
+  # Standard file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+      - id: check-yaml
+        description: "Check YAML syntax"
+      - id: check-toml
+        description: "Check TOML syntax"
+      - id: check-json
+        description: "Check JSON syntax"
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+      - id: debug-statements
+        description: "Check for debugger imports and breakpoints"
+      - id: check-docstring-first
+        description: "Ensure docstring comes first"
+
+# Global configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

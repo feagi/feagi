@@ -1,74 +1,55 @@
-# Temporary and binary files
-*~
+# Python
+__pycache__/
 *.py[cod]
+*$py.class
 *.so
-!.isort.cfg
-!setup.cfg
-*.orig
-*.log
-*.pot
-__pycache__/*
-.cache/*
-.*.swp
-*/.ipynb_checkpoints/*
-.DS_Store
-
-# Project files
-.ropeproject
-.project
-.pydevproject
-.settings
-.idea
-tags
-
-# Package files
-*.egg
-*.eggs/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
 .installed.cfg
-*.egg-info
-
-# Unittest and coverage
-htmlcov/*
-.coverage
-.tox
-junit.xml
-coverage.xml
-.pytest_cache/
-/coverage
-
-# Build and docs folder/files
-build/*
-dist/*
-sdist/*
-api_docs/api/*
-api_docs/_rst/*
-api_docs/_build/*
-cover/*
+*.egg
 MANIFEST
 
-# Per-project virtualenvs
-.venv*/
+# Virtual environments
+venv/
+env/
+ENV/
+.env/
+.venv/
 
-# Compiled code
-*.c
+# Documentation
+site/
+docs/_build/
 
-# Containerized DB data
-data/
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
-# dependencies
-node_modules/
-/.pnp
-.pnp.js
+# Logs
+*.log
+logs/
 
-# production
-/build
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.benchmarks/
 
-# misc
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-*.import
+# Temporary files
+tmp/
+*--temp.* 
