@@ -1304,35 +1304,37 @@ class VisualizationStream:
                             fdp.genome.CorticalID.try_new_from_string(area_str)
                         )
                     except ValueError:
-                        # Fallback for areas that can't be parsed directly
-                        if area_str == "_power":
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                                fdp.genome.CoreCorticalType.Power
-                            )
-                        elif area_str == "_death":
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                                fdp.genome.CoreCorticalType.Death
-                            )
-                        else:
-                            # For unknown areas, use custom cortical ID
-                            # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
-                            if len(area_str) == 6:
-                                # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
-                                if area_str.startswith('C'):
-                                    custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
-                                elif area_str.startswith('c'):
-                                    custom_id = area_str  # Already correct
-                                else:
-                                    custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
-                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
-                                    custom_id
-                                )
-                            else:
-                                # Only add 'c' prefix if less than 6 characters
-                                custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
-                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
-                                    custom_id
-                                )
+                        logger.warning(
+                            f"Failed to get cortical ID for {area_str} ")
+                        # # Fallback for areas that can't be parsed directly
+                        # if area_str == "_power":
+                        #     cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                        #         fdp.genome.CoreCorticalType.Power
+                        #     )
+                        # elif area_str == "_death":
+                        #     cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
+                        #         fdp.genome.CoreCorticalType.Death
+                        #     )
+                        # else:
+                        #     # For unknown areas, use custom cortical ID
+                        #     # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
+                        #     if len(area_str) == 6:
+                        #         # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
+                        #         if area_str.startswith('C'):
+                        #             custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
+                        #         elif area_str.startswith('c'):
+                        #             custom_id = area_str  # Already correct
+                        #         else:
+                        #             custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
+                        #         cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                        #             custom_id
+                        #         )
+                        #     else:
+                        #         # Only add 'c' prefix if less than 6 characters
+                        #         custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
+                        #         cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                        #             custom_id
+                        #         )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (

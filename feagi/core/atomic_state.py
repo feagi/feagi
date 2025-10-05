@@ -283,6 +283,10 @@ class RustCompatibleState(ctypes.Structure):
         self.simulation_state = 0  # STOPPED
         self.genome_timestamp = 0  # Genome timestamp for change detection
         self.genome_counter = 0  # Genome counter for version tracking
+        
+        # Amalgamation state management (legacy compatibility)
+        self.pending_amalgamation = {}  # Current pending amalgamation data
+        self.amalgamation_history = {}  # History of all amalgamation attempts
 
     def get_size(self) -> int:
         """Get the size of the structure in bytes."""

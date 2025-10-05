@@ -313,7 +313,8 @@ class BaseService:
                     # Continue anyway - this is not critical
 
             if not hasattr(self.state_manager, "genome_validity"):
-                result = self.state_manager.set_genome_validity(True)
+                # Default must be False until a genome is validated
+                result = self.state_manager.set_genome_validity(False)
                 if result.is_err:
                     self.logger.warning("Failed to set genome validity")
 

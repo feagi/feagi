@@ -3471,57 +3471,90 @@ class GenomeService(BaseService):
             Dict containing amalgamation result information
         """
         try:
-            # Begin genome transaction for atomic modification
-            if self.state_manager:
-                transaction = self.state_manager.begin_genome_transaction()
+            # Check if there's already a pending amalgamation
+            if self.state_manager and hasattr(self.state_manager, 'pending_amalgamation'):
+                pending = getattr(self.state_manager, 'pending_amalgamation', {})
+                if pending:
+                    # Check timeout (500 seconds as in legacy)
+                    import time
+                    amalgamation_timeout = 500
+                    elapsed_time = time.time() - pending.get("initiation_time", 0)
+                    if elapsed_time <= amalgamation_timeout:
+                        raise ValueError("An existing amalgamation attempt is pending")
+                    else:
+                        # Clear expired amalgamation
+                        self.state_manager.pending_amalgamation = {}
+
+            # Generate amalgamation ID in legacy format (timestamp + '_A')
+            from datetime import datetime
+            import time
+            now = datetime.now()
+            amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
+
+            # Extract genome payload from amalgamation data
+            genome_payload = amalgamation_data.get("genome_payload")
+            if not genome_payload:
+                raise ValueError("No genome payload provided for amalgamation")
+
+            # Convert flat genome to hierarchical format for circuit size calculation
+            from feagi.evo.genome_processor import genome_2_1_convertor
+            
+            # Handle both flat and hierarchical genome formats
+            if "blueprint" in genome_payload:
+                blueprint = genome_payload["blueprint"]
+                self.logger.info(f"Processing genome blueprint with {len(blueprint)} entries")
+                
+                # Check if it's flat format (has flattened keys)
+                if blueprint and isinstance(blueprint, dict):
+                    blueprint_keys = list(blueprint.keys())
+                    sample_keys = blueprint_keys[:5]
+                    self.logger.info(f"Sample blueprint keys: {sample_keys}")
+                    
+                    if blueprint_keys and any("10c-" in key and "-cx-" in key for key in blueprint_keys[:5]):
+                        # It's flat format, convert to hierarchical for size calculation
+                        self.logger.info("Detected flat genome format, converting to hierarchical")
+                        converted_genome = genome_2_1_convertor(flat_genome=blueprint)
+                        blueprint_for_size = converted_genome["blueprint"]
+                        self.logger.info(f"Converted to hierarchical format with {len(blueprint_for_size)} cortical areas")
+                    else:
+                        # Already hierarchical
+                        self.logger.info("Detected hierarchical genome format")
+                        blueprint_for_size = blueprint
+                else:
+                    blueprint_for_size = {}
             else:
-                transaction = None
+                raise ValueError("Invalid genome payload: missing blueprint")
 
-            try:
-                # Get current genome for modification
-                current_genome = self.get_genome()
-                if not current_genome:
-                    raise ValueError("No genome loaded for amalgamation")
+            # Calculate circuit size using the core API service method
+            if hasattr(self, 'core_api_service') and self.core_api_service:
+                circuit_size = self.core_api_service.calculate_circuit_size(blueprint_for_size)
+            else:
+                # Fallback calculation
+                circuit_size = [1, 1, 1]
 
-                # Trigger NeuroEmbryogenesis to perform amalgamation
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # Apply the amalgamation
-                #  TODO: Implement genome amalgamation - merge the
-                #  amalgamation_data into current_genome
-                #  then call
-                #  embryogenesis.develop_brain_from_genome_data(updated_genome)
-                self.logger.error(
-                    "Genome amalgamation not yet implemented - needs proper genome merging logic"
-                )
-                result = {
-                    "success": False,
-                    "error": "Amalgamation not implemented",
+            # Store pending amalgamation data in state manager
+            if self.state_manager:
+                pending_amalgamation = {
+                    "genome_id": amalgamation_data.get("genome_id", "unknown"),
+                    "genome_title": amalgamation_data.get("genome_title", "Unknown Genome"),
+                    "genome_payload": genome_payload,
+                    "initiation_time": time.time(),
+                    "amalgamation_id": amalgamation_id,
+                    "circuit_size": circuit_size
                 }
+                
+                self.state_manager.pending_amalgamation = pending_amalgamation
+                
+                # Update amalgamation history
+                if not hasattr(self.state_manager, 'amalgamation_history'):
+                    self.state_manager.amalgamation_history = {}
+                self.state_manager.amalgamation_history[amalgamation_id] = "pending"
 
-                if result.get("success") and transaction:
-                    transaction.commit()
-                elif transaction:
-                    transaction.rollback()
-                    return {"success": False, "error": "Amalgamation failed"}
-
-                if result.get("success"):
-                    self.logger.info(
-                        "Genome amalgamation completed successfully"
-                    )
-
-                return result
-
-            except Exception as e:
-                if transaction:
-                    transaction.rollback()
-                raise e
+            return {
+                "success": True,
+                "amalgamation_id": amalgamation_id,
+                "circuit_size": circuit_size
+            }
 
         except Exception as e:
             self.logger.error(f"Error during genome amalgamation: {str(e)}")
@@ -3541,49 +3574,18 @@ class GenomeService(BaseService):
             bool: True if amalgamation was cancelled successfully
         """
         try:
-            # Begin genome transaction for atomic modification
+            # Clear pending amalgamation (legacy behavior)
             if self.state_manager:
-                transaction = self.state_manager.begin_genome_transaction()
-            else:
-                transaction = None
-
-            try:
-                # Trigger NeuroEmbryogenesis to cancel amalgamation
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # Apply the amalgamation cancellation
-                #  TODO: Implement amalgamation cancellation - restore previous
-                #  genome state
-                #  then call
-                #  embryogenesis.develop_brain_from_genome_data(restored_genome)
-                self.logger.error(
-                    "Amalgamation cancellation not yet implemented"
-                )
-                success = False
-
-                if success and transaction:
-                    transaction.commit()
-                elif transaction:
-                    transaction.rollback()
-                    return False
-
-                if success:
-                    self.logger.info(
-                        f"Amalgamation {amalgamation_id} cancelled successfully"
-                    )
-
-                return success
-
-            except Exception as e:
-                if transaction:
-                    transaction.rollback()
-                raise e
+                self.state_manager.pending_amalgamation = {}
+                
+                # Update amalgamation history
+                if hasattr(self.state_manager, 'amalgamation_history') and amalgamation_id in self.state_manager.amalgamation_history:
+                    self.state_manager.amalgamation_history[amalgamation_id] = "cancelled"
+                
+                self.logger.info(f"Amalgamation {amalgamation_id} cancelled successfully")
+                return True
+            
+            return False
 
         except Exception as e:
             self.logger.error(f"Error cancelling amalgamation: {str(e)}")
