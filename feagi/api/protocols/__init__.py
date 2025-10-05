@@ -35,12 +35,14 @@ class ByteStructureEncoder:
         self.frpl = frpl
 
     def encode_json(self, data: dict) -> bytes:
-        """Encode JSON data to FeagiByteStructure format."""
-        import json
-
-        json_bytes = json.dumps(data).encode("utf-8")
-        # For JSON, we'll use a simple approach for now
-        return json_bytes
+        """Encode JSON data as FeagiJSON byte structure."""
+        try:
+            json_str = __import__("json").dumps(data)
+            feagi_json = self.frpl.data_serialization.FeagiJSON.from_json_str(json_str)
+            return feagi_json.to_feagi_bytes()
+        except Exception:
+            # Fallback to plain JSON bytes
+            return __import__("json").dumps(data).encode("utf-8")
 
     def encode_neuron_data(self, neuron_data: list) -> bytes:
         """Encode neuron data to FeagiByteStructure format using high-
@@ -145,18 +147,26 @@ class ByteStructureDecoder:
         byte_structure = self.frpl.data_serialization.FeagiByteStructure(data)
         structure_type = byte_structure.structure_type
 
+        if structure_type == 1:  # JSON
+            try:
+                feagi_json = self.frpl.data_serialization.FeagiJSON.from_feagi_bytes(data)
+                json_str = feagi_json.to_json_str()
+                return __import__("json").loads(json_str)
+            except Exception:
+                # Fallback to plain JSON bytes
+                try:
+                    return __import__("json").loads(data.decode("utf-8"))
+                except Exception:
+                    return {"type": "json", "error": "failed_json_decode"}
+
         if structure_type == 11:  # NeuronCategoricalXYZP
             # Create CorticalMappedXYZPNeuronData from the byte structure
-            cortical_mapped = (
-                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
-                    byte_structure
-                )
+            _ = self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                byte_structure
             )
-
-            # Extract data (this is a simplified extraction)
             return {"type": "neuron_data", "structure_type": structure_type}
-        else:
-            return {"type": "unknown", "structure_type": structure_type}
+
+        return {"type": "unknown", "structure_type": structure_type}
 
 
 class ByteStructureTranslator:
