@@ -1503,39 +1503,109 @@ class ZmqServer:
         return count
 
     async def _cleanup_inactive_clients(self) -> None:
-        """Periodically clean up inactive clients."""
+        """Periodically clean up inactive clients and deregister stale agents."""
         try:
             while True:
                 # Wait for a while
                 await asyncio.sleep(30)
 
-                # Skip cleanup if connection manager is disabled
-                if not self.connection_manager:
-                    continue
-
-                # Find inactive clients
-                inactive_clients = (
-                    self.connection_manager.get_inactive_clients(
-                        timeout_seconds=60
-                    )
-                )
-
-                # Deregister inactive clients
-                for agent_id in inactive_clients:
-                    logger.info(f"Deregistering inactive client {agent_id}")
-                    self.connection_manager.deregister_client(agent_id)
-
-                # Clean up pending clients
-                now = asyncio.get_running_loop().time()
-                for client_id in list(self.pending_clients.keys()):
-                    client_info = self.pending_clients[client_id]
-                    if (
-                        now - client_info["timestamp"] > 30
-                    ):  # 30 seconds timeout
-                        logger.info(
-                            f"Removing pending client {client_id} due to timeout"
+                # Find and deregister inactive ZMQ clients (if manager enabled)
+                try:
+                    if self.connection_manager:
+                        inactive_clients = (
+                            self.connection_manager.get_inactive_clients(
+                                timeout_seconds=15
+                            )
                         )
-                        del self.pending_clients[client_id]
+                        for agent_id in inactive_clients:
+                            logger.info(f"Deregistering inactive client {agent_id}")
+                            self.connection_manager.deregister_client(agent_id)
+                except Exception:
+                    pass
+
+                # Clean up pending clients (handshake timeouts)
+                try:
+                    now = asyncio.get_running_loop().time()
+                    for client_id in list(self.pending_clients.keys()):
+                        client_info = self.pending_clients[client_id]
+                        if (
+                            now - client_info["timestamp"] > 30
+                        ):  # 30 seconds timeout
+                            logger.info(
+                                f"Removing pending client {client_id} due to timeout"
+                            )
+                            del self.pending_clients[client_id]
+                except Exception:
+                    pass
+
+                # Auto-deregister agents that missed heartbeat beyond configured timeout
+                try:
+                    from feagi.config.toml_loader import load_feagi_config, get_timeout_config
+                    from feagi.pns.registration_manager import get_registration_manager
+                    cfg = load_feagi_config()
+                    to = get_timeout_config(cfg)
+                    # Use configured inactive timeout (ms -> sec) - BUT make it more aggressive
+                    # Default to 30 seconds (2 missed heartbeats for 15s interval agents)
+                    inactive_ms = int(getattr(to, "inactive_client_timeout", 30000))  # Reduced to 30s 
+                    inactive_sec = max(20, int(inactive_ms / 1000))  # Minimum 20 seconds (very aggressive)
+                    reg = get_registration_manager()
+                    if reg and hasattr(reg, "list_agents") and hasattr(reg, "deregister_agent"):
+                        import datetime as _dt
+                        from datetime import timezone as _tz
+                        agents = reg.list_agents().get("agents", [])
+                        cutoff = _dt.datetime.now(_tz.utc) - _dt.timedelta(seconds=inactive_sec)
+                        for a in agents:
+                            try:
+                                last_seen_iso = a.get("last_seen") or ""
+                                if not last_seen_iso:
+                                    # AGGRESSIVE: No heartbeat timestamp means agent never sent heartbeat
+                                    # Give only ONE grace heartbeat, then remove on next cycle
+                                    agent_id = a.get("agent_id", "")
+                                    if agent_id:
+                                        # Check if we already gave grace - if so, remove
+                                        grace_key = f"grace_given_{agent_id}"
+                                        if hasattr(self, '_grace_tracking'):
+                                            if grace_key in self._grace_tracking:
+                                                # Already gave grace, now remove
+                                                logger.warning(f"🕐 Removing agent '{agent_id}' - no heartbeat after grace period")
+                                                reg.deregister_agent(agent_id)
+                                                delattr(self._grace_tracking, grace_key)
+                                                continue
+                                        else:
+                                            self._grace_tracking = {}
+                                        
+                                        # Give one grace heartbeat
+                                        if reg.heartbeat_agent(agent_id):
+                                            self._grace_tracking[grace_key] = True
+                                            logger.info(f"⏰ ONE-TIME grace heartbeat for agent '{agent_id}' - will be removed next cycle if no heartbeat")
+                                    continue
+                                    
+                                last_seen = _dt.datetime.fromisoformat(last_seen_iso)
+                                if last_seen < cutoff:
+                                    aid = a.get("agent_id")
+                                    time_since = (_dt.datetime.now(_tz.utc) - last_seen).total_seconds()
+                                    logger.warning(f"🕐 AGGRESSIVE timeout - removing agent '{aid}' (inactive for {time_since:.1f}s, threshold={inactive_sec}s)")
+                                    
+                                    # Log what type of agent is being removed for debugging
+                                    agent_type = a.get("agent_type", "unknown")
+                                    capabilities = a.get("capabilities", {})
+                                    logger.warning(f"🔍 REMOVING: {agent_type} agent '{aid}' with capabilities {list(capabilities.keys())}")
+                                    
+                                    reg.deregister_agent(aid)
+                                    
+                                    # Also cleanup capability rates if available
+                                    try:
+                                        from feagi.core.capability_rate_manager import get_capability_rate_manager
+                                        cap_mgr = get_capability_rate_manager()
+                                        if cap_mgr:
+                                            cap_mgr.deregister_agent(aid)
+                                    except Exception:
+                                        pass
+                            except Exception as e:
+                                logger.debug(f"Error processing agent cleanup: {e}")
+                except Exception as e:
+                    # Best-effort cleanup; do not fail loop on config or registry issues
+                    logger.debug(f"Agent cleanup error: {e}")
 
         except asyncio.CancelledError:
             logger.info("Cleanup task cancelled")
@@ -1627,3 +1697,41 @@ class ZmqServer:
         except Exception as e:
             logger.error(f"Error in _receive_with_timeout: {str(e)}")
             return False
+
+    async def _handle_heartbeat(self, identity: bytes, request: HeartbeatRequest) -> bytes:
+        """Handle agent heartbeat over ZMQ and update last_seen in registry."""
+        try:
+            agent_id = request.agent_id or ""
+            if not agent_id:
+                resp = {"status": "error", "message": "missing_agent_id"}
+                return json.dumps(resp).encode("utf-8")
+
+            # Update registration manager last_seen
+            try:
+                from feagi.pns.registration_manager import get_registration_manager
+
+                reg = get_registration_manager()
+                if reg:
+                    ok = reg.heartbeat_agent(agent_id)
+                    if not ok:
+                        resp = {"status": "not_found", "agent_id": agent_id}
+                        return json.dumps(resp).encode("utf-8")
+                else:
+                    resp = {"status": "error", "message": "reg_mgr_unavailable"}
+                    return json.dumps(resp).encode("utf-8")
+            except Exception as e:
+                logger.error(f"Heartbeat registry update failed for {agent_id}: {e}")
+                resp = {"status": "error", "message": "reg_update_failed"}
+                return json.dumps(resp).encode("utf-8")
+
+            # Optionally update connection manager activity if enabled
+            try:
+                if self.connection_manager:
+                    self.connection_manager.update_client_activity(agent_id)
+            except Exception:
+                pass
+
+            return json.dumps({"status": "ok", "agent_id": agent_id}).encode("utf-8")
+        except Exception as e:
+            logger.error(f"Error handling heartbeat: {e}")
+            return json.dumps({"status": "error"}).encode("utf-8")

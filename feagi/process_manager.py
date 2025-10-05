@@ -1176,6 +1176,15 @@ class ProcessManager:
         # Start monitoring thread
         self._start_monitoring()
 
+        # Initialize and start the heartbeat coordinator
+        try:
+            from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+            heartbeat_coordinator = get_heartbeat_coordinator()
+            heartbeat_coordinator.start_monitoring()
+            logger.info("💗 Agent Heartbeat Coordinator started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start heartbeat coordinator: {e}")
+
         # Transition from startup phase to runtime phase
         #  This allows FQ samplers to be created without critical service
         #  checks during runtime
@@ -1338,6 +1347,15 @@ class ProcessManager:
 
             # Stop running flag to signal all services to stop
             self._running = False
+
+            # Shutdown heartbeat coordinator first
+            try:
+                from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+                heartbeat_coordinator = get_heartbeat_coordinator()
+                heartbeat_coordinator._running = False  # Stop the monitoring flag
+                print("💔 Heartbeat coordinator shutdown initiated", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"Error stopping heartbeat coordinator: {e}", file=sys.stderr, flush=True)
 
             # Import required modules for timeout handling
             import threading

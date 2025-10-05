@@ -491,15 +491,23 @@ class SensoryNeuralStream:
                     sm = FeagiStateManager.instance()
                     connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
                     
-                    for agent_id in list(self._slot_readers.keys()):
-                        if agent_id not in connected_agents:
-                            try:
-                                with self._slot_lock:
-                                    self._slot_readers.pop(agent_id, None)
-                                _release_slot_reader(agent_id)
-                                logger.info(f"🗑️ [RATE] Removed slot reader for disconnected agent {agent_id}")
-                            except Exception as e:
-                                logger.warning(f"[RATE] Error removing slot reader for {agent_id}: {e}")
+                    # DEBUG: Log connected agents to understand the issue
+                    logger.info(f"🔍 [DEBUG] Connected agents check: {list(connected_agents.keys())} vs slot readers: {list(self._slot_readers.keys())}")
+                    
+                    # CRITICAL FIX: Don't remove agents if connected_agents is suspiciously empty
+                    if not connected_agents and self._slot_readers:
+                        logger.warning(f"🚨 [CRITICAL] Connected agents registry is empty but we have {len(self._slot_readers)} slot readers!")
+                        logger.warning("🚨 [CRITICAL] This suggests connected_agents was cleared unexpectedly - SKIPPING CLEANUP")
+                    else:
+                        for agent_id in list(self._slot_readers.keys()):
+                            if agent_id not in connected_agents:
+                                try:
+                                    with self._slot_lock:
+                                        self._slot_readers.pop(agent_id, None)
+                                    _release_slot_reader(agent_id)
+                                    logger.warning(f"🗑️ [CLEANUP] Removed slot reader for legitimately disconnected agent {agent_id}")
+                                except Exception as e:
+                                    logger.warning(f"[CLEANUP] Error removing slot reader for {agent_id}: {e}")
                 except Exception as e:
                     logger.debug(f"[RATE] Agent registry cleanup error: {e}")
                 
