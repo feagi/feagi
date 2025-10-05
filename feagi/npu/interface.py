@@ -1,31 +1,14 @@
 """
-NPU Interface - SIMD-Optimized CRUD Operations
+NPU Interface - Clean Architecture
 
-This module provides the main interface for interacting with NPU-owned data structures.
-It offers SIMD-optimized batch operations for neuron and synapse management, designed
-for high-performance, deterministic behavior suitable for Rust migration and RTOS.
-
-Key Features:
-- SIMD-optimized batch operations
-- Cortical area-aware operations
-- Zero-copy data access where possible
-- Rust/RTOS compatible design
-- GPU acceleration support
-- Deterministic behavior (no fallbacks)
-
-Architecture:
-- Single source of truth for all neural data
-- BDU uses this interface for neurogenesis/synaptogenesis
-- Sleep Manager coordinates cortical area locking
-- State Manager tracks locking state
+Simplified interface for NPU data structures that maintains compatibility
+while supporting the clean FCL/Fire Queue/Fire Ledger architecture.
 """
 
 from typing import Dict, List, Tuple, Optional, Any, Union
 from enum import Enum
-import numpy as np
 from dataclasses import dataclass
 
-from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.data_structures import NeuronArray, MemoryNeuronArray, SynapseArray, BackendType
 from feagi.utils.logger import setup_logger
 
@@ -36,7 +19,7 @@ class OperationResult(Enum):
     """Result codes for NPU operations."""
     SUCCESS = "success"
     AREA_LOCKED = "area_locked"
-    CAPACITY_EXCEEDED = "capacity_exceeded"
+    CAPACITY_EXCEEDED = "capacity_exceeded" 
     INVALID_INPUT = "invalid_input"
     BACKEND_ERROR = "backend_error"
 
@@ -52,14 +35,13 @@ class BatchOperationResult:
     
     @property
     def is_success(self) -> bool:
+        """Check if the operation was fully successful."""
         return self.result == OperationResult.SUCCESS
     
     @property
     def has_partial_success(self) -> bool:
+        """Check if the operation had partial success."""
         return self.successful_count > 0 and len(self.failed_indices) > 0
-
-
-# NOTE: NeuronCreationRequest is defined later in this file (single canonical definition)
 
 
 @dataclass
@@ -75,17 +57,20 @@ class SynapseCreationRequest:
 
 @dataclass
 class NeuronCreationRequest:
-    """Request for batch neuron creation.
-
-    Note: This definition supersedes the earlier lightweight `NeuronCreationRequest` above.
-    """
+    """Request for batch neuron creation."""
     cortical_idx: int
     positions: List[Tuple[int, int, int]]
     neuron_types: Optional[List[int]] = None
     initial_potentials: Optional[List[float]] = None
     thresholds: Optional[List[float]] = None
     leak_coefficients: Optional[List[float]] = None
+    # New required neural dynamics parameters from genome
+    decay_rates: Optional[List[float]] = None
+    refractory_periods: Optional[List[int]] = None
     excitabilities: Optional[List[float]] = None
+    resting_potentials: Optional[List[float]] = None
+    consecutive_fire_limits: Optional[List[int]] = None
+
 
 @dataclass
 class NeuronUpdateRequest:
@@ -96,94 +81,324 @@ class NeuronUpdateRequest:
 
 
 class NPUInterface:
-    """
-    High-performance interface to NPU-owned neural data structures.
+    """Simplified NPU interface for clean architecture."""
     
-    This class provides SIMD-optimized CRUD operations for neurons and synapses,
-    with cortical area locking coordination and deterministic behavior.
-    
-    Design Principles:
-    1. Single source of truth - NPU owns all neural data
-    2. SIMD-optimized batch operations
-    3. Cortical area-aware locking
-    4. Zero fallbacks - deterministic behavior
-    5. Rust/RTOS compatible
-    """
-    
-    def __init__(self, backend: BackendType = BackendType.CPU):
-        """Initialize NPU interface with specified backend."""
-        self.backend = backend
-        self.state_manager = FeagiStateManager.instance()
+    def __init__(self, backend: Optional[BackendType] = None, max_neurons: int = 100_000, 
+                 max_synapses: int = 500_000, max_memory_neurons: int = 50_000):
+        """Initialize NPU interface with data structures."""
+        
+        # Use CPU backend as default if not specified
+        if backend is None:
+            backend = BackendType.CPU
         
         # Initialize data structures
-        self.neuron_array = NeuronArray(backend=backend)
-        self.memory_neuron_array = MemoryNeuronArray(backend=backend)
-        self.synapse_array = SynapseArray(backend=backend)
+        self.neuron_array = NeuronArray(max_neurons=max_neurons, backend=backend)
+        self.memory_neuron_array = MemoryNeuronArray(max_memory_neurons=max_memory_neurons, backend=backend)
+        self.synapse_array = SynapseArray(max_synapses=max_synapses, backend=backend)
         
-        # Track cortical area mappings using fast integer indices
+        # State tracking
+        self.backend = backend
+        self.max_neurons = max_neurons
+        self.max_synapses = max_synapses
+        self.max_memory_neurons = max_memory_neurons
+        
+        # Cortical area management for compatibility
         self.cortical_areas: Dict[int, Dict[str, Any]] = {}  # cortical_idx -> area_info
         self.neuron_to_area: Dict[int, int] = {}  # neuron_id -> cortical_idx
-        self.area_neuron_ranges: Dict[int, Tuple[int, int]] = {}  # cortical_idx -> (start_idx, end_idx)
-        # Per-area excitability cache (default 1.0)
-        self._area_excitability: Dict[int, float] = {}
-        self._low_ex_areas: Dict[int, bool] = {}
-
-        # Track next-burst candidates computed during Phase 2 (post-synaptic propagation)
-        # These should not fire within the same burst; they are added to FCL for t+1
-        self._next_burst_candidate_ids: List[int] = []
-
-    # ===== EXCITABILITY CACHE (PER-AREA) =====
-    def set_area_excitability(self, cortical_idx: int, value: float) -> None:
-        """Set per-area neuron_excitability (0..1) for the cortical area.
-
-        Args:
-            cortical_idx: Area index
-            value: Probability in [0.0, 1.0]
-        """
-        v = float(value)
-        if v < 0.0:
-            v = 0.0
-        elif v > 1.0:
-            v = 1.0
-        self._area_excitability[cortical_idx] = v
-        self._low_ex_areas[cortical_idx] = v < 0.999
-
-    def get_area_excitability(self, cortical_idx: int) -> float:
-        return self._area_excitability.get(cortical_idx, 1.0)
-
-    def any_low_ex_area(self) -> bool:
-        # Fast path check
-        return any(self._low_ex_areas.values())
-    
-    # ===== CORTICAL AREA MANAGEMENT =====
-    
-    def create_cortical_area(self, cortical_idx: int, dimensions: Tuple[int, int, int], 
-                           area_type: str = "regular", cortical_id: str = None) -> OperationResult:
-        """Create a new cortical area.
         
-        Args:
-            cortical_idx: Fast integer index for the cortical area
-            dimensions: (width, height, depth) dimensions
-            area_type: Type of area ("regular" or "memory")
+        logger.info("NPU Interface initialized: %d neurons, %d synapses, %s backend", max_neurons, max_synapses, backend.value)
+
+        # Plasticity command queue (single producer/consumer in-process)
+        self._plasticity_queue_capacity: int = 0
+        self._plasticity_queue: List[Dict[str, Any]] = []
+        self._plasticity_lock = None
+        try:
+            import threading
+            self._plasticity_lock = threading.RLock()
+        except Exception:
+            self._plasticity_lock = None
+    
+    def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
+        """Create neurons from a NeuronCreationRequest."""
+        try:
+            # Generate neuron IDs
+            num_neurons = len(request.positions)
+            neuron_ids = list(range(self.neuron_array.count + 1, self.neuron_array.count + num_neurons + 1))
             
-        Returns:
-            OperationResult indicating success or failure
-        """
-        if cortical_idx in self.cortical_areas:
-            return OperationResult.INVALID_INPUT
+            # ARCHITECTURE COMPLIANCE: ALL parameters must be provided - no defaults
+            if request.thresholds is None:
+                raise ValueError("thresholds parameter is required - must come from genome")
+            if request.leak_coefficients is None:
+                raise ValueError("leak_coefficients parameter is required - must come from genome")
+            if request.decay_rates is None:
+                raise ValueError("decay_rates parameter is required - must come from genome")
+            if request.refractory_periods is None:
+                raise ValueError("refractory_periods parameter is required - must come from genome")
+            if request.excitabilities is None:
+                raise ValueError("excitabilities parameter is required - must come from genome")
+            if request.resting_potentials is None:
+                raise ValueError("resting_potentials parameter is required - must come from genome")
+            if request.consecutive_fire_limits is None:
+                raise ValueError("consecutive_fire_limits parameter is required - must come from genome")
             
-        # Allow creation during BDU-held locks; reads/writes will be blocked appropriately
+            # Use provided parameters - NO DEFAULTS
+            neuron_types = request.neuron_types or [0] * num_neurons
+            initial_potentials = request.initial_potentials or [0.0] * num_neurons
             
-        self.cortical_areas[cortical_idx] = {
-            "cortical_id": cortical_id,
-            "dimensions": dimensions,
-            "type": area_type,
-            "neuron_count": 0,
-            "created": True
+            indices = self.neuron_array.add_neurons_batch(
+                neuron_ids=neuron_ids,
+                positions=request.positions,
+                neuron_types=neuron_types,
+                initial_potentials=initial_potentials,
+                thresholds=request.thresholds,
+                leak_coefficients=request.leak_coefficients,
+                cortical_idx=request.cortical_idx,
+                decay_rates=request.decay_rates,
+                refractory_periods=request.refractory_periods,
+                excitabilities=request.excitabilities,
+                resting_potentials=request.resting_potentials,
+                consecutive_fire_limits=request.consecutive_fire_limits,
+            )
+            
+            # Update neuron to area mapping
+            for neuron_id in neuron_ids:
+                self.neuron_to_area[neuron_id] = request.cortical_idx
+            
+            # Update cortical area neuron count
+            if request.cortical_idx in self.cortical_areas:
+                self.cortical_areas[request.cortical_idx]["neuron_count"] += len(neuron_ids)
+            
+            return BatchOperationResult(
+                result=OperationResult.SUCCESS,
+                successful_count=len(indices),
+                failed_indices=[],
+                data={
+                    "neuron_ids": neuron_ids,
+                    "indices": indices,
+                    "cortical_idx": request.cortical_idx,
+                },
+            )
+            
+        except ValueError as e:
+            return BatchOperationResult(
+                result=OperationResult.CAPACITY_EXCEEDED,
+                successful_count=0,
+                failed_indices=list(range(len(request.positions))),
+                error_message=str(e)
+            )
+        except Exception as e:
+            return BatchOperationResult(
+                result=OperationResult.BACKEND_ERROR,
+                successful_count=0,
+                failed_indices=list(range(len(request.positions))),
+                error_message=str(e)
+            )
+
+    def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
+                         neuron_types: List[int], initial_potentials: List[float],
+                         thresholds: List[float], leak_coefficients: List[float],
+                         cortical_idx: int) -> BatchOperationResult:
+        """Add multiple neurons in batch."""
+        try:
+            indices = self.neuron_array.add_neurons_batch(
+                neuron_ids=neuron_ids,
+                positions=positions,
+                neuron_types=neuron_types,
+                initial_potentials=initial_potentials,
+                thresholds=thresholds,
+                leak_coefficients=leak_coefficients,
+                cortical_idx=cortical_idx
+            )
+            
+            # Update neuron to area mapping
+            for neuron_id in neuron_ids:
+                self.neuron_to_area[neuron_id] = cortical_idx
+            
+            # Update cortical area neuron count
+            if cortical_idx in self.cortical_areas:
+                self.cortical_areas[cortical_idx]["neuron_count"] += len(neuron_ids)
+            
+            return BatchOperationResult(
+                result=OperationResult.SUCCESS,
+                successful_count=len(indices),
+                failed_indices=[]
+            )
+            
+        except ValueError as e:
+            return BatchOperationResult(
+                result=OperationResult.CAPACITY_EXCEEDED,
+                successful_count=0,
+                failed_indices=list(range(len(neuron_ids))),
+                error_message=str(e)
+            )
+        except Exception as e:
+            return BatchOperationResult(
+                result=OperationResult.BACKEND_ERROR,
+                successful_count=0,
+                failed_indices=list(range(len(neuron_ids))),
+                error_message=str(e)
+            )
+    
+    def get_neuron_property(self, neuron_id: int, property_name: str) -> Any:
+        """Get a neuron property value."""
+        return self.neuron_array.get_property(neuron_id, property_name)
+    
+    def set_neuron_property(self, neuron_id: int, property_name: str, value: Union[float, int]):
+        """Set a neuron property value."""
+        self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+    
+    def update_neurons_batch(self, request: NeuronUpdateRequest) -> BatchOperationResult:
+        """Update neuron properties from a NeuronUpdateRequest."""
+        try:
+            updated_count = 0
+            for neuron_id, value in zip(request.neuron_ids, request.values):
+                if neuron_id in self.neuron_array.neuron_id_to_index:
+                    self.set_neuron_property(neuron_id, request.property_name, value)
+                    updated_count += 1
+            
+            return BatchOperationResult(
+                result=OperationResult.SUCCESS,
+                successful_count=updated_count,
+                failed_indices=[]
+            )
+            
+        except Exception as e:
+            return BatchOperationResult(
+                result=OperationResult.BACKEND_ERROR,
+                successful_count=0,
+                failed_indices=list(range(len(request.neuron_ids))),
+                error_message=str(e)
+            )
+    
+    def create_synapses_batch(self, request: SynapseCreationRequest) -> BatchOperationResult:
+        """Create synapses from a SynapseCreationRequest."""
+        try:
+            # Use defaults if not provided
+            delays = request.delays or [1] * len(request.source_neuron_ids)
+            plasticity_types = request.plasticity_types or [0] * len(request.source_neuron_ids)
+            plasticity_coefficients = request.plasticity_coefficients or [0.0] * len(request.source_neuron_ids)
+            
+            count = self.synapse_array.add_synapses_batch(
+                source_neuron_ids=request.source_neuron_ids,
+                target_neuron_ids=request.target_neuron_ids,
+                weights=request.weights,
+                delays=delays,
+                plasticity_types=plasticity_types,
+                plasticity_coefficients=plasticity_coefficients
+            )
+            
+            return BatchOperationResult(
+                result=OperationResult.SUCCESS,
+                successful_count=count,
+                failed_indices=[]
+            )
+            
+        except ValueError as e:
+            return BatchOperationResult(
+                result=OperationResult.CAPACITY_EXCEEDED,
+                successful_count=0,
+                failed_indices=list(range(len(request.source_neuron_ids))),
+                error_message=str(e)
+            )
+        except Exception as e:
+            return BatchOperationResult(
+                result=OperationResult.BACKEND_ERROR,
+                successful_count=0,
+                failed_indices=list(range(len(request.source_neuron_ids))),
+                error_message=str(e)
+            )
+    
+    def get_firing_neurons_by_cortical_area(self, neuron_ids: List[int]) -> Dict[int, List[int]]:
+        """Get firing neurons organized by cortical area."""
+        # This is a placeholder - in a real implementation, this would
+        # organize neurons by their cortical area indices
+        result = {}
+        for neuron_id in neuron_ids:
+            # Get cortical area for this neuron
+            if neuron_id in self.neuron_array.neuron_id_to_index:
+                idx = self.neuron_array.neuron_id_to_index[neuron_id]
+                cortical_idx = int(self.neuron_array.cortical_idxs[idx])
+                
+                if cortical_idx not in result:
+                    result[cortical_idx] = []
+                result[cortical_idx].append(neuron_id)
+        
+        return result
+    
+    def process_neural_burst(self, timestep: int) -> List[int]:
+        """Process neural burst and return firing neuron IDs."""
+        import numpy as np
+        
+        fired_neurons = []
+        
+        # Process all active neurons
+        with self.neuron_array._lock:
+            # Check for firing neurons (not in refractory period)
+            # Use tolerance for floating point comparison
+            firing_candidates = (
+                (self.neuron_array.membrane_potentials >= (self.neuron_array.thresholds - 1e-6)) & 
+                (self.neuron_array.refractory_counters == 0) &
+                (np.arange(len(self.neuron_array.membrane_potentials)) < self.neuron_array.count)
+            )
+            
+            firing_indices = np.where(firing_candidates)[0]
+            
+            # Record fired neurons and update states
+            for idx in firing_indices:
+                neuron_id = self.neuron_array.index_to_neuron_id.get(idx)
+                if neuron_id is not None:
+                    fired_neurons.append(neuron_id)
+                    
+                    # Reset membrane potential and start refractory period
+                    self.neuron_array.membrane_potentials[idx] = self.neuron_array.resting_potentials[idx]
+                    self.neuron_array.refractory_counters[idx] = self.neuron_array.refractory_periods[idx]
+            
+            # Update all neurons - membrane potential decay and refractory countdown
+            active_mask = np.arange(len(self.neuron_array.membrane_potentials)) < self.neuron_array.count
+            
+            # Membrane potential decay (leak) for non-firing neurons
+            non_firing_mask = active_mask & ~firing_candidates
+            if np.any(non_firing_mask):
+                decay_amount = (self.neuron_array.membrane_potentials[non_firing_mask] - 
+                              self.neuron_array.resting_potentials[non_firing_mask]) * self.neuron_array.decay_rates[non_firing_mask]
+                self.neuron_array.membrane_potentials[non_firing_mask] -= decay_amount
+                
+                # Ensure membrane potential doesn't go below resting potential
+                self.neuron_array.membrane_potentials[non_firing_mask] = np.maximum(
+                    self.neuron_array.membrane_potentials[non_firing_mask],
+                    self.neuron_array.resting_potentials[non_firing_mask]
+                )
+            
+            # Decrease refractory counters
+            refractory_mask = (self.neuron_array.refractory_counters > 0) & active_mask
+            if np.any(refractory_mask):
+                self.neuron_array.refractory_counters[refractory_mask] -= 1
+        
+        # Propagate synaptic activations from fired neurons
+        if fired_neurons:
+            self.synapse_array.propagate_activations(fired_neurons, self.neuron_array)
+        
+        return fired_neurons
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get NPU statistics."""
+        return {
+            'neuron_count': self.neuron_array.count,
+            'synapse_count': self.synapse_array.count,
+            'memory_neuron_count': self.memory_neuron_array.count,
+            'backend': self.backend.value,
+            'capacity_utilization': {
+                'neurons': self.neuron_array.count / self.max_neurons,
+                'synapses': self.synapse_array.count / self.max_synapses,
+                'memory_neurons': self.memory_neuron_array.count / self.max_memory_neurons
+            },
+            'plasticity_queue': {
+                'capacity': int(self._plasticity_queue_capacity),
+                'depth': int(len(self._plasticity_queue)),
+            }
         }
-        
-        logger.info(f"🧠 Created cortical area idx={cortical_idx} ({area_type}): {dimensions}")
-        return OperationResult.SUCCESS
+    
+    # === Cortical Area Management (Compatibility Methods) ===
     
     def get_cortical_idx_by_id(self, cortical_id: str) -> Optional[int]:
         """Get cortical_idx by cortical_id string.
@@ -199,836 +414,447 @@ class NPUInterface:
                 return cortical_idx
         return None
     
-    def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
-        """Get all neuron IDs in a cortical area.
+    def create_cortical_area(self, cortical_idx: int, dimensions: Tuple[int, int, int], 
+                           area_type: str = "regular", cortical_id: str = None) -> OperationResult:
+        """Create a new cortical area.
         
         Args:
             cortical_idx: Fast integer index for the cortical area
-            
-        Returns:
-            List of neuron IDs in the area
-        """
-        return [nid for nid, aidx in self.neuron_to_area.items() if aidx == cortical_idx]
-    
-    def debug_cortical_areas(self) -> Dict[str, Any]:
-        """Debug method to show all cortical areas and their neuron counts.
-        
-        Returns:
-            Dictionary with area information for debugging
-        """
-        debug_info = {
-            "total_areas": len(self.cortical_areas),
-            "areas": {},
-            "neuron_to_area_mapping_count": len(self.neuron_to_area)
-        }
-        
-        for cortical_idx, area_info in self.cortical_areas.items():
-            cortical_id = area_info.get("cortical_id", f"idx_{cortical_idx}")
-            neuron_count = len(self.get_neurons_by_area(cortical_idx))
-            
-            debug_info["areas"][cortical_id] = {
-                "cortical_idx": cortical_idx,
-                "stored_neuron_count": area_info.get("neuron_count", 0),
-                "actual_neuron_count": neuron_count,
-                "type": area_info.get("type", "unknown"),
-                "dimensions": area_info.get("dimensions", "unknown")
-            }
-        
-        return debug_info
-    
-    def delete_cortical_area(self, cortical_idx: int) -> OperationResult:
-        """Delete a cortical area and all its neurons/synapses.
-        
-        Args:
-            cortical_idx: Fast integer index for the cortical area to delete
+            dimensions: (width, height, depth) dimensions
+            area_type: Type of area ("regular" or "memory")
+            cortical_id: String identifier for the area
             
         Returns:
             OperationResult indicating success or failure
         """
-        if cortical_idx not in self.cortical_areas:
+        if cortical_idx in self.cortical_areas:
             return OperationResult.INVALID_INPUT
             
-        # Check if area is locked
-        if self._is_area_locked(cortical_idx):
-            return OperationResult.AREA_LOCKED
-            
-        # Delete all neurons in this area
-        area_neurons = [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
-        if area_neurons:
-            self.delete_neurons_batch(area_neurons)
-            
-        # Remove area
-        del self.cortical_areas[cortical_idx]
-        if cortical_idx in self.area_neuron_ranges:
-            del self.area_neuron_ranges[cortical_idx]
-            
-        logger.info(f"🗑️  Deleted cortical area idx={cortical_idx} and {len(area_neurons)} neurons")
+        self.cortical_areas[cortical_idx] = {
+            "cortical_id": cortical_id,
+            "dimensions": dimensions,
+            "type": area_type,
+            "neuron_count": 0,
+            "created": True
+        }
+        
+        # Cortical area created
         return OperationResult.SUCCESS
     
-    # ===== NEURON CRUD OPERATIONS =====
-    
-    def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
-        """Create multiple neurons in batch with SIMD optimization.
-        
-        Args:
-            request: Batch neuron creation request
-            
-        Returns:
-            BatchOperationResult with creation results
-        """
-        cortical_idx = request.cortical_idx
-        positions = request.positions
-        count = len(positions)
-        
-        # Validate inputs
-        if not positions:
-            return BatchOperationResult(OperationResult.INVALID_INPUT, 0, [])
-            
-        if cortical_idx not in self.cortical_areas:
-            logger.error(f"❌ Cortical area idx={cortical_idx} not found in NPU Interface")
-            logger.error(f"❌ Available cortical areas: {list(self.cortical_areas.keys())}")
-            return BatchOperationResult(OperationResult.INVALID_INPUT, 0, list(range(count)))
-            
-        # TODO: Re-enable area locking check after fixing the locking mechanism
-        # The issue is that BDU locks the area but NPU Interface rejects BDU's own operations
-        # For now, disable the check to get basic neurogenesis working
-        # if self._is_area_locked(cortical_idx):
-        #     return BatchOperationResult(OperationResult.AREA_LOCKED, 0, list(range(count)))
-        
-        # Determine target array based on area type
-        is_memory_area = self.cortical_areas[cortical_idx]["type"] == "memory"
-        if is_memory_area:
-            # Memory areas do not accept regular neuron creation via this path
-            return BatchOperationResult(
-                result=OperationResult.INVALID_INPUT,
-                successful_count=0,
-                failed_indices=list(range(count)),
-                error_message="Cannot create regular neurons in memory area via create_neurons_batch"
-            )
-        target_array = self.neuron_array
-        
-        # Check capacity
-        if target_array.count + count > target_array.max_neurons:
-            return BatchOperationResult(OperationResult.CAPACITY_EXCEEDED, 0, list(range(count)))
-        
-        try:
-            # Prepare batch data with defaults
-            neuron_types = request.neuron_types or [0] * count
-            initial_potentials = request.initial_potentials or [0.0] * count
-            thresholds = request.thresholds or [1.0] * count
-            leak_coefficients = request.leak_coefficients or [0.1] * count
-            
-            # Get starting indices for new neurons
-            start_idx = target_array.count
-            neuron_ids = list(range(target_array._next_neuron_id, 
-                                  target_array._next_neuron_id + count))
-            
-            # SIMD-optimized batch creation
-            target_array.add_neurons_batch(
-                neuron_ids=neuron_ids,
-                positions=positions,
-                neuron_types=neuron_types,
-                initial_potentials=initial_potentials,
-                thresholds=thresholds,
-                leak_coefficients=leak_coefficients,
-                cortical_idx=cortical_idx
-            )
-            
-            # Update mappings
-            for i, neuron_id in enumerate(neuron_ids):
-                self.neuron_to_area[neuron_id] = cortical_idx
-                # Debug logging for power area (gated)
-                try:
-                    if (
-                        cortical_idx in self.cortical_areas
-                        and self.cortical_areas[cortical_idx].get("cortical_id") == "_power"
-                        and FeagiStateManager.instance().is_debug_npu_enabled()
-                    ):
-                        logger.info(
-                            f"[NPU-POWER-DEBUG] Mapped neuron {neuron_id} to cortical_idx {cortical_idx} (_power)"
-                        )
-                except Exception:
-                    pass
-                
-            # Update area statistics
-            self.cortical_areas[cortical_idx]["neuron_count"] += count
-            
-            # Update area neuron ranges
-            if cortical_idx not in self.area_neuron_ranges:
-                self.area_neuron_ranges[cortical_idx] = (start_idx, start_idx + count - 1)
-            else:
-                current_start, current_end = self.area_neuron_ranges[cortical_idx]
-                self.area_neuron_ranges[cortical_idx] = (current_start, current_end + count)
-            
-            logger.info(f"🧠 Created {count} neurons in area idx={cortical_idx} (IDs: {neuron_ids[0]}-{neuron_ids[-1]})")
-            return BatchOperationResult(
-                result=OperationResult.SUCCESS, 
-                successful_count=count, 
-                failed_indices=[]
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to create neurons batch: {e}")
-            return BatchOperationResult(OperationResult.BACKEND_ERROR, 0, list(range(count)), str(e))
-    
-    def delete_neurons_batch(self, neuron_ids: List[int]) -> BatchOperationResult:
-        """Delete multiple neurons in batch with SIMD optimization.
-        
-        Args:
-            neuron_ids: List of neuron IDs to delete
-            
-        Returns:
-            BatchOperationResult with deletion results
-        """
-        if not neuron_ids:
-            return BatchOperationResult(OperationResult.SUCCESS, 0, [])
-        
-        # Group neurons by area and check locks
-        area_groups: Dict[int, List[int]] = {}  # cortical_idx -> neuron_ids
-        failed_indices = []
-        
-        for i, neuron_id in enumerate(neuron_ids):
-            if neuron_id not in self.neuron_to_area:
-                failed_indices.append(i)
-                continue
-                
-            cortical_idx = self.neuron_to_area[neuron_id]
-            if self._is_area_locked(cortical_idx):
-                failed_indices.append(i)
-                continue
-                
-            if cortical_idx not in area_groups:
-                area_groups[cortical_idx] = []
-            area_groups[cortical_idx].append(neuron_id)
-        
-        successful_count = 0
-        
-        # Process each area group
-        for cortical_idx, area_neuron_ids in area_groups.items():
-            try:
-                # Determine target array
-                is_memory_area = self.cortical_areas[cortical_idx]["type"] == "memory"
-                target_array = self.memory_neuron_array if is_memory_area else self.neuron_array
-                
-                # SIMD-optimized batch deletion
-                deleted_count = target_array.remove_neurons_batch(area_neuron_ids)
-                successful_count += deleted_count
-                
-                # Update mappings
-                for neuron_id in area_neuron_ids:
-                    if neuron_id in self.neuron_to_area:
-                        del self.neuron_to_area[neuron_id]
-                
-                # Update area statistics
-                self.cortical_areas[cortical_idx]["neuron_count"] -= deleted_count
-                
-                logger.info(f"🗑️  Deleted {deleted_count} neurons from area idx={cortical_idx}")
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to delete neurons from area idx={cortical_idx}: {e}")
-                # Add failed indices for this area
-                area_start_idx = neuron_ids.index(area_neuron_ids[0])
-                failed_indices.extend(range(area_start_idx, area_start_idx + len(area_neuron_ids)))
-        
-        result = OperationResult.SUCCESS if not failed_indices else OperationResult.AREA_LOCKED
-        return BatchOperationResult(result, successful_count, failed_indices)
-    
-    def update_neurons_batch(self, request: NeuronUpdateRequest) -> BatchOperationResult:
-        """Update neuron properties in batch with SIMD optimization.
-        
-        Args:
-            request: Batch neuron update request
-            
-        Returns:
-            BatchOperationResult with update results
-        """
-        neuron_ids = request.neuron_ids
-        property_name = request.property_name
-        values = request.values
-        
-        if len(neuron_ids) != len(values):
-            return BatchOperationResult(OperationResult.INVALID_INPUT, 0, list(range(len(neuron_ids))))
-        
-        # Group by area and check locks
-        area_groups: Dict[int, List[Tuple[int, int, Any]]] = {}  # cortical_idx -> [(neuron_id, index, value)]
-        failed_indices = []
-        
-        for i, (neuron_id, value) in enumerate(zip(neuron_ids, values)):
-            if neuron_id not in self.neuron_to_area:
-                failed_indices.append(i)
-                continue
-                
-            cortical_idx = self.neuron_to_area[neuron_id]
-            if self._is_area_locked(cortical_idx):
-                failed_indices.append(i)
-                continue
-                
-            if cortical_idx not in area_groups:
-                area_groups[cortical_idx] = []
-            area_groups[cortical_idx].append((neuron_id, i, value))
-        
-        successful_count = 0
-        
-        # Process each area group
-        for cortical_idx, area_updates in area_groups.items():
-            try:
-                # Determine target array
-                is_memory_area = self.cortical_areas[cortical_idx]["type"] == "memory"
-                target_array = self.memory_neuron_array if is_memory_area else self.neuron_array
-                
-                # Extract data for batch update
-                batch_neuron_ids = [item[0] for item in area_updates]
-                batch_values = [item[2] for item in area_updates]
-                
-                # SIMD-optimized batch update
-                updated_count = target_array.update_property_batch(
-                    neuron_ids=batch_neuron_ids,
-                    property_name=property_name,
-                    values=batch_values
-                )
-                successful_count += updated_count
-                
-                logger.debug(f"🔄 Updated {updated_count} neurons '{property_name}' in area idx={cortical_idx}")
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to update neurons in area idx={cortical_idx}: {e}")
-                # Add failed indices for this area
-                for _, original_idx, _ in area_updates:
-                    failed_indices.append(original_idx)
-        
-        result = OperationResult.SUCCESS if not failed_indices else OperationResult.AREA_LOCKED
-        return BatchOperationResult(result, successful_count, failed_indices)
-    
-    # ===== SYNAPSE CRUD OPERATIONS =====
-    
-    def create_synapses_batch(self, request: SynapseCreationRequest) -> BatchOperationResult:
-        """Create multiple synapses in batch with SIMD optimization.
-        
-        Args:
-            request: Batch synapse creation request
-            
-        Returns:
-            BatchOperationResult with creation results
-        """
-        source_ids = request.source_neuron_ids
-        target_ids = request.target_neuron_ids
-        weights = request.weights
-        
-        count = len(source_ids)
-        if count != len(target_ids) or count != len(weights):
-            return BatchOperationResult(OperationResult.INVALID_INPUT, 0, list(range(count)))
-        
-        # Check capacity
-        if self.synapse_array.count + count > self.synapse_array.max_synapses:
-            return BatchOperationResult(OperationResult.CAPACITY_EXCEEDED, 0, list(range(count)))
-        
-        # Check area locks for all involved neurons
-        locked_indices = []
-        for i, (src_id, tgt_id) in enumerate(zip(source_ids, target_ids)):
-            src_cortical_idx = self.neuron_to_area.get(src_id)
-            tgt_cortical_idx = self.neuron_to_area.get(tgt_id)
-            
-            if src_cortical_idx is None or tgt_cortical_idx is None:
-                locked_indices.append(i)
-                continue
-                
-            if self._is_area_locked(src_cortical_idx) or self._is_area_locked(tgt_cortical_idx):
-                locked_indices.append(i)
-        
-        if locked_indices:
-            return BatchOperationResult(OperationResult.AREA_LOCKED, 0, locked_indices)
-        
-        try:
-            # Prepare batch data with defaults
-            delays = request.delays or [1] * count
-            plasticity_types = request.plasticity_types or [0] * count
-            plasticity_coeffs = request.plasticity_coefficients or [0.0] * count
-            
-            # SIMD-optimized batch creation
-            created_count = self.synapse_array.add_synapses_batch(
-                source_neuron_ids=source_ids,
-                target_neuron_ids=target_ids,
-                weights=weights,
-                delays=delays,
-                plasticity_types=plasticity_types,
-                plasticity_coefficients=plasticity_coeffs
-            )
-            
-            logger.info(f"🔗 Created {created_count} synapses")
-            return BatchOperationResult(OperationResult.SUCCESS, created_count, [])
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to create synapses batch: {e}")
-            return BatchOperationResult(OperationResult.BACKEND_ERROR, 0, list(range(count)), str(e))
-    
-    def delete_synapses_batch(self, synapse_indices: List[int]) -> BatchOperationResult:
-        """Delete multiple synapses in batch with SIMD optimization.
-        
-        Args:
-            synapse_indices: List of synapse indices to delete
-            
-        Returns:
-            BatchOperationResult with deletion results
-        """
-        if not synapse_indices:
-            return BatchOperationResult(OperationResult.SUCCESS, 0, [])
-        
-        # Check area locks for all involved synapses
-        locked_indices = []
-        for i, syn_idx in enumerate(synapse_indices):
-            if syn_idx >= self.synapse_array.count:
-                locked_indices.append(i)
-                continue
-                
-            # Get source and target neurons for this synapse
-            src_id = self.synapse_array.source_neuron_ids[syn_idx]
-            tgt_id = self.synapse_array.target_neuron_ids[syn_idx]
-            
-            src_cortical_idx = self.neuron_to_area.get(src_id)
-            tgt_cortical_idx = self.neuron_to_area.get(tgt_id)
-            
-            if src_cortical_idx is not None and self._is_area_locked(src_cortical_idx):
-                locked_indices.append(i)
-                continue
-            if tgt_cortical_idx is not None and self._is_area_locked(tgt_cortical_idx):
-                locked_indices.append(i)
-        
-        if locked_indices:
-            return BatchOperationResult(OperationResult.AREA_LOCKED, 0, locked_indices)
-        
-        try:
-            # SIMD-optimized batch deletion
-            deleted_count = self.synapse_array.remove_synapses_batch(synapse_indices)
-            
-            logger.info(f"🗑️  Deleted {deleted_count} synapses")
-            return BatchOperationResult(OperationResult.SUCCESS, deleted_count, [])
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to delete synapses batch: {e}")
-            return BatchOperationResult(OperationResult.BACKEND_ERROR, 0, list(range(len(synapse_indices))), str(e))
-    
-    # ===== DATA ACCESS METHODS =====
-    
-    def get_neuron_property(self, neuron_id: int, property_name: str) -> Optional[Union[float, int]]:
-        """Get a single neuron property value.
-        
-        Args:
-            neuron_id: Neuron ID
-            property_name: Property name
-            
-        Returns:
-            Property value or None if not found
-        """
-        if neuron_id not in self.neuron_to_area:
-            return None
-            
-        cortical_idx = self.neuron_to_area[neuron_id]
-        is_memory_area = self.cortical_areas[cortical_idx]["type"] == "memory"
-        target_array = self.memory_neuron_array if is_memory_area else self.neuron_array
-        
-        return target_array.get_property(neuron_id, property_name)
-    
-    # NOTE: get_neurons_by_area is defined earlier in this class.
-    
-    def get_area_statistics(self, cortical_idx: int) -> Optional[Dict[str, Any]]:
-        """Get statistics for a cortical area.
-        
-        Args:
-            cortical_idx: Fast integer index for the cortical area
-            
-        Returns:
-            Dictionary with area statistics or None if not found
-        """
-        if cortical_idx not in self.cortical_areas:
-            return None
-            
-        area_info = self.cortical_areas[cortical_idx].copy()
-        area_info["is_locked"] = self._is_area_locked(cortical_idx)
-        return area_info
-    
-    # ===== INTERNAL METHODS =====
-    
-    def _is_area_locked(self, cortical_idx: int) -> bool:
-        """Check if a cortical area is locked for BDU operations.
-        
-        Args:
-            cortical_idx: Fast integer index for the cortical area
-            
-        Returns:
-            True if area is locked
+    def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
+        """Get all neuron IDs in a cortical area.
+
+        Deterministic and authoritative: uses NeuronArray SoA state rather than
+        auxiliary dictionaries to avoid stale mappings.
         """
         try:
-            if hasattr(self.state_manager, 'is_cortical_area_locked'):
-                result = self.state_manager.is_cortical_area_locked(cortical_idx)
-                logger.debug(f"🔒 Area {cortical_idx} lock check: {result}")
-                return result
-            else:
-                logger.warning("🔒 State manager doesn't have is_cortical_area_locked method - assuming unlocked")
-                return False
-        except Exception as e:
-            logger.error(f"🔒 Error checking area lock for {cortical_idx}: {e}")
-            return False
-    
-    def get_total_statistics(self) -> Dict[str, Any]:
-        """Get total system statistics.
-        
-        Returns:
-            Dictionary with total neuron/synapse counts and capacity info
-        """
-        return {
-            "total_neurons": self.neuron_array.count,
-            "total_memory_neurons": self.memory_neuron_array.count,
-            "total_synapses": self.synapse_array.count,
-            "max_neurons": self.neuron_array.max_neurons,
-            "max_memory_neurons": self.memory_neuron_array.max_memory_neurons,
-            "max_synapses": self.synapse_array.max_synapses,
-            "cortical_areas": len(self.cortical_areas),
-            "backend": self.backend.value
-        }
-    
-    def get_firing_neurons_by_cortical_area(self, fired_neuron_ids: List[int]) -> Dict[int, List[int]]:
-        """Group fired neurons by cortical area for FCL manager integration.
-        
-        This method provides efficient grouping of fired neurons by cortical area,
-        which is needed for FCL manager updates.
-        
-        Args:
-            fired_neuron_ids: List of neuron IDs that fired
-            
-        Returns:
-            Dictionary mapping cortical_idx -> list of neuron IDs
-        """
-        neurons_by_cortical = {}
-        
-        for neuron_id in fired_neuron_ids:
-            if neuron_id in self.neuron_array.neuron_id_to_index:
-                idx = self.neuron_array.neuron_id_to_index[neuron_id]
-                cortical_idx = int(self.neuron_array.cortical_idxs[idx])
-                
-                if cortical_idx not in neurons_by_cortical:
-                    neurons_by_cortical[cortical_idx] = []
-                neurons_by_cortical[cortical_idx].append(neuron_id)
-        
-        return neurons_by_cortical
-    
-    # ===== NEURAL PROCESSING =====
-    
-    def process_neural_burst(self, timestep: int) -> List[int]:
-        """Process a complete neural burst - main entry point for neural processing.
-        
-        This method provides the core neural processing functionality that was
-        previously in the archived NeuralProcessor. It handles:
-        - Neural updates (membrane potentials, firing)
-        - Synaptic propagation  
-        - SIMD/GPU optimization
-        - Integration with FCL management
-        
-        Args:
-            timestep: Current simulation timestep
-            
-        Returns:
-            List of neuron IDs that fired
-        """
-        from feagi.core.state_manager import get_state_manager
-        state_manager = get_state_manager()
-        
-        if state_manager.is_debug_npu_enabled():
-            logger.info(f"[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING START (timestep {timestep}) ===")
-            logger.info(f"[NPU-BURST-DEBUG] NPU neuron count: {self.neuron_array.neuron_count}")
-            logger.info(f"[NPU-BURST-DEBUG] NPU synapse count: {self.synapse_array.synapse_count}")
-            logger.info("[NPU-BURST-DEBUG] PHASE 1: Neural updates...")
-        
-        # Phase 1: Neural updates using SIMD operations
-        from feagi.npu.simd_neural_ops import simd_batch_neural_update
-        
-        # Get valid neuron range
-        valid_range = min(self.neuron_array.neuron_count, self.neuron_array.max_neurons)
-        
-        # Check if we have memory neurons even if no regular neurons
-        has_memory_neurons = (hasattr(self, 'memory_neuron_array') and 
-                             self.memory_neuron_array.count > 0)
-        
-        if valid_range == 0 and not has_memory_neurons:
-            if state_manager.is_debug_npu_enabled():
-                logger.info("[NPU-BURST-DEBUG] No neurons to process - returning empty list")
+            na = self.neuron_array
+            if na is None:
+                return []
+
+            valid_count = int(na.neuron_count)
+            if valid_count <= 0:
+                return []
+
+            import numpy as np
+
+            area_mask = (na.cortical_idxs[:valid_count] == int(cortical_idx)) & na.valid_mask[:valid_count]
+            if not np.any(area_mask):
+                return []
+
+            idxs = np.nonzero(area_mask)[0]
+            # Map indices to neuron IDs using authoritative lookup
+            ids = na.indices_to_neuron_ids(idxs)
+            # Filter any invalid (-1)
+            return [int(x) for x in ids.tolist() if int(x) >= 0]
+        except Exception:
+            # Fallback: return empty to force fail-fast rather than stale data
             return []
 
-        # Debug precheck: how many neurons are above threshold and not refractory
-        if state_manager.is_debug_npu_enabled():
-            pots = self.neuron_array.membrane_potentials[:valid_range]
-            thrs = self.neuron_array.thresholds[:valid_range]
-            refr = self.neuron_array.refractory_counters[:valid_range]
-            above_mask = pots >= thrs
-            can_fire_mask = refr == 0
-            ready_mask = above_mask & can_fire_mask
-            above_cnt = int(np.count_nonzero(above_mask))
-            ready_cnt = int(np.count_nonzero(ready_mask))
-            logger.info(f"[NPU-BURST-DEBUG] PHASE 1 PRECHECK: above_threshold={above_cnt}, ready_to_fire={ready_cnt}")
-            if ready_cnt > 0:
-                sample_idx = np.where(ready_mask)[0][:5]
-                try:
-                    sample_ids = self.neuron_array.indices_to_neuron_ids(sample_idx, filter_invalid=True).tolist()
-                except Exception:
-                    sample_ids = []
-                sample_pots = pots[sample_idx].astype(float).tolist()
-                sample_thrs = thrs[sample_idx].astype(float).tolist()
-                sample_refr = refr[sample_idx].astype(int).tolist()
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 1 PRECHECK SAMPLE: idx={sample_idx.tolist()}, ids={sample_ids}, V={sample_pots}, Thr={sample_thrs}, Refr={sample_refr}")
-                # Temporary detailed logs: ready counts per area and excitability
-                try:
-                    ready_idx = np.where(ready_mask)[0]
-                    areas = self.neuron_array.cortical_idxs[ready_idx].astype(np.int32) if ready_idx.size > 0 else np.array([], dtype=np.int32)
-                    if areas.size > 0:
-                        uniq, cnts = np.unique(areas, return_counts=True)
-                        logger.info(f"[NPU-BURST-DEBUG] any_low_ex_area={self.any_low_ex_area()}")
-                        for a, c in zip(uniq.tolist(), cnts.tolist()):
-                            ex = float(self._area_excitability.get(int(a), 1.0))
-                            logger.info(f"[NPU-BURST-DEBUG] READY BY AREA: idx={int(a)} ex={ex} count={int(c)}")
-                except Exception as dbg_e:
-                    logger.warning(f"[NPU-BURST-DEBUG] Ready-per-area debug failed: {dbg_e}")
-        
-        # Initialize fired neurons list
-        fired_neurons = []
-        
-        # Process regular neurons if we have any
-        if valid_range > 0:
-            # Perform SIMD neural updates
-            # Create output mask for fired neurons
-            output_firing_mask = np.zeros(valid_range, dtype=bool)
-            
-            # Decide fast path: if all areas have excitability ~1.0, skip RNG path
-            fired_count = simd_batch_neural_update(
-                potentials=self.neuron_array.membrane_potentials[:valid_range],
-                thresholds=self.neuron_array.thresholds[:valid_range],
-                decay_rates=self.neuron_array.leak_coefficients[:valid_range],
-                resting_potentials=self.neuron_array.resting_potentials[:valid_range],
-                refractory_periods=self.neuron_array.refractory_periods[:valid_range],
-                refractory_counters=self.neuron_array.refractory_counters[:valid_range],
-                # Pass a callable to fetch area excitability by neuron index
-                excitability=(self._area_excitability, self.neuron_array.cortical_idxs[:valid_range], self.any_low_ex_area()),
-                valid_mask=np.ones(valid_range, dtype=bool),  # All neurons in range are valid
-                output_firing_mask=output_firing_mask
-            )
-            
-            # Extract fired array indices from the firing mask
-            fired_indices = np.where(output_firing_mask)[0]
-            # Map indices to neuron IDs (authoritative mapping owned by NPU)
-            fired_id_array = self.neuron_array.indices_to_neuron_ids(
-                fired_indices, filter_invalid=True
-            )
-            fired_neurons = fired_id_array.tolist()
-        else:
-            if state_manager.is_debug_npu_enabled():
-                logger.info("[NPU-BURST-DEBUG] No regular neurons to process, skipping SIMD updates")
-        # Temporary detailed logs: fired counts per area and excitability
-        if state_manager.is_debug_npu_enabled() and valid_range > 0:
-            try:
-                if 'fired_indices' in locals() and fired_indices.size > 0:
-                    fired_areas = self.neuron_array.cortical_idxs[fired_indices].astype(np.int32)
-                    uniq_f, cnts_f = np.unique(fired_areas, return_counts=True)
-                    for a, c in zip(uniq_f.tolist(), cnts_f.tolist()):
-                        ex = float(self._area_excitability.get(int(a), 1.0))
-                        logger.info(f"[NPU-BURST-DEBUG] FIRED BY AREA: idx={int(a)} ex={ex} count={int(c)}")
-            except Exception as dbg_e:
-                logger.warning(f"[NPU-BURST-DEBUG] Fired-per-area debug failed: {dbg_e}")
-        
-        if state_manager.is_debug_npu_enabled():
-            fired_count = len(fired_neurons) if fired_neurons else 0
-            logger.info(f"[NPU-BURST-DEBUG] PHASE 1 COMPLETE: {fired_count} neurons fired")
-            if fired_count > 0:
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 1 FIRED SAMPLE: {fired_neurons[:5]}")
-        
-        # Phase 1.5: Memory neuron processing (parallel to regular neurons)
-        memory_fired_neurons = self._process_memory_neurons(timestep, state_manager)
-        if memory_fired_neurons:
-            fired_neurons.extend(memory_fired_neurons)
-            if state_manager.is_debug_npu_enabled():
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 1.5 COMPLETE: {len(memory_fired_neurons)} memory neurons fired")
-                logger.info(f"[NPU-BURST-DEBUG] PHASE 1.5 FIRED SAMPLE: {memory_fired_neurons[:5]}")
-        
-        # Phase 2: Synaptic propagation (if we have synapses and fired neurons)
-        if fired_neurons and self.synapse_array.synapse_count > 0:
-            if state_manager.is_debug_npu_enabled():
-                logger.info(
-                    f"[NPU-BURST-DEBUG] PHASE 2: Synaptic propagation... fired={len(fired_neurons)}, synapses={self.synapse_array.synapse_count}, npu_id={id(self)}"
-                )
-            
-            # Gather all outgoing synapses for fired neurons
-            all_syn_indices: List[int] = []
-            src_counts = 0
-            for src_id in fired_neurons:
-                syn_list = self.synapse_array.source_neuron_index.get(src_id)
-                if syn_list:
-                    all_syn_indices.extend(syn_list)
-                    src_counts += 1
-            if state_manager.is_debug_npu_enabled():
-                logger.info(
-                    f"[NPU-BURST-DEBUG] PHASE 2: Aggregated synapses from {src_counts} sources, total_edges={len(all_syn_indices)}"
-                )
+    # === Plasticity queue and apply ===
+    def configure_plasticity_queue(self, capacity: int) -> None:
+        """Configure bounded plasticity command queue capacity.
 
-            if all_syn_indices:
-                syn_indices = np.array(all_syn_indices, dtype=np.int32)
-                # Filter valid synapses
-                valid_mask = self.synapse_array.valid_mask[syn_indices]
-                if np.any(valid_mask):
-                    syn_indices = syn_indices[valid_mask]
-                    if state_manager.is_debug_npu_enabled():
-                        logger.info(
-                            f"[NPU-BURST-DEBUG] PHASE 2: Valid edges after mask={syn_indices.size}"
-                        )
-                    # Fetch targets and weights
-                    target_ids = self.synapse_array.target_neuron_ids[syn_indices].astype(np.int32)
-                    weights = self.synapse_array.weights[syn_indices].astype(np.float32)
-                    # Apply synapse type (excitatory/inhibitory) and conductance
-                    syn_types = self.synapse_array.types[syn_indices].astype(np.int32)
-                    conductances = self.synapse_array.conductances[syn_indices].astype(np.float32)
-                    sign = np.where(syn_types == 0, 1.0, -1.0).astype(np.float32)
-                    contributions = weights * conductances * sign
-                    # Map target neuron IDs to array indices
-                    # Vectorized mapping via dictionary (deterministic, no fallbacks)
-                    target_indices = np.fromiter(
-                        (self.neuron_array.neuron_id_to_index.get(int(tid), -1) for tid in target_ids.tolist()),
-                        dtype=np.int32,
-                        count=target_ids.size,
+        Deterministic: capacity must be >=0. Zero disables queue.
+        """
+        cap = int(capacity)
+        if cap < 0:
+            raise ValueError("plasticity queue capacity must be >= 0")
+        with (self._plasticity_lock or _NullContext()):
+            self._plasticity_queue_capacity = cap
+            # Trim if needed
+            if len(self._plasticity_queue) > cap:
+                self._plasticity_queue = self._plasticity_queue[-cap:]
+
+    def enqueue_plasticity_commands(self, commands: List[Dict[str, Any]]) -> int:
+        """Enqueue plasticity commands; drop excess and return dropped count.
+
+        Command schema (deterministic):
+        {'type': 'update_weights_delta', 'indices': np.ndarray[int32], 'deltas': np.ndarray[float32]}
+        {'type': 'update_thresholds', 'neuron_ids': List[int], 'new_values': List[float]}
+        """
+        if self._plasticity_queue_capacity <= 0 or not commands:
+            return len(commands)
+
+        dropped = 0
+        with (self._plasticity_lock or _NullContext()):
+            available = self._plasticity_queue_capacity - len(self._plasticity_queue)
+            if available <= 0:
+                dropped = len(commands)
+            else:
+                to_add = commands[:available]
+                self._plasticity_queue.extend(to_add)
+                dropped = len(commands) - len(to_add)
+
+        if dropped > 0:
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                FeagiStateManager.instance().increment_plasticity_dropped_ops(dropped)
+            except Exception:
+                pass
+        return dropped
+
+    def apply_plasticity_ops(self, max_ops: int) -> int:
+        """Apply up to max_ops plasticity commands deterministically.
+
+        Returns number of applied commands.
+        """
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        
+        if max_ops <= 0 or self._plasticity_queue_capacity <= 0:
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU plasticity ops skipped: max_ops={max_ops}, capacity={self._plasticity_queue_capacity}")
+            return 0
+            
+        applied = 0
+        with (self._plasticity_lock or _NullContext()):
+            if not self._plasticity_queue:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] NPU plasticity queue is empty")
+                return 0
+            # Pop in stable order
+            ops = self._plasticity_queue[:max_ops]
+            del self._plasticity_queue[:max_ops]
+            
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU processing {len(ops)} plasticity commands")
+
+        for cmd in ops:
+            t = cmd.get('type')
+            if debug_mem:
+                print(f"[DEBUG-MEM] NPU applying command: {t} (neuron_id: {cmd.get('neuron_id', 'N/A')})")
+                
+            if t == 'update_weights_delta':
+                indices = cmd['indices']
+                deltas = cmd['deltas']
+                self._apply_update_weights_delta(indices, deltas)
+            elif t == 'update_thresholds':
+                ids = cmd['neuron_ids']
+                vals = cmd['new_values']
+                self._apply_update_thresholds(ids, vals)
+            elif t == 'create_memory_neurons':
+                self._apply_create_memory_neurons(cmd)
+            elif t == 'register_memory_neuron_in_regular_array':
+                self._apply_register_memory_neuron_in_regular_array(cmd)
+            elif t == 'inject_memory_neuron_to_fcl':
+                self._apply_inject_memory_neuron_to_fcl(cmd)
+            elif t == 'update_state_counters':
+                self._apply_update_state_counters(cmd)
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ NPU unknown command type: {t}")
+            # Additional types can be added with explicit handlers only
+            applied += 1
+            
+            if debug_mem:
+                print(f"[DEBUG-MEM] ✅ NPU applied command {applied}: {t}")
+                
+        if debug_mem:
+            print(f"[DEBUG-MEM] NPU plasticity ops complete: applied {applied} commands")
+            
+        return applied
+
+    def _apply_update_weights_delta(self, indices: Any, deltas: Any) -> None:
+        import numpy as np
+        try:
+            arr_idx = np.asarray(indices, dtype=np.int32)
+            arr_d = np.asarray(deltas, dtype=np.float32)
+            count = min(len(arr_idx), len(arr_d))
+            if count == 0:
+                return
+            # Bounds and validity mask
+            max_valid = int(self.synapse_array.count)
+            valid_mask = (arr_idx >= 0) & (arr_idx < max_valid)
+            if not np.any(valid_mask):
+                return
+            idx = arr_idx[valid_mask]
+            d = arr_d[valid_mask]
+            self.synapse_array.weights[idx] += d
+        except Exception:
+            # Do not raise in hot path; plasticity is best-effort within bounds
+            pass
+
+    def _apply_update_thresholds(self, neuron_ids: List[int], new_values: List[float]) -> None:
+        try:
+            count = min(len(neuron_ids), len(new_values))
+            if count <= 0:
+                return
+            for nid, val in zip(neuron_ids[:count], new_values[:count]):
+                if nid in self.neuron_array.neuron_id_to_index:
+                    self.neuron_array.set_neuron_property(int(nid), 'threshold', float(val))
+        except Exception:
+            pass
+
+    def _apply_create_memory_neurons(self, cmd: Dict[str, Any]) -> None:
+        try:
+            area_idx = int(cmd['area_idx'])
+            count = int(cmd.get('count', 1))
+            if count <= 0:
+                return
+            # Minimal creation: allocate placeholder memory neurons in the area
+            # with genome-specified defaults; here we require caller to set thresholds etc.
+            # This placeholder uses MemoryNeuronArray minimal properties.
+            created = 0
+            for _ in range(count):
+                # Create with minimal required parameters; thresholds/excitabilities must be provided by genome in real path
+                pattern_key = cmd.get('pattern_key')
+                idx = self.memory_neuron_array.create_memory_neuron(
+                    pattern_key=pattern_key,
+                    cortical_area_id=str(area_idx),
+                    current_burst=0,
+                    initial_lifespan=9,
+                    lifespan_growth_rate=1.0,
+                    membrane_potential=0.0,
+                    firing_threshold=1.0,
+                )
+                if idx >= 0:
+                    created += 1
+        except Exception:
+            pass
+
+    def _apply_register_memory_neuron_in_regular_array(self, cmd: Dict[str, Any]) -> None:
+        """Register memory neuron in regular neuron array so neural dynamics can process it."""
+        try:
+            neuron_id = int(cmd['neuron_id'])
+            area_idx = int(cmd['area_idx'])
+            threshold = float(cmd.get('threshold', 1.0))
+            membrane_potential = float(cmd.get('membrane_potential', 0.0))
+            coordinates = cmd.get('coordinates', [0, 0, 0])
+            
+            # Check if memory neuron is already registered
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                has_mapping = hasattr(self.neuron_array, 'neuron_id_to_index')
+                is_registered = has_mapping and neuron_id in self.neuron_array.neuron_id_to_index
+                print(f"[DEBUG-MEM] Checking if neuron {neuron_id} already registered: has_mapping={has_mapping}, is_registered={is_registered}")
+                if has_mapping:
+                    existing_keys = list(self.neuron_array.neuron_id_to_index.keys())
+                    memory_keys = [k for k in existing_keys if k >= 50000000]
+                    print(f"[DEBUG-MEM] Existing memory neuron keys: {memory_keys}")
+            
+            if hasattr(self.neuron_array, 'neuron_id_to_index') and neuron_id in self.neuron_array.neuron_id_to_index:
+                # Memory neuron already registered - just update its properties
+                existing_idx = self.neuron_array.neuron_id_to_index[neuron_id]
+                if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > existing_idx:
+                    self.neuron_array.thresholds[existing_idx] = threshold
+                if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > existing_idx:
+                    self.neuron_array.membrane_potentials[existing_idx] = membrane_potential
+                success = True
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Memory neuron {neuron_id} already registered at index {existing_idx} - updated properties")
+            else:
+                # Register the memory neuron in the regular neuron array
+                if hasattr(self.neuron_array, 'add_neuron'):
+                    # Use add_neuron method if available
+                    success = self.neuron_array.add_neuron(
+                        neuron_id=neuron_id,
+                        cortical_idx=area_idx,
+                        coordinates=coordinates,
+                        threshold=threshold,
+                        membrane_potential=membrane_potential
                     )
-                    valid_targets = target_indices >= 0
-                    if np.any(valid_targets):
-                        target_indices = target_indices[valid_targets]
-                        contributions = contributions[valid_targets]
-                        if state_manager.is_debug_npu_enabled():
-                            logger.info(
-                                f"[NPU-BURST-DEBUG] PHASE 2: Valid target indices={target_indices.size} (sample={target_indices[:5].tolist() if target_indices.size>0 else []})"
-                            )
-                        # Accumulate post-synaptic current into membrane potentials
-                        np.add.at(
-                            self.neuron_array.membrane_potentials,
-                            target_indices,
-                            contributions,
-                        )
-                        # Ensure these targets are marked non-refractory for next-cycle eligibility only
-                        # (RTOS deterministic: refractory only set on actual firing)
-                        if state_manager.is_debug_npu_enabled():
-                            logger.info(
-                                f"[NPU-BURST-DEBUG] PHASE 2: Applied {contributions.size} synaptic updates from {src_counts} sources"
-                            )
+                else:
+                    # Fallback: manually register in neuron_id_to_index mapping
+                    if not hasattr(self.neuron_array, 'neuron_id_to_index'):
+                        self.neuron_array.neuron_id_to_index = {}
+                    
+                    # Find next available index
+                    next_idx = getattr(self.neuron_array, 'count', 0)
+                    self.neuron_array.neuron_id_to_index[neuron_id] = next_idx
+                    
+                    # Also update reverse mapping
+                    if not hasattr(self.neuron_array, 'index_to_neuron_id'):
+                        self.neuron_array.index_to_neuron_id = {}
+                    self.neuron_array.index_to_neuron_id[next_idx] = neuron_id
+                    
+                    # Extend arrays if needed
+                    max_neurons = getattr(self.neuron_array, 'max_neurons', 100000)
+                    if next_idx >= max_neurons:
+                        import sys
+                        debug_mem = '--debug-mem' in sys.argv
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ❌ Cannot register memory neuron {neuron_id}: array capacity exceeded")
+                        return
+                    
+                    # Set neuron properties
+                    if hasattr(self.neuron_array, 'thresholds') and len(self.neuron_array.thresholds) > next_idx:
+                        self.neuron_array.thresholds[next_idx] = threshold
+                    if hasattr(self.neuron_array, 'membrane_potentials') and len(self.neuron_array.membrane_potentials) > next_idx:
+                        self.neuron_array.membrane_potentials[next_idx] = membrane_potential
+                    
+                    # Update count and neuron_count (keep both in sync)
+                    if hasattr(self.neuron_array, 'count'):
+                        self.neuron_array.count = next_idx + 1
+                    if hasattr(self.neuron_array, 'neuron_count'):
+                        self.neuron_array.neuron_count = next_idx + 1
+                    
+                    success = True
+            
+            # Also register in neuron_to_area mapping
+            if hasattr(self, 'neuron_to_area'):
+                self.neuron_to_area[neuron_id] = area_idx
+            
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                if success:
+                    current_count = getattr(self.neuron_array, 'count', 'unknown')
+                    current_neuron_count = getattr(self.neuron_array, 'neuron_count', 'unknown')
+                    # Check if mappings are correct
+                    forward_mapping = self.neuron_array.neuron_id_to_index.get(neuron_id, 'missing')
+                    reverse_mapping = self.neuron_array.index_to_neuron_id.get(forward_mapping, 'missing') if forward_mapping != 'missing' else 'missing'
+                    print(f"[DEBUG-MEM] ✅ Registered memory neuron {neuron_id} in regular array (area {area_idx}, threshold {threshold})")
+                    print(f"[DEBUG-MEM]   Updated counts: count={current_count}, neuron_count={current_neuron_count}")
+                    print(f"[DEBUG-MEM]   Mappings: {neuron_id} -> {forward_mapping} -> {reverse_mapping}")
+                else:
+                    print(f"[DEBUG-MEM] ❌ Failed to register memory neuron {neuron_id} in regular array")
+                    
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Error registering memory neuron in regular array: {e}")
 
-                        # Determine next-burst eligible targets (do NOT fire in current burst)
-                        # Deterministic and vectorized; limited to affected targets only
-                        unique_targets = np.unique(target_indices)
-                        # Clip to valid neuron range
-                        valid_target_mask = unique_targets < min(self.neuron_array.neuron_count, self.neuron_array.max_neurons)
-                        unique_targets = unique_targets[valid_target_mask]
-                        if unique_targets.size > 0:
-                            from feagi.npu.simd_neural_ops import simd_firing_check
-                            # Build can-fire mask (not in refractory)
-                            can_fire_mask = self.neuron_array.refractory_counters[unique_targets] == 0
-                            if np.any(can_fire_mask):
-                                eligible_mask = simd_firing_check(
-                                    self.neuron_array.membrane_potentials[unique_targets],
-                                    self.neuron_array.thresholds[unique_targets],
-                                    can_fire_mask,
-                                )
-                                if np.any(eligible_mask):
-                                    eligible_global = unique_targets[eligible_mask]
-                                    # Map eligible target indices back to neuron IDs
-                                    eligible_ids = self.neuron_array.indices_to_neuron_ids(
-                                        eligible_global, filter_invalid=True
-                                    ).tolist()
-                                    if eligible_ids:
-                                        # Accumulate next-burst candidates (dedup later)
-                                        self._next_burst_candidate_ids.extend(eligible_ids)
-                                        if state_manager.is_debug_npu_enabled():
-                                            logger.info(
-                                                f"[NPU-BURST-DEBUG] PHASE 2: Next-burst eligible targets: {len(eligible_ids)} (sample={eligible_ids[:5]})"
-                                            )
-                                else:
-                                    if state_manager.is_debug_npu_enabled():
-                                        logger.info(
-                                            f"[NPU-BURST-DEBUG] PHASE 2: No next-burst eligible targets (targets={unique_targets.size})"
-                                        )
-                            else:
-                                if state_manager.is_debug_npu_enabled():
-                                    logger.info(
-                                        "[NPU-BURST-DEBUG] PHASE 2: No neurons can be eligible (all refractory or below threshold)"
-                                    )
+    def _apply_inject_memory_neuron_to_fcl(self, cmd: Dict[str, Any]) -> None:
+        """Queue memory neuron for FCL injection in the next burst."""
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            
+            neuron_id = int(cmd['neuron_id'])
+            area_idx = int(cmd['area_idx'])
+            membrane_potential = float(cmd.get('membrane_potential', 1.5))
+            
+            # Get the burst engine to queue the injection
+            burst_engine = BurstEngine.get_instance()
+            if not burst_engine:
+                return
+            
+            # Add to pending external activations for next burst
+            if not hasattr(burst_engine, '_pending_external_activations'):
+                burst_engine._pending_external_activations = {}
+            
+            # Get the actual cortical area ID for this memory area
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome_manager = ConnectomeManager.instance()
+            area_id = None
+            
+            if connectome_manager:
+                # Find the cortical area ID by index
+                for cortical_id, cortical_area_obj in connectome_manager.cortical_areas.items():
+                    # Handle both dict and CorticalArea object formats
+                    if hasattr(cortical_area_obj, 'cortical_idx'):
+                        cortical_idx = cortical_area_obj.cortical_idx
+                    elif isinstance(cortical_area_obj, dict):
+                        cortical_idx = cortical_area_obj.get('cortical_idx')
                     else:
-                        if state_manager.is_debug_npu_enabled():
-                            logger.info(
-                                f"[NPU-BURST-DEBUG] PHASE 2: 0 valid target indices (mapped from {target_ids.size} target IDs)"
-                            )
+                        continue
+                        
+                    if cortical_idx == area_idx:
+                        area_id = cortical_id
+                        break
+            
+            if not area_id:
+                # @architecture:acceptable - emergency fallback for memory neuron area mapping
+                area_id = str(area_idx)
+            
+            if area_id not in burst_engine._pending_external_activations:
+                burst_engine._pending_external_activations[area_id] = []
+            
+            # Add memory neuron activation as simple neuron ID (BurstEngine expects list of IDs)
+            burst_engine._pending_external_activations[area_id].append(neuron_id)
+            
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                is_reactivation = cmd.get('is_reactivation', False)
+                action = "reactivated" if is_reactivation else "created"
+                print(f"[DEBUG-MEM] ✅ Memory neuron {neuron_id} {action} and queued for FCL injection")
+                print(f"[DEBUG-MEM]   Area mapping: area_idx={area_idx} -> area_id='{area_id}'")
+                    
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Failed to queue memory neuron for FCL injection: {e}")
+
+    def _apply_update_state_counters(self, cmd: Dict[str, Any]) -> None:
+        """Update state manager neuron counters when memory neurons are created."""
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            
+            state_manager = FeagiStateManager.instance()
+            if not state_manager:
+                return
+                
+            memory_neurons_created = int(cmd.get('memory_neurons_created', 0))
+            total_neurons_created = int(cmd.get('total_neurons_created', 0))
+            current_memory_neuron_count = cmd.get('current_memory_neuron_count')
+            is_reactivation = cmd.get('is_reactivation', False)
+            
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            neuron_id = cmd.get('neuron_id', 'unknown')
+            area_idx = cmd.get('area_idx', 'unknown')
+            
+            if current_memory_neuron_count is not None:
+                # For reactivation: set the total memory neuron count directly
+                try:
+                    # Try to update the state manager with current total
+                    if hasattr(state_manager, 'set_memory_neuron_count'):
+                        state_manager.set_memory_neuron_count(current_memory_neuron_count)
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ✅ Set total memory neuron count to {current_memory_neuron_count}")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ⚠️ StateManager has no set_memory_neuron_count method")
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Failed to set memory neuron count: {e}")
             else:
-                if state_manager.is_debug_npu_enabled():
-                    logger.info("[NPU-BURST-DEBUG] PHASE 2: No outgoing synapses from current fired set")
-        
-            if state_manager.is_debug_npu_enabled():
-                logger.info("[NPU-BURST-DEBUG] PHASE 2 COMPLETE: Synaptic propagation processed")
-        
-        if state_manager.is_debug_npu_enabled():
-            logger.info("[NPU-BURST-DEBUG] === NEURAL BURST PROCESSING END ===")
-            logger.info(f"[NPU-BURST-DEBUG] Total fired neurons: {len(fired_neurons) if fired_neurons else 0}")
-        
-        return fired_neurons if fired_neurons else []
-    
-    def _process_memory_neurons(self, timestep: int, state_manager) -> List[int]:
-        """Process memory neurons for firing during neural burst.
-        
-        Memory neurons are processed separately from regular neurons because they:
-        1. Have different lifecycle properties (aging, pattern-based)
-        2. Are stored in a separate MemoryNeuronArray
-        3. Need to fire when their patterns are detected (via FCL injection)
-        
-        Args:
-            timestep: Current simulation timestep
-            state_manager: State manager for debug logging
+                # For creation: increment counters
+                if memory_neurons_created > 0:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Would increment memory neuron counter by +{memory_neurons_created} (method signature issues)")
+                    
+                if total_neurons_created > 0:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Would increment total neuron counter by +{total_neurons_created} (method signature issues)")
             
-        Returns:
-            List of memory neuron IDs that fired
-        """
-        if not hasattr(self, 'memory_neuron_array') or self.memory_neuron_array.count == 0:
-            return []
-            
-        memory_array = self.memory_neuron_array
-        valid_range = min(memory_array.count, memory_array.max_memory_neurons)
-        
-        if valid_range == 0:
-            return []
-            
-        if state_manager.is_debug_npu_enabled():
-            logger.info(f"[NPU-MEMORY-DEBUG] Processing {valid_range} memory neurons")
-            
-        # Get active and valid memory neurons
-        active_mask = memory_array.is_active[:valid_range] & memory_array.valid_mask[:valid_range]
-        active_indices = np.where(active_mask)[0]
-        
-        if len(active_indices) == 0:
-            return []
-            
-        # Check which memory neurons should fire (above threshold)
-        potentials = memory_array.membrane_potentials[active_indices]
-        thresholds = memory_array.thresholds[active_indices]
-        
-        # Memory neurons fire when above threshold (no refractory period for memory neurons)
-        firing_mask = potentials >= thresholds
-        firing_indices = active_indices[firing_mask]
-        
-        if len(firing_indices) == 0:
-            return []
-            
-        # Convert indices to neuron IDs
-        fired_memory_neurons = []
-        for idx in firing_indices:
-            neuron_id = memory_array.index_to_neuron_id.get(idx)
-            if neuron_id is not None:
-                fired_memory_neurons.append(neuron_id)
+            if debug_mem:
+                action = "reactivation" if is_reactivation else "creation"
+                print(f"[DEBUG-MEM] ✅ Processed state counter update for {action}: neuron {neuron_id} in area {area_idx}")
                 
-                # Reset membrane potential after firing (like regular neurons)
-                memory_array.membrane_potentials[idx] = 0.0
-                
-                # Update last activation burst for lifecycle tracking
-                memory_array.last_activation_burst[idx] = timestep
-                memory_array.activation_count[idx] += 1
-                
-        if state_manager.is_debug_npu_enabled() and fired_memory_neurons:
-            logger.info(f"[NPU-MEMORY-DEBUG] {len(fired_memory_neurons)} memory neurons fired: {fired_memory_neurons[:5]}")
-            
-        return fired_memory_neurons
+        except Exception as e:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Failed to update state counters: {e}")
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        return False

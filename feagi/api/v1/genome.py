@@ -158,38 +158,9 @@ class GenomeAPI:
     async def upload_essential_genome(self) -> GenomeUploadResponse:
         """Upload/load the essential genome."""
         logger.info("Loading essential genome")
-
-        # Load essential genome data and use the single load_genome method
-        import json
-        from pathlib import Path
-
-        # Get the essential genome file path
-        essential_genome_path = (
-            Path(__file__).parent.parent.parent
-            / "evo"
-            / "defaults"
-            / "genome"
-            / "essential_genome.json"
-        )
-
-        if not essential_genome_path.exists():
-            logger.error(
-                f"Essential genome file not found: {essential_genome_path}"
-            )
-            result = {
-                "success": False,
-                "error": f"Essential genome file not found: {essential_genome_path}",
-            }
-        else:
-            # Read the essential genome file
-            with open(essential_genome_path, "r") as f:
-                genome_data = json.load(f)
-
-            #  Use the single load_genome method for consistency and dynamic
-            #  sizing
-            result = self.core_api_service.load_genome(
-                genome_data, filename="essential_genome.json"
-            )
+        
+        # Use the consistent genome loading path through load_essential_genome
+        result = self.core_api_service.load_essential_genome()
 
         # Prepare the final response based on loading results
         response_data = GenomeUploadResponse(
@@ -752,7 +723,7 @@ class GenomeAPI:
 
     # ===== Missing Critical Legacy Endpoints =====
 
-    @genome_endpoint("POST", "/amalgamation_destination", response_model=str)
+    @genome_endpoint("POST", "/amalgamation_destination", response_model=dict)
     async def amalgamation_destination(
         self,
         circuit_origin_x: int = Form(..., description="X coordinate for circuit origin"),
@@ -769,7 +740,7 @@ class GenomeAPI:
                 from fastapi import HTTPException
                 raise HTTPException(status_code=400, detail="No pending amalgamation request found")
 
-            # Prepare amalgamation payload (legacy format)
+            # Prepare finalized amalgamation payload
             payload = {
                 "genome_str": self.core_api_service.get_pending_amalgamation_genome(),
                 "circuit_origin": [
@@ -779,27 +750,26 @@ class GenomeAPI:
                 ],
                 "parent_brain_region": brain_region_id,
                 "rewire_mode": rewire_mode.value,
+                "amalgamation_id": amalgamation_id,
             }
 
-            # Send to core service for processing
-            data = {'append_circuit': payload}
-            logger.info(f"Amalgamation destination data: {data}")
-            
-            # For now, we'll simulate the legacy behavior
-            # TODO: Implement actual circuit appending through proper channels
-            
-            genome_title = (
-                self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
-            )
-            
-            # Cancel pending amalgamation and mark as complete
-            self.core_api_service.cancel_pending_amalgamation(amalgamation_id)
-            
-            # Update amalgamation history to mark as complete
-            if hasattr(self.core_api_service.state_manager, 'amalgamation_history'):
-                self.core_api_service.state_manager.amalgamation_history[amalgamation_id] = "complete"
+            logger.info(f"Amalgamation destination data: {{'append_circuit': payload}}")
 
-            return f'Amalgamation for "{genome_title}" is complete.'
+            # Apply via core service: merge and run full NeuroEmbryogenesis
+            success = self.core_api_service.apply_amalgamation_destination(payload)
+            if not success:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=422, detail="Failed to apply amalgamation destination")
+
+            genome_title = self.core_api_service.get_pending_amalgamation_title() or "Unknown Genome"
+            
+            # Get updated brain region registry to help BV update visualizations
+            brain_regions = self.core_api_service.get_brain_regions()
+            
+            return {
+                "message": f'Amalgamation for "{genome_title}" is complete.',
+                "brain_regions": brain_regions
+            }
         except Exception as e:
             logger.error(f"Error completing amalgamation destination: {e}")
             if "No pending amalgamation request found" in str(e):

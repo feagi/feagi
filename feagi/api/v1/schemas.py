@@ -87,6 +87,8 @@ class HealthCheckResponse(BaseModel):
     genome_availability: bool
     genome_validity: Optional[bool]
     brain_readiness: bool
+    # FEAGI session tracking - unique timestamp for this FEAGI instance
+    feagi_session: Optional[int] = None  # Unix timestamp (milliseconds) when FEAGI started
     # Optional fields when genome is loaded
     fitness: Optional[float] = None
     cortical_area_count: Optional[int] = None
@@ -179,6 +181,10 @@ class SuccessResponse(BaseModel):
 
     status: str = "success"
     message: Optional[str] = None
+    transport: Optional[Dict[str, Any]] = None  # Transport negotiation info for agent registration
+    
+    class Config:
+        extra = "allow"  # Allow additional fields for flexibility
 
 
 class ErrorResponse(BaseModel):
@@ -328,6 +334,56 @@ class NeuronCountResponse(BaseModel):
     """Response model for neuron count."""
 
     neuron_count: int
+
+
+class CloneCorticalAreaRequest(BaseModel):
+    """Request model for cloning a cortical area.
+
+    Fields:
+        source_area_id: Cortical ID of the area to clone
+        clone_cortical_mapping: Whether to duplicate incoming/outgoing/recursive mappings (default: True)
+        coordinates_3d: Optional override for new area's 3D coordinates [x, y, z]
+        coordinates_2d: Optional override for new area's 2D coordinates [x, y]
+        cortical_name: Optional new name for the cloned area. If omitted, a unique
+            name will be auto-generated based on the source area name.
+    """
+
+    source_area_id: str
+    clone_cortical_mapping: Optional[bool] = True
+    coordinates_3d: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+    cortical_name: Optional[str] = None
+
+
+class CloneCorticalAreaResponse(BaseModel):
+    """Response model for cortical area clone operation."""
+
+    new_area_id: str
+    message: str
+
+
+class CloneBrainRegionRequest(BaseModel):
+    """Request model for cloning a brain region (circuit).
+
+    Fields:
+        source_region_id: Region ID of the circuit to clone
+        region_name: Optional new title for the cloned region subtree (used as genome_title during amalgamation)
+        coordinates_3d: Optional [x, y, z] placement to prefill; final placement occurs during amalgamation finalize
+        coordinates_2d: Optional [x, y] placement to prefill; informational only for clone stage
+    """
+
+    source_region_id: str
+    region_name: Optional[str] = None
+    coordinates_3d: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+
+
+class CloneBrainRegionResponse(BaseModel):
+    """Response model for brain region clone operation (pending amalgamation)."""
+
+    amalgamation_id: str
+    circuit_size: List[int]
+    message: str
 
 
 # ===== Common Request Schemas =====
@@ -654,15 +710,20 @@ class BurstEngineStatsResponse(BaseModel):
 
 
 class FCLContentResponse(BaseModel):
-    """Response schema for complete FCL (Fire Candidate List) content."""
+    """Response schema for FCL content (Fire Queue firing history).
     
-    timestep: int = Field(description="Current timestep when FCL was captured")
-    total_neurons: int = Field(description="Total number of neurons currently firing")
-    global_fcl: List[int] = Field(description="List of all neuron IDs currently firing")
+    Note: In the new architecture, FCL is a transient pre-burst collector.
+    This endpoint returns Fire Queue data (neurons that actually fired) for compatibility.
+    Window size refers to Fire Ledger historical storage configuration.
+    """
+    
+    timestep: int = Field(description="Current timestep when firing data was captured")
+    total_neurons: int = Field(description="Total number of neurons that fired in the timestep")
+    global_fcl: List[int] = Field(description="List of all neuron IDs that fired (from Fire Queue)")
     cortical_areas: Dict[str, List[int]] = Field(
-        description="Mapping of cortical area ID to list of firing neuron IDs"
+        description="Mapping of cortical area ID to list of fired neuron IDs"
     )
-    window_size: int = Field(description="FCL history window size")
+    default_window_size: int = Field(description="Default Fire Ledger historical window size")
     active_cortical_count: int = Field(description="Number of cortical areas with active neurons")
 
 
@@ -698,16 +759,20 @@ class RegionMemberRelocationRequest(RootModel):
     """Request model for relocating brain region members.
     
     Accepts a dictionary where keys are cortical area IDs and values contain
-    coordinate information and optional parent region assignments.
+    coordinate information and/or parent region assignments. At least one of
+    coordinate_2d or parent_region_id must be provided.
     
     Example:
     {
         "iic300": {
             "coordinate_2d": [-514, 114],
-            "parent_region_id": "region_1"  # optional
+            "parent_region_id": "region_1"
         },
         "iic400": {
             "coordinate_2d": [-490, -82]
+        },
+        "iic500": {
+            "parent_region_id": "region_2"  # coordinates optional
         }
     }
     """
@@ -815,6 +880,7 @@ class CorticalMappingConnection(BaseModel):
     plasticity_constant: float
     ltp_multiplier: float
     ltd_multiplier: float
+    
 
 
 class CorticalMappingPropertiesResponse(BaseModel):
@@ -830,6 +896,17 @@ class UpdateCorticalMappingPropertiesRequest(BaseModel):
     src_cortical_area: str
     dst_cortical_area: str
     mapping_string: List[Dict[str, Any]]  # List of connection dictionaries
+
+
+class UpdateCorticalMappingPropertiesResponse(SuccessResponse):
+    """Response for updating cortical mapping properties with region context.
+
+    Extends the standard success response by including the normalized brain
+    region objects for the source and destination cortical areas (when available).
+    """
+
+    src_region: Optional[Dict[str, Any]] = None
+    dst_region: Optional[Dict[str, Any]] = None
 
 
 class CreateCorticalMappingRequest(BaseModel):
@@ -924,6 +1001,10 @@ class AgentRegistrationRequest(BaseModel):
     agent_ip: Optional[str] = (
         None  # If not provided, will be extracted from request
     )
+    # Optional metadata for additional agent-provided info
+    metadata: Optional[Dict[str, Any]] = None
+
+
 
 
 class AgentDeregistrationRequest(BaseModel):

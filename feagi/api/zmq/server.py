@@ -436,6 +436,47 @@ class ZmqServer:
         finally:
             self._cleanup()
 
+    async def _monitor_and_create_sensory_stream(self) -> None:
+        """Monitor FEAGI readiness and create sensory stream when ready."""
+        from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
+        from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
+        
+        logger.info("🔍 Starting FEAGI readiness monitor for sensory stream")
+        
+        while self._running and not self._sensory:
+            try:
+                state_manager = FeagiStateManager.instance()
+                genome_state = state_manager.get_genome_state()
+                burst_engine_state = state_manager.get_burst_engine_state()
+                
+                genome_loaded = genome_state == GenomeState.LOADED.value
+                burst_engine_ready = burst_engine_state == ServiceState.READY.value
+                
+                if genome_loaded and burst_engine_ready:
+                    # FEAGI is now ready - create and start sensory stream
+                    logger.info("🚀 FEAGI became ready - creating sensory stream")
+                    
+                    self._sensory = SensoryStream(
+                        core_api=self.core_api,
+                        host=self.host,
+                        port=self.sensory_port,
+                        context=self._context,
+                    )
+                    
+                    await self._sensory.start()
+                    
+                    logger.info(f"✅ Sensory stream started on port {self.sensory_port} - agents can now connect")
+                    break
+                else:
+                    # Still not ready, wait and check again
+                    await asyncio.sleep(2.0)
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in sensory stream monitor: {e}")
+                await asyncio.sleep(2.0)
+
     async def _start_server(self):
         """Start the ZMQ server components.
 
@@ -486,15 +527,41 @@ class ZmqServer:
 
             # Only create enabled streams (port != None)
             if self.sensory_port is not None:
-                self._sensory = SensoryStream(
-                    core_api=self.core_api,
-                    host=self.host,
-                    port=self.sensory_port,
-                    context=self._context,
-                )
-                logger.info(
-                    f"Sensory stream enabled on port {self.sensory_port}"
-                )
+                # Check if FEAGI is ready before creating sensory stream
+                from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
+                
+                state_manager = FeagiStateManager.instance()
+                genome_state = state_manager.get_genome_state()
+                burst_engine_state = state_manager.get_burst_engine_state()
+                
+                genome_loaded = genome_state == GenomeState.LOADED.value
+                burst_engine_ready = burst_engine_state == ServiceState.READY.value
+                
+                if genome_loaded and burst_engine_ready:
+                    # FEAGI is ready - create sensory stream normally
+                    self._sensory = SensoryStream(
+                        core_api=self.core_api,
+                        host=self.host,
+                        port=self.sensory_port,
+                        context=self._context,
+                    )
+                    logger.info(
+                        f"✅ FEAGI ready - sensory stream enabled on port {self.sensory_port}"
+                    )
+                else:
+                    # FEAGI not ready - don't create sensory stream
+                    self._sensory = None
+                    logger.warning(
+                        f"🔒 FEAGI not ready - sensory stream blocked on port {self.sensory_port}"
+                    )
+                    logger.warning(
+                        f"   Genome loaded: {genome_loaded}, Burst engine ready: {burst_engine_ready}"
+                    )
+                    logger.warning(
+                        f"   Agents will not be able to connect until FEAGI is ready"
+                    )
+                    # Start monitoring task to create stream when ready
+                    asyncio.create_task(self._monitor_and_create_sensory_stream())
             else:
                 logger.info("Sensory stream disabled")
 
@@ -659,32 +726,30 @@ class ZmqServer:
             # Signal the monitor loop to stop
             self._shutdown_event.set()
 
-            #  Create a new event loop for shutdown if we're not in the server
-            #  thread
-            if threading.current_thread() != self._thread:
-                # We're in a different thread, create a new event loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    # Run the shutdown in this new loop with timeout
-                    loop.run_until_complete(
-                        asyncio.wait_for(self._stop_services(), timeout=15.0)
-                    )
-                except asyncio.TimeoutError:
-                    print(
-                        "[WARN]  Shutdown timed out after 15 seconds - forcing exit",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                finally:
+            # Always stop services on the server's own event loop to avoid
+            # cross-loop cancellation errors
+            if self._loop and self._loop.is_running():
+                if threading.current_thread() != self._thread:
+                    # Schedule shutdown coroutine on server loop and wait
                     try:
-                        loop.close()
-                    except Exception:
-                        pass  # Ignore loop closing errors
-            else:
-                # We're in the server thread, use its loop
-                if self._loop and self._loop.is_running():
+                        fut = asyncio.run_coroutine_threadsafe(
+                            asyncio.wait_for(self._stop_services(), timeout=15.0),
+                            self._loop,
+                        )
+                        # Add a small grace timeout to collect the result
+                        fut.result(timeout=18.0)
+                    except Exception as e:
+                        print(
+                            f"[WARN]  Error waiting for ZMQ services to stop: {e}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                else:
+                    # We are on the server thread; schedule and let the loop drain
                     asyncio.ensure_future(self._stop_services())
+            else:
+                # Loop not running (or missing) - nothing to await, proceed
+                pass
 
             # Wait for the server thread to finish with timeout
             if self._thread and self._thread.is_alive():

@@ -22,7 +22,7 @@ the visualization stream and FQ sampler.
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from feagi.api.core.services.core_api_service import CoreAPIService
@@ -32,6 +32,12 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 router = APIRouter()
+
+# Lightweight per-client heartbeat counters
+_heartbeat_counts: Dict[str, int] = {}
+_heartbeat_window_start: Dict[str, float] = {}
+_HEARTBEAT_WINDOW_SEC = 1.0
+_HEARTBEAT_WARN_THRESHOLD = 20
 
 
 class VisualizationClientRequest(BaseModel):
@@ -195,6 +201,7 @@ async def unregister_visualization_client(
 async def visualization_client_heartbeat(
     request: VisualizationHeartbeatRequest,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
+    http_req: Request = None,
 ) -> SuccessResponse:
     """Send a heartbeat from a visualization client.
 
@@ -202,8 +209,27 @@ async def visualization_client_heartbeat(
     """
     try:
         client_id = request.client_id
+        client_ip = http_req.client.host if http_req and http_req.client else "unknown"
+        ua = http_req.headers.get("user-agent", "<none>") if http_req else "<none>"
 
-        logger.debug(f"💗 Heartbeat from visualization client: {client_id}")
+        # Per-client heartbeat rate warning
+        import time as _time
+        now = _time.time()
+        ws = _heartbeat_window_start.get(client_id, 0.0)
+        if now - ws > _HEARTBEAT_WINDOW_SEC:
+            _heartbeat_window_start[client_id] = now
+            _heartbeat_counts[client_id] = 1
+        else:
+            _heartbeat_counts[client_id] = _heartbeat_counts.get(client_id, 0) + 1
+            if _heartbeat_counts[client_id] >= _HEARTBEAT_WARN_THRESHOLD:
+                logger.warning(
+                    f"[VIZ-HB] High heartbeat rate from client {client_id} ({client_ip}, UA={ua}): {_heartbeat_counts[client_id]} in {_HEARTBEAT_WINDOW_SEC:.1f}s"
+                )
+                # reset window to avoid spamming
+                _heartbeat_window_start[client_id] = now
+                _heartbeat_counts[client_id] = 0
+
+        logger.debug(f"💗 Heartbeat from visualization client: {client_id} ({client_ip}, UA={ua})")
 
         # Get the process manager to access the visualization stream
         from feagi.process_manager import get_process_manager

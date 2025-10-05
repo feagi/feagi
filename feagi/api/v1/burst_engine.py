@@ -93,12 +93,11 @@ class BurstEngineAPI:
         seconds."""
         try:
             burst_timer = self.core_api_service.get_burst_timer()
-            return burst_timer if burst_timer is not None else 0.0
+            return burst_timer if burst_timer is not None else 0.1
         except Exception as e:
-            logger.error(f"Error getting simulation timestep: {e}")
-            raise ValueError(
-                f"Failed to get simulation timestep: {str(e)}"
-            ) from e
+            # Log error but return safe default instead of raising ValueError (which becomes 400 Bad Request)
+            logger.error(f"Error getting simulation timestep: {e} - returning default 0.1s")
+            return 0.1  # Default 10Hz = 0.1s timestep
 
     @burst_engine_endpoint(
         "POST",
@@ -238,7 +237,9 @@ class BurstEngineAPI:
         """
         try:
             fcl_manager = self.core_api_service.get_fcl_manager()
+            logger.info(f"[FCL-DEBUG] get_fcl_manager returned: {fcl_manager}, type: {type(fcl_manager)}")
             if not fcl_manager:
+                logger.error(f"[FCL-DEBUG] FCL manager is None or falsy")
                 raise ValueError("FCL manager not available")
             
             # Get current timestep and log manager identity when debug is on
@@ -282,8 +283,8 @@ class BurstEngineAPI:
                 for cortical_idx, neuron_bitmap in cortical_fcl_dict.items():
                     cortical_areas[str(cortical_idx)] = list(neuron_bitmap)
             
-            # Get FCL manager statistics
-            window_size = fcl_manager.window_size
+            # Get Fire Ledger default window size (FCL no longer has window size)
+            default_window_size = fcl_manager.window_size  # This now gets from fire ledger
             active_cortical_count = len(cortical_areas)
             total_neurons = len(global_fcl_list)
             
@@ -292,13 +293,76 @@ class BurstEngineAPI:
                 total_neurons=total_neurons,
                 global_fcl=global_fcl_list,
                 cortical_areas=cortical_areas,
-                window_size=window_size,
+                default_window_size=default_window_size,
                 active_cortical_count=active_cortical_count
             )
             
         except Exception as e:
             logger.error(f"Error getting FCL content: {e}")
             raise ValueError(f"Failed to get FCL content: {str(e)}") from e
+    
+    # =================================================================  
+    # FIRE LEDGER WINDOW SIZE CONFIGURATION ENDPOINTS
+    # =================================================================
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/default_window_size")
+    def get_fire_ledger_default_window_size(self) -> int:
+        """Get the default window size for Fire Ledger historical storage."""
+        try:
+            return self.core_api_service.get_fire_ledger_default_window_size()
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger default window size: {e}")
+            return 20  # Safe default
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/area/{area_id}/window_size")
+    def get_fire_ledger_area_window_size(self, area_id: int) -> int:
+        """Get window size for specific cortical area in Fire Ledger."""
+        try:
+            return self.core_api_service.get_fire_ledger_area_window_size(area_id)
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger window size for area {area_id}: {e}")
+            return 20  # Safe default
+    
+    @burst_engine_endpoint("PUT", "/fire_ledger/area/{area_id}/window_size")
+    def set_fire_ledger_area_window_size(self, area_id: int, window_size: int) -> Dict[str, Any]:
+        """Set window size for specific cortical area in Fire Ledger."""
+        try:
+            success = self.core_api_service.set_fire_ledger_area_window_size(area_id, window_size)
+            return {
+                "success": success,
+                "area_id": area_id,
+                "window_size": window_size,
+                "message": f"Window size updated to {window_size} for area {area_id}" if success 
+                          else f"Failed to update window size for area {area_id}"
+            }
+        except Exception as e:
+            logger.error(f"Error setting Fire Ledger window size for area {area_id}: {e}")
+            return {
+                "success": False,
+                "area_id": area_id,
+                "error": str(e)
+            }
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/areas_window_config")
+    def get_fire_ledger_areas_window_config(self) -> Dict[str, Any]:
+        """Get window size configuration for all cortical areas in Fire Ledger."""
+        try:
+            window_config = self.core_api_service.get_fire_ledger_areas_window_config()
+            default_window_size = self.core_api_service.get_fire_ledger_default_window_size()
+            
+            return {
+                "default_window_size": default_window_size,
+                "areas": window_config,
+                "total_configured_areas": len(window_config)
+            }
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger areas window configuration: {e}")
+            return {
+                "default_window_size": 20,
+                "areas": {},
+                "total_configured_areas": 0,
+                "error": str(e)
+            }
 
     @burst_engine_endpoint("GET", "/fire_queue", response_model=FireQueueResponse)
     async def get_fire_queue(self) -> FireQueueResponse:
@@ -609,6 +673,77 @@ class BurstEngineAPI:
             raise ValueError(
                 f"Failed to get frequency status: {str(e)}"
             ) from e
+
+    @burst_engine_endpoint(
+        "POST", "/force_connectome_integration", response_model=Dict[str, Any]
+    )
+    async def force_connectome_integration(self) -> Dict[str, Any]:
+        """Force BurstEngine integration with ConnectomeManager for debugging.
+        
+        This endpoint manually triggers the BurstEngine to connect with the
+        loaded genome/connectome manager. Useful for debugging integration issues
+        where the automatic connection during genome load may have failed.
+        
+        Returns:
+            Dictionary with integration status and debug information
+        """
+        try:
+            # Get BurstEngine instance and force integration
+            from feagi.npu.burst_engine import BurstEngine
+            
+            burst_engine = BurstEngine.get_instance()
+            if not burst_engine:
+                return {
+                    "success": False,
+                    "error": "BurstEngine instance not available",
+                    "integration_status": "failed"
+                }
+            
+            # Log current state before integration attempt
+            logger.info("[API] Force connectome integration requested")
+            logger.warning("[NPU-DEBUG] [API] Current state: connectome_manager=%s, injection_service=%s, fcl_injector=%s", 
+                         burst_engine.connectome_manager is not None,
+                         burst_engine.injection_service is not None,
+                         burst_engine.fcl_injector is not None)
+            
+            # Attempt forced integration
+            integration_success = burst_engine.force_connectome_integration()
+            
+            # Get updated state after integration attempt
+            updated_state = {
+                "connectome_manager_available": burst_engine.connectome_manager is not None,
+                "injection_service_available": burst_engine.injection_service is not None, 
+                "fcl_injector_available": burst_engine.fcl_injector is not None,
+                "genome_loaded": getattr(burst_engine, 'genome_loaded', False)
+            }
+            
+            if integration_success:
+                logger.info("[API] ✅ Force connectome integration successful")
+                return {
+                    "success": True,
+                    "message": "BurstEngine successfully integrated with ConnectomeManager",
+                    "integration_status": "success",
+                    "components_initialized": updated_state
+                }
+            else:
+                logger.warning("[API] ❌ Force connectome integration failed")
+                return {
+                    "success": False,
+                    "message": "BurstEngine integration with ConnectomeManager failed", 
+                    "integration_status": "failed",
+                    "components_status": updated_state,
+                    "suggestion": "Check if genome is properly loaded and ConnectomeManager is available"
+                }
+            
+        except Exception as e:
+            logger.error(f"Error in force_connectome_integration API: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {
+                "success": False,
+                "error": str(e),
+                "integration_status": "error"
+            }
 
 
 # ===== Factory Function =====

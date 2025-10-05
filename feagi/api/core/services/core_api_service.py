@@ -43,6 +43,116 @@ from .system.system_service import SystemService
 logger = setup_logger()
 
 
+class FCLManagerAdapter:
+    """Compatibility adapter to make new BurstEngine work with old FCL manager interface.
+    
+    This adapter provides the methods that the `/fcl` endpoint expects while
+    using the new NPU architecture underneath.
+    """
+    
+    def __init__(self, burst_engine):
+        """Initialize adapter with BurstEngine instance."""
+        self.burst_engine = burst_engine
+        self.current_timestep = burst_engine.current_timestep if burst_engine else 0
+        
+    def get_global_fcl(self):
+        """Get global FCL as roaring bitmap (compatibility method).
+        
+        In new architecture, returns firing neurons from previous Fire Queue,
+        since FCL is transient and gets reset each burst.
+        """
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            # Return empty roaring bitmap-like structure
+            return EmptyBitmapAdapter()
+            
+        fire_queue = self.burst_engine.previous_fire_queue
+        neuron_ids = []
+        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
+            neuron_ids.extend([n.neuron_id for n in cortical_neurons])
+        
+        return BitmapAdapter(neuron_ids)
+    
+    def get_fcl_by_cortical(self):
+        """Get FCL organized by cortical areas (compatibility method)."""
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            return {}
+            
+        fire_queue = self.burst_engine.previous_fire_queue
+        cortical_fcl = {}
+        for cortical_idx, neurons in fire_queue.firing_neurons_by_area.items():
+            neuron_ids = [n.neuron_id for n in neurons]
+            cortical_fcl[cortical_idx] = BitmapAdapter(neuron_ids)
+        
+        return cortical_fcl
+    
+    @property
+    def window_size(self):
+        """Get default window size from fire ledger."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            return self.burst_engine.fire_ledger.default_window_size
+        return 20  # Default window size
+        
+    def get_cortical_window_size(self, cortical_idx: int) -> int:
+        """Get window size for specific cortical area."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            fire_ledger = self.burst_engine.fire_ledger
+            if cortical_idx in fire_ledger.cortical_histories:
+                return fire_ledger.cortical_histories[cortical_idx].window_size
+            return fire_ledger.default_window_size
+        return 20  # Default window size
+    
+    @property
+    def memory_cortical_indices(self):
+        """Get memory cortical area indices from Fire Ledger."""
+        if self.burst_engine and self.burst_engine.fire_ledger:
+            return set(self.burst_engine.fire_ledger.memory_areas.keys())
+        return set()
+    
+    @property 
+    def total_neurons_fired(self):
+        """Get total neurons that fired in the last timestep."""
+        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+            return 0
+        
+        fire_queue = self.burst_engine.previous_fire_queue
+        total = 0
+        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
+            total += len(cortical_neurons)
+        return total
+
+
+class BitmapAdapter:
+    """Adapter to make list of neuron IDs behave like a roaring bitmap."""
+    
+    def __init__(self, neuron_ids):
+        self.neuron_ids = set(neuron_ids) if neuron_ids else set()
+        
+    def __iter__(self):
+        """Iterate over neuron IDs."""
+        return iter(sorted(self.neuron_ids))
+        
+    def __len__(self):
+        """Get number of neurons."""
+        return len(self.neuron_ids)
+        
+    def is_empty(self):
+        """Check if bitmap is empty."""
+        return len(self.neuron_ids) == 0
+
+
+class EmptyBitmapAdapter:
+    """Empty bitmap adapter for when no data is available."""
+    
+    def __iter__(self):
+        return iter([])
+        
+    def __len__(self):
+        return 0
+        
+    def is_empty(self):
+        return True
+
+
 class CoreAPIService:
     """Facade for all FEAGI core API operations.
 
@@ -268,6 +378,22 @@ class CoreAPIService:
             "[DEBUG] CORE API SERVICE: load_barebones_genome called, delegating to genome service"
         )
         result = self._genome_service.load_default_genome("barebones")
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_npu_enabled():
+                self.logger.debug(
+            f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}"
+        )
+        except Exception:
+            pass
+        return result
+
+    def load_essential_genome(self) -> Dict[str, Any]:
+        """Load the essential genome."""
+        print(
+            "[DEBUG] CORE API SERVICE: load_essential_genome called, delegating to genome service"
+        )
+        result = self._genome_service.load_default_genome("essential")
         try:
             from feagi.core.state_manager import FeagiStateManager
             if FeagiStateManager.instance().is_debug_npu_enabled():
@@ -1316,18 +1442,56 @@ class CoreAPIService:
         """Get the connectome manager instance (legacy alias)."""
         return self._connectome_manager
 
-    def get_fcl_manager(self):
-        """Get the FCL manager instance."""
+    # === Area classification helpers (strict) ===
+    def is_opu_area(self, cortical_id_or_idx) -> bool:
+        """Return True iff cortical_group == 'OPU' for the area."""
         try:
-            # Prefer the live BurstEngine singleton's FCL manager to avoid stale references
+            cm = self._connectome_manager
+            return bool(cm and hasattr(cm, "is_opu") and cm.is_opu(cortical_id_or_idx))
+        except Exception:
+            return False
+
+    def is_ipu_area(self, cortical_id_or_idx) -> bool:
+        """Return True iff cortical_group == 'IPU' for the area."""
+        try:
+            cm = self._connectome_manager
+            return bool(cm and hasattr(cm, "is_ipu") and cm.is_ipu(cortical_id_or_idx))
+        except Exception:
+            return False
+
+    def list_opu_areas(self) -> list:
+        """Return list of cortical IDs for OPU areas."""
+        try:
+            cm = self._connectome_manager
+            return list(cm.list_opu_areas()) if cm and hasattr(cm, "list_opu_areas") else []
+        except Exception:
+            return []
+
+    def list_ipu_areas(self) -> list:
+        """Return list of cortical IDs for IPU areas."""
+        try:
+            cm = self._connectome_manager
+            return list(cm.list_ipu_areas()) if cm and hasattr(cm, "list_ipu_areas") else []
+        except Exception:
+            return []
+
+    def get_fcl_manager(self):
+        """Get the FCL manager instance (compatibility adapter for new architecture).
+        
+        In the new architecture, there is no persistent FCL manager.
+        Instead, FCL is a transient pre-burst collector and FireQueue holds 
+        the actual firing neurons. We return a compatibility adapter.
+        """
+        try:
             from feagi.npu.burst_engine import BurstEngine
             be = BurstEngine.get_instance()
-            if be and hasattr(be, "fcl_manager") and be.fcl_manager:
-                return be.fcl_manager
+            if be:
+                # Return a compatibility adapter that provides the expected interface
+                return FCLManagerAdapter(be)
         except Exception as e:
             self.logger.error(f"Error getting FCL manager: {str(e)}")
-            # pass
-        # Fallback to ConnectomeManager linkage if available
+        
+        # Fallback to old ConnectomeManager linkage if available (legacy support)
         if hasattr(self._connectome_manager, "fcl_manager"):
             return self._connectome_manager.fcl_manager
         return None
@@ -1341,105 +1505,86 @@ class CoreAPIService:
     # CRITICAL MISSING METHODS - FIRE QUEUE & STATE MANAGEMENT
     # =================================================================
 
-    def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data from FCL using NPU SoA (no placeholders)."""
+    def get_current_fire_queue(self):
+        """Get current fire queue from burst engine for FQ sampler access.
+        
+        This method is called by FQ samplers to get access to the current
+        fire queue data. It delegates to the BurstEngine's get_current_fire_queue method.
+        
+        Returns:
+            FireQueue instance or None if not available
+        """
         try:
-            # Prefer the live FCL manager from the running burst engine
-            fcl_manager = self.get_fcl_manager()
-            if not fcl_manager:
-                return None
-
-            # Get current-timestep global FCL
-                global_fcl = fcl_manager.get_fcl()
-            if not global_fcl or global_fcl.is_empty():
-                self.logger.debug("🔥 [CORE API] Global FCL is empty - no neurons firing globally")
-                return {
-                    "neuron_ids": [],
-                    "membrane_potentials": [],
-                    "thresholds": [],
-                    "consecutive_fire_counts": [],
-                    "refractory_counters": [],
-                    "coordinates": [],
-                }
-
-            firing_ids = list(global_fcl)
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_current_fire_queue'):
+                return burst_engine.get_current_fire_queue()
+            return None
+        except Exception as e:
+            self.logger.error(f"Error accessing current fire queue: {e}")
+            return None
+    
+    def get_fire_queue(self) -> Optional[Dict[str, Any]]:
+        """Get the global fire queue data from new FireQueue architecture."""
+        try:
+            # Get the current or previous fire queue from burst engine
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine.get_instance()
+            
+            if not burst_engine:
+                self.logger.debug("🔥 [CORE API] No burst engine available")
+                return self._empty_fire_queue_response()
+            
+            # Try to get the previous fire queue (contains last timestep's fired neurons)
+            fire_queue = burst_engine.previous_fire_queue
+            if not fire_queue or fire_queue.is_empty():
+                self.logger.debug("🔥 [CORE API] Fire queue is empty - no neurons fired globally")
+                return self._empty_fire_queue_response()
+            
+            # Extract data directly from FireQueue
+            neuron_ids = []
+            membrane_potentials = []
+            thresholds = []
+            refractory_counters = []
+            coordinates = []
+            
+            # Collect data from all cortical areas in fire queue
+            for cortical_idx, firing_neurons in fire_queue.firing_neurons_by_area.items():
+                for neuron in firing_neurons:
+                    neuron_ids.append(neuron.neuron_id)
+                    membrane_potentials.append(float(neuron.membrane_potential))
+                    # Note: FireQueue doesn't store thresholds/refractory data yet
+                    # These could be looked up from NPU if needed
+                    thresholds.append(1.0)  # Default threshold
+                    refractory_counters.append(0)  # Default refractory
+                    coordinates.append(tuple(neuron.coordinates))
+            
             self.logger.debug(
-                f"🔥 [CORE API] Global fire queue has {len(firing_ids)} firing neurons"
+                f"🔥 [CORE API] Global fire queue has {len(neuron_ids)} firing neurons"
             )
-
-            # Access the authoritative NPU neuron array (SoA)
-            if not hasattr(self._connectome_manager, "neuron_array"):
-                # No neuron array available
-                return {
-                    "neuron_ids": [],
-                    "membrane_potentials": [],
-                    "thresholds": [],
-                    "consecutive_fire_counts": [],
-                    "refractory_counters": [],
-                    "coordinates": [],
-                }
-
-            neuron_array = self._connectome_manager.neuron_array
-            # Validate required SoA fields
-            required_attrs = [
-                "neuron_id_to_index",
-                "membrane_potentials",
-                "thresholds",
-                "refractory_counters",
-                "coordinates_x",
-                "coordinates_y",
-                "coordinates_z",
-            ]
-            if not all(hasattr(neuron_array, attr) for attr in required_attrs):
-                # Missing SoA fields
-                    return {
-                        "neuron_ids": [],
-                        "membrane_potentials": [],
-                        "thresholds": [],
-                        "consecutive_fire_counts": [],
-                        "refractory_counters": [],
-                        "coordinates": [],
-                    }
-
-            neuron_ids: List[int] = []
-            membrane_potentials: List[float] = []
-            thresholds: List[float] = []
-            refractory_counters: List[int] = []
-            coordinates: List[tuple] = []
-
-            # Map IDs to indices and extract real SoA data
-            id_to_idx = neuron_array.neuron_id_to_index
-            for nid in firing_ids:
-                idx = id_to_idx.get(nid)
-                if idx is None:
-                    continue
-                # Bounds guard
-                if idx < 0 or idx >= neuron_array.neuron_count:
-                    continue
-                neuron_ids.append(nid)
-                membrane_potentials.append(float(neuron_array.membrane_potentials[idx]))
-                thresholds.append(float(neuron_array.thresholds[idx]))
-                refractory_counters.append(int(neuron_array.refractory_counters[idx]))
-                coordinates.append(
-                    (
-                        int(neuron_array.coordinates_x[idx]),
-                        int(neuron_array.coordinates_y[idx]),
-                        int(neuron_array.coordinates_z[idx]),
-                    )
-                )
-
+            
             return {
                 "neuron_ids": neuron_ids,
                 "membrane_potentials": membrane_potentials,
                 "thresholds": thresholds,
-                # Not tracked in NPU SoA yet; omitted rather than fabricating values
-                "consecutive_fire_counts": [],
+                "consecutive_fire_counts": [],  # Not tracked yet
                 "refractory_counters": refractory_counters,
                 "coordinates": coordinates,
             }
+            
         except Exception as e:
             self.logger.error(f"Error getting global fire queue: {str(e)}")
             return None
+    
+    def _empty_fire_queue_response(self) -> Dict[str, Any]:
+        """Return empty fire queue response structure."""
+        return {
+            "neuron_ids": [],
+            "membrane_potentials": [],
+            "thresholds": [],
+            "consecutive_fire_counts": [],
+            "refractory_counters": [],
+            "coordinates": [],
+        }
 
     def genome_is_loaded(self) -> bool:
         """Check if a genome is currently loaded - CRITICAL for state management."""
@@ -1767,15 +1912,123 @@ class CoreAPIService:
     def get_area_fq_sample_rate(self, area_id: int) -> float:
         """Get FQ sample rate for an area."""
         try:
-            # This should get real sample rate from the fire queue manager
-            raise NotImplementedError(
-                "Getting area FQ sample rate is not yet implemented"
-            )
+            # Get from the FQ sampler via burst engine
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_fq_sampler'):
+                fq_sampler = burst_engine.get_fq_sampler()
+                if fq_sampler and hasattr(fq_sampler, 'sample_frequency_hz'):
+                    return float(fq_sampler.sample_frequency_hz)
+            
+            # Fallback to state manager configuration
+            if self.state_manager:
+                return getattr(self.state_manager, "fq_sampler_frequency", 20.0)
+            return 20.0
         except Exception as e:
             self.logger.error(f"Error getting area FQ sample rate: {str(e)}")
             raise ValueError(
                 f"Failed to get area FQ sample rate: {str(e)}"
             ) from e
+    
+    def set_area_fq_sample_rate(self, area_id: int, sample_rate: float) -> bool:
+        """Set FQ sample rate for a specific cortical area."""
+        try:
+            # For now, we set the global FQ sampler rate
+            # TODO: In future, support per-area sampling rates
+            if sample_rate <= 0 or sample_rate > 1000:
+                raise ValueError("Sample rate must be between 0 and 1000 Hz")
+            
+            # Update via burst engine if available
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'get_fq_sampler'):
+                fq_sampler = burst_engine.get_fq_sampler()
+                if fq_sampler and hasattr(fq_sampler, 'sample_frequency_hz'):
+                    fq_sampler.sample_frequency_hz = sample_rate
+                    self.logger.info(f"Updated FQ sampler frequency to {sample_rate}Hz for area {area_id}")
+                    return True
+            
+            # Fallback: Update state manager
+            if self.state_manager:
+                self.state_manager.set_fq_sampler_frequency(sample_rate)
+                self.logger.info(f"Updated FQ sampler frequency in state manager to {sample_rate}Hz for area {area_id}")
+                return True
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Error setting area FQ sample rate: {str(e)}")
+            return False
+    
+    def get_fcl_sampler_config(self) -> Dict[str, Any]:
+        """Get FCL sampler configuration (alias for FQ sampler config)."""
+        return self.get_fq_sampler_config()
+    
+    def update_fcl_sampler_config(self, frequency: float, consumer: str) -> bool:
+        """Update FCL sampler configuration (alias for FQ sampler config)."""
+        return self.update_fq_sampler_config(frequency, consumer)
+    
+    # =================================================================
+    # FIRE LEDGER WINDOW SIZE CONFIGURATION METHODS
+    # =================================================================
+    
+    def get_fire_ledger_default_window_size(self) -> int:
+        """Get the default window size for Fire Ledger historical storage."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                return burst_engine.fire_ledger.default_window_size
+            return 20  # Default window size
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger default window size: {str(e)}")
+            return 20
+    
+    def get_fire_ledger_area_window_size(self, cortical_idx: int) -> int:
+        """Get window size for specific cortical area in Fire Ledger."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                fire_ledger = burst_engine.fire_ledger
+                if cortical_idx in fire_ledger.cortical_histories:
+                    return fire_ledger.cortical_histories[cortical_idx].window_size
+                return fire_ledger.default_window_size
+            return 20  # Default window size
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger window size for area {cortical_idx}: {str(e)}")
+            return 20
+    
+    def set_fire_ledger_area_window_size(self, cortical_idx: int, window_size: int) -> bool:
+        """Set window size for specific cortical area in Fire Ledger."""
+        try:
+            if window_size <= 0 or window_size > 10000:
+                raise ValueError("Window size must be between 1 and 10000")
+                
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                burst_engine.fire_ledger.configure_area_window(cortical_idx, window_size)
+                self.logger.info(f"Updated Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
+                return True
+            
+            self.logger.warning("No Fire Ledger available to configure window size")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error setting Fire Ledger window size for area {cortical_idx}: {str(e)}")
+            return False
+    
+    def get_fire_ledger_areas_window_config(self) -> Dict[int, int]:
+        """Get window size configuration for all cortical areas in Fire Ledger."""
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine and burst_engine.fire_ledger:
+                fire_ledger = burst_engine.fire_ledger
+                window_config = {}
+                
+                # Get window sizes for all configured areas
+                for cortical_idx, history in fire_ledger.cortical_histories.items():
+                    window_config[cortical_idx] = history.window_size
+                    
+                return window_config
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger areas window configuration: {str(e)}")
+            return {}
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""
@@ -2124,7 +2377,7 @@ class CoreAPIService:
                     all_morphologies[name] = {
                         "name": name,
                         "type": morphology.get("type", "unknown"),
-                        "class": "custom",  # ✅ FIXED: Use "custom" for genome morphologies
+                        "class": morphology.get("class", "custom"),  # Use original class or default to "custom"
                         "parameters": morphology.get("parameters", {}),
                         "source": "genome",
                     }
@@ -2447,6 +2700,284 @@ class CoreAPIService:
             self.logger.error(f"Error getting cortical mapping: {str(e)}")
             return {}
 
+    def clone_cortical_area(
+        self,
+        source_area_id: str,
+        clone_cortical_mapping: bool = True,
+        coordinates_3d: Optional[List[int]] = None,
+        coordinates_2d: Optional[List[int]] = None,
+        cortical_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Clone an existing cortical area, leveraging existing services.
+
+        - New area is created in the same brain region as the source
+        - When clone_cortical_mapping is True, duplicate incoming/outgoing/recursive
+          connections using the existing mapping update pathways
+        - Coordinates are optional; if not provided, suggest close-by coordinates
+        """
+        try:
+            # Validate source exists
+            source_area = self._cortical_area_service.get_area(source_area_id)
+            if not source_area:
+                raise ValueError(f"Source cortical area '{source_area_id}' not found")
+
+            # Extract source metadata
+            source_params = (source_area or {}).get("parameters", {})
+            source_dims = (source_area or {}).get("dimensions", {})
+            source_coords = (source_area or {}).get("coordinates", {})
+            source_name = (source_area or {}).get("name", source_area_id)
+            source_type = (source_area or {}).get("type", "custom")
+
+            # Determine brain region for new area: same as source
+            parent_region_id = source_params.get("parent_region_id")
+            if not parent_region_id:
+                # Attempt from brain region hierarchy if not stored in parameters
+                try:
+                    cm = self.get_connectome_manager()
+                    if hasattr(cm, "brain_region_hierarchy"):
+                        parent_region_id = cm.brain_region_hierarchy.get_region_for_area(source_area_id)
+                except Exception:
+                    parent_region_id = None
+
+            if not parent_region_id:
+                raise ValueError("Cannot determine source brain region for cloning")
+
+            # Coordinates: use provided or suggest near source
+            if coordinates_3d is None:
+                # Suggest a nearby 3D coordinate (shift +1 in x if free, otherwise +1 in y)
+                try:
+                    cm = self.get_connectome_manager()
+                    sx = int(source_coords.get("x", 0))
+                    sy = int(source_coords.get("y", 0))
+                    sz = int(source_coords.get("z", 0))
+                    # Basic heuristic. Avoid collisions with Morton limits; ConnectomeManager will validate
+                    candidates = [
+                        {"x": sx + 1, "y": sy, "z": sz},
+                        {"x": sx, "y": sy + 1, "z": sz},
+                        {"x": sx, "y": sy, "z": sz + 1},
+                    ]
+                    chosen = candidates[0]
+                    coordinates_3d = [chosen["x"], chosen["y"], chosen["z"]]
+                except Exception:
+                    coordinates_3d = [int(source_coords.get("x", 0)) + 1, int(source_coords.get("y", 0)), int(source_coords.get("z", 0))]
+
+            else:
+                # Normalize provided list into dict-like for downstream
+                coordinates_3d = [int(coordinates_3d[0]), int(coordinates_3d[1]), int(coordinates_3d[2])]
+
+            if coordinates_2d is None:
+                # Suggest nearby 2D coordinates if source had them
+                s2d = None
+                try:
+                    s2d = source_params.get("coordinates_2d") or source_area.get("coordinates_2d")
+                    if not s2d:
+                        x2d = source_params.get("2dcorx")
+                        y2d = source_params.get("2dcory")
+                        if x2d is not None and y2d is not None:
+                            s2d = [int(x2d), int(y2d)]
+                except Exception:
+                    s2d = None
+                if s2d and isinstance(s2d, (list, tuple)) and len(s2d) >= 2:
+                    coordinates_2d = [int(s2d[0]) + 1, int(s2d[1])]
+                else:
+                    coordinates_2d = [0, 0]
+            else:
+                coordinates_2d = [int(coordinates_2d[0]), int(coordinates_2d[1])]
+
+            # Dimensions come from source; for memory areas, GenomeService enforces 1x1x1
+            dims = source_dims
+            if isinstance(dims, tuple):
+                dims = {"width": dims[0], "height": dims[1], "depth": dims[2]}
+            elif isinstance(dims, list):
+                dims = {"width": dims[0], "height": dims[1], "depth": dims[2]}
+
+            # Determine cortical group/subgroup from source
+            cortical_group = source_params.get("cortical_group", source_area.get("group_id", "CUSTOM"))
+            sub_group_id = source_params.get("sub_group_id") or source_params.get("cortical_sub_group") or source_area.get("subgroup")
+            is_memory = sub_group_id == "MEMORY"
+
+            # Build parameters for new area creation; copy relevant parameters but do not duplicate mapping here
+            new_params: Dict[str, Any] = {}
+            # Keep per-voxel neuron count if not memory
+            if not is_memory:
+                pv = source_params.get("per_voxel_neuron_cnt") or source_params.get("neurons_per_voxel")
+                if pv is not None:
+                    new_params["per_voxel_neuron_cnt"] = int(pv)
+            # Region and grouping
+            new_params.update({
+                "brain_region_id": parent_region_id,
+                "cortical_group": cortical_group,
+                "sub_group_id": sub_group_id or source_params.get("cortical_sub_group", "CUSTOM"),
+                "coordinates_2d": coordinates_2d,
+            })
+            # Memory-specific properties: preserve if cloning a memory area
+            if is_memory:
+                for key in [
+                    "temporal_depth",
+                    "init_lifespan",
+                    "lifespan_growth_rate",
+                    "longterm_mem_threshold",
+                ]:
+                    if key in source_params and source_params.get(key) is not None:
+                        new_params[key] = source_params.get(key)
+
+            # Copy ALL neural properties from the source parameters except mapping/region/coordinates overrides
+            try:
+                banned_param_keys = {
+                    "mapping",
+                    "cortical_mapping_dst",
+                    "brain_region_id",
+                    "parent_region_id",
+                    "coordinates_2d",
+                }
+                for k, v in (source_params or {}).items():
+                    if k in banned_param_keys:
+                        continue
+                    # Keep our explicit overrides for group/subgroup and per_voxel count
+                    if k in ("cortical_group", "sub_group_id", "cortical_sub_group", "per_voxel_neuron_cnt"):
+                        # Already set above; still let exact matches through to preserve exact values
+                        pass
+                    new_params[k] = v
+            except Exception:
+                pass
+
+            # Also copy select top-level neural properties from source area to ensure exact match in readers
+            try:
+                top_level_passthrough_keys = [
+                    "firing_threshold",
+                    "refractory_period",
+                    "leak_coefficient",
+                ]
+                for k in top_level_passthrough_keys:
+                    if k in (source_area or {}):
+                        new_params[k] = source_area[k]
+            except Exception:
+                pass
+
+            # Generate a standard cortical_id matching FEAGI's convention
+            try:
+                from feagi.bdu.models.cortical_area import generate_cortical_id as _gen_id
+
+                # Seed from source name (letters/digits), fallback to source id
+                seed_source = str(source_name or source_area_id)
+                seed_source = "".join([c for c in seed_source if c.isalnum()])
+                if len(seed_source) < 3:
+                    seed_source = (seed_source + "000")[:3]
+                else:
+                    seed_source = seed_source[:3]
+                # Ensure uniqueness vs. current genome blueprint
+                new_cortical_id = None
+                existing_ids = set()
+                try:
+                    genome = self.get_genome() or {}
+                    if "blueprint" in genome and isinstance(genome["blueprint"], dict):
+                        existing_ids = set(genome["blueprint"].keys())
+                except Exception:
+                    existing_ids = set()
+                for _ in range(100):
+                    candidate = _gen_id(prefix=("m" if is_memory else "c"), seed=seed_source.upper())
+                    if candidate not in existing_ids:
+                        new_cortical_id = candidate
+                        break
+                if not new_cortical_id:
+                    # As a last resort, one more generation
+                    new_cortical_id = _gen_id(prefix=("m" if is_memory else "c"), seed=seed_source.upper())
+                new_params["cortical_id"] = new_cortical_id
+            except Exception:
+                # As a fallback, let GenomeService assign one (it will also be fixed there)
+                pass
+
+            # Create area via GenomeService (single source of truth)
+            # Resolve target cortical name
+            target_name = cortical_name.strip() if cortical_name else f"{source_name}_clone"
+            # Ensure uniqueness of cortical_name; append numeric suffix if needed
+            try:
+                existing_names = set(self.get_cortical_area_name_list() or [])
+            except Exception:
+                existing_names = set()
+            if target_name in existing_names:
+                suffix = 2
+                base = target_name
+                while f"{base}_{suffix}" in existing_names and suffix < 1000:
+                    suffix += 1
+                if f"{base}_{suffix}" not in existing_names:
+                    target_name = f"{base}_{suffix}"
+
+            created = self._genome_service.create_cortical_area(
+                name=target_name,
+                coordinates={"x": coordinates_3d[0], "y": coordinates_3d[1], "z": coordinates_3d[2]},
+                dimensions=dims,
+                area_type=("memory" if is_memory else ("custom" if source_type == "custom" else source_type)),
+                parameters=new_params,
+            )
+            if not created or "cortical_id" not in created:
+                raise ValueError("Failed to create cloned cortical area")
+
+            new_area_id = created["cortical_id"]
+
+            # Optionally clone mappings: duplicate incoming, outgoing, and recursive connections
+            if clone_cortical_mapping:
+                try:
+                    # Use detailed map from genome (includes normalized connection objects)
+                    detailed_map = self.get_detailed_cortical_map()
+
+                    # ---- Outgoing (source -> dst) ----
+                    try:
+                        out_map: Dict[str, Any] = detailed_map.get(source_area_id, {}) or {}
+                        # Build new mapping for the cloned source, converting any self-recursive target to the new ID
+                        new_out_map: Dict[str, Any] = {}
+                        for dst_id, connections in out_map.items():
+                            if not connections or not isinstance(connections, list):
+                                continue
+                            target_id = new_area_id if dst_id == source_area_id else dst_id
+                            new_out_map[target_id] = connections
+                        if new_out_map:
+                            self.update_cortical_mapping({new_area_id: new_out_map})
+                            # Trigger region I/O designation for each created mapping
+                            cm = self.get_connectome_manager()
+                            if hasattr(cm, 'on_cortical_mapping_created'):
+                                for dst_created in new_out_map.keys():
+                                    cm.on_cortical_mapping_created(new_area_id, dst_created)
+                    except Exception as map_err:
+                        self.logger.warning(f"Failed to clone outgoing mappings: {map_err}")
+
+                    # ---- Incoming (src -> source) becomes (src -> new) ----
+                    try:
+                        for src_id, dsts in detailed_map.items():
+                            if not isinstance(dsts, dict):
+                                continue
+                            if source_area_id in dsts:
+                                connections = dsts.get(source_area_id, [])
+                                if not connections or not isinstance(connections, list):
+                                    continue
+                                self.update_cortical_mapping({src_id: {new_area_id: connections}})
+                                cm = self.get_connectome_manager()
+                                if hasattr(cm, 'on_cortical_mapping_created'):
+                                    cm.on_cortical_mapping_created(src_id, new_area_id)
+                    except Exception as map_err:
+                        self.logger.warning(f"Failed to clone incoming mappings: {map_err}")
+
+                    # ---- Ensure recursive mapping (source -> source) becomes (new -> new) if present ----
+                    try:
+                        if source_area_id in (out_map.keys() if 'out_map' in locals() else []):
+                            rec_connections = out_map.get(source_area_id, [])
+                            if rec_connections and isinstance(rec_connections, list):
+                                self.update_cortical_mapping({new_area_id: {new_area_id: rec_connections}})
+                                cm = self.get_connectome_manager()
+                                if hasattr(cm, 'on_cortical_mapping_created'):
+                                    cm.on_cortical_mapping_created(new_area_id, new_area_id)
+                    except Exception as rec_err:
+                        self.logger.warning(f"Failed to clone recursive mapping: {rec_err}")
+
+                except Exception as e:
+                    self.logger.warning(f"Clone operation succeeded but mapping duplication encountered issues: {e}")
+
+            return {"new_area_id": new_area_id, "message": "Cortical area cloned successfully"}
+
+        except Exception as e:
+            self.logger.error(f"Error cloning cortical area: {e}")
+            raise
+
     def get_simple_cortical_mapping(self) -> Dict[str, List[str]]:
         """Get simple cortical mapping showing only source -> destination
         relationships.
@@ -2526,79 +3057,57 @@ class CoreAPIService:
         """Get cortical mapping properties between two cortical areas."""
         try:
             genome = self.get_genome()
-            if not genome or "blueprint" not in genome:
+            blueprint = (genome or {}).get("blueprint", {})
+
+            raw_connections: List[Any] = []
+
+            # 1) Primary: parameters.mapping in genome blueprint
+            if src_cortical_area in blueprint:
+                area_def = blueprint[src_cortical_area] or {}
+                params = area_def.get("parameters", {}) or {}
+                mapping_param = params.get("mapping")
+                if isinstance(mapping_param, dict):
+                    candidate = mapping_param.get(dst_cortical_area)
+                    if isinstance(candidate, list) and candidate:
+                        raw_connections = candidate
+
+                # 2) Alternate genome key: cortical_mapping_dst
+                if not raw_connections:
+                    mapping_dst = area_def.get("cortical_mapping_dst")
+                    if isinstance(mapping_dst, dict):
+                        candidate = mapping_dst.get(dst_cortical_area)
+                        if isinstance(candidate, list) and candidate:
+                            raw_connections = candidate
+
+            # Nothing found
+            if not raw_connections:
                 return []
 
-            blueprint = genome["blueprint"]
-
-            # ARCHITECTURE COMPLIANCE: Use hierarchical genome structure
-            #  Look for mapping in:
-            #  blueprint[src_cortical_area]["parameters"]["mapping"][dst_cortical_area]
-            if src_cortical_area not in blueprint:
-                self.logger.debug(
-                    f"Source cortical area '{src_cortical_area}' not found in blueprint"
-                )
-                return []
-
-            area_def = blueprint[src_cortical_area]
-            if not isinstance(area_def, dict) or "parameters" not in area_def:
-                self.logger.debug(
-                    f"No parameters found for source cortical area '{src_cortical_area}'"
-                )
-                return []
-
-            parameters = area_def["parameters"]
-            if not isinstance(parameters, dict) or "mapping" not in parameters:
-                self.logger.debug(
-                    f"No mapping found for source cortical area '{src_cortical_area}'"
-                )
-                return []
-
-            mapping_data = parameters["mapping"]
-            if not isinstance(mapping_data, dict):
-                return []
-
-            # Check if destination area is mapped from source
-            if dst_cortical_area not in mapping_data:
-                self.logger.debug(
-                    f"No mapping found from '{src_cortical_area}' to '{dst_cortical_area}'"
-                )
-                return []
-
-            # Return the mapping data
-            connections = mapping_data[dst_cortical_area]
-            if not connections:
-                return []
-
-            # Convert to expected format
-            formatted_connections = []
-            for connection in connections:
-                if isinstance(connection, list) and len(connection) >= 4:
-                    #  Handle the genome format: [morphology_id, scalar,
-                    #  multiplier, plasticity_flag, ...]
-                    # Pad with default values for missing fields
-                    formatted_connection = {
-                        "morphology_id": connection[0],
-                        "morphology_scalar": (
-                            connection[1] if len(connection) > 1 else [1, 1, 1]
-                        ),
-                        "postSynapticCurrent_multiplier": (
-                            connection[2] if len(connection) > 2 else 1
-                        ),
-                        "plasticity_flag": (
-                            connection[3] if len(connection) > 3 else False
-                        ),
-                        "plasticity_constant": (
-                            connection[4] if len(connection) > 4 else 1
-                        ),
-                        "ltp_multiplier": (
-                            connection[5] if len(connection) > 5 else 1
-                        ),
-                        "ltd_multiplier": (
-                            connection[6] if len(connection) > 6 else 1
-                        ),
-                    }
-                    formatted_connections.append(formatted_connection)
+            # Normalize to expected format
+            formatted_connections: List[Dict[str, Any]] = []
+            for connection in raw_connections:
+                if isinstance(connection, list):
+                    # Array format: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                    formatted_connections.append({
+                        "morphology_id": connection[0] if len(connection) > 0 else "",
+                        "morphology_scalar": connection[1] if len(connection) > 1 else [1, 1, 1],
+                        "postSynapticCurrent_multiplier": connection[2] if len(connection) > 2 else 1,
+                        "plasticity_flag": connection[3] if len(connection) > 3 else False,
+                        "plasticity_constant": connection[4] if len(connection) > 4 else 1,
+                        "ltp_multiplier": connection[5] if len(connection) > 5 else 1,
+                        "ltd_multiplier": connection[6] if len(connection) > 6 else 1,
+                    })
+                elif isinstance(connection, dict):
+                    # Dict format already in expected schema
+                    formatted_connections.append({
+                        "morphology_id": connection.get("morphology_id", ""),
+                        "morphology_scalar": connection.get("morphology_scalar", [1, 1, 1]),
+                        "postSynapticCurrent_multiplier": connection.get("postSynapticCurrent_multiplier", 1),
+                        "plasticity_flag": connection.get("plasticity_flag", False),
+                        "plasticity_constant": connection.get("plasticity_constant", 1),
+                        "ltp_multiplier": connection.get("ltp_multiplier", 1),
+                        "ltd_multiplier": connection.get("ltd_multiplier", 1),
+                    })
 
             self.logger.info(
                 f"Retrieved {len(formatted_connections)} mapping properties from {src_cortical_area} to {dst_cortical_area}"
@@ -2694,74 +3203,82 @@ class CoreAPIService:
         Returns:
             Dict[str, Any]: Mapping data in the expected format
         """
-        logger.info("Getting detailed cortical map...")
+        logger.info("Getting detailed cortical map (genome source)...")
 
         try:
-            # Get all cortical areas using the correct service method
-            all_areas_list = self._cortical_area_service.get_all_areas()
+            genome = self.get_genome()
+            blueprint = (genome or {}).get("blueprint", {})
 
-            # Build the mapping response
-            mapping_response = {}
+            # Build the mapping response strictly from hierarchical genome
+            mapping_response: Dict[str, Any] = {}
 
-            for area_data in all_areas_list:
-                area_id = area_data.get("id")
-                if not area_id:
+            for area_id, area_def in blueprint.items():
+                if not isinstance(area_def, dict):
                     continue
 
-                #  Initialize area entry (empty dict for areas with no outgoing
-                #  connections)
                 mapping_response[area_id] = {}
 
-                # Get the area's mapping data from its parameters
-                area_parameters = area_data.get("parameters", {})
-                area_mapping = area_parameters.get("mapping", {})
+                params = area_def.get("parameters", {}) or {}
+                # Prefer parameters.mapping if present, otherwise cortical_mapping_dst
+                area_mapping: Dict[str, Any] = {}
+                mapping_param = params.get("mapping")
+                mapping_dst = area_def.get("cortical_mapping_dst")
+                if isinstance(mapping_param, dict) and mapping_param:
+                    area_mapping = mapping_param
+                elif isinstance(mapping_dst, dict) and mapping_dst:
+                    area_mapping = mapping_dst
 
-                if area_mapping:
-                    #  Convert each target area's mapping data to the expected
-                    #  format
-                    for (
-                        target_area_id,
-                        connection_list,
-                    ) in area_mapping.items():
-                        if not connection_list:
-                            continue
+                if not area_mapping:
+                    continue
 
-                        #  Convert each connection from array format to object
-                        #  format
-                        formatted_connections = []
-                        for connection_data in connection_list:
-                            if (
-                                isinstance(connection_data, list)
-                                and len(connection_data) >= 7
-                            ):  # Ensure we have all required fields
-                                formatted_connection = {
-                                    "morphology_id": connection_data[0],
-                                    "morphology_scalar": connection_data[1],
-                                    "postSynapticCurrent_multiplier": connection_data[
-                                        2
-                                    ],
-                                    "plasticity_flag": connection_data[3],
-                                    "plasticity_constant": connection_data[4],
-                                    "ltp_multiplier": connection_data[5],
-                                    "ltd_multiplier": connection_data[6],
+                for target_area_id, connection_list in area_mapping.items():
+                    if not isinstance(connection_list, list) or not connection_list:
+                        continue
+
+                    formatted_connections: List[Dict[str, Any]] = []
+                    for connection_data in connection_list:
+                        if isinstance(connection_data, list):
+                            # Array format: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                            formatted_connections.append(
+                                {
+                                    "morphology_id": connection_data[0] if len(connection_data) > 0 else "",
+                                    "morphology_scalar": connection_data[1] if len(connection_data) > 1 else [1, 1, 1],
+                                    "postSynapticCurrent_multiplier": connection_data[2] if len(connection_data) > 2 else 1,
+                                    "plasticity_flag": connection_data[3] if len(connection_data) > 3 else False,
+                                    "plasticity_constant": connection_data[4] if len(connection_data) > 4 else 1,
+                                    "ltp_multiplier": connection_data[5] if len(connection_data) > 5 else 1,
+                                    "ltd_multiplier": connection_data[6] if len(connection_data) > 6 else 1,
                                 }
-                                formatted_connections.append(
-                                    formatted_connection
-                                )
+                            )
+                        elif isinstance(connection_data, dict):
+                            # Already normalized
+                            formatted_connections.append(
+                                {
+                                    "morphology_id": connection_data.get("morphology_id", ""),
+                                    "morphology_scalar": connection_data.get("morphology_scalar", [1, 1, 1]),
+                                    "postSynapticCurrent_multiplier": connection_data.get(
+                                        "postSynapticCurrent_multiplier", 1
+                                    ),
+                                    "plasticity_flag": connection_data.get("plasticity_flag", False),
+                                    "plasticity_constant": connection_data.get("plasticity_constant", 1),
+                                    "ltp_multiplier": connection_data.get("ltp_multiplier", 1),
+                                    "ltd_multiplier": connection_data.get("ltd_multiplier", 1),
+                                }
+                            )
 
-                        if formatted_connections:
-                            mapping_response[area_id][
-                                target_area_id
-                            ] = formatted_connections
+                    if formatted_connections:
+                        mapping_response[area_id][target_area_id] = formatted_connections
 
             logger.info(
-                f"Generated detailed cortical map for {len(mapping_response)} areas"
+                f"Generated detailed cortical map (genome) for {len(mapping_response)} areas"
             )
             return mapping_response
 
         except Exception as e:
-            logger.error(f"Error generating detailed cortical map: {e}")
-            raise
+            self.logger.error(f"Error getting detailed cortical map: {str(e)}")
+            raise ValueError(
+                f"Failed to get detailed cortical map: {str(e)}"
+            ) from e
 
     def get_data_path(self) -> str:
         """Get data path."""
@@ -3032,10 +3549,15 @@ class CoreAPIService:
                 f"Injecting {total_neurons_found} neurons from {len(activations)} areas into FCL via injection service"
             )
             
-            injected_count = injection_service.inject_external_activations(
-                activations=activations,
-                current_timestep=current_timestep,
-                source="manual_stimulation",
+            # Route sensory/IPU activations to BurstEngine buffer for deterministic FCL injection
+            if hasattr(burst_engine, '_pending_external_activations'):
+                for area_id, area_data in activations.items():
+                    burst_engine._pending_external_activations[area_id] = area_data
+            else:
+                burst_engine._pending_external_activations = dict(activations)
+            injected_count = sum(
+                len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                for v in activations.values()
             )
 
             #  CRITICAL FIX: Trigger an immediate burst to process the injected
@@ -3047,12 +3569,14 @@ class CoreAPIService:
                     "🔥 Triggering immediate burst to process manually stimulated neurons"
                 )
                 try:
-                    #  Use the burst engine's run_with_fire_queue method to
+                    #  Use the burst engine's process_burst method to
                     #  trigger immediate processing
-                    burst_success = burst_engine.run_with_fire_queue()
+                    fired_neurons = burst_engine.process_burst()
+                    burst_success = fired_neurons is not None  # Check if process returned a result
                     if burst_success:
+                        fired_count = len(fired_neurons) if fired_neurons else 0
                         self.logger.info(
-                            "✅ Manual stimulation burst processing completed successfully"
+                            f"✅ Manual stimulation burst processing completed successfully - {fired_count} neurons fired"
                         )
                     else:
                         self.logger.warning(
@@ -3151,6 +3675,28 @@ class CoreAPIService:
         #  Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) linear
         #  search!
         return self._connectome_manager.get_cortical_idx_for_id(cortical_id)
+    
+    def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
+        """Get cortical ID for a cortical index using O(1) BiDirectionalCorticalMap.
+        
+        This method is used by FQ sampler to convert integer cortical indices
+        from FireQueue to proper 6-character cortical ID strings.
+
+        Args:
+            cortical_idx: Integer cortical area index
+
+        Returns:
+            6-character string cortical_id if found, None otherwise
+        """
+        try:
+            if not self._connectome_manager:
+                return None
+            
+            cortical_id = self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
+            return cortical_id
+        except Exception as e:
+            self.logger.error(f"Error converting cortical_idx {cortical_idx} to cortical_id: {e}")
+            return None
 
     def _validate_genome_loaded(self) -> bool:
         """Check if a genome is currently loaded - helper method for service consistency."""
@@ -4910,7 +5456,11 @@ class CoreAPIService:
     def get_connected_agents(self) -> List[str]:
         """Get list of all connected agent IDs."""
         try:
-            return self.state_manager.get_connected_agents()
+            agents_dict = self.state_manager.get_connected_agents()
+            # State Manager returns a dict, extract keys as agent IDs
+            if isinstance(agents_dict, dict):
+                return list(agents_dict.keys())
+            return []
         except Exception as e:
             self.logger.error(f"Error getting connected agents: {e}")
             return []
@@ -5135,69 +5685,221 @@ class CoreAPIService:
             "signature": region_data.get("signature", "")
         }
         
-        # Normalize areas field (handle both 'areas' and 'cortical_areas')
-        areas = region_data.get("areas", region_data.get("cortical_areas", []))
-        normalized["areas"] = areas
+        # HYBRID AREA DETECTION: Use dynamic blueprint detection with static fallback
+        areas = []
+        if blueprint:
+            # Dynamic detection: scan blueprint for actual region assignments
+            for cortical_id, cortical_def in blueprint.items():
+                # Check all possible region assignment fields
+                assigned_region = (
+                    cortical_def.get("brain_region_id") or
+                    cortical_def.get("parameters", {}).get("brain_region_id") or
+                    cortical_def.get("parameters", {}).get("region_id")
+                )
+                
+                if assigned_region == region_id:
+                    areas.append(cortical_id)
+                    self.logger.debug(f"🔍 Dynamic: Found {cortical_id} assigned to region {region_id}")
+        
+        # HYBRID APPROACH: COMBINE dynamic and static areas (don't use either/or)
+        static_areas = region_data.get("areas", region_data.get("cortical_areas", []))
+        
+        # Combine both sources - areas from blueprint + areas from static data
+        all_areas = set(areas)  # Dynamic areas
+        all_areas.update(static_areas)  # Add static areas
+        
+        areas = list(all_areas)
+        
+        if areas:
+            self.logger.info(f"🔍 Combined area detection: {len(areas)} total areas (dynamic + static)")
+        else:
+            self.logger.info("🔍 No areas found in dynamic or static data")
+        
+        normalized["areas"] = sorted(areas)
         
         # Normalize regions field (handle both 'regions' and 'child_regions')
         regions = region_data.get("regions", region_data.get("child_regions", []))
         normalized["regions"] = regions
         
-        # Get existing inputs/outputs or initialize empty
-        inputs = region_data.get("inputs", [])
-        outputs = region_data.get("outputs", [])
-        
-        # Automatic I/O assignment based on cortical area types
+        # HYBRID I/O ASSIGNMENT: Dynamic calculation with static validation
         if areas and blueprint:
-            auto_inputs, auto_outputs = self._auto_assign_region_io(areas, blueprint)
+            dynamic_inputs, dynamic_outputs = self._auto_assign_region_io(areas, blueprint)
             
-            # Merge with existing I/O (avoid duplicates)
-            all_inputs = list(set(inputs + auto_inputs))
-            all_outputs = list(set(outputs + auto_outputs))
-            
-            normalized["inputs"] = all_inputs
-            normalized["outputs"] = all_outputs
+            if dynamic_inputs or dynamic_outputs:
+                # Use dynamic results when found
+                normalized["inputs"] = sorted(dynamic_inputs)
+                normalized["outputs"] = sorted(dynamic_outputs)
+                self.logger.info(f"🔍 I/O: Dynamic assignment - inputs={len(dynamic_inputs)}, outputs={len(dynamic_outputs)}")
+            else:
+                # Dynamic found nothing - filter static I/O to only areas currently in region
+                static_inputs = region_data.get("inputs", [])
+                static_outputs = region_data.get("outputs", [])
+                area_set = set(areas)
+                
+                # Only keep static I/O entries that are actually in the current region
+                filtered_inputs = [area for area in static_inputs if area in area_set]
+                filtered_outputs = [area for area in static_outputs if area in area_set]
+                
+                normalized["inputs"] = sorted(filtered_inputs)
+                normalized["outputs"] = sorted(filtered_outputs)
+                
+                if filtered_inputs != static_inputs or filtered_outputs != static_outputs:
+                    self.logger.info(f"🔍 I/O: Filtered static data - inputs={len(filtered_inputs)}, outputs={len(filtered_outputs)} (removed stale entries)")
+                else:
+                    self.logger.info(f"🔍 I/O: Using static data - inputs={len(filtered_inputs)}, outputs={len(filtered_outputs)}")
         else:
-            normalized["inputs"] = inputs
-            normalized["outputs"] = outputs
+            # No areas or blueprint, use empty I/O
+            normalized["inputs"] = []
+            normalized["outputs"] = []
+            self.logger.info("🔍 I/O: No areas found, using empty I/O")
         
         return normalized
 
-    def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
-        """Automatically assign inputs and outputs based on cortical area types.
-        
-        Args:
-            areas: List of cortical area IDs in the region
-            blueprint: Genome blueprint for type detection
-            
-        Returns:
-            Tuple of (inputs, outputs) lists
+    # =================================================================
+    # REGION MEMBERSHIP CONSTRAINTS
+    # =================================================================
+
+    def _load_region_constraints(self):
+        """Load brain region constraints from configuration.
+
+        Returns a RegionConstraintsConfiguration dataclass.
         """
-        inputs = []
-        outputs = []
-        
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Processing {len(areas)} areas for I/O assignment")
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Blueprint keys sample: {list(blueprint.keys())[:5]}")
-        
+        try:
+            from feagi.config.toml_loader import load_feagi_config, get_region_constraints_config
+
+            config = load_feagi_config()
+            return get_region_constraints_config(config)
+        except Exception as e:
+            # Fail fast: constraints must be configured explicitly
+            raise ValueError(f"Region constraints configuration error: {e}")
+
+    def _classify_area_category(self, area_def: Dict[str, Any]) -> str:
+        """Classify cortical area into one of {IPU, OPU, CORE, CUSTOM, MEMORY} deterministically.
+
+        Prefers stable fields in priority order:
+        - group_id
+        - type ("memory"/"custom")
+        - parameters.sub_group_id == "MEMORY" -> MEMORY
+        - parameters.cortical_group (legacy): IPU/OPU/CORE/CUSTOM
+        """
+        if not isinstance(area_def, dict):
+            raise ValueError("Invalid cortical area definition for classification")
+
+        group_id = str(area_def.get("group_id", "")).upper()
+        if group_id in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+            return group_id
+
+        area_type = str(area_def.get("type", "")).lower()
+        if area_type == "memory":
+            return "MEMORY"
+        if area_type == "custom":
+            return "CUSTOM"
+
+        params = area_def.get("parameters", {})
+        if isinstance(params, dict) and str(params.get("sub_group_id", "")).upper() == "MEMORY":
+            return "MEMORY"
+
+        legacy_group = str(params.get("cortical_group", area_def.get("cortical_group", "")).upper())
+        if legacy_group in {"IPU", "OPU", "CORE", "CUSTOM", "MEMORY"}:
+            return legacy_group
+
+        # Unknown -> treat as CUSTOM to avoid unintended elevation to root-only types
+        return "CUSTOM"
+
+    def _get_area_def_from_blueprint(self, cortical_id: str) -> Dict[str, Any]:
+        from feagi.core.state_manager import FeagiStateManager
+
+        state_manager = FeagiStateManager.instance()
+        genome = getattr(state_manager, "genome", None)
+        if not genome or "blueprint" not in genome:
+            raise ValueError("Genome blueprint not available for area classification")
+        return genome["blueprint"].get(cortical_id, {})
+
+    def _assert_region_accepts_area(self, cortical_id: str, destination_region_id: str) -> None:
+        """Enforce membership constraints for a cortical area to a destination region.
+
+        Raises ValueError if violation is detected.
+        """
+        constraints = self._load_region_constraints()
+
+        area_def = self._get_area_def_from_blueprint(cortical_id)
+        category = self._classify_area_category(area_def)
+
+        is_root = destination_region_id == "root"
+        if is_root:
+            if category not in constraints.root_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: Area {cortical_id} (category={category}) not allowed in root"
+                )
+        else:
+            if category not in constraints.subregion_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: Area {cortical_id} (category={category}) not allowed in subregion {destination_region_id}"
+                )
+
+    def _auto_assign_region_io(self, areas: List[str], blueprint: Dict[str, Any]) -> tuple[List[str], List[str]]:
+        """Assign region inputs/outputs from connections using a single, robust source.
+
+        Rules:
+        - OUTPUT: Any area in the region that connects to an area outside the region
+        - INPUT: Any area in the region that receives a connection from outside the region
+
+        The genome may store connections under different keys; we normalize by
+        reading all known destinations:
+        - "cortical_destinations": {dst_id: [...]}
+        - "cortical_mapping_dst": {dst_id: [...]} (newer path)
+        - parameters.mapping (legacy) is ignored unless normalized into the above
+        """
+        inputs: List[str] = []
+        outputs: List[str] = []
+        area_set = set(areas)
+
+        def extract_destinations(props: Dict[str, Any]) -> set:
+            """Return set of destination area IDs from genome props (all variants)."""
+            dests: set = set()
+            # Newer and primary representation
+            mapping_dst = props.get("cortical_mapping_dst")
+            if isinstance(mapping_dst, dict):
+                dests.update(mapping_dst.keys())
+            # Legacy representation mirrored in cortical properties
+            c_dests = props.get("cortical_destinations")
+            if isinstance(c_dests, dict):
+                dests.update(c_dests.keys())
+            # Some genomes may nest under parameters; include if present
+            params = props.get("parameters")
+            if isinstance(params, dict):
+                p_map = params.get("cortical_mapping_dst") or params.get("cortical_destinations")
+                if isinstance(p_map, dict):
+                    dests.update(p_map.keys())
+            return dests
+
+        # Compute OUTPUTS: region areas that point outside
         for area_id in areas:
-            area_props = blueprint.get(area_id, {})
-            # Check both 'group' and 'cortical_group' for compatibility
-            area_group = area_props.get("group", area_props.get("cortical_group", "")).upper()
-            
-            self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Area {area_id}: props={area_props}, group='{area_group}'")
-            
-            # IPU areas become inputs
-            if area_group == "IPU":
-                inputs.append(area_id)
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as INPUT (IPU)")
-            # OPU areas become outputs  
-            elif area_group == "OPU":
+            props = blueprint.get(area_id, {}) or {}
+            dests = extract_destinations(props)
+            if any(dst not in area_set for dst in dests):
                 outputs.append(area_id)
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ✅ Added {area_id} as OUTPUT (OPU)")
-            else:
-                self.logger.info(f"🔍 [BRAIN-IO-DEBUG] ❌ Skipped {area_id} (group='{area_group}')")
-        
-        self.logger.info(f"🔍 [BRAIN-IO-DEBUG] Final result: inputs={inputs}, outputs={outputs}")
+
+        # Compute INPUTS: external areas that point into the region
+        for src_id, src_props in blueprint.items():
+            if src_id in area_set:
+                continue
+            for dst in extract_destinations(src_props):
+                if dst in area_set and dst not in inputs:
+                    inputs.append(dst)
+
+        # Fallback by group for areas with no detected connections
+        areas_with_io = set(inputs) | set(outputs)
+        for area_id in areas:
+            if area_id in areas_with_io:
+                continue
+            props = blueprint.get(area_id, {}) or {}
+            group = str(props.get("group", props.get("cortical_group", ""))).upper()
+            if group == "IPU":
+                inputs.append(area_id)
+            elif group == "OPU":
+                outputs.append(area_id)
+
         return inputs, outputs
 
     def delete_brain_region(
@@ -5256,54 +5958,57 @@ class CoreAPIService:
             
             for member_id, member_data in relocation_data.items():
                 try:
-                    # Extract coordinate information
+                    # Extract coordinate and parent region information
                     coordinate_2d = member_data.get("coordinate_2d")
                     parent_region_id = member_data.get("parent_region_id")
                     
-                    if coordinate_2d is None:
-                        self.logger.warning(f"No coordinate_2d provided for {member_id}, skipping")
+                    # Check if we have at least one operation to perform
+                    if coordinate_2d is None and parent_region_id is None:
+                        self.logger.warning(f"No coordinate_2d or parent_region_id provided for {member_id}, skipping")
                         continue
                     
-                    # Convert 2D coordinates to 3D format expected by update methods
-                    # Assume z-coordinate is 0 if not provided
-                    coordinates_3d = {
-                        "x": coordinate_2d[0],
-                        "y": coordinate_2d[1], 
-                        "z": 0  # Default z-coordinate
-                    }
-                    
-                    # Check if this is a cortical area or brain region
-                    # Try updating as cortical area first
-                    cortical_area_updated = False
-                    try:
-                        result = self.update_cortical_area(
-                            cortical_id=member_id,
-                            coordinates=coordinates_3d
-                        )
-                        if result is not None:
-                            cortical_area_updated = True
-                            self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
-                    except Exception as e:
-                        self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
-                    
-                    # If cortical area update failed, try as brain region
-                    if not cortical_area_updated:
+                    # Handle coordinate updates if provided
+                    coordinate_updated = False
+                    if coordinate_2d is not None:
+                        # Convert 2D coordinates to 3D format expected by update methods
+                        coordinates_3d = {
+                            "x": coordinate_2d[0],
+                            "y": coordinate_2d[1], 
+                            "z": 0  # Default z-coordinate
+                        }
+                        
+                        # Try updating as cortical area first
                         try:
-                            # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
-                            region_result = self.update_brain_region(
-                                region_id=member_id,
-                                parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
+                            result = self.update_cortical_area(
+                                cortical_id=member_id,
+                                coordinates=coordinates_3d
                             )
-                            if region_result:
-                                self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
-                            else:
-                                self.logger.warning(f"Failed to update {member_id} as brain region")
-                                continue
+                            if result is not None:
+                                coordinate_updated = True
+                                self.logger.debug(f"Updated cortical area {member_id} coordinates to {coordinate_2d}")
                         except Exception as e:
-                            self.logger.warning(f"Failed to update {member_id} as brain region: {e}")
-                            continue
+                            self.logger.debug(f"Failed to update {member_id} as cortical area: {e}")
+                        
+                        # If cortical area update failed, try as brain region
+                        if not coordinate_updated:
+                            try:
+                                # IMPORTANT: For brain regions, only update 2D coordinates; do not overwrite 3D
+                                region_result = self.update_brain_region(
+                                    region_id=member_id,
+                                    parameters={"coordinates_2d": [int(coordinate_2d[0]), int(coordinate_2d[1])]}
+                                )
+                                if region_result:
+                                    coordinate_updated = True
+                                    self.logger.debug(f"Updated brain region {member_id} coordinate_2d to {coordinate_2d}")
+                                else:
+                                    self.logger.warning(f"Failed to update {member_id} coordinates as brain region")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to update {member_id} coordinates as brain region: {e}")
+                    else:
+                        self.logger.debug(f"No coordinate update requested for {member_id}")
                     
                     # Handle parent region change if specified
+                    parent_updated = False
                     if parent_region_id is not None:
                         try:
                             parent_result = self.change_cortical_area_parent(
@@ -5311,13 +6016,21 @@ class CoreAPIService:
                                 new_parent_id=parent_region_id
                             )
                             if parent_result:
+                                parent_updated = True
                                 self.logger.debug(f"Updated {member_id} parent to {parent_region_id}")
                             else:
                                 self.logger.warning(f"Failed to update {member_id} parent region")
                         except Exception as e:
                             self.logger.warning(f"Failed to update {member_id} parent region: {e}")
+                    else:
+                        self.logger.debug(f"No parent region update requested for {member_id}")
                     
-                    success_count += 1
+                    # Count as successful if either coordinate or parent update succeeded
+                    if coordinate_updated or parent_updated or (coordinate_2d is None and parent_region_id is None):
+                        success_count += 1
+                        self.logger.info(f"Successfully processed {member_id} (coords: {coordinate_updated}, parent: {parent_updated})")
+                    else:
+                        self.logger.warning(f"Failed to process any updates for {member_id}")
                     
                 except Exception as e:
                     self.logger.error(f"Error relocating {member_id}: {e}")
@@ -5346,20 +6059,144 @@ class CoreAPIService:
         to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
         """
         try:
+            # Enforce region membership constraints before applying change
+            try:
+                self._assert_region_accepts_area(cortical_area_id, new_parent_id)
+            except Exception as e:
+                raise ValueError(str(e))
+
             #  This is a cortical area modification, so route through cortical
             #  area update
-            return (
-                self._cortical_area_service.update_area(
-                    cortical_area_id, parameters={"region_id": new_parent_id}
-                )
-                is not None
+            # CRITICAL FIX: Get current assignment BEFORE updating blueprint
+            old_parent_id = self._get_current_region_assignment(cortical_area_id)
+            
+            # Use ALL field names to ensure compatibility across different parts of the system
+            # Some expect 'region_id', others 'brain_region_id', others 'parent_region_id'
+            result = self._cortical_area_service.update_area(
+                cortical_area_id, 
+                parameters={
+                    "region_id": new_parent_id,
+                    "brain_region_id": new_parent_id,
+                    "parent_region_id": new_parent_id  # CRITICAL: Update cortical area's own parent field
+                }
             )
+            
+            if result is not None:
+                self.logger.info(f"Successfully updated {cortical_area_id} parent region to {new_parent_id}")
+                
+                # CRITICAL FIX: Update static region membership when areas are moved
+                try:
+                    self._update_static_region_membership_after_move(cortical_area_id, new_parent_id, old_parent_id)
+                except Exception as e:
+                    self.logger.warning(f"Failed to update static region membership for {cortical_area_id}: {e}")
+                
+                return True
+            else:
+                self.logger.warning(f"Failed to update {cortical_area_id} parent region")
+                return False
 
         except Exception as e:
             self.logger.error(f"Error changing cortical area parent: {str(e)}")
             raise ValueError(
                 f"Failed to change cortical area parent: {str(e)}"
             ) from e
+
+    def _get_current_region_assignment(self, cortical_area_id: str) -> str:
+        """Get the current region assignment for a cortical area from blueprint.
+        
+        Returns the region ID where the area is currently assigned, or 'root' as fallback.
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                return "root"
+                
+            blueprint = state_manager.genome.get("blueprint", {})
+            if cortical_area_id not in blueprint:
+                return "root"
+                
+            cortical_def = blueprint[cortical_area_id]
+            current_assignment = (
+                cortical_def.get("brain_region_id") or 
+                cortical_def.get("parameters", {}).get("brain_region_id") or
+                cortical_def.get("parameters", {}).get("region_id") or
+                "root"
+            )
+            
+            return current_assignment
+            
+        except Exception as e:
+            self.logger.warning(f"Error getting current region assignment for {cortical_area_id}: {e}")
+            return "root"
+
+    def _update_static_region_membership_after_move(self, cortical_area_id: str, new_parent_id: str, old_parent_id: str = None) -> None:
+        """Update static brain region membership data when a cortical area is moved.
+        
+        This ensures that the static region data stays in sync with dynamic cortical area assignments.
+        """
+        try:
+            # Get current genome from StateManager
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            if not hasattr(state_manager, 'genome') or not state_manager.genome:
+                self.logger.warning("No genome available for static region membership update")
+                return
+                
+            genome = state_manager.genome
+            brain_regions = genome.get("brain_regions", {})
+            
+            self.logger.info(f"🔄 [REGION-SYNC] Moving {cortical_area_id} from {old_parent_id} to {new_parent_id}")
+            
+            # Remove from old region (using the assignment we captured before the update)
+            areas_removed_from = []
+            if old_parent_id and old_parent_id in brain_regions:
+                old_region_areas = brain_regions[old_parent_id].get("areas", brain_regions[old_parent_id].get("cortical_areas", []))
+                if cortical_area_id in old_region_areas:
+                    old_region_areas.remove(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    areas_removed_from.append(old_parent_id)
+                    self.logger.info(f"🔄 [REGION-SYNC] Removed {cortical_area_id} from {old_parent_id}")
+                else:
+                    # Not in static data, add it first then remove it (sync static with reality)
+                    old_region_areas.append(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    self.logger.info(f"🔄 [REGION-SYNC] Added {cortical_area_id} to static data for {old_parent_id} (was missing)")
+                    
+                    # Now remove it
+                    old_region_areas.remove(cortical_area_id)
+                    brain_regions[old_parent_id]["areas"] = old_region_areas
+                    areas_removed_from.append(old_parent_id)
+                    self.logger.info(f"🔄 [REGION-SYNC] Removed {cortical_area_id} from {old_parent_id}")
+            else:
+                self.logger.warning(f"🔄 [REGION-SYNC] Old parent {old_parent_id} not found in brain_regions")
+            
+            # Add to new region (CRITICAL FIX: ensure we don't overwrite existing areas)
+            if new_parent_id in brain_regions:
+                # Get current areas list - make a COPY to avoid reference issues
+                current_new_region_areas = brain_regions[new_parent_id].get("areas", brain_regions[new_parent_id].get("cortical_areas", []))
+                new_region_areas = list(current_new_region_areas)  # Make a copy
+                
+                self.logger.info(f"🔄 [REGION-SYNC] Target region {new_parent_id} currently has areas: {new_region_areas}")
+                
+                if cortical_area_id not in new_region_areas:
+                    new_region_areas.append(cortical_area_id)
+                    brain_regions[new_parent_id]["areas"] = new_region_areas
+                    self.logger.info(f"🔄 [REGION-SYNC] Added {cortical_area_id} to region {new_parent_id}. New areas list: {new_region_areas}")
+                else:
+                    self.logger.info(f"🔄 [REGION-SYNC] {cortical_area_id} already in region {new_parent_id}")
+            else:
+                self.logger.warning(f"🔄 [REGION-SYNC] Target region {new_parent_id} not found in brain_regions")
+            
+            # Update StateManager's genome
+            state_manager.genome = genome
+            self.logger.info(f"🔄 [REGION-SYNC] Completed: {cortical_area_id} moved from {old_parent_id} to {new_parent_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating static region membership: {str(e)}")
+            raise
 
     def change_brain_region_parent(
         self, region_id: str, new_parent_id: str
@@ -5468,6 +6305,18 @@ class CoreAPIService:
             raise ValueError(
                 f"Failed to append circuit to genome: {str(e)}"
             ) from e
+
+    def apply_amalgamation_destination(self, dest_data: Dict[str, Any]) -> bool:
+        """Finalize amalgamation by merging payload and running full NeuroEmbryogenesis.
+
+        ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
+        to maintain proper data flow: API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
+        """
+        try:
+            return self._genome_service.apply_amalgamation_destination(dest_data)
+        except Exception as e:
+            self.logger.error(f"Error applying amalgamation destination: {str(e)}")
+            return False
 
     def complete_amalgamation(self, amalgamation_data: Dict[str, Any]) -> bool:
         """Complete an amalgamation.

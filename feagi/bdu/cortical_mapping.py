@@ -16,6 +16,7 @@ Architecture Principles:
 
 # Standard imports
 import logging
+import threading
 from typing import Dict, Optional, Set, Tuple
 
 # MEMORY OPTIMIZATION: Import invalid cortical index constant
@@ -43,6 +44,9 @@ class BiDirectionalCorticalMap:
 
     def __init__(self):
         """Initialize bidirectional mapping with core areas pre-allocated."""
+        # Thread safety lock for concurrent access
+        self.__lock = threading.RLock()
+        
         # Private internal dictionaries - no external access allowed
         self.__id_to_idx: Dict[str, int] = {}
         self.__idx_to_id: Dict[int, str] = {}
@@ -66,34 +70,35 @@ class BiDirectionalCorticalMap:
         Returns:
             True if mapping added successfully, False if invalid input
         """
-        # Input validation - single path, no exceptions
-        if not cortical_id or cortical_idx == INVALID_CORTICAL_IDX:
-            return False
+        with self.__lock:
+            # Input validation - single path, no exceptions
+            if not cortical_id or cortical_idx == INVALID_CORTICAL_IDX:
+                return False
 
-        # Protect core areas (0,1) from modification
-        if cortical_idx in (0, 1) and cortical_id not in ("_death", "_power"):
-            return False
+            # Protect core areas (0,1) from modification
+            if cortical_idx in (0, 1) and cortical_id not in ("_death", "_power"):
+                return False
 
-        # Atomic update - remove any existing conflicting mappings
-        existing_idx = self.__id_to_idx.get(cortical_id)
-        existing_id = self.__idx_to_id.get(cortical_idx)
+            # Atomic update - remove any existing conflicting mappings
+            existing_idx = self.__id_to_idx.get(cortical_id)
+            existing_id = self.__idx_to_id.get(cortical_idx)
 
-        if existing_idx is not None and existing_idx != cortical_idx:
-            del self.__idx_to_id[existing_idx]
+            if existing_idx is not None and existing_idx != cortical_idx:
+                del self.__idx_to_id[existing_idx]
 
-        if existing_id is not None and existing_id != cortical_id:
-            del self.__id_to_idx[existing_id]
+            if existing_id is not None and existing_id != cortical_id:
+                del self.__id_to_idx[existing_id]
 
-        # Add new mapping atomically
-        self.__id_to_idx[cortical_id] = cortical_idx
-        self.__idx_to_id[cortical_idx] = cortical_id
+            # Add new mapping atomically
+            self.__id_to_idx[cortical_id] = cortical_idx
+            self.__idx_to_id[cortical_idx] = cortical_id
 
-        return True
+            return True
 
     def get_idx(self, cortical_id: str) -> Optional[int]:
         """Get cortical_idx from cortical_id (O(1) lookup).
 
-        Lock-free atomic read operation for RTOS compatibility.
+        Thread-safe atomic read operation.
 
         Args:
             cortical_id: String identifier to look up
@@ -101,12 +106,13 @@ class BiDirectionalCorticalMap:
         Returns:
             Integer cortical_idx if found, None otherwise
         """
-        return self.__id_to_idx.get(cortical_id)
+        with self.__lock:
+            return self.__id_to_idx.get(cortical_id)
 
     def get_id(self, cortical_idx: int) -> Optional[str]:
         """Get cortical_id from cortical_idx (O(1) lookup).
 
-        Lock-free atomic read operation for RTOS compatibility.
+        Thread-safe atomic read operation.
 
         Args:
             cortical_idx: Integer index to look up
@@ -114,7 +120,8 @@ class BiDirectionalCorticalMap:
         Returns:
             String cortical_id if found, None otherwise
         """
-        return self.__idx_to_id.get(cortical_idx)
+        with self.__lock:
+            return self.__idx_to_id.get(cortical_idx)
 
     def remove_by_id(self, cortical_id: str) -> bool:
         """Remove mapping by cortical_id.
@@ -211,12 +218,13 @@ class BiDirectionalCorticalMap:
     def get_all_mappings(self) -> Dict[str, int]:
         """Get snapshot of current ID→IDX mappings.
 
-        Lock-free atomic snapshot for RTOS compatibility.
+        Thread-safe atomic snapshot.
 
         Returns:
             Copy of the current ID→IDX mapping dictionary
         """
-        return self.__id_to_idx.copy()
+        with self.__lock:
+            return self.__id_to_idx.copy()
 
     def get_stats(self) -> Dict[str, int]:
         """Get mapping statistics.

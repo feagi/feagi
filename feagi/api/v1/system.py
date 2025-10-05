@@ -23,6 +23,7 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 """
 
 from typing import Any, Dict, List
+import time
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -131,8 +132,89 @@ class SystemAPI:
     )
     async def get_health_check(self) -> HealthCheckResponse:
         """Get comprehensive system health information."""
+        # Simple in-memory TTL cache (5s) to reduce HTTP churn from frequent pollers
+        if not hasattr(self, "_hc_cache"):
+            self._hc_cache = {"t": 0.0, "data": None}
+        if not hasattr(self, "_hc_inflight"):
+            # per-path in-flight counter to throttle concurrent checks
+            self._hc_inflight: int = 0
+        now = time.time()
+        if (now - self._hc_cache.get("t", 0.0)) < 5.0 and self._hc_cache.get("data"):
+            data = self._hc_cache["data"]
+            return HealthCheckResponse(
+                burst_engine=data.get("burst_engine", False),
+                connected_agents=data.get("connected_agents"),
+                influxdb_availability=data.get("influxdb_availability", False),
+                neuron_count_max=data.get("neuron_count_max", 0),
+                synapse_count_max=data.get("synapse_count_max", 0),
+                latest_changes_saved_externally=data.get(
+                    "latest_changes_saved_externally", False
+                ),
+                genome_availability=data.get("genome_availability", False),
+                genome_validity=data.get("genome_validity"),
+                brain_readiness=data.get("brain_readiness", False),
+                fitness=data.get("fitness"),
+                cortical_area_count=data.get("cortical_area_count"),
+                neuron_count=data.get(
+                    "neuron_count"
+                ),  # Total neurons (regular + memory)
+                memory_neuron_count=data.get(
+                    "memory_neuron_count"
+                ),  # Memory neurons only
+                regular_neuron_count=data.get(
+                    "regular_neuron_count"
+                ),  # Regular neurons only
+                synapse_count=data.get("synapse_count"),
+                estimated_brain_size_in_MB=data.get(
+                    "estimated_brain_size_in_MB"
+                ),
+                genome_num=data.get("genome_num"),
+                genome_timestamp=data.get("genome_timestamp"),
+                feagi_session=data.get("feagi_session"),
+                simulation_timestep=data.get("simulation_timestep"),
+                memory_area_stats=data.get("memory_area_stats"),
+            )
         try:
+            # Restrict concurrent health_check processing to 1 (serve cache to others)
+            if self._hc_inflight > 0 and self._hc_cache.get("data"):
+                data = self._hc_cache["data"]
+                return HealthCheckResponse(
+                    burst_engine=data.get("burst_engine", False),
+                    connected_agents=data.get("connected_agents"),
+                    influxdb_availability=data.get("influxdb_availability", False),
+                    neuron_count_max=data.get("neuron_count_max", 0),
+                    synapse_count_max=data.get("synapse_count_max", 0),
+                    latest_changes_saved_externally=data.get(
+                        "latest_changes_saved_externally", False
+                    ),
+                    genome_availability=data.get("genome_availability", False),
+                    genome_validity=data.get("genome_validity"),
+                    brain_readiness=data.get("brain_readiness", False),
+                    fitness=data.get("fitness"),
+                    cortical_area_count=data.get("cortical_area_count"),
+                    neuron_count=data.get(
+                        "neuron_count"
+                    ),  # Total neurons (regular + memory)
+                    memory_neuron_count=data.get(
+                        "memory_neuron_count"
+                    ),  # Memory neurons only
+                    regular_neuron_count=data.get(
+                        "regular_neuron_count"
+                    ),  # Regular neurons only
+                    synapse_count=data.get("synapse_count"),
+                    estimated_brain_size_in_MB=data.get(
+                        "estimated_brain_size_in_MB"
+                    ),
+                    genome_num=data.get("genome_num"),
+                    genome_timestamp=data.get("genome_timestamp"),
+                    simulation_timestep=data.get("simulation_timestep"),
+                    feagi_session=data.get("feagi_session"),
+                    memory_area_stats=data.get("memory_area_stats"),
+                )
+            self._hc_inflight += 1
             health = await self.core_api_service.get_system_health()
+            # Update cache
+            self._hc_cache = {"t": now, "data": dict(health)}
             return HealthCheckResponse(
                 burst_engine=health.get("burst_engine", False),
                 connected_agents=health.get("connected_agents"),
@@ -164,12 +246,19 @@ class SystemAPI:
                 ),
                 genome_num=health.get("genome_num"),
                 genome_timestamp=health.get("genome_timestamp"),
+                feagi_session=health.get("feagi_session"),
                 simulation_timestep=health.get("simulation_timestep"),
                 memory_area_stats=health.get("memory_area_stats"),
             )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
             raise ValueError(f"Failed to get system health: {str(e)}")
+        finally:
+            try:
+                if self._hc_inflight > 0:
+                    self._hc_inflight -= 1
+            except Exception:
+                pass
 
     @system_endpoint(
         "GET", "/configuration", response_model=ConfigurationResponse
@@ -519,14 +608,9 @@ class SystemAPI:
                 f"Failed to disable visualization FQ sampler: {str(e)}"
             )
 
-    @system_endpoint("GET", "/fq_sampler_status")
-    def get_fq_sampler_status(self) -> Dict[str, Any]:
-        """Get the current status of all FQ samplers."""
-        try:
-            return self.core_api_service.get_fq_sampler_status()
-        except Exception as e:
-            logger.error(f"Error getting FQ sampler status: {e}")
-            raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
+    # REMOVED: Redundant FQ sampler status endpoint
+    # Use /v1/agent/fq_sampler_status instead - it provides comprehensive
+    # coordination status via Registration Manager with accurate real-time data
 
     # ===== Diagnostics: FCL and Process Manager =====
 
@@ -542,14 +626,12 @@ class SystemAPI:
                     "error": "FCL manager not available",
                 }
 
-            # Basic stats
+            # Basic stats - window size now comes from Fire Ledger
             status: Dict[str, Any] = {
                 "available": True,
                 "current_timestep": getattr(fclm, "current_timestep", 0),
-                "default_window_size": getattr(fclm, "default_window_size", 0),
-                "dynamic_window_sizing": getattr(
-                    fclm, "_dynamic_sizing_enabled", False
-                ),
+                "default_window_size": getattr(fclm, "window_size", 20),  # From Fire Ledger via FCL adapter
+                "dynamic_window_sizing": False,  # Fire Ledger uses per-area window sizing
                 "total_neurons_fired": getattr(fclm, "total_neurons_fired", 0),
             }
 

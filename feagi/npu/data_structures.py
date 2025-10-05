@@ -1,20 +1,15 @@
 """
-NPU Data Structures - Single Source of Truth
-============================================
+NPU Data Structures - Clean Architecture
 
-This module provides the core data structures for FEAGI's Neural Processing Unit.
-All brain data is owned by NPU with controlled access for other modules.
+Core data structures for FEAGI's Neural Processing Unit.
+Designed for clean separation of concerns and Rust migration readiness.
 
-Key Design Principles:
-- Single source of truth for all neural data
-- Structure of Arrays (SoA) for SIMD/GPU optimization
+Key Features:
+- Single source of truth for neural data
+- Structure of Arrays (SoA) for SIMD/GPU optimization  
 - Rust FFI-compatible data types and layouts
-- RTOS-friendly deterministic operations
-- Zero-allocation hot paths
-- Cache-aligned memory for optimal performance
-
-Copyright 2025 Neuraville Inc.
-Licensed under the Apache License, Version 2.0
+- Clean interfaces for two-crate architecture
+- High-performance batch operations
 """
 
 from typing import Dict, List, Optional, Tuple, Any, Union
@@ -31,10 +26,7 @@ logger = setup_logger(__name__)
 
 @dataclass
 class MemoryPatternKey:
-    """Key for memory pattern identification and caching.
-    
-    Used by MemoryProcessor for temporal pattern detection and storage.
-    """
+    """Key for memory pattern identification and caching."""
     pattern_data: Tuple[bytes, ...]  # Serialized bitmap sequence
     temporal_depth: int  # Number of timesteps
     source_cortical_areas: Tuple[str, ...]  # Upstream areas
@@ -43,23 +35,101 @@ class MemoryPatternKey:
         return hash((self.pattern_data, self.temporal_depth, self.source_cortical_areas))
 
 
+class BackendType(Enum):
+    """Computation backend types."""
+    CPU = "cpu"
+    CUDA = "cuda"
+    METAL = "metal"
+    WGPU = "wgpu"
+    RUST = "rust"
+
+
+@dataclass
+class SIMDConfig:
+    """SIMD configuration for backend-optimized operations."""
+    backend: BackendType
+    vector_width: int
+    alignment_bytes: int
+    optimal_batch_size: int
+    max_batch_size: int
+
+
+class SIMDDetector:
+    """Detects optimal SIMD configuration for the current backend."""
+    
+    @staticmethod
+    def detect_simd_config(backend: BackendType) -> SIMDConfig:
+        """Detect optimal SIMD configuration for the given backend."""
+        if backend == BackendType.CPU:
+            try:
+                import platform
+                arch = platform.machine().lower()
+                
+                if 'arm' in arch or 'aarch64' in arch:
+                    # ARM NEON: 128-bit vectors
+                    return SIMDConfig(
+                        backend=backend,
+                        vector_width=4,
+                        alignment_bytes=16,
+                        optimal_batch_size=256,
+                        max_batch_size=2048
+                    )
+                else:
+                    # x86 AVX2: 256-bit vectors
+                    return SIMDConfig(
+                        backend=backend,
+                        vector_width=8,
+                        alignment_bytes=32,
+                        optimal_batch_size=512,
+                        max_batch_size=4096
+                    )
+            except Exception:
+                # Fallback
+                return SIMDConfig(
+                    backend=backend,
+                    vector_width=4,
+                    alignment_bytes=16,
+                    optimal_batch_size=256,
+                    max_batch_size=1024
+                )
+                
+        elif backend == BackendType.CUDA:
+            return SIMDConfig(
+                backend=backend,
+                vector_width=32,
+                alignment_bytes=128,
+                optimal_batch_size=1024,
+                max_batch_size=8192
+            )
+            
+        elif backend == BackendType.RUST:
+            return SIMDConfig(
+                backend=backend,
+                vector_width=8,
+                alignment_bytes=32,
+                optimal_batch_size=512,
+                max_batch_size=2048
+            )
+            
+        else:
+            return SIMDConfig(
+                backend=backend,
+                vector_width=8,
+                alignment_bytes=32,
+                optimal_batch_size=512,
+                max_batch_size=2048
+            )
+
+
 def _load_npu_config() -> Dict[str, Any]:
-    """Load NPU configuration from FEAGI configuration file.
-    
-    Uses the same logic as ConnectomeManager for consistency.
-    
-    Returns:
-        Dictionary with NPU configuration values
-    """
+    """Load NPU configuration from FEAGI configuration file."""
     try:
         config = load_feagi_config()
         
-        # Extract connectome configuration (same as ConnectomeManager)
         connectome_config = config.get("connectome", {})
         neural_config = config.get("neural", {})
         resources_config = config.get("resources", {})
         
-        # Use same defaults as ConnectomeManager
         min_neuron_space = connectome_config.get("min_neuron_space", 100_000)
         min_synapse_space = connectome_config.get("min_synapse_space", 500_000)
         min_memory_neuron_space = connectome_config.get("min_memory_neuron_space", 50_000)
@@ -86,263 +156,195 @@ def _load_npu_config() -> Dict[str, Any]:
         }
 
 
-class BackendType(Enum):
-    """Computation backend types."""
-    CPU = "cpu"
-    CUDA = "cuda"
-    METAL = "metal"
-    WGPU = "wgpu"
-    RUST = "rust"
-
-
-@dataclass
-class SIMDConfig:
-    """SIMD configuration for backend-optimized operations."""
-    backend: BackendType
-    vector_width: int  # Elements per SIMD instruction
-    alignment_bytes: int  # Memory alignment requirement
-    optimal_batch_size: int  # Optimal batch size for operations
-    max_batch_size: int  # Maximum batch size before performance degrades
-
-
-class SIMDDetector:
-    """Detects optimal SIMD configuration for the current backend."""
-    
-    @staticmethod
-    def detect_simd_config(backend: BackendType) -> SIMDConfig:
-        """Detect optimal SIMD configuration for the given backend.
-        
-        Args:
-            backend: Target computation backend
-            
-        Returns:
-            SIMDConfig with optimal parameters for the backend
-        """
-        if backend == BackendType.CPU:
-            # Detect CPU SIMD capabilities
-            try:
-                import platform
-                arch = platform.machine().lower()
-                
-                if 'arm' in arch or 'aarch64' in arch:
-                    # ARM NEON: 128-bit vectors
-                    return SIMDConfig(
-                        backend=backend,
-                        vector_width=4,  # 4 x float32
-                        alignment_bytes=16,
-                        optimal_batch_size=256,  # 64 SIMD instructions
-                        max_batch_size=2048
-                    )
-                else:
-                    # x86 AVX2: 256-bit vectors
-                    return SIMDConfig(
-                        backend=backend,
-                        vector_width=8,  # 8 x float32
-                        alignment_bytes=32,
-                        optimal_batch_size=512,  # 64 SIMD instructions
-                        max_batch_size=4096
-                    )
-            except Exception:
-                # Fallback to conservative settings
-                return SIMDConfig(
-                    backend=backend,
-                    vector_width=4,
-                    alignment_bytes=16,
-                    optimal_batch_size=256,
-                    max_batch_size=1024
-                )
-                
-        elif backend == BackendType.CUDA:
-            # CUDA: Warp size 32, optimize for coalesced access
-            return SIMDConfig(
-                backend=backend,
-                vector_width=32,  # Warp size
-                alignment_bytes=128,  # Cache line
-                optimal_batch_size=1024,  # 32 warps
-                max_batch_size=8192
-            )
-            
-        elif backend == BackendType.METAL:
-            # Metal: SIMD group size 32 (Apple Silicon)
-            return SIMDConfig(
-                backend=backend,
-                vector_width=32,
-                alignment_bytes=64,
-                optimal_batch_size=1024,
-                max_batch_size=4096
-            )
-            
-        elif backend == BackendType.WGPU:
-            # WebGPU: Workgroup size typically 64-256
-            return SIMDConfig(
-                backend=backend,
-                vector_width=64,
-                alignment_bytes=64,
-                optimal_batch_size=512,
-                max_batch_size=2048
-            )
-            
-        else:  # RUST or unknown
-            # Conservative Rust-compatible settings
-            return SIMDConfig(
-                backend=backend,
-                vector_width=8,
-                alignment_bytes=32,
-                optimal_batch_size=512,
-                max_batch_size=2048
-            )
-
-
 class NeuronArray:
-    """Single source of truth for regular neurons - NPU owned.
+    """Single source of truth for regular neurons - Clean Architecture.
     
-    Structure of Arrays (SoA) design optimized for:
-    - SIMD vectorization (batch operations on aligned arrays)
-    - GPU coalesced memory access
-    - Cache-friendly memory layout
-    - Rust FFI compatibility (primitive types only)
-    - RTOS deterministic operations
+    Simplified version optimized for clean NPU architecture and Rust migration.
+    Maintains compatibility with existing FEAGI interfaces.
     """
     
     def __init__(self, max_neurons: Optional[int] = None, backend: BackendType = BackendType.CPU):
-        """Initialize neuron array as single source of truth.
-        
-        Args:
-            max_neurons: Maximum number of neurons to support (None = load from config)
-            backend: Computation backend for optimization
-        """
-        # Load configuration if max_neurons not provided
+        """Initialize neuron array."""
         if max_neurons is None:
             npu_config = _load_npu_config()
             max_neurons = npu_config["max_neurons"]
             
         self.max_neurons = max_neurons
-        # Normalize backend to enum
-        if isinstance(backend, str):
-            b = backend.strip().lower()
-            if b in ("cpu", "numpy"):
-                backend_enum = BackendType.CPU
-            elif b == "cuda":
-                backend_enum = BackendType.CUDA
-            elif b == "metal":
-                backend_enum = BackendType.METAL
-            elif b == "wgpu":
-                backend_enum = BackendType.WGPU
-            elif b == "rust":
-                backend_enum = BackendType.RUST
-            else:
-                backend_enum = BackendType.CPU
-            self.backend = backend_enum
-        else:
-            self.backend = backend
+        self.backend = backend
         self.neuron_count = 0
+        self.count = 0  # Alias for compatibility
         
-        # Alias for consistency with other arrays
-        self.count = 0
+        # Detect SIMD configuration
+        self.simd_config = SIMDDetector.detect_simd_config(backend)
         
-        # Detect optimal SIMD configuration
-        self.simd_config = SIMDDetector.detect_simd_config(self.backend)
-        
-        # Align capacity to SIMD boundaries for optimal performance
-        alignment = self.simd_config.vector_width
-        self.aligned_capacity = ((max_neurons + alignment - 1) // alignment) * alignment
-        
-        # Thread safety for concurrent access
+        # Thread safety
         self._lock = threading.RLock()
         
-        # Structure of Arrays - all arrays cache-aligned
-        alignment_bytes = self.simd_config.alignment_bytes
+        # Core neuron properties (SoA format) - NO HARDCODED VALUES, ALL FROM GENOME
+        self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
+        self.thresholds = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
+        self.decay_rates = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
+        self.leak_coefficients = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
+        self.resting_potentials = np.zeros(max_neurons, dtype=np.float32)
+        self.neuron_types = np.zeros(max_neurons, dtype=np.int32)
         
-        # Core neuron properties
-        self.membrane_potentials = self._create_aligned_array(np.float32, alignment_bytes)
-        self.thresholds = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
-        self.decay_rates = self._create_aligned_array(np.float32, alignment_bytes, default_value=0.9)
-        self.leak_coefficients = self._create_aligned_array(np.float32, alignment_bytes, default_value=0.1)  # Alias for decay_rates
-        self.resting_potentials = self._create_aligned_array(np.float32, alignment_bytes)
-        self.neuron_types = self._create_aligned_array(np.int32, alignment_bytes)
-        # Position arrays (separate for better SIMD performance)
-        self.positions_x = self._create_aligned_array(np.int32, alignment_bytes)
-        self.positions_y = self._create_aligned_array(np.int32, alignment_bytes)  
-        self.positions_z = self._create_aligned_array(np.int32, alignment_bytes)
+        # Spatial properties
+        self.positions_x = np.zeros(max_neurons, dtype=np.int32)
+        self.positions_y = np.zeros(max_neurons, dtype=np.int32)
+        self.positions_z = np.zeros(max_neurons, dtype=np.int32)
+        self.coordinates_x = np.zeros(max_neurons, dtype=np.uint32)
+        self.coordinates_y = np.zeros(max_neurons, dtype=np.uint32)
+        self.coordinates_z = np.zeros(max_neurons, dtype=np.uint32)
         
-        # Firing and refractory properties
-        self.refractory_periods = self._create_aligned_array(np.uint8, alignment_bytes, default_value=1)
-        self.refractory_counters = self._create_aligned_array(np.uint8, alignment_bytes)
+        # Firing properties - NO HARDCODED VALUES, ALL FROM GENOME
+        self.refractory_periods = np.zeros(max_neurons, dtype=np.uint8)  # MUST be set from genome
+        self.refractory_counters = np.zeros(max_neurons, dtype=np.uint8)
         
-        # Spatial and organizational properties
-        self.cortical_idxs = self._create_aligned_array(np.uint16, alignment_bytes)
-        self.coordinates_x = self._create_aligned_array(np.uint32, alignment_bytes)
-        self.coordinates_y = self._create_aligned_array(np.uint32, alignment_bytes)
-        self.coordinates_z = self._create_aligned_array(np.uint32, alignment_bytes)
+        # Consecutive fire tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
+        self.consecutive_fire_counts = np.zeros(max_neurons, dtype=np.uint16)
+        self.consecutive_fire_limits = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
         
-        # Neuron ID mapping (NPU owns this mapping)
+        # Cortical area mapping
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
+        
+        # Neuron ID mapping (NPU owns this)
         self.neuron_id_to_index: Dict[int, int] = {}
         self.index_to_neuron_id: Dict[int, int] = {}
-        self._next_neuron_id = 1  # Start from 1, 0 reserved for invalid
+        self._next_neuron_id = 1
         
         # Valid neuron tracking
-        self.valid_mask = self._create_aligned_array(np.bool_, alignment_bytes)
+        self.valid_mask = np.zeros(max_neurons, dtype=bool)
         
-        # Free index management for O(1) allocation
-        self.free_indices: List[int] = []
-        self.next_free_index = 0
-
-        # Legacy/compat cursor for used range scanning in various services
-        # Many components iterate up to next_index when aggregating per-area stats
+        # Compatibility fields
         self.next_index = 0
+        self.excitabilities = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         
-        logger.info(f"NeuronArray initialized: {max_neurons:,} max neurons, {self.backend.value} backend")
-        logger.info(f"SIMD config: {self.simd_config.vector_width} vector width, {self.simd_config.optimal_batch_size} optimal batch size")
+        logger.info("NeuronArray initialized: %d max neurons, %s backend", max_neurons, backend.value)
     
-    def _create_aligned_array(self, dtype: type, alignment_bytes: int, default_value: Any = None) -> np.ndarray:
-        """Create cache-aligned numpy array for optimal SIMD performance.
+    def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
+                         neuron_types: List[int], initial_potentials: List[float],
+                         thresholds: List[float], leak_coefficients: List[float],
+                         cortical_idx: int, 
+                         decay_rates: Optional[List[float]] = None,
+                         refractory_periods: Optional[List[int]] = None,
+                         excitabilities: Optional[List[float]] = None,
+                         resting_potentials: Optional[List[float]] = None,
+                         consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
+        """Add multiple neurons in batch."""
+        count = len(neuron_ids)
+        if self.count + count > self.max_neurons:
+            raise ValueError(f"Cannot add {count} neurons: would exceed capacity")
         
-        Args:
-            dtype: NumPy data type
-            alignment_bytes: Memory alignment requirement
-            default_value: Default value to fill array with
-            
-        Returns:
-            Cache-aligned numpy array
-        """
-        # Create array with extra space for alignment
-        extra_bytes = alignment_bytes - 1
+        start_idx = self.count
+        indices = list(range(start_idx, start_idx + count))
+        end_idx = start_idx + count
         
-        # Allocate raw memory
-        raw_array = np.empty(self.aligned_capacity + extra_bytes // np.dtype(dtype).itemsize, dtype=dtype)
+        # Update arrays - ALL VALUES MUST COME FROM GENOME
+        self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
+        self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
+        self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
+        self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
+        self.cortical_idxs[start_idx:end_idx] = cortical_idx
         
-        # Calculate aligned offset
-        raw_ptr = raw_array.ctypes.data
-        aligned_ptr = (raw_ptr + alignment_bytes - 1) & ~(alignment_bytes - 1)
-        offset = (aligned_ptr - raw_ptr) // np.dtype(dtype).itemsize
-        
-        # Create aligned view
-        aligned_array = raw_array[offset:offset + self.aligned_capacity]
-        
-        # Initialize with default value if provided
-        if default_value is not None:
-            aligned_array.fill(default_value)
+        # Set additional neural dynamics parameters from genome
+        if decay_rates is not None:
+            self.decay_rates[start_idx:end_idx] = np.array(decay_rates, dtype=np.float32)
         else:
-            aligned_array.fill(0)
+            # Set default decay rates for backward compatibility
+            self.decay_rates[start_idx:end_idx] = 0.1
             
-        return aligned_array
-
+        if refractory_periods is not None:
+            self.refractory_periods[start_idx:end_idx] = np.array(refractory_periods, dtype=np.uint8)
+        else:
+            # Set default refractory periods for backward compatibility
+            self.refractory_periods[start_idx:end_idx] = 1
+            
+        if excitabilities is not None:
+            self.excitabilities[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
+        else:
+            # Set default excitabilities for backward compatibility
+            self.excitabilities[start_idx:end_idx] = 1.0
+            
+        if resting_potentials is not None:
+            self.resting_potentials[start_idx:end_idx] = np.array(resting_potentials, dtype=np.float32)
+        else:
+            # Set default resting potentials for backward compatibility
+            self.resting_potentials[start_idx:end_idx] = 0.0
+        
+        # Set positions
+        positions_array = np.array(positions, dtype=np.int32)
+        self.positions_x[start_idx:end_idx] = positions_array[:, 0]
+        self.positions_y[start_idx:end_idx] = positions_array[:, 1] 
+        self.positions_z[start_idx:end_idx] = positions_array[:, 2]
+        self.coordinates_x[start_idx:end_idx] = positions_array[:, 0]
+        self.coordinates_y[start_idx:end_idx] = positions_array[:, 1]
+        self.coordinates_z[start_idx:end_idx] = positions_array[:, 2]
+        
+        # Mark as valid
+        self.valid_mask[start_idx:end_idx] = True
+        
+        # Set consecutive fire limits - MUST come from genome
+        if consecutive_fire_limits is not None:
+            self.consecutive_fire_limits[start_idx:end_idx] = np.array(consecutive_fire_limits, dtype=np.uint16)
+        else:
+            # Set default consecutive fire limits for backward compatibility
+            self.consecutive_fire_limits[start_idx:end_idx] = 5
+        # Note: consecutive_fire_counts remain 0 (initialized by default)
+        
+        # Update ID mappings
+        for i, neuron_id in enumerate(neuron_ids):
+            idx = start_idx + i
+            self.neuron_id_to_index[neuron_id] = idx
+            self.index_to_neuron_id[idx] = neuron_id
+        
+        # Update counters
+        self.count += count
+        self.neuron_count += count
+        self.next_index = end_idx
+        self._next_neuron_id = max(self._next_neuron_id, max(neuron_ids) + 1)
+        
+        return indices
+    
+    def get_property(self, neuron_id: int, property_name: str) -> Optional[Union[float, int]]:
+        """Get a neuron property value."""
+        if neuron_id not in self.neuron_id_to_index:
+            return None
+            
+        idx = self.neuron_id_to_index[neuron_id]
+        
+        if property_name == "membrane_potential":
+            return float(self.membrane_potentials[idx])
+        elif property_name == "threshold":
+            return float(self.thresholds[idx])
+        elif property_name == "leak_coefficient":
+            return float(self.leak_coefficients[idx])
+        elif property_name == "position":
+            return (int(self.positions_x[idx]), int(self.positions_y[idx]), int(self.positions_z[idx]))
+        else:
+            return None
+    
+    def set_neuron_property(self, neuron_id: int, property_name: str, value: Union[float, int]) -> None:
+        """Set a property value for a specific neuron."""
+        if neuron_id not in self.neuron_id_to_index:
+            return
+            
+        idx = self.neuron_id_to_index[neuron_id]
+        
+        with self._lock:
+            if property_name == "membrane_potential":
+                self.membrane_potentials[idx] = float(value)
+            elif property_name == "threshold":
+                self.thresholds[idx] = float(value)
+            elif property_name == "consecutive_fire_limit":
+                self.consecutive_fire_limits[idx] = int(value)
+            elif property_name == "leak_coefficient":
+                self.leak_coefficients[idx] = float(value)
+    
     def indices_to_neuron_ids(self, indices: np.ndarray, *, filter_invalid: bool = True) -> np.ndarray:
-        """Convert array indices to neuron IDs using the NPU-owned mapping.
-
-        Args:
-            indices: NumPy array of integer indices
-            filter_invalid: Whether to filter out indices that have no neuron ID
-
-        Returns:
-            NumPy array of neuron IDs (dtype=int32). If filter_invalid is False,
-            invalid indices are mapped to -1.
-        """
+        """Convert array indices to neuron IDs."""
         if indices is None or len(indices) == 0:
             return np.array([], dtype=np.int32)
 
-        # Fast path: build a vectorized map via an array if possible
-        # Build a temporary array filled with -1, then set known indices
         max_index = int(np.max(indices)) if len(indices) > 0 else -1
         if max_index < 0:
             return np.array([], dtype=np.int32)
@@ -356,298 +358,49 @@ class NeuronArray:
         if filter_invalid:
             return mapped[mapped >= 0]
         return mapped
-    
-    def get_optimal_batch_size(self) -> int:
-        """Get optimal batch size for SIMD operations on this backend."""
-        return self.simd_config.optimal_batch_size
-    
-    def get_max_batch_size(self) -> int:
-        """Get maximum recommended batch size for this backend."""
-        return self.simd_config.max_batch_size
-    
-    def add_neurons_batch(self, neuron_ids: List[int], positions: List[Tuple[int, int, int]],
-                         neuron_types: List[int], initial_potentials: List[float],
-                         thresholds: List[float], leak_coefficients: List[float],
-                         cortical_idx: int) -> List[int]:
-        """Add multiple neurons in batch with SIMD optimization.
+
+    def update_consecutive_fire_limits_by_cortical_area(self, cortical_idx: int, limit: int) -> int:
+        """Update consecutive fire limits for all neurons in a cortical area.
         
         Args:
-            neuron_ids: List of neuron IDs
-            positions: List of (x, y, z) positions
-            neuron_types: List of neuron types
-            initial_potentials: List of initial membrane potentials
-            thresholds: List of firing thresholds
-            leak_coefficients: List of leak coefficients
-            excitabilities: List of excitability values
-            cortical_idx: Fast integer index for the cortical area
+            cortical_idx: Cortical area index
+            limit: New consecutive fire limit
             
         Returns:
-            List of array indices where neurons were added
-        """
-        count = len(neuron_ids)
-        if self.count + count > self.max_neurons:
-            available = int(self.max_neurons - self.count)
-            raise ValueError(
-                f"Cannot add {count} neurons: would exceed capacity (current={int(self.count)}, max={int(self.max_neurons)}, available={available})"
-            )
-        
-        # Get batch of indices
-        start_idx = self.count
-        indices = list(range(start_idx, start_idx + count))
-        
-        # SIMD-optimized batch assignment
-        end_idx = start_idx + count
-        
-        # Update arrays in batch
-        self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
-        self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
-        self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
-        self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
-        
-        # Set cortical_idx for fast area lookups
-        self.cortical_idxs[start_idx:end_idx] = cortical_idx
-        
-        # Set spatial coordinates from positions
-        positions_array = np.array(positions, dtype=np.int32)
-        self.positions_x[start_idx:end_idx] = positions_array[:, 0]
-        self.positions_y[start_idx:end_idx] = positions_array[:, 1]
-        self.positions_z[start_idx:end_idx] = positions_array[:, 2]
-        self.coordinates_x[start_idx:end_idx] = positions_array[:, 0]
-        self.coordinates_y[start_idx:end_idx] = positions_array[:, 1]
-        self.coordinates_z[start_idx:end_idx] = positions_array[:, 2]
-        
-        # Update valid mask
-        self.valid_mask[start_idx:end_idx] = True
-        
-        # Update ID mappings
-        for i, neuron_id in enumerate(neuron_ids):
-            idx = start_idx + i
-            self.neuron_id_to_index[neuron_id] = idx
-            self.index_to_neuron_id[idx] = neuron_id
-        
-        # Update counters
-        self.count += count
-        self.neuron_count += count  # Keep both in sync
-        self._next_neuron_id = max(self._next_neuron_id, max(neuron_ids) + 1)
-        # Advance next_index to cover the newly written range
-        if end_idx > getattr(self, "next_index", 0):
-            self.next_index = end_idx
-        
-        return indices
-    
-    def remove_neurons_batch(self, neuron_ids: List[int]) -> int:
-        """Remove multiple neurons in batch with SIMD optimization.
-        
-        Args:
-            neuron_ids: List of neuron IDs to remove
-            
-        Returns:
-            Number of neurons actually removed
-        """
-        removed_count = 0
-        
-        for neuron_id in neuron_ids:
-            if neuron_id in self.neuron_id_to_index:
-                idx = self.neuron_id_to_index[neuron_id]
-                
-                # Mark as invalid
-                self.valid_mask[idx] = False
-                
-                # Clear mappings
-                del self.neuron_id_to_index[neuron_id]
-                if idx in self.index_to_neuron_id:
-                    del self.index_to_neuron_id[idx]
-                
-                removed_count += 1
-        
-        # Update count
-        self.count -= removed_count
-        self.neuron_count -= removed_count  # Keep both in sync
-        
-        # TODO: Implement compaction for better memory efficiency
-        # For now, just mark as invalid - compaction can be done periodically
-        
-        return removed_count
-    
-    def update_property_batch(self, neuron_ids: List[int], property_name: str, 
-                            values: List[Union[float, int]]) -> int:
-        """Update a property for multiple neurons in batch with SIMD optimization.
-        
-        Args:
-            neuron_ids: List of neuron IDs
-            property_name: Property name to update
-            values: List of new values
-            
-        Returns:
-            Number of neurons actually updated
-        """
-        if len(neuron_ids) != len(values):
-            raise ValueError("neuron_ids and values must have same length")
-        
-        # Get valid indices
-        valid_indices = []
-        valid_values = []
-        
-        for neuron_id, value in zip(neuron_ids, values):
-            if neuron_id in self.neuron_id_to_index:
-                idx = self.neuron_id_to_index[neuron_id]
-                valid_indices.append(idx)
-                valid_values.append(value)
-        
-        if not valid_indices:
-            return 0
-        
-        # SIMD-optimized batch update
-        indices_array = np.array(valid_indices, dtype=np.int32)
-        values_array = np.array(valid_values)
-        
-        if property_name == "membrane_potential":
-            self.membrane_potentials[indices_array] = values_array.astype(np.float32)
-        elif property_name == "threshold":
-            self.thresholds[indices_array] = values_array.astype(np.float32)
-        elif property_name == "leak_coefficient":
-            self.leak_coefficients[indices_array] = values_array.astype(np.float32)
-        elif property_name == "neuron_type":
-            self.neuron_types[indices_array] = values_array.astype(np.int32)
-        else:
-            return 0
-        
-        return len(valid_indices)
-    
-    def get_property(self, neuron_id: int, property_name: str) -> Optional[Union[float, int]]:
-        """Get a neuron property value.
-        
-        Args:
-            neuron_id: Neuron ID
-            property_name: Property name to get
-            
-        Returns:
-            Property value or None if neuron not found
-        """
-        if neuron_id not in self.neuron_id_to_index:
-            return None
-            
-        idx = self.neuron_id_to_index[neuron_id]
-        
-        if property_name == "membrane_potential":
-            return float(self.membrane_potentials[idx])
-        elif property_name == "threshold":
-            return float(self.thresholds[idx])
-        elif property_name == "leak_coefficient":
-            return float(self.leak_coefficients[idx])
-        elif property_name == "excitability":
-            return float(self.excitabilities[idx])
-        elif property_name == "neuron_type":
-            return int(self.neuron_types[idx])
-        elif property_name == "position":
-            return (int(self.positions_x[idx]), int(self.positions_y[idx]), int(self.positions_z[idx]))
-        else:
-            return None
-    
-    def set_cortical_area_excitability(self, cortical_idx: int, start_idx: int, end_idx: int, excitability: float) -> None:
-        """Set excitability for all neurons in a cortical area range.
-        
-        Args:
-            cortical_idx: Cortical area index (for validation)
-            start_idx: Starting neuron index
-            end_idx: Ending neuron index (exclusive)
-            excitability: Excitability value to set
+            Number of neurons updated
         """
         with self._lock:
-            # Validate range against array capacity, not current count
-            # (during neurogenesis, arrays are populated directly)
-            if start_idx < 0 or end_idx > self.max_neurons or start_idx >= end_idx:
-                raise ValueError(f"Invalid range: start_idx={start_idx}, end_idx={end_idx}, max_neurons={self.max_neurons}")
+            # Find neurons in this cortical area
+            area_mask = (self.cortical_idxs == cortical_idx) & self.valid_mask
             
-            # Set excitability for the range
-            self.excitabilities[start_idx:end_idx] = excitability
+            if not np.any(area_mask):
+                return 0
             
-            # Update count if this extends beyond current count
-            if end_idx > self.count:
-                self.count = end_idx
-                self.neuron_count = end_idx
-            # Ensure next_index also covers this range for downstream scanners
-            if end_idx > getattr(self, "next_index", 0):
-                self.next_index = end_idx
-    
-    def set_neuron_property(self, neuron_id: int, property_name: str, value: Union[float, int]) -> None:
-        """Set a property value for a specific neuron.
-        
-        Args:
-            neuron_id: ID of the neuron
-            property_name: Name of the property to set
-            value: Value to set
-        """
-        if neuron_id not in self.neuron_id_to_index:
-            # Deterministic: ignore writes to unknown IDs (stimulation before registration)
-            return
+            # Update consecutive fire limits (vectorized)
+            self.consecutive_fire_limits[area_mask] = int(limit)
             
-        idx = self.neuron_id_to_index[neuron_id]
-        
-        with self._lock:
-            if property_name == "membrane_potential":
-                self.membrane_potentials[idx] = float(value)
-            elif property_name == "threshold":
-                self.thresholds[idx] = float(value)
-            elif property_name == "leak_coefficient":
-                self.leak_coefficients[idx] = float(value)
-            elif property_name == "excitability":
-                self.excitabilities[idx] = float(value)
-            elif property_name == "neuron_type":
-                self.neuron_types[idx] = int(value)
-            else:
-                raise ValueError(f"Property {property_name} cannot be set")
-    
-    def get_performance_summary(self) -> Dict[str, Any]:
-        """Get performance summary for the neuron array.
-        
-        Returns:
-            Dictionary with performance metrics
-        """
-        return {
-            "total_neurons": self.neuron_count,
-            "max_capacity": self.max_neurons,
-            "utilization": self.neuron_count / self.max_neurons if self.max_neurons > 0 else 0.0,
-            "backend": self.backend.value,
-            "simd_config": {
-                "vector_width": self.simd_config.vector_width,
-                "alignment_bytes": self.simd_config.alignment_bytes,
-                "optimal_batch_size": self.simd_config.optimal_batch_size
-            },
-            "memory_aligned": True,
-            "thread_safe": True
-        }
+            # Return count of updated neurons
+            return int(np.sum(area_mask))
 
 
 class MemoryNeuronArray:
-    """Single source of truth for memory neurons - NPU owned.
-    
-    Memory neurons are completely separate from regular neurons with different:
-    - Lifecycle properties (aging, lifespan, long-term conversion)
-    - Pattern-based identification (no spatial coordinates)
-    - Temporal processing requirements
-    """
+    """Single source of truth for memory neurons - Clean Architecture."""
     
     def __init__(self, max_memory_neurons: Optional[int] = None, backend: BackendType = BackendType.CPU):
-        """Initialize memory neuron array.
-        
-        Args:
-            max_memory_neurons: Maximum number of memory neurons (None = load from config)
-            backend: Computation backend (memory neurons are CPU-optimized)
-        """
-        # Load configuration if max_memory_neurons not provided
+        """Initialize memory neuron array."""
         if max_memory_neurons is None:
             npu_config = _load_npu_config()
             max_memory_neurons = npu_config["max_memory_neurons"]
             
         self.max_memory_neurons = max_memory_neurons
-        self.backend = backend  # Memory neurons typically use CPU backend
+        self.backend = backend
         self.memory_neuron_count = 0
+        self.count = 0
         
         # Thread safety
         self._lock = threading.RLock()
         
-        # Memory neuron lifecycle properties (SoA)
+        # Memory neuron lifecycle properties
         self.lifespan_current = np.zeros(max_memory_neurons, dtype=np.uint32)
         self.lifespan_initial = np.zeros(max_memory_neurons, dtype=np.uint32)
         self.lifespan_growth_rate = np.zeros(max_memory_neurons, dtype=np.float32)
@@ -658,209 +411,41 @@ class MemoryNeuronArray:
         self.last_activation_burst = np.zeros(max_memory_neurons, dtype=np.uint64)
         self.activation_count = np.zeros(max_memory_neurons, dtype=np.uint32)
         
-        # Pattern identification (separate from spatial neurons)
-        self.cortical_idxs = np.zeros(max_memory_neurons, dtype=np.uint16)  # Fast integer cortical area indices
-        self.pattern_digests = np.empty(max_memory_neurons, dtype=object)  # Pattern hash digests
-        self.patterns: Dict[int, str] = {}  # neuron_id -> pattern_string
-        # Store cortical area string IDs for diagnostics/compat (not on hot path)
+        # Pattern identification
+        self.cortical_idxs = np.zeros(max_memory_neurons, dtype=np.uint16)
+        self.pattern_digests = np.empty(max_memory_neurons, dtype=object)
+        self.patterns: Dict[int, str] = {}
         self.cortical_area_id = np.empty(max_memory_neurons, dtype=object)
         
         # Memory neuron state
         self.is_active = np.zeros(max_memory_neurons, dtype=np.bool_)
         self.valid_mask = np.zeros(max_memory_neurons, dtype=np.bool_)
         
-        # Standard neuron properties (inherited from regular neurons)
+        # Standard neuron properties - NO HARDCODED VALUES, ALL FROM GENOME
         self.membrane_potentials = np.zeros(max_memory_neurons, dtype=np.float32)
-        self.thresholds = np.ones(max_memory_neurons, dtype=np.float32)
-        self.leak_coefficients = np.full(max_memory_neurons, 0.1, dtype=np.float32)
-        self.excitabilities = np.ones(max_memory_neurons, dtype=np.float32)
+        self.thresholds = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
+        self.leak_coefficients = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
+        self.excitabilities = np.zeros(max_memory_neurons, dtype=np.float32)  # MUST be set from genome
         
-        # Memory neuron ID mapping (separate from regular neurons)
-        self.neuron_id_to_index: Dict[int, int] = {}  # Use same name as NeuronArray for consistency
+        # Memory neuron ID mapping
+        self.neuron_id_to_index: Dict[int, int] = {}
         self.index_to_neuron_id: Dict[int, int] = {}
-        self.count = 0
         self._next_neuron_id = 1
         
-        # Free index management
-        self.free_indices: List[int] = []
-        self.next_free_index = 0
-
-        # Compatibility/diagnostics fields expected by some tests/tools
+        # Compatibility fields
         self.capacity = max_memory_neurons
         self.next_available_index = 0
         self.deleted_indices: List[int] = []
-        # Cache from pattern key to index for O(1) lookup
         self.pattern_to_index: Dict[MemoryPatternKey, int] = {}
         
-        logger.info(f"MemoryNeuronArray initialized: {max_memory_neurons:,} max memory neurons")
-
-    def _is_mem_debug_enabled(self) -> bool:
-        """Check memory debug flag from state manager (safe, no hard dependency)."""
-        try:
-            from feagi.core.state_manager import get_state_manager
-            state_manager = get_state_manager()
-            return state_manager.is_mem_debug_enabled() if state_manager else False
-        except Exception:
-            return False
+        logger.info("MemoryNeuronArray initialized: %d max memory neurons", max_memory_neurons)
     
-    def add_neurons_batch(self, neuron_ids: List[int], patterns: List[str],
-                         initial_potentials: List[float], thresholds: List[float],
-                         leak_coefficients: List[float], excitabilities: List[float],
-                         cortical_idx: int) -> List[int]:
-        """Add multiple memory neurons in batch with SIMD optimization."""
-        count = len(neuron_ids)
-        if self.count + count > self.max_memory_neurons:
-            available = int(self.max_memory_neurons - self.count)
-            raise ValueError(
-                f"Cannot add {count} memory neurons: would exceed capacity (current={int(self.count)}, max={int(self.max_memory_neurons)}, available={available})"
-            )
-        
-        start_idx = self.count
-        indices = list(range(start_idx, start_idx + count))
-        end_idx = start_idx + count
-        
-        # Update arrays in batch
-        self.membrane_potentials[start_idx:end_idx] = np.array(initial_potentials, dtype=np.float32)
-        self.thresholds[start_idx:end_idx] = np.array(thresholds, dtype=np.float32)
-        self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
-        self.excitability[start_idx:end_idx] = np.array(excitabilities, dtype=np.float32)
-        self.is_active[start_idx:end_idx] = True
-        
-        # Set cortical_idx for fast area lookups
-        self.cortical_idxs[start_idx:end_idx] = cortical_idx
-        
-        # Update ID mappings and patterns
-        for i, (neuron_id, pattern) in enumerate(zip(neuron_ids, patterns)):
-            idx = start_idx + i
-            self.neuron_id_to_index[neuron_id] = idx
-            self.index_to_neuron_id[idx] = neuron_id
-            self.patterns[neuron_id] = pattern
-        
-        self.count += count
-        self._next_neuron_id = max(self._next_neuron_id, max(neuron_ids) + 1)
-        
-        return indices
-    
-    def remove_neurons_batch(self, neuron_ids: List[int]) -> int:
-        """Remove multiple memory neurons in batch."""
-        removed_count = 0
-        
-        for neuron_id in neuron_ids:
-            if neuron_id in self.neuron_id_to_index:
-                idx = self.neuron_id_to_index[neuron_id]
-                
-                # Mark as inactive
-                self.is_active[idx] = False
-                
-                # Clear mappings
-                del self.neuron_id_to_index[neuron_id]
-                if idx in self.index_to_neuron_id:
-                    del self.index_to_neuron_id[idx]
-                if neuron_id in self.patterns:
-                    del self.patterns[neuron_id]
-                
-                removed_count += 1
-        
-        self.count -= removed_count
-        return removed_count
-    
-    def update_property_batch(self, neuron_ids: List[int], property_name: str, 
-                            values: List[Union[float, int]]) -> int:
-        """Update a property for multiple memory neurons in batch."""
-        if len(neuron_ids) != len(values):
-            raise ValueError("neuron_ids and values must have same length")
-        
-        valid_indices = []
-        valid_values = []
-        
-        for neuron_id, value in zip(neuron_ids, values):
-            if neuron_id in self.neuron_id_to_index:
-                idx = self.neuron_id_to_index[neuron_id]
-                valid_indices.append(idx)
-                valid_values.append(value)
-        
-        if not valid_indices:
-            return 0
-        
-        indices_array = np.array(valid_indices, dtype=np.int32)
-        values_array = np.array(valid_values)
-        
-        if property_name == "membrane_potential":
-            self.membrane_potentials[indices_array] = values_array.astype(np.float32)
-        elif property_name == "threshold":
-            self.thresholds[indices_array] = values_array.astype(np.float32)
-        elif property_name == "leak_coefficient":
-            self.leak_coefficients[indices_array] = values_array.astype(np.float32)
-        elif property_name == "excitability":
-            self.excitability[indices_array] = values_array.astype(np.float32)
-        else:
-            return 0
-        
-        return len(valid_indices)
-
-    def _update_state_manager_memory_count(self, cortical_area_id: str, delta: int, operation: str) -> None:
-        """Update StateManager memory area statistics.
-        
-        Args:
-            cortical_area_id: Memory cortical area ID
-            delta: Change in neuron count (+1 for creation, -1 for deletion)
-            operation: Type of operation ("create", "delete")
-        """
-        try:
-            from feagi.core.state_manager import FeagiStateManager
-            state_manager = FeagiStateManager.instance()
-            if state_manager:
-                result = state_manager.update_memory_area_neuron_count(
-                    cortical_area_id, delta, operation
-                )
-                if not result.is_ok:
-                    logger.warning(f"Failed to update StateManager memory count for {cortical_area_id}: {result.unwrap_err()}")
-        except Exception as e:
-            logger.warning(f"Error updating StateManager memory count: {e}")
-    
-    def get_property(self, neuron_id: int, property_name: str) -> Optional[Union[float, int]]:
-        """Get a memory neuron property value."""
-        if neuron_id not in self.neuron_id_to_index:
-            return None
-            
-        idx = self.neuron_id_to_index[neuron_id]
-        
-        if property_name == "membrane_potential":
-            return float(self.membrane_potentials[idx])
-        elif property_name == "threshold":
-            return float(self.thresholds[idx])
-        elif property_name == "leak_coefficient":
-            return float(self.leak_coefficients[idx])
-        elif property_name == "excitability":
-            return float(self.excitability[idx])
-        elif property_name == "pattern":
-            return self.patterns.get(neuron_id)
-        else:
-            return None
-
-    # --- Memory-specific high-level operations used by MemoryProcessor ---
-
-    def create_memory_neuron(
-        self,
-        pattern_key: MemoryPatternKey,
-        cortical_area_id: str,
-        current_burst: int,
-        initial_lifespan: int = 9,
-        lifespan_growth_rate: float = 1.0,
-    ) -> int:
-        """Create a single memory neuron representing a temporal pattern.
-
-        Args:
-            pattern_key: Unique key representing the temporal pattern
-            cortical_area_id: String ID of the memory cortical area
-            current_burst: Current burst index at creation
-            initial_lifespan: Initial lifespan value
-            lifespan_growth_rate: Growth multiplier applied on reactivation
-
-        Returns:
-            Index of the created memory neuron
-        """
-        # Reuse deleted slot if available to keep layout dense
+    def create_memory_neuron(self, pattern_key: MemoryPatternKey, cortical_area_id: str,
+                           current_burst: int, initial_lifespan: int,
+                           lifespan_growth_rate: float,
+                           membrane_potential: float,
+                           firing_threshold: float) -> int:
+        """Create a single memory neuron representing a temporal pattern."""
         if self.deleted_indices:
             idx = self.deleted_indices.pop()
         else:
@@ -869,7 +454,6 @@ class MemoryNeuronArray:
                 raise ValueError("Cannot create memory neuron: capacity reached")
             self.next_available_index += 1
 
-        # Assign a new neuron_id for bookkeeping (separate from index)
         neuron_id = self._next_neuron_id
         self._next_neuron_id += 1
         self.neuron_id_to_index[neuron_id] = idx
@@ -881,155 +465,95 @@ class MemoryNeuronArray:
         self.lifespan_initial[idx] = int(initial_lifespan)
         self.lifespan_current[idx] = int(initial_lifespan)
         self.lifespan_growth_rate[idx] = float(lifespan_growth_rate)
-        self.is_longterm_memory[idx] = False
         self.creation_burst[idx] = int(current_burst)
         self.last_activation_burst[idx] = int(current_burst)
         self.activation_count[idx] = 1
-
-        # Store cortical area identifiers
-        self.cortical_area_id[idx] = str(cortical_area_id)
-        # Note: caller should also set cortical_idxs[idx] if available; keep 0 as default otherwise
-
-        # Initialize membrane potential properties for firing capability
-        # Memory neurons start above threshold to fire immediately when created
-        self.membrane_potentials[idx] = 1.5  # Above default threshold of 1.0
-        self.thresholds[idx] = 1.0  # Standard firing threshold
         
-        # Update StateManager memory area statistics
-        self._update_state_manager_memory_count(cortical_area_id, delta=1, operation="create")
-
-        # Update count and return index
+        self.cortical_area_id[idx] = str(cortical_area_id)
+        self.membrane_potentials[idx] = float(membrane_potential)  # FROM GENOME - no hardcoded values
+        self.thresholds[idx] = float(firing_threshold)  # FROM GENOME - no hardcoded values
+        
         self.count += 1
-        self.leak_coefficients[idx] = 0.1  # Standard leak rate
-        self.excitabilities[idx] = 1.0  # Standard excitability
-
-        # Store pattern mapping for fast lookup
         self.pattern_to_index[pattern_key] = idx
-        # Optional digest for quick diagnostics (last 4 bytes of hash)
         self.pattern_digests[idx] = hash(pattern_key) & 0xFFFF
-
-        # Maintain counts
-        self.count = max(self.count, idx + 1)
-
-        if self._is_mem_debug_enabled():
-            try:
-                non_empty = sum(1 for p in pattern_key.pattern_data if p)
-                logger.info(
-                    f"🧠 [MEMORY] CREATE: idx={idx}, id={neuron_id}, area={cortical_area_id}, "
-                    f"life={self.lifespan_current[idx]}/{self.lifespan_initial[idx]}, "
-                    f"temporal_depth={pattern_key.temporal_depth}, non_empty_steps={non_empty}, "
-                    f"digest={int(self.pattern_digests[idx]) if self.pattern_digests[idx] is not None else -1}"
-                )
-            except Exception:
-                pass
-
+        
         return idx
 
     def reactivate_memory_neuron(self, neuron_idx: int, current_burst: int) -> bool:
-        """Reactivate an existing memory neuron and apply lifespan growth.
+        """Reactivate an existing memory neuron: update last activation and counters."""
+        try:
+            if neuron_idx < 0 or neuron_idx >= self.max_memory_neurons:
+                return False
+            if not self.valid_mask[neuron_idx]:
+                return False
+            self.is_active[neuron_idx] = True
+            self.last_activation_burst[neuron_idx] = int(current_burst)
+            self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
+            # Lifespan growth will be applied by aging step
+            return True
+        except Exception:
+            return False
 
-        Returns True if reactivation succeeded, False otherwise.
+    def age_memory_neurons(self, current_burst: int, decay_per_burst: int = 1) -> int:
+        """Age memory neurons deterministically by reducing lifespan for inactive neurons.
+
+        Returns the number of neurons that reached zero lifespan (can be pruned by caller).
         """
-        if neuron_idx < 0 or neuron_idx >= self.count:
-            return False
-        if not self.valid_mask[neuron_idx]:
-            return False
+        try:
+            active_count = int(self.count)
+            if active_count <= 0:
+                return 0
+            import numpy as np
+            idxs = np.arange(0, active_count, dtype=np.int32)
+            valid = self.valid_mask[:active_count]
+            if not np.any(valid):
+                return 0
+            # Decrease lifespan for valid neurons that were not activated this burst
+            not_recent = valid & (self.last_activation_burst[:active_count] < int(current_burst))
+            self.lifespan_current[not_recent] = np.maximum(
+                0,
+                self.lifespan_current[not_recent] - int(decay_per_burst),
+            )
+            # Increase lifespan for those activated this burst using growth rate
+            recent = valid & (self.last_activation_burst[:active_count] == int(current_burst))
+            if np.any(recent):
+                growth = np.floor(self.lifespan_growth_rate[recent]).astype(self.lifespan_current.dtype)
+                self.lifespan_current[recent] += growth
 
-        # Mark active and increase lifespan deterministically
-        self.is_active[neuron_idx] = True
-        self.last_activation_burst[neuron_idx] = int(current_burst)
-        # Grow lifespan multiplicatively from initial
-        base = int(self.lifespan_initial[neuron_idx])
-        growth = float(self.lifespan_growth_rate[neuron_idx])
-        grown = int(round(base * growth))
-        # If current is already higher due to prior growth, keep the max
-        self.lifespan_current[neuron_idx] = max(int(self.lifespan_current[neuron_idx]), grown)
-        self.activation_count[neuron_idx] = int(self.activation_count[neuron_idx]) + 1
-        
-        # Set membrane potential above threshold for immediate firing
-        self.membrane_potentials[neuron_idx] = 1.5  # Above threshold to fire
-        if self._is_mem_debug_enabled():
-            try:
-                nid = self.index_to_neuron_id.get(neuron_idx, -1)
-                logger.info(
-                    f"🧠 [MEMORY] REACTIVATE: idx={neuron_idx}, id={nid}, last_burst={current_burst}, "
-                    f"life_now={int(self.lifespan_current[neuron_idx])}"
-                )
-            except Exception:
-                pass
-        return True
+            # Count expired
+            expired = valid & (self.lifespan_current[:active_count] <= 0)
+            return int(np.sum(expired))
+        except Exception:
+            return 0
 
-    def age_memory_neurons(self, current_burst: int) -> List[int]:
-        """Age memory neurons by one burst; return indices that died this cycle."""
-        died: List[int] = []
-        # Vectorized where possible, but keep clarity
-        for idx in range(self.count):
-            if not self.valid_mask[idx] or not self.is_active[idx]:
-                continue
-            if self.is_longterm_memory[idx]:
-                continue  # Long-term memories do not decay
-            if self.lifespan_current[idx] > 0:
-                self.lifespan_current[idx] = int(self.lifespan_current[idx]) - 1
-            if self.lifespan_current[idx] <= 0:
-                # Logical deletion
-                self.is_active[idx] = False
-                self.valid_mask[idx] = False
-                died.append(idx)
-                self.deleted_indices.append(idx)
-                
-                # Update StateManager memory area statistics for deletion
-                cortical_area_id = str(self.cortical_area_id[idx])
-                self._update_state_manager_memory_count(cortical_area_id, delta=-1, operation="delete")
-                
-        return died
+    def check_longterm_conversion(self, longterm_threshold: int) -> int:
+        """Mark neurons as long-term if activation count exceeds threshold.
 
-    def check_longterm_conversion(self, longterm_threshold: int) -> List[int]:
-        """Convert qualifying neurons to long-term memory; return converted indices."""
-        converted: List[int] = []
-        threshold = int(longterm_threshold)
-        for idx in range(self.count):
-            if not self.valid_mask[idx]:
-                continue
-            if self.is_longterm_memory[idx]:
-                continue
-            if int(self.lifespan_initial[idx]) >= threshold:
-                self.is_longterm_memory[idx] = True
-                converted.append(idx)
-        return converted
-
-    def find_memory_neuron_by_pattern(self, pattern_key: MemoryPatternKey) -> Optional[int]:
-        """Find an existing memory neuron by pattern key; returns index or None."""
-        return self.pattern_to_index.get(pattern_key)
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Return basic statistics for diagnostics and health checks."""
-        total_active = int(np.count_nonzero(self.is_active[: self.count]))
-        return {
-            "total_active_neurons": total_active,
-            "total_neurons": int(self.count),
-            "capacity": int(self.max_memory_neurons),
-            "longterm_count": int(np.count_nonzero(self.is_longterm_memory[: self.count])),
-        }
+        Returns number of converted neurons.
+        """
+        try:
+            import numpy as np
+            active_count = int(self.count)
+            if active_count <= 0:
+                return 0
+            valid = self.valid_mask[:active_count]
+            if not np.any(valid):
+                return 0
+            to_convert = valid & (self.activation_count[:active_count] >= int(longterm_threshold))
+            convert_idx = np.nonzero(to_convert)[0]
+            if convert_idx.size == 0:
+                return 0
+            self.is_longterm_memory[convert_idx] = True
+            return int(convert_idx.size)
+        except Exception:
+            return 0
 
 
 class SynapseArray:
-    """Single source of truth for synapses - NPU owned.
-    
-    Structure of Arrays (SoA) design optimized for:
-    - Scatter-gather operations (synaptic propagation)
-    - SIMD vectorization of synaptic updates
-    - GPU coalesced memory access
-    - Rust FFI compatibility
-    """
+    """Single source of truth for synapses - Clean Architecture."""
     
     def __init__(self, max_synapses: Optional[int] = None, backend: BackendType = BackendType.CPU):
-        """Initialize synapse array as single source of truth.
-        
-        Args:
-            max_synapses: Maximum number of synapses to support (None = load from config)
-            backend: Computation backend for optimization
-        """
-        # Load configuration if max_synapses not provided
+        """Initialize synapse array."""
         if max_synapses is None:
             npu_config = _load_npu_config()
             max_synapses = npu_config["max_synapses"]
@@ -1037,105 +561,89 @@ class SynapseArray:
         self.max_synapses = max_synapses
         self.backend = backend
         self.synapse_count = 0
-        
-        # Alias for consistency with other arrays
         self.count = 0
         
-        # Detect optimal SIMD configuration
+        # Detect SIMD configuration
         self.simd_config = SIMDDetector.detect_simd_config(backend)
-        
-        # Align capacity to SIMD boundaries
-        alignment = self.simd_config.vector_width
-        self.aligned_capacity = ((max_synapses + alignment - 1) // alignment) * alignment
         
         # Thread safety
         self._lock = threading.RLock()
         
-        # Structure of Arrays - cache-aligned for optimal performance
-        alignment_bytes = self.simd_config.alignment_bytes
-        
         # Core synapse connectivity
-        self.source_neuron_ids = self._create_aligned_array(np.uint32, alignment_bytes)
-        self.target_neuron_ids = self._create_aligned_array(np.uint32, alignment_bytes)
+        self.source_neuron_ids = np.zeros(max_synapses, dtype=np.uint32)
+        self.target_neuron_ids = np.zeros(max_synapses, dtype=np.uint32)
         
-        # Synaptic properties
-        self.weights = self._create_aligned_array(np.float32, alignment_bytes)
-        self.delays = self._create_aligned_array(np.uint8, alignment_bytes, default_value=1)
-        self.types = self._create_aligned_array(np.uint8, alignment_bytes)  # Excitatory/Inhibitory
-        self.conductances = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
+        # Synaptic properties - NO HARDCODED VALUES, ALL FROM GENOME
+        self.weights = np.zeros(max_synapses, dtype=np.float32)
+        self.delays = np.zeros(max_synapses, dtype=np.uint8)  # MUST be set from genome
+        self.types = np.zeros(max_synapses, dtype=np.uint8)
+        self.conductances = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
-        # Plasticity properties
-        self.is_plastic_flags = self._create_aligned_array(np.bool_, alignment_bytes)
-        self.plasticity_types = self._create_aligned_array(np.uint8, alignment_bytes)
-        self.plasticity_coeffs = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
-        self.decay_rates = self._create_aligned_array(np.float32, alignment_bytes, default_value=0.95)
-        self.scaling_exponents = self._create_aligned_array(np.float32, alignment_bytes, default_value=1.0)
+        # Plasticity properties - NO HARDCODED VALUES, ALL FROM GENOME
+        self.is_plastic_flags = np.zeros(max_synapses, dtype=np.bool_)
+        self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)
+        self.plasticity_coeffs = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
+        self.decay_rates = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
-        # Synapse state tracking
-        self.valid_mask = self._create_aligned_array(np.bool_, alignment_bytes)
-        self.is_active = self._create_aligned_array(np.bool_, alignment_bytes)
+        # Synapse state
+        self.valid_mask = np.zeros(max_synapses, dtype=np.bool_)
+        self.is_active = np.zeros(max_synapses, dtype=np.bool_)
         
-        # Spatial indexing for fast lookup (NPU owns this)
-        self.source_neuron_index: Dict[int, List[int]] = {}  # neuron_id -> list of synapse indices
-        self.target_neuron_index: Dict[int, List[int]] = {}  # neuron_id -> list of synapse indices
+        # Indexing for fast lookup
+        self.source_neuron_index: Dict[int, List[int]] = {}
+        self.target_neuron_index: Dict[int, List[int]] = {}
         
-        # Synapse ID mapping
-        self.synapse_id_to_index: Dict[int, int] = {}
-        self.index_to_synapse_id: Dict[int, int] = {}
-        
-        # Free index management
-        self.free_indices: List[int] = []
-        self.next_free_index = 0
-        
-        logger.info(f"SynapseArray initialized: {max_synapses:,} max synapses, {backend.value} backend")
-        logger.info(f"SIMD config: {self.simd_config.vector_width} vector width, {self.simd_config.optimal_batch_size} optimal batch size")
+        logger.info("SynapseArray initialized: %d max synapses, %s backend", max_synapses, backend.value)
     
-    def _create_aligned_array(self, dtype: type, alignment_bytes: int, default_value: Any = None) -> np.ndarray:
-        """Create cache-aligned numpy array for optimal SIMD performance."""
-        # Same implementation as NeuronArray._create_aligned_array
-        extra_bytes = alignment_bytes - 1
-        
-        raw_array = np.empty(self.aligned_capacity + extra_bytes // np.dtype(dtype).itemsize, dtype=dtype)
-        
-        raw_ptr = raw_array.ctypes.data
-        aligned_ptr = (raw_ptr + alignment_bytes - 1) & ~(alignment_bytes - 1)
-        offset = (aligned_ptr - raw_ptr) // np.dtype(dtype).itemsize
-        
-        aligned_array = raw_array[offset:offset + self.aligned_capacity]
-        
-        if default_value is not None:
-            aligned_array.fill(default_value)
-        else:
-            aligned_array.fill(0)
+    def create_synapse(self, source_neuron_id: int, target_neuron_id: int, 
+                      weight: float, synapse_type: int = 0, 
+                      delay: int = 1, conductance: float = 1.0,
+                      plasticity_coeff: float = 0.0) -> bool:
+        """Create a single synapse."""
+        if self.count >= self.max_synapses:
+            return False
             
-        return aligned_array
-    
-    def get_optimal_batch_size(self) -> int:
-        """Get optimal batch size for SIMD operations on this backend."""
-        return self.simd_config.optimal_batch_size
-    
-    def get_max_batch_size(self) -> int:
-        """Get maximum recommended batch size for this backend."""
-        return self.simd_config.max_batch_size
+        # Determine plasticity type based on synapse_type
+        plasticity_type = 1 if synapse_type == 3 else 0  # 3=PLASTIC, 0=NON_PLASTIC
+        
+        success = self.add_synapses_batch(
+            source_neuron_ids=[source_neuron_id],
+            target_neuron_ids=[target_neuron_id],
+            weights=[weight],
+            delays=[delay],
+            conductances=[conductance],
+            synapse_types=[synapse_type],
+            plasticity_types=[plasticity_type],
+            plasticity_coefficients=[plasticity_coeff]
+        )
+        
+        return success == 1
     
     def add_synapses_batch(self, source_neuron_ids: List[int], target_neuron_ids: List[int],
-                          weights: List[float], delays: List[int], 
-                          plasticity_types: List[int], plasticity_coefficients: List[float]) -> int:
-        """Add multiple synapses in batch with SIMD optimization.
-        
-        Args:
-            source_neuron_ids: List of source neuron IDs
-            target_neuron_ids: List of target neuron IDs
-            weights: List of synaptic weights
-            delays: List of synaptic delays
-            plasticity_types: List of plasticity types
-            plasticity_coefficients: List of plasticity coefficients
-            
-        Returns:
-            Number of synapses actually added
-        """
+                          weights: List[float], delays: Optional[List[int]] = None, 
+                          conductances: Optional[List[float]] = None,
+                          synapse_types: Optional[List[int]] = None, 
+                          plasticity_types: Optional[List[int]] = None, 
+                          plasticity_coefficients: Optional[List[float]] = None) -> int:
+        """Add multiple synapses in batch."""
         count = len(source_neuron_ids)
-        if count != len(target_neuron_ids) or count != len(weights):
+        
+        # Set defaults for optional parameters
+        if delays is None:
+            delays = [1] * count
+        if conductances is None:
+            conductances = [1.0] * count
+        if synapse_types is None:
+            synapse_types = [0] * count
+        if plasticity_types is None:
+            plasticity_types = [0] * count
+        if plasticity_coefficients is None:
+            plasticity_coefficients = [0.0] * count
+        
+        if (count != len(target_neuron_ids) or count != len(weights) or 
+            count != len(delays) or count != len(conductances) or 
+            count != len(synapse_types) or count != len(plasticity_types) or 
+            count != len(plasticity_coefficients)):
             raise ValueError("All input lists must have same length")
             
         if self.count + count > self.max_synapses:
@@ -1147,11 +655,13 @@ class SynapseArray:
         start_idx = self.count
         end_idx = start_idx + count
         
-        # SIMD-optimized batch assignment
-        self.source_neuron_ids[start_idx:end_idx] = np.array(source_neuron_ids, dtype=np.int32)
-        self.target_neuron_ids[start_idx:end_idx] = np.array(target_neuron_ids, dtype=np.int32)
+        # Batch assignment - ALL VALUES FROM GENOME
+        self.source_neuron_ids[start_idx:end_idx] = np.array(source_neuron_ids, dtype=np.uint32)
+        self.target_neuron_ids[start_idx:end_idx] = np.array(target_neuron_ids, dtype=np.uint32)
         self.weights[start_idx:end_idx] = np.array(weights, dtype=np.float32)
         self.delays[start_idx:end_idx] = np.array(delays, dtype=np.uint8)
+        self.conductances[start_idx:end_idx] = np.array(conductances, dtype=np.float32)  # FROM GENOME
+        self.types[start_idx:end_idx] = np.array(synapse_types, dtype=np.uint8)  # FROM GENOME
         self.plasticity_types[start_idx:end_idx] = np.array(plasticity_types, dtype=np.uint8)
         self.plasticity_coeffs[start_idx:end_idx] = np.array(plasticity_coefficients, dtype=np.float32)
         
@@ -1159,186 +669,24 @@ class SynapseArray:
         self.is_active[start_idx:end_idx] = True
         self.valid_mask[start_idx:end_idx] = True
         
-        # Update indexing structures
+        # Update indexing
         for i, (source_id, target_id) in enumerate(zip(source_neuron_ids, target_neuron_ids)):
             synapse_idx = start_idx + i
             
-            # Update source neuron index
             if source_id not in self.source_neuron_index:
                 self.source_neuron_index[source_id] = []
             self.source_neuron_index[source_id].append(synapse_idx)
             
-            # Update target neuron index
             if target_id not in self.target_neuron_index:
                 self.target_neuron_index[target_id] = []
             self.target_neuron_index[target_id].append(synapse_idx)
         
         self.count += count
-        self.synapse_count += count  # Keep both in sync
+        self.synapse_count += count
         return count
     
-    def remove_synapses_batch(self, synapse_indices: List[int]) -> int:
-        """Remove multiple synapses in batch with SIMD optimization.
-        
-        Args:
-            synapse_indices: List of synapse indices to remove
-            
-        Returns:
-            Number of synapses actually removed
-        """
-        removed_count = 0
-        
-        for idx in synapse_indices:
-            if 0 <= idx < self.count and self.is_active[idx]:
-                # Mark as inactive
-                self.is_active[idx] = False
-                removed_count += 1
-        
-        # Update count (simple approach - could be optimized with compaction)
-        self.count -= removed_count
-        self.synapse_count -= removed_count  # Keep both in sync
-        
-        return removed_count
-    
-    def update_weights_batch(self, synapse_indices: List[int], new_weights: List[float]) -> int:
-        """Update synaptic weights in batch with SIMD optimization.
-        
-        Args:
-            synapse_indices: List of synapse indices
-            new_weights: List of new weight values
-            
-        Returns:
-            Number of synapses actually updated
-        """
-        if len(synapse_indices) != len(new_weights):
-            raise ValueError("synapse_indices and new_weights must have same length")
-        
-        valid_indices = []
-        valid_weights = []
-        
-        for idx, weight in zip(synapse_indices, new_weights):
-            if 0 <= idx < self.count and self.is_active[idx]:
-                valid_indices.append(idx)
-                valid_weights.append(weight)
-        
-        if not valid_indices:
-            return 0
-        
-        # SIMD-optimized batch update
-        indices_array = np.array(valid_indices, dtype=np.int32)
-        weights_array = np.array(valid_weights, dtype=np.float32)
-        
-        self.weights[indices_array] = weights_array
-        
-        return len(valid_indices)
-    
-    # Individual synapse methods for ConnectomeManager compatibility
-    def create_synapse(self, source_neuron_id: int, target_neuron_id: int, weight: float,
-                      delay: int = 1, synapse_type: int = 0, plasticity_coeff: float = 0.0) -> bool:
-        """Create a single synapse (compatibility method).
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID  
-            weight: Synaptic weight
-            delay: Synaptic delay (default 1)
-            synapse_type: Synapse type (default 0 = excitatory)
-            plasticity_coeff: Plasticity coefficient (default 0.0)
-            
-        Returns:
-            True if synapse was created successfully
-        """
-        try:
-            result = self.add_synapses_batch(
-                source_neuron_ids=[source_neuron_id],
-                target_neuron_ids=[target_neuron_id],
-                weights=[weight],
-                delays=[delay],
-                plasticity_types=[synapse_type],
-                plasticity_coefficients=[plasticity_coeff]
-            )
-            return result > 0
-        except Exception:
-            return False
-    
-    def delete_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
-        """Delete a single synapse (compatibility method).
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID
-            
-        Returns:
-            True if synapse was deleted successfully
-        """
-        # Find synapse index
-        synapse_idx = self._find_synapse_index(source_neuron_id, target_neuron_id)
-        if synapse_idx is None:
-            return False
-            
-        try:
-            result = self.remove_synapses_batch([synapse_idx])
-            return result > 0
-        except Exception:
-            return False
-    
-    def has_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
-        """Check if synapse exists (compatibility method).
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID
-            
-        Returns:
-            True if synapse exists
-        """
-        return self._find_synapse_index(source_neuron_id, target_neuron_id) is not None
-    
-    def get_synapse_weight(self, source_neuron_id: int, target_neuron_id: int) -> Optional[float]:
-        """Get synapse weight (compatibility method).
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID
-            
-        Returns:
-            Synapse weight or None if not found
-        """
-        synapse_idx = self._find_synapse_index(source_neuron_id, target_neuron_id)
-        if synapse_idx is None:
-            return None
-        return float(self.weights[synapse_idx])
-    
-    def update_synapse_weight(self, source_neuron_id: int, target_neuron_id: int, new_weight: float) -> bool:
-        """Update synapse weight (compatibility method).
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID
-            new_weight: New weight value
-            
-        Returns:
-            True if weight was updated successfully
-        """
-        synapse_idx = self._find_synapse_index(source_neuron_id, target_neuron_id)
-        if synapse_idx is None:
-            return False
-            
-        try:
-            result = self.update_weights_batch([synapse_idx], [new_weight])
-            return result > 0
-        except Exception:
-            return False
-    
     def get_outgoing_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """Get outgoing connections from a neuron (compatibility method).
-        
-        Args:
-            neuron_id: Source neuron ID
-            
-        Returns:
-            List of (target_neuron_id, weight) tuples
-        """
+        """Get outgoing connections from a neuron."""
         connections = []
         if neuron_id in self.source_neuron_index:
             for synapse_idx in self.source_neuron_index[neuron_id]:
@@ -1349,7 +697,7 @@ class SynapseArray:
         return connections
     
     def get_incoming_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """Get incoming connections to a neuron (compatibility method).
+        """Get incoming connections to a neuron.
         
         Args:
             neuron_id: Target neuron ID
@@ -1366,52 +714,19 @@ class SynapseArray:
                     connections.append((source_id, weight))
         return connections
     
-    def batch_create_synapses(self, synapse_specs: List[Tuple[int, int, float]]) -> int:
-        """Create multiple synapses from specs (compatibility method).
-        
-        Args:
-            synapse_specs: List of (source_neuron_id, target_neuron_id, weight) tuples
+    def has_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
+        """Check if synapse exists between two neurons."""
+        if source_neuron_id not in self.source_neuron_index:
+            return False
             
-        Returns:
-            Number of synapses created
-        """
-        if not synapse_specs:
-            return 0
-            
-        source_ids = []
-        target_ids = []
-        weights = []
-        delays = []
-        plasticity_types = []
-        plasticity_coeffs = []
-        
-        for source_id, target_id, weight in synapse_specs:
-            source_ids.append(source_id)
-            target_ids.append(target_id)
-            weights.append(weight)
-            delays.append(1)  # Default delay
-            plasticity_types.append(0)  # Default excitatory
-            plasticity_coeffs.append(0.0)  # Default no plasticity
-        
-        return self.add_synapses_batch(
-            source_neuron_ids=source_ids,
-            target_neuron_ids=target_ids,
-            weights=weights,
-            delays=delays,
-            plasticity_types=plasticity_types,
-            plasticity_coefficients=plasticity_coeffs
-        )
+        for synapse_idx in self.source_neuron_index[source_neuron_id]:
+            if synapse_idx < self.count and self.valid_mask[synapse_idx]:
+                if self.target_neuron_ids[synapse_idx] == target_neuron_id:
+                    return True
+        return False
     
     def _find_synapse_index(self, source_neuron_id: int, target_neuron_id: int) -> Optional[int]:
-        """Find synapse index by source and target neuron IDs.
-        
-        Args:
-            source_neuron_id: Source neuron ID
-            target_neuron_id: Target neuron ID
-            
-        Returns:
-            Synapse index or None if not found
-        """
+        """Find synapse index by source and target neuron IDs."""
         if source_neuron_id not in self.source_neuron_index:
             return None
             
@@ -1422,9 +737,70 @@ class SynapseArray:
                 return synapse_idx
         
         return None
+    
+    def delete_synapse(self, source_neuron_id: int, target_neuron_id: int) -> bool:
+        """Delete a single synapse between two neurons."""
+        synapse_idx = self._find_synapse_index(source_neuron_id, target_neuron_id)
+        if synapse_idx is None:
+            return False
+            
+        try:
+            # Mark as invalid and inactive
+            self.valid_mask[synapse_idx] = False
+            self.is_active[synapse_idx] = False
+            
+            # Update counts
+            self.count -= 1
+            self.synapse_count -= 1
+            
+            # Remove from index lists
+            self.source_neuron_index[source_neuron_id].remove(synapse_idx)
+            if not self.source_neuron_index[source_neuron_id]:
+                del self.source_neuron_index[source_neuron_id]
+                
+            self.target_neuron_index[target_neuron_id].remove(synapse_idx)
+            if not self.target_neuron_index[target_neuron_id]:
+                del self.target_neuron_index[target_neuron_id]
+            
+            return True
+        except Exception:
+            return False
+    
+    def propagate_activations(self, firing_neuron_ids: List[int], neuron_array: 'NeuronArray') -> None:
+        """Propagate activations from firing neurons to their targets."""
+        import numpy as np
+        
+        if not firing_neuron_ids or neuron_array is None:
+            return
+            
+        # Process each firing neuron
+        for source_neuron_id in firing_neuron_ids:
+            if source_neuron_id not in self.source_neuron_index:
+                continue
+                
+            # Get all outgoing synapses from this neuron
+            outgoing_synapses = self.source_neuron_index[source_neuron_id]
+            
+            for synapse_idx in outgoing_synapses:
+                if synapse_idx >= self.count or not self.valid_mask[synapse_idx]:
+                    continue
+                
+                target_neuron_id = int(self.target_neuron_ids[synapse_idx])
+                weight = float(self.weights[synapse_idx])
+                conductance = float(self.conductances[synapse_idx])
+                
+                # Get target neuron array index
+                if target_neuron_id in neuron_array.neuron_id_to_index:
+                    target_idx = neuron_array.neuron_id_to_index[target_neuron_id]
+                    
+                    # Update membrane potential with synaptic input
+                    with neuron_array._lock:
+                        delta_potential = weight * conductance
+                        neuron_array.membrane_potentials[target_idx] += delta_potential
+    
 
 
-# Export the main data structures
+# Export the main data structures for compatibility
 __all__ = [
     'NeuronArray',
     'MemoryNeuronArray', 

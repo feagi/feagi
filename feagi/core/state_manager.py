@@ -11,6 +11,7 @@ import time
 from collections import defaultdict
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Set
+from pathlib import Path
 
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
@@ -407,6 +408,19 @@ class FeagiStateManager:
         # Initialize GPU keep-alive eligibility based on current brain size
         self._update_gpu_keepalive_eligibility()
         
+        # Shared Memory: manager and registries
+        self._shared_memory_registry: Dict[str, str] = {}
+        self._agent_shared_memory: Dict[str, Dict[str, str]] = {}
+        try:
+            from feagi.core.shared_memory import SharedMemoryManager
+
+            self._shm_manager = SharedMemoryManager()
+            # Cleanup any stale SHM files on startup
+            logger.warning("𒓉 [SHM-CLEANUP] StateManager startup invoking cleanup_all()")
+            self._shm_manager.cleanup_all()
+        except Exception:
+            self._shm_manager = None
+
         logger.info("FeagiStateManager initialized")
         logger.info(
             f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}"
@@ -526,6 +540,247 @@ class FeagiStateManager:
                 return store_result
         
         return Result.ok(None)
+
+    # === SHARED MEMORY REGISTRATION/LOOKUP ===
+    def register_core_shared_memory_path(self, key: str, path: str) -> None:
+        """Register a core shared memory file path (e.g., visualization_stream).
+
+        Args:
+            key: Registry key (e.g., "visualization_stream")
+            path: Absolute file path to the SHM file
+        """
+        try:
+            if not isinstance(key, str) or not key:
+                return
+            if not isinstance(path, str) or not path:
+                return
+            self._shared_memory_registry[key] = path
+            logger.info(f"𒓉 [SHM] Registered core SHM path: {key} → {path}")
+        except Exception as e:
+            logger.warning(f"Failed to register core SHM path for {key}: {e}")
+
+    def get_shared_memory_registry(self) -> Dict[str, str]:
+        """Return a copy of the core shared memory registry."""
+        return dict(self._shared_memory_registry)
+
+    def create_agent_shm_with_caps(self, agent_id: str, capabilities: Dict[str, Any]) -> Dict[str, str]:
+        """Create and register per-agent SHM mappings with explicitly provided capabilities.
+        
+        This method avoids circular dependency where create_agent_shm tries to fetch
+        capabilities from RegistrationManager during registration.
+
+        Args:
+            agent_id: Agent identifier
+            capabilities: Agent capabilities dictionary (already sanitized by RegistrationManager)
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+        """
+        return self._create_agent_shm_internal(agent_id, capabilities)
+
+    def create_agent_shm(self, agent_id: str) -> Dict[str, str]:
+        """Create and register per-agent SHM mappings for client consumption.
+
+        For visualizer clients, we expose the core visualization stream path so
+        they can subscribe via shared memory.
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+            Example: {"visualization_stream": "/.../feagi-shared-mem-visualization-stream.bin"}
+        """
+        if not isinstance(agent_id, str) or not agent_id:
+            return {}
+
+        # Determine agent capabilities (authoritative source)
+        from feagi.pns.registration_manager import get_registration_manager
+        caps: Dict[str, bool] = {}
+        try:
+            reg = get_registration_manager()
+            if reg:
+                props = reg.get_agent_properties(agent_id) or {}
+                caps = props.get("capabilities", {}) or {}
+        except Exception:
+            caps = {}
+        
+        return self._create_agent_shm_internal(agent_id, caps)
+
+    def _create_agent_shm_internal(self, agent_id: str, caps: Dict[str, Any]) -> Dict[str, str]:
+        """Internal implementation for creating agent SHM mappings.
+        
+        Args:
+            agent_id: Agent identifier
+            caps: Agent capabilities dictionary
+
+        Returns:
+            Mapping of shared memory identifiers to absolute file paths.
+        """
+        if not isinstance(agent_id, str) or not agent_id:
+            return {}
+
+        mappings: Dict[str, str] = {}
+
+        try:
+            # Ensure we have a SHM manager
+            if not getattr(self, "_shm_manager", None):
+                logger.info("[SHM] No SHM manager available; cannot create mappings")
+                return {}
+
+            # Only expose/create FEAGI-owned core streams for eligible agents
+            # Visualization core stream (FEAGI → BV)
+            # Strict visualization gating: only canonical key 'visualization'
+            wants_viz = False
+            if isinstance(caps.get("visualization"), dict):
+                wants_viz = bool(caps["visualization"].get("enabled", True))
+            else:
+                wants_viz = bool(caps.get("visualization"))
+            if wants_viz:
+                # Core registry uses 'visualization_stream'. Expose to agents as 'visualization'
+                core_viz_key = "visualization_stream"
+                viz_path = self._shared_memory_registry.get(core_viz_key, "")
+                try:
+                    # If registry missing or file missing, (re)create safely
+                    from pathlib import Path as _P
+                    if not viz_path or not _P(viz_path).exists():
+                        viz_path = self._shm_manager.create_stream_file(core_viz_key)
+                        self._shared_memory_registry[core_viz_key] = viz_path
+                        logger.info(
+                            f"𒓉 [SHM] Ensured core visualization stream SHM exists: {viz_path}"
+                        )
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to ensure visualization SHM: {e}")
+                    viz_path = ""
+                if viz_path:
+                    mappings["visualization"] = viz_path
+
+            # Motor stream (FEAGI → motor-capable agents)
+            # Use dedicated per-agent SHM file to avoid shared-writer contention
+            # Strict motor gating: only canonical key (no aliases)
+            wants_motor = False
+            if isinstance(caps.get("motor"), dict):
+                wants_motor = bool(caps["motor"].get("enabled", True))
+            else:
+                wants_motor = bool(caps.get("motor"))
+            if wants_motor:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"motor": True})
+                    motor_path = created.get("motor", "")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent motor SHM: {e}")
+                    motor_path = ""
+                if motor_path:
+                    mappings["motor"] = motor_path
+
+            # Sensory stream (agent → FEAGI) - agent-owned writer path
+            wants_sensory = False
+            if isinstance(caps.get("sensory"), dict):
+                wants_sensory = bool(caps["sensory"].get("enabled", True))
+            else:
+                wants_sensory = bool(caps.get("sensory"))
+            if wants_sensory:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"sensory": True})
+                    sensory_path = created.get("sensory", "")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent sensory SHM: {e}")
+                    sensory_path = ""
+                if sensory_path:
+                    mappings["sensory"] = sensory_path
+
+            # Video stream (agent → BV preview) - agent-owned writer path
+            wants_video = False
+            if isinstance(caps.get("video"), dict):
+                wants_video = bool(caps["video"].get("enabled", True))
+            else:
+                wants_video = bool(caps.get("video"))
+            if wants_video:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"video": True})
+                    video_path = created.get("video", "")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent video SHM: {e}")
+                    video_path = ""
+                if video_path:
+                    mappings["video"] = video_path
+
+            # FEAGI processed video stream (agent → BV FEAGI view) - agent-owned writer path
+            wants_feagi = False
+            if isinstance(caps.get("feagi"), dict):
+                wants_feagi = bool(caps["feagi"].get("enabled", True))
+            else:
+                wants_feagi = bool(caps.get("feagi"))
+            logger.info(f"[SHM-FEAGI] Agent {agent_id} requested feagi capability: {wants_feagi}, caps.get('feagi')={caps.get('feagi')}")
+            if wants_feagi:
+                try:
+                    created = self._shm_manager.create_agent_capability_files(agent_id, {"feagi": True})
+                    feagi_path = created.get("feagi", "")
+                    logger.info(f"[SHM-FEAGI] Created feagi SHM path for {agent_id}: {feagi_path}")
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to create per-agent feagi SHM: {e}")
+                    feagi_path = ""
+                if feagi_path:
+                    mappings["feagi"] = feagi_path
+                    logger.info(f"[SHM-FEAGI] Added feagi path to mappings: {feagi_path}")
+                else:
+                    logger.warning(f"[SHM-FEAGI] feagi_path is empty, not adding to mappings")
+
+            # NOTE: Do NOT pre-create inbound agent files (sensory/video). Those
+            # must be created by the agent with correct headers. Pre-touching here
+            # causes 'Invalid SHM magic' in readers.
+
+            # Save per-agent view of mappings (even if currently only visualization provided)
+            # Ensure there is only one agent_id per unique mapping: remove duplicates
+            try:
+                signature_parts = []
+                for k in sorted(mappings.keys()):
+                    signature_parts.append(f"{k}={mappings.get(k, '')}")
+                signature = "|".join(signature_parts)
+                to_remove = []
+                for aid, mapping in self._agent_shared_memory.items():
+                    try:
+                        parts = []
+                        for k in sorted(mapping.keys()):
+                            parts.append(f"{k}={mapping.get(k, '')}")
+                        if "|".join(parts) == signature and aid != agent_id:
+                            to_remove.append(aid)
+                    except Exception:
+                        continue
+                for aid in to_remove:
+                    try:
+                        del self._agent_shared_memory[aid]
+                        logger.info(f"𒓉 [SHM] Removed duplicate SHM mapping under agent '{aid}' → canonical '{agent_id}'")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            self._agent_shared_memory[agent_id] = dict(mappings)
+            if mappings:
+                logger.info(f"𒓉 [SHM] Agent {agent_id} SHM mappings: {mappings}")
+            else:
+                logger.info(f"[SHM] Agent {agent_id} has no SHM mappings (shared-mem disabled or unavailable)")
+
+            return mappings
+        except Exception as e:
+            logger.error(f"[SHM] Error creating agent SHM for {agent_id}: {e}")
+            return {}
+
+    def delete_agent_shm(self, agent_id: str) -> None:
+        """Remove per-agent SHM mappings from the registry.
+
+        Note: Does not delete core visualization SHM files.
+        """
+        try:
+            if agent_id in self._agent_shared_memory:
+                del self._agent_shared_memory[agent_id]
+                logger.info(f"𒓉 [SHM-AGENT] Cleared SHM mappings for agent {agent_id}")
+            # Attempt to remove agent-specific SHM files as part of cleanup
+            if getattr(self, "_shm_manager", None):
+                try:
+                    logger.warning(f"𒓉 [SHM-AGENT] StateManager invoking delete_agent_files for {agent_id}")
+                    self._shm_manager.delete_agent_files(agent_id)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
     # === BURST ENGINE STATE MANAGEMENT ===
     
@@ -1645,6 +1900,13 @@ class FeagiStateManager:
         """Cleanup state manager resources for graceful shutdown."""
         try:
             logger.info("FeagiStateManager cleanup initiated")
+            # Best-effort: cleanup SHM files on FEAGI exit
+            try:
+                if hasattr(self, "_shm_manager") and self._shm_manager:
+                    logger.warning("𒓉 [SHM-CLEANUP] StateManager shutdown invoking cleanup_all()")
+                    self._shm_manager.cleanup_all()
+            except Exception:
+                pass
             
             # Set exit condition
             self.set_exit_condition(True)
@@ -1776,6 +2038,28 @@ class FeagiStateManager:
         self._ensure_activity_counters()
         self._cumulative_activity_total = 0
         self._cumulative_activity_bursts = 0
+
+    # === PLASTICITY COUNTERS ===
+    def _ensure_plasticity_counters(self) -> None:
+        if not hasattr(self, "_plasticity_dropped_ops"):
+            self._plasticity_dropped_ops = 0
+
+    def increment_plasticity_dropped_ops(self, count: int) -> None:
+        """Increment number of plasticity operations dropped (queue full)."""
+        try:
+            self._ensure_plasticity_counters()
+            inc = int(count)
+            if inc < 0:
+                inc = 0
+            self._plasticity_dropped_ops += inc
+        except Exception:
+            pass
+
+    def get_plasticity_counters(self) -> Dict[str, int]:
+        self._ensure_plasticity_counters()
+        return {
+            "dropped_ops": int(self._plasticity_dropped_ops)
+        }
 
     def get_critical_services_status(self) -> Dict[str, Any]:
         """Get status of all critical services for system readiness checks."""
@@ -2013,7 +2297,19 @@ class FeagiStateManager:
         if agent_id in current_agents:
             del current_agents[agent_id]
             result = self.set_connected_agents(current_agents)
+            # Also clear per-agent SHM view and try to delete files
+            try:
+                if hasattr(self, "delete_agent_shm"):
+                    self.delete_agent_shm(agent_id)
+            except Exception:
+                pass
             return result
+        # Even if agent not present, ensure SHM view is cleared
+        try:
+            if hasattr(self, "delete_agent_shm"):
+                self.delete_agent_shm(agent_id)
+        except Exception:
+            pass
         return Result.ok(None)
 
     # === MISSING METHODS FOR TEST COMPATIBILITY ===
@@ -2137,15 +2433,16 @@ class FeagiStateManager:
     def get_genome_counter(self) -> int:
         """Get the current genome counter/version number."""
         # This tracks how many times genomes have been loaded
-        # Return a simple counter based on genome state
-        current_state = self.get_genome_state()
-        if current_state == GenomeState.LOADED:
-            return 1  # Simple implementation - first loaded genome
-        return 0  # No genome loaded
+        # Return the actual genome counter that gets incremented
+        return getattr(self._state, "genome_counter", 0)
     
     def get_genome_timestamp(self) -> int:
         """Get the current genome timestamp."""
         return getattr(self._state, "genome_timestamp", 0)
+    
+    def get_feagi_session_timestamp(self) -> int:
+        """Get the FEAGI session timestamp (when this FEAGI instance was created)."""
+        return getattr(self._state, "feagi_session_timestamp", 0)
     
     def set_genome_timestamp(self, timestamp: int) -> Result[None]:
         """Set genome timestamp."""

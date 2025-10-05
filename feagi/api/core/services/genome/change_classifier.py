@@ -42,8 +42,13 @@ class CorticalChangeClassifier:
         "cortical_type",  # Functional role changes
         "cortical_mapping_dst",  # Connection topology
         "per_voxel_neuron_cnt",  # Neuron density changes
+        "cortical_neuron_per_vox_count",  # Alternative neuron density parameter name
+        "neuron_density",  # Another neuron density parameter name
+        "neurons_per_voxel",  # Yet another neuron density parameter name
         "group_id",  # May affect area classification
         "sub_group_id",  # May affect area classification
+        "region_id",  # Brain region assignment changes
+        "brain_region_id",  # Alternative brain region assignment field
     }
 
     # Simple metadata that can be updated without affecting neurons
@@ -121,6 +126,11 @@ class CorticalChangeClassifier:
             "temporal_depth",
             int,
         ),  # Same name for API and genome
+        # Membrane potential properties - fast updates
+        "mp_charge_accumulation": ("mp_charge_accumulation", bool),
+        "neuron_mp_charge_accumulation": ("mp_charge_accumulation", bool),  # API parameter name
+        "mp_driven_psp": ("mp_driven_psp", bool),
+        "neuron_mp_driven_psp": ("mp_driven_psp", bool),  # API parameter name
     }
 
     # Parameters that need special handling (require rebuild for now)
@@ -133,8 +143,6 @@ class CorticalChangeClassifier:
         "neuron_leak_variability",  # API parameter name
         "psp_uniform_distribution",
         "neuron_psp_uniform_distribution",  # API parameter name
-        "mp_charge_accumulation",
-        "mp_driven_psp",
         "is_mem_type",
         "dev_count",
         "synapse_attractivity",

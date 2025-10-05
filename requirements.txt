@@ -44,4 +44,4 @@ feagi-bytes>=0.1.0
 
 # High-performance data processing (from test.pypi)
 # Install with: pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ feagi-data-processing
-feagi-rust-py-libs>=0.0.45
+feagi-rust-py-libs>=0.0.54

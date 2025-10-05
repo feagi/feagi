@@ -190,8 +190,10 @@ class APIGateway:
                 if os.environ.get("FEAGI_LOCAL_CORE", "0") == "1":
                     logger.info("Creating local Core API instance")
                     from feagi.core import create_core_api
+                    from feagi.bdu.connectome_manager import ConnectomeManager
 
-                    self._core_api = create_core_api()
+                    connectome = ConnectomeManager.instance()
+                    self._core_api = create_core_api(connectome, {})
                     logger.info("Local Core API created")
         except ImportError:
             logger.warning(

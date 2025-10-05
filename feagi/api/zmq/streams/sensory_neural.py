@@ -1,13 +1,18 @@
 """High-performance sensory stream for neural data ingestion.
 
 This stream implements zero-copy neural data reception from FEAGI_Connector
-with pre-allocated buffers and platform-specific optimizations.
+with latest-only shared slots to prevent temporal pattern replay bugs.
 """
 
 import asyncio
+import threading
 import time
 from enum import IntEnum
 from typing import Any, Dict, Optional
+from pathlib import Path
+import mmap as _mmap
+import os as _os
+import struct as _struct
 
 import numpy as np
 import zmq
@@ -17,9 +22,60 @@ from feagi.utils.logger import setup_logger
 
 from ..memory import NeuralBufferPool
 from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
+from ..neural.latest_only_slot import (
+    LatestOnlySharedSlot, 
+    LatestOnlyReader, 
+    LatestOnlyWriter,
+    create_agent_slot_path,
+    cleanup_agent_slots
+)
 from ..platform import optimize_socket_for_neural_data
 
 logger = setup_logger(__name__)
+
+# Global pool for latest-only slot readers per agent
+_GLOBAL_SLOT_READERS: Dict[str, LatestOnlyReader] = {}
+_GLOBAL_SLOT_LOCK = threading.Lock()
+_SHM_BASE_DIR = Path("/tmp/feagi_shm")
+
+def _acquire_slot_reader(agent_id: str, max_age_ms: float = 100.0) -> Optional[LatestOnlyReader]:
+    """Get or create a latest-only slot reader for an agent.
+    
+    Args:
+        agent_id: Agent identifier
+        max_age_ms: Maximum data age before considering stale
+        
+    Returns:
+        LatestOnlyReader instance or None if creation fails
+    """
+    with _GLOBAL_SLOT_LOCK:
+        existing_reader = _GLOBAL_SLOT_READERS.get(agent_id)
+        if existing_reader:
+            logger.info(f"[SLOT] Reusing reader for agent {agent_id}")
+            return existing_reader
+            
+        try:
+            slot_path = create_agent_slot_path(_SHM_BASE_DIR, agent_id, "sensory")
+            slot = LatestOnlySharedSlot(slot_path)
+            reader = LatestOnlyReader(slot, max_age_ms)
+            _GLOBAL_SLOT_READERS[agent_id] = reader
+            logger.info(f"[SLOT] Created reader for agent {agent_id}: {slot_path}")
+            return reader
+        except Exception as e:
+            logger.error(f"[SLOT] Failed to create reader for agent {agent_id}: {e}")
+            return None
+
+def _release_slot_reader(agent_id: str) -> None:
+    """Release and cleanup latest-only slot reader for an agent."""
+    with _GLOBAL_SLOT_LOCK:
+        reader = _GLOBAL_SLOT_READERS.pop(agent_id, None)
+        if reader:
+            try:
+                reader.slot.close()
+                cleanup_agent_slots(_SHM_BASE_DIR, agent_id)
+                logger.info(f"[SLOT] Released and cleaned up reader for agent {agent_id}")
+            except Exception as e:
+                logger.warning(f"[SLOT] Error cleaning up reader for agent {agent_id}: {e}")
 
 
 class StreamResult(IntEnum):
@@ -53,7 +109,7 @@ class SensoryNeuralStream:
         port: int = 5558,
         context: Optional[zmq.asyncio.Context] = None,
         ring_buffer_slots: int = 1024,
-        slot_size: int = 1048576,  # 1MB per slot
+        slot_size: int = 2097152,  # 2MB per slot (min cap applied below)
         cortical_config: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
         """Initialize neural sensory stream.
@@ -76,12 +132,15 @@ class SensoryNeuralStream:
         # Debug endpoint for logging
         self.debug_endpoint = f"tcp://{self.host}:{self.port}"
 
-        # Zero-copy ring buffer for incoming data
-        self.ring_buffer = ZeroCopyRingBuffer(
-            slots=ring_buffer_slots,
-            slot_size=slot_size,
-            use_shared_memory=True,
-        )
+        # Latest-only buffer for incoming ZMQ data to prevent temporal pattern replay
+        # CRITICAL: Uses single-slot buffer to eliminate frequency mismatch caching
+        # This prevents 20Hz agents from filling buffers when FEAGI runs at 1Hz
+        self._latest_only_buffer = {
+            'data': None,
+            'timestamp_ns': 0,
+            'lock': threading.Lock()
+        }
+        self._max_slot_size = max(524288, int(slot_size))  # Keep size limit
 
         # Neural-specific buffer pools
         if cortical_config:
@@ -89,8 +148,8 @@ class SensoryNeuralStream:
         else:
             self.neural_buffers = None
 
-        # Socket setup
-        self.socket = self._setup_socket()
+        # Socket setup - delay until start() is called
+        self.socket = None
 
         # State
         self.running = False
@@ -103,6 +162,40 @@ class SensoryNeuralStream:
             "last_message_time": 0,
         }
 
+        # Enable SHM debug when configured via StateManager.debug_shm (set by --debug-shm)
+        self._debug_shm = False
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            dbg = getattr(sm, "_debug_config", {}) or {}
+            self._debug_shm = bool(dbg.get("debug_shm", False))
+        except Exception:
+            self._debug_shm = False
+
+    def _shm_log(self, message: str) -> None:
+        """Emit SHM diagnostics to both logger and stdout when debug_shm is enabled."""
+        if not getattr(self, "_debug_shm", False):
+            return
+        try:
+            logger.info(f"𒓉 [SHM] {message}")
+        except Exception:
+            pass
+        try:
+            print(f"𒓉 [SHM-DBG] {message}", flush=True)
+        except Exception:
+            pass
+
+    def _ensure_slot_structures(self) -> None:
+        """Ensure latest-only slot reader structures exist."""
+        if not hasattr(self, "_slot_lock"):
+            import threading as _threading
+            self._slot_lock = _threading.Lock()
+        if not hasattr(self, "_slot_readers"):
+            self._slot_readers = {}
+        if self._debug_shm:
+            self._shm_log("Initialized latest-only slot reader structures")
+
         # Protocol handlers
         self._protocol_handlers = {
             NeuralProtocolID.NEURON_FLAT: self._handle_neuron_flat,
@@ -110,6 +203,37 @@ class SensoryNeuralStream:
             NeuralProtocolID.NEURON_MULTI: self._handle_neuron_multi,
             NeuralProtocolID.CORTICAL_MAP: self._handle_cortical_map,
         }
+
+        # Initialize latest-only slot readers for connected agents
+        self._slot_readers: Dict[str, LatestOnlyReader] = {}
+        self._slot_lock = threading.Lock()
+        
+        # Set maximum age for sensory data (100ms default)
+        # Data older than this will be automatically rejected
+        self._max_sensory_age_ms = 100.0
+        
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            sm = FeagiStateManager.instance()
+            
+            # Get connected agents instead of shared memory mappings  
+            # This avoids the StateManager registry fluctuations that caused the bug
+            connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+            
+            for agent_id, agent_data in connected_agents.items():
+                # Only create readers for agents that have sensory capabilities
+                capabilities = agent_data.get('capabilities', {})
+                if capabilities.get('sensory') or capabilities.get('neurons_stream'):
+                    try:
+                        reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
+                        if reader:
+                            self._slot_readers[agent_id] = reader
+                            logger.info(f"✅ [SLOT] Initialized sensory slot reader for agent {agent_id}")
+                    except Exception as e:
+                        logger.warning(f"[SLOT] Failed to initialize sensory slot reader for {agent_id}: {e}")
+                        
+        except Exception as e:
+            logger.info(f"[SLOT] Sensory slot registry unavailable; using ZMQ only ({e})")
 
     def _is_debug_npu_enabled(self) -> bool:
         """Check if NPU debug logging is enabled via state manager.
@@ -147,12 +271,27 @@ class SensoryNeuralStream:
         logger.info(
             f"Starting neural sensory stream on {self.host}:{self.port}"
         )
+        
+        # Ensure latest-only slot structures initialized before tasks start
+        self._ensure_slot_structures()
+
+        # Create and bind socket
+        self.socket = self._setup_socket()
         self.running = True
 
-        # Start processing task
+        # Start processing tasks
         self._process_task = asyncio.create_task(self._process_loop())
+        # Start latest-only slot poller for connected agents
+        self._slot_task = asyncio.create_task(self._process_slot_loop())
+        # Optional periodic slot summary
+        if self._debug_shm:
+            try:
+                self._slot_summary_task = asyncio.create_task(self._log_slot_summary_loop())
+            except Exception:
+                self._slot_summary_task = None
 
         logger.info("Neural sensory stream started")
+
 
     async def stop(self) -> None:
         """Stop the neural sensory stream."""
@@ -171,6 +310,22 @@ class SensoryNeuralStream:
                 pass
             except Exception as e:
                 logger.warning(f"Error cancelling process task: {e}")
+        if hasattr(self, "_slot_task"):
+            self._slot_task.cancel()
+            try:
+                await self._slot_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error cancelling slot task: {e}")
+        if hasattr(self, "_slot_summary_task"):
+            self._slot_summary_task.cancel()
+            try:
+                await self._slot_summary_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error cancelling slot summary task: {e}")
 
         # Close socket with error handling
         if self.socket:
@@ -179,17 +334,13 @@ class SensoryNeuralStream:
             except Exception as e:
                 logger.warning(f"Error closing socket: {e}")
 
-        # CRITICAL: Always ensure ring buffer cleanup
+        # Clear latest-only buffer
         try:
-            self.ring_buffer.close()
-        except Exception as e:
-            logger.error(f"Error closing ring buffer: {e}")
-            # Still try to cleanup - this is critical for shared memory
-            try:
-                if hasattr(self.ring_buffer, "__del__"):
-                    self.ring_buffer.__del__()
-            except Exception as e2:
-                logger.error(f"Error in ring buffer destructor: {e2}")
+            with self._latest_only_buffer['lock']:
+                self._latest_only_buffer['data'] = None
+                self._latest_only_buffer['timestamp_ns'] = 0
+        except Exception:
+            pass
 
         # Close buffer pools with error handling
         if self.neural_buffers:
@@ -200,6 +351,18 @@ class SensoryNeuralStream:
 
         logger.info("Neural sensory stream stopped")
 
+        # Close latest-only slot readers
+        try:
+            with self._slot_lock:
+                for agent_id in list(self._slot_readers.keys()):
+                    try:
+                        _release_slot_reader(agent_id)
+                    except Exception:
+                        pass
+                self._slot_readers.clear()
+        except Exception:
+            pass
+
     def __del__(self):
         """Destructor to ensure cleanup even if stop() isn't called
         explicitly."""
@@ -208,12 +371,6 @@ class SensoryNeuralStream:
             #  still running
             if getattr(self, "running", False):
                 # Try to stop gracefully but don't await (we're in destructor)
-                if hasattr(self, "ring_buffer"):
-                    try:
-                        self.ring_buffer.close()
-                    except Exception:
-                        pass
-
                 if hasattr(self, "socket") and self.socket:
                     try:
                         self.socket.close()
@@ -244,8 +401,8 @@ class SensoryNeuralStream:
                     self._stats["buffer_overruns"] += 1
                     logger.warning(
                         f"Ring buffer full, applying backpressure. Buffer stats: "
-                        f"used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                        f"full_count={self.ring_buffer.stats.buffer_full_count}"
+                        f"latest_only_buffer active, "
+                        f"polling_based_on_capability_rates"
                     )
                     await asyncio.sleep(0.01)  # 10ms backpressure
 
@@ -255,38 +412,237 @@ class SensoryNeuralStream:
                 logger.error(f"Error in neural processing loop: {e}")
                 await asyncio.sleep(0.1)  # Error throttling
 
+    async def _process_slot_loop(self) -> None:
+        """Poll latest-only shared slots using capability-specific rates to prevent temporal pattern replay."""
+        # Defensive: ensure slot structures exist
+        self._ensure_slot_structures()
+        
+        # Get capability rate manager for rate-based polling
+        from feagi.core.capability_rate_manager import get_capability_rate_manager
+        from feagi.api.v1.capability_rates import CapabilityType
+        capability_manager = get_capability_rate_manager()
+            
+        logger.info("[RATE] Starting capability-aware SHM polling for sensory data")
+        
+        while self.running:
+            try:
+                # Get agents whose sensory capability should be polled now based on their registered rates
+                current_time_ns = time.time_ns()
+                agents_to_poll = capability_manager.get_agents_for_capability_polling(
+                    CapabilityType.SENSORY,
+                    current_time_ns
+                )
+                
+                # Also check for legacy neurons_stream capability
+                legacy_agents_to_poll = capability_manager.get_agents_for_capability_polling(
+                    CapabilityType.NEURONS_STREAM,
+                    current_time_ns
+                )
+                
+                # Combine both lists (avoid duplicates)
+                all_agents_to_poll = {agent.agent_id: agent for agent in agents_to_poll}
+                for agent in legacy_agents_to_poll:
+                    if agent.agent_id not in all_agents_to_poll:
+                        all_agents_to_poll[agent.agent_id] = agent
+                
+                # Process data from agents that should be polled now
+                for agent_id, rate_config in all_agents_to_poll.items():
+                    try:
+                        # Ensure we have a slot reader for this agent
+                        if agent_id not in self._slot_readers:
+                            try:
+                                reader = _acquire_slot_reader(agent_id, self._max_sensory_age_ms)
+                                if reader:
+                                    with self._slot_lock:
+                                        self._slot_readers[agent_id] = reader
+                                    logger.info(f"✅ [RATE] Added rate-aware slot reader for agent {agent_id} "
+                                              f"({rate_config.capability_type.value} @ {rate_config.approved_rate_hz}Hz)")
+                                else:
+                                    continue
+                            except Exception as e:
+                                logger.warning(f"[RATE] Failed to add slot reader for {agent_id}: {e}")
+                                continue
+                        
+                        # Read data from the slot
+                        reader = self._slot_readers[agent_id]
+                        slot_data = reader.read_latest()
+                        
+                        if slot_data:
+                            logger.info(
+                                f"✅ [RATE] Sensory data from {agent_id}: {len(slot_data.data)} bytes, "
+                                f"age={slot_data.age_ms:.1f}ms, rate={rate_config.approved_rate_hz}Hz"
+                            )
+                            await self._process_neural_payload_bytes(slot_data.data)
+                            self._stats["slot_payloads"] = self._stats.get("slot_payloads", 0) + 1
+                            
+                            # Mark this capability as polled to update its timing
+                            capability_manager.mark_capability_polled(
+                                agent_id,
+                                rate_config.capability_type,
+                                current_time_ns
+                            )
+                        
+                    except Exception as pe:
+                        logger.debug(f"[RATE] Sensory payload processing error from {agent_id}: {pe}")
+                
+                # Cleanup stale readers for agents that are no longer connected
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+                    
+                    for agent_id in list(self._slot_readers.keys()):
+                        if agent_id not in connected_agents:
+                            try:
+                                with self._slot_lock:
+                                    self._slot_readers.pop(agent_id, None)
+                                _release_slot_reader(agent_id)
+                                logger.info(f"🗑️ [RATE] Removed slot reader for disconnected agent {agent_id}")
+                            except Exception as e:
+                                logger.warning(f"[RATE] Error removing slot reader for {agent_id}: {e}")
+                except Exception as e:
+                    logger.debug(f"[RATE] Agent registry cleanup error: {e}")
+                
+                # Smart sleep: sleep until the next agent needs to be polled
+                next_poll_time_ns = self._calculate_next_poll_time(capability_manager, current_time_ns)
+                sleep_duration_ms = max(1.0, (next_poll_time_ns - current_time_ns) / 1_000_000.0)
+                
+                # Cap sleep duration to reasonable bounds
+                sleep_duration_ms = min(sleep_duration_ms, 100.0)  # Max 100ms
+                sleep_duration_ms = max(sleep_duration_ms, 1.0)    # Min 1ms
+                
+                await asyncio.sleep(sleep_duration_ms / 1000.0)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"[RATE] Capability-aware polling error: {e}")
+                await asyncio.sleep(0.01)  # Brief pause on error
+    
+    def _calculate_next_poll_time(self, capability_manager, current_time_ns: int) -> int:
+        """Calculate when the next agent should be polled based on registered rates."""
+        next_poll_times = []
+        
+        try:
+            from feagi.api.v1.capability_rates import CapabilityType
+            
+            # Get all registered agents
+            for agent_id in capability_manager.get_all_registered_agents():
+                registry = capability_manager.get_agent_capabilities(agent_id)
+                if registry:
+                    # Check sensory capability
+                    sensory_rate = registry.get_capability_rate(CapabilityType.SENSORY)
+                    if sensory_rate:
+                        next_poll = sensory_rate.last_poll_time_ns + sensory_rate.poll_interval_ns
+                        if next_poll > current_time_ns:  # Only future poll times
+                            next_poll_times.append(next_poll)
+                    
+                    # Check legacy neurons_stream capability
+                    neurons_rate = registry.get_capability_rate(CapabilityType.NEURONS_STREAM)
+                    if neurons_rate:
+                        next_poll = neurons_rate.last_poll_time_ns + neurons_rate.poll_interval_ns
+                        if next_poll > current_time_ns:
+                            next_poll_times.append(next_poll)
+            
+            if next_poll_times:
+                return min(next_poll_times)
+        except Exception as e:
+            logger.debug(f"[RATE] Error calculating next poll time: {e}")
+        
+        # Default to 10ms in the future if calculation fails
+        return current_time_ns + 10_000_000  # 10ms
+    
+
+    async def _log_slot_summary_loop(self) -> None:
+        """Periodically log attached slot readers and their stats when --debug-shm is enabled."""
+        while self.running and self._debug_shm:
+            try:
+                items = []
+                with self._slot_lock:
+                    for agent_id, reader in self._slot_readers.items():
+                        try:
+                            slot_path = str(getattr(reader.slot, "path", "?"))
+                            last_seq = getattr(reader, "_last_sequence", 0) 
+                            total_reads = reader.slot.stats.total_reads
+                            stale_rejections = reader.slot.stats.stale_data_rejections
+                            items.append((agent_id, slot_path, last_seq, total_reads, stale_rejections))
+                        except Exception:
+                            pass
+                            
+                if items:
+                    for agent_id, path, last_seq, reads, stale in items[:6]:
+                        logger.info(f"✅ [SLOT] Summary: agent={agent_id} last_seq={last_seq} reads={reads} stale_rejected={stale}")
+                    extra = len(items) - 6
+                    if extra > 0:
+                        logger.info(f"✅ [SLOT] Summary: (+{extra} more readers)")
+                else:
+                    logger.info("✅ [SLOT] Summary: no slot readers active")
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                pass
+            await asyncio.sleep(1.0)
+
     async def _process_neural_data(self) -> StreamResult:
         """Process incoming neural data - feagi_data_processing format only."""
-        slot = None
+        
+        # Check if socket is available (stream may not be started yet)
+        if not self.socket:
+            return StreamResult.NO_DATA
+        
+        # CRITICAL: Check burst engine readiness before processing sensory data
+        try:
+            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            state_manager = FeagiStateManager.instance()
+            burst_engine_state = state_manager.get_burst_engine_state()
+            
+            if burst_engine_state != ServiceState.READY.value:
+                # Burst engine not ready - drop data silently (standby mode)
+                try:
+                    # Drain incoming messages to prevent backlog
+                    data = await self.socket.recv(flags=zmq.NOBLOCK)
+                    self._stats["messages_dropped_not_ready"] = getattr(self._stats, "messages_dropped_not_ready", 0) + 1
+                    
+                    # DEBUG: Log when dropping messages (only periodically to avoid spam)
+                    dropped_count = self._stats["messages_dropped_not_ready"]
+                    if self._is_debug_npu_enabled() and (dropped_count % 50 == 1):  # Log every 50 drops
+                        logger.info(f"🔒 STANDBY MODE: Dropped {dropped_count} sensory messages - burst engine not ready (state={burst_engine_state})")
+                        
+                    return StreamResult.NO_DATA  # Don't process
+                except zmq.Again:
+                    return StreamResult.NO_DATA  # No data anyway
+            else:
+                # Burst engine is ready - check if we're transitioning from standby
+                dropped_count = getattr(self._stats, "messages_dropped_not_ready", 0)
+                if self._is_debug_npu_enabled() and dropped_count > 0 and not hasattr(self, '_ready_logged'):
+                    logger.info(f"✅ ACTIVE MODE: Burst engine ready - resuming sensory processing (dropped {dropped_count} messages while in standby)")
+                    self._ready_logged = True  # Prevent spam
+                    
+        except Exception:
+            # If state check fails, proceed anyway to avoid breaking stream
+            pass
+        
+        
         data_processed = False
 
         try:
-            # Get write slot from ring buffer
-            slot = self.ring_buffer.get_write_slot()
-            if not slot:
-                self._stats["buffer_full"] += 1
-                # DIAGNOSTIC: Log buffer state when full
-                logger.warning(
-                    f"Ring buffer full! Used slots: {self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
-                    f"Write index: {self.ring_buffer.write_index.value}, "
-                    f"Read index: {self.ring_buffer.read_index.value}"
-                )
-                return StreamResult.BUFFER_FULL
-
             # ZMQ receive - async sockets use recv() not recv_into()
             try:
                 data = await self.socket.recv(flags=zmq.NOBLOCK)
                 nbytes = len(data)
 
-                # Check if data fits in the slot
-                if nbytes > len(slot.memory_view):
+                # Check if data fits in buffer limit
+                if nbytes > self._max_slot_size:
                     logger.error(
-                        f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size"
+                        f"Message too large: {nbytes} bytes > {self._max_slot_size} max size"
                     )
                     return StreamResult.BUFFER_FULL
 
-                # Copy data into the memory slot
-                slot.memory_view[:nbytes] = data
+                # Store in latest-only buffer (overwrites previous data)
+                with self._latest_only_buffer['lock']:
+                    self._latest_only_buffer['data'] = data
+                    self._latest_only_buffer['timestamp_ns'] = time.time_ns()
+                    
                 data_processed = True
 
             except zmq.Again:
@@ -299,28 +655,26 @@ class SensoryNeuralStream:
 
             # Decode feagi_data_processing format
             try:
-                import feagi_data_processing as fdp
+                import feagi_rust_py_libs as fdp
 
-                # Create FeagiByteStructure directly from raw bytes
-                raw_bytes = slot.memory_view[:nbytes].tobytes()
-                byte_structure = fdp.io_processing.bytes.FeagiByteStructure(
-                    raw_bytes
-                )
+                # Create FeagiByteStructure directly from raw bytes (modern API)
+                raw_bytes = data[:nbytes]
+                byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
 
-                # Get structure type using FEAGI's API
-                structure_type = byte_structure.structure_type
+                # Get structure type using FEAGI's API (informational only)
+                try:
+                    structure_type = byte_structure.structure_type
+                    # Log once if not the typical neuron categories type; do not early-return
+                    if structure_type != 11 and not hasattr(self, "_stype_warned"):
+                        logger.info(
+                            f"[NPU] structure_type={structure_type} (proceeding to decode)"
+                        )
+                        self._stype_warned = True
+                except Exception:
+                    structure_type = None
 
-                if structure_type != 11:
-                    logger.warning(
-                        f"Unexpected structure type: {structure_type}, expected 11 (NEURON_CATEGORIES)"
-                    )
-                    logger.debug(
-                        f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}"
-                    )
-                    return StreamResult.SUCCESS
-
-                # Create CorticalMappedXYZPNeuronData from the byte structure
-                cortical_mapped = fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
+                cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
                     byte_structure
                 )
 
@@ -355,6 +709,17 @@ class SensoryNeuralStream:
                         else:
                             # Use as is
                             cortical_id = cortical_id_str
+
+                    # Optional anomaly log (debug only) if non-normalized forms were observed
+                    if self._is_debug_npu_enabled():
+                        try:
+                            srepr = str(cortical_id_obj)
+                            if (srepr.startswith("CorticalID(") and srepr.endswith(")")) or srepr.startswith("'") or srepr.startswith('"'):
+                                if not hasattr(self, "_cid_warned_zmq"):
+                                    logger.warning(f"[NPU] Non-normalized cortical ID observed in ZMQ path: {srepr} -> {cortical_id}")
+                                    self._cid_warned_zmq = True
+                        except Exception:
+                            pass
 
                     if cortical_id not in cortical_areas:
                         cortical_areas[cortical_id] = {
@@ -410,13 +775,55 @@ class SensoryNeuralStream:
                             f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons"
                         )
 
+                # Optional decode summary for diagnostics (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        area_count = len(cortical_areas)
+                        logger.info(f"[NPU] Sensory decoded (ZMQ): areas={area_count}, points={neuron_count}")
+                        if area_count:
+                            _ids = list(cortical_areas.keys())
+                            _preview = ", ".join(_ids[:6])
+                            _more = area_count - 6
+                            _suffix = f" (+{_more} more)" if _more > 0 else ""
+                            logger.info(f"[NPU] Areas (ZMQ): {_preview}{_suffix}")
+                            # Log first 10 tuples for up to 3 areas
+                            for _cid in _ids[:3]:
+                                _data = cortical_areas[_cid]
+                                _xs = _data["coordinates_x"][:10]
+                                _ys = _data["coordinates_y"][:10]
+                                _zs = _data["coordinates_z"][:10]
+                                _ps = _data["membrane_potentials"][:10]
+                                _tuples = ", ".join(
+                                    f"({int(x)},{int(y)},{int(z)},{float(p):.3f})" for x, y, z, p in zip(_xs, _ys, _zs, _ps)
+                                )
+                                logger.info(f"[NPU] {_cid} xyzp first10: {_tuples}")
+                    except Exception:
+                        pass
+
                 # Inject into FCL using SIMD-optimized stimulate_neurons method
                 result = self.core_api.stimulate_neurons(neural_data)
+                # Detailed area mapping diagnostics (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        area_results = result.get("area_results") or {}
+                        for aid, meta in area_results.items():
+                            logger.info(
+                                f"[NPU] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                                f"found={meta.get('total_neurons_found')}, "
+                                f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                                f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                            )
+                        logger.info(
+                            f"[NPU] Injection summary: injected={result.get('injected_count', 0)}, "
+                            f"total_stimulated={result.get('total_stimulated', 0)}"
+                        )
+                    except Exception:
+                        pass
 
                 if result.get("success", False):
                     if self._is_debug_npu_enabled():
                         logger.info(
-                            f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data), neural_data} cortical areas (VECTORIZED)"
+                            f"📥 Successfully QUEUED {neuron_count} neurons for FCL injection across {len(neural_data)} cortical areas (pending burst processing)"
                         )
                     return StreamResult.SUCCESS
                 else:
@@ -449,21 +856,350 @@ class SensoryNeuralStream:
             return StreamResult.DECODE_ERROR
 
         finally:
-            #  Only commit the write slot if we actually processed data -
-            #  CORRECT METHOD
-            if data_processed and slot:
-                self.ring_buffer.commit_write(slot)
+            # Latest-only buffer requires no explicit cleanup - data is automatically 
+            # overwritten on next write, eliminating temporal pattern replay bug
+            pass
 
-                #  CRITICAL FIX: Auto-drain ring buffer after successful
-                #  processing
-                # Since we process data immediately (not in separate consumer),
-                # we need to advance read index to prevent buffer_full errors
-                read_slot = self.ring_buffer.get_read_slot()
-                if read_slot and read_slot.index == slot.index:
-                    self.ring_buffer.commit_read(read_slot)
+    async def _process_neural_payload_bytes(self, raw_bytes: bytes) -> None:
+        """Process neural payload provided as bytes (from SHM)."""
+        try:
+            # Enforce rust_py_libs-only decoding; reject custom zero-serialize payloads
+            if len(raw_bytes) >= 8 and raw_bytes[:4] == b"ZS1N":
+                logger.error("[SHM] Received zero-serialized 'ZS1N' payload; FEAGI is configured for Rust-only decoding. Payload rejected.")
+                self._stats["decode_errors"] = self._stats.get("decode_errors", 0) + 1
+                return
 
-            # Clear the slot reference to help with memory cleanup
-            slot = None
+            # Fallback: standard feagi_data_processing byte structure
+            import feagi_rust_py_libs as fdp
+
+            byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
+            structure_type = byte_structure.structure_type
+            # Log once if not the typical neuron categories type; do not early-return
+            if structure_type != 11 and not hasattr(self, "_stype_warned_fallback"):
+                logger.info(
+                    f"[NPU-FALLBACK] structure_type={structure_type} (proceeding to decode)"
+                )
+                self._stype_warned_fallback = True
+
+            cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                byte_structure
+            )
+            cortical_areas: Dict[str, Dict[str, Any]] = {}
+            neuron_count = 0
+            for (cortical_id_obj, neuron_arrays) in cortical_mapped.iter_full():
+                x_coords, y_coords, z_coords, potentials = neuron_arrays
+                # Normalize cortical ID to plain 6-char ID (e.g., "iic400")
+                if hasattr(cortical_id_obj, "as_ascii_string"):
+                    cortical_id = str(cortical_id_obj.as_ascii_string())
+                else:
+                    cortical_id = str(cortical_id_obj)
+                # Strip wrapper like "CorticalID(iic400)" if present
+                if cortical_id.startswith("CorticalID(") and cortical_id.endswith(")"):
+                    cortical_id = cortical_id[len("CorticalID("):-1]
+                # Optional anomaly log (debug only)
+                if self._is_debug_npu_enabled():
+                    try:
+                        srepr = str(cortical_id_obj)
+                        if (srepr.startswith("CorticalID(") and srepr.endswith(")")) or srepr.startswith("'") or srepr.startswith('"'):
+                            if not hasattr(self, "_cid_warned_shm"):
+                                logger.warning(f"[SHM] Non-normalized cortical ID observed: {srepr} -> {cortical_id}")
+                                self._cid_warned_shm = True
+                    except Exception:
+                        pass
+                if cortical_id not in cortical_areas:
+                    cortical_areas[cortical_id] = {
+                        "coordinates_x": [],
+                        "coordinates_y": [],
+                        "coordinates_z": [],
+                        "membrane_potentials": [],
+                    }
+                cortical_areas[cortical_id]["coordinates_x"].extend(x_coords.tolist())
+                cortical_areas[cortical_id]["coordinates_y"].extend(y_coords.tolist())
+                cortical_areas[cortical_id]["coordinates_z"].extend(z_coords.tolist())
+                cortical_areas[cortical_id]["membrane_potentials"].extend(potentials.tolist())
+                neuron_count += len(x_coords)
+
+            # Log decoded summary for diagnostics
+            try:
+                area_count = len(cortical_areas)
+                logger.info(f"𒓉 [SHM] Sensory decoded: areas={area_count}, points={neuron_count}")
+                # Include cortical IDs (short preview to avoid log spam)
+                if area_count:
+                    _ids = list(cortical_areas.keys())
+                    _preview = ", ".join(_ids[:6])
+                    _more = area_count - 6
+                    _suffix = f" (+{_more} more)" if _more > 0 else ""
+                    logger.info(f"𒓉 [SHM] Sensory areas: {_preview}{_suffix}")
+                # Log first 10 (x,y,z,p) tuples per cortical area for diagnostics
+                # Gate on --debug-shm, env FEAGI_DEBUG_SHM=1, or --debug-npu
+                if (
+                    getattr(self, "_debug_shm", False)
+                    or self._is_debug_npu_enabled()
+                    or (__import__("os").environ.get("FEAGI_DEBUG_SHM") == "1")
+                ):
+                    try:
+                        for _cid, _data in cortical_areas.items():
+                            _xs = _data["coordinates_x"][:10]
+                            _ys = _data["coordinates_y"][:10]
+                            _zs = _data["coordinates_z"][:10]
+                            _ps = _data["membrane_potentials"][:10]
+                            _tuples = ", ".join(
+                                f"({int(x)},{int(y)},{int(z)},{float(p):.3f})"
+                                for x, y, z, p in zip(_xs, _ys, _zs, _ps)
+                            )
+                            logger.info(f"𒓉 [SHM] { _cid } xyzp first10: {_tuples}")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            neural_data = {}
+            import numpy as _np
+            for cid, data in cortical_areas.items():
+                neural_data[cid] = {
+                    "coordinates_x": _np.array(data["coordinates_x"], dtype=_np.uint16),
+                    "coordinates_y": _np.array(data["coordinates_y"], dtype=_np.uint16),
+                    "coordinates_z": _np.array(data["coordinates_z"], dtype=_np.uint16),
+                    "membrane_potentials": _np.array(data["membrane_potentials"], dtype=_np.float32),
+                }
+            if neural_data:
+                result = self.core_api.stimulate_neurons(neural_data)
+                # # Detailed area mapping diagnostics
+                # try:
+                #     area_results = result.get("area_results") or {}
+                #     for aid, meta in area_results.items():
+                #         logger.info(
+                #             f"𒓉 [SHM] Map {aid}: unique={meta.get('unique_coordinates')}, "
+                #             f"found={meta.get('total_neurons_found')}, "
+                #             f"stimulated={meta.get('stimulated_count')}, failed={meta.get('failed_count')}, "
+                #             f"ok={meta.get('success')}, err={meta.get('error', '')}"
+                #         )
+                #     logger.info(
+                #         f"𒓉 [SHM] Injection summary: injected={result.get('injected_count', 0)}, "
+                #         f"total_stimulated={result.get('total_stimulated', 0)}"
+                #     )
+                # except Exception:
+                #     pass
+                try:
+                    _tid_list = list(neural_data.keys())
+                    _tid_preview = ", ".join(_tid_list[:6])
+                    _more = len(_tid_list) - 6
+                    _suffix = f" (+{_more} more)" if _more > 0 else ""
+                    logger.info(
+                        f"𒓉 [SHM] Sensory injected: areas={len(neural_data)}, points={neuron_count}, "
+                        f"ok={result.get('success', False)}, targets=[{_tid_preview}{_suffix}]"
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug(f"[SHM] Sensory decode failed: {e}")
+
+
+    async def _handle_neuron_flat(
+        self, header: NeuralDataHeader, payload: memoryview
+    ) -> StreamResult:
+        """Handle dense neural array data.
+
+        Note: This method must be defined on SensoryNeuralStream, since it
+        relies on self.core_api and self.neural_buffers.
+        """
+        try:
+            if self._is_debug_npu_enabled():
+                logger.info("Handling dense neural array data.")
+            # Get buffer for this cortical area if available
+            buffer = None
+            if self.neural_buffers:
+                buffer = self.neural_buffers.get_buffer_for_area(
+                    str(header.cortical_area_id)
+                )
+
+            # Decode neural data views without copying
+            neuron_count = header.neuron_count
+
+            # Create numpy arrays as views into the payload
+            #  Layout: [firing_rates(float32) | x_coords(int32) |
+            #  y_coords(int32) | z_coords(int32)]
+            bytes_per_neuron = 16  # 4 + 4 + 4 + 4
+
+            if len(payload) < neuron_count * bytes_per_neuron:
+                logger.error(f"Payload too small for {neuron_count} neurons")
+                return StreamResult.DECODE_ERROR
+
+            # Zero-copy numpy views
+            offset = 0
+            firing_rates = np.frombuffer(
+                payload[offset : offset + neuron_count * 4], dtype=np.float32
+            )
+            offset += neuron_count * 4
+
+            if header.has_coordinates:
+                x_coords = np.frombuffer(
+                    payload[offset : offset + neuron_count * 4], dtype=np.int32
+                )
+                offset += neuron_count * 4
+
+                y_coords = np.frombuffer(
+                    payload[offset : offset + neuron_count * 4], dtype=np.int32
+                )
+                offset += neuron_count * 4
+
+                z_coords = np.frombuffer(
+                    payload[offset : offset + neuron_count * 4], dtype=np.int32
+                )
+            else:
+                x_coords = y_coords = z_coords = None
+
+            # Convert to unified neural data format with SAFE uint16 conversion
+            try:
+                if self._is_debug_npu_enabled():
+                    logger.info("Processing neural data.. .. ..")
+                #  CRITICAL FIX: Validate coordinate ranges before conversion
+                #  to uint16
+                if x_coords is not None:
+                    max_x = x_coords.max() if len(x_coords) > 0 else 0
+                    if max_x > 65535:
+                        logger.error(
+                            f"Coordinate X values exceed uint16 range! Max: {max_x}, limit: 65535"
+                        )
+                        return StreamResult.DECODE_ERROR
+
+                if y_coords is not None:
+                    max_y = y_coords.max() if len(y_coords) > 0 else 0
+                    if max_y > 65535:
+                        logger.error(
+                            f"Coordinate Y values exceed uint16 range! Max: {max_y}, limit: 65535"
+                        )
+                        return StreamResult.DECODE_ERROR
+
+                if z_coords is not None:
+                    max_z = z_coords.max() if len(z_coords) > 0 else 0
+                    if max_z > 65535:
+                        logger.error(
+                            f"Coordinate Z values exceed uint16 range! Max: {max_z}, limit: 65535"
+                        )
+                        return StreamResult.DECODE_ERROR
+
+                #  Build neural data with SAFE uint16 conversion (after
+                #  validation)
+                neural_data = {
+                    str(header.cortical_area_id): {
+                        "coordinates_x": (
+                            x_coords.astype(np.uint16)
+                            if x_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
+                        "coordinates_y": (
+                            y_coords.astype(np.uint16)
+                            if y_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
+                        "coordinates_z": (
+                            z_coords.astype(np.uint16)
+                            if z_coords is not None
+                            else np.array([], dtype=np.uint16)
+                        ),
+                        "membrane_potentials": firing_rates.astype(np.float32),
+                    }
+                }
+
+                if self._is_debug_npu_enabled():
+                    logger.info(f"About to stimulate sensory data: {neural_data}")
+
+                # Use unified stimulation method
+                result = self.core_api.stimulate_neurons(neural_data)
+
+                if not result.get("success", False):
+                    self._stats["api_errors"] += 1
+                    logger.error(
+                        f"Unified stimulation failed: {result.get('error', 'Unknown error')}"
+                    )
+                    return StreamResult.API_ERROR
+
+            except Exception as e:
+                logger.error(f"Neural data injection failed: {e}")
+                self._stats["api_errors"] += 1
+                return StreamResult.API_ERROR
+
+            return StreamResult.SUCCESS
+
+        finally:
+            # Release buffer if we acquired one
+            if buffer and self.neural_buffers:
+                self.neural_buffers.release_buffer(buffer)
+
+    async def _handle_neuron_sparse(
+        self, header: NeuralDataHeader, payload: memoryview
+    ) -> StreamResult:
+        """Handle sparse neural data format."""
+        logger.warning("Sparse neural format not yet implemented")
+        return StreamResult.UNKNOWN_PROTOCOL
+
+    async def _handle_neuron_multi(
+        self, header: NeuralDataHeader, payload: memoryview
+    ) -> StreamResult:
+        """Handle multi-modal neural data."""
+        logger.warning("Multi-modal neural format not yet implemented")
+        return StreamResult.UNKNOWN_PROTOCOL
+
+    async def _handle_cortical_map(
+        self, header: NeuralDataHeader, payload: memoryview
+    ) -> StreamResult:
+        """Handle cortical topology updates."""
+        logger.warning("Cortical map updates not yet implemented")
+        return StreamResult.UNKNOWN_PROTOCOL
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get stream statistics."""
+        stats = self._stats.copy()
+
+        # Add latest-only buffer stats
+        stats["latest_only_buffer"] = {
+            "active": self._latest_only_buffer['data'] is not None,
+            "last_update_ns": self._latest_only_buffer['timestamp_ns'],
+            "max_size_bytes": self._max_slot_size
+        }
+
+        # Add buffer pool stats if available
+        if self.neural_buffers:
+            stats["buffer_pools"] = self.neural_buffers.get_stats()
+
+        # Add latest-only slot reader stats
+        slot_stats = {
+            "active_readers": len(getattr(self, '_slot_readers', {})),
+            "total_reads": 0,
+            "total_writes": 0, 
+            "stale_rejections": 0,
+            "overwrites": 0,
+            "readers": {}
+        }
+        
+        try:
+            if hasattr(self, '_slot_lock') and hasattr(self, '_slot_readers'):
+                with self._slot_lock:
+                    for agent_id, reader in self._slot_readers.items():
+                        reader_stats = {
+                            "total_reads": reader.slot.stats.total_reads,
+                            "total_writes": reader.slot.stats.total_writes,
+                            "stale_rejections": reader.slot.stats.stale_data_rejections,
+                            "overwrites": reader.slot.stats.overwrites,
+                            "last_sequence": getattr(reader, "_last_sequence", 0)
+                        }
+                        slot_stats["readers"][agent_id] = reader_stats
+                        slot_stats["total_reads"] += reader_stats["total_reads"]
+                        slot_stats["total_writes"] += reader_stats["total_writes"] 
+                        slot_stats["stale_rejections"] += reader_stats["stale_rejections"]
+                        slot_stats["overwrites"] += reader_stats["overwrites"]
+        except Exception:
+            pass
+            
+        stats["latest_only_slots"] = slot_stats
+
+        return stats
+
+    
+# _ShmRingReader class removed - replaced with LatestOnlyReader system 
+# This eliminates the temporal pattern replay bug by using latest-only semantics
+# instead of buffering historical data that causes loops after agent death
 
     async def _handle_neuron_flat(
         self, header: NeuralDataHeader, payload: memoryview
@@ -621,11 +1357,11 @@ class SensoryNeuralStream:
         """Get stream statistics."""
         stats = self._stats.copy()
 
-        # Add ring buffer stats
-        stats["ring_buffer"] = {
-            "available_slots": self.ring_buffer.available_slots,
-            "used_slots": self.ring_buffer.used_slots,
-            "stats": self.ring_buffer.stats.__dict__,
+        # Add latest-only buffer stats
+        stats["latest_only_buffer"] = {
+            "active": self._latest_only_buffer['data'] is not None,
+            "last_update_ns": self._latest_only_buffer['timestamp_ns'],
+            "max_size_bytes": self._max_slot_size
         }
 
         # Add buffer pool stats if available
