@@ -232,7 +232,7 @@ class BurstEngine:
                 logger.info("🦀 [RUST-NPU] Power neurons retrieved: %d neurons - %s", 
                            len(power_neurons),
                            power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
-                    except Exception as e:
+            except Exception as e:
                 logger.error("🦀 [RUST-NPU] Failed to get power neurons: %s", str(e), exc_info=True)
         
         # 2. Get manual stimulation / sensory neurons
@@ -253,10 +253,10 @@ class BurstEngine:
                                 neuron_id = spatial_hash.get_neuron_at_coordinate(area_id, int(x), int(y), int(z))
                                 if neuron_id is not None:
                                     manual_neurons.append(neuron_id)
-                    except Exception as e:
+                            except Exception as e:
                                 logger.warning("Failed to resolve neuron ID for %s[%d,%d,%d]: %s", 
                                              area_id, x, y, z, e)
-                else:
+                    else:
                         logger.warning("Spatial hash not available for coordinate-to-neuron lookup!")
                 # Direct neuron ID list
                 elif isinstance(area_data, (list, np.ndarray)):
@@ -279,22 +279,27 @@ class BurstEngine:
         self.burst_count = result['burst']
         self.current_timestep += 1
         
+        # Create FiringNeuron objects for API compatibility
+        firing_neurons = []
+        for neuron_id in result['fired_neurons']:
+            firing_neurons.append(FiringNeuron(
+                neuron_id=neuron_id,
+                membrane_potential=0.0,
+                cortical_idx=0,
+                coordinates=(0, 0, 0),
+                threshold=1.0
+            ))
+        
+        # Update previous_fire_queue for API compatibility (FCL endpoint needs this)
+        if firing_neurons:
+            fire_queue = FireQueue()
+            fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
+            self.previous_fire_queue = fire_queue
+        
         # Publish to FQ samplers (for visualization)
-        if result['neuron_count'] > 0 and self.fq_sampler:
+        if firing_neurons and self.fq_sampler:
             try:
-                # Create FiringNeuron objects for compatibility
-                firing_neurons = []
-                for neuron_id in result['fired_neurons']:
-                    firing_neurons.append(FiringNeuron(
-                        neuron_id=neuron_id,
-                        membrane_potential=0.0,
-                        cortical_area_id=0,
-                        coordinates=(0, 0, 0)
-                    ))
-                
-                # Sample fire queue
-                if firing_neurons:
-                    self.fq_sampler.sample_fire_queue(firing_neurons)
+                self.fq_sampler.sample_fire_queue(firing_neurons)
             except Exception as e:
                 logger.warning("FQ Sampler error: %s", str(e))
         
@@ -723,8 +728,8 @@ class BurstEngine:
                                         len(fired_neurons)
                                     )
                                 
-                        except Exception:
-                            logger.error("Error in burst processing #%d", self.burst_count)
+                        except Exception as e:
+                            logger.error("Error in burst processing #%d: %s", self.burst_count, str(e), exc_info=True)
                             # Continue processing even if one burst fails
                         
                         # Timing control: Add sleep to prevent runaway CPU usage
@@ -812,7 +817,7 @@ class BurstEngine:
                 
                 
                 # CRITICAL: Re-initialize injection service for power neurons
-                self._initialize_injection_service()
+                    self._initialize_injection_service()
                 logger.debug("PowerInjectionService initialized")
                 
                 # Update coordinate converter with connectome dimensions if available
