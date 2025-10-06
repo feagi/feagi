@@ -1,0 +1,29 @@
+[package]
+name = "feagi-python"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python bindings for FEAGI Rust components"
+
+[lib]
+name = "feagi_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+feagi-types = { path = "../feagi-types" }
+feagi-burst-engine = { path = "../feagi-burst-engine" }
+feagi-plasticity = { path = "../feagi-plasticity" }
+pyo3.workspace = true
+numpy.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+ahash.workspace = true
+
+[build-dependencies]
+pyo3-build-config = "0.22"
+
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]

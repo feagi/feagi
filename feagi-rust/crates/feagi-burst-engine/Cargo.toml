@@ -1,0 +1,28 @@
+[package]
+name = "feagi-burst-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-performance burst engine for FEAGI neural processing"
+
+[dependencies]
+feagi-types = { path = "../feagi-types" }
+thiserror.workspace = true
+rayon.workspace = true
+ndarray.workspace = true
+ahash.workspace = true
+
+[features]
+default = []
+# Enable plasticity integration (trait-based, no direct dependency)
+with-plasticity = []
+
+# Benchmarks will be added later
+# [[bench]]
+# name = "synaptic_propagation"
+# harness = false
+
+# [dev-dependencies]
+# criterion = "0.5"

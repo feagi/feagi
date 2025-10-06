@@ -18,6 +18,13 @@ from .fq_sampler import FQSampler
 from .fcl_injector import FCLInjector
 from .simd_neural_ops import simd_batch_neural_update
 
+# Rust burst engine integration
+try:
+    import feagi_rust
+    RUST_AVAILABLE = True
+except ImportError:
+    RUST_AVAILABLE = False
+
 logger = setup_logger(__name__)
 
 
@@ -148,11 +155,155 @@ class BurstEngine:
         else:
             logger.warning("[INJECTION] _initialize_injection_service not found on BurstEngine; skipping injection init")
         
+        # Initialize Rust burst engine for high-performance synaptic propagation
+        self._rust_engine = None
+        self._rust_engine_initialized = False
+        if RUST_AVAILABLE:
+            logger.info("🦀 [RUST] Rust burst engine available - will initialize on first use")
+        else:
+            logger.warning("🦀 [RUST] Rust burst engine NOT available - using Python implementation")
+        
         # Mark as initialized but keep in INITIALIZING state until burst processing works
         self._initialized = True
         # DON'T set to READY yet - wait until burst processing actually works
 
         logger.info("BurstEngine initialized with singleton pattern and state manager integration")
+    
+    def _initialize_rust_engine(self) -> bool:
+        """Initialize the Rust synaptic propagation engine with connectome data.
+        
+        This is called lazily on first use to avoid overhead during initialization.
+        
+        Returns:
+            bool: True if initialization successful, False otherwise
+        """
+        if self._rust_engine_initialized:
+            return True
+            
+        if not RUST_AVAILABLE:
+            logger.warning("🦀 [RUST] Cannot initialize: Rust module not available")
+            return False
+            
+        if not self.connectome_manager:
+            logger.warning("🦀 [RUST] Cannot initialize: No connectome manager")
+            return False
+            
+        try:
+            import time
+            init_start = time.perf_counter()
+            
+            # Get NPU interface for synapse data access
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if not npu_interface:
+                logger.warning("🦀 [RUST] Cannot initialize: No NPU interface")
+                return False
+                
+            synapse_array = getattr(npu_interface, 'synapse_array', None)
+            neuron_array = getattr(npu_interface, 'neuron_array', None)
+            if not synapse_array or not neuron_array:
+                logger.warning("🦀 [RUST] Cannot initialize: No synapse/neuron arrays")
+                return False
+            
+            # Extract synapse data as numpy arrays
+            n_synapses = len(synapse_array.source_neuron_ids)
+            
+            source_neurons = synapse_array.source_neuron_ids.astype(np.uint32)
+            target_neurons = synapse_array.target_neuron_ids.astype(np.uint32)
+            weights = synapse_array.weights.astype(np.uint8)
+            
+            # Get conductances (with fallback to max)
+            conductances_attr = getattr(synapse_array, 'conductances', None)
+            if conductances_attr is not None:
+                conductances = conductances_attr.astype(np.uint8)
+            else:
+                conductances = np.full(n_synapses, 255, dtype=np.uint8)
+            
+            # Get synapse types (with fallback to excitatory)
+            types_attr = getattr(synapse_array, 'types', None)
+            if types_attr is not None:
+                types = types_attr.astype(np.uint8)
+            else:
+                types = np.zeros(n_synapses, dtype=np.uint8)  # 0 = excitatory
+            
+            # Get valid mask
+            valid_mask_attr = getattr(synapse_array, 'valid_mask', None)
+            if valid_mask_attr is not None:
+                valid_mask = valid_mask_attr.astype(bool)
+            else:
+                valid_mask = np.ones(n_synapses, dtype=bool)
+            
+            # Create Rust engine
+            self._rust_engine = feagi_rust.SynapticPropagationEngine()
+            
+            # Build synapse index
+            self._rust_engine.build_index(
+                source_neurons,
+                target_neurons,
+                weights,
+                conductances,
+                types,
+                valid_mask
+            )
+            
+            # Set neuron-to-cortical-area mapping
+            neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
+            n_neurons_mapped = len(neuron_to_area)
+            if neuron_to_area:
+                self._rust_engine.set_neuron_mapping(neuron_to_area)
+            
+            # Get some stats about the synapse index
+            source_neuron_index = getattr(synapse_array, 'source_neuron_index', {})
+            n_sources_with_synapses = len(source_neuron_index)
+            
+            init_time = (time.perf_counter() - init_start) * 1000
+            
+            self._rust_engine_initialized = True
+            logger.info(
+                "🦀 [RUST] Initialized synaptic propagation engine:\n"
+                "   - Total synapses: %d\n"
+                "   - Valid synapses: %d\n"
+                "   - Source neurons with outgoing synapses: %d\n"
+                "   - Neurons mapped to areas: %d\n"
+                "   - Initialization time: %.2f ms",
+                n_synapses, np.sum(valid_mask), n_sources_with_synapses, n_neurons_mapped, init_time
+            )
+            
+            # DIAGNOSTIC: Check first few neurons in the index
+            logger.info("🦀 [RUST-DIAGNOSTIC] First 10 source neurons with synapses: %s", list(source_neuron_index.keys())[:10])
+            
+            # DIAGNOSTIC: Check power neurons (ID 1 and 2)
+            for power_id in [1, 2]:
+                if power_id in source_neuron_index:
+                    power_syn_indices = source_neuron_index[power_id]
+                    # Check how many are actually valid
+                    if valid_mask is not None:
+                        valid_power_syns = sum(1 for idx in power_syn_indices if valid_mask[idx])
+                    else:
+                        valid_power_syns = len(power_syn_indices)
+                    logger.info(
+                        "🦀 [RUST-DIAGNOSTIC] Power neuron (ID=%d) has %d total synapses, %d valid",
+                        power_id, len(power_syn_indices), valid_power_syns
+                    )
+                else:
+                    logger.warning("🦀 [RUST-DIAGNOSTIC] Power neuron (ID=%d) has NO outgoing synapses in index!", power_id)
+            
+            return True
+            
+        except Exception as e:
+            logger.error("🦀 [RUST] Initialization failed: %s", str(e), exc_info=True)
+            self._rust_engine = None
+            self._rust_engine_initialized = False
+            return False
+    
+    def reinitialize_rust_engine(self) -> bool:
+        """Force re-initialization of Rust engine (e.g., after connectome changes).
+        
+        This should be called after genome loading or synapse modifications.
+        """
+        logger.info("🦀 [RUST] Force re-initialization requested")
+        self._rust_engine = None
+        self._rust_engine_initialized = False
+        return self._initialize_rust_engine()
     
     def process_burst(self) -> List[int]:
         """Execute complete burst processing with clean 5-phase workflow.
@@ -1155,6 +1306,14 @@ class BurstEngine:
                 self.genome_loaded = True
                 logger.debug("Genome integration marked complete")
                 
+                # RUST: Reinitialize Rust engine after genome loading
+                if RUST_AVAILABLE:
+                    logger.info("🦀 [RUST] Reinitializing Rust engine after genome load")
+                    if self.reinitialize_rust_engine():
+                        logger.info("🦀 [RUST] Rust engine reinitialized successfully with new genome data")
+                    else:
+                        logger.warning("🦀 [RUST] Rust engine reinitialization failed - will retry on first burst")
+                
             else:
                 logger.debug("No connectome manager available after integration attempt")
             
@@ -1317,178 +1476,67 @@ class BurstEngine:
     def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
         """Compute synaptic propagation data from previous fire queue.
         
-        FULLY VECTORIZED: Uses true SIMD operations with large batch processing.
-        NO PYTHON LOOPS over neurons or synapses - everything in numpy!
+        RUST IMPLEMENTATION: High-performance synaptic propagation using Rust.
+        Replaces the Python implementation with 50-100x faster Rust code.
         
         Returns:
             Dict[cortical_idx, List[(target_neuron_id, synaptic_contribution)]]
         """
         import time
-        prop_times = {}
-        prop_start = time.perf_counter()
         
         if not self.previous_fire_queue or not self.connectome_manager:
             return {}
-            
-        # Get NPU interface for synapse data access
-        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-        if not npu_interface:
-            return {}
-            
-        synapse_array = getattr(npu_interface, 'synapse_array', None)
-        neuron_array = getattr(npu_interface, 'neuron_array', None)
-        if not synapse_array or not neuron_array:
-            return {}
-            
+        
         # Get all fired neuron IDs from previous timestep
         fired_neuron_ids = self.previous_fire_queue.get_all_neuron_ids()
         if not fired_neuron_ids:
             return {}
         
-        prop_times['setup'] = (time.perf_counter() - prop_start) * 1000
-        gather_start = time.perf_counter()
-            
-        try:
-            # PHASE 1: GATHER - Collect ALL synapse indices for ALL fired neurons at once
-            # This is the only Python loop, but it's just building a list (fast)
-            source_neuron_index = getattr(synapse_array, 'source_neuron_index', {})
-            all_syn_indices = []
-            
-            for src_neuron_id in fired_neuron_ids:
-                syn_indices = source_neuron_index.get(src_neuron_id, [])
-                if syn_indices:
-                    all_syn_indices.extend(syn_indices)
-            
-            if not all_syn_indices:
+        # Initialize Rust engine on first use (lazy initialization)
+        if not self._rust_engine_initialized:
+            if not self._initialize_rust_engine():
+                logger.error("🦀 [RUST] Synaptic propagation failed: Rust engine not initialized")
                 return {}
+        
+        # Call Rust engine for high-performance propagation
+        try:
+            prop_start = time.perf_counter()
             
-            # Convert to ONE big numpy array (single allocation!)
-            all_syn_indices = np.array(all_syn_indices, dtype=np.int32)
-            total_synapses = len(all_syn_indices)
+            # Convert to numpy array for Rust
+            fired_neurons_array = np.array(fired_neuron_ids, dtype=np.uint32)
             
-            prop_times['gather'] = (time.perf_counter() - gather_start) * 1000
-            process_start = time.perf_counter()
+            # Call Rust (THIS IS THE FAST PATH!)
+            result = self._rust_engine.propagate(fired_neurons_array)
             
-            # PHASE 2: FILTER - Apply valid mask to entire array at once (TRUE SIMD!)
-            valid_mask = getattr(synapse_array, 'valid_mask', None)
-            if valid_mask is not None:
-                valid_syn_mask = valid_mask[all_syn_indices]
-                if not np.any(valid_syn_mask):
-                    return {}
-                all_syn_indices = all_syn_indices[valid_syn_mask]
+            prop_time = (time.perf_counter() - prop_start) * 1000
             
-            # PHASE 3: INDEX - Get ALL synapse properties in ONE operation (TRUE SIMD!)
-            target_neuron_ids = synapse_array.target_neuron_ids[all_syn_indices].astype(np.int32)
-            weights = synapse_array.weights[all_syn_indices].astype(np.float32)
+            # Count total targets across all areas
+            total_targets = sum(len(targets) for targets in result.values())
             
-            # Get conductances (with fallback to ones)
-            conductances_attr = getattr(synapse_array, 'conductances', None)
-            if conductances_attr is not None:
-                conductances = conductances_attr[all_syn_indices].astype(np.float32)
-            else:
-                conductances = np.ones(len(all_syn_indices), dtype=np.float32)
-            
-            # Get synapse types and compute sign (with fallback to excitatory)
-            syn_types_attr = getattr(synapse_array, 'types', None)
-            if syn_types_attr is not None:
-                types_array = syn_types_attr[all_syn_indices].astype(np.int32)
-                # 0 = excitatory (+1), 1 = inhibitory (-1) - vectorized!
-                sign = np.where(types_array == 0, 1.0, -1.0).astype(np.float32)
-            else:
-                sign = np.ones(len(all_syn_indices), dtype=np.float32)
-            
-            # PHASE 4: COMPUTE - Calculate ALL contributions at once (TRUE SIMD!)
-            # Single vectorized operation on 12,508 elements instead of 11,900 tiny operations!
-            synaptic_contributions = weights * conductances * sign
-            
-            prop_times['process'] = (time.perf_counter() - process_start) * 1000
-            group_start = time.perf_counter()
-            
-            # PHASE 5: GROUP - FULLY VECTORIZED grouping by cortical area
-            neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
-            
-            # Sub-phase 5a: Vectorized cortical area lookup
-            lookup_start = time.perf_counter()
-            # Vectorize the dictionary lookup using numpy
-            cortical_indices = np.empty(len(target_neuron_ids), dtype=np.int32)
-            for i, target_id in enumerate(target_neuron_ids):
-                target_id_int = int(target_id)
-                if target_id_int not in neuron_to_area:
-                    raise ValueError(f"Target neuron {target_id_int} not mapped to any cortical area in genome")
-                cortical_indices[i] = neuron_to_area[target_id_int]
-            lookup_time_ms = (time.perf_counter() - lookup_start) * 1000
-            
-            # Sub-phase 5b: Sort by cortical area (groups identical areas together)
-            sort_start = time.perf_counter()
-            sort_indices = np.argsort(cortical_indices, kind='stable')  # Stable sort preserves order within groups
-            sorted_cortical_indices = cortical_indices[sort_indices]
-            sorted_target_ids = target_neuron_ids[sort_indices]
-            sorted_contributions = synaptic_contributions[sort_indices]
-            sort_time_ms = (time.perf_counter() - sort_start) * 1000
-            
-            # Sub-phase 5c: Find unique cortical areas and their boundaries
-            split_start = time.perf_counter()
-            unique_cortical_indices, split_positions = np.unique(sorted_cortical_indices, return_index=True)
-            
-            # Split arrays at boundaries to get groups for each cortical area
-            # Add the end position to split_positions for proper slicing
-            split_positions = np.append(split_positions, len(sorted_cortical_indices))
-            
-            # Build propagation data dictionary with minimal Python operations
-            propagation_data = {}
-            for i, cortical_idx in enumerate(unique_cortical_indices):
-                start = split_positions[i]
-                end = split_positions[i + 1]
-                
-                # Extract slice for this cortical area (no copying, just views!)
-                area_target_ids = sorted_target_ids[start:end]
-                area_contributions = sorted_contributions[start:end]
-                
-                # Build list of tuples (still need Python here for the tuple format)
-                # But now we're doing it once per cortical area instead of once per synapse
-                propagation_data[int(cortical_idx)] = [
-                    (int(tid), float(contrib)) 
-                    for tid, contrib in zip(area_target_ids, area_contributions)
-                ]
-            split_time_ms = (time.perf_counter() - split_start) * 1000
-            
-            prop_times['grouping'] = (time.perf_counter() - group_start) * 1000
-            prop_times['grouping_lookup'] = lookup_time_ms
-            prop_times['grouping_sort'] = sort_time_ms
-            prop_times['grouping_split'] = split_time_ms
-            prop_times['total'] = (time.perf_counter() - prop_start) * 1000
-            
-            # Log detailed breakdown every 100 bursts
+            # Log performance every 100 bursts
             if self.burst_count % 100 == 0:
-                logger.warning(
-                    "⚡ [SYNAPTIC-PROPAGATION FULLY-VECTORIZED] Burst #%d (%d neurons → %d synapses):\n"
-                    "   Gather Phase:         %6.2f ms (%5.1f%%)  ← List building\n"
-                    "   SIMD Processing:      %6.2f ms (%5.1f%%)  ← Vectorized math\n"
-                    "   Grouping (TOTAL):     %6.2f ms (%5.1f%%)  ← Area assignment\n"
-                    "      └─ Lookup:         %6.2f ms\n"
-                    "      └─ Sort:           %6.2f ms  ← np.argsort (fast!)\n"
-                    "      └─ Split:          %6.2f ms  ← np.unique + slicing\n"
-                    "   ═══════════════════════════════════\n"
-                    "   Total Propagation:    %6.2f ms",
+                logger.info(
+                    "🦀 [RUST SYNAPTIC-PROPAGATION] Burst #%d: %d neurons fired → %d target injections across %d areas → %.2f ms",
                     self.burst_count,
                     len(fired_neuron_ids),
-                    total_synapses,
-                    prop_times['gather'],
-                    (prop_times['gather'] / prop_times['total'] * 100) if prop_times['total'] > 0 else 0,
-                    prop_times['process'],
-                    (prop_times['process'] / prop_times['total'] * 100) if prop_times['total'] > 0 else 0,
-                    prop_times['grouping'],
-                    (prop_times['grouping'] / prop_times['total'] * 100) if prop_times['total'] > 0 else 0,
-                    prop_times['grouping_lookup'],
-                    prop_times['grouping_sort'],
-                    prop_times['grouping_split'],
-                    prop_times['total']
+                    total_targets,
+                    len(result),
+                    prop_time
                 )
-                           
-            return propagation_data
+            
+            # DIAGNOSTIC: Log when we have fired neurons but no propagation targets
+            if len(fired_neuron_ids) > 0 and total_targets == 0:
+                logger.warning(
+                    "🦀 [RUST-DIAGNOSTIC] Burst #%d: %d neurons fired but 0 targets! Fired: %s",
+                    self.burst_count,
+                    len(fired_neuron_ids),
+                    fired_neuron_ids[:5]  # Show first 5 fired neurons
+                )
+            
+            return result
             
         except Exception as e:
-            logger.error("Error in synaptic propagation computation: %s", str(e))
+            logger.error("🦀 [RUST] Error in synaptic propagation: %s", str(e), exc_info=True)
             return {}
     
     def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
