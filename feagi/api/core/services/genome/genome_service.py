@@ -444,6 +444,10 @@ class GenomeService(BaseService):
 
             # Store the provided genome data for processing
             self._current_genome = copy.deepcopy(genome_data)
+            
+            # DIAGNOSTIC: Check simulation_timestep immediately after copy
+            copy_timestep = self._current_genome.get("physiology", {}).get("simulation_timestep", "NOT_FOUND")
+            self.logger.info(f"🔍 [LOAD-GENOME] simulation_timestep after deepcopy: {copy_timestep} (type: {type(copy_timestep)})")
 
             if not self._connectome_manager:
                 return {
@@ -1031,9 +1035,12 @@ class GenomeService(BaseService):
 
                     #  CRITICAL: Apply genome's simulation_timestep to system
                     #  configuration
+                    self.logger.info("🔧 [GENOME] About to apply genome physiology parameters...")
+                    self.logger.info(f"🔧 [GENOME] CoreAPIService available: {self._core_api_service is not None}")
                     self._apply_genome_physiology_parameters(
                         self._current_genome, self._core_api_service
                     )
+                    self.logger.info("🔧 [GENOME] Finished applying genome physiology parameters")
 
                     #  CRITICAL: Set genome state to LOADED only after complete
                     #  brain development
@@ -1960,6 +1967,10 @@ class GenomeService(BaseService):
             # Load and process genome
             with genome_path.open("r") as f:
                 genome_data = json.load(f)
+            
+            # DIAGNOSTIC: Check simulation_timestep immediately after JSON load
+            raw_timestep = genome_data.get("physiology", {}).get("simulation_timestep", "NOT_FOUND")
+            self.logger.info(f"🔍 [JSON-LOAD] Raw simulation_timestep from JSON file: {raw_timestep} (type: {type(raw_timestep)})")
 
             self.logger.debug(
                 "GENOME SERVICE: Loaded genome data, calling load_genome()..."
@@ -6801,14 +6812,21 @@ class GenomeService(BaseService):
             # Extract simulation_timestep from genome physiology section
             physiology = genome_data.get("physiology", {})
             timestep = physiology.get("simulation_timestep")
+            
+            self.logger.info(f"🔍 [GENOME] Extracted physiology: {physiology}")
+            self.logger.info(f"🔍 [GENOME] Extracted simulation_timestep: {timestep}")
 
             if timestep is None:
                 # Backward compatibility: Check for burst_delay in physiology
                 timestep = physiology.get("burst_delay")
+                if timestep is not None:
+                    self.logger.info(f"🔍 [GENOME] Using physiology.burst_delay: {timestep}")
 
             if timestep is None:
                 # Backward compatibility: Check for old top-level burst_delay
                 timestep = genome_data.get("burst_delay")
+                if timestep is not None:
+                    self.logger.info(f"🔍 [GENOME] Using top-level burst_delay: {timestep}")
 
             if timestep is not None:
                 self.logger.info(

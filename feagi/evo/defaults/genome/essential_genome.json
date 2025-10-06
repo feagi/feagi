@@ -1540,7 +1540,7 @@
   },
   "hosts": {},
   "physiology": {
-    "simulation_timestep": 1,
+    "simulation_timestep": 0.06666666666666667,
     "max_age": 10000000,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,

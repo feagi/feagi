@@ -122,6 +122,13 @@ class BurstEngine:
         self.current_timestep = 0
         self.burst_count = 0
         self.previous_fire_queue: Optional[FireQueue] = None
+        
+        # Performance monitoring for actual vs desired frequency
+        self._last_burst_time = None
+        self._burst_times = []  # Track last N burst times for moving average
+        self._burst_times_window = 10  # Use 10 bursts for moving average
+        self._performance_log_interval = 100  # Log performance every N bursts
+        self._last_performance_log = 0
 
         # Compatibility adapter for legacy MemoryProcessor access in ConnectomeManager
         try:
@@ -936,22 +943,65 @@ class BurstEngine:
                 logger.info("🔄 [FREQUENCY-DEBUG] Starting main loop with frequency: %.2fHz", self.desired_frequency)
                 
                 # Main burst processing loop
+                import time
                 while self._running:
                     try:
+                        # Measure actual burst timing
+                        burst_start_time = time.perf_counter()
+                        
                         # Execute the actual burst processing (RTOS-safe: no timing calls)
                         try:
                             fired_neurons = self.process_burst()
+                            burst_process_time = time.perf_counter() - burst_start_time
                             
-                            # Log periodic burst status 
-                            if self.burst_count % 100 == 0:  # Every 100 bursts
-                                logger.info("[BURST-ENGINE] Burst #%d: %d neurons fired", self.burst_count, len(fired_neurons))
+                            # Track actual burst frequency
+                            if self._last_burst_time is not None:
+                                actual_burst_interval = burst_start_time - self._last_burst_time
+                                self._burst_times.append(actual_burst_interval)
+                                
+                                # Keep only last N burst times for moving average
+                                if len(self._burst_times) > self._burst_times_window:
+                                    self._burst_times.pop(0)
+                            
+                            self._last_burst_time = burst_start_time
+                            
+                            # Performance logging every N bursts
+                            if self.burst_count % self._performance_log_interval == 0 and len(self._burst_times) > 0:
+                                # Calculate actual frequency from moving average
+                                avg_interval = sum(self._burst_times) / len(self._burst_times)
+                                actual_hz = 1.0 / avg_interval if avg_interval > 0 else 0.0
+                                
+                                # Calculate how much time burst processing took
+                                processing_percent = (burst_process_time / avg_interval * 100.0) if avg_interval > 0 else 0.0
+                                
+                                # Log performance
+                                if actual_hz < self.desired_frequency * 0.9:  # If actual < 90% of desired
+                                    logger.warning(
+                                        "⚠️ [BURST-ENGINE] PERFORMANCE BOTTLENECK: Burst #%d | "
+                                        "Desired: %.2f Hz | Actual: %.2f Hz (%.1f%% of target) | "
+                                        "Processing time: %.1f ms (%.1f%% of interval) | "
+                                        "Neurons fired: %d",
+                                        self.burst_count, self.desired_frequency, actual_hz,
+                                        (actual_hz / self.desired_frequency * 100.0) if self.desired_frequency > 0 else 0.0,
+                                        burst_process_time * 1000.0, processing_percent,
+                                        len(fired_neurons)
+                                    )
+                                else:
+                                    logger.info(
+                                        "[BURST-ENGINE] Performance: Burst #%d | "
+                                        "Desired: %.2f Hz | Actual: %.2f Hz | "
+                                        "Processing: %.1f ms (%.1f%% of interval) | "
+                                        "Neurons: %d",
+                                        self.burst_count, self.desired_frequency, actual_hz,
+                                        burst_process_time * 1000.0, processing_percent,
+                                        len(fired_neurons)
+                                    )
                                 
                         except Exception:
                             logger.error("Error in burst processing #%d", self.burst_count)
                             # Continue processing even if one burst fails
                         
                         # Timing control: Add sleep to prevent runaway CPU usage
-                        import time
                         try:
                             # FIXED: Calculate interval dynamically instead of using cached variable
                             current_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
