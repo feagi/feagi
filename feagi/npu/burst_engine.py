@@ -18,12 +18,8 @@ from .fq_sampler import FQSampler
 from .fcl_injector import FCLInjector
 from .simd_neural_ops import simd_batch_neural_update
 
-# Rust burst engine integration
-try:
-    import feagi_rust
-    RUST_AVAILABLE = True
-except ImportError:
-    RUST_AVAILABLE = False
+# Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
+from .rust_npu_integration import RustNPUIntegration, RUST_AVAILABLE
 
 logger = setup_logger(__name__)
 
@@ -155,13 +151,15 @@ class BurstEngine:
         else:
             logger.warning("[INJECTION] _initialize_injection_service not found on BurstEngine; skipping injection init")
         
-        # Initialize Rust burst engine for high-performance synaptic propagation
-        self._rust_engine = None
-        self._rust_engine_initialized = False
-        if RUST_AVAILABLE:
-            logger.info("🦀 [RUST] Rust burst engine available - will initialize on first use")
-        else:
-            logger.warning("🦀 [RUST] Rust burst engine NOT available - using Python implementation")
+        # Initialize Rust NPU (PRODUCTION PATH - NO FALLBACKS)
+        self._rust_npu_integration = None
+        if not RUST_AVAILABLE:
+            raise RuntimeError(
+                "🦀 [RUST-NPU] CRITICAL: Rust NPU not available! "
+                "FEAGI requires the Rust NPU for production use. "
+                "Please build the Rust components: cd feagi-rust && cargo build --release"
+            )
+        logger.info("🦀 [RUST-NPU] Rust NPU available - will initialize after genome load")
         
         # Mark as initialized but keep in INITIALIZING state until burst processing works
         self._initialized = True
@@ -169,43 +167,35 @@ class BurstEngine:
 
         logger.info("BurstEngine initialized with singleton pattern and state manager integration")
     
-    def _initialize_rust_engine(self) -> bool:
-        """Initialize the Rust synaptic propagation engine with connectome data.
+    def _initialize_rust_npu(self) -> None:
+        """Initialize the complete Rust NPU with connectome data.
         
-        This is called lazily on first use to avoid overhead during initialization.
+        PRODUCTION PATH: Direct Rust NPU initialization with no fallbacks.
+        This is called on first burst processing.
         
-        Returns:
-            bool: True if initialization successful, False otherwise
+        Raises:
+            RuntimeError: If initialization fails (fail fast)
         """
-        if self._rust_engine_initialized:
-            return True
-            
-        if not RUST_AVAILABLE:
-            logger.warning("🦀 [RUST] Cannot initialize: Rust module not available")
-            return False
+        if self._rust_npu_integration:
+            return  # Already initialized
             
         if not self.connectome_manager:
-            logger.warning("🦀 [RUST] Cannot initialize: No connectome manager")
-            return False
+            raise RuntimeError("🦀 [RUST-NPU] Cannot initialize without connectome_manager")
             
-        try:
-            import time
-            init_start = time.perf_counter()
-            
-            # Get NPU interface for synapse data access
-            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            if not npu_interface:
-                logger.warning("🦀 [RUST] Cannot initialize: No NPU interface")
-                return False
-                
-            synapse_array = getattr(npu_interface, 'synapse_array', None)
-            neuron_array = getattr(npu_interface, 'neuron_array', None)
-            if not synapse_array or not neuron_array:
-                logger.warning("🦀 [RUST] Cannot initialize: No synapse/neuron arrays")
-                return False
-            
-            # Extract synapse data as numpy arrays
-            n_synapses = len(synapse_array.source_neuron_ids)
+        # Create integration layer
+        self._rust_npu_integration = RustNPUIntegration(
+            connectome_manager=self.connectome_manager,
+            fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20
+        )
+        
+        # Initialize (will load connectome)
+        self._rust_npu_integration.initialize()
+        
+        logger.info("🦀 [RUST-NPU] ✅ Initialized: %d neurons, %d synapses",
+                    self._rust_npu_integration.get_neuron_count(),
+                    self._rust_npu_integration.get_synapse_count())
+    
+    def reinitialize_rust_npu(self) -> None:
             
             source_neurons = synapse_array.source_neuron_ids.astype(np.uint32)
             target_neurons = synapse_array.target_neuron_ids.astype(np.uint32)

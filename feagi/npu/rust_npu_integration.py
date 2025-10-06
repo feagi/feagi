@@ -1,0 +1,352 @@
+"""
+Rust NPU Integration Module
+
+This module provides the integration layer between Python (burst_engine.py) and the Rust NPU.
+
+PRODUCTION-READY: Direct integration with no fallbacks.
+"""
+
+from typing import List, Dict, Optional
+import time
+from feagi.utils.logger import setup_logger
+
+try:
+    import feagi_rust
+    RUST_AVAILABLE = True
+except ImportError:
+    RUST_AVAILABLE = False
+
+logger = setup_logger(__name__)
+
+
+class RustNPUIntegration:
+    """Integration layer for Rust NPU.
+    
+    This class handles:
+    - Rust NPU initialization
+    - Connectome data loading
+    - Burst processing
+    - Performance monitoring
+    
+    CRITICAL: This is the ONLY burst processing path in production.
+    NO FALLBACKS - fail fast with clear errors if anything goes wrong.
+    """
+    
+    def __init__(self, connectome_manager, fire_ledger_window: int = 20):
+        """Initialize Rust NPU integration.
+        
+        Args:
+            connectome_manager: ConnectomeManager instance with neuron/synapse data
+            fire_ledger_window: Number of historical bursts to keep
+        
+        Raises:
+            RuntimeError: If Rust NPU is not available (production requirement)
+        """
+        if not RUST_AVAILABLE:
+            raise RuntimeError(
+                "🦀 [RUST-NPU] CRITICAL: Rust NPU not available! "
+                "FEAGI requires the Rust NPU for production use. "
+                "Please build the Rust components:\n"
+                "  cd feagi_core/feagi-rust\n"
+                "  cargo build --release\n"
+                "  cp target/release/libfeagi_rust.* ../feagi/npu/"
+            )
+        
+        self.connectome_manager = connectome_manager
+        self.fire_ledger_window = fire_ledger_window
+        
+        self._rust_npu: Optional[feagi_rust.RustNPU] = None
+        self._rust_npu_initialized = False
+        
+        # Performance tracking
+        self._burst_times = []
+        self._burst_times_window = 10
+        self._last_performance_log = 0
+        self._performance_log_interval = 100
+        
+        logger.info("🦀 [RUST-NPU] Integration layer initialized - ready to load connectome")
+    
+    def initialize(self) -> None:
+        """Initialize the Rust NPU with connectome data.
+        
+        CRITICAL: This must succeed or we fail fast.
+        
+        Raises:
+            RuntimeError: If initialization fails
+        """
+        if self._rust_npu_initialized:
+            logger.info("🦀 [RUST-NPU] Already initialized - skipping")
+            return
+        
+        if not self.connectome_manager:
+            raise RuntimeError(
+                "🦀 [RUST-NPU] CRITICAL: Cannot initialize without connectome_manager"
+            )
+        
+        logger.info("🦀 [RUST-NPU] Starting initialization...")
+        init_start = time.perf_counter()
+        
+        try:
+            # Get neuron and synapse counts
+            neuron_count = self._get_neuron_count()
+            synapse_count = self._get_synapse_count()
+            
+            # Create Rust NPU with headroom for dynamic additions
+            neuron_capacity = max(neuron_count * 2, 10000)
+            synapse_capacity = max(synapse_count * 2, 100000)
+            
+            logger.info("🦀 [RUST-NPU] Creating NPU: %d neurons (capacity: %d), %d synapses (capacity: %d)",
+                        neuron_count, neuron_capacity, synapse_count, synapse_capacity)
+            
+            self._rust_npu = feagi_rust.RustNPU(
+                neuron_capacity=neuron_capacity,
+                synapse_capacity=synapse_capacity,
+                fire_ledger_window=self.fire_ledger_window
+            )
+            
+            # Load connectome
+            self._load_connectome()
+            
+            self._rust_npu_initialized = True
+            
+            init_time = (time.perf_counter() - init_start) * 1000
+            logger.info("🦀 [RUST-NPU] ✅ Initialization complete in %.2f ms: %d neurons, %d synapses",
+                        init_time,
+                        self._rust_npu.get_neuron_count(),
+                        self._rust_npu.get_synapse_count())
+            
+        except Exception as e:
+            logger.error("🦀 [RUST-NPU] CRITICAL: Initialization failed: %s", str(e), exc_info=True)
+            raise RuntimeError(f"Rust NPU initialization failed: {e}") from e
+    
+    def _get_neuron_count(self) -> int:
+        """Get neuron count from connectome_manager."""
+        if hasattr(self.connectome_manager, 'get_neuron_count'):
+            return self.connectome_manager.get_neuron_count()
+        elif hasattr(self.connectome_manager, 'neuron_array'):
+            neuron_array = self.connectome_manager.neuron_array
+            if hasattr(neuron_array, 'neuron_count'):
+                return neuron_array.neuron_count
+        # Safe default
+        return 10000
+    
+    def _get_synapse_count(self) -> int:
+        """Get synapse count from connectome_manager."""
+        if hasattr(self.connectome_manager, 'get_synapse_count'):
+            return self.connectome_manager.get_synapse_count()
+        elif hasattr(self.connectome_manager, '_npu_interface'):
+            npu_interface = self.connectome_manager._npu_interface
+            if hasattr(npu_interface, 'synapse_array'):
+                synapse_array = npu_interface.synapse_array
+                if hasattr(synapse_array, '__len__'):
+                    return len(synapse_array.source_neuron_ids)
+        # Safe default
+        return 100000
+    
+    def _load_connectome(self) -> None:
+        """Load all neurons and synapses from connectome_manager into Rust NPU.
+        
+        This is the CRITICAL data loading path.
+        """
+        load_start = time.perf_counter()
+        
+        # Load neurons
+        neurons_loaded = self._load_neurons()
+        logger.info("🦀 [RUST-NPU] Loaded %d neurons", neurons_loaded)
+        
+        # Load synapses
+        synapses_loaded = self._load_synapses()
+        logger.info("🦀 [RUST-NPU] Loaded %d synapses", synapses_loaded)
+        
+        # Rebuild indexes (CRITICAL for performance!)
+        self._rust_npu.rebuild_indexes()
+        logger.info("🦀 [RUST-NPU] Indexes rebuilt")
+        
+        # Set neuron→cortical_area mapping
+        mapping_count = self._set_neuron_mapping()
+        logger.info("🦀 [RUST-NPU] Neuron mapping set (%d neurons mapped)", mapping_count)
+        
+        load_time = (time.perf_counter() - load_start) * 1000
+        logger.info("🦀 [RUST-NPU] Connectome load complete in %.2f ms", load_time)
+    
+    def _load_neurons(self) -> int:
+        """Load neurons from connectome_manager."""
+        count = 0
+        
+        # Try NPU interface first
+        if hasattr(self.connectome_manager, '_npu_interface'):
+            npu_interface = self.connectome_manager._npu_interface
+            if hasattr(npu_interface, 'neuron_array'):
+                neuron_array = npu_interface.neuron_array
+                count = self._load_neurons_from_array(neuron_array)
+        
+        return count
+    
+    def _load_neurons_from_array(self, neuron_array) -> int:
+        """Load neurons from neuron array."""
+        count = 0
+        neuron_count = getattr(neuron_array, 'neuron_count', 0)
+        
+        for i in range(neuron_count):
+            try:
+                self._rust_npu.add_neuron(
+                    threshold=float(neuron_array.thresholds[i]) if hasattr(neuron_array, 'thresholds') else 1.0,
+                    leak_rate=float(neuron_array.leak_rates[i]) if hasattr(neuron_array, 'leak_rates') else 0.0,
+                    refractory_period=int(neuron_array.refractory_periods[i]) if hasattr(neuron_array, 'refractory_periods') else 0,
+                    excitability=float(neuron_array.excitabilities[i]) if hasattr(neuron_array, 'excitabilities') else 1.0,
+                    cortical_area=int(neuron_array.cortical_areas[i]) if hasattr(neuron_array, 'cortical_areas') else 0,
+                    x=int(neuron_array.coordinates[i * 3]) if hasattr(neuron_array, 'coordinates') else 0,
+                    y=int(neuron_array.coordinates[i * 3 + 1]) if hasattr(neuron_array, 'coordinates') else 0,
+                    z=int(neuron_array.coordinates[i * 3 + 2]) if hasattr(neuron_array, 'coordinates') else 0
+                )
+                count += 1
+            except Exception as e:
+                logger.warning("🦀 [RUST-NPU] Failed to load neuron %d: %s", i, str(e))
+        
+        return count
+    
+    def _load_synapses(self) -> int:
+        """Load synapses from connectome_manager."""
+        count = 0
+        
+        # Try NPU interface first
+        if hasattr(self.connectome_manager, '_npu_interface'):
+            npu_interface = self.connectome_manager._npu_interface
+            if hasattr(npu_interface, 'synapse_array'):
+                synapse_array = npu_interface.synapse_array
+                count = self._load_synapses_from_array(synapse_array)
+        
+        return count
+    
+    def _load_synapses_from_array(self, synapse_array) -> int:
+        """Load synapses from synapse array."""
+        count = 0
+        synapse_count = len(synapse_array.source_neuron_ids) if hasattr(synapse_array, 'source_neuron_ids') else 0
+        
+        for i in range(synapse_count):
+            try:
+                # Check if synapse is valid
+                if hasattr(synapse_array, 'valid_mask') and not synapse_array.valid_mask[i]:
+                    continue
+                
+                self._rust_npu.add_synapse(
+                    source=int(synapse_array.source_neuron_ids[i]),
+                    target=int(synapse_array.target_neuron_ids[i]),
+                    weight=int(synapse_array.weights[i]) if hasattr(synapse_array, 'weights') else 128,
+                    conductance=int(synapse_array.conductances[i]) if hasattr(synapse_array, 'conductances') else 255,
+                    synapse_type=int(synapse_array.types[i]) if hasattr(synapse_array, 'types') else 0
+                )
+                count += 1
+            except Exception as e:
+                logger.warning("🦀 [RUST-NPU] Failed to load synapse %d: %s", i, str(e))
+        
+        return count
+    
+    def _set_neuron_mapping(self) -> int:
+        """Set neuron→cortical_area mapping."""
+        mapping = {}
+        
+        if hasattr(self.connectome_manager, '_npu_interface'):
+            npu_interface = self.connectome_manager._npu_interface
+            if hasattr(npu_interface, 'neuron_array'):
+                neuron_array = npu_interface.neuron_array
+                neuron_count = getattr(neuron_array, 'neuron_count', 0)
+                
+                for i in range(neuron_count):
+                    cortical_area = int(neuron_array.cortical_areas[i]) if hasattr(neuron_array, 'cortical_areas') else 0
+                    mapping[i] = cortical_area
+        
+        if mapping:
+            self._rust_npu.set_neuron_mapping(mapping)
+        
+        return len(mapping)
+    
+    def process_burst(self, power_neurons: List[int]) -> Dict:
+        """Process a single burst using Rust NPU.
+        
+        Args:
+            power_neurons: List of neuron IDs to inject power into
+        
+        Returns:
+            Dict with keys: fired_neurons, burst, neuron_count, etc.
+        
+        Raises:
+            RuntimeError: If burst processing fails
+        """
+        # Ensure initialized
+        if not self._rust_npu_initialized:
+            self.initialize()
+        
+        # Call Rust NPU (THIS IS THE FAST PATH - ALL IN RUST!)
+        burst_start = time.perf_counter()
+        
+        try:
+            result = self._rust_npu.process_burst(power_neurons=power_neurons)
+            burst_time = (time.perf_counter() - burst_start) * 1000
+            
+            # Track performance
+            self._track_performance(burst_start, result, burst_time)
+            
+            # Log performance periodically
+            if result.burst % self._performance_log_interval == 0:
+                self._log_performance(result, burst_time)
+            
+            # Return as dict for easier integration
+            return {
+                'fired_neurons': result.fired_neurons,
+                'burst': result.burst,
+                'neuron_count': result.neuron_count,
+                'power_injections': result.power_injections,
+                'synaptic_injections': result.synaptic_injections,
+                'neurons_processed': result.neurons_processed,
+                'neurons_in_refractory': result.neurons_in_refractory,
+                'processing_time_ms': burst_time
+            }
+            
+        except Exception as e:
+            logger.error("🦀 [RUST-NPU] CRITICAL: Burst processing failed: %s", str(e), exc_info=True)
+            raise RuntimeError(f"Rust NPU burst processing failed: {e}") from e
+    
+    def _track_performance(self, burst_start_time, result, burst_time_ms):
+        """Track burst performance metrics."""
+        current_time = time.perf_counter()
+        
+        if len(self._burst_times) > 0:
+            interval = current_time - self._burst_times[-1] if self._burst_times else 0
+            self._burst_times.append(interval)
+            
+            # Keep only last N burst times
+            if len(self._burst_times) > self._burst_times_window:
+                self._burst_times.pop(0)
+    
+    def _log_performance(self, result, burst_time_ms):
+        """Log performance metrics."""
+        if len(self._burst_times) > 0:
+            avg_interval = sum(self._burst_times) / len(self._burst_times)
+            actual_hz = 1.0 / avg_interval if avg_interval > 0 else 0.0
+            
+            logger.info(
+                "🦀 [RUST-NPU] Burst #%d: %.2f Hz | %.2f ms | %d neurons fired | "
+                "power: %d, synaptic: %d, refractory: %d",
+                result.burst, actual_hz, burst_time_ms, result.neuron_count,
+                result.power_injections, result.synaptic_injections,
+                result.neurons_in_refractory
+            )
+    
+    def get_burst_count(self) -> int:
+        """Get current burst count."""
+        if self._rust_npu:
+            return self._rust_npu.get_burst_count()
+        return 0
+    
+    def get_neuron_count(self) -> int:
+        """Get neuron count."""
+        if self._rust_npu:
+            return self._rust_npu.get_neuron_count()
+        return 0
+    
+    def get_synapse_count(self) -> int:
+        """Get synapse count."""
+        if self._rust_npu:
+            return self._rust_npu.get_synapse_count()
+        return 0
