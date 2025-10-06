@@ -32,16 +32,10 @@
 
 pub mod synaptic_propagation;
 pub mod neural_dynamics;
-pub mod phase1_injection;
-pub mod phase3_archival;
-pub mod phase5_cleanup;
 pub mod npu;
 
 pub use synaptic_propagation::*;
 pub use neural_dynamics::*;
-pub use phase1_injection::*;
-pub use phase3_archival::*;
-pub use phase5_cleanup::*;
 pub use npu::*;
 
 /// Burst engine performance statistics

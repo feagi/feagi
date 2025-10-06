@@ -15,7 +15,6 @@ from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .coordinate_converter import CoordinateConverter
 from .fq_sampler import FQSampler
-from .fcl_injector import FCLInjector
 from .simd_neural_ops import simd_batch_neural_update
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
@@ -81,7 +80,6 @@ class BurstEngine:
         # Core NPU components
         self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
         self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
-        self.fcl_injector = FCLInjector(self.coordinate_converter) if self.coordinate_converter else None
         
         # Per-area excitability cache for performance optimization (like old NPU)
         self._area_excitability_cache: Dict[int, float] = {}
@@ -522,11 +520,9 @@ class BurstEngine:
                 
                 # Reinitialize components that depend on connectome manager
                 from feagi.npu.coordinate_converter import CoordinateConverter
-                from feagi.npu.fcl_injector import FCLInjector
                 
                 self.coordinate_converter = CoordinateConverter(connectome_manager)
-                self.fcl_injector = FCLInjector(self.coordinate_converter)
-                logger.info("🧬 [GENOME-UPDATE] Coordinate converter and FCL injector reinitialized")
+                logger.info("🧬 [GENOME-UPDATE] Coordinate converter reinitialized")
                 
                 # Initialize injection service if enabled
                 if self.enable_injection:
@@ -814,24 +810,10 @@ class BurstEngine:
                     self.coordinate_converter = CoordinateConverter(self.connectome_manager)
                     logger.debug("CoordinateConverter created with ConnectomeManager")
                 
-                # CRITICAL: Re-initialize FCL injector with connectome data
-                if not self.fcl_injector and self.coordinate_converter:
-                    from .fcl_injector import FCLInjector
-                    self.fcl_injector = FCLInjector(self.coordinate_converter)
-                    logger.debug("FCLInjector created with CoordinateConverter")
-                elif self.fcl_injector:
-                    logger.debug("FCLInjector already exists")
                 
                 # CRITICAL: Re-initialize injection service for power neurons
-                # Always re-initialize to ensure it has the latest fcl_injector
-                if self.fcl_injector:
-                    self._initialize_injection_service()
-                    logger.debug("PowerInjectionService re-initialized with updated FCLInjector")
-                elif self.injection_service and hasattr(self.injection_service, 'invalidate_cache'):
-                    self.injection_service.invalidate_cache()
-                    logger.debug("Power neuron cache invalidated after genome update")
-                else:
-                    logger.debug("Cannot initialize PowerInjectionService - FCLInjector not available")
+                self._initialize_injection_service()
+                logger.debug("PowerInjectionService initialized")
                 
                 # Update coordinate converter with connectome dimensions if available
                 if self.coordinate_converter and hasattr(self.connectome_manager, 'get_cortical_dimensions'):
@@ -922,160 +904,6 @@ class BurstEngine:
         except Exception as e:
             logger.error("Error in force_connectome_integration: %s", str(e))
             return False
-    
-    def _inject_all_candidates(self, fcl: FireCandidateList):
-        """Inject all candidates into FCL - power neurons, sensory data, and synaptic propagation."""
-        
-        # Performance sub-timing for Phase 1
-        import time
-        sub_times = {}
-        
-        # NPU Debug logging
-        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
-        periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
-        
-        if periodic_debug:
-            logger.debug("FCL injection starting...")
-            logger.debug("Injection service available: %s", self.injection_service is not None)
-            logger.debug("Injection enabled: %s", self.enable_injection)
-            logger.debug("FCL injector available: %s", self.fcl_injector is not None)
-        
-        # 1. CRITICAL: Inject power neurons and special areas EVERY burst
-        sub_start = time.perf_counter()
-        if self.injection_service and self.enable_injection:
-            if periodic_debug:
-                logger.debug("Starting power neuron injection...")
-                
-            try:
-                injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
-                # Power injection completed
-                    
-            except Exception as e:
-                if debug_enabled:
-                    logger.error("Error in power neuron injection: %s", str(e))
-                    if periodic_debug:  # Only show traceback periodically
-                        import traceback
-                        logger.error("Power injection traceback: %s", traceback.format_exc())
-                else:
-                    logger.error("Error in power neuron injection")
-        else:
-            if periodic_debug:
-                if not self.injection_service:
-                    logger.debug("No injection service available - power injection skipped")
-                elif not self.enable_injection:
-                    logger.debug("Injection disabled - power injection skipped")
-        sub_times['power_injection'] = (time.perf_counter() - sub_start) * 1000  # ms
-        
-        # 2. Inject sensory data (if FCL injector available)
-        sub_start = time.perf_counter()
-        if self.fcl_injector:
-            if periodic_debug:
-                logger.debug("FCL injector available - checking for sensory/synaptic data...")
-                
-            # Synaptic propagation from previous timestep
-            if self.previous_fire_queue:
-                prev_neuron_count = len(self.previous_fire_queue.get_all_neuron_ids()) if self.previous_fire_queue else 0
-                
-                # Debug logging for NPU debug mode
-                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
-                # Process synaptic propagation
-                
-                propagation_data = self._compute_synaptic_propagation()
-                if propagation_data:
-                    injected_count = self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
-                    total_targets = sum(len(targets) for targets in propagation_data.values())
-                    logger.info("Synaptic propagation: %d candidates injected from %d fired neurons → %d target neurons", 
-                               injected_count, prev_neuron_count, total_targets)
-
-            # No previous fire queue - first burst or no synaptic propagation
-            pass
-        else:
-            # FCL injector not available - connectome initialization issue
-            pass
-        sub_times['synaptic_propagation'] = (time.perf_counter() - sub_start) * 1000  # ms
-        
-        # FCL injection phase completed - log sub-timing every 100 bursts
-        if self.burst_count % 100 == 0:
-            total_injection = sum(sub_times.values())
-            logger.warning(
-                "⏱️ [PHASE-1 BREAKDOWN] Burst #%d:\n"
-                "   Power Injection:       %6.2f ms (%5.1f%%)\n"
-                "   Synaptic Propagation:  %6.2f ms (%5.1f%%)\n"
-                "   ───────────────────────────────────\n"
-                "   Phase 1 Total:         %6.2f ms",
-                self.burst_count,
-                sub_times.get('power_injection', 0),
-                (sub_times.get('power_injection', 0) / total_injection * 100) if total_injection > 0 else 0,
-                sub_times.get('synaptic_propagation', 0),
-                (sub_times.get('synaptic_propagation', 0) / total_injection * 100) if total_injection > 0 else 0,
-                total_injection
-            )
-    
-    def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
-        """Compute synaptic propagation data from previous fire queue.
-        
-        RUST IMPLEMENTATION: High-performance synaptic propagation using Rust.
-        Replaces the Python implementation with 50-100x faster Rust code.
-        
-        Returns:
-            Dict[cortical_idx, List[(target_neuron_id, synaptic_contribution)]]
-        """
-        import time
-        
-        if not self.previous_fire_queue or not self.connectome_manager:
-            return {}
-            
-        # Get all fired neuron IDs from previous timestep
-        fired_neuron_ids = self.previous_fire_queue.get_all_neuron_ids()
-        if not fired_neuron_ids:
-            return {}
-            
-        # Initialize Rust engine on first use (lazy initialization)
-        if not self._rust_engine_initialized:
-            if not self._initialize_rust_engine():
-                logger.error("🦀 [RUST] Synaptic propagation failed: Rust engine not initialized")
-                return {}
-        
-        # Call Rust engine for high-performance propagation
-        try:
-            prop_start = time.perf_counter()
-            
-            # Convert to numpy array for Rust
-            fired_neurons_array = np.array(fired_neuron_ids, dtype=np.uint32)
-            
-            # Call Rust (THIS IS THE FAST PATH!)
-            result = self._rust_engine.propagate(fired_neurons_array)
-            
-            prop_time = (time.perf_counter() - prop_start) * 1000
-            
-            # Count total targets across all areas
-            total_targets = sum(len(targets) for targets in result.values())
-            
-            # Log performance every 100 bursts
-            if self.burst_count % 100 == 0:
-                logger.info(
-                    "🦀 [RUST SYNAPTIC-PROPAGATION] Burst #%d: %d neurons fired → %d target injections across %d areas → %.2f ms",
-                    self.burst_count,
-                    len(fired_neuron_ids),
-                    total_targets,
-                    len(result),
-                    prop_time
-                )
-            
-            # DIAGNOSTIC: Log when we have fired neurons but no propagation targets
-            if len(fired_neuron_ids) > 0 and total_targets == 0:
-                logger.warning(
-                    "🦀 [RUST-DIAGNOSTIC] Burst #%d: %d neurons fired but 0 targets! Fired: %s",
-                    self.burst_count,
-                    len(fired_neuron_ids),
-                    fired_neuron_ids[:5]  # Show first 5 fired neurons
-                )
-            
-            return result
-            
-        except Exception as e:
-            logger.error("🦀 [RUST] Error in synaptic propagation: %s", str(e), exc_info=True)
-            return {}
     
     def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
         """Get the actual firing threshold for a specific neuron.
@@ -1966,8 +1794,7 @@ class BurstEngine:
             
             # Create simple power injection service
             self.injection_service = PowerInjectionService(
-                connectome_manager=self.connectome_manager,
-                fcl_injector=self.fcl_injector
+                connectome_manager=self.connectome_manager
             )
             
             logger.info("Power injection service initialized for automatic burst injection")
@@ -2059,10 +1886,9 @@ class _MemoryProcessorAdapter:
 class PowerInjectionService:
     """Simple power injection service for constant brain activity."""
     
-    def __init__(self, connectome_manager, fcl_injector):
+    def __init__(self, connectome_manager):
         """Initialize power injection service."""
         self.connectome_manager = connectome_manager
-        self.fcl_injector = fcl_injector
         self._power_neurons_cache = None
         self._cache_valid = False
         

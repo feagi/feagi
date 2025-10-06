@@ -28,10 +28,7 @@
 //! ```
 
 use feagi_types::*;
-use crate::phase1_injection::*;
 use crate::neural_dynamics::*;
-use crate::phase3_archival::*;
-use crate::phase5_cleanup::*;
 use crate::synaptic_propagation::SynapticPropagationEngine;
 use ahash::AHashMap;
 
@@ -187,14 +184,11 @@ impl RustNPU {
         )?;
         
         // Phase 3: Archival (record to Fire Ledger)
-        phase3_archival(
-            &dynamics_result.fire_queue,
-            &mut self.fire_ledger,
-            self.burst_count,
-        )?;
+        let neuron_ids = dynamics_result.fire_queue.get_all_neuron_ids();
+        self.fire_ledger.record_burst(self.burst_count, neuron_ids);
         
         // Phase 5: Cleanup (clear FCL for next burst)
-        phase5_cleanup(&mut self.fire_candidate_list)?;
+        self.fire_candidate_list.clear();
         
         // Swap fire queues: current becomes previous for next burst
         self.previous_fire_queue = self.current_fire_queue.clone();
@@ -263,7 +257,15 @@ impl RustNPU {
     }
 }
 
-// Modified Phase 1 injection that accepts synapse array
+/// Phase 1 injection result
+#[derive(Debug)]
+struct InjectionResult {
+    power_injections: usize,
+    synaptic_injections: usize,
+    sensory_injections: usize,
+}
+
+/// Modified Phase 1 injection that accepts synapse array
 fn phase1_injection_with_synapses(
     fcl: &mut FireCandidateList,
     neuron_array: &NeuronArray,
