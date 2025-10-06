@@ -163,7 +163,13 @@ class FQSampler:
             frequency_hz: New sampling frequency in Hz
         """
         if frequency_hz > 0:
+            old_freq = self.sample_frequency_hz
             self.sample_frequency_hz = frequency_hz
+            self.sample_frequency = frequency_hz  # Update compatibility alias
+            self.sample_interval = 1.0 / frequency_hz if frequency_hz > 0 else 0.1
+            logger.info(f"🔄 FQ Sampler [{self.instance_id}] frequency updated: {old_freq}Hz → {frequency_hz}Hz (interval: {self.sample_interval:.3f}s)")
+        else:
+            logger.warning(f"⚠️ FQ Sampler [{self.instance_id}] invalid frequency: {frequency_hz}Hz (ignored)")
 
 
     def set_motor_subscribers(self, has_subscribers: bool) -> None:

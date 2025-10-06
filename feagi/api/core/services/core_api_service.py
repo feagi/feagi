@@ -2134,9 +2134,11 @@ class CoreAPIService:
             sync_count = 0
             
             # Synchronize Visualization FQ Sampler AND Visualization Stream
+            self.logger.warning(f"🔍🔍🔍 [AUTO-SYNC] Using ProcessManager instance id={id(process_manager)}")
             viz_sampler = process_manager.get_viz_fq_sampler()
             
             if viz_sampler:
+                self.logger.warning(f"🔍🔍🔍 [AUTO-SYNC] Found viz sampler: {viz_sampler.instance_id}")
                 try:
                     #  Get configured frequency from ProcessManager (not
                     #  current frequency)
@@ -2201,8 +2203,9 @@ class CoreAPIService:
                         f"🎨 [AUTO-SYNC] Failed to update visualization sampler: {e}"
                     )
             else:
-                self.logger.warning(
-                    "🎨 [AUTO-SYNC] No active visualization sampler found"
+                self.logger.info(
+                    f"🎨 [AUTO-SYNC] No visualization sampler active (no agents connected yet or agents disconnected). "
+                    f"When visualization agents connect, they will use the new burst frequency: {new_burst_frequency}Hz"
                 )
             
             # Synchronize Motor FQ Sampler  

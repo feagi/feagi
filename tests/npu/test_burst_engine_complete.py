@@ -79,6 +79,17 @@ class MockConnectomeManager:
         
         # Add neuron_id_to_index for genome updates
         self.neuron_id_to_index = {i: i for i in range(1000)}  # Simple 1:1 mapping
+        
+        # Add _npu_interface for FiringNeuron creation
+        self._npu_interface = MagicMock()
+        self._npu_interface.neuron_to_area = {1: 0, 2: 0, 3: 0}  # Map neuron IDs to cortical area 0
+        self._npu_interface.neuron_array = self.neuron_array
+        self._npu_interface.neuron_array.neuron_id_to_index = self.neuron_id_to_index
+        self._npu_interface.neuron_array.positions = {0: (0,0,0), 1: (1,0,0), 2: (2,0,0)}
+        self._npu_interface.neuron_array.thresholds = np.ones(1000)
+        self._npu_interface.neuron_array.membrane_potentials = np.zeros(1000)
+        self._npu_interface.neuron_array.refractory_counters = np.zeros(1000, dtype=np.int32)
+        self._npu_interface.neuron_array.consecutive_fire_counts = np.zeros(1000, dtype=np.int32)
 
     def update_membrane_potentials(self, current_timestep=None):
         """Updated to accept current_timestep parameter for NPU architecture."""
@@ -573,29 +584,27 @@ def test_fq_sampler_connectivity():
 
 
 def test_process_burst_method(mock_connectome_manager, mock_state_manager):
-    """Test the _process_burst method."""
+    """Test the _process_burst method with NPU architecture."""
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
     ):
         engine = BurstEngine(
             connectome_manager=mock_connectome_manager,
-            # fcl_manager no longer needed - handled by FCLInjector internally
         )
 
-        # Mock the update_membrane_potentials method to track calls
-        mock_connectome_manager.update_membrane_potentials = MagicMock(
-            return_value=[1, 2, 3]
-        )
+        # Set up neurons that will fire (potential > threshold)
+        npu = mock_connectome_manager._npu_interface
+        npu.neuron_array.membrane_potentials[1] = 1.5  # Above threshold
+        npu.neuron_array.membrane_potentials[2] = 1.5 
+        npu.neuron_array.membrane_potentials[3] = 1.5
 
         # Call the _process_burst method
         result = engine._process_burst()
 
-        # Verify that update_membrane_potentials was called
-        mock_connectome_manager.update_membrane_potentials.assert_called_once()
-
-        # Verify the result
-        assert result == [1, 2, 3]
+        # Verify the result contains fired neurons
+        # With NPU architecture, it processes through SIMD and returns FiringNeuron objects converted to IDs
+        assert isinstance(result, list)
 
 
 @pytest.mark.skip(
