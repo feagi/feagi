@@ -196,96 +196,12 @@ class BurstEngine:
                     self._rust_npu_integration.get_synapse_count())
     
     def reinitialize_rust_npu(self) -> None:
-            
-            source_neurons = synapse_array.source_neuron_ids.astype(np.uint32)
-            target_neurons = synapse_array.target_neuron_ids.astype(np.uint32)
-            weights = synapse_array.weights.astype(np.uint8)
-            
-            # Get conductances (with fallback to max)
-            conductances_attr = getattr(synapse_array, 'conductances', None)
-            if conductances_attr is not None:
-                conductances = conductances_attr.astype(np.uint8)
-            else:
-                conductances = np.full(n_synapses, 255, dtype=np.uint8)
-            
-            # Get synapse types (with fallback to excitatory)
-            types_attr = getattr(synapse_array, 'types', None)
-            if types_attr is not None:
-                types = types_attr.astype(np.uint8)
-            else:
-                types = np.zeros(n_synapses, dtype=np.uint8)  # 0 = excitatory
-            
-            # Get valid mask
-            valid_mask_attr = getattr(synapse_array, 'valid_mask', None)
-            if valid_mask_attr is not None:
-                valid_mask = valid_mask_attr.astype(bool)
-            else:
-                valid_mask = np.ones(n_synapses, dtype=bool)
-            
-            # Create Rust engine
-            self._rust_engine = feagi_rust.SynapticPropagationEngine()
-            
-            # Build synapse index
-            self._rust_engine.build_index(
-                source_neurons,
-                target_neurons,
-                weights,
-                conductances,
-                types,
-                valid_mask
-            )
-            
-            # Set neuron-to-cortical-area mapping
-            neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
-            n_neurons_mapped = len(neuron_to_area)
-            if neuron_to_area:
-                self._rust_engine.set_neuron_mapping(neuron_to_area)
-            
-            # Get some stats about the synapse index
-            source_neuron_index = getattr(synapse_array, 'source_neuron_index', {})
-            n_sources_with_synapses = len(source_neuron_index)
-            
-            init_time = (time.perf_counter() - init_start) * 1000
-            
-            self._rust_engine_initialized = True
-            logger.info(
-                "🦀 [RUST] Initialized synaptic propagation engine:\n"
-                "   - Total synapses: %d\n"
-                "   - Valid synapses: %d\n"
-                "   - Source neurons with outgoing synapses: %d\n"
-                "   - Neurons mapped to areas: %d\n"
-                "   - Initialization time: %.2f ms",
-                n_synapses, np.sum(valid_mask), n_sources_with_synapses, n_neurons_mapped, init_time
-            )
-            
-            # DIAGNOSTIC: Check first few neurons in the index
-            logger.info("🦀 [RUST-DIAGNOSTIC] First 10 source neurons with synapses: %s", list(source_neuron_index.keys())[:10])
-            
-            # DIAGNOSTIC: Check power neurons (ID 1 and 2)
-            for power_id in [1, 2]:
-                if power_id in source_neuron_index:
-                    power_syn_indices = source_neuron_index[power_id]
-                    # Check how many are actually valid
-                    if valid_mask is not None:
-                        valid_power_syns = sum(1 for idx in power_syn_indices if valid_mask[idx])
-                    else:
-                        valid_power_syns = len(power_syn_indices)
-                    logger.info(
-                        "🦀 [RUST-DIAGNOSTIC] Power neuron (ID=%d) has %d total synapses, %d valid",
-                        power_id, len(power_syn_indices), valid_power_syns
-                    )
-                else:
-                    logger.warning("🦀 [RUST-DIAGNOSTIC] Power neuron (ID=%d) has NO outgoing synapses in index!", power_id)
-            
-            return True
-            
-        except Exception as e:
-            logger.error("🦀 [RUST] Initialization failed: %s", str(e), exc_info=True)
-            self._rust_engine = None
-            self._rust_engine_initialized = False
-            return False
+        """Force re-initialization of Rust NPU (e.g., after genome changes)."""
+        logger.info("🦀 [RUST-NPU] Force re-initialization requested")
+        self._rust_npu_integration = None
+        self._initialize_rust_npu()
     
-    def reinitialize_rust_engine(self) -> bool:
+    def _old_reinitialize_rust_engine(self) -> bool:
         """Force re-initialization of Rust engine (e.g., after connectome changes).
         
         This should be called after genome loading or synapse modifications.
@@ -296,463 +212,95 @@ class BurstEngine:
         return self._initialize_rust_engine()
     
     def process_burst(self) -> List[int]:
-        """Execute complete burst processing with clean 5-phase workflow.
+        """Execute burst processing using Rust NPU.
         
-        RUST-COMPATIBLE: Deterministic processing with well-defined data flow.
-        Uses SoA format internally for SIMD optimization.
+        PRODUCTION PATH: All processing happens in Rust for maximum performance.
         
         Returns:
             List[int]: Neuron IDs that fired in current timestep
         """
-        return self._process_burst()
-    
-    def _process_burst(self) -> List[int]:
-        """Internal implementation of burst processing."""
-        # Process burst - no excessive logging
+        # Initialize Rust NPU on first use
+        if not self._rust_npu_integration:
+            self._initialize_rust_npu()
         
-        # ALWAYS log burst processing to verify it's running
-        logger.info(f"[BURST-ENGINE] Processing burst #{self.burst_count}")
+        # Collect all neurons to inject (power + manual stimulation + sensory)
+        power_neurons = []
+        manual_neurons = []
         
-        self.current_timestep = self.burst_count
-        
-        # NPU Debug logging (enabled with --debug-npu)
-        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
-        
-        # Performance timing for bottleneck identification
-        import time
-        phase_times = {}
-        burst_start = time.perf_counter()
-        
-        # Only log critical errors and major state changes
-        
-        # Phase 1: Collect candidates using FCL Injector
-        phase1_start = time.perf_counter()
-        fcl = FireCandidateList()
-        
-        self._inject_all_candidates(fcl)
-        phase_times['phase1_injection'] = (time.perf_counter() - phase1_start) * 1000  # ms
-        
-                # CRITICAL: Process any accumulated external activations via FCL injector (sensory/IPU routes)
-        if self.fcl_injector and hasattr(self, '_pending_external_activations'):
+        # 1. Get power neurons
+        if self.injection_service and self.enable_injection:
             try:
-                import sys
-                debug_mem = '--debug-mem' in sys.argv
-                
-                pending_activations = getattr(self, '_pending_external_activations', {})
-                
-                if debug_mem and pending_activations:
-                    memory_areas = [area for area in pending_activations.keys() if 'memory_area' in area]
-                    if memory_areas:
-                        total_memory_neurons = sum(len(activations) for area, activations in pending_activations.items() if 'memory_area' in area)
-                        print(f"[DEBUG-MEM] Processing {total_memory_neurons} memory neuron activations from {len(memory_areas)} memory areas")
-                if pending_activations:
-                    external_total = 0
-                    # Create a safe copy to avoid mutation during iteration
-                    pending_copy = dict(pending_activations)
-                    for area_id, area_data in pending_copy.items():
-                        # Coordinate dict format
-                        if isinstance(area_data, dict) and 'coordinates_x' in area_data:
-                            coords_x = np.asarray(area_data.get('coordinates_x', np.array([])))
-                            coords_y = np.asarray(area_data.get('coordinates_y', np.array([])))
-                            coords_z = np.asarray(area_data.get('coordinates_z', np.array([])))
-                            potentials = np.asarray(area_data.get('membrane_potentials', np.array([])), dtype=np.float32)
-                            # Guard: ensure arrays have the same length
-                            if not (len(coords_x) == len(coords_y) == len(coords_z) == len(potentials)):
-                                logger.error("BurstEngine: Skipping malformed external activations for area %s due to length mismatch: x=%d y=%d z=%d p=%d", area_id, len(coords_x), len(coords_y), len(coords_z), len(potentials))
-                                continue
-                            if len(coords_x) > 0:
-                                injected = self.fcl_injector.inject_sensory_data(
-                                    fcl=fcl,
-                                    cortical_id=area_id,
-                                    x_coords=coords_x,
-                                    y_coords=coords_y,
-                                    z_coords=coords_z,
-                                    potentials=potentials,
-                                )
-                                external_total += injected
-                        # Neuron ID list format
-                        elif isinstance(area_data, (list, np.ndarray)) and len(area_data) > 0:
-                            neuron_ids = np.array(area_data, dtype=np.uint32)
-                            npu_iface = getattr(self.connectome_manager, '_npu_interface', None)
-                            potentials_list = []
-                            valid_neuron_ids = []
-                            
-                            # Check if this is a memory area (either by name pattern or by checking if neuron IDs are in memory range)
-                            is_memory_area = ('memory_area' in area_id or 
-                                            any(int(nid) >= 50000000 for nid in neuron_ids))
-                            
-                            if debug_mem and is_memory_area:
-                                print(f"[DEBUG-MEM] Processing area '{area_id}' with {len(neuron_ids)} neuron IDs: {neuron_ids}")
-                            
-                            if npu_iface and hasattr(npu_iface, 'neuron_array') and hasattr(npu_iface.neuron_array, 'neuron_id_to_index'):
-                                na = npu_iface.neuron_array
-                                thresholds = getattr(na, 'thresholds', None)
-                                id_to_idx = getattr(na, 'neuron_id_to_index', {})
-                                
-                                if debug_mem and is_memory_area:
-                                    print(f"[DEBUG-MEM] Regular neuron array has {len(id_to_idx)} neurons registered")
-                                
-                                for nid in neuron_ids:
-                                    nid_int = int(nid)
-                                    if nid_int in id_to_idx and thresholds is not None:
-                                        idx = id_to_idx[nid_int]
-                                        if idx < len(thresholds):
-                                            valid_neuron_ids.append(nid_int)
-                                            potentials_list.append(float(thresholds[idx]))
-                                            if debug_mem and is_memory_area:
-                                                print(f"[DEBUG-MEM]   ✅ Found neuron {nid_int} in regular array at idx {idx}, threshold: {thresholds[idx]}")
-                                    else:
-                                        if debug_mem and is_memory_area:
-                                            print(f"[DEBUG-MEM]   ❌ Memory neuron {nid_int} NOT found in regular neuron array")
-                                            
-                            # Check memory neuron array for memory neurons
-                            if npu_iface and hasattr(npu_iface, 'memory_neuron_array') and is_memory_area:
-                                mna = npu_iface.memory_neuron_array
-                                if debug_mem:
-                                    print(f"[DEBUG-MEM] Checking memory neuron array for memory neurons...")
-                                
-                                for nid in neuron_ids:
-                                    nid_int = int(nid)
-                                    # Memory neurons should be injected with above-threshold potential
-                                    # Use memory neuron ID range from configuration
-                                    memory_id_threshold = 50000000  # @architecture:acceptable - memory neuron ID range constant
-                                    if nid_int >= memory_id_threshold:
-                                        valid_neuron_ids.append(nid_int)
-                                        # Use configuration-based potential
-                                        try:
-                                            from feagi.config.toml_loader import load_feagi_config
-                                            config = load_feagi_config()
-                                            memory_cfg = config.get('plasticity', {}).get('memory', {})
-                                            firing_threshold = memory_cfg.get('firing_threshold', 1.0)
-                                            injection_potential = firing_threshold + 0.5
-                                        except Exception:
-                                            # @architecture:acceptable - emergency fallback for memory neuron potential
-                                            injection_potential = 1.5
-                                        
-                                        potentials_list.append(injection_potential)
-                                        if debug_mem:
-                                            print(f"[DEBUG-MEM]   ✅ Memory neuron {nid_int} added to FCL with potential {injection_potential}")
-                                            
-                            if valid_neuron_ids:
-                                cortical_idx = self.connectome_manager.get_cortical_idx_for_id(area_id)
-                                if cortical_idx is not None:
-                                    excitatory_mask = np.ones(len(valid_neuron_ids), dtype=bool)
-                                    injected = fcl.add_candidates_soa(
-                                        cortical_idx=int(cortical_idx),
-                                        neuron_ids=np.array(valid_neuron_ids, dtype=np.uint32),
-                                        potential_deltas=np.array(potentials_list, dtype=np.float32),
-                                        excitatory_mask=excitatory_mask,
-                                    )
-                                    external_total += injected
-                                    
-                                    if debug_mem and is_memory_area:
-                                        print(f"[DEBUG-MEM] ✅ Injected {injected} memory neurons into FCL for cortical area {cortical_idx}")
-                                        # Immediately verify the injection worked
-                                        try:
-                                            total_after_injection = fcl.get_total_candidate_count()
-                                            print(f"[DEBUG-MEM] FCL candidate count after injection: {total_after_injection}")
-                                        except:
-                                            pass
-                                else:
-                                    if debug_mem and is_memory_area:
-                                        print(f"[DEBUG-MEM] ❌ Could not find cortical_idx for area_id '{area_id}'")
-                                        print(f"[DEBUG-MEM]   Available cortical areas: {list(self.connectome_manager.cortical_areas.keys())[:10]}...")
-                            else:
-                                if debug_mem and is_memory_area:
-                                    print(f"[DEBUG-MEM] ❌ No valid memory neurons found for FCL injection")
-                    # Clear processed activations deterministically
-                    self._pending_external_activations.clear()
-                    if external_total > 0:
-                        logger.info("BurstEngine: injected %d sensory/IPU candidates via FCLInjector", external_total)
-            except Exception as ext_e:
-                logger.error("BurstEngine: Error processing accumulated external activations: %s", str(ext_e))
-
-        fcl_candidate_count = fcl.get_total_candidate_count()
-        
-        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
-        fire_queue = FireQueue()
-        
-        # ALWAYS log before neural dynamics
-        logger.info(f"[BURST-ENGINE] About to process neural dynamics with FCL count: {fcl_candidate_count}")
-        
-        import sys
-        debug_mem = '--debug-mem' in sys.argv
-        if debug_mem:
-            print(f"[DEBUG-MEM] FCL has {fcl_candidate_count} candidates before neural dynamics")
-            
-            # Check if memory neuron 50000000 is in the FCL
-            try:
-                memory_neuron_found_in_fcl = False
-                
-                # Method 1: Check specific area (25) where memory neuron should be
-                if hasattr(fcl, 'get_candidates_by_area'):
-                    try:
-                        print(f"[DEBUG-MEM] FCL checking: Method 1 - get_candidates_by_area(25)")
-                        # Check area 25 specifically (memory area)
-                        candidates = fcl.get_candidates_by_area(25)
-                        print(f"[DEBUG-MEM] FCL Method 1: candidates = {candidates}")
-                        if candidates:
-                            # Handle list of FCLCandidate objects
-                            if isinstance(candidates, list):
-                                neuron_ids = [candidate.neuron_id for candidate in candidates if hasattr(candidate, 'neuron_id')]
-                                print(f"[DEBUG-MEM] FCL Method 1: extracted neuron_ids from FCLCandidate list = {neuron_ids}")
-                                if 50000000 in neuron_ids:
-                                    memory_neuron_found_in_fcl = True
-                                    idx = neuron_ids.index(50000000)
-                                    potential = candidates[idx].membrane_potential_delta if hasattr(candidates[idx], 'membrane_potential_delta') else 'unknown'
-                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
-                                else:
-                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in extracted neuron_ids")
-                            # Handle structure with neuron_ids attribute
-                            elif hasattr(candidates, 'neuron_ids'):
-                                neuron_ids = candidates.neuron_ids
-                                print(f"[DEBUG-MEM] FCL Method 1: neuron_ids = {list(neuron_ids) if hasattr(neuron_ids, '__iter__') else neuron_ids}")
-                                if 50000000 in neuron_ids:
-                                    memory_neuron_found_in_fcl = True
-                                    idx = list(neuron_ids).index(50000000)
-                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
-                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
-                                else:
-                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in neuron_ids")
-                            else:
-                                print(f"[DEBUG-MEM] FCL Method 1: Candidates structure not recognized: {type(candidates)}")
-                        else:
-                            print(f"[DEBUG-MEM] FCL Method 1: No candidates returned")
+                power_neurons = self.injection_service._get_power_neurons()
+                logger.info("🦀 [RUST-NPU] Power neurons retrieved: %d neurons - %s", 
+                           len(power_neurons),
+                           power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
                     except Exception as e:
-                        print(f"[DEBUG-MEM] Error checking FCL area 25: {e}")
-                        import traceback
-                        traceback.print_exc()
+                logger.error("🦀 [RUST-NPU] Failed to get power neurons: %s", str(e), exc_info=True)
+        
+        # 2. Get manual stimulation / sensory neurons
+        if hasattr(self, '_pending_external_activations') and self._pending_external_activations:
+            pending = getattr(self, '_pending_external_activations', {})
+            for area_id, area_data in pending.items():
+                # Convert coordinates to neuron IDs
+                if isinstance(area_data, dict) and 'coordinates_x' in area_data:
+                    coords_x = area_data.get('coordinates_x', [])
+                    coords_y = area_data.get('coordinates_y', [])
+                    coords_z = area_data.get('coordinates_z', [])
+                    
+                    # Use spatial hash to look up neuron IDs
+                    if hasattr(self.connectome_manager, '_spatial_hash') and self.connectome_manager._spatial_hash:
+                        spatial_hash = self.connectome_manager._spatial_hash
+                        for x, y, z in zip(coords_x, coords_y, coords_z):
+                            try:
+                                neuron_id = spatial_hash.get_neuron_at_coordinate(area_id, int(x), int(y), int(z))
+                                if neuron_id is not None:
+                                    manual_neurons.append(neuron_id)
+                    except Exception as e:
+                                logger.warning("Failed to resolve neuron ID for %s[%d,%d,%d]: %s", 
+                                             area_id, x, y, z, e)
                 else:
-                    print(f"[DEBUG-MEM] FCL Method 1: FCL has no get_candidates_by_area method")
+                        logger.warning("Spatial hash not available for coordinate-to-neuron lookup!")
+                # Direct neuron ID list
+                elif isinstance(area_data, (list, np.ndarray)):
+                    manual_neurons.extend([int(nid) for nid in area_data])
+            
+            # Clear pending activations after collection
+            self._pending_external_activations.clear()
+            
+            logger.info("🦀 [RUST-NPU] Manual stimulation neurons retrieved: %d neurons - %s", 
+                       len(manual_neurons),
+                       manual_neurons[:10] if len(manual_neurons) > 10 else manual_neurons)
+        
+        # Combine all injection neurons
+        all_injection_neurons = power_neurons + manual_neurons
+        
+        # Process burst in Rust (ALL IN RUST!)
+        result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)
+        
+        # Update internal state
+        self.burst_count = result['burst']
+        self.current_timestep += 1
+        
+        # Publish to FQ samplers (for visualization)
+        if result['neuron_count'] > 0 and self.fq_sampler:
+            try:
+                # Create FiringNeuron objects for compatibility
+                firing_neurons = []
+                for neuron_id in result['fired_neurons']:
+                    firing_neurons.append(FiringNeuron(
+                        neuron_id=neuron_id,
+                        membrane_potential=0.0,
+                        cortical_area_id=0,
+                        coordinates=(0, 0, 0)
+                    ))
                 
-                # Method 2: Use candidates_by_area property
-                if not memory_neuron_found_in_fcl and hasattr(fcl, 'candidates_by_area'):
-                    try:
-                        candidates_by_area = fcl.candidates_by_area
-                        for area_idx, candidates in candidates_by_area.items():
-                            if hasattr(candidates, 'neuron_ids'):
-                                neuron_ids = candidates.neuron_ids
-                                if 50000000 in neuron_ids:
-                                    memory_neuron_found_in_fcl = True
-                                    idx = list(neuron_ids).index(50000000)
-                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
-                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area {area_idx} with potential {potential} (property)")
-                                    break
-                    except Exception as e:
-                        print(f"[DEBUG-MEM] Error using candidates_by_area property: {e}")
-                
-                # Method 3: Use get_all_candidates
-                if not memory_neuron_found_in_fcl and hasattr(fcl, 'get_all_candidates'):
-                    try:
-                        all_candidates = fcl.get_all_candidates()
-                        if hasattr(all_candidates, 'neuron_ids'):
-                            if 50000000 in all_candidates.neuron_ids:
-                                memory_neuron_found_in_fcl = True
-                                print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL all candidates")
-                    except Exception as e:
-                        print(f"[DEBUG-MEM] Error using get_all_candidates: {e}")
-                
-                if not memory_neuron_found_in_fcl:
-                    print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 NOT found in FCL candidates")
-                    # Try to get more detailed info
-                    try:
-                        if hasattr(fcl, 'get_candidate_count_by_area'):
-                            area_counts = fcl.get_candidate_count_by_area()
-                            print(f"[DEBUG-MEM] FCL candidate counts by area: {dict(list(area_counts.items())[:5])}...")
-                    except:
-                        pass
-                    
+                # Sample fire queue
+                if firing_neurons:
+                    self.fq_sampler.sample_fire_queue(firing_neurons)
             except Exception as e:
-                print(f"[DEBUG-MEM] Could not check FCL contents: {e}")
+                logger.warning("FQ Sampler error: %s", str(e))
         
-        # CRITICAL: Apply plasticity ops BEFORE neural dynamics to inject memory neurons into FCL
-        try:
-            import sys
-            debug_mem = '--debug-mem' in sys.argv
-            
-            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops'):
-                # Get plasticity config from TOML configuration
-                try:
-                    from feagi.config.toml_loader import load_feagi_config
-                    config = load_feagi_config()
-                    p_cfg = config.get('plasticity', {})
-                    budget = p_cfg.get('max_ops_per_burst', 100)  # Default budget
-                    
-                    if budget > 0:
-                        applied_ops = npu_interface.apply_plasticity_ops(max_ops=budget)
-                        if debug_mem and applied_ops > 0:
-                            print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics")
-                        elif debug_mem:
-                            print(f"[DEBUG-MEM] BurstEngine: No plasticity operations to apply (queue empty)")
-                    elif debug_mem:
-                        print(f"[DEBUG-MEM] BurstEngine: Plasticity budget is 0")
-                        
-                except Exception as config_error:
-                    # Fallback with default budget
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] BurstEngine: Config error ({config_error}), using default budget")
-                    applied_ops = npu_interface.apply_plasticity_ops(max_ops=100)
-                    if debug_mem and applied_ops > 0:
-                        print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics (fallback)")
-            elif debug_mem:
-                print(f"[DEBUG-MEM] BurstEngine: NPU interface not available for plasticity operations")
-        except Exception as e:
-            if debug_mem:
-                print(f"[DEBUG-MEM] ❌ BurstEngine plasticity error: {e}")
-            pass
-
-        # CRITICAL: Apply neural dynamics processing AFTER plasticity operations
-        phase2_start = time.perf_counter()
-        fired_neurons = self._process_neural_dynamics(fcl)
-        phase_times['phase2_dynamics'] = (time.perf_counter() - phase2_start) * 1000  # ms
-        
-        # ALWAYS log after neural dynamics
-        fired_count = len(fired_neurons) if fired_neurons else 0
-        logger.info(f"[BURST-ENGINE] Neural dynamics completed: {fired_count} neurons fired")
-        
-        if debug_mem:
-            print(f"[DEBUG-MEM] Neural dynamics result: {fired_count} neurons fired")
-            if fired_neurons:
-                memory_fired = [nid for nid in fired_neurons if nid >= 50000000]
-                if memory_fired:
-                    print(f"[DEBUG-MEM] 🔥 Memory neurons fired: {memory_fired}")
-                else:
-                    print(f"[DEBUG-MEM] No memory neurons fired (all fired neurons: {fired_neurons[:10]}...)")
-                    # Check if memory neuron 50000000 was processed
-                    if 50000000 not in fired_neurons:
-                        print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 did not fire - investigating neural dynamics processing")
-            else:
-                print(f"[DEBUG-MEM] No neurons fired at all")
-        
-        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
-        try:
-            fcl_candidate_count = fcl.get_total_candidate_count()
-            
-            # Neural dynamics processing completed - fired_neurons contains results
-            total_fired = len(fired_neurons)
-            
-            if fired_neurons:
-                # Convert fired neuron IDs to FiringNeuron objects
-                firing_neurons = self._create_firing_neurons(fired_neurons)
-                # FiringNeuron objects created
-                
-                fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
-                
-                # Log significant firing activity
-                if total_fired > 0:
-                    logger.debug("Burst #%d: %d neurons fired", self.burst_count, total_fired)
-                    
-        except Exception as e:
-            # CRITICAL: Set to ERROR state if burst processing fails
-            self._set_burst_engine_state(ServiceState.ERROR)
-            logger.error("BURST-ENGINE: Critical error in burst processing - marking as ERROR state")
-            
-            logger.error("Burst processing error: %s", str(e))
-            # Continue with empty fire queue to maintain burst cycle
-        
-        # Phase 3: Archive to fire ledger
-        phase3_start = time.perf_counter()
-        
-        if not fire_queue.is_empty():
-            neurons_by_area = {}
-            for area_idx, neurons in fire_queue.firing_neurons_by_area.items():
-                neurons_by_area[area_idx] = neurons
-            
-            # Archive neurons to fire ledger
-            self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
-
-            # Notify plasticity service after archival (read-only compute)
-            try:
-                import sys
-                debug_mem = '--debug-mem' in sys.argv
-                
-                svc = getattr(self, '_plasticity_service', None)
-                if svc is not None:
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] BurstEngine notifying PlasticityService at timestep {self.current_timestep}")
-                    svc.notify_burst(self.current_timestep)
-                elif debug_mem:
-                    print(f"[DEBUG-MEM] ❌ No PlasticityService attached to BurstEngine!")
-            except Exception as e:
-                if debug_mem:
-                    print(f"[DEBUG-MEM] ❌ Exception notifying PlasticityService: {e}")
-                pass
-            
-            # Update state manager with activity counters
-            neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
-            
-            try:
-                if self.state_manager:
-                    self.state_manager.increment_cumulative_activity(neuron_count)
-            except Exception:
-                # Don't let state manager issues break burst processing
-                logger.warning("Failed to update activity counters in state manager")
-        # Fire queue was empty - no archiving needed
-        phase_times['phase3_archival'] = (time.perf_counter() - phase3_start) * 1000  # ms
-        
-        # Phase 4: FQ Sampler access ready (no action needed)
-        # Phase 5: Cleanup and prepare for next burst
-        phase5_start = time.perf_counter()
-            
-        self.previous_fire_queue = fire_queue.copy_for_propagation()
-
-        # Plasticity operations now applied BEFORE neural dynamics (moved earlier in burst processing)
-
-        fcl.clear()
-        self.burst_count += 1
-        phase_times['phase5_cleanup'] = (time.perf_counter() - phase5_start) * 1000  # ms
-        
-        # Calculate total burst time
-        phase_times['total'] = (time.perf_counter() - burst_start) * 1000  # ms
-        
-        # Get fired neuron IDs for logging and return
-        fired_ids = fire_queue.get_all_neuron_ids()
-        
-        # Log performance breakdown every 100 bursts to identify bottlenecks
-        if self.burst_count % 100 == 0:
-            logger.warning(
-                "⏱️ [BURST-ENGINE] Performance Breakdown (Burst #%d, %d neurons fired):\n"
-                "   Phase 1 (Injection):  %6.2f ms (%5.1f%%)\n"
-                "   Phase 2 (Dynamics):   %6.2f ms (%5.1f%%)\n"
-                "   Phase 3 (Archival):   %6.2f ms (%5.1f%%)\n"
-                "   Phase 5 (Cleanup):    %6.2f ms (%5.1f%%)\n"
-                "   ═══════════════════════════════════\n"
-                "   TOTAL:                %6.2f ms",
-                self.burst_count,
-                len(fired_ids),
-                phase_times['phase1_injection'], 
-                (phase_times['phase1_injection'] / phase_times['total'] * 100),
-                phase_times['phase2_dynamics'], 
-                (phase_times['phase2_dynamics'] / phase_times['total'] * 100),
-                phase_times['phase3_archival'], 
-                (phase_times['phase3_archival'] / phase_times['total'] * 100),
-                phase_times['phase5_cleanup'], 
-                (phase_times['phase5_cleanup'] / phase_times['total'] * 100),
-                phase_times['total']
-            )
-        
-        # Return fired neuron IDs for external systems
-        
-        # Set to READY after successful burst processing (if not already READY)
-        # This handles cases where the first burst failed but subsequent ones succeed
-        current_state = None
-        if self.state_manager:
-            try:
-                current_state = self.state_manager.get_burst_engine_state()
-            except Exception:
-                pass
-        
-        if current_state != ServiceState.READY:
-            self._set_burst_engine_state(ServiceState.READY)
-            if self.burst_count == 1:
-                logger.info("Burst engine initialized and ready")
-            else:
-                logger.debug("Burst engine recovered and ready (burst #%d)", self.burst_count)
-            
-            # Note: Sensory stream monitors burst engine state and will start automatically
-            
-        return fired_ids
+        return result['fired_neurons']
     
     def get_current_fire_queue(self) -> Optional[FireQueue]:
         """Get current fire queue for FQ Sampler access."""
@@ -1476,12 +1024,12 @@ class BurstEngine:
         
         if not self.previous_fire_queue or not self.connectome_manager:
             return {}
-        
+            
         # Get all fired neuron IDs from previous timestep
         fired_neuron_ids = self.previous_fire_queue.get_all_neuron_ids()
         if not fired_neuron_ids:
             return {}
-        
+            
         # Initialize Rust engine on first use (lazy initialization)
         if not self._rust_engine_initialized:
             if not self._initialize_rust_engine():
