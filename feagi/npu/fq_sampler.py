@@ -96,9 +96,16 @@ class FQSampler:
     def _get_current_fire_queue(self) -> Optional[FireQueue]:
         """Get current fire queue from provider."""
         if hasattr(self.fire_queue_provider, 'get_current_fire_queue'):
-            return self.fire_queue_provider.get_current_fire_queue()
+            fq = self.fire_queue_provider.get_current_fire_queue()
+            # Debug logging
+            if fq:
+                logger.info(f"[FQ-SAMPLER-DEBUG] Got FireQueue with {len(fq.firing_neurons_by_area)} areas, empty={fq.is_empty()}")
+            else:
+                logger.warning(f"[FQ-SAMPLER-DEBUG] get_current_fire_queue() returned None!")
+            return fq
         elif isinstance(self.fire_queue_provider, FireQueue):
             return self.fire_queue_provider
+        logger.warning(f"[FQ-SAMPLER-DEBUG] fire_queue_provider has no get_current_fire_queue method!")
         return None
     
     def _is_debug_npu_enabled(self) -> bool:

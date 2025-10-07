@@ -21,6 +21,10 @@ rayon = "1.10"
 ndarray = "0.16"
 ahash = "0.8"  # Fast non-cryptographic hashing
 
+# Published FEAGI data crates
+feagi_data_structures = "0.0.50-beta.35"
+feagi_data_serialization = "0.0.50-beta.35"
+
 # PyO3 for Python bindings
 pyo3 = { version = "0.22", features = ["extension-module"] }
 numpy = "0.22"

@@ -535,15 +535,12 @@ class VisualizationStream:
                 f"Processing cortical area format: {len(cortical_data)} areas"
             )
 
-            # Encode using feagi_data_processing binary format - USE TYPE 11
-            # (NEURON_CATEGORIES)
+            # Encode using feagi_rust binary format (published crates)
             try:
-                import feagi_data_processing as fdp
+                import feagi_rust
 
-                # Create the main mapped neuron data container
-                generated_mapped_neuron_data = (
-                    fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-                )
+                # Create the visualization encoder
+                encoder = feagi_rust.VisualizationEncoder()
 
                 total_neurons = 0
                 for area_id, area_data in cortical_data.items():
@@ -638,61 +635,47 @@ class VisualizationStream:
                         )
                         continue
 
-                    # Add neurons to the cortical mapping
-                    for i in range(len(neuron_ids)):
-                        x = int(x_coords[i]) if i < len(x_coords) else 0
-                        y = int(y_coords[i]) if i < len(y_coords) else 0
-                        z = int(z_coords[i]) if i < len(z_coords) else 0
-                        p = (
-                            int(membrane_potentials[i])
-                            if i < len(membrane_potentials)
-                            else 0
-                        )
-
-                        neuron_obj = fdp.data_structures.neurons.xyzp.NeuronXYZP(
-                            x=x, y=y, z=z, p=p
-                        )
-                        cortical_id = (
-                            int(area_id)
-                            if area_id.isdigit()
-                            else hash(area_id) % 1000
-                        )
-                        generated_mapped_neuron_data.insert(
-                            neuron_obj, cortical_id
-                        )
-                        total_neurons += 1
+                    # Prepare data for encoder - ensure all lists are same length
+                    num_neurons = len(neuron_ids)
+                    
+                    # Pad membrane_potentials if needed
+                    if len(membrane_potentials) < num_neurons:
+                        membrane_potentials = membrane_potentials + [0.0] * (num_neurons - len(membrane_potentials))
+                    
+                    # Convert to proper types (u32 for coords, f32 for potentials)
+                    x_coords_u32 = [int(x) for x in x_coords[:num_neurons]]
+                    y_coords_u32 = [int(y) for y in y_coords[:num_neurons]]
+                    z_coords_u32 = [int(z) for z in z_coords[:num_neurons]]
+                    potentials_f32 = [float(p) for p in membrane_potentials[:num_neurons]]
+                    
+                    # Add neurons for this cortical area
+                    encoder.add_neurons(
+                        cortical_id=str(area_id),
+                        x_coords=x_coords_u32,
+                        y_coords=y_coords_u32,
+                        z_coords=z_coords_u32,
+                        potentials=potentials_f32
+                    )
+                    total_neurons += num_neurons
 
                 if total_neurons > 0:
-                    # Create the byte structure
-                    byte_structure = (
-                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
-                    )
-                    binary_data = byte_structure.copy_out_as_byte_vector()
-                    print("raw binary data:", binary_data)
+                    # Encode to binary
+                    binary_data = encoder.encode()
+                    logger.debug(f"Encoded {total_neurons} neurons into {len(binary_data)} bytes")
                 else:
                     binary_data = b""
 
                 # DEBUG: Log the structure ID being generated
                 if binary_data and len(binary_data) > 0:
-                    structure_type = byte_structure.try_get_structure_type()
+                    # Type 11 (NeuronCategoricalXYZP) is hardcoded in our encoder
                     logger.debug(
-                        f"VISUALIZATION STREAM: Generated {len(binary_data)} bytes"
+                        f"VISUALIZATION STREAM: Generated {len(binary_data)} bytes (Type 11)"
                     )
-                    logger.debug(f"   Structure Type: {structure_type}")
-                    logger.debug(f"   Version: {byte_structure.get_version()}")
                     logger.debug(
                         f"   First 8 bytes: "
                         f"{list(binary_data[: min(8, len(binary_data))])}"
                     )
-
-                    if structure_type == 11:
-                        logger.debug(
-                            "   ✅ Generated Type 11 (NEURON_CATEGORIES)"
-                        )
-                    else:
-                        logger.debug(
-                            f"   ❓ Unknown structure type: {structure_type}"
-                        )
+                    logger.debug("   ✅ Generated Type 11 (NEURON_CATEGORIES)")
 
                 # Publish the binary data
                 self._publish_data(binary_data)
@@ -701,10 +684,10 @@ class VisualizationStream:
                     f"{total_neurons} neurons, {len(binary_data)} bytes"
                 )
 
-            except ImportError:
+            except ImportError as e:
                 logger.error(
-                    "feagi_data_processing library not available - "
-                    "cannot encode binary data"
+                    f"feagi_rust library not available - "
+                    f"cannot encode binary data: {e}"
                 )
             except Exception as e:
                 logger.error(f"Error encoding cortical area binary data: {e}")
@@ -1273,14 +1256,11 @@ class VisualizationStream:
         performance NumPy arrays.
         """
         try:
-            # Encode using feagi_data_processing binary format - USE
-            # HIGH-PERFORMANCE NUMPY APPROACH
-            import feagi_rust_py_libs as fdp
+            # Encode using feagi_rust binary format (published crates)
+            import feagi_rust
 
-            # Create the main mapped neuron data container
-            generated_mapped_neuron_data = (
-                fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-            )
+            # Create the visualization encoder
+            encoder = feagi_rust.VisualizationEncoder()
 
             #  Convert cortical area data to the format expected by the new
             #  encoder
@@ -1335,17 +1315,12 @@ class VisualizationStream:
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
 
-                    # Create NumPy arrays with proper dtypes for performance
-                    # (following neuron_c example)
-                    neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
-                    neurons_y = np.asarray(y_coords[:max_len], dtype=np.uint32)
-                    neurons_z = np.asarray(z_coords[:max_len], dtype=np.uint32)
-                    neurons_p = np.asarray(
-                        membrane_potentials[:max_len], dtype=np.float32
-                    )
+                    # Convert to proper types (u32 for coords, f32 for potentials)
+                    x_coords_u32 = [int(x) for x in x_coords[:max_len]]
+                    y_coords_u32 = [int(y) for y in y_coords[:max_len]]
+                    z_coords_u32 = [int(z) for z in z_coords[:max_len]]
+                    potentials_f32 = [float(p) for p in membrane_potentials[:max_len]]
 
-                    #  Create cortical ID using modern feagi-rust-py-libs
-                    #  approach
                     # PROPER CORTICAL ID CONVERSION: Use CoreAPI to convert cortical_idx to cortical_id
                     if isinstance(area_id, int):
                         # Convert integer cortical_idx to proper 6-character cortical_id
@@ -1353,42 +1328,22 @@ class VisualizationStream:
                         if cortical_id_str is None:
                             logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
                             continue
-
                         area_str = cortical_id_str
                     else:
                         # Already a string, use as-is
                         area_str = str(area_id)
 
-                    try:
-                        #  Try to create cortical ID directly from proper string ID
-                        cortical_id_obj = (
-                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
-                        )
-
-                    except ValueError as e:
-                        logger.error(f"❌ Failed to create cortical ID object for '{area_str}': {e}")
-                        logger.error("This indicates a mismatch between ConnectomeManager and FDP cortical ID formats")
-                        continue  # Skip this area if we can't create a valid ID object
-
-                    # Use high-performance NumPy approach (neuron_c pattern)
-                    neurons_array = (
-                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
-                            neurons_x, neurons_y, neurons_z, neurons_p
-                        )
+                    # Add neurons for this cortical area to the encoder
+                    encoder.add_neurons(
+                        cortical_id=area_str,
+                        x_coords=x_coords_u32,
+                        y_coords=y_coords_u32,
+                        z_coords=z_coords_u32,
+                        potentials=potentials_f32
                     )
 
-
-                    #  Insert the neuron array into the mapped data with its
-                    #  cortical ID
-                    generated_mapped_neuron_data.insert(
-                        cortical_id_obj, neurons_array
-                    )
-
-            # Create the final byte structure from the mapped data
-            byte_structure = (
-                generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            )
-            binary_data = byte_structure.copy_out_as_byte_vector()
+            # Encode to binary
+            binary_data = encoder.encode()
 
             # Gate encoding logs with debug flag
             from feagi.core.state_manager import FeagiStateManager
@@ -1397,14 +1352,14 @@ class VisualizationStream:
             if state_manager.is_debug_zmq_outbound_enabled():
                 logger.info(
                     f"[ZMQ-OUT-DEBUG] Encoded {len(for_visualization)} areas into {len(binary_data)} "
-                    f"bytes using high-performance NumPy approach (neuron_c pattern)"
+                    f"bytes using feagi_rust encoder"
                 )
             return binary_data
 
-        except ImportError:
+        except ImportError as e:
             logger.error(
-                "feagi_data_processing library not available - "
-                "cannot encode binary data"
+                f"feagi_rust library not available - "
+                f"cannot encode binary data: {e}"
             )
             return b""
         except Exception as e:
@@ -1830,14 +1785,11 @@ class _ShmRingWriter:
         performance NumPy arrays.
         """
         try:
-            # Encode using feagi_data_processing binary format - USE
-            # HIGH-PERFORMANCE NUMPY APPROACH
-            import feagi_rust_py_libs as fdp
+            # Encode using feagi_rust binary format (published crates)
+            import feagi_rust
 
-            # Create the main mapped neuron data container
-            generated_mapped_neuron_data = (
-                fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-            )
+            # Create the visualization encoder
+            encoder = feagi_rust.VisualizationEncoder()
 
             #  Convert cortical area data to the format expected by the new
             #  encoder
@@ -1892,17 +1844,12 @@ class _ShmRingWriter:
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
 
-                    # Create NumPy arrays with proper dtypes for performance
-                    # (following neuron_c example)
-                    neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
-                    neurons_y = np.asarray(y_coords[:max_len], dtype=np.uint32)
-                    neurons_z = np.asarray(z_coords[:max_len], dtype=np.uint32)
-                    neurons_p = np.asarray(
-                        membrane_potentials[:max_len], dtype=np.float32
-                    )
+                    # Convert to proper types (u32 for coords, f32 for potentials)
+                    x_coords_u32 = [int(x) for x in x_coords[:max_len]]
+                    y_coords_u32 = [int(y) for y in y_coords[:max_len]]
+                    z_coords_u32 = [int(z) for z in z_coords[:max_len]]
+                    potentials_f32 = [float(p) for p in membrane_potentials[:max_len]]
 
-                    #  Create cortical ID using modern feagi-rust-py-libs
-                    #  approach
                     # PROPER CORTICAL ID CONVERSION: Use CoreAPI to convert cortical_idx to cortical_id
                     if isinstance(area_id, int):
                         # Convert integer cortical_idx to proper 6-character cortical_id
@@ -1910,42 +1857,22 @@ class _ShmRingWriter:
                         if cortical_id_str is None:
                             logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
                             continue
-
                         area_str = cortical_id_str
                     else:
                         # Already a string, use as-is
                         area_str = str(area_id)
 
-                    try:
-                        #  Try to create cortical ID directly from proper string ID
-                        cortical_id_obj = (
-                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
-                        )
-
-                    except ValueError as e:
-                        logger.error(f"❌ Failed to create cortical ID object for '{area_str}': {e}")
-                        logger.error("This indicates a mismatch between ConnectomeManager and FDP cortical ID formats")
-                        continue  # Skip this area if we can't create a valid ID object
-
-                    # Use high-performance NumPy approach (neuron_c pattern)
-                    neurons_array = (
-                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
-                            neurons_x, neurons_y, neurons_z, neurons_p
-                        )
+                    # Add neurons for this cortical area to the encoder
+                    encoder.add_neurons(
+                        cortical_id=area_str,
+                        x_coords=x_coords_u32,
+                        y_coords=y_coords_u32,
+                        z_coords=z_coords_u32,
+                        potentials=potentials_f32
                     )
 
-
-                    #  Insert the neuron array into the mapped data with its
-                    #  cortical ID
-                    generated_mapped_neuron_data.insert(
-                        cortical_id_obj, neurons_array
-                    )
-
-            # Create the final byte structure from the mapped data
-            byte_structure = (
-                generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            )
-            binary_data = byte_structure.copy_out_as_byte_vector()
+            # Encode to binary
+            binary_data = encoder.encode()
 
             # Gate encoding logs with debug flag
             from feagi.core.state_manager import FeagiStateManager
@@ -1954,14 +1881,14 @@ class _ShmRingWriter:
             if state_manager.is_debug_zmq_outbound_enabled():
                 logger.info(
                     f"[ZMQ-OUT-DEBUG] Encoded {len(for_visualization)} areas into {len(binary_data)} "
-                    f"bytes using high-performance NumPy approach (neuron_c pattern)"
+                    f"bytes using feagi_rust encoder"
                 )
             return binary_data
 
-        except ImportError:
+        except ImportError as e:
             logger.error(
-                "feagi_data_processing library not available - "
-                "cannot encode binary data"
+                f"feagi_rust library not available - "
+                f"cannot encode binary data: {e}"
             )
             return b""
         except Exception as e:

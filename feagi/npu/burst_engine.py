@@ -279,30 +279,44 @@ class BurstEngine:
         self.burst_count = result['burst']
         self.current_timestep += 1
         
-        # Create FiringNeuron objects for API compatibility
-        firing_neurons = []
-        for neuron_id in result['fired_neurons']:
-            firing_neurons.append(FiringNeuron(
-                neuron_id=neuron_id,
-                membrane_potential=0.0,
-                cortical_idx=0,
-                coordinates=(0, 0, 0),
-                threshold=1.0
-            ))
-        
-        # Update previous_fire_queue for API compatibility (FCL endpoint needs this)
-        if firing_neurons:
+        # Create FiringNeuron objects and FireQueue for API/FQ sampler compatibility
+        if result['neuron_count'] > 0:
+            # Get actual neuron properties from connectome for proper visualization
+            firing_neurons = []
+            for neuron_id in result['fired_neurons']:
+                # Try to get actual neuron properties from connectome
+                try:
+                    cortical_area = self.connectome_manager.get_cortical_area_for_neuron(neuron_id) if self.connectome_manager else None
+                    cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_area) if cortical_area else 0
+                    coords = self.connectome_manager.get_neuron_position(neuron_id) if self.connectome_manager else (0, 0, 0)
+                    logger.info(f"🦀 [RUST-NPU] Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}, coords={coords}")
+                except Exception as e:
+                    logger.warning(f"🦀 [RUST-NPU] Failed to get properties for neuron {neuron_id}: {e}")
+                    cortical_idx = 0
+                    coords = (0, 0, 0)
+                
+                firing_neurons.append(FiringNeuron(
+                    neuron_id=neuron_id,
+                    membrane_potential=0.0,
+                    cortical_idx=cortical_idx,
+                    coordinates=coords,
+                    threshold=1.0
+                ))
+            
+            # Update previous_fire_queue (used by FQ sampler via get_current_fire_queue())
             fire_queue = FireQueue()
             fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
             self.previous_fire_queue = fire_queue
-        
-        # Publish to FQ samplers (for visualization)
-        if firing_neurons and self.fq_sampler:
-            try:
-                self.fq_sampler.sample_fire_queue(firing_neurons)
-            except Exception as e:
-                logger.warning("FQ Sampler error: %s", str(e))
-        
+            
+            # Debug: Check what's in the fire queue
+            logger.info("🦀 [RUST-NPU] FireQueue updated: %d neurons, %d areas, empty=%s", 
+                       result['neuron_count'], 
+                       len(fire_queue.firing_neurons_by_area),
+                       fire_queue.is_empty())
+        else:
+            # No neurons fired, but still update the reference
+            self.previous_fire_queue = FireQueue()
+            
         return result['fired_neurons']
     
     def get_current_fire_queue(self) -> Optional[FireQueue]:

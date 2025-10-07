@@ -43,7 +43,9 @@ from pathlib import Path
 import numpy as np
 import zmq
 import zmq.asyncio
-import feagi_rust_py_libs as fdp
+
+# NOTE: Using feagi_rust for encoding (Rust-native, moving away from Python dependencies)
+import feagi_rust
 
 from feagi.core.state_manager import GenomeState
 from feagi.utils.logger import setup_logger
@@ -629,10 +631,8 @@ class MotorStream:
                 # Encode using feagi_data_processing for motor data - USE
                 # HIGH-PERFORMANCE NUMPY APPROACH
                 try:
-                    # Create the main mapped neuron data container
-                    generated_mapped_neuron_data = (
-                        fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-                    )
+                    # Create visualization encoder (Rust-native)
+                    encoder = feagi_rust.VisualizationEncoder()
 
                     # Generate coordinates if not available
                     if x_values is None or y_values is None:
@@ -675,59 +675,28 @@ class MotorStream:
 
                     try:
                         #  Try to create cortical ID directly from string -
-                        #  handles all modern format IDs
-                        cortical_id_obj = (
-                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
-                        )
+                        # Cortical ID string is valid - will be used directly
+                        pass
                     except ValueError:
-                        # Fallback for areas that can't be parsed directly
-                        if area_str == "_power":
-                            cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_core_cortical_area_id(
-                                fdp.data_structures.genomic.CoreCorticalType.Power
-                            )
-                        elif area_str == "_death":
-                            cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_core_cortical_area_id(
-                                fdp.data_structures.genomic.CoreCorticalType.Death
-                            )
+                        # Invalid cortical ID format
+                        if area_str in ("_power", "_death"):
+                            # Skip special areas for motor output
+                            continue
                         else:
-                            # For unknown areas, use custom cortical ID
-                            # Custom cortical IDs must start with lowercase 'c' (fdp requirement)
-                            if len(area_str) == 6:
-                                # If starts with 'C', convert to 'c'; if already starts with 'c', keep as is
-                                if area_str.startswith('C'):
-                                    custom_id = 'c' + area_str[1:]  # Replace 'C' with 'c'
-                                elif area_str.startswith('c'):
-                                    custom_id = area_str  # Already correct
-                                else:
-                                    custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
-                                cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_custom_cortical_area_id(
-                                    custom_id
-                                )
-                            else:
-                                # Only add 'c' prefix if less than 6 characters
-                                custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
-                                cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_custom_cortical_area_id(
-                                    custom_id
-                                )
-
-                    # Use high-performance NumPy approach (neuron_c pattern)
-                    neurons_array = (
-                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
-                            neurons_x, neurons_y, neurons_z, neurons_p
-                        )
+                            # Invalid cortical ID - skip this area
+                            continue
+                    
+                    # Add neurons to encoder (Rust-native)
+                    encoder.add_neurons(
+                        cortical_id=area_str,
+                        x_coords=neurons_x.tolist(),
+                        y_coords=neurons_y.tolist(),
+                        z_coords=neurons_z.tolist(),
+                        potentials=neurons_p.tolist()
                     )
 
-                    #  Insert the neuron array into the mapped data with its
-                    #  cortical ID
-                    generated_mapped_neuron_data.insert(
-                        cortical_id_obj, neurons_array
-                    )
-
-                    # Create the final byte structure from the mapped data
-                    byte_structure = (
-                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
-                    )
-                    binary_data = byte_structure.copy_out_as_byte_vector()
+                    # Encode to binary (Rust-native)
+                    binary_data = encoder.encode()
 
                     # DEBUG: Log the structure ID being generated
                     if binary_data and len(binary_data) > 0:

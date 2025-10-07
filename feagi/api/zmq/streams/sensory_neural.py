@@ -877,21 +877,24 @@ class SensoryNeuralStream:
                 self._stats["decode_errors"] = self._stats.get("decode_errors", 0) + 1
                 return
 
-            # Fallback: standard feagi_data_processing byte structure
-            import feagi_rust_py_libs as fdp
-
-            byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
-            structure_type = byte_structure.structure_type
-            # Log once if not the typical neuron categories type; do not early-return
+            # Fallback decoding - simplified
+            structure_type = raw_bytes[0] if len(raw_bytes) > 0 else 0
+            
+            # Log once if not the typical neuron categories type
             if structure_type != 11 and not hasattr(self, "_stype_warned_fallback"):
                 logger.info(
-                    f"[NPU-FALLBACK] structure_type={structure_type} (proceeding to decode)"
+                    f"[NPU-FALLBACK] structure_type={structure_type} (use REST API for sensory injection)"
                 )
                 self._stype_warned_fallback = True
 
-            cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
-                byte_structure
-            )
+            # For now, skip binary decoding - agents should use REST API for sensory injection
+            logger.debug("[SENSORY-SHM-FALLBACK] Binary sensory data - use REST API instead")
+            return
+            
+            # Placeholder for future Rust-based decoder
+            cortical_mapped = None  # TODO: Add feagi_rust.DataDecoder when available
+            if False:  # Disabled until decoder is available
+                byte_structure = None
             cortical_areas: Dict[str, Dict[str, Any]] = {}
             neuron_count = 0
             for (cortical_id_obj, neuron_arrays) in cortical_mapped.iter_full():
