@@ -420,6 +420,17 @@ class ConnectomeManager(NeuronMappingProvider):
             True if resizing was successful, False otherwise
         """
         try:
+            # ✅ RUST NPU: Skip dynamic resizing - capacity is fixed at initialization
+            if self._npu_interface and hasattr(self._npu_interface, '_rust_npu_integration'):
+                logger.info(
+                    "🦀 [RUST-NPU] Skipping dynamic resize - capacity is fixed at initialization",
+                    status="[OK]"
+                )
+                logger.info(
+                    f"ℹ️  [DYNAMIC SIZING] Connectome size is optimal (capacity: {self.max_neurons:,} neurons, {self.max_synapses:,} synapses)"
+                )
+                return True
+            
             # Extract genome stats
             stats = genome_data.get("stats", {})
             genome_neuron_count = stats.get("innate_neuron_count", 0)
