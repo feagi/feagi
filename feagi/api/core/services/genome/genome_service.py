@@ -3639,6 +3639,28 @@ class GenomeService(BaseService):
                             self._sync_region_registry_after_mapping_change(current_genome)
                     except Exception as hierarchy_sync_error:
                         self.logger.warning(f"Failed to sync brain region hierarchy for API response: {hierarchy_sync_error}")
+                    
+                    # CRITICAL: Reinitialize Rust NPU after morphology mapping changes
+                    # Morphology mappings create/delete synapses, so Rust NPU needs to reload its synapse index
+                    try:
+                        from feagi.npu.burst_engine import BurstEngine
+                        burst_engine = BurstEngine.get_instance()
+                        if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
+                            if burst_engine._rust_npu_integration is not None:
+                                self.logger.info("🦀 [RUST-NPU] Morphology mapping changed - reloading synapse index from synapse_array...")
+                                try:
+                                    burst_engine.reinitialize_rust_npu()
+                                    self.logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after mapping change")
+                                except Exception as reinit_error:
+                                    self.logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                    self.logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
+                            else:
+                                self.logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                        else:
+                            self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                    except Exception as rust_error:
+                        self.logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                        self.logger.exception("Full stack trace:")
                         
                 else:
                     self.logger.error(

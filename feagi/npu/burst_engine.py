@@ -194,10 +194,30 @@ class BurstEngine:
                     self._rust_npu_integration.get_synapse_count())
     
     def reinitialize_rust_npu(self) -> None:
-        """Force re-initialization of Rust NPU (e.g., after genome changes)."""
+        """Force re-initialization of Rust NPU (e.g., after genome changes).
+        
+        SAFETY: Keeps the old integration active if reinitialization fails.
+        """
         logger.info("🦀 [RUST-NPU] Force re-initialization requested")
-        self._rust_npu_integration = None
-        self._initialize_rust_npu()
+        
+        # Keep reference to old integration in case reinitialization fails
+        old_integration = self._rust_npu_integration
+        
+        try:
+            # Clear and reinitialize
+            self._rust_npu_integration = None
+            self._initialize_rust_npu()
+            logger.info("🦀 [RUST-NPU] ✅ Reinitialization completed successfully")
+        except Exception as e:
+            # Restore old integration if reinitialization failed
+            logger.error(f"🦀 [RUST-NPU] Reinitialization failed: {e}")
+            logger.exception("Full stack trace:")
+            self._rust_npu_integration = old_integration
+            if old_integration:
+                logger.warning("🦀 [RUST-NPU] Restored previous Rust NPU state - continuing with stale synapse index")
+            else:
+                logger.error("🦀 [RUST-NPU] CRITICAL: No previous state to restore - Rust NPU is unavailable")
+            raise  # Re-raise to let caller know it failed
     
     def _old_reinitialize_rust_engine(self) -> bool:
         """Force re-initialization of Rust engine (e.g., after connectome changes).

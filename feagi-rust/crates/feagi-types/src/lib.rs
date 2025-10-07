@@ -61,16 +61,16 @@ pub struct SynapseId(pub u32);
 pub struct SynapticWeight(pub u8);
 
 impl SynapticWeight {
-    /// Convert to normalized float (0.0 to 1.0)
+    /// Convert to float (direct cast, NO normalization - matches Python behavior)
     #[inline(always)]
     pub fn to_float(self) -> f32 {
-        self.0 as f32 / 255.0
+        self.0 as f32  // Direct cast: 1 → 1.0 (same as Python's .astype(np.float32))
     }
 
-    /// Create from normalized float (0.0 to 1.0)
+    /// Create from float (direct cast)
     #[inline(always)]
     pub fn from_float(value: f32) -> Self {
-        Self((value.clamp(0.0, 1.0) * 255.0) as u8)
+        Self(value as u8)
     }
 }
 
@@ -79,14 +79,16 @@ impl SynapticWeight {
 pub struct SynapticConductance(pub u8);
 
 impl SynapticConductance {
+    /// Convert to float (direct cast, NO normalization - matches Python behavior)
     #[inline(always)]
     pub fn to_float(self) -> f32 {
-        self.0 as f32 / 255.0
+        self.0 as f32  // Direct cast: 1 → 1.0 (same as Python's .astype(np.float32))
     }
 
+    /// Create from float (direct cast)
     #[inline(always)]
     pub fn from_float(value: f32) -> Self {
-        Self((value.clamp(0.0, 1.0) * 255.0) as u8)
+        Self(value as u8)
     }
 }
 

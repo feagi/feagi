@@ -159,8 +159,9 @@ class RustNPUIntegration:
         logger.info("🦀 [RUST-NPU] Loaded %d synapses", synapses_loaded)
         
         # Rebuild indexes (CRITICAL for performance!)
+        logger.info("🦀 [RUST-NPU] Rebuilding synapse indexes for %d synapses...", synapses_loaded)
         self._rust_npu.rebuild_indexes()
-        logger.info("🦀 [RUST-NPU] Indexes rebuilt")
+        logger.info("🦀 [RUST-NPU] ✅ Indexes rebuilt - synapse lookup optimized")
         
         # Set neuron→cortical_area mapping
         mapping_count = self._set_neuron_mapping()
@@ -209,19 +210,37 @@ class RustNPUIntegration:
         """Load synapses from connectome_manager."""
         count = 0
         
+        logger.info("🦀 [RUST-NPU] [DIAG] Checking for synapses in connectome_manager...")
+        
         # Try NPU interface first
         if hasattr(self.connectome_manager, '_npu_interface'):
             npu_interface = self.connectome_manager._npu_interface
+            logger.info("🦀 [RUST-NPU] [DIAG] Found _npu_interface")
+            
             if hasattr(npu_interface, 'synapse_array'):
                 synapse_array = npu_interface.synapse_array
+                logger.info("🦀 [RUST-NPU] [DIAG] Found synapse_array in _npu_interface")
                 count = self._load_synapses_from_array(synapse_array)
+            else:
+                logger.warning("🦀 [RUST-NPU] [DIAG] _npu_interface has no synapse_array attribute!")
+                logger.warning("🦀 [RUST-NPU] [DIAG] _npu_interface attributes: %s", dir(npu_interface))
+        else:
+            logger.warning("🦀 [RUST-NPU] [DIAG] connectome_manager has no _npu_interface attribute!")
+            logger.warning("🦀 [RUST-NPU] [DIAG] connectome_manager attributes: %s", 
+                          [attr for attr in dir(self.connectome_manager) if not attr.startswith('__')])
         
         return count
     
     def _load_synapses_from_array(self, synapse_array) -> int:
         """Load synapses from synapse array."""
         count = 0
+        power_synapses = 0
         synapse_count = len(synapse_array.source_neuron_ids) if hasattr(synapse_array, 'source_neuron_ids') else 0
+        
+        logger.info("🦀 [RUST-NPU] Loading %d synapses from array...", synapse_count)
+        
+        # Track first few synapses for debugging
+        first_synapses = []
         
         for i in range(synapse_count):
             try:
@@ -229,16 +248,38 @@ class RustNPUIntegration:
                 if hasattr(synapse_array, 'valid_mask') and not synapse_array.valid_mask[i]:
                     continue
                 
+                source = int(synapse_array.source_neuron_ids[i])
+                target = int(synapse_array.target_neuron_ids[i])
+                weight = int(synapse_array.weights[i]) if hasattr(synapse_array, 'weights') else 128
+                conductance = int(synapse_array.conductances[i]) if hasattr(synapse_array, 'conductances') else 255
+                synapse_type = int(synapse_array.types[i]) if hasattr(synapse_array, 'types') else 0
+                
                 self._rust_npu.add_synapse(
-                    source=int(synapse_array.source_neuron_ids[i]),
-                    target=int(synapse_array.target_neuron_ids[i]),
-                    weight=int(synapse_array.weights[i]) if hasattr(synapse_array, 'weights') else 128,
-                    conductance=int(synapse_array.conductances[i]) if hasattr(synapse_array, 'conductances') else 255,
-                    synapse_type=int(synapse_array.types[i]) if hasattr(synapse_array, 'types') else 0
+                    source=source,
+                    target=target,
+                    weight=weight,
+                    conductance=conductance,
+                    synapse_type=synapse_type
                 )
                 count += 1
+                
+                # Track power neuron synapses (neuron ID 2 is typically power)
+                if source == 2:
+                    power_synapses += 1
+                    if power_synapses <= 5:  # Log first 5 power synapses
+                        logger.info("🦀 [RUST-NPU] Power synapse #%d: source=%d → target=%d, weight=%d, conductance=%d, type=%d",
+                                    power_synapses, source, target, weight, conductance, synapse_type)
+                
+                # Track first 3 synapses for debugging
+                if count <= 3:
+                    first_synapses.append(f"source={source}→target={target}")
+                    
             except Exception as e:
                 logger.warning("🦀 [RUST-NPU] Failed to load synapse %d: %s", i, str(e))
+        
+        logger.info("🦀 [RUST-NPU] Loaded %d synapses (%d from power neuron)", count, power_synapses)
+        if first_synapses:
+            logger.info("🦀 [RUST-NPU] First synapses: %s", ", ".join(first_synapses))
         
         return count
     

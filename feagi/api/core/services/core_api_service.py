@@ -3944,6 +3944,33 @@ class CoreAPIService:
             if result.get("success", False):
                 created_count = result.get("successful_count", 0)
                 self.logger.info(f"Successfully created {created_count} synapses")
+                
+                # CRITICAL: Reinitialize Rust NPU after synapse changes
+                # The old Python NPU accessed synapse_array LIVE during each burst
+                # The Rust NPU loads synapses once at init, so we need to reload after changes
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
+                        # Only reinitialize if Rust NPU is already initialized
+                        if burst_engine._rust_npu_integration is not None:
+                            self.logger.info("🦀 [RUST-NPU] Synapse(s) added - reloading synapse index from synapse_array...")
+                            try:
+                                burst_engine.reinitialize_rust_npu()
+                                self.logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully")
+                            except Exception as reinit_error:
+                                # If reinitialization fails, the old state is restored (see reinitialize_rust_npu)
+                                self.logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                self.logger.warning("🦀 [RUST-NPU] ⚠️ New synapse(s) will not be active until FEAGI restart")
+                        else:
+                            self.logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                    else:
+                        self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                except Exception as rust_error:
+                    self.logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                    self.logger.exception("Full stack trace:")
+                    # Don't fail the synapse creation for Rust NPU issues
+                
                 return created_count
             else:
                 self.logger.error(f"NPU batch synapse creation failed: {result.get('error', 'Unknown error')}")
