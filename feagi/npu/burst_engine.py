@@ -179,8 +179,24 @@ class BurstEngine:
             
         if not self.connectome_manager:
             raise RuntimeError("🦀 [RUST-NPU] Cannot initialize without connectome_manager")
+        
+        # ✅ NEW ARCHITECTURE: Get existing Rust NPU from NPUInterface
+        # NPUInterface already created and populated the Rust NPU during neurogenesis
+        if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+            npu_interface = self.connectome_manager._npu_interface
             
-        # Get capacity from NPU interface (which was calculated from genome)
+            if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                # Use the EXISTING Rust NPU that was populated by neurogenesis
+                self._rust_npu_integration = npu_interface._rust_npu_integration
+                logger.info("🦀 [RUST-NPU] ✅ Connected to existing Rust NPU from NPUInterface")
+                logger.info("🦀 [RUST-NPU] Current state: %d neurons, %d synapses",
+                           self._rust_npu_integration.get_neuron_count(),
+                           self._rust_npu_integration.get_synapse_count())
+                return
+        
+        # Fallback: Create new Rust NPU (should not happen in normal flow)
+        logger.warning("🦀 [RUST-NPU] NPUInterface Rust NPU not found - creating new one (unexpected!)")
+        
         neuron_capacity = 100_000  # Default
         synapse_capacity = 500_000  # Default
         
@@ -188,10 +204,7 @@ class BurstEngine:
             npu_interface = self.connectome_manager._npu_interface
             neuron_capacity = npu_interface.max_neurons
             synapse_capacity = npu_interface.max_synapses
-            logger.info("🦀 [RUST-NPU] Using capacity from NPU interface: %d neurons, %d synapses",
-                       neuron_capacity, synapse_capacity)
         
-        # Create integration layer with capacity
         self._rust_npu_integration = RustNPUIntegration(
             connectome_manager=self.connectome_manager,
             fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20,
@@ -199,15 +212,10 @@ class BurstEngine:
             synapse_capacity=synapse_capacity
         )
         
-        # Connect NPUInterface to Rust NPU (single source of truth)
         if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
             self.connectome_manager._npu_interface.set_rust_npu_integration(self._rust_npu_integration)
-            logger.info("🔗 [NPU-INTERFACE] Connected to Rust NPU - delegation layer active")
         
-        # ✅ NEW ARCHITECTURE: Rust NPU is created empty with capacity
-        # Neuroembryogenesis will directly fill it during genome load
-        logger.info("🦀 [RUST-NPU] ✅ Empty Rust NPU ready for neuroembryogenesis")
-        logger.info("🦀 [RUST-NPU] Current state: %d neurons, %d synapses",
+        logger.info("🦀 [RUST-NPU] Created new Rust NPU: %d neurons, %d synapses",
                     self._rust_npu_integration.get_neuron_count(),
                     self._rust_npu_integration.get_synapse_count())
     
@@ -915,13 +923,18 @@ class BurstEngine:
                 self.genome_loaded = True
                 logger.debug("Genome integration marked complete")
                 
-                # RUST: Reinitialize Rust engine after genome loading
+                # ✅ RUST NPU: Initialize ONLY if not already initialized
+                # Neurogenesis already populated the Rust NPU, so we just connect to it
                 if RUST_AVAILABLE:
-                    logger.info("🦀 [RUST] Reinitializing Rust NPU after genome load")
-                    self.reinitialize_rust_npu()
-                    if True:
-                        logger.info("🦀 [RUST] Rust engine reinitialized successfully with new genome data")
+                    if self._rust_npu_integration is None:
+                        logger.info("🦀 [RUST-NPU] Initializing Rust NPU connection after genome load")
+                        self._initialize_rust_npu()
+                        logger.info("🦀 [RUST-NPU] ✅ Connected to Rust NPU with %d neurons",
+                                   self._rust_npu_integration.get_neuron_count())
                     else:
+                        logger.info("🦀 [RUST-NPU] ✅ Rust NPU already initialized with %d neurons (populated by neurogenesis)",
+                                   self._rust_npu_integration.get_neuron_count())
+                    if False:
                         logger.warning("🦀 [RUST] Rust engine reinitialization failed - will retry on first burst")
                 
             else:

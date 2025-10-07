@@ -124,6 +124,7 @@ class NPUInterface:
         # Cortical area management for compatibility
         self.cortical_areas: Dict[int, Dict[str, Any]] = {}
         self.neuron_to_area: Dict[int, int] = {}
+        self.neuron_to_position: Dict[int, Tuple[int, int, int]] = {}  # neuron_id -> (x, y, z)
         
         # Neuron ID tracking (for compatibility - maps neuron_id to array index)
         self.neuron_id_to_index: Dict[int, int] = {}
@@ -310,8 +311,6 @@ class NPUInterface:
     
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
         """Create neurons by directly calling Rust NPU."""
-        logger.warning("🦀 [NPU-INTERFACE] create_neurons_batch called for %d neurons (cortical_idx=%d)", 
-                      len(request.positions), request.cortical_idx)
         try:
             if self._rust_npu_integration is None:
                 raise RuntimeError(
@@ -322,8 +321,6 @@ class NPUInterface:
                 raise RuntimeError(
                     "🦀 [NPU-INTERFACE] CRITICAL: Rust NPU not initialized (_rust_npu_initialized=False)!"
                 )
-            
-            logger.warning("🦀 [NPU-INTERFACE] Rust NPU is initialized, creating %d neurons...", len(request.positions))
             
             # Validate required parameters
             if request.thresholds is None:
@@ -358,14 +355,15 @@ class NPUInterface:
                     self.neuron_id_to_index[neuron_id] = neuron_id  # For now, ID == index
                     self.index_to_neuron_id[neuron_id] = neuron_id
                     self.neuron_to_area[neuron_id] = request.cortical_idx
+                    self.neuron_to_position[neuron_id] = (int(x), int(y), int(z))  # Store position
                     successful_count += 1
                     
                 except Exception as e:
                     logger.error(f"[NPU-INTERFACE] Failed to create neuron {i}: {e}")
                     failed_indices.append(i)
             
-            logger.warning("🦀 [NPU-INTERFACE] ✅ Created %d neurons in Rust NPU (Rust NPU count now: %d)", 
-                          successful_count, self.rust_npu.get_neuron_count())
+            logger.debug("🦀 [NPU-INTERFACE] Created %d neurons in Rust NPU (total: %d)", 
+                        successful_count, self.rust_npu.get_neuron_count())
             
             return BatchOperationResult(
                 result=OperationResult.SUCCESS if len(failed_indices) == 0 else OperationResult.BACKEND_ERROR,
@@ -376,6 +374,7 @@ class NPUInterface:
             
         except Exception as e:
             logger.error(f"[NPU-INTERFACE] Batch neuron creation failed: {e}")
+            logger.exception("Full traceback:")
             return BatchOperationResult(
                 result=OperationResult.BACKEND_ERROR,
                 successful_count=0,

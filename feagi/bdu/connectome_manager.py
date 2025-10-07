@@ -1660,54 +1660,11 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             return []
 
-        # MEMORY AREA SUPPORT: Check if this is a memory area
-        is_memory_area = self.is_memory_area(cortical_id)
-        
-        if is_memory_area:
-            # For memory areas, get memory neurons from MemoryNeuronArray
-            memory_neurons = self._get_memory_neurons_by_cortical_area(cortical_id, cortical_idx)
-            return memory_neurons
-        
-        # REGULAR AREAS: Use SoA arrays for GPU/SIMD-optimized query
-        # Only search in the valid range up to next_index
-        valid_range = min(
-            self.neuron_array.next_index, len(self.neuron_array.cortical_idxs)
-        )
-
-        # ROBUST: Triple-mask filtering to handle deletion edge cases
-        # GPU/SIMD friendly: uses element-wise boolean operations on arrays
-        # NPU arrays are already numpy-based, no conversion needed
-        active_mask = self.neuron_array.valid_mask[:valid_range]
-        valid_mask = self.neuron_array.valid_mask[:valid_range]
-        cortical_idxs = self.neuron_array.cortical_idxs[:valid_range]
-        cortical_mask = cortical_idxs == cortical_idx
-
-        # Combined mask: must be active, valid, AND in correct cortical area
-        combined_mask = active_mask & valid_mask & cortical_mask
-        valid_indices = np.where(combined_mask)[0]
-
-        # VECTORIZED: Convert indices to neuron_ids using optimized SoA lookup
-        #  Uses pre-built lookup array for O(1) per-element access (GPU/SIMD
-        #  friendly)
-        if len(valid_indices) == 0:
-            return []
-
-        # Use the NPU-owned vectorized conversion
-        if hasattr(self.neuron_array, "indices_to_neuron_ids"):
-            neuron_ids_array = self.neuron_array.indices_to_neuron_ids(
-            valid_indices, filter_invalid=True
-        )
+        # ✅ Use NPU interface clean API
+        if self._npu_interface:
+            return self._npu_interface.get_neurons_in_cortical_area(cortical_idx)
         else:
-            # Fallback to dict mapping without removing SoA dependency
-            ids = []
-            for idx in list(valid_indices):
-                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
-                if nid is not None:
-                    ids.append(int(nid))
-            neuron_ids_array = np.array(ids, dtype=np.int32)
-
-        # Convert NumPy array to list for API compatibility
-        return neuron_ids_array.tolist()
+            raise RuntimeError("NPU interface not available")
 
     def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
         """Get the ID of the cortical area containing a neuron using
@@ -1722,13 +1679,13 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        # Resolve array index via NPU mapping
-        index = self.get_neuron_index(neuron_id)
-        if index is None:
-            raise KeyError(f"Neuron {neuron_id} does not exist")
-
-        # Get the cortical_idx from the authoritative neuron array
-        cortical_idx = int(self.neuron_array.cortical_idxs[index])
+        # ✅ Use NPU interface clean API
+        if self._npu_interface:
+            cortical_idx = self._npu_interface.get_neuron_cortical_idx(neuron_id)
+            if cortical_idx is None:
+                raise KeyError(f"Neuron {neuron_id} does not exist")
+        else:
+            raise RuntimeError("NPU interface not available")
 
         # Use cortical mapping to find cortical_id
         cortical_id = self.cortical_mapping.get_id(cortical_idx)
@@ -1838,25 +1795,14 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        # Use NPU-owned mapping as authoritative
-        index = self.get_neuron_index(neuron_id)
-        if index is None:
-            raise KeyError(f"Neuron {neuron_id} does not exist")
-
-        # Get position from NPU neuron arrays
-        try:
-            if hasattr(self.neuron_array, "coordinates_x"):
-                x = int(self.neuron_array.coordinates_x[index])
-                y = int(self.neuron_array.coordinates_y[index])
-                z = int(self.neuron_array.coordinates_z[index])
-            else:
-                x = int(self.neuron_array.positions_x[index])
-                y = int(self.neuron_array.positions_y[index])
-                z = int(self.neuron_array.positions_z[index])
-            return (x, y, z)
-        except Exception as e:
-            logger.error(f"Error getting position for neuron {neuron_id}: {e}")
-            raise
+        # ✅ Use NPU interface clean API
+        if self._npu_interface:
+            position = self._npu_interface.get_neuron_position(neuron_id)
+            if position is None:
+                raise KeyError(f"Neuron {neuron_id} does not exist")
+            return position
+        else:
+            raise RuntimeError("NPU interface not available")
 
     # ----------------------------------------------------------------------
     # Synapse Management Methods
