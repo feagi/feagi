@@ -204,6 +204,11 @@ class NeuronArray:
         self.consecutive_fire_counts = np.zeros(max_neurons, dtype=np.uint16)
         self.consecutive_fire_limits = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
         
+        # Snooze period tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
+        # Snooze = rest period after consecutive fires, measured in bursts
+        self.snooze_periods = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
+        self.snooze_countdowns = np.zeros(max_neurons, dtype=np.uint16)
+        
         # Cortical area mapping
         self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
         
@@ -229,7 +234,8 @@ class NeuronArray:
                          refractory_periods: Optional[List[int]] = None,
                          excitabilities: Optional[List[float]] = None,
                          resting_potentials: Optional[List[float]] = None,
-                         consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
+                         consecutive_fire_limits: Optional[List[int]] = None,
+                         snooze_periods: Optional[List[int]] = None) -> List[int]:
         """Add multiple neurons in batch."""
         count = len(neuron_ids)
         if self.count + count > self.max_neurons:
@@ -290,6 +296,17 @@ class NeuronArray:
             # Set default consecutive fire limits for backward compatibility
             self.consecutive_fire_limits[start_idx:end_idx] = 5
         # Note: consecutive_fire_counts remain 0 (initialized by default)
+        
+        # Set snooze periods - MUST come from genome (nx-snooze-f gene)
+        if snooze_periods is not None:
+            # Convert float to uint16, ensuring only positive integers including 0
+            snooze_array = np.array(snooze_periods, dtype=np.float32)
+            snooze_array = np.maximum(0, np.round(snooze_array)).astype(np.uint16)
+            self.snooze_periods[start_idx:end_idx] = snooze_array
+        else:
+            # Set default snooze periods for backward compatibility
+            self.snooze_periods[start_idx:end_idx] = 0
+        # Note: snooze_countdowns remain 0 (initialized by default)
         
         # Update ID mappings
         for i, neuron_id in enumerate(neuron_ids):

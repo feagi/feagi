@@ -223,6 +223,7 @@ class RustNPUIntegration:
                     refractory_period=int(neuron_array.refractory_periods[i]) if hasattr(neuron_array, 'refractory_periods') else 0,
                     excitability=excitability,
                     consecutive_fire_limit=int(neuron_array.consecutive_fire_limits[i]) if hasattr(neuron_array, 'consecutive_fire_limits') else 0,
+                    snooze_period=int(neuron_array.snooze_periods[i]) if hasattr(neuron_array, 'snooze_periods') else 0,
                     cortical_area=cortical_area_idx,
                     x=int(neuron_array.coordinates[i * 3]) if hasattr(neuron_array, 'coordinates') else 0,
                     y=int(neuron_array.coordinates[i * 3 + 1]) if hasattr(neuron_array, 'coordinates') else 0,
@@ -376,6 +377,9 @@ class RustNPUIntegration:
             if result.burst % self._performance_log_interval == 0:
                 self._log_performance(result, burst_time)
             
+            # DIAGNOSTIC: Check snooze state of neuron 16439 (target of power synapse in iic000)
+            self._diagnose_neuron_state(16439)
+            
             # Return as dict for easier integration
             return {
                 'fired_neurons': result.fired_neurons,
@@ -391,6 +395,44 @@ class RustNPUIntegration:
         except Exception as e:
             logger.error("🦀 [RUST-NPU] CRITICAL: Burst processing failed: %s", str(e), exc_info=True)
             raise RuntimeError(f"Rust NPU burst processing failed: {e}") from e
+    
+    def _diagnose_neuron_state(self, neuron_id: int) -> None:
+        """Diagnostic helper to check neuron state (snooze, CFC, potential, etc.).
+        
+        Reads from the Rust NPU's internal state, NOT the stale Python neuron_array.
+        """
+        try:
+            # Get neuron state directly from Rust NPU (live data!)
+            state = self._rust_npu.get_neuron_state(neuron_id)
+            if state is None:
+                logger.warning("🔍 [NEURON-DEBUG] Neuron %d not found in Rust NPU", neuron_id)
+                return
+            
+            # Unpack state: (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
+            cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown = state
+            
+            # Get cortical_idx from ConnectomeManager for display only
+            npu = getattr(self.connectome_manager, "_npu_interface", None)
+            cortical_idx = -1
+            if npu and hasattr(npu, "neuron_array"):
+                neuron_array = npu.neuron_array
+                if neuron_id < len(neuron_array.cortical_idxs):
+                    cortical_idx = int(neuron_array.cortical_idxs[neuron_id])
+            
+            logger.error("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
+            logger.error("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 
+                        potential, threshold, potential >= threshold)
+            logger.error("🔍   refractory_countdown=%d", refrac_countdown)
+            logger.error("🔍   consecutive_fire_count=%d/%d", cfc, cfc_limit)
+            logger.error("🔍   snooze_countdown=%d (period=%d)", snooze_countdown, snooze_period)
+            logger.error("🔍   BLOCKED=%s (refrac=%s, snooze=%s, cfc_limit=%s)", 
+                        refrac_countdown > 0 or snooze_countdown > 0 or (cfc_limit > 0 and cfc >= cfc_limit),
+                        refrac_countdown > 0, snooze_countdown > 0, 
+                        cfc_limit > 0 and cfc >= cfc_limit)
+            
+        except Exception as e:
+            logger.error("🔍 [NEURON-DEBUG] Failed to diagnose neuron %d: %s", neuron_id, str(e))
+            logger.exception("Full stack trace:")
     
     def _track_performance(self, burst_start_time, result, burst_time_ms):
         """Track burst performance metrics."""

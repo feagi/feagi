@@ -70,6 +70,7 @@ class NeuronCreationRequest:
     excitabilities: Optional[List[float]] = None
     resting_potentials: Optional[List[float]] = None
     consecutive_fire_limits: Optional[List[int]] = None
+    snooze_periods: Optional[List[int]] = None  # Genome: nx-snooze-f (rest after consecutive fires)
 
 
 @dataclass
@@ -140,6 +141,8 @@ class NPUInterface:
                 raise ValueError("resting_potentials parameter is required - must come from genome")
             if request.consecutive_fire_limits is None:
                 raise ValueError("consecutive_fire_limits parameter is required - must come from genome")
+            if request.snooze_periods is None:
+                raise ValueError("snooze_periods parameter is required - must come from genome")
             
             # Use provided parameters - NO DEFAULTS
             neuron_types = request.neuron_types or [0] * num_neurons
@@ -158,6 +161,7 @@ class NPUInterface:
                 excitabilities=request.excitabilities,
                 resting_potentials=request.resting_potentials,
                 consecutive_fire_limits=request.consecutive_fire_limits,
+                snooze_periods=request.snooze_periods,
             )
             
             # Update neuron to area mapping

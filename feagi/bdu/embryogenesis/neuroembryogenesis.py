@@ -1259,6 +1259,9 @@ class NeuroEmbryogenesis:
                     if consecutive_fire_limit == 0:
                         consecutive_fire_limit = 10  # Prevent infinite consecutive firing
                     
+                    # Extract snooze period from genome (nx-snooze-f gene)
+                    snooze_period = int(max(0, round(properties.get("snooze_length", 0))))
+                    
                     # Create batch neuron creation request with ALL parameters from genome
                     request = NeuronCreationRequest(
                         cortical_idx=area.cortical_idx,
@@ -1271,6 +1274,7 @@ class NeuroEmbryogenesis:
                         excitabilities=[base_excitability] * area_neuron_count,
                         resting_potentials=[0.0] * area_neuron_count,
                         consecutive_fire_limits=[consecutive_fire_limit] * area_neuron_count,
+                        snooze_periods=[snooze_period] * area_neuron_count,
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)

@@ -148,6 +148,30 @@ fn process_single_neuron(
         return None;
     }
     
+    // 1b. Handle snooze period (rest after consecutive fires)
+    // Snooze blocks firing even if neuron is above threshold
+    if neuron_array.snooze_countdowns[idx] > 0 {
+        neuron_array.snooze_countdowns[idx] -= 1;
+        
+        if idx < 5 {
+            eprintln!("🦀 [SNOOZE-DEBUG] Neuron {} in SNOOZE, countdown={} → {}", 
+                      neuron_id.0, 
+                      neuron_array.snooze_countdowns[idx] + 1,
+                      neuron_array.snooze_countdowns[idx]);
+        }
+        
+        // Apply leak during snooze to prevent potential buildup
+        let leak_coefficient = neuron_array.leak_coefficients[idx];
+        if leak_coefficient > 0.0 {
+            let resting_potential = neuron_array.resting_potentials[idx];
+            let current_potential = neuron_array.membrane_potentials[idx];
+            let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
+            neuron_array.membrane_potentials[idx] = leaked_potential;
+        }
+        
+        return None;
+    }
+    
     // 2. Add candidate potential (matches Python: add BEFORE checking threshold)
     let old_potential = neuron_array.membrane_potentials[idx];
     let current_potential = old_potential + candidate_potential;
@@ -184,8 +208,8 @@ fn process_single_neuron(
         
         if !consecutive_fire_constraint {
             // Neuron exceeded consecutive fire limit - prevent firing
-            // CRITICAL FIX: Reset count to prevent permanent deadlock
-            // (Once blocked, neuron can never fire again without this reset)
+            // CRITICAL: Reset count to 0 (matches Python SIMD: all non-firing neurons get count reset)
+            // This allows the neuron to fire again after being blocked for one burst
             neuron_array.consecutive_fire_counts[idx] = 0;
             
             if idx < 5 {
@@ -241,6 +265,22 @@ fn process_single_neuron(
             // Increment consecutive fire count (matches Python SIMD implementation)
             if consecutive_fire_limit > 0 {
                 neuron_array.consecutive_fire_counts[idx] += 1;
+                
+                // Check if neuron hit consecutive fire limit → trigger snooze
+                let new_count = neuron_array.consecutive_fire_counts[idx];
+                if new_count >= consecutive_fire_limit {
+                    let snooze_period = neuron_array.snooze_periods[idx];
+                    if snooze_period > 0 {
+                        // Reset consecutive count and enter snooze
+                        neuron_array.consecutive_fire_counts[idx] = 0;
+                        neuron_array.snooze_countdowns[idx] = snooze_period;
+                        
+                        if idx < 5 {
+                            eprintln!("🦀 [SNOOZE-DEBUG] Neuron {} hit limit ({} fires), entering SNOOZE for {} bursts", 
+                                      neuron_id.0, consecutive_fire_limit, snooze_period);
+                        }
+                    }
+                }
             }
             
             // Reset membrane potential
@@ -334,6 +374,7 @@ mod tests {
             5,     // refractory_period
             1.0,   // excitability
             0,     // consecutive_fire_limit
+            0,     // snooze_period
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -355,7 +396,7 @@ mod tests {
     fn test_neuron_does_not_fire_below_threshold() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
         
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.5);  // Below threshold
@@ -371,7 +412,7 @@ mod tests {
     fn test_refractory_period_blocks_firing() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
         
         // Set refractory countdown
         neurons.refractory_countdowns[0] = 3;
@@ -397,6 +438,7 @@ mod tests {
             0,     // refractory_period
             1.0,   // excitability
             0,     // consecutive_fire_limit
+            0,     // snooze_period
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -421,7 +463,7 @@ mod tests {
         // Add 10 neurons
         let mut ids = Vec::new();
         for i in 0..10 {
-            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, i, 0, 0).unwrap();
+            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, i, 0, 0).unwrap();
             ids.push(id);
         }
         

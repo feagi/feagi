@@ -316,6 +316,7 @@ impl RustNPU {
         refractory_period: u16,
         excitability: f32,
         consecutive_fire_limit: u16,
+        snooze_period: u16,
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -330,6 +331,7 @@ impl RustNPU {
                 refractory_period,
                 excitability,
                 consecutive_fire_limit,
+                snooze_period,
                 cortical_area,
                 x,
                 y,
@@ -450,6 +452,12 @@ impl RustNPU {
     /// Get synapse count (valid only)
     fn get_synapse_count(&self) -> usize {
         self.npu.get_synapse_count()
+    }
+    
+    /// Get neuron state for diagnostics
+    /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
+    fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {
+        self.npu.get_neuron_state(NeuronId(neuron_id))
     }
 }
 

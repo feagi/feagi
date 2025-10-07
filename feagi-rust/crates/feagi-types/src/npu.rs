@@ -60,6 +60,12 @@ pub struct NeuronArray {
     /// Consecutive fire limits (max consecutive fires, 0 = unlimited)
     pub consecutive_fire_limits: Vec<u16>,
     
+    /// Snooze periods (rest period after consecutive fires, in bursts)
+    pub snooze_periods: Vec<u16>,
+    
+    /// Snooze countdowns (current snooze countdown, blocks firing when > 0)
+    pub snooze_countdowns: Vec<u16>,
+    
     /// Cortical area ID for each neuron
     pub cortical_areas: Vec<u32>,
     
@@ -86,6 +92,8 @@ impl NeuronArray {
             excitabilities: vec![1.0; capacity],
             consecutive_fire_counts: vec![0; capacity],
             consecutive_fire_limits: vec![0; capacity],  // 0 = unlimited
+            snooze_periods: vec![0; capacity],  // 0 = no snooze
+            snooze_countdowns: vec![0; capacity],
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
             valid_mask: vec![false; capacity],
@@ -104,6 +112,7 @@ impl NeuronArray {
         refractory_period: u16,
         excitability: f32,
         consecutive_fire_limit: u16,
+        snooze_period: u16,  // Genome: nx-snooze-f (rest period after consecutive fires)
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -124,6 +133,8 @@ impl NeuronArray {
         self.excitabilities[id] = excitability.clamp(0.0, 1.0);
         self.consecutive_fire_counts[id] = 0;
         self.consecutive_fire_limits[id] = consecutive_fire_limit;
+        self.snooze_periods[id] = snooze_period;  // From genome (nx-snooze-f)
+        self.snooze_countdowns[id] = 0;  // Initialize to 0 (not in snooze)
         self.cortical_areas[id] = cortical_area;
         self.coordinates[id * 3] = x;
         self.coordinates[id * 3 + 1] = y;

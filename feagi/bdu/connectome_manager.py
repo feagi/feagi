@@ -4516,6 +4516,7 @@ class ConnectomeManager(NeuronMappingProvider):
         refractory_period: int,
         excitability: float,
         consecutive_fire_limit: int,
+        snooze_period: int = 0,
         properties: Optional[Dict[str, Any]] = None,
         cortical_idx: Optional[int] = None,
     ) -> List[int]:
@@ -4600,6 +4601,9 @@ class ConnectomeManager(NeuronMappingProvider):
         consecutive_fire_limits_list = (
             [consecutive_fire_limit] * count if isinstance(consecutive_fire_limit, int) else list(consecutive_fire_limit)
         )
+        snooze_periods_list = (
+            [snooze_period] * count if isinstance(snooze_period, int) else list(snooze_period)
+        )
 
         # Use add_neurons_batch with ALL required parameters from genome
         indices = npu_neurons.add_neurons_batch(
@@ -4615,6 +4619,7 @@ class ConnectomeManager(NeuronMappingProvider):
             excitabilities=excitability_list,
             resting_potentials=rp_list,
             consecutive_fire_limits=consecutive_fire_limits_list,
+            snooze_periods=snooze_periods_list,
         )
 
         # Refractory periods are now handled by add_neurons_batch - no manual setting needed
