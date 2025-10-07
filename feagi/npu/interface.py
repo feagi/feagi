@@ -243,9 +243,19 @@ class NPUInterface:
             List of neuron IDs in that cortical area
         """
         if not hasattr(self, 'neuron_to_area'):
+            logger.warning("neuron_to_area not initialized!")
             return []
         
-        return [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
+        logger.info(f"🔍 [NPU-API] Looking for neurons in cortical_idx={cortical_idx}")
+        logger.info(f"🔍 [NPU-API] neuron_to_area has {len(self.neuron_to_area)} entries: {list(self.neuron_to_area.items())[:5]}")
+        
+        result = [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
+        logger.info(f"🔍 [NPU-API] Found {len(result)} neurons: {result}")
+        return result
+    
+    def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
+        """API compatibility: alias for get_neurons_in_cortical_area."""
+        return self.get_neurons_in_cortical_area(cortical_idx)
     
     @property
     def neuron_array(self):
