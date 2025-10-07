@@ -1087,10 +1087,11 @@ class NeuroEmbryogenesis:
                     logger.info(f"Skipping neurogenesis for memory area {area.name}")
                     continue
 
-                # Always skip neurogenesis for core areas (_death, _power) – system-managed
-                if str(area.area_type).upper() == "CORE" or cortical_id in ("_death", "_power"):
-                    logger.info(f"Skipping neurogenesis for core area {cortical_id}")
-                    continue
+                # ✅ RUST NPU: Create neurons for ALL areas including core areas
+                # Core areas (_death, _power) need neurons for power injection to work
+                # Power injection uses min(neurons) from cortical_idx=1, so we need at least one neuron
+                # OLD behavior: Skip core areas (neurons were created by _ensure_core_neurons)
+                # NEW behavior: Normal neurogenesis creates all neurons (simpler, cleaner)
                 
                 # In additive mode, skip neurogenesis for areas that already have neurons
                 if hasattr(self, 'additive_mode') and self.additive_mode:

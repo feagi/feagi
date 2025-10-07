@@ -1138,22 +1138,25 @@ class ConnectomeManager(NeuronMappingProvider):
         }
         npu_backend = backend_map.get(backend, BackendType.CPU)
         
-        logger.info(f"🔧 Creating NPU Interface (Rust NPU delegation layer)")
-        self._npu_interface = NPUInterface(backend=npu_backend)
+        logger.info(f"🔧 Creating NPU Interface with Rust NPU (capacity: {self._max_neurons_config:,} neurons, {self._max_synapses_config:,} synapses)")
+        
+        # CRITICAL: Pass calculated capacities to NPUInterface
+        # NPUInterface will immediately create Rust NPU with these capacities
+        self._npu_interface = NPUInterface(
+            backend=npu_backend,
+            max_neurons=self._max_neurons_config,
+            max_synapses=self._max_synapses_config
+        )
         self._npu_interface.set_connectome_manager(self)
         
-        # ✅ NO DUPLICATE ARRAYS! Rust NPU is the single source of truth
-        # neuron_array and synapse_array live ONLY in Rust memory
-        # Access them via:
-        #   - self._npu_interface.rust_npu (direct Rust NPU access)
-        #   - self._npu_interface methods (NPUInterface API)
+        # ✅ Rust NPU is ALREADY CREATED with proper capacity
+        # neuron_array and synapse_array live ONLY in Rust memory (SoA, GPU-friendly)
+        # Neuroembryogenesis can now directly fill the pre-allocated Rust arrays
         
-        logger.info("🦀 [NPU-INTERFACE] Waiting for BurstEngine to connect Rust NPU...")
-        
-        logger.info("✅ NPU Interface initialized as Rust NPU delegation layer")
+        logger.info("✅ NPU Interface initialized with Rust NPU")
         logger.info(f"   Backend: {npu_backend.value}")
-        logger.info(f"   Max neurons: {self._npu_interface.max_neurons:,}")
-        logger.info(f"   Max synapses: {self._npu_interface.max_synapses:,}")
+        logger.info(f"   Neuron capacity: {self._max_neurons_config:,}")
+        logger.info(f"   Synapse capacity: {self._max_synapses_config:,}")
     
     def set_npu_interface(self, npu_interface):
         """Set NPU interface as primary owner of synaptic updates.

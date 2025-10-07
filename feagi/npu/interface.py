@@ -98,14 +98,22 @@ class NPUInterface:
     
     def __init__(self, backend=None, max_neurons: int = 100_000, 
                  max_synapses: int = 500_000, max_memory_neurons: int = 50_000):
-        """Initialize NPU interface.
+        """Initialize NPU interface with Rust NPU immediately.
         
-        Note: Rust NPU reference is set later via set_rust_npu_integration().
+        CORRECT FLOW (per architecture review):
+        1. Calculate neuron/synapse capacity from genome
+        2. Create Rust NPU with that capacity (SoA, GPU-compatible)
+        3. Genome load directly fills Rust NPU arrays
+        4. NO temporary Python structures!
         """
-        # NO self.neuron_array! NO self.synapse_array!
-        # Rust NPU is the single source of truth!
+        from feagi.npu.rust_npu_integration import RustNPUIntegration, RUST_AVAILABLE
         
-        self._rust_npu_integration = None  # Set by BurstEngine
+        if not RUST_AVAILABLE:
+            raise RuntimeError(
+                "🦀 [NPU-INTERFACE] CRITICAL: Rust NPU not available! "
+                "FEAGI requires Rust NPU for production use."
+            )
+        
         self._connectome_manager = None  # Set by ConnectomeManager
         
         # State tracking
@@ -122,6 +130,20 @@ class NPUInterface:
         self.index_to_neuron_id: Dict[int, int] = {}
         self._next_neuron_id = 1
         
+        # CRITICAL: Create Rust NPU immediately with proper capacity (SoA, GPU-friendly)
+        # Neuroembryogenesis will directly fill the pre-allocated Rust arrays
+        logger.info("🦀 [NPU-INTERFACE] Creating Rust NPU with capacity: %d neurons, %d synapses", 
+                   max_neurons, max_synapses)
+        
+        self._rust_npu_integration = RustNPUIntegration.create_empty(
+            neuron_capacity=max_neurons,
+            synapse_capacity=max_synapses,
+            fire_ledger_window=20
+        )
+        
+        logger.info("✅ [NPU-INTERFACE] Rust NPU created and ready for genome load")
+        logger.info(f"   Neuron capacity: {max_neurons:,}, Synapse capacity: {max_synapses:,}")
+        
         # Plasticity command queue (for future plasticity support)
         self._plasticity_queue_capacity: int = 0
         self._plasticity_queue: List[Dict[str, Any]] = []
@@ -131,8 +153,6 @@ class NPUInterface:
             self._plasticity_lock = threading.RLock()
         except Exception:
             pass
-        
-        logger.info("🔄 [NPU-INTERFACE] Initialized (delegating to Rust NPU)")
     
     def set_rust_npu_integration(self, rust_npu_integration):
         """Set the Rust NPU integration reference.
@@ -143,8 +163,11 @@ class NPUInterface:
         logger.info("🦀 [NPU-INTERFACE] Rust NPU integration connected")
     
     def set_connectome_manager(self, connectome_manager):
-        """Set the ConnectomeManager reference (for coordinate lookups)."""
+        """Set the ConnectomeManager reference and update Rust NPU integration."""
         self._connectome_manager = connectome_manager
+        if self._rust_npu_integration:
+            self._rust_npu_integration.connectome_manager = connectome_manager
+            logger.info("🦀 [NPU-INTERFACE] ConnectomeManager set on Rust NPU integration")
     
     @property
     def rust_npu(self):
@@ -154,30 +177,21 @@ class NPUInterface:
         return self._rust_npu_integration._rust_npu
     
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
-        """Create neurons by delegating to Rust NPU."""
+        """Create neurons by directly calling Rust NPU."""
+        logger.warning("🦀 [NPU-INTERFACE] create_neurons_batch called for %d neurons (cortical_idx=%d)", 
+                      len(request.positions), request.cortical_idx)
         try:
             if self._rust_npu_integration is None:
-                # BUFFERING MODE: Rust NPU not ready yet (happens during genome load)
-                # Generate neuron IDs and track them - Rust NPU will create them later
-                logger.warning("[NPU-INTERFACE] Rust NPU not ready - tracking neurons for later creation")
-                
-                neuron_ids = []
-                for i in range(len(request.positions)):
-                    neuron_id = self._next_neuron_id
-                    self._next_neuron_id += 1
-                    
-                    # Track in NPUInterface for verification
-                    neuron_ids.append(neuron_id)
-                    self.neuron_id_to_index[neuron_id] = neuron_id  # ID == index for now
-                    self.index_to_neuron_id[neuron_id] = neuron_id
-                    self.neuron_to_area[neuron_id] = request.cortical_idx
-                
-                return BatchOperationResult(
-                    result=OperationResult.SUCCESS,
-                    successful_count=len(request.positions),
-                    failed_indices=[],
-                    data={"neuron_ids": neuron_ids}
+                raise RuntimeError(
+                    "🦀 [NPU-INTERFACE] CRITICAL: _rust_npu_integration is None!"
                 )
+            
+            if not self._rust_npu_integration._rust_npu_initialized:
+                raise RuntimeError(
+                    "🦀 [NPU-INTERFACE] CRITICAL: Rust NPU not initialized (_rust_npu_initialized=False)!"
+                )
+            
+            logger.warning("🦀 [NPU-INTERFACE] Rust NPU is initialized, creating %d neurons...", len(request.positions))
             
             # Validate required parameters
             if request.thresholds is None:
@@ -211,12 +225,15 @@ class NPUInterface:
                     neuron_ids.append(neuron_id)
                     self.neuron_id_to_index[neuron_id] = neuron_id  # For now, ID == index
                     self.index_to_neuron_id[neuron_id] = neuron_id
-                    self.neuron_to_area[neuron_id] = request.cortical_idx
+                self.neuron_to_area[neuron_id] = request.cortical_idx
                     successful_count += 1
                     
                 except Exception as e:
                     logger.error(f"[NPU-INTERFACE] Failed to create neuron {i}: {e}")
                     failed_indices.append(i)
+            
+            logger.warning("🦀 [NPU-INTERFACE] ✅ Created %d neurons in Rust NPU (Rust NPU count now: %d)", 
+                          successful_count, self.rust_npu.get_neuron_count())
             
             return BatchOperationResult(
                 result=OperationResult.SUCCESS if len(failed_indices) == 0 else OperationResult.BACKEND_ERROR,
@@ -233,17 +250,17 @@ class NPUInterface:
                 failed_indices=list(range(len(request.positions))),
                 error_message=str(e)
             )
-    
+
     def create_synapses_batch(self, request: SynapseCreationRequest) -> BatchOperationResult:
         """Create synapses by delegating to Rust NPU."""
         try:
             if self._rust_npu_integration is None:
                 logger.warning("[NPU-INTERFACE] Rust NPU not ready - buffering synapse creation")
-                return BatchOperationResult(
-                    result=OperationResult.SUCCESS,
+            return BatchOperationResult(
+                result=OperationResult.SUCCESS,
                     successful_count=len(request.source_neuron_ids),
-                    failed_indices=[]
-                )
+                failed_indices=[]
+            )
             
             successful_count = 0
             failed_indices = []
@@ -265,7 +282,7 @@ class NPUInterface:
                     
                     successful_count += 1
                     
-                except Exception as e:
+        except Exception as e:
                     logger.error(f"[NPU-INTERFACE] Failed to create synapse {i}: {e}")
                     failed_indices.append(i)
             
@@ -341,7 +358,7 @@ class NPUInterface:
             }
         
         try:
-            return {
+        return {
                 'neuron_count': self.rust_npu.get_neuron_count(),
                 'synapse_count': self.rust_npu.get_synapse_count(),
                 'utilization': {
@@ -431,115 +448,3 @@ class NPUInterface:
         return None
     
     # COMPATIBILITY METHODS (for legacy code that expects these)
-    
-    @property
-    def neuron_array(self):
-        """DEPRECATED: Direct neuron_array access is not allowed.
-        
-        Rust NPU is the single source of truth. Use NPUInterface methods instead.
-        
-        This property exists ONLY for compatibility with code that checks
-        'hasattr(npu_interface, "neuron_array")'. It returns a proxy object
-        that logs warnings when accessed.
-        """
-        logger.warning("⚠️ [NPU-INTERFACE] Direct neuron_array access detected - this is deprecated!")
-        logger.warning("⚠️ [NPU-INTERFACE] Use NPUInterface methods or Rust NPU directly instead")
-        
-        # Return a proxy that provides minimal compatibility
-        return _DeprecatedNeuronArrayProxy(self)
-    
-    @property
-    def synapse_array(self):
-        """DEPRECATED: Direct synapse_array access is not allowed.
-        
-        Rust NPU is the single source of truth. Use NPUInterface methods instead.
-        """
-        logger.warning("⚠️ [NPU-INTERFACE] Direct synapse_array access detected - this is deprecated!")
-        return _DeprecatedSynapseArrayProxy(self)
-
-
-class _DeprecatedNeuronArrayProxy:
-    """Compatibility proxy for deprecated neuron_array access.
-    
-    This exists ONLY to prevent crashes in legacy code that directly
-    accesses neuron_array attributes. All access logs warnings.
-    """
-    
-    def __init__(self, npu_interface):
-        self._npu = npu_interface
-        self._logged_warning = False
-    
-    def __getattr__(self, name):
-        if not self._logged_warning:
-            logger.error("❌ [DEPRECATED] Direct neuron_array.%s access - refactor to use Rust NPU!", name)
-            self._logged_warning = True
-        
-        # Delegate to NPUInterface or provide safe fallbacks
-        import numpy as np
-        
-        fallback_values = {
-            'count': 0,
-            'neuron_count': 0,
-            'max_neurons': self._npu.max_neurons,  # ✅ Delegate to NPUInterface
-            'cortical_idxs': np.array([], dtype=np.int32),
-            'membrane_potentials': np.array([], dtype=np.float32),
-            'thresholds': np.array([], dtype=np.float32),
-            'refractory_countdowns': np.array([], dtype=np.uint16),
-            'consecutive_fire_counts': np.array([], dtype=np.uint16),
-            'consecutive_fire_limits': np.array([], dtype=np.uint16),
-            'snooze_countdowns': np.array([], dtype=np.uint16),
-            'snooze_periods': np.array([], dtype=np.uint16),
-            'leak_coefficients': np.array([], dtype=np.float32),
-            'resting_potentials': np.array([], dtype=np.float32),
-            'excitabilities': np.array([], dtype=np.float32),
-            'valid_mask': np.array([], dtype=bool),
-            'neuron_id_to_index': self._npu.neuron_id_to_index,  # ✅ Delegate
-            'index_to_neuron_id': self._npu.index_to_neuron_id,  # ✅ Delegate
-        }
-        
-        # Return 0 for any unknown attribute (safe default)
-        return fallback_values.get(name, 0)
-    
-    def __len__(self):
-        return 0
-
-
-class _DeprecatedSynapseArrayProxy:
-    """Compatibility proxy for deprecated synapse_array access."""
-    
-    def __init__(self, npu_interface):
-        self._npu = npu_interface
-        self._logged_warning = False
-    
-    def __getattr__(self, name):
-        if not self._logged_warning:
-            logger.error("❌ [DEPRECATED] Direct synapse_array.%s access - refactor to use Rust NPU!", name)
-            self._logged_warning = True
-        
-        import numpy as np
-        
-        fallback_values = {
-            'count': 0,
-            'synapse_count': 0,
-            'max_synapses': self._npu.max_synapses,  # ✅ Delegate to NPUInterface
-            'valid_mask': np.array([], dtype=bool),
-            'source_neurons': np.array([], dtype=np.uint32),
-            'source_neuron_ids': np.array([], dtype=np.uint32),  # Alias
-            'target_neurons': np.array([], dtype=np.uint32),
-            'target_neuron_ids': np.array([], dtype=np.uint32),  # Alias
-            'weights': np.array([], dtype=np.uint8),
-            'conductances': np.array([], dtype=np.uint8),
-            'types': np.array([], dtype=np.int8),
-        }
-        
-        # For unknown attributes, return empty array if name suggests it's array-like
-        if name not in fallback_values:
-            if any(x in name for x in ['neurons', 'ids', 'weights', 'mask', 'types', 'indices']):
-                return np.array([], dtype=np.uint32)  # Safe default for array attributes
-            else:
-                return 0  # Safe default for scalar attributes
-        
-        return fallback_values[name]
-    
-    def valid_count(self):
-        return 0
