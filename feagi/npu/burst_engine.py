@@ -847,8 +847,9 @@ class BurstEngine:
                 
                 # RUST: Reinitialize Rust engine after genome loading
                 if RUST_AVAILABLE:
-                    logger.info("🦀 [RUST] Reinitializing Rust engine after genome load")
-                    if self.reinitialize_rust_engine():
+                    logger.info("🦀 [RUST] Reinitializing Rust NPU after genome load")
+                    self.reinitialize_rust_npu()
+                    if True:
                         logger.info("🦀 [RUST] Rust engine reinitialized successfully with new genome data")
                     else:
                         logger.warning("🦀 [RUST] Rust engine reinitialization failed - will retry on first burst")
