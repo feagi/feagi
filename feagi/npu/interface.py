@@ -176,6 +176,138 @@ class NPUInterface:
             raise RuntimeError("Rust NPU not initialized yet - call set_rust_npu_integration() first")
         return self._rust_npu_integration._rust_npu
     
+    # ============================================================================
+    # CLEAN API LAYER - Future Rust ConnectomeManager Interface
+    # ============================================================================
+    # These methods define the API contract that will be used when
+    # ConnectomeManager is migrated to Rust. They delegate to Rust NPU.
+    
+    def get_neuron_count(self) -> int:
+        """Get total number of neurons in the NPU."""
+        return self.rust_npu.get_neuron_count()
+    
+    def get_synapse_count(self) -> int:
+        """Get total number of synapses in the NPU."""
+        return self.rust_npu.get_synapse_count()
+    
+    def get_neuron_cortical_idx(self, neuron_id: int) -> Optional[int]:
+        """Get the cortical area index for a neuron.
+        
+        Args:
+            neuron_id: The neuron ID to query
+            
+        Returns:
+            Cortical area index, or None if neuron doesn't exist
+        """
+        if not hasattr(self, 'neuron_to_area'):
+            logger.warning("neuron_to_area mapping not initialized")
+            return None
+        return self.neuron_to_area.get(neuron_id)
+    
+    def get_neuron_position(self, neuron_id: int) -> Optional[Tuple[int, int, int]]:
+        """Get the 3D position of a neuron.
+        
+        This will eventually call Rust NPU directly when position query API is added.
+        For now, uses neuron_to_position mapping built during neuron creation.
+        
+        Args:
+            neuron_id: The neuron ID to query
+            
+        Returns:
+            (x, y, z) position tuple, or None if neuron doesn't exist
+        """
+        if not hasattr(self, 'neuron_to_position'):
+            logger.warning("neuron_to_position mapping not initialized")
+            return None
+        return self.neuron_to_position.get(neuron_id)
+    
+    def neuron_exists(self, neuron_id: int) -> bool:
+        """Check if a neuron ID exists in the NPU.
+        
+        Args:
+            neuron_id: The neuron ID to check
+            
+        Returns:
+            True if neuron exists, False otherwise
+        """
+        return neuron_id in self.neuron_to_area
+    
+    def get_neurons_in_cortical_area(self, cortical_idx: int) -> List[int]:
+        """Get all neuron IDs in a specific cortical area.
+        
+        Args:
+            cortical_idx: The cortical area index
+            
+        Returns:
+            List of neuron IDs in that cortical area
+        """
+        if not hasattr(self, 'neuron_to_area'):
+            return []
+        
+        return [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
+    
+    @property
+    def neuron_array(self):
+        """DEPRECATED: Temporary compatibility property.
+        
+        Returns an object that provides ONLY neuron_count.
+        All other neuron operations should use the clean API methods above.
+        This will be removed once ConnectomeManager is fully migrated to clean APIs.
+        """
+        logger.debug("[DEPRECATED] neuron_array property accessed - migrate to clean API methods")
+        
+        class _MinimalNeuronArrayProxy:
+            def __init__(self, npu_interface):
+                self._npu = npu_interface
+            
+            @property
+            def neuron_count(self):
+                if self._npu._rust_npu_integration and self._npu._rust_npu_integration._rust_npu_initialized:
+                    return self._npu.rust_npu.get_neuron_count()
+                return 0
+            
+            @property
+            def count(self):
+                return self.neuron_count
+            
+            @property
+            def max_neurons(self):
+                """Return the maximum neuron capacity."""
+                return self._npu.max_neurons
+        
+        return _MinimalNeuronArrayProxy(self)
+    
+    @property
+    def synapse_array(self):
+        """DEPRECATED: Temporary compatibility property.
+        
+        Returns an object that provides ONLY synapse_count and max_synapses.
+        All other synapse operations should use the clean API methods.
+        This will be removed once ConnectomeManager is fully migrated to clean APIs.
+        """
+        logger.debug("[DEPRECATED] synapse_array property accessed - migrate to clean API methods")
+        
+        class _MinimalSynapseArrayProxy:
+            def __init__(self, npu_interface):
+                self._npu = npu_interface
+            
+            @property
+            def synapse_count(self):
+                if self._npu._rust_npu_integration and self._npu._rust_npu_integration._rust_npu_initialized:
+                    return self._npu.rust_npu.get_synapse_count()
+                return 0
+            
+            @property
+            def count(self):
+                return self.synapse_count
+            
+            @property
+            def max_synapses(self):
+                """Return the maximum synapse capacity."""
+                return self._npu.max_synapses
+        
+        return _MinimalSynapseArrayProxy(self)
+    
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
         """Create neurons by directly calling Rust NPU."""
         logger.warning("🦀 [NPU-INTERFACE] create_neurons_batch called for %d neurons (cortical_idx=%d)", 
@@ -225,7 +357,7 @@ class NPUInterface:
                     neuron_ids.append(neuron_id)
                     self.neuron_id_to_index[neuron_id] = neuron_id  # For now, ID == index
                     self.index_to_neuron_id[neuron_id] = neuron_id
-                self.neuron_to_area[neuron_id] = request.cortical_idx
+                    self.neuron_to_area[neuron_id] = request.cortical_idx
                     successful_count += 1
                     
                 except Exception as e:
@@ -255,12 +387,12 @@ class NPUInterface:
         """Create synapses by delegating to Rust NPU."""
         try:
             if self._rust_npu_integration is None:
-                logger.warning("[NPU-INTERFACE] Rust NPU not ready - buffering synapse creation")
+                logger.warning("[NPU-INTERFACE] Rust NPU not ready - cannot create synapses")
             return BatchOperationResult(
-                result=OperationResult.SUCCESS,
-                    successful_count=len(request.source_neuron_ids),
-                failed_indices=[]
-            )
+                result=OperationResult.BACKEND_ERROR,
+                successful_count=0,
+                    failed_indices=list(range(len(request.source_neuron_ids)))
+                )
             
             successful_count = 0
             failed_indices = []
@@ -282,7 +414,7 @@ class NPUInterface:
                     
                     successful_count += 1
                     
-        except Exception as e:
+                except Exception as e:
                     logger.error(f"[NPU-INTERFACE] Failed to create synapse {i}: {e}")
                     failed_indices.append(i)
             
@@ -358,7 +490,7 @@ class NPUInterface:
             }
         
         try:
-        return {
+            return {
                 'neuron_count': self.rust_npu.get_neuron_count(),
                 'synapse_count': self.rust_npu.get_synapse_count(),
                 'utilization': {
@@ -376,7 +508,7 @@ class NPUInterface:
     
     def configure_plasticity_queue(self, capacity: int) -> None:
         """Configure bounded plasticity command queue capacity.
-        
+
         Note: Plasticity is handled by Rust in the future, but this method
         exists for compatibility with PlasticityService initialization.
         """

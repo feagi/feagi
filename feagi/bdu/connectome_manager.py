@@ -302,7 +302,15 @@ class ConnectomeManager(NeuronMappingProvider):
                 f"[CONNECTOME] Failed to register Morton spatial hash with state manager: {e}"
             )
 
+        # Backward compatibility for tests - store the instance
+        ConnectomeManager._instance = self
+        
         ConnectomeManager._initialized = True
+        
+        logger.info(
+            "✅ ConnectomeManager initialized with Rust NPU backend",
+            status="[OK]",
+        )
 
     #  ============================================================================
     # NeuronMappingProvider Interface Implementation - Single Source of Truth
@@ -311,21 +319,14 @@ class ConnectomeManager(NeuronMappingProvider):
     def get_neuron_index(self, neuron_id: int) -> Optional[int]:
         """Get the array index for a neuron ID.
 
-        NPU NeuronArray is the single source of truth for ID↔index mappings.
+        ✅ Uses NPU interface clean API (future Rust-compatible).
         """
-        # Prefer NPU-owned mapping
-        try:
-            if hasattr(self, "neuron_array") and self.neuron_array:
-                idx = self.neuron_array.neuron_id_to_index.get(neuron_id)
-                if idx is not None:
-                    return idx
-            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
-                idx = self.memory_neuron_array.neuron_id_to_index.get(neuron_id)
-                if idx is not None:
-                    return idx
-        except Exception:
-            pass
-        # Legacy mapping (may be empty in new architecture)
+        # Check if neuron exists via NPU interface
+        if self._npu_interface and self._npu_interface.neuron_exists(neuron_id):
+            # For now, return neuron_id as index (Rust NPU uses ID as internal index)
+            return neuron_id
+        
+        # Legacy mapping (will be removed after full migration)
         return self._neuron_id_to_index_map.get(neuron_id)
 
     def get_neuron_id(self, index: int) -> Optional[int]:
@@ -1097,14 +1098,6 @@ class ConnectomeManager(NeuronMappingProvider):
         )
         return failed_count == 0
 
-        # Backward compatibility for tests - store the instance
-        ConnectomeManager._instance = self
-
-        logger.info(
-            f"ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend",
-            status="[OK]",
-        )
-
     @property
     def _npu_interface(self):
         """Property to track access to NPU interface."""
@@ -1170,16 +1163,8 @@ class ConnectomeManager(NeuronMappingProvider):
         try:
             # Always adopt the provided NPU interface to ensure single source of truth
             self._npu_interface = npu_interface
-            # Wire arrays from NPU (authoritative owners)
-            if hasattr(npu_interface, "neuron_array"):
-                self.neuron_array = npu_interface.neuron_array
-            if hasattr(npu_interface, "synapse_array"):
-                self.synapse_array = npu_interface.synapse_array
-            if hasattr(npu_interface, "memory_neuron_array"):
-                self.memory_neuron_array = npu_interface.memory_neuron_array
 
-            logger.info("✅ NPU interface set as PRIMARY owner of synaptic updates")
-            logger.info("✅ ConnectomeManager arrays now reference NPU-owned arrays")
+            logger.info("✅ NPU interface set - ConnectomeManager uses clean API delegation")
         except Exception as e:
             logger.error(f"Failed to set NPU interface on ConnectomeManager: {e}")
 
@@ -6007,60 +5992,30 @@ class ConnectomeManager(NeuronMappingProvider):
         # 4. Reset neuron array efficiently
         if hasattr(self, "neuron_array"):
             try:
-                # Reset the neuron array to empty state efficiently
-                # Handle both PyTorch tensors and NumPy arrays
-                import torch
-
-                # Clear neuron data through NPU Interface if available
-                if self._npu_interface and self._npu_interface.neuron_array:
-                    neuron_array = self._npu_interface.neuron_array
-                    if isinstance(neuron_array.valid_mask, torch.Tensor):
-                        # PyTorch tensors use fill_() method
-                        neuron_array.valid_mask.fill_(False)
-                    else:
-                        # NumPy arrays use fill() method
-                        neuron_array.valid_mask.fill(False)
-                    neuron_array.neuron_count = 0
+                # ✅ RUST NPU: Skip array manipulation - Rust NPU will be re-initialized
+                # The Rust NPU is completely rebuilt during genome load via
+                # BurstEngine.reinitialize_rust_npu(), so no manual clearing needed.
+                if self._npu_interface and hasattr(self._npu_interface, '_rust_npu_integration'):
+                    logger.info(
+                        "🦀 [RUST-NPU] Skipping neuron array reset - Rust NPU will be re-initialized during genome load",
+                        status="[OK]",
+                    )
+                    # Clear Python-side mappings only
+                    self._neuron_id_to_index_map.clear()
+                    self._index_to_neuron_id_map.clear()
+                    if self._npu_interface:
+                        self._npu_interface.neuron_to_area.clear()
+                        self._npu_interface.neuron_id_to_index.clear()
+                        self._npu_interface.index_to_neuron_id.clear()
                 else:
-                    # NumPy arrays use fill() method
-                    if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "valid_mask"):
-                        self.neuron_array.valid_mask.fill(False)
-                        self.neuron_array.neuron_count = 0
-
-                #  CRITICAL: Reset the internal index tracking to allow reuse
-                #  of neurons (only if NPU interface is available)
-                if self._npu_interface and self._npu_interface.neuron_array:
-                    neuron_array = self._npu_interface.neuron_array
-                    neuron_array.next_index = 0
-                    neuron_array.free_indices = set()
-                #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
-                #  prevent ID instability
-                    neuron_array._next_neuron_id = 1
-
-                # Clear mappings that track neuron relationships
+                    # Legacy Python neuron array reset (should not be reached)
+                    logger.warning("Legacy neuron array reset path - this should not be reached with Rust NPU")
+                    
+            except Exception as e:
+                logger.warning(f"Error during neuron data reset: {e}")
+                # Clear mappings as fallback
                 self._neuron_id_to_index_map.clear()
                 self._index_to_neuron_id_map.clear()
-                if hasattr(self.neuron_array, "cortical_id_to_indices"):
-                    self.neuron_array.cortical_id_to_indices.clear()
-
-                logger.info(
-                    f"Reset neuron array state and index tracking efficiently - neuron ID counter reset to {self.neuron_array._next_neuron_id}",
-                    status="[OK]",
-                )
-            except Exception as e:
-                logger.warning(f"Error resetting neuron array: {e}")
-                # Force reset the critical counters even if tensor reset fails
-                if self._npu_interface and self._npu_interface.neuron_array:
-                    neuron_array = self._npu_interface.neuron_array
-                    neuron_array.neuron_count = 0
-                    neuron_array.next_index = 0
-                    neuron_array.free_indices = set()
-                #  CRITICAL FIX: Also reset the neuron ID counter during force
-                #  reset
-                    neuron_array._next_neuron_id = 1
-                logger.info(
-                    "Force-reset critical neuron array counters", status="[OK]"
-                )
 
         # 5. Clear all ID mappings in one operation
         if hasattr(self, "neuron_id_to_index"):
