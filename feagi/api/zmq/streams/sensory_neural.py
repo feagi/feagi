@@ -661,13 +661,13 @@ class SensoryNeuralStream:
             self._stats["bytes_received"] += nbytes
             self._stats["last_message_time"] = time.time()
 
-            # Decode feagi_data_processing format
+            # Decode feagi_data_processing format using native feagi_rust module
             try:
-                import feagi_rust_py_libs as fdp
+                import feagi_rust
 
-                # Create FeagiByteStructure directly from raw bytes (modern API)
+                # Create FeagiByteStructure directly from raw bytes (native Rust API)
                 raw_bytes = data[:nbytes]
-                byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
+                byte_structure = feagi_rust.FeagiByteStructure(raw_bytes)
 
                 # Get structure type using FEAGI's API (informational only)
                 try:
@@ -681,8 +681,8 @@ class SensoryNeuralStream:
                 except Exception:
                     structure_type = None
 
-                # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
-                cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                # Create CorticalMappedXYZPNeuronDataDecoder from the byte structure (native Rust API)
+                cortical_mapped = feagi_rust.CorticalMappedXYZPNeuronDataDecoder.new_from_feagi_byte_structure(
                     byte_structure
                 )
 
@@ -755,7 +755,7 @@ class SensoryNeuralStream:
 
                 if self._is_debug_npu_enabled():
                     logger.info(
-                        f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding"
+                        f"✅ Decoded {neuron_count} neurons using native feagi_rust decoder"
                     )
 
                 # Convert back to numpy arrays for SIMD performance
@@ -843,7 +843,7 @@ class SensoryNeuralStream:
 
             except Exception as e:
                 logger.error(
-                    f"❌ Failed to decode feagi_data_processing format: {e}"
+                    f"❌ Failed to decode using native feagi_rust decoder: {e}"
                 )
                 import traceback
 

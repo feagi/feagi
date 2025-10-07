@@ -33,10 +33,10 @@
 //! ```
 
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule, PyBytes};
-use numpy::PyReadonlyArray1;
+use pyo3::types::{PyDict, PyModule, PyBytes};
+use numpy::{PyArray1, ToPyArray};
 use feagi_types::*;
-use feagi_burst_engine::{SynapticPropagationEngine as RustEngine, RustNPU as RustNPUCore, BurstResult as RustBurstResult};
+use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
 use ahash::AHashMap;
 use feagi_data_structures::neurons::xyzp::{NeuronXYZP, NeuronXYZPArrays, CorticalMappedXYZPNeuronData};
 use feagi_data_structures::genomic::CorticalID;
@@ -595,8 +595,193 @@ impl VisualizationEncoder {
     }
 }
 
-// TODO: Add DataDecoder once deserialization API is available in published feagi_data_serialization crate
-// For now, feagi/api/protocols/translator.py continues using feagi_rust_py_libs for decoding
+/// Python wrapper for decoding FEAGI byte structures
+/// 
+/// This class provides the same API as feagi_rust_py_libs for compatibility,
+/// allowing feagi_core to decode incoming neural data from agents.
+#[pyclass]
+struct FeagiByteStructure {
+    raw_bytes: Vec<u8>,
+}
+
+#[pymethods]
+impl FeagiByteStructure {
+    #[new]
+    fn new(raw_bytes: Vec<u8>) -> Self {
+        Self { raw_bytes }
+    }
+    
+    /// Get the structure type ID from the byte structure
+    /// 
+    /// Returns:
+    ///     int: Structure type ID (e.g., 11 for NeuronCategoricalXYZP)
+    #[getter]
+    fn structure_type(&self) -> PyResult<u8> {
+        if self.raw_bytes.is_empty() {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Empty byte structure"
+            ));
+        }
+        Ok(self.raw_bytes[0])
+    }
+}
+
+/// Decoder for FEAGI neural data
+/// 
+/// Compatible with feagi_rust_py_libs API for seamless migration.
+#[pyclass]
+struct CorticalMappedXYZPNeuronDataDecoder {
+    mapped_data: CorticalMappedXYZPNeuronData,
+}
+
+#[pymethods]
+impl CorticalMappedXYZPNeuronDataDecoder {
+    /// Create decoder from FeagiByteStructure
+    /// 
+    /// Args:
+    ///     byte_structure: FeagiByteStructure containing encoded neural data
+    /// 
+    /// Returns:
+    ///     CorticalMappedXYZPNeuronDataDecoder: Decoder with parsed data
+    #[staticmethod]
+    fn new_from_feagi_byte_structure(byte_structure: &FeagiByteStructure) -> PyResult<Self> {
+        // Decode the byte structure manually following the format
+        let bytes = &byte_structure.raw_bytes;
+        
+        if bytes.len() < 4 {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Invalid byte structure: too short"
+            ));
+        }
+        
+        // Parse header
+        let struct_type = bytes[0];
+        if struct_type != 11 {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                format!("Unsupported structure type: {}", struct_type)
+            ));
+        }
+        
+        let num_areas = u16::from_le_bytes([bytes[2], bytes[3]]) as usize;
+        
+        let mut mapped_data = CorticalMappedXYZPNeuronData::new();
+        let mut offset = 4;
+        
+        // Parse each cortical area
+        for _ in 0..num_areas {
+            if offset + 14 > bytes.len() {
+                break;
+            }
+            
+            // Parse cortical ID (6 bytes ASCII)
+            let cid_bytes = &bytes[offset..offset + 6];
+            let cid_str = std::str::from_utf8(cid_bytes)
+                .unwrap_or("??????")
+                .trim_end_matches('\0');
+            let cortical_id = CorticalID::new_custom_cortical_area_id(cid_str.to_string())
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID: {}", e)))?;
+            
+            offset += 6;
+            
+            // Parse data start and length
+            let _data_start = u32::from_le_bytes([
+                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+            ]) as usize;
+            offset += 4;
+            
+            let data_len = u32::from_le_bytes([
+                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+            ]) as usize;
+            offset += 4;
+            
+            // Parse neurons (16 bytes per neuron: x, y, z, p as u32/f32)
+            let num_neurons = data_len / 16;
+            let mut neurons = NeuronXYZPArrays::new();
+            
+            for i in 0..num_neurons {
+                let neuron_offset = offset + (i * 16);
+                if neuron_offset + 16 > bytes.len() {
+                    break;
+                }
+                
+                let x = u32::from_le_bytes([
+                    bytes[neuron_offset],
+                    bytes[neuron_offset + 1],
+                    bytes[neuron_offset + 2],
+                    bytes[neuron_offset + 3],
+                ]);
+                
+                let y = u32::from_le_bytes([
+                    bytes[neuron_offset + 4],
+                    bytes[neuron_offset + 5],
+                    bytes[neuron_offset + 6],
+                    bytes[neuron_offset + 7],
+                ]);
+                
+                let z = u32::from_le_bytes([
+                    bytes[neuron_offset + 8],
+                    bytes[neuron_offset + 9],
+                    bytes[neuron_offset + 10],
+                    bytes[neuron_offset + 11],
+                ]);
+                
+                let p_bytes = [
+                    bytes[neuron_offset + 12],
+                    bytes[neuron_offset + 13],
+                    bytes[neuron_offset + 14],
+                    bytes[neuron_offset + 15],
+                ];
+                let p = f32::from_le_bytes(p_bytes);
+                
+                let neuron = NeuronXYZP::new(x, y, z, p);
+                neurons.push(&neuron);
+            }
+            
+            mapped_data.insert(cortical_id, neurons);
+            offset += data_len;
+        }
+        
+        Ok(Self { mapped_data })
+    }
+    
+    /// Iterate over all cortical areas and their neurons
+    /// 
+    /// Yields:
+    ///     Tuples of (cortical_id, (x_coords, y_coords, z_coords, potentials))
+    ///     where coordinates are numpy arrays for performance
+    fn iter_full<'py>(&self, py: Python<'py>) -> PyResult<Vec<(Py<PyAny>, (Bound<'py, PyArray1<u32>>, Bound<'py, PyArray1<u32>>, Bound<'py, PyArray1<u32>>, Bound<'py, PyArray1<f32>>))>> {
+        let mut results = Vec::new();
+        
+        for (cortical_id, neurons) in self.mapped_data.mappings.iter() {
+            // Convert CorticalID to Python string
+            let cid_str = cortical_id.as_ascii_string();
+            let py_cid = cid_str.to_object(py);
+            
+            // Extract coordinate arrays
+            let mut x_coords = Vec::with_capacity(neurons.len());
+            let mut y_coords = Vec::with_capacity(neurons.len());
+            let mut z_coords = Vec::with_capacity(neurons.len());
+            let mut potentials = Vec::with_capacity(neurons.len());
+            
+            for neuron in neurons.iter() {
+                x_coords.push(neuron.cortical_coordinate.x);
+                y_coords.push(neuron.cortical_coordinate.y);
+                z_coords.push(neuron.cortical_coordinate.z);
+                potentials.push(neuron.potential);
+            }
+            
+            // Convert to numpy arrays for performance compatibility
+            let x_array = x_coords.to_pyarray_bound(py);
+            let y_array = y_coords.to_pyarray_bound(py);
+            let z_array = z_coords.to_pyarray_bound(py);
+            let p_array = potentials.to_pyarray_bound(py);
+            
+            results.push((py_cid, (x_array, y_array, z_array, p_array)));
+        }
+        
+        Ok(results)
+    }
+}
 
 /// Module containing fast neural network operations
 #[pymodule]
@@ -608,11 +793,15 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add visualization encoding (uses published feagi_data_structures)
     m.add_class::<VisualizationEncoder>()?;
     
+    // Add data decoding (NEW! - eliminates feagi_rust_py_libs dependency)
+    m.add_class::<FeagiByteStructure>()?;
+    m.add_class::<CorticalMappedXYZPNeuronDataDecoder>()?;
+    
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead
 
     // Add version information
-    m.add("__version__", "0.4.0")?;
+    m.add("__version__", "0.5.0")?;
 
     Ok(())
 }
