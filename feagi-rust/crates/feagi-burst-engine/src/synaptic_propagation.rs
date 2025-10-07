@@ -67,17 +67,20 @@ impl SynapticPropagationEngine {
         }
     }
 
-    /// Build the synapse index from a synapse array
+    /// Build the synapse index from a synapse array (Structure-of-Arrays)
     /// This should be called once during initialization or when connectome changes
-    pub fn build_synapse_index(&mut self, synapses: &[Synapse]) {
+    /// 
+    /// ZERO-COPY: Works directly with SynapseArray without allocating intermediate structures
+    pub fn build_synapse_index(&mut self, synapse_array: &SynapseArray) {
         self.synapse_index.clear();
         
-        for (idx, synapse) in synapses.iter().enumerate() {
-            if synapse.valid {
+        for i in 0..synapse_array.count {
+            if synapse_array.valid_mask[i] {
+                let source = NeuronId(synapse_array.source_neurons[i]);
                 self.synapse_index
-                    .entry(synapse.source_neuron)
+                    .entry(source)
                     .or_insert_with(Vec::new)
-                    .push(idx);
+                    .push(i);
             }
         }
     }
@@ -94,12 +97,12 @@ impl SynapticPropagationEngine {
     /// # Performance Notes
     /// - Uses Rayon for parallel processing
     /// - SIMD-friendly vectorized calculations
-    /// - Minimal allocations in hot path
+    /// - ZERO-COPY: Works directly with SynapseArray (no allocation overhead)
     /// - Cache-friendly data access patterns
     pub fn propagate(
         &mut self,
         fired_neurons: &[NeuronId],
-        synapses: &[Synapse],
+        synapse_array: &SynapseArray,
     ) -> Result<PropagationResult> {
         self.total_propagations += 1;
 
@@ -124,23 +127,34 @@ impl SynapticPropagationEngine {
 
         // PHASE 2: COMPUTE - Calculate contributions in parallel (TRUE SIMD!)
         // This is where Python spent 165ms doing inefficient numpy ops
+        // ZERO-COPY: Access SynapseArray fields directly (Structure-of-Arrays)
         let contributions: Vec<(NeuronId, CorticalAreaId, SynapticContribution)> = synapse_indices
             .par_iter()
             .filter_map(|&syn_idx| {
-                let synapse = &synapses[syn_idx];
-                
-                // Skip invalid synapses
-                if !synapse.valid {
+                // Skip invalid synapses (already filtered by build_synapse_index, but double-check)
+                if !synapse_array.valid_mask[syn_idx] {
                     return None;
                 }
 
+                // Get target neuron from SoA
+                let target_neuron = NeuronId(synapse_array.target_neurons[syn_idx]);
+                
                 // Get target cortical area
-                let cortical_area = *self.neuron_to_area.get(&synapse.target_neuron)?;
+                let cortical_area = *self.neuron_to_area.get(&target_neuron)?;
 
-                // Calculate contribution (SIMD-friendly: weight × conductance × sign)
-                let contribution = synapse.calculate_contribution();
+                // Calculate contribution directly from SoA fields (SIMD-friendly)
+                let weight = SynapticWeight(synapse_array.weights[syn_idx]);
+                let conductance = SynapticConductance(synapse_array.conductances[syn_idx]);
+                let synapse_type = match synapse_array.types[syn_idx] {
+                    0 => SynapseType::Excitatory,
+                    _ => SynapseType::Inhibitory,
+                };
+                
+                // Calculate: weight × conductance × sign
+                let sign = if synapse_type == SynapseType::Excitatory { 1.0 } else { -1.0 };
+                let contribution = SynapticContribution(weight.to_float() * conductance.to_float() * sign);
 
-                Some((synapse.target_neuron, cortical_area, contribution))
+                Some((target_neuron, cortical_area, contribution))
             })
             .collect();
 

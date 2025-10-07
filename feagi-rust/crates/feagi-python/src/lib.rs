@@ -43,6 +43,7 @@ use feagi_data_structures::genomic::CorticalID;
 // Note: FeagiSerializable is private in feagi_data_serialization, but we need its methods
 // So we'll implement serialization manually using the internal implementation details
 
+/*  LEGACY: Not used - full RustNPU is used instead
 /// Python wrapper for the Rust synaptic propagation engine
 #[pyclass]
 struct SynapticPropagationEngine {
@@ -180,6 +181,7 @@ impl SynapticPropagationEngine {
         self.engine.reset_stats();
     }
 }
+*/  // End LEGACY block
 
 /// Python wrapper for BurstResult
 #[pyclass]
@@ -599,7 +601,7 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VisualizationEncoder>()?;
     
     // Add the synaptic propagation engine (legacy, for compatibility)
-    m.add_class::<SynapticPropagationEngine>()?;
+    // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead
 
     // Add version information
     m.add("__version__", "0.4.0")?;

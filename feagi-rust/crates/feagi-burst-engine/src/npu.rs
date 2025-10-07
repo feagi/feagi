@@ -152,9 +152,8 @@ impl RustNPU {
     
     /// Rebuild indexes after modifications (call after bulk modifications)
     pub fn rebuild_indexes(&mut self) {
-        // Convert synapse array to Synapse vector for indexing
-        let synapses = self.get_valid_synapses();
-        self.propagation_engine.build_synapse_index(&synapses);
+        // ZERO-COPY: Pass synapse_array by reference
+        self.propagation_engine.build_synapse_index(&self.synapse_array);
     }
     
     /// Set neuron to cortical area mapping for propagation engine
@@ -169,10 +168,8 @@ impl RustNPU {
     pub fn process_burst(&mut self, power_neurons: &[NeuronId]) -> Result<BurstResult> {
         self.burst_count += 1;
         
-        // Convert synapse array to slice for propagation
-        let synapses = self.get_valid_synapses();
-        
         // Phase 1: Injection (power + synaptic propagation)
+        // ZERO-COPY: Pass synapse_array by reference (no allocation)
         let injection_result = phase1_injection_with_synapses(
             &mut self.fire_candidate_list,
             &self.neuron_array,
@@ -180,7 +177,7 @@ impl RustNPU {
             &self.previous_fire_queue,
             power_neurons,
             self.power_amount,
-            &synapses,
+            &self.synapse_array,
         )?;
         
         // Phase 2: Neural Dynamics (membrane potential updates, threshold checks, firing)
@@ -256,28 +253,6 @@ impl RustNPU {
         self.synapse_array.valid_count()
     }
     
-    // Helper: Convert synapse array to vector of valid synapses
-    fn get_valid_synapses(&self) -> Vec<Synapse> {
-        let mut synapses = Vec::with_capacity(self.synapse_array.count);
-        
-        for i in 0..self.synapse_array.count {
-            if self.synapse_array.valid_mask[i] {
-                synapses.push(Synapse {
-                    source_neuron: NeuronId(self.synapse_array.source_neurons[i]),
-                    target_neuron: NeuronId(self.synapse_array.target_neurons[i]),
-                    weight: SynapticWeight(self.synapse_array.weights[i]),
-                    conductance: SynapticConductance(self.synapse_array.conductances[i]),
-                    synapse_type: match self.synapse_array.types[i] {
-                        0 => SynapseType::Excitatory,
-                        _ => SynapseType::Inhibitory,
-                    },
-                    valid: true,
-                });
-            }
-        }
-        
-        synapses
-    }
 }
 
 /// Phase 1 injection result
@@ -296,7 +271,7 @@ fn phase1_injection_with_synapses(
     previous_fire_queue: &FireQueue,
     power_neurons: &[NeuronId],
     power_amount: f32,
-    synapses: &[Synapse],
+    synapse_array: &SynapseArray,
 ) -> Result<InjectionResult> {
     // Clear FCL from previous burst
     fcl.clear();
@@ -328,8 +303,8 @@ fn phase1_injection_with_synapses(
             eprintln!("🦀 [RUST-NPU-DEBUG] Previously fired: {:?}", fired_ids);
         }
         
-        // Call synaptic propagation engine with synapses
-        let propagation_result = propagation_engine.propagate(&fired_ids, synapses)?;
+        // Call synaptic propagation engine (ZERO-COPY: pass synapse_array by reference)
+        let propagation_result = propagation_engine.propagate(&fired_ids, synapse_array)?;
         eprintln!("🦀 [RUST-NPU-DEBUG] Propagation engine returned {} source neurons with targets", propagation_result.len());
         
         // Inject propagated potentials into FCL
