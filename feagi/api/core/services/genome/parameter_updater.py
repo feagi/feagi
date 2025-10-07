@@ -224,11 +224,19 @@ class CorticalParameterUpdater:
 
                 cortical_idx = cortical_area.cortical_idx
 
-                # Update excitability in NPU (authoritative) and mirror on area properties for reads
+                # CRITICAL: Update excitability in neuron_array BEFORE Rust NPU reload
+                # This is the source of truth that Rust NPU reads from
                 try:
                     npu = getattr(self.connectome_manager, "_npu_interface", None)
-                    if npu and hasattr(npu, "set_area_excitability"):
-                        npu.set_area_excitability(cortical_idx, float(value))
+                    if npu and hasattr(npu, "neuron_array"):
+                        neurons_updated = npu.neuron_array.update_excitability_by_cortical_area(
+                            cortical_idx, float(value)
+                        )
+                        self.logger.info(
+                            f"🔥 [EXCITABILITY-UPDATE] Updated excitability to {value} for {neurons_updated} neurons in area {cortical_id} (cortical_idx={cortical_idx})"
+                        )
+                    else:
+                        self.logger.warning("Could not find neuron_array in NPU interface - excitability update skipped!")
                 except Exception as npu_err:
                     self.logger.warning(f"Could not set area excitability in NPU: {npu_err}")
 
@@ -249,6 +257,28 @@ class CorticalParameterUpdater:
                         self.logger.debug("Invalidated BurstEngine excitability cache after parameter update")
                 except Exception as cache_err:
                     self.logger.warning(f"Could not invalidate excitability cache: {cache_err}")
+                
+                # CRITICAL: Reinitialize Rust NPU after excitability changes
+                # The Rust NPU loads excitability values once at init, so we need to reload
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
+                        if burst_engine._rust_npu_integration is not None:
+                            self.logger.info("🦀 [RUST-NPU] Excitability changed - reloading neuron array from neuron_array...")
+                            try:
+                                burst_engine.reinitialize_rust_npu()
+                                self.logger.info(f"🦀 [RUST-NPU] ✅ Neuron array reloaded - excitability change active for area {cortical_id}")
+                            except Exception as reinit_error:
+                                self.logger.error(f"🦀 [RUST-NPU] Failed to reload neuron array: {reinit_error}")
+                                self.logger.warning(f"🦀 [RUST-NPU] ⚠️ Excitability change will not be active until FEAGI restart")
+                        else:
+                            self.logger.debug("🦀 [RUST-NPU] Not yet initialized - excitability will be loaded on first burst")
+                    else:
+                        self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                except Exception as rust_error:
+                    self.logger.error(f"🦀 [RUST-NPU] Error during neuron array reload: {rust_error}")
+                    self.logger.exception("Full stack trace:")
 
                 self.logger.info(
                     f"[FAST-UPDATE] Updated neuron_excitability to {value} for area {cortical_id} (cortical_idx={cortical_idx})"

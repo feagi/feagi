@@ -19,6 +19,37 @@
 
 use feagi_types::*;
 use rayon::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Fast PCG hash for deterministic pseudo-random number generation
+/// Based on PCG family of PRNGs: https://www.pcg-random.org/
+/// 
+/// This provides fast, high-quality pseudo-random numbers suitable for
+/// excitability checks without requiring a mutable RNG state.
+#[inline(always)]
+fn pcg_hash(input: u32) -> u32 {
+    let mut state = input.wrapping_mul(747796405).wrapping_add(2891336453);
+    let word = ((state >> ((state >> 28) + 4)) ^ state).wrapping_mul(277803737);
+    (word >> 22) ^ word
+}
+
+/// Convert PCG hash to floating point in range [0, 1)
+#[inline(always)]
+fn pcg_hash_to_float(input: u32) -> f32 {
+    (pcg_hash(input) as f32) / 4294967296.0
+}
+
+/// Generate pseudo-random value for excitability check
+/// 
+/// CRITICAL: Combines neuron_id AND burst_count to ensure different random values each burst.
+/// This ensures probabilistic firing works correctly (e.g., 20% excitability = 20% chance per burst).
+#[inline(always)]
+fn excitability_random(neuron_id: u32, burst_count: u64) -> f32 {
+    // Combine neuron_id and burst_count to get different random values each burst
+    // Use wrapping operations to prevent overflow
+    let seed = neuron_id.wrapping_mul(2654435761).wrapping_add((burst_count as u32).wrapping_mul(1597334677));
+    pcg_hash_to_float(seed)
+}
 
 /// Result of neural dynamics processing
 #[derive(Debug, Clone)]
@@ -45,6 +76,7 @@ pub struct DynamicsResult {
 pub fn process_neural_dynamics(
     fcl: &FireCandidateList,
     neuron_array: &mut NeuronArray,
+    burst_count: u64,
 ) -> Result<DynamicsResult> {
     let candidates = fcl.get_all_candidates();
     
@@ -66,7 +98,7 @@ pub fn process_neural_dynamics(
         let mut refractory = 0;
         
         for &(neuron_id, candidate_potential) in &candidates {
-            if let Some(neuron) = process_single_neuron(neuron_id, candidate_potential, neuron_array) {
+            if let Some(neuron) = process_single_neuron(neuron_id, candidate_potential, neuron_array, burst_count) {
                 results.push(neuron);
             }
             
@@ -101,6 +133,7 @@ fn process_single_neuron(
     neuron_id: NeuronId,
     candidate_potential: f32,
     neuron_array: &mut NeuronArray,
+    burst_count: u64,
 ) -> Option<FiringNeuron> {
     let idx = neuron_id.0 as usize;
     
@@ -173,22 +206,33 @@ fn process_single_neuron(
         // 6. Apply probabilistic excitability
         let excitability = neuron_array.excitabilities[idx];
         
-        // Fast path: excitability = 1.0 means always fire
-        let should_fire = if excitability >= 1.0 {
+        // Fast path: excitability >= 0.999 means always fire (matches Python)
+        let should_fire = if excitability >= 0.999 {
             true
         } else if excitability <= 0.0 {
+            // Log when neurons are blocked by zero excitability
+            eprintln!("🦀 [EXCITABILITY-DEBUG] Neuron {} (idx={}) BLOCKED (excitability=0.0)", 
+                      neuron_id.0, idx);
             false
         } else {
-            // Probabilistic firing based on excitability
-            // For production, use a proper RNG. For now, use a deterministic check.
-            // TODO: Add RNG support
-            current_potential >= threshold * (1.0 / excitability)
+            // Probabilistic firing based on excitability (matches Python RNG logic)
+            // CRITICAL: Use excitability_random() which combines neuron_id AND burst_count
+            // This ensures different random values each burst (e.g., 20% excitability = 20% chance per burst)
+            let random_val = excitability_random(neuron_id.0, burst_count);
+            let fire = random_val < excitability;
+            
+            // Log first 5 neurons with probabilistic excitability per burst to avoid spam
+            static PROBABILISTIC_LOG_COUNT: AtomicUsize = AtomicUsize::new(0);
+            let log_count = PROBABILISTIC_LOG_COUNT.fetch_add(1, Ordering::Relaxed);
+            if log_count < 5 {
+                eprintln!("🦀 [EXCITABILITY-DEBUG] Neuron {} (idx={}) PROBABILISTIC: burst={}, excitability={:.3}, random_val={:.3}, should_fire={}", 
+                          neuron_id.0, idx, burst_count, excitability, random_val, fire);
+            } else if log_count == 5 {
+                eprintln!("🦀 [EXCITABILITY-DEBUG] (suppressing further probabilistic logs this burst...)");
+            }
+            
+            fire
         };
-        
-        if idx < 5 {
-            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} excitability check: excitability={:.3}, should_fire={}", 
-                      neuron_id.0, excitability, should_fire);
-        }
         
         if should_fire {
             if idx < 5 {
@@ -266,10 +310,11 @@ fn process_single_neuron(
 pub fn process_neural_dynamics_simd(
     fcl: &FireCandidateList,
     neuron_array: &mut NeuronArray,
+    burst_count: u64,
 ) -> Result<DynamicsResult> {
     // TODO: Implement SIMD version using std::simd or explicit SIMD intrinsics
     // For now, fall back to scalar implementation
-    process_neural_dynamics(fcl, neuron_array)
+    process_neural_dynamics(fcl, neuron_array, burst_count)
 }
 
 #[cfg(test)]
@@ -298,7 +343,7 @@ mod tests {
         fcl.add_candidate(id, 1.5);
         
         // Process dynamics
-        let result = process_neural_dynamics(&fcl, &mut neurons).unwrap();
+        let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 1);
         assert_eq!(result.fire_queue.len(), 1);
@@ -315,7 +360,7 @@ mod tests {
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.5);  // Below threshold
         
-        let result = process_neural_dynamics(&fcl, &mut neurons).unwrap();
+        let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 0);
         assert_eq!(result.fire_queue.len(), 0);
@@ -334,7 +379,7 @@ mod tests {
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 2.0);  // Well above threshold
         
-        let result = process_neural_dynamics(&fcl, &mut neurons).unwrap();
+        let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 0);
         assert_eq!(neurons.refractory_countdowns[0], 2);  // Decremented
@@ -363,7 +408,7 @@ mod tests {
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.1);
         
-        process_neural_dynamics(&fcl, &mut neurons).unwrap();
+        process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         // Expected LIF: (1.0 + 0.1) + 0.5 * (0.0 - 1.1) = 1.1 - 0.55 = 0.55
         assert!((neurons.get_potential(id) - 0.55).abs() < 0.001);
@@ -376,7 +421,7 @@ mod tests {
         // Add 10 neurons
         let mut ids = Vec::new();
         for i in 0..10 {
-            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0.0, 0, 5, 1.0, 0, 1, i, 0, 0).unwrap();
+            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, i, 0, 0).unwrap();
             ids.push(id);
         }
         
@@ -386,7 +431,7 @@ mod tests {
             fcl.add_candidate(*id, 1.5);
         }
         
-        let result = process_neural_dynamics(&fcl, &mut neurons).unwrap();
+        let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_processed, 10);
         assert_eq!(result.neurons_fired, 10);

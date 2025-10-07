@@ -188,17 +188,42 @@ class RustNPUIntegration:
         count = 0
         neuron_count = getattr(neuron_array, 'neuron_count', 0)
         
+        # CRITICAL DEBUG: Track neurons per cortical area during load
+        neurons_per_area = {}
+        
+        # Debug: Check excitability values
+        logger.error("="*80)
+        logger.error("🔥 [EXCITABILITY-DEBUG] RELOADING NEURONS INTO RUST NPU - CHECKING EXCITABILITY!")
+        logger.error("="*80)
+        if hasattr(neuron_array, 'excitabilities'):
+            unique_excitabilities = sorted(set(neuron_array.excitabilities[:neuron_count]))
+            logger.error("🔥 [EXCITABILITY-DEBUG] Loading %d neurons, unique excitability values: %s", 
+                          neuron_count, unique_excitabilities[:20])  # Show up to 20 unique values
+        else:
+            logger.error("🔥 [EXCITABILITY-DEBUG] WARNING: neuron_array has NO 'excitabilities' attribute!")
+        
+        logger.error("🔥 [EXCITABILITY-DEBUG] Starting neuron load: neuron_count=%d", neuron_count)
+        
         for i in range(neuron_count):
             try:
+                cortical_area_idx = int(neuron_array.cortical_areas[i]) if hasattr(neuron_array, 'cortical_areas') else 0
+                excitability = float(neuron_array.excitabilities[i]) if hasattr(neuron_array, 'excitabilities') else 1.0
+                
+                # Track per-area statistics
+                if cortical_area_idx not in neurons_per_area:
+                    neurons_per_area[cortical_area_idx] = {'count': 0, 'excitabilities': set()}
+                neurons_per_area[cortical_area_idx]['count'] += 1
+                neurons_per_area[cortical_area_idx]['excitabilities'].add(excitability)
+                
                 self._rust_npu.add_neuron(
                     threshold=float(neuron_array.thresholds[i]) if hasattr(neuron_array, 'thresholds') else 1.0,
                     leak_coefficient=float(neuron_array.leak_coefficients[i]) if hasattr(neuron_array, 'leak_coefficients') else 0.0,
                     resting_potential=float(neuron_array.resting_potentials[i]) if hasattr(neuron_array, 'resting_potentials') else 0.0,
                     neuron_type=int(neuron_array.neuron_types[i]) if hasattr(neuron_array, 'neuron_types') else 0,
                     refractory_period=int(neuron_array.refractory_periods[i]) if hasattr(neuron_array, 'refractory_periods') else 0,
-                    excitability=float(neuron_array.excitabilities[i]) if hasattr(neuron_array, 'excitabilities') else 1.0,
+                    excitability=excitability,
                     consecutive_fire_limit=int(neuron_array.consecutive_fire_limits[i]) if hasattr(neuron_array, 'consecutive_fire_limits') else 0,
-                    cortical_area=int(neuron_array.cortical_areas[i]) if hasattr(neuron_array, 'cortical_areas') else 0,
+                    cortical_area=cortical_area_idx,
                     x=int(neuron_array.coordinates[i * 3]) if hasattr(neuron_array, 'coordinates') else 0,
                     y=int(neuron_array.coordinates[i * 3 + 1]) if hasattr(neuron_array, 'coordinates') else 0,
                     z=int(neuron_array.coordinates[i * 3 + 2]) if hasattr(neuron_array, 'coordinates') else 0
@@ -206,6 +231,16 @@ class RustNPUIntegration:
                 count += 1
             except Exception as e:
                 logger.warning("🦀 [RUST-NPU] Failed to load neuron %d: %s", i, str(e))
+        
+        # Log per-area summary
+        logger.error("="*80)
+        logger.error("🔥 [EXCITABILITY-DEBUG] Loaded %d neurons across %d cortical areas", count, len(neurons_per_area))
+        logger.error("="*80)
+        for area_idx in sorted(neurons_per_area.keys()):  # Log ALL areas
+            area_info = neurons_per_area[area_idx]
+            logger.error("🔥 [EXCITABILITY-DEBUG]   Area %d: %d neurons, excitabilities=%s", 
+                          area_idx, area_info['count'], sorted(area_info['excitabilities']))
+        logger.error("="*80)
         
         return count
     

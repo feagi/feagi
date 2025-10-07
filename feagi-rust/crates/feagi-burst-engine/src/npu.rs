@@ -184,6 +184,7 @@ impl RustNPU {
         let dynamics_result = process_neural_dynamics(
             &self.fire_candidate_list,
             &mut self.neuron_array,
+            self.burst_count,
         )?;
         
         // Phase 3: Archival (record to Fire Ledger)

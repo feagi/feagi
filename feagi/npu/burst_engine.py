@@ -313,17 +313,30 @@ class BurstEngine:
         # Create FiringNeuron objects and FireQueue for API/FQ sampler compatibility
         if result['neuron_count'] > 0:
             logger.warning("🦀 [POWER-DEBUG] Creating FireQueue for %d fired neurons", result['neuron_count'])
+            logger.warning("🦀 [PYTHON-LOOP-DEBUG] Processing %d neurons from result['fired_neurons']", len(result['fired_neurons']))
             # Get actual neuron properties from connectome for proper visualization
             firing_neurons = []
+            neurons_by_area = {}  # Track neurons per area for summary
+            failed_lookups = 0
+            
             for neuron_id in result['fired_neurons']:
                 # Try to get actual neuron properties from connectome
                 try:
                     cortical_area = self.connectome_manager.get_cortical_area_for_neuron(neuron_id) if self.connectome_manager else None
                     cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_area) if cortical_area else 0
                     coords = self.connectome_manager.get_neuron_position(neuron_id) if self.connectome_manager else (0, 0, 0)
-                    logger.info(f"🦀 [RUST-NPU] Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}, coords={coords}")
+                    
+                    # Track neurons by area
+                    area_key = cortical_area if cortical_area else "unknown"
+                    neurons_by_area[area_key] = neurons_by_area.get(area_key, 0) + 1
+                    
+                    # Only log first 5 and last 5 neurons per area to avoid log spam
+                    if neurons_by_area[area_key] <= 5 or neurons_by_area[area_key] > len(result['fired_neurons']) - 5:
+                        logger.info(f"🦀 [RUST-NPU] Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}, coords={coords}")
                 except Exception as e:
-                    logger.warning(f"🦀 [RUST-NPU] Failed to get properties for neuron {neuron_id}: {e}")
+                    failed_lookups += 1
+                    if failed_lookups <= 5:  # Only log first 5 failures
+                        logger.warning(f"🦀 [RUST-NPU] Failed to get properties for neuron {neuron_id}: {e}")
                     cortical_idx = 0
                     coords = (0, 0, 0)
                 
@@ -334,6 +347,10 @@ class BurstEngine:
                     coordinates=coords,
                     threshold=1.0
                 ))
+            
+            # Log summary
+            logger.warning("🦀 [PYTHON-LOOP-DEBUG] Processed %d neurons: %s (failed_lookups=%d)", 
+                          len(firing_neurons), neurons_by_area, failed_lookups)
             
             # Update previous_fire_queue (used by FQ sampler via get_current_fire_queue())
             fire_queue = FireQueue()

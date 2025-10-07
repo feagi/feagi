@@ -381,6 +381,33 @@ class NeuronArray:
             
             # Return count of updated neurons
             return int(np.sum(area_mask))
+    
+    def update_excitability_by_cortical_area(self, cortical_idx: int, excitability: float) -> int:
+        """Update excitability for all neurons in a cortical area.
+        
+        CRITICAL: This is required for Rust NPU integration.
+        When excitability changes, the neuron_array must be updated BEFORE
+        reinitializing the Rust NPU.
+        
+        Args:
+            cortical_idx: Cortical area index
+            excitability: New excitability value (0.0 to 1.0)
+            
+        Returns:
+            Number of neurons updated
+        """
+        with self._lock:
+            # Find neurons in this cortical area
+            area_mask = (self.cortical_idxs == cortical_idx) & self.valid_mask
+            
+            if not np.any(area_mask):
+                return 0
+            
+            # Update excitability (vectorized)
+            self.excitabilities[area_mask] = float(excitability)
+            
+            # Return count of updated neurons
+            return int(np.sum(area_mask))
 
 
 class MemoryNeuronArray:
