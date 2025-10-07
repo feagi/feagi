@@ -35,8 +35,15 @@ pub struct NeuronArray {
     /// Firing thresholds
     pub thresholds: Vec<f32>,
     
-    /// Leak/decay rates (0.0 to 1.0)
-    pub leak_rates: Vec<f32>,
+    /// Leak coefficients (0.0 to 1.0) - LIF leak toward resting potential
+    /// Genome parameter: leak_c (with leak_v variability applied at neuron creation)
+    pub leak_coefficients: Vec<f32>,
+    
+    /// Resting potentials - target potential for leak behavior
+    pub resting_potentials: Vec<f32>,
+    
+    /// Neuron types (0 = excitatory, 1 = inhibitory, etc.)
+    pub neuron_types: Vec<i32>,
     
     /// Refractory periods (burst counts)
     pub refractory_periods: Vec<u16>,
@@ -47,11 +54,20 @@ pub struct NeuronArray {
     /// Neuron excitability (0.0 to 1.0 for probabilistic firing)
     pub excitabilities: Vec<f32>,
     
+    /// Consecutive fire counts (how many times neuron fired in a row)
+    pub consecutive_fire_counts: Vec<u16>,
+    
+    /// Consecutive fire limits (max consecutive fires, 0 = unlimited)
+    pub consecutive_fire_limits: Vec<u16>,
+    
     /// Cortical area ID for each neuron
     pub cortical_areas: Vec<u32>,
     
     /// 3D coordinates (x, y, z) - flat array of [x0, y0, z0, x1, y1, z1, ...]
     pub coordinates: Vec<u32>,
+    
+    /// Valid neuron mask - true for initialized neurons
+    pub valid_mask: Vec<bool>,
 }
 
 impl NeuronArray {
@@ -62,22 +78,32 @@ impl NeuronArray {
             count: 0,
             membrane_potentials: vec![0.0; capacity],
             thresholds: vec![1.0; capacity],
-            leak_rates: vec![0.0; capacity],
+            leak_coefficients: vec![0.0; capacity],  // 0 = no leak (common for power neurons)
+            resting_potentials: vec![0.0; capacity],
+            neuron_types: vec![0; capacity],  // 0 = excitatory
             refractory_periods: vec![0; capacity],
             refractory_countdowns: vec![0; capacity],
             excitabilities: vec![1.0; capacity],
+            consecutive_fire_counts: vec![0; capacity],
+            consecutive_fire_limits: vec![0; capacity],  // 0 = unlimited
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
+            valid_mask: vec![false; capacity],
         }
     }
     
     /// Add a neuron (returns neuron ID = index)
+    /// 
+    /// Uses Leaky Integrate-and-Fire (LIF) model with genome parameters only.
     pub fn add_neuron(
         &mut self,
         threshold: f32,
-        leak_rate: f32,
+        leak_coefficient: f32,  // Genome: leak_c (with leak_v variability already applied)
+        resting_potential: f32,  // Target potential for leak
+        neuron_type: i32,
         refractory_period: u16,
         excitability: f32,
+        consecutive_fire_limit: u16,
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -91,13 +117,18 @@ impl NeuronArray {
         
         let id = self.count;
         self.thresholds[id] = threshold;
-        self.leak_rates[id] = leak_rate;
+        self.leak_coefficients[id] = leak_coefficient;
+        self.resting_potentials[id] = resting_potential;
+        self.neuron_types[id] = neuron_type;
         self.refractory_periods[id] = refractory_period;
         self.excitabilities[id] = excitability.clamp(0.0, 1.0);
+        self.consecutive_fire_counts[id] = 0;
+        self.consecutive_fire_limits[id] = consecutive_fire_limit;
         self.cortical_areas[id] = cortical_area;
         self.coordinates[id * 3] = x;
         self.coordinates[id * 3 + 1] = y;
         self.coordinates[id * 3 + 2] = z;
+        self.valid_mask[id] = true;
         
         self.count += 1;
         Ok(NeuronId(id as u32))

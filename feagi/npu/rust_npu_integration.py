@@ -184,7 +184,7 @@ class RustNPUIntegration:
         return count
     
     def _load_neurons_from_array(self, neuron_array) -> int:
-        """Load neurons from neuron array."""
+        """Load neurons from neuron array with ALL properties (matches Python exactly)."""
         count = 0
         neuron_count = getattr(neuron_array, 'neuron_count', 0)
         
@@ -192,9 +192,12 @@ class RustNPUIntegration:
             try:
                 self._rust_npu.add_neuron(
                     threshold=float(neuron_array.thresholds[i]) if hasattr(neuron_array, 'thresholds') else 1.0,
-                    leak_rate=float(neuron_array.leak_rates[i]) if hasattr(neuron_array, 'leak_rates') else 0.0,
+                    leak_coefficient=float(neuron_array.leak_coefficients[i]) if hasattr(neuron_array, 'leak_coefficients') else 0.0,
+                    resting_potential=float(neuron_array.resting_potentials[i]) if hasattr(neuron_array, 'resting_potentials') else 0.0,
+                    neuron_type=int(neuron_array.neuron_types[i]) if hasattr(neuron_array, 'neuron_types') else 0,
                     refractory_period=int(neuron_array.refractory_periods[i]) if hasattr(neuron_array, 'refractory_periods') else 0,
                     excitability=float(neuron_array.excitabilities[i]) if hasattr(neuron_array, 'excitabilities') else 1.0,
+                    consecutive_fire_limit=int(neuron_array.consecutive_fire_limits[i]) if hasattr(neuron_array, 'consecutive_fire_limits') else 0,
                     cortical_area=int(neuron_array.cortical_areas[i]) if hasattr(neuron_array, 'cortical_areas') else 0,
                     x=int(neuron_array.coordinates[i * 3]) if hasattr(neuron_array, 'coordinates') else 0,
                     y=int(neuron_array.coordinates[i * 3 + 1]) if hasattr(neuron_array, 'coordinates') else 0,
@@ -318,11 +321,17 @@ class RustNPUIntegration:
         if not self._rust_npu_initialized:
             self.initialize()
         
+        logger.warning("🦀 [POWER-DEBUG] process_burst called with %d power neurons: %s", 
+                      len(power_neurons),
+                      power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
+        
         # Call Rust NPU (THIS IS THE FAST PATH - ALL IN RUST!)
         burst_start = time.perf_counter()
         
         try:
             result = self._rust_npu.process_burst(power_neurons=power_neurons)
+            logger.warning("🦀 [POWER-DEBUG] Rust NPU process_burst returned: power_injections=%d, fired_neurons=%d", 
+                          result.power_injections, len(result.fired_neurons))
             burst_time = (time.perf_counter() - burst_start) * 1000
             
             # Track performance

@@ -249,11 +249,14 @@ class BurstEngine:
         if self.injection_service and self.enable_injection:
             try:
                 power_neurons = self.injection_service._get_power_neurons()
-                logger.info("🦀 [RUST-NPU] Power neurons retrieved: %d neurons - %s", 
+                logger.warning("🦀 [POWER-DEBUG] Power neurons retrieved: %d neurons - %s", 
                            len(power_neurons),
                            power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
             except Exception as e:
-                logger.error("🦀 [RUST-NPU] Failed to get power neurons: %s", str(e), exc_info=True)
+                logger.error("🦀 [POWER-DEBUG] Failed to get power neurons: %s", str(e), exc_info=True)
+        else:
+            logger.warning("🦀 [POWER-DEBUG] injection_service=%s, enable_injection=%s", 
+                          self.injection_service, self.enable_injection)
         
         # 2. Get manual stimulation / sensory neurons
         if hasattr(self, '_pending_external_activations') and self._pending_external_activations:
@@ -292,8 +295,16 @@ class BurstEngine:
         # Combine all injection neurons
         all_injection_neurons = power_neurons + manual_neurons
         
+        logger.warning("🦀 [POWER-DEBUG] Total injection neurons: %d (power=%d, manual=%d) - %s", 
+                      len(all_injection_neurons), len(power_neurons), len(manual_neurons),
+                      all_injection_neurons[:10] if len(all_injection_neurons) > 10 else all_injection_neurons)
+        
         # Process burst in Rust (ALL IN RUST!)
         result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)
+        
+        logger.warning("🦀 [POWER-DEBUG] Rust result: neuron_count=%d, fired_neurons=%s", 
+                      result.get('neuron_count', 0), 
+                      result.get('fired_neurons', [])[:10])
         
         # Update internal state
         self.burst_count = result['burst']
@@ -301,6 +312,7 @@ class BurstEngine:
         
         # Create FiringNeuron objects and FireQueue for API/FQ sampler compatibility
         if result['neuron_count'] > 0:
+            logger.warning("🦀 [POWER-DEBUG] Creating FireQueue for %d fired neurons", result['neuron_count'])
             # Get actual neuron properties from connectome for proper visualization
             firing_neurons = []
             for neuron_id in result['fired_neurons']:
@@ -329,12 +341,15 @@ class BurstEngine:
             self.previous_fire_queue = fire_queue
             
             # Debug: Check what's in the fire queue
-            logger.info("🦀 [RUST-NPU] FireQueue updated: %d neurons, %d areas, empty=%s", 
+            logger.warning("🦀 [POWER-DEBUG] FireQueue updated: %d neurons, %d areas, empty=%s, firing_neurons=%s", 
                        result['neuron_count'], 
                        len(fire_queue.firing_neurons_by_area),
-                       fire_queue.is_empty())
+                       fire_queue.is_empty(),
+                       [(fn.neuron_id, fn.cortical_idx) for fn in firing_neurons[:5]])
         else:
             # No neurons fired, but still update the reference
+            logger.warning("🦀 [POWER-DEBUG] No neurons fired (neuron_count=%d), creating empty FireQueue", 
+                          result.get('neuron_count', 0))
             self.previous_fire_queue = FireQueue()
             
         return result['fired_neurons']

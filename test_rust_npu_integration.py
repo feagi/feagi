@@ -49,9 +49,12 @@ try:
     for i in range(10):
         neuron_id = npu.add_neuron(
             threshold=1.0,
-            leak_rate=0.1,
+            leak_coefficient=0.1,
+            resting_potential=0.0,
+            neuron_type=0,
             refractory_period=5,
             excitability=1.0,
+            consecutive_fire_limit=0,
             cortical_area=1,
             x=i, y=0, z=0
         )

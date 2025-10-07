@@ -308,16 +308,31 @@ impl RustNPU {
     fn add_neuron(
         &mut self,
         threshold: f32,
-        leak_rate: f32,
+        leak_coefficient: f32,
+        resting_potential: f32,
+        neuron_type: i32,
         refractory_period: u16,
         excitability: f32,
+        consecutive_fire_limit: u16,
         cortical_area: u32,
         x: u32,
         y: u32,
         z: u32,
     ) -> PyResult<u32> {
         self.npu
-            .add_neuron(threshold, leak_rate, refractory_period, excitability, cortical_area, x, y, z)
+            .add_neuron(
+                threshold,
+                leak_coefficient,
+                resting_potential,
+                neuron_type,
+                refractory_period,
+                excitability,
+                consecutive_fire_limit,
+                cortical_area,
+                x,
+                y,
+                z,
+            )
             .map(|id| id.0)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }

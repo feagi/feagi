@@ -98,13 +98,16 @@ impl RustNPU {
         self.power_amount = amount;
     }
     
-    /// Add a neuron to the NPU
+    /// Add a neuron to the NPU (LIF model with genome leak only)
     pub fn add_neuron(
         &mut self,
         threshold: f32,
-        leak_rate: f32,
+        leak_coefficient: f32,
+        resting_potential: f32,
+        neuron_type: i32,
         refractory_period: u16,
         excitability: f32,
+        consecutive_fire_limit: u16,
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -112,9 +115,12 @@ impl RustNPU {
     ) -> Result<NeuronId> {
         self.neuron_array.add_neuron(
             threshold,
-            leak_rate,
+            leak_coefficient,
+            resting_potential,
+            neuron_type,
             refractory_period,
             excitability,
+            consecutive_fire_limit,
             cortical_area,
             x,
             y,
@@ -302,8 +308,15 @@ fn phase1_injection_with_synapses(
     for &neuron_id in power_neurons {
         let idx = neuron_id.0 as usize;
         if idx < neuron_array.count {
+            eprintln!("🦀 [INJECTION-DEBUG] Power neuron {} (idx={}): threshold={:.3}, power_amount={:.3}, leak_coeff={:.3}, refrac={}, refrac_countdown={}, membrane_potential={:.3}", 
+                      neuron_id.0, idx, neuron_array.thresholds[idx], power_amount, 
+                      neuron_array.leak_coefficients[idx], neuron_array.refractory_periods[idx],
+                      neuron_array.refractory_countdowns[idx], neuron_array.membrane_potentials[idx]);
             fcl.add_candidate(neuron_id, power_amount);
             power_count += 1;
+        } else {
+            eprintln!("🦀 [INJECTION-DEBUG] Power neuron {} out of bounds (idx={} >= count={})", 
+                      neuron_id.0, idx, neuron_array.count);
         }
     }
     
@@ -358,8 +371,9 @@ mod tests {
     fn test_add_neurons() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let id1 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 0, 0, 0).unwrap();
-        let id2 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 1, 0, 0).unwrap();
+        // (threshold, decay_rate, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, cortical_area, x, y, z)
+        let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
         
         assert_eq!(id1.0, 0);
         assert_eq!(id2.0, 1);
@@ -370,8 +384,8 @@ mod tests {
     fn test_add_synapses() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 1, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
         
         npu.add_synapse(
             n1,
@@ -389,7 +403,7 @@ mod tests {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
         // Add a power neuron
-        let power_neuron = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 0, 0, 0).unwrap();
+        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
         
         // Process burst with power injection
         let result = npu.process_burst(&[power_neuron]).unwrap();
@@ -403,8 +417,8 @@ mod tests {
     fn test_synapse_removal() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 5, 1.0, 1, 1, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
         
         npu.add_synapse(n1, n2, SynapticWeight(128), SynapticConductance(255), SynapseType::Excitatory).unwrap();
         assert_eq!(npu.get_synapse_count(), 1);

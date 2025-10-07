@@ -115,18 +115,62 @@ fn process_single_neuron(
         return None;
     }
     
-    // 2. Apply leak/decay to existing membrane potential
-    let leak_rate = neuron_array.leak_rates[idx];
-    let decayed_potential = neuron_array.membrane_potentials[idx] * (1.0 - leak_rate);
+    // 2. Add candidate potential (matches Python: add BEFORE checking threshold)
+    let old_potential = neuron_array.membrane_potentials[idx];
+    let current_potential = old_potential + candidate_potential;
+    neuron_array.membrane_potentials[idx] = current_potential;
     
-    // 3. Add candidate potential
-    let new_potential = decayed_potential + candidate_potential;
-    neuron_array.membrane_potentials[idx] = new_potential;
+    // DEBUG: Log for first few neurons
+    if idx < 5 {
+        eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} ({}): old_potential={:.3}, candidate={:.3}, new_potential={:.3}", 
+                  neuron_id.0, idx, old_potential, candidate_potential, current_potential);
+    }
     
-    // 4. Check threshold
+    // 3. Check threshold (matches Python: "Check firing conditions BEFORE decay")
     let threshold = neuron_array.thresholds[idx];
-    if new_potential >= threshold {
-        // 5. Apply probabilistic excitability
+    if current_potential >= threshold {
+        if idx < 5 {
+            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} ABOVE threshold: {:.3} >= {:.3}", 
+                      neuron_id.0, current_potential, threshold);
+        }
+        // 5. Check consecutive fire limit (matches Python SIMD implementation)
+        // Skip constraint if consecutive_fire_limit is 0 (unlimited firing)
+        let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
+        let consecutive_fire_count = neuron_array.consecutive_fire_counts[idx];
+        
+        let consecutive_fire_constraint = if consecutive_fire_limit > 0 {
+            consecutive_fire_count < consecutive_fire_limit
+        } else {
+            true  // No limit (limit == 0 means unlimited)
+        };
+        
+        if idx < 5 {
+            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} consecutive fire check: limit={}, count={}, constraint={}", 
+                      neuron_id.0, consecutive_fire_limit, consecutive_fire_count, consecutive_fire_constraint);
+        }
+        
+        if !consecutive_fire_constraint {
+            // Neuron exceeded consecutive fire limit - prevent firing
+            // CRITICAL FIX: Reset count to prevent permanent deadlock
+            // (Once blocked, neuron can never fire again without this reset)
+            neuron_array.consecutive_fire_counts[idx] = 0;
+            
+            if idx < 5 {
+                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} BLOCKED by consecutive fire limit! Resetting count to 0", neuron_id.0);
+            }
+            
+            // Apply leak to prevent potential from growing unbounded
+            let leak_coefficient = neuron_array.leak_coefficients[idx];
+            if leak_coefficient > 0.0 {
+                let resting_potential = neuron_array.resting_potentials[idx];
+                let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
+                neuron_array.membrane_potentials[idx] = leaked_potential;
+            }
+            
+            return None;
+        }
+        
+        // 6. Apply probabilistic excitability
         let excitability = neuron_array.excitabilities[idx];
         
         // Fast path: excitability = 1.0 means always fire
@@ -138,10 +182,23 @@ fn process_single_neuron(
             // Probabilistic firing based on excitability
             // For production, use a proper RNG. For now, use a deterministic check.
             // TODO: Add RNG support
-            new_potential >= threshold * (1.0 / excitability)
+            current_potential >= threshold * (1.0 / excitability)
         };
         
+        if idx < 5 {
+            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} excitability check: excitability={:.3}, should_fire={}", 
+                      neuron_id.0, excitability, should_fire);
+        }
+        
         if should_fire {
+            if idx < 5 {
+                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} FIRING! Resetting potential and setting refractory", neuron_id.0);
+            }
+            // Increment consecutive fire count (matches Python SIMD implementation)
+            if consecutive_fire_limit > 0 {
+                neuron_array.consecutive_fire_counts[idx] += 1;
+            }
+            
             // Reset membrane potential
             neuron_array.membrane_potentials[idx] = 0.0;
             
@@ -158,14 +215,45 @@ fn process_single_neuron(
             
             return Some(FiringNeuron {
                 neuron_id,
-                membrane_potential: new_potential,
+                membrane_potential: current_potential,
                 cortical_area: CorticalAreaId(neuron_array.cortical_areas[idx]),
                 x,
                 y,
                 z,
             });
+        } else {
+            // should_fire was false due to excitability
+            if idx < 5 {
+                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} did NOT fire due to excitability check", neuron_id.0);
+            }
+        }
+    } else {
+        // Neuron was below threshold
+        if idx < 5 {
+            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} BELOW threshold: {:.3} < {:.3}", 
+                      neuron_id.0, current_potential, threshold);
         }
     }
+    
+    // Neuron did not fire - apply leak and reset consecutive fire count
+    // (matches Python: "Apply membrane decay to remaining neurons (leak behavior)")
+    
+    // Reset consecutive fire count (matches Python SIMD implementation)
+    let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
+    if consecutive_fire_limit > 0 {
+        neuron_array.consecutive_fire_counts[idx] = 0;
+    }
+    
+    // Apply LIF leak toward resting potential (only for non-firing neurons)
+    // Formula: V_new = V_current + leak_coeff * (V_rest - V_current)
+    // This naturally pulls the potential toward resting potential
+    let leak_coefficient = neuron_array.leak_coefficients[idx];
+    if leak_coefficient > 0.0 {
+        let resting_potential = neuron_array.resting_potentials[idx];
+        let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
+        neuron_array.membrane_potentials[idx] = leaked_potential;
+    }
+    // If leak_coefficient == 0, potential remains unchanged (e.g., power neurons)
     
     None
 }
@@ -195,9 +283,12 @@ mod tests {
         // Add a neuron with threshold 1.0
         let id = neurons.add_neuron(
             1.0,   // threshold
-            0.1,   // leak_rate
+            0.0,   // leak_coefficient
+            0.0,   // resting_potential
+            0,     // neuron_type
             5,     // refractory_period
             1.0,   // excitability
+            0,     // consecutive_fire_limit
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -219,7 +310,7 @@ mod tests {
     fn test_neuron_does_not_fire_below_threshold() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.1, 5, 1.0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
         
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.5);  // Below threshold
@@ -235,7 +326,7 @@ mod tests {
     fn test_refractory_period_blocks_firing() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.0, 5, 1.0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
         
         // Set refractory countdown
         neurons.refractory_countdowns[0] = 3;
@@ -255,10 +346,13 @@ mod tests {
         
         let id = neurons.add_neuron(
             10.0,  // High threshold (won't fire)
-            0.5,   // 50% leak
-            0,
-            1.0,
-            1,
+            0.5,   // leak_coefficient (50% leak toward resting)
+            0.0,   // resting_potential
+            0,     // neuron_type
+            0,     // refractory_period
+            1.0,   // excitability
+            0,     // consecutive_fire_limit
+            1,     // cortical_area
             0, 0, 0
         ).unwrap();
         
@@ -271,8 +365,8 @@ mod tests {
         
         process_neural_dynamics(&fcl, &mut neurons).unwrap();
         
-        // Expected: 1.0 * (1 - 0.5) + 0.1 = 0.6
-        assert!((neurons.get_potential(id) - 0.6).abs() < 0.001);
+        // Expected LIF: (1.0 + 0.1) + 0.5 * (0.0 - 1.1) = 1.1 - 0.55 = 0.55
+        assert!((neurons.get_potential(id) - 0.55).abs() < 0.001);
     }
 
     #[test]
@@ -282,7 +376,7 @@ mod tests {
         // Add 10 neurons
         let mut ids = Vec::new();
         for i in 0..10 {
-            let id = neurons.add_neuron(1.0, 0.1, 5, 1.0, 1, i, 0, 0).unwrap();
+            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0.0, 0, 5, 1.0, 0, 1, i, 0, 0).unwrap();
             ids.push(id);
         }
         
