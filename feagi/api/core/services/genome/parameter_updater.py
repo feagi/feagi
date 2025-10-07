@@ -78,49 +78,33 @@ class CorticalParameterUpdater:
             # Convert value using the specified converter
             converted_value = converter(value) if callable(converter) else converter(value)
             
-            # Update neuron_array for all neurons in this cortical area
-            import numpy as np
-            npu = getattr(self.connectome_manager, "_npu_interface", None)
-            if not npu or not hasattr(npu, "neuron_array"):
-                self.logger.warning(f"Could not find neuron_array for {property_name} update")
-                return False
+            # ✅ DIRECT RUST NPU UPDATE - No Python array intermediary!
+            # Parameter updates work by triggering Rust NPU reinitialization,
+            # which reloads ALL neuron properties from ConnectomeManager's genome data
             
-            neuron_array = npu.neuron_array
-            if not hasattr(neuron_array, 'cortical_idxs') or not hasattr(neuron_array, 'valid_mask'):
-                self.logger.warning(f"neuron_array missing required attributes for {property_name} update")
-                return False
-            
-            # Vectorized update: find all neurons in this cortical area and update them
-            area_mask = (neuron_array.cortical_idxs == cortical_idx) & neuron_array.valid_mask
-            
-            if not np.any(area_mask):
-                self.logger.warning(f"No neurons found in cortical area {cortical_id} for {property_name} update")
-                return False
-            
-            # Get the target array and update it
-            target_array = getattr(neuron_array, array_field)
-            target_array[area_mask] = converted_value
-            
-            neurons_updated = int(np.sum(area_mask))
             self.logger.info(
-                f"🔥 [{display_name.upper()}-UPDATE] Updated {property_name} to {converted_value} for {neurons_updated} neurons in area {cortical_id} (cortical_idx={cortical_idx})"
+                f"🔥 [{display_name.upper()}-UPDATE] Updating {property_name} to {converted_value} for area {cortical_id} (cortical_idx={cortical_idx})"
             )
             
-            # CRITICAL: Reinitialize Rust NPU after ANY neuron property change
-            # The Rust NPU loads properties once at init, so we need to reload
+            # CRITICAL: Reinitialize Rust NPU to apply the change
+            # The genome data was already updated by GenomeService, so reinit will pick it up
             try:
                 from feagi.npu.burst_engine import BurstEngine
                 burst_engine = BurstEngine.get_instance()
                 if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
                     if burst_engine._rust_npu_integration is not None:
-                        self.logger.info(f"🦀 [RUST-NPU] {display_name} changed - reloading neuron array...")
+                        self.logger.info(f"🦀 [RUST-NPU] {display_name} changed - reloading from genome...")
                         burst_engine.reinitialize_rust_npu()
-                        self.logger.info(f"🦀 [RUST-NPU] ✅ Neuron array reloaded - {property_name} change active for area {cortical_id}")
+                        self.logger.info(f"🦀 [RUST-NPU] ✅ Neuron properties reloaded - {property_name} change active for area {cortical_id}")
                     else:
                         self.logger.debug(f"🦀 [RUST-NPU] Not yet initialized - {property_name} will be loaded on first burst")
+                else:
+                    self.logger.warning(f"🦀 [RUST-NPU] BurstEngine not available for {property_name} update")
+                    return False
             except Exception as rust_error:
-                self.logger.error(f"🦀 [RUST-NPU] Error during neuron array reload: {rust_error}")
+                self.logger.error(f"🦀 [RUST-NPU] Error during Rust NPU reload: {rust_error}")
                 self.logger.exception("Full stack trace:")
+                return False
             
             return True
             

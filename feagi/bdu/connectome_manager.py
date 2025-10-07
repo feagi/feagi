@@ -1138,20 +1138,22 @@ class ConnectomeManager(NeuronMappingProvider):
         }
         npu_backend = backend_map.get(backend, BackendType.CPU)
         
-        logger.info(f"🔧 Creating NPU Interface with backend: {npu_backend.value}")
+        logger.info(f"🔧 Creating NPU Interface (Rust NPU delegation layer)")
         self._npu_interface = NPUInterface(backend=npu_backend)
+        self._npu_interface.set_connectome_manager(self)
         
-        # Set references to NPU Interface's data structures
-        self.neuron_array = self._npu_interface.neuron_array
-        self.synapse_array = self._npu_interface.synapse_array
-        self.memory_neuron_array = self._npu_interface.memory_neuron_array
+        # ✅ NO DUPLICATE ARRAYS! Rust NPU is the single source of truth
+        # neuron_array and synapse_array live ONLY in Rust memory
+        # Access them via:
+        #   - self._npu_interface.rust_npu (direct Rust NPU access)
+        #   - self._npu_interface methods (NPUInterface API)
         
-        logger.info("✅ NPU Interface initialized as single source of truth for neural data")
+        logger.info("🦀 [NPU-INTERFACE] Waiting for BurstEngine to connect Rust NPU...")
+        
+        logger.info("✅ NPU Interface initialized as Rust NPU delegation layer")
         logger.info(f"   Backend: {npu_backend.value}")
-        logger.info(f"   Max neurons: {self.neuron_array.max_neurons:,}")
-        logger.info(f"   Max synapses: {self.synapse_array.max_synapses:,}")
-        logger.info(f"   NPU Interface object: {self._npu_interface}")
-        logger.info(f"   NPU Interface is None: {self._npu_interface is None}")
+        logger.info(f"   Max neurons: {self._npu_interface.max_neurons:,}")
+        logger.info(f"   Max synapses: {self._npu_interface.max_synapses:,}")
     
     def set_npu_interface(self, npu_interface):
         """Set NPU interface as primary owner of synaptic updates.

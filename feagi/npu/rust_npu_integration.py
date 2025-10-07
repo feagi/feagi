@@ -215,7 +215,7 @@ class RustNPUIntegration:
                 neurons_per_area[cortical_area_idx]['count'] += 1
                 neurons_per_area[cortical_area_idx]['excitabilities'].add(excitability)
                 
-                self._rust_npu.add_neuron(
+                neuron_id = self._rust_npu.add_neuron(
                     threshold=float(neuron_array.thresholds[i]) if hasattr(neuron_array, 'thresholds') else 1.0,
                     leak_coefficient=float(neuron_array.leak_coefficients[i]) if hasattr(neuron_array, 'leak_coefficients') else 0.0,
                     resting_potential=float(neuron_array.resting_potentials[i]) if hasattr(neuron_array, 'resting_potentials') else 0.0,
@@ -229,6 +229,14 @@ class RustNPUIntegration:
                     y=int(neuron_array.coordinates[i * 3 + 1]) if hasattr(neuron_array, 'coordinates') else 0,
                     z=int(neuron_array.coordinates[i * 3 + 2]) if hasattr(neuron_array, 'coordinates') else 0
                 )
+                
+                # Update NPUInterface tracking (for diagnostics and compatibility)
+                if hasattr(self.connectome_manager, '_npu_interface'):
+                    npu_interface = self.connectome_manager._npu_interface
+                    npu_interface.neuron_to_area[neuron_id] = cortical_area_idx
+                    npu_interface.neuron_id_to_index[neuron_id] = neuron_id
+                    npu_interface.index_to_neuron_id[neuron_id] = neuron_id
+                
                 count += 1
             except Exception as e:
                 logger.warning("🦀 [RUST-NPU] Failed to load neuron %d: %s", i, str(e))
@@ -399,7 +407,7 @@ class RustNPUIntegration:
     def _diagnose_neuron_state(self, neuron_id: int) -> None:
         """Diagnostic helper to check neuron state (snooze, CFC, potential, etc.).
         
-        Reads from the Rust NPU's internal state, NOT the stale Python neuron_array.
+        ✅ Reads from Rust NPU (single source of truth), NOT deprecated Python arrays.
         """
         try:
             # Get neuron state directly from Rust NPU (live data!)
@@ -411,13 +419,11 @@ class RustNPUIntegration:
             # Unpack state: (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
             cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown = state
             
-            # Get cortical_idx from ConnectomeManager for display only
-            npu = getattr(self.connectome_manager, "_npu_interface", None)
+            # Get cortical_idx from neuron_to_area mapping (no Python array needed!)
             cortical_idx = -1
-            if npu and hasattr(npu, "neuron_array"):
-                neuron_array = npu.neuron_array
-                if neuron_id < len(neuron_array.cortical_idxs):
-                    cortical_idx = int(neuron_array.cortical_idxs[neuron_id])
+            if hasattr(self.connectome_manager, '_npu_interface'):
+                npu_interface = self.connectome_manager._npu_interface
+                cortical_idx = npu_interface.neuron_to_area.get(neuron_id, -1)
             
             logger.error("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
             logger.error("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 

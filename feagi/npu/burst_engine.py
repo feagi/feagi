@@ -186,6 +186,11 @@ class BurstEngine:
             fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20
         )
         
+        # Connect NPUInterface to Rust NPU (single source of truth)
+        if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+            self.connectome_manager._npu_interface.set_rust_npu_integration(self._rust_npu_integration)
+            logger.info("🔗 [NPU-INTERFACE] Connected to Rust NPU - delegation layer active")
+        
         # Initialize (will load connectome)
         self._rust_npu_integration.initialize()
         
