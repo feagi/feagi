@@ -180,10 +180,23 @@ class BurstEngine:
         if not self.connectome_manager:
             raise RuntimeError("🦀 [RUST-NPU] Cannot initialize without connectome_manager")
             
-        # Create integration layer
+        # Get capacity from NPU interface (which was calculated from genome)
+        neuron_capacity = 100_000  # Default
+        synapse_capacity = 500_000  # Default
+        
+        if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+            npu_interface = self.connectome_manager._npu_interface
+            neuron_capacity = npu_interface.max_neurons
+            synapse_capacity = npu_interface.max_synapses
+            logger.info("🦀 [RUST-NPU] Using capacity from NPU interface: %d neurons, %d synapses",
+                       neuron_capacity, synapse_capacity)
+        
+        # Create integration layer with capacity
         self._rust_npu_integration = RustNPUIntegration(
             connectome_manager=self.connectome_manager,
-            fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20
+            fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20,
+            neuron_capacity=neuron_capacity,
+            synapse_capacity=synapse_capacity
         )
         
         # Connect NPUInterface to Rust NPU (single source of truth)
@@ -191,10 +204,10 @@ class BurstEngine:
             self.connectome_manager._npu_interface.set_rust_npu_integration(self._rust_npu_integration)
             logger.info("🔗 [NPU-INTERFACE] Connected to Rust NPU - delegation layer active")
         
-        # Initialize (will load connectome)
-        self._rust_npu_integration.initialize()
-        
-        logger.info("🦀 [RUST-NPU] ✅ Initialized: %d neurons, %d synapses",
+        # ✅ NEW ARCHITECTURE: Rust NPU is created empty with capacity
+        # Neuroembryogenesis will directly fill it during genome load
+        logger.info("🦀 [RUST-NPU] ✅ Empty Rust NPU ready for neuroembryogenesis")
+        logger.info("🦀 [RUST-NPU] Current state: %d neurons, %d synapses",
                     self._rust_npu_integration.get_neuron_count(),
                     self._rust_npu_integration.get_synapse_count())
     
