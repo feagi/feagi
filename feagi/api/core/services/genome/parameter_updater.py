@@ -139,7 +139,7 @@ class CorticalParameterUpdater:
         try:
             # Fetch neuron IDs via NPU interface to avoid legacy paths and ensure SoA source of truth
             npu = getattr(self.connectome_manager, "_npu_interface", None)
-            if not npu or not getattr(npu, "neuron_array", None):
+            if not npu:
                 self.logger.error(
                     "NPU Interface is not available on ConnectomeManager; fast parameter update requires NPU"
                 )
