@@ -4789,19 +4789,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 else:
                     removed_neuron_ids = []
 
-                    results[cortical_id] = {
-                        "success": True,
-                        "old_dimensions": old_dimensions,
-                        "new_dimensions": new_dimensions,
-                        "removed_neurons": removed_neuron_ids,
-                    }
-                else:
-                    results[cortical_id] = {
-                        "success": True,
-                        "old_dimensions": old_dimensions,
-                        "new_dimensions": new_dimensions,
-                        "removed_neurons": [],
-                    }
+                results[cortical_id] = {
+                    "success": True,
+                    "old_dimensions": old_dimensions,
+                    "new_dimensions": new_dimensions,
+                    "removed_neurons": removed_neuron_ids,
+                }
 
         elif operation == "move":
             # Move multiple areas at once
