@@ -738,14 +738,65 @@ impl WGPUBackend {
     
     /// Download fired neuron results from GPU
     fn download_fired_neurons(&self) -> Result<Vec<u32>> {
-        // Create staging buffer if not exists
-        // Map buffer from GPU to CPU
-        // Read fired neuron indices
-        // Unmap buffer
+        // Get the fired_mask buffer (bitpacked output from neural dynamics shader)
+        let fired_mask_buffer = self.buffers.fired_neurons_output.as_ref()
+            .ok_or_else(|| Error::ComputationError("Fired mask buffer not created".to_string()))?;
         
-        // Placeholder: Would need fired_indices buffer and fired_count atomic
-        // For now, return empty to keep compilation working
-        Ok(vec![])
+        let fired_mask_size = fired_mask_buffer.size();
+        
+        // Create staging buffer for GPU→CPU transfer
+        let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Fired Mask Staging"),
+            size: fired_mask_size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        
+        // Copy from GPU buffer to staging buffer
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Download Fired Neurons"),
+        });
+        encoder.copy_buffer_to_buffer(fired_mask_buffer, 0, &staging_buffer, 0, fired_mask_size);
+        self.queue.submit(Some(encoder.finish()));
+        
+        // Map staging buffer to CPU memory (blocking)
+        let buffer_slice = staging_buffer.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            sender.send(result).unwrap();
+        });
+        
+        // Wait for mapping to complete
+        self.device.poll(wgpu::Maintain::Wait);
+        receiver.recv()
+            .map_err(|_| Error::ComputationError("Failed to receive buffer map result".to_string()))?
+            .map_err(|e| Error::ComputationError(format!("Failed to map buffer: {:?}", e)))?;
+        
+        // Read data
+        let data = buffer_slice.get_mapped_range();
+        let fired_mask_u32: &[u32] = bytemuck::cast_slice(&data);
+        
+        // Extract fired neuron indices from bitpacked mask
+        let mut fired_neurons = Vec::new();
+        for (word_idx, &word) in fired_mask_u32.iter().enumerate() {
+            if word != 0 {
+                // Check each bit in this word
+                for bit_idx in 0..32 {
+                    if (word & (1u32 << bit_idx)) != 0 {
+                        let neuron_id = (word_idx * 32 + bit_idx) as u32;
+                        if (neuron_id as usize) < self.current_neuron_count {
+                            fired_neurons.push(neuron_id);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Unmap buffer
+        drop(data);
+        staging_buffer.unmap();
+        
+        Ok(fired_neurons)
     }
 }
 

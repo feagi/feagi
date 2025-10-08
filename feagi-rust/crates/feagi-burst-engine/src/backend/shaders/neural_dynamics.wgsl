@@ -55,26 +55,8 @@ fn excitability_random(neuron_id: u32, burst_count: u32) -> f32 {
     return pcg_hash_to_float(seed);
 }
 
-// Check if bit is set in bitpacked array
-fn is_bit_set(array: ptr<storage, array<u32>, read>, index: u32) -> bool {
-    let word_idx = index / 32u;
-    let bit_idx = index % 32u;
-    return (array[word_idx] & (1u << bit_idx)) != 0u;
-}
-
-// Set bit in bitpacked array
-fn set_bit(array: ptr<storage, array<u32>, read_write>, index: u32) {
-    let word_idx = index / 32u;
-    let bit_idx = index % 32u;
-    array[word_idx] = array[word_idx] | (1u << bit_idx);
-}
-
-// Clear bit in bitpacked array
-fn clear_bit(array: ptr<storage, array<u32>, read_write>, index: u32) {
-    let word_idx = index / 32u;
-    let bit_idx = index % 32u;
-    array[word_idx] = array[word_idx] & ~(1u << bit_idx);
-}
+// Note: WGSL cannot pass storage pointers to functions
+// Bit operations must be inlined in the main compute function
 
 @compute @workgroup_size(256)
 fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -85,13 +67,12 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     
-    // Check if neuron is valid
-    if (!is_bit_set(&valid_mask, neuron_id)) {
+    // Check if neuron is valid (inline bit check)
+    let valid_word_idx = neuron_id / 32u;
+    let valid_bit_idx = neuron_id % 32u;
+    if ((valid_mask[valid_word_idx] & (1u << valid_bit_idx)) == 0u) {
         return;
     }
-    
-    // Clear fired mask for this neuron
-    clear_bit(&fired_mask, neuron_id);
     
     // 1. Apply leak toward resting potential
     let current_potential = membrane_potentials[neuron_id];
@@ -157,8 +138,11 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         consecutive_fire_counts[neuron_id] = 0u;
     }
     
-    // 10. Mark as fired
-    set_bit(&fired_mask, neuron_id);
+    // 10. Mark as fired (inline bit set)
+    // Note: No need for atomic as each neuron writes to its own unique bit
+    let fired_word_idx = neuron_id / 32u;
+    let fired_bit_idx = neuron_id % 32u;
+    fired_mask[fired_word_idx] = fired_mask[fired_word_idx] | (1u << fired_bit_idx);
 }
 
 // Helper compute shader to extract fired neuron indices
@@ -175,8 +159,10 @@ fn extract_fired_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     
-    // Check if neuron fired
-    if (is_bit_set(&fired_mask, neuron_id)) {
+    // Check if neuron fired (inline bit check)
+    let fired_word_idx = neuron_id / 32u;
+    let fired_bit_idx = neuron_id % 32u;
+    if ((fired_mask[fired_word_idx] & (1u << fired_bit_idx)) != 0u) {
         // Atomic append to fired_indices
         let index = atomicAdd(&fired_count, 1u);
         fired_indices[index] = neuron_id;
