@@ -17,21 +17,22 @@ Visually: `FCL (candidates) → [BurstEngine] → Fire Queue (fired) → Fire Le
 
 ## Core Components
 
-### 1) Fire Candidate List (FCL) – `npu/fire_candidate_list.py`
-- Role: Pre-burst collector of neurons that should be evaluated this burst.
+### 1) Fire Candidate List (FCL) – Rust Implementation
+- Role: Pre-burst collector of neurons that should be evaluated this burst (NOW IN RUST).
 - Model: SoA at the candidate level; per-area buckets of `(neuron_id, delta_potential, is_excitatory)`.
+- Implementation: Fully implemented in Rust `feagi-burst-engine` crate, accessed via Python FFI wrapper.
 - Determinism:
   - No threshold/decay decisions here; only accumulation of intended deltas.
-  - Optional per-area excitatory/inhibitory consolidation via `process_interactive_dynamics()` is deterministic and bounded.
+  - All processing is deterministic and bounded.
 - Responsibilities:
   - Add candidates (SoA) per cortical index
   - Provide candidate counts and statistics for diagnostics
   - Reset each burst after use (ephemeral)
 
 Typical lifecycle per burst:
-1. Clear FCL at the end of the previous burst.
+1. Rust NPU clears FCL at the end of the previous burst.
 2. Accumulate candidates (power areas, sensory, synaptic pre-computations for next burst, etc.).
-3. Hand off to Burst Engine for membrane integration.
+3. Rust Burst Engine processes FCL for membrane integration and neural dynamics.
 
 ### 2) Fire Queue – `npu/fire_queue.py`
 - Role: Holds neurons that actually fired in the current timestep (after dynamics).
