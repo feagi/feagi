@@ -17,7 +17,6 @@ Architecture Principles:
 5. High-performance SoA (Structure of Arrays) format
 """
 
-from .coordinate_converter import CoordinateConverter
 from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .burst_engine import BurstEngine
@@ -34,13 +33,6 @@ from .data_structures import (
     MemoryPatternKey
 )
 
-from .special_area_handler import (
-    SpecialAreaHandler,
-    SpecialAreaConfig,
-    CorticalId,
-    NeuronId
-)
-
 from .interface import (
     NPUInterface,
     OperationResult,
@@ -52,7 +44,6 @@ from .interface import (
 
 __all__ = [
     # Core NPU Components
-    'CoordinateConverter',
     'FireQueue',
     'FiringNeuron', 
     'FireLedgerInterface',
@@ -68,12 +59,6 @@ __all__ = [
     'SIMDConfig',
     'SIMDDetector',
     'MemoryPatternKey',
-    
-    # Special Area Handling
-    'SpecialAreaHandler',
-    'SpecialAreaConfig', 
-    'CorticalId',
-    'NeuronId',
     
     # NPU Interface
     'NPUInterface',

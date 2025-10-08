@@ -12,7 +12,6 @@ from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
-from .coordinate_converter import CoordinateConverter
 from .fq_sampler import FQSampler
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
@@ -77,7 +76,6 @@ class BurstEngine:
         
         # Core NPU components
         self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
-        self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
         
         # Per-area excitability cache for performance optimization (like old NPU)
         self._area_excitability_cache: Dict[int, float] = {}
@@ -611,12 +609,6 @@ class BurstEngine:
                 self.connectome_manager = connectome_manager
                 logger.info(f"🧬 [GENOME-UPDATE] Connectome manager updated: {type(connectome_manager)}")
                 
-                # Reinitialize components that depend on connectome manager
-                from feagi.npu.coordinate_converter import CoordinateConverter
-                
-                self.coordinate_converter = CoordinateConverter(connectome_manager)
-                logger.info("🧬 [GENOME-UPDATE] Coordinate converter reinitialized")
-                
                 # Initialize injection service if enabled
                 if self.enable_injection:
                     try:
@@ -844,105 +836,6 @@ class BurstEngine:
         except Exception:
             logger.error("Error in burst engine run() method")
             self._set_burst_engine_state(ServiceState.ERROR)
-    
-    def update_with_genome(self, connectome_manager=None) -> None:
-        """Update the burst engine configuration when a new genome is loaded.
-        
-        RUST-COMPATIBLE: Reinitializes all memory structures with deterministic sizing
-        based on genome neuron count and configuration mode (inference vs design).
-        
-        This method is called after a new genome is loaded into the connectome manager 
-        to refresh the engine's understanding of the neural network. This ensures 
-        compatibility with the genome loading process.
-        
-        Args:
-            connectome_manager: Optional connectome manager to use. If not provided,
-                               uses the existing one or attempts to get it from the genome service.
-        """
-        try:
-            # Updating burst engine with new genome
-            
-            # Accept new connectome manager or use existing one
-            if connectome_manager:
-                self.connectome_manager = connectome_manager
-                # ConnectomeManager updated
-            elif not self.connectome_manager:
-                # Try to get connectome manager from the global/service registry
-                try:
-                    # Get the connectome manager from the API service or other global reference
-                    from feagi.api.core.services.core_api_service import CoreAPIService
-                    core_service = CoreAPIService.get_instance()
-                    if core_service and hasattr(core_service, 'connectome_manager'):
-                        self.connectome_manager = core_service.connectome_manager
-                        logger.debug("ConnectomeManager retrieved from CoreAPIService: %s", type(self.connectome_manager).__name__)
-                    else:
-                        logger.debug("CoreAPIService not available or has no connectome_manager")
-                except Exception as e:
-                    logger.debug("Failed to get connectome_manager from CoreAPIService: %s", str(e))
-            
-            logger.info("[CONFIG] Updating burst engine with new genome")
-            
-            # Sync with connectome manager's current state
-            if self.connectome_manager:
-                logger.debug("ConnectomeManager available - starting integration")
-                
-                # Check if connectome manager has neuron array data
-                if hasattr(self.connectome_manager, "neuron_array"):
-                    neuron_array = self.connectome_manager.neuron_array
-                    if hasattr(neuron_array, "neuron_count"):
-                        neuron_count = neuron_array.neuron_count
-                        logger.debug("Synced with %d neurons from connectome", neuron_count)
-                    else:
-                        logger.debug("Neuron array present but no count available")
-                else:
-                    logger.debug("No neuron array data available yet")
-                
-                # CRITICAL: Re-initialize coordinate converter with connectome manager
-                if not self.coordinate_converter:
-                    from .coordinate_converter import CoordinateConverter
-                    self.coordinate_converter = CoordinateConverter(self.connectome_manager)
-                    logger.debug("CoordinateConverter created with ConnectomeManager")
-                
-                
-                # CRITICAL: Re-initialize injection service for power neurons
-                    self._initialize_injection_service()
-                logger.debug("PowerInjectionService initialized")
-                
-                # Update coordinate converter with connectome dimensions if available
-                if self.coordinate_converter and hasattr(self.connectome_manager, 'get_cortical_dimensions'):
-                    logger.debug("CoordinateConverter will use updated cortical dimensions")
-                
-                # CRITICAL: Calculate and reallocate memory structures based on genome
-                self._reinitialize_memory_structures_for_genome()
-                
-                # Mark that genome data has been integrated
-                self.genome_loaded = True
-                logger.debug("Genome integration marked complete")
-                
-                # ✅ RUST NPU: Initialize ONLY if not already initialized
-                # Neurogenesis already populated the Rust NPU, so we just connect to it
-                if RUST_AVAILABLE:
-                    if self._rust_npu_integration is None:
-                        logger.info("🦀 [RUST-NPU] Initializing Rust NPU connection after genome load")
-                        self._initialize_rust_npu()
-                        logger.info("🦀 [RUST-NPU] ✅ Connected to Rust NPU with %d neurons",
-                                   self._rust_npu_integration.get_neuron_count())
-                    else:
-                        logger.info("🦀 [RUST-NPU] ✅ Rust NPU already initialized with %d neurons (populated by neurogenesis)",
-                                   self._rust_npu_integration.get_neuron_count())
-                    if False:
-                        logger.warning("🦀 [RUST] Rust engine reinitialization failed - will retry on first burst")
-                
-            else:
-                logger.debug("No connectome manager available after integration attempt")
-            
-            logger.info("✅ Burst engine updated with new genome successfully")
-            
-        except Exception as e:
-            logger.error("Error updating burst engine with genome: %s", str(e))
-            import traceback
-            logger.error("Traceback: %s", traceback.format_exc())
-            # Don't raise - genome loading should not fail due to burst engine update issues
     
     def force_connectome_integration(self) -> bool:
         """Force integration with connectome manager for debugging purposes.
