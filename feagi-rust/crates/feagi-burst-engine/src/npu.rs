@@ -247,6 +247,47 @@ impl RustNPU {
         positions
     }
     
+    /// Update excitability for a single neuron (for live parameter changes)
+    /// Returns true if successful, false if neuron doesn't exist
+    pub fn update_neuron_excitability(&mut self, neuron_id: u32, excitability: f32) -> bool {
+        let idx = neuron_id as usize;
+        if idx >= self.neuron_array.count || !self.neuron_array.valid_mask[idx] {
+            return false;
+        }
+        
+        self.neuron_array.excitabilities[idx] = excitability.clamp(0.0, 1.0);
+        true
+    }
+    
+    /// Update excitability for all neurons in a cortical area (for bulk parameter changes)
+    /// Returns number of neurons updated
+    pub fn update_cortical_area_excitability(&mut self, cortical_area: u32, excitability: f32) -> usize {
+        let clamped_excitability = excitability.clamp(0.0, 1.0);
+        let mut updated_count = 0;
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                self.neuron_array.excitabilities[neuron_id] = clamped_excitability;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Delete a neuron (mark as invalid)
+    /// Returns true if successful, false if neuron out of bounds
+    pub fn delete_neuron(&mut self, neuron_id: u32) -> bool {
+        let idx = neuron_id as usize;
+        if idx >= self.neuron_array.count {
+            return false;
+        }
+        
+        self.neuron_array.valid_mask[idx] = false;
+        true
+    }
+    
     /// Get fire history for a specific burst
     pub fn get_fire_history(&self, burst: u64) -> Option<&FireHistory> {
         self.fire_ledger.get_burst(burst)

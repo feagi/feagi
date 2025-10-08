@@ -78,31 +78,40 @@ class CorticalParameterUpdater:
             # Convert value using the specified converter
             converted_value = converter(value) if callable(converter) else converter(value)
             
-            # ✅ DIRECT RUST NPU UPDATE - No Python array intermediary!
-            # Parameter updates work by triggering Rust NPU reinitialization,
-            # which reloads ALL neuron properties from ConnectomeManager's genome data
-            
             self.logger.info(
                 f"🔥 [{display_name.upper()}-UPDATE] Updating {property_name} to {converted_value} for area {cortical_id} (cortical_idx={cortical_idx})"
             )
             
-            # CRITICAL: Reinitialize Rust NPU to apply the change
-            # The genome data was already updated by GenomeService, so reinit will pick it up
+            # ✅ DIRECT RUST NPU UPDATE - Clean production-ready approach!
+            # Update the Rust NPU directly using dedicated update methods (no reinitialization needed)
             try:
                 from feagi.npu.burst_engine import BurstEngine
                 burst_engine = BurstEngine.get_instance()
-                if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
-                    if burst_engine._rust_npu_integration is not None:
-                        self.logger.info(f"🦀 [RUST-NPU] {display_name} changed - reloading from genome...")
-                        burst_engine.reinitialize_rust_npu()
-                        self.logger.info(f"🦀 [RUST-NPU] ✅ Neuron properties reloaded - {property_name} change active for area {cortical_id}")
-                    else:
-                        self.logger.debug(f"🦀 [RUST-NPU] Not yet initialized - {property_name} will be loaded on first burst")
-                else:
+                
+                if not burst_engine or not hasattr(burst_engine, '_rust_npu_integration'):
                     self.logger.warning(f"🦀 [RUST-NPU] BurstEngine not available for {property_name} update")
                     return False
+                
+                if burst_engine._rust_npu_integration is None or not burst_engine._rust_npu_integration._rust_npu_initialized:
+                    self.logger.debug(f"🦀 [RUST-NPU] Not yet initialized - {property_name} will be loaded on first burst")
+                    return True  # Will be picked up on init
+                
+                rust_npu = burst_engine._rust_npu_integration._rust_npu
+                
+                # Property-specific update logic
+                if property_name == 'neuron_excitability':
+                    # Use dedicated Rust method for excitability updates
+                    updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                else:
+                    # For other properties, we'll need to add specific Rust methods as needed
+                    self.logger.warning(f"🦀 [RUST-NPU] Live update for {property_name} not yet implemented - will require FEAGI restart")
+                    return False
+                
+                return True
+                
             except Exception as rust_error:
-                self.logger.error(f"🦀 [RUST-NPU] Error during Rust NPU reload: {rust_error}")
+                self.logger.error(f"🦀 [RUST-NPU] Error during Rust NPU property update: {rust_error}")
                 self.logger.exception("Full stack trace:")
                 return False
             

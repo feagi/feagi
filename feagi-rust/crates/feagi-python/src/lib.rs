@@ -466,6 +466,24 @@ impl RustNPU {
         self.npu.get_neuron_positions_in_cortical_area(cortical_area)
     }
     
+    /// Update excitability for a single neuron (live parameter change)
+    /// Returns true if successful, false if neuron doesn't exist
+    fn update_neuron_excitability(&mut self, neuron_id: u32, excitability: f32) -> bool {
+        self.npu.update_neuron_excitability(neuron_id, excitability)
+    }
+    
+    /// Update excitability for all neurons in a cortical area (bulk parameter change)
+    /// Returns number of neurons updated
+    fn update_cortical_area_excitability(&mut self, cortical_area: u32, excitability: f32) -> usize {
+        self.npu.update_cortical_area_excitability(cortical_area, excitability)
+    }
+    
+    /// Delete a neuron (mark as invalid)
+    /// Returns true if successful, false if neuron out of bounds
+    fn delete_neuron(&mut self, neuron_id: u32) -> bool {
+        self.npu.delete_neuron(neuron_id)
+    }
+    
     /// Get neuron state for diagnostics
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
     fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {
