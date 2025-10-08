@@ -393,12 +393,9 @@ class NPUInterface:
                 
                 try:
                     deleted_count = self._npu.rust_npu.remove_synapses_from_sources(source_neuron_ids)
-                    logger.info(
-                        f"🦀 [BATCH-DELETE] ✅ Deleted {deleted_count} synapses from {len(source_neuron_ids)} sources"
-                    )
                     return deleted_count
                 except Exception as e:
-                    logger.error(f"🦀 [BATCH-DELETE] ❌ Error in batch deletion: {e}")
+                    logger.error(f"🦀 [BATCH-DELETE] Error in batch deletion: {e}")
                     return 0
             
             def remove_synapses_between(self, source_neuron_ids: List[int], target_neuron_ids: List[int]) -> int:
@@ -424,13 +421,9 @@ class NPUInterface:
                     deleted_count = self._npu.rust_npu.remove_synapses_between(
                         source_neuron_ids, target_neuron_ids
                     )
-                    logger.info(
-                        f"🦀 [BATCH-DELETE] ✅ Deleted {deleted_count} synapses "
-                        f"({len(source_neuron_ids)} sources → {len(target_neuron_ids)} targets)"
-                    )
                     return deleted_count
                 except Exception as e:
-                    logger.error(f"🦀 [BATCH-DELETE] ❌ Error in batch deletion: {e}")
+                    logger.error(f"🦀 [BATCH-DELETE] Error in batch deletion: {e}")
                     return 0
         
         return _MinimalSynapseArrayProxy(self)
@@ -567,10 +560,6 @@ class NPUInterface:
             if successful_count > 0:
                 try:
                     self.rust_npu.rebuild_indexes()
-                    logger.info(
-                        f"🦀 [BATCH-CREATE] ✅ Created {successful_count} synapses "
-                        f"({len(failed_indices)} failed)"
-                    )
                 except Exception as e:
                     logger.error(f"Failed to rebuild synapse indexes: {e}")
             
