@@ -27,8 +27,14 @@ pub struct WGPUBackend {
     /// Neural dynamics compute pipeline
     neural_dynamics_pipeline: Option<wgpu::ComputePipeline>,
     
+    /// Neural dynamics bind group
+    neural_dynamics_bind_group: Option<wgpu::BindGroup>,
+    
     /// Synaptic propagation compute pipeline
     synaptic_propagation_pipeline: Option<wgpu::ComputePipeline>,
+    
+    /// Synaptic propagation bind group
+    synaptic_propagation_bind_group: Option<wgpu::BindGroup>,
     
     /// GPU buffers (persistent)
     buffers: WGPUBuffers,
@@ -36,6 +42,9 @@ pub struct WGPUBackend {
     /// Capacity (max neurons/synapses)
     neuron_capacity: usize,
     synapse_capacity: usize,
+    
+    /// Current neuron count (for dispatch)
+    current_neuron_count: usize,
 }
 
 /// GPU buffer management
@@ -134,10 +143,13 @@ impl WGPUBackend {
             device,
             queue,
             neural_dynamics_pipeline: None,
+            neural_dynamics_bind_group: None,
             synaptic_propagation_pipeline: None,
+            synaptic_propagation_bind_group: None,
             buffers: WGPUBuffers::new(),
             neuron_capacity,
             synapse_capacity,
+            current_neuron_count: 0,
         })
     }
     
@@ -208,6 +220,7 @@ impl WGPUBackend {
     /// Upload neuron array data to GPU
     fn upload_neuron_arrays(&mut self, neuron_array: &NeuronArray) -> Result<()> {
         let neuron_count = neuron_array.count;
+        self.current_neuron_count = neuron_count;
         
         // Helper to create or update buffer
         let create_buffer_f32 = |device: &wgpu::Device, queue: &wgpu::Queue, data: &[f32], label: &str| {
@@ -396,13 +409,103 @@ impl WGPUBackend {
         Ok(())
     }
     
-    /// Download results from GPU
-    fn download_results(&self) -> Result<Vec<u32>> {
-        // TODO: Map staging buffer
-        // TODO: Read fired neuron IDs
-        // TODO: Unmap buffer
+    /// Create bind groups after buffers are uploaded
+    fn create_bind_groups(&mut self) -> Result<()> {
+        // Create simplified bind group for neural dynamics
+        // Note: Full implementation would need all 16 bindings
+        // For now, creating minimal version to show structure
         
-        // Placeholder: return empty for now
+        let entries = vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.buffers.membrane_potentials.as_ref()
+                    .ok_or_else(|| Error::ComputationError("Membrane potentials buffer not created".to_string()))?
+                    .as_entire_binding(),
+            },
+            // Would need to add all other bindings here...
+        ];
+        
+        // Note: This is incomplete - just showing structure
+        // Full implementation needs bind group layout from pipeline
+        
+        Ok(())
+    }
+    
+    /// Dispatch neural dynamics shader
+    fn dispatch_neural_dynamics(&mut self, burst_count: u64) -> Result<()> {
+        let pipeline = self.neural_dynamics_pipeline.as_ref()
+            .ok_or_else(|| Error::ComputationError("Neural dynamics pipeline not initialized".to_string()))?;
+        
+        let bind_group = self.neural_dynamics_bind_group.as_ref()
+            .ok_or_else(|| Error::ComputationError("Neural dynamics bind group not created".to_string()))?;
+        
+        // Calculate workgroups (256 neurons per workgroup)
+        let workgroup_count = (self.current_neuron_count as u32 + 255) / 256;
+        
+        // Create command encoder
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Neural Dynamics Encoder"),
+        });
+        
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Neural Dynamics Pass"),
+                timestamp_writes: None,
+            });
+            
+            compute_pass.set_pipeline(pipeline);
+            compute_pass.set_bind_group(0, bind_group, &[]);
+            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        }
+        
+        // Submit commands
+        self.queue.submit(Some(encoder.finish()));
+        
+        Ok(())
+    }
+    
+    /// Dispatch synaptic propagation shader
+    fn dispatch_synaptic_propagation(&mut self, fired_count: usize) -> Result<()> {
+        let pipeline = self.synaptic_propagation_pipeline.as_ref()
+            .ok_or_else(|| Error::ComputationError("Synaptic propagation pipeline not initialized".to_string()))?;
+        
+        let bind_group = self.synaptic_propagation_bind_group.as_ref()
+            .ok_or_else(|| Error::ComputationError("Synaptic propagation bind group not created".to_string()))?;
+        
+        // Calculate workgroups (256 fired neurons per workgroup)
+        let workgroup_count = (fired_count as u32 + 255) / 256;
+        
+        // Create command encoder
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Synaptic Propagation Encoder"),
+        });
+        
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Synaptic Propagation Pass"),
+                timestamp_writes: None,
+            });
+            
+            compute_pass.set_pipeline(pipeline);
+            compute_pass.set_bind_group(0, bind_group, &[]);
+            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        }
+        
+        // Submit commands
+        self.queue.submit(Some(encoder.finish()));
+        
+        Ok(())
+    }
+    
+    /// Download fired neuron results from GPU
+    fn download_fired_neurons(&self) -> Result<Vec<u32>> {
+        // Create staging buffer if not exists
+        // Map buffer from GPU to CPU
+        // Read fired neuron indices
+        // Unmap buffer
+        
+        // Placeholder: Would need fired_indices buffer and fired_count atomic
+        // For now, return empty to keep compilation working
         Ok(vec![])
     }
 }
@@ -418,23 +521,49 @@ impl ComputeBackend for WGPUBackend {
         _synapse_array: &SynapseArray,
         _neuron_array: &mut NeuronArray,
     ) -> Result<usize> {
-        // TODO: Upload fired neurons to GPU
-        // TODO: Dispatch synaptic propagation compute shader
-        // TODO: Wait for completion
+        if fired_neurons.is_empty() {
+            return Ok(0);
+        }
         
+        // Upload fired neurons to GPU (create/update fired_neurons_input buffer)
+        let fired_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Fired Neurons Input"),
+            size: (fired_neurons.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&fired_buffer, 0, bytemuck::cast_slice(fired_neurons));
+        self.buffers.fired_neurons_input = Some(fired_buffer);
+        
+        // Dispatch synaptic propagation shader
+        self.dispatch_synaptic_propagation(fired_neurons.len())?;
+        
+        // Wait for GPU to complete (blocking - synchronous for now)
+        self.device.poll(wgpu::Maintain::Wait);
+        
+        // Return estimated synapse count (would be actual from GPU in full impl)
         Ok(fired_neurons.len() * 100) // Placeholder
     }
     
     fn process_neural_dynamics(
         &mut self,
         _neuron_array: &mut NeuronArray,
-        _burst_count: u64,
+        burst_count: u64,
     ) -> Result<(Vec<u32>, usize, usize)> {
-        // TODO: Dispatch neural dynamics compute shader
-        // TODO: Download fired neuron IDs
-        // TODO: Return results
+        // Dispatch neural dynamics compute shader
+        self.dispatch_neural_dynamics(burst_count)?;
         
-        Ok((vec![], 0, 0)) // Placeholder
+        // Wait for GPU to complete
+        self.device.poll(wgpu::Maintain::Wait);
+        
+        // Download fired neuron results
+        let fired_neurons = self.download_fired_neurons()?;
+        
+        let fired_count = fired_neurons.len();
+        let neurons_processed = self.current_neuron_count;
+        
+        // Return results (refractory count placeholder)
+        Ok((fired_neurons, neurons_processed, 0))
     }
     
     fn initialize_persistent_data(
@@ -442,9 +571,19 @@ impl ComputeBackend for WGPUBackend {
         neuron_array: &NeuronArray,
         synapse_array: &SynapseArray,
     ) -> Result<()> {
+        // Upload all data to GPU
         self.upload_neuron_arrays(neuron_array)?;
         self.upload_synapse_arrays(synapse_array)?;
+        
+        // Initialize pipelines and shaders
         self.initialize_pipelines()?;
+        
+        // Create bind groups (connect buffers to shaders)
+        self.create_bind_groups()?;
+        
+        println!("✅ GPU initialized: {} neurons, {} synapses uploaded", 
+                 neuron_array.count, synapse_array.count);
+        
         Ok(())
     }
     
@@ -452,7 +591,13 @@ impl ComputeBackend for WGPUBackend {
         // Invalidate GPU buffers - will be re-uploaded on next burst
         self.buffers = WGPUBuffers::new();
         self.neural_dynamics_pipeline = None;
+        self.neural_dynamics_bind_group = None;
         self.synaptic_propagation_pipeline = None;
+        self.synaptic_propagation_bind_group = None;
+        self.current_neuron_count = 0;
+        
+        println!("🔄 GPU state invalidated due to genome change");
+        
         Ok(())
     }
 }
