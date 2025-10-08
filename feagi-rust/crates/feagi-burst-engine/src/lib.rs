@@ -30,10 +30,12 @@
 //! - Zero-copy data access where possible
 //! - Minimal allocations in hot paths
 
+pub mod backend;
 pub mod synaptic_propagation;
 pub mod neural_dynamics;
 pub mod npu;
 
+pub use backend::*;
 pub use synaptic_propagation::*;
 pub use neural_dynamics::*;
 pub use npu::*;

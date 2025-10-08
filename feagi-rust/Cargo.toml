@@ -21,6 +21,11 @@ rayon = "1.10"
 ndarray = "0.16"
 ahash = "0.8"  # Fast non-cryptographic hashing
 
+# GPU acceleration (WGPU - cross-platform native GPU library)
+wgpu = "0.19"
+pollster = "0.3"  # Async/await executor for GPU operations
+bytemuck = { version = "1.14", features = ["derive"] }  # Type casting for GPU buffers
+
 # Published FEAGI data crates
 feagi_data_structures = "0.0.50-beta.35"
 feagi_data_serialization = "0.0.50-beta.35"

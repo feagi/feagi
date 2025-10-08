@@ -184,9 +184,13 @@ pub enum FeagiError {
 
     #[error("Memory allocation error: {0}")]
     MemoryAllocationError(String),
+
+    #[error("Invalid backend: {0}")]
+    InvalidBackend(String),
 }
 
 pub type Result<T> = std::result::Result<T, FeagiError>;
+pub type Error = FeagiError;
 
 #[cfg(test)]
 mod tests {
