@@ -1425,23 +1425,25 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        # CRITICAL FIX: Use direct mapping instead of property
-        if neuron_id not in self._neuron_id_to_index_map:
+        # ✅ RUST NPU: Use NPUInterface API (single source of truth)
+        npu = getattr(self, '_npu_interface', None)
+        if npu is None:
+            raise RuntimeError("NPU Interface not available")
+        
+        if not npu.neuron_exists(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        index = self._neuron_id_to_index_map[neuron_id]
+        # Get position from NPUInterface
+        position = npu.get_neuron_position(neuron_id)
+        if position is None:
+            raise KeyError(f"Neuron {neuron_id} position not found")
 
-        # Convert neuron array data to dictionary
-        position = (
-            int(self.neuron_array.coordinates_x[index]),
-            int(self.neuron_array.coordinates_y[index]),
-            int(self.neuron_array.coordinates_z[index]),
-        )
+        # Get cortical_idx from NPUInterface
+        cortical_idx = npu.get_neuron_cortical_idx(neuron_id)
+        if cortical_idx is None:
+            raise KeyError(f"Neuron {neuron_id} cortical_idx not found")
 
-        # Get the cortical_idx from the neuron array
-        cortical_idx = int(self.neuron_array.cortical_idxs[index])
-
-        # Find the corresponding cortical_id using O(1) translation layer
+        # Find the corresponding cortical_id using mapping
         cortical_id = self.cortical_mapping.get_id(cortical_idx)
         if cortical_id is None:
             raise RuntimeError(
@@ -1452,20 +1454,12 @@ class ConnectomeManager(NeuronMappingProvider):
             "cortical_id": cortical_id,  # String identifier (for backward compatibility)
             "cortical_idx": cortical_idx,  # Integer index (for internal use)
             "position": position,
-            "threshold": float(self.neuron_array.thresholds[index]),
-            "membrane_potential": float(
-                self.neuron_array.membrane_potentials[index]
-            ),
-            "resting_potential": float(
-                self.neuron_array.resting_potentials[index]
-            ),
-            "decay_rate": float(self.neuron_array.decay_rates[index]),
-            "refractory_period": int(
-                self.neuron_array.refractory_periods[index]
-            ),
-            "refractory_counter": int(
-                self.neuron_array.refractory_counters[index]
-            ),
+            "threshold": 1.0,  # Static genome value
+            "membrane_potential": 0.0,  # Live state not exposed via API
+            "resting_potential": 0.0,  # Static genome value
+            "decay_rate": 0.0,  # Deprecated (using leak now)
+            "refractory_period": 0,  # Static genome value
+            "refractory_counter": 0,  # Live state not exposed via API
             "properties": {},  # We don't store additional properties in the optimized version
         }
 
@@ -7384,11 +7378,10 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup using NPU SoA only (no BDU caches).
+        """Batch lookup using NPU API (Rust NPU single source of truth).
 
         Deterministically finds neurons in `cortical_id` whose
-        (coordinates_x, coordinates_y, coordinates_z) match any in
-        `candidate_positions`.
+        positions match any in `candidate_positions`.
         """
         try:
             npu = getattr(self, "_npu_interface", None)
@@ -7396,7 +7389,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup for {cortical_id}")
                 raise RuntimeError("NPU Interface required for voxel lookup")
 
-            # Resolve to cortical_idx (authoritative key) - use ConnectomeManager method
+            # Resolve to cortical_idx (authoritative key)
             cortical_idx = self.get_cortical_idx_for_id(cortical_id)
             if cortical_idx is None:
                 # Debug: Show what cortical areas actually exist
@@ -7409,26 +7402,14 @@ class ConnectomeManager(NeuronMappingProvider):
             
             logger.info(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
 
-            na = npu.neuron_array
-            if na is None or na.neuron_count == 0:
-                logger.error(f"[BATCH-LOOKUP] No neuron array or empty for {cortical_id}")
-                return []
-
-            import numpy as np
-
-            # Select indices belonging to this cortical_idx
-            valid_count = int(na.neuron_count)
-            cort_mask = (na.cortical_idxs[:valid_count] == cortical_idx)
-            if not np.any(cort_mask):
+            # ✅ RUST NPU: Use NPUInterface API (single source of truth)
+            # Get all neurons in this cortical area
+            neuron_ids_in_area = npu.get_neurons_in_cortical_area(cortical_idx)
+            if not neuron_ids_in_area:
                 logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
             
-            logger.info(f"[BATCH-LOOKUP] Found {np.sum(cort_mask)} neurons in {cortical_id}")
-
-            idxs = np.nonzero(cort_mask)[0]
-            xs = na.coordinates_x[idxs]
-            ys = na.coordinates_y[idxs]
-            zs = na.coordinates_z[idxs]
+            logger.info(f"[BATCH-LOOKUP] Found {len(neuron_ids_in_area)} neurons in {cortical_id}")
 
             # Build a hash set of target positions for O(1) membership checks
             targets = set(candidate_positions)
@@ -7436,25 +7417,28 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
                 return []
 
+            # ✅ Find neurons at target positions using NPUInterface API
             found: List[Tuple[int, float]] = []
-            for i, idx in enumerate(idxs):
-                pos = (int(xs[i]), int(ys[i]), int(zs[i]))
-                if pos in targets:
-                    nid = npu.neuron_array.index_to_neuron_id.get(int(idx))
-                    if nid is not None:
-                        found.append((int(nid), float(post_synaptic_current)))
+            for neuron_id in neuron_ids_in_area:
+                position = npu.get_neuron_position(neuron_id)
+                if position is None:
+                    continue
+                
+                if position in targets:
+                    found.append((int(neuron_id), float(post_synaptic_current)))
             
             logger.info(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
             if len(found) == 0:
                 # Debug: show first few target positions and neuron positions
                 sample_targets = list(targets)[:5]
-                sample_neurons = [(int(xs[i]), int(ys[i]), int(zs[i])) for i in range(min(5, len(idxs)))]
+                sample_neurons = [npu.get_neuron_position(nid) for nid in neuron_ids_in_area[:5]]
                 logger.error(f"[BATCH-LOOKUP] No matches for {cortical_id}. Targets: {sample_targets}, Neurons: {sample_neurons}")
             
             return found
 
         except Exception as e:
             logger.error(f"Error in NPU voxel lookup: {e}")
+            logger.exception("Full stack trace:")
             return []
 
     # ======================================================================

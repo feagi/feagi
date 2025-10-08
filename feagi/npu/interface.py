@@ -394,14 +394,26 @@ class NPUInterface:
 
     def create_synapses_batch(self, request: SynapseCreationRequest) -> BatchOperationResult:
         """Create synapses by delegating to Rust NPU."""
+        # 🔍 ENTRY LOGGING
+        logger.error("="*80)
+        logger.error("🔗 [SYNAPSE-CREATE] BATCH SYNAPSE CREATION REQUEST")
+        logger.error("="*80)
+        logger.error(f"🔗 [SYNAPSE-CREATE] Requested: {len(request.source_neuron_ids)} synapses")
+        logger.error(f"🔗 [SYNAPSE-CREATE] Sample synapses (first 5):")
+        for i in range(min(5, len(request.source_neuron_ids))):
+            logger.error(f"🔗 [SYNAPSE-CREATE]   [{i}] {request.source_neuron_ids[i]} → {request.target_neuron_ids[i]} (weight={request.weights[i]})")
+        
         try:
             if self._rust_npu_integration is None:
-                logger.warning("[NPU-INTERFACE] Rust NPU not ready - cannot create synapses")
-            return BatchOperationResult(
-                result=OperationResult.BACKEND_ERROR,
-                successful_count=0,
+                logger.error("🔗 [SYNAPSE-CREATE] ❌ FAILED: Rust NPU not ready!")
+                return BatchOperationResult(
+                    result=OperationResult.BACKEND_ERROR,
+                    successful_count=0,
                     failed_indices=list(range(len(request.source_neuron_ids)))
                 )
+            
+            logger.error(f"🔗 [SYNAPSE-CREATE] Rust NPU status: initialized={self._rust_npu_integration._rust_npu_initialized}")
+            logger.error(f"🔗 [SYNAPSE-CREATE] Current synapse count (before): {self.rust_npu.get_synapse_count()}")
             
             successful_count = 0
             failed_indices = []
@@ -412,7 +424,22 @@ class NPUInterface:
                     target = int(request.target_neuron_ids[i])
                     weight = int(max(0, min(255, request.weights[i])))  # Clamp to u8
                     
-                    # For now, use weight as both weight and conductance
+                    # Verify neurons exist
+                    if source not in self.neuron_to_area:
+                        logger.error(f"🔗 [SYNAPSE-CREATE] ❌ [{i}] Source neuron {source} does NOT exist in neuron_to_area!")
+                        failed_indices.append(i)
+                        continue
+                    
+                    if target not in self.neuron_to_area:
+                        logger.error(f"🔗 [SYNAPSE-CREATE] ❌ [{i}] Target neuron {target} does NOT exist in neuron_to_area!")
+                        failed_indices.append(i)
+                        continue
+                    
+                    # Log first few synapses in detail
+                    if i < 3:
+                        logger.error(f"🔗 [SYNAPSE-CREATE] ✅ [{i}] Calling rust_npu.add_synapse({source} → {target}, weight={weight})")
+                    
+                    # Add synapse to Rust NPU
                     self.rust_npu.add_synapse(
                         source_neuron=source,
                         target_neuron=target,
@@ -424,15 +451,28 @@ class NPUInterface:
                     successful_count += 1
                     
                 except Exception as e:
-                    logger.error(f"[NPU-INTERFACE] Failed to create synapse {i}: {e}")
+                    logger.error(f"🔗 [SYNAPSE-CREATE] ❌ [{i}] Failed to create synapse {source} → {target}: {e}")
+                    logger.exception("Full stack trace:")
                     failed_indices.append(i)
+            
+            logger.error(f"🔗 [SYNAPSE-CREATE] Batch complete: {successful_count}/{len(request.source_neuron_ids)} successful")
+            logger.error(f"🔗 [SYNAPSE-CREATE] Current synapse count (after): {self.rust_npu.get_synapse_count()}")
             
             # Rebuild synapse indexes after batch creation
             if successful_count > 0:
+                logger.error(f"🔗 [SYNAPSE-CREATE] Rebuilding synapse indexes...")
                 try:
                     self.rust_npu.rebuild_indexes()
+                    logger.error(f"🔗 [SYNAPSE-CREATE] ✅ Synapse indexes rebuilt successfully")
                 except Exception as e:
-                    logger.error(f"[NPU-INTERFACE] Failed to rebuild synapse indexes: {e}")
+                    logger.error(f"🔗 [SYNAPSE-CREATE] ❌ Failed to rebuild synapse indexes: {e}")
+                    logger.exception("Full stack trace:")
+            else:
+                logger.error(f"🔗 [SYNAPSE-CREATE] ⚠️ No synapses created - skipping index rebuild")
+            
+            logger.error("="*80)
+            logger.error(f"🔗 [SYNAPSE-CREATE] RESULT: {successful_count} created, {len(failed_indices)} failed")
+            logger.error("="*80)
             
             return BatchOperationResult(
                 result=OperationResult.SUCCESS if len(failed_indices) == 0 else OperationResult.BACKEND_ERROR,
@@ -441,7 +481,8 @@ class NPUInterface:
             )
             
         except Exception as e:
-            logger.error(f"[NPU-INTERFACE] Batch synapse creation failed: {e}")
+            logger.error(f"🔗 [SYNAPSE-CREATE] ❌ CRITICAL: Batch synapse creation failed: {e}")
+            logger.exception("Full stack trace:")
             return BatchOperationResult(
                 result=OperationResult.BACKEND_ERROR,
                 successful_count=0,

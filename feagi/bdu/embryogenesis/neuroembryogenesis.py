@@ -3267,45 +3267,20 @@ class NeuroEmbryogenesis:
                         pair[0] for pair in neuron_weight_pairs
                     ]
                     
-                    # Get all positions at once using vectorized lookup
-                    if hasattr(
-                        self.connectome_manager.neuron_array,
-                        "batch_get_coordinates",
-                    ):
-                        neuron_positions_batch = self.connectome_manager.neuron_array.batch_get_coordinates(
-                            found_neuron_ids
-                        )
+                    # ✅ RUST NPU: Get all positions using NPUInterface API
+                    npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+                    if npu_interface is not None:
+                        # Get positions directly from NPUInterface (reads from Rust NPU)
+                        neuron_positions_batch = []
+                        for neuron_id in found_neuron_ids:
+                            position = npu_interface.get_neuron_position(neuron_id)
+                            if position is not None:
+                                neuron_positions_batch.append(position)
+                            else:
+                                logger.warning(f"[VECTOR-NUMPY] No position found for neuron {neuron_id}")
                     else:
-                        # Fallback: vectorized coordinate extraction
-                        neuron_indices = [
-                            self.connectome_manager.get_neuron_index(nid) 
-                            for nid in found_neuron_ids 
-                            if self.connectome_manager.has_neuron(nid)
-                        ]
-                        
-                        # Filter out None values from the mapping lookups
-                        neuron_indices = [
-                            idx for idx in neuron_indices if idx is not None
-                        ]
-                        
-                        if neuron_indices:
-                            indices_array = np.array(
-                                neuron_indices, dtype=np.int32
-                            )
-                            coords_x = self.connectome_manager.neuron_array.coordinates_x[
-                                indices_array
-                            ]
-                            coords_y = self.connectome_manager.neuron_array.coordinates_y[
-                                indices_array
-                            ]
-                            coords_z = self.connectome_manager.neuron_array.coordinates_z[
-                                indices_array
-                            ]
-                            neuron_positions_batch = list(
-                                zip(coords_x, coords_y, coords_z)
-                            )
-                        else:
-                            neuron_positions_batch = []
+                        logger.error("[VECTOR-NUMPY] NPU interface not available - cannot get neuron positions!")
+                        neuron_positions_batch = []
                     
                     # Group neurons by position
                     for i, (neuron_id, weight) in enumerate(

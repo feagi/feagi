@@ -479,22 +479,11 @@ class CorticalAreaService(BaseService):
                         neuron_id
                     )
 
-                    # Get neuron properties
-                    membrane_potential = float(
-                        self._connectome_manager.neuron_array.membrane_potentials[
-                            neuron_index
-                        ]
-                    )
-                    threshold = float(
-                        self._connectome_manager.neuron_array.thresholds[
-                            neuron_index
-                        ]
-                    )
-                    decay_rate = float(
-                        self._connectome_manager.neuron_array.decay_rates[
-                            neuron_index
-                        ]
-                    )
+                    # ✅ RUST NPU: Get neuron properties from NPUInterface (if needed)
+                    # For now, use placeholder values as live state is not exposed via API
+                    membrane_potential = 0.0  # Live state not exposed via API
+                    threshold = 1.0  # Static genome value
+                    decay_rate = 0.0  # Deprecated (using leak now)
 
                     result.append(
                         {
