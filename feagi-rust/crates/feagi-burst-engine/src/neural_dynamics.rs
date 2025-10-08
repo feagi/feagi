@@ -153,13 +153,6 @@ fn process_single_neuron(
     if neuron_array.snooze_countdowns[idx] > 0 {
         neuron_array.snooze_countdowns[idx] -= 1;
         
-        if idx < 5 {
-            eprintln!("🦀 [SNOOZE-DEBUG] Neuron {} in SNOOZE, countdown={} → {}", 
-                      neuron_id.0, 
-                      neuron_array.snooze_countdowns[idx] + 1,
-                      neuron_array.snooze_countdowns[idx]);
-        }
-        
         // Apply leak during snooze to prevent potential buildup
         let leak_coefficient = neuron_array.leak_coefficients[idx];
         if leak_coefficient > 0.0 {
@@ -177,19 +170,9 @@ fn process_single_neuron(
     let current_potential = old_potential + candidate_potential;
     neuron_array.membrane_potentials[idx] = current_potential;
     
-    // DEBUG: Log for first few neurons
-    if idx < 5 {
-        eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} ({}): old_potential={:.3}, candidate={:.3}, new_potential={:.3}", 
-                  neuron_id.0, idx, old_potential, candidate_potential, current_potential);
-    }
-    
     // 3. Check threshold (matches Python: "Check firing conditions BEFORE decay")
     let threshold = neuron_array.thresholds[idx];
     if current_potential >= threshold {
-        if idx < 5 {
-            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} ABOVE threshold: {:.3} >= {:.3}", 
-                      neuron_id.0, current_potential, threshold);
-        }
         // 5. Check consecutive fire limit (matches Python SIMD implementation)
         // Skip constraint if consecutive_fire_limit is 0 (unlimited firing)
         let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
@@ -201,20 +184,11 @@ fn process_single_neuron(
             true  // No limit (limit == 0 means unlimited)
         };
         
-        if idx < 5 {
-            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} consecutive fire check: limit={}, count={}, constraint={}", 
-                      neuron_id.0, consecutive_fire_limit, consecutive_fire_count, consecutive_fire_constraint);
-        }
-        
         if !consecutive_fire_constraint {
             // Neuron exceeded consecutive fire limit - prevent firing
             // CRITICAL: Reset count to 0 (matches Python SIMD: all non-firing neurons get count reset)
             // This allows the neuron to fire again after being blocked for one burst
             neuron_array.consecutive_fire_counts[idx] = 0;
-            
-            if idx < 5 {
-                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} BLOCKED by consecutive fire limit! Resetting count to 0", neuron_id.0);
-            }
             
             // Apply leak to prevent potential from growing unbounded
             let leak_coefficient = neuron_array.leak_coefficients[idx];
@@ -234,34 +208,16 @@ fn process_single_neuron(
         let should_fire = if excitability >= 0.999 {
             true
         } else if excitability <= 0.0 {
-            // Log when neurons are blocked by zero excitability
-            eprintln!("🦀 [EXCITABILITY-DEBUG] Neuron {} (idx={}) BLOCKED (excitability=0.0)", 
-                      neuron_id.0, idx);
             false
         } else {
             // Probabilistic firing based on excitability (matches Python RNG logic)
             // CRITICAL: Use excitability_random() which combines neuron_id AND burst_count
             // This ensures different random values each burst (e.g., 20% excitability = 20% chance per burst)
             let random_val = excitability_random(neuron_id.0, burst_count);
-            let fire = random_val < excitability;
-            
-            // Log first 5 neurons with probabilistic excitability per burst to avoid spam
-            static PROBABILISTIC_LOG_COUNT: AtomicUsize = AtomicUsize::new(0);
-            let log_count = PROBABILISTIC_LOG_COUNT.fetch_add(1, Ordering::Relaxed);
-            if log_count < 5 {
-                eprintln!("🦀 [EXCITABILITY-DEBUG] Neuron {} (idx={}) PROBABILISTIC: burst={}, excitability={:.3}, random_val={:.3}, should_fire={}", 
-                          neuron_id.0, idx, burst_count, excitability, random_val, fire);
-            } else if log_count == 5 {
-                eprintln!("🦀 [EXCITABILITY-DEBUG] (suppressing further probabilistic logs this burst...)");
-            }
-            
-            fire
+            random_val < excitability
         };
         
         if should_fire {
-            if idx < 5 {
-                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} FIRING! Resetting potential and setting refractory", neuron_id.0);
-            }
             // Increment consecutive fire count (matches Python SIMD implementation)
             if consecutive_fire_limit > 0 {
                 neuron_array.consecutive_fire_counts[idx] += 1;
@@ -274,11 +230,6 @@ fn process_single_neuron(
                         // Reset consecutive count and enter snooze
                         neuron_array.consecutive_fire_counts[idx] = 0;
                         neuron_array.snooze_countdowns[idx] = snooze_period;
-                        
-                        if idx < 5 {
-                            eprintln!("🦀 [SNOOZE-DEBUG] Neuron {} hit limit ({} fires), entering SNOOZE for {} bursts", 
-                                      neuron_id.0, consecutive_fire_limit, snooze_period);
-                        }
                     }
                 }
             }
@@ -305,17 +256,6 @@ fn process_single_neuron(
                 y,
                 z,
             });
-        } else {
-            // should_fire was false due to excitability
-            if idx < 5 {
-                eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} did NOT fire due to excitability check", neuron_id.0);
-            }
-        }
-    } else {
-        // Neuron was below threshold
-        if idx < 5 {
-            eprintln!("🦀 [DYNAMICS-DEBUG] Neuron {} BELOW threshold: {:.3} < {:.3}", 
-                      neuron_id.0, current_potential, threshold);
         }
     }
     

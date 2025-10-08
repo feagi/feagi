@@ -74,36 +74,15 @@ impl SynapticPropagationEngine {
     pub fn build_synapse_index(&mut self, synapse_array: &SynapseArray) {
         self.synapse_index.clear();
         
-        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Building synapse index from {} synapses", synapse_array.count);
-        let mut indexed_count = 0;
-        let mut neuron_1_synapses = Vec::new();
-        
         for i in 0..synapse_array.count {
             if synapse_array.valid_mask[i] {
                 let source = NeuronId(synapse_array.source_neurons[i]);
-                let target = synapse_array.target_neurons[i];
-                
-                // Debug: Track neuron 1's synapses
-                if source.0 == 1 {
-                    neuron_1_synapses.push((source.0, target, i));
-                }
-                
                 self.synapse_index
                     .entry(source)
                     .or_insert_with(Vec::new)
                     .push(i);
-                indexed_count += 1;
             }
         }
-        
-        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Indexed {} valid synapses", indexed_count);
-        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Neuron 1 has {} synapses: {:?}", neuron_1_synapses.len(), neuron_1_synapses);
-        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] synapse_index has {} source neurons", self.synapse_index.len());
-        
-        // Show first few source neurons in the index
-        let mut sources: Vec<_> = self.synapse_index.keys().map(|k| k.0).collect();
-        sources.sort();
-        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] First 10 source neurons: {:?}", &sources[..sources.len().min(10)]);
     }
 
     /// Set the neuron-to-cortical-area mapping
@@ -131,33 +110,17 @@ impl SynapticPropagationEngine {
             return Ok(AHashMap::new());
         }
 
-        // DEBUG: Show neuron_to_area mapping size
-        eprintln!("🦀 [PROPAGATE-DEBUG] neuron_to_area has {} entries", self.neuron_to_area.len());
-        if self.neuron_to_area.len() <= 10 {
-            eprintln!("🦀 [PROPAGATE-DEBUG] neuron_to_area contents: {:?}", self.neuron_to_area);
-        }
-
         // PHASE 1: GATHER - Collect all synapse indices for fired neurons (parallel)
         let synapse_indices: Vec<usize> = fired_neurons
             .par_iter()
-            .filter_map(|&neuron_id| {
-                let indices = self.synapse_index.get(&neuron_id);
-                if neuron_id.0 == 1 {
-                    eprintln!("🦀 [PROPAGATE-DEBUG] Neuron 1 lookup: found {} synapses", 
-                             indices.map(|v| v.len()).unwrap_or(0));
-                }
-                indices
-            })
+            .filter_map(|&neuron_id| self.synapse_index.get(&neuron_id))
             .flatten()
             .copied()
             .collect();
 
         if synapse_indices.is_empty() {
-            eprintln!("🦀 [PROPAGATE-DEBUG] No synapse_indices found for fired neurons!");
             return Ok(AHashMap::new());
         }
-        
-        eprintln!("🦀 [PROPAGATE-DEBUG] Found {} synapse_indices", synapse_indices.len());
 
         let total_synapses = synapse_indices.len();
         self.total_synapses_processed += total_synapses as u64;
@@ -175,13 +138,6 @@ impl SynapticPropagationEngine {
 
                 // Get target neuron from SoA
                 let target_neuron = NeuronId(synapse_array.target_neurons[syn_idx]);
-                
-                // DEBUG: Log target neuron lookup for first synapse
-                if syn_idx == synapse_indices[0] {
-                    let found = self.neuron_to_area.contains_key(&target_neuron);
-                    eprintln!("🦀 [PROPAGATE-DEBUG] First synapse: target_neuron={}, in_mapping={}", 
-                             target_neuron.0, found);
-                }
                 
                 // Get target cortical area
                 let cortical_area = *self.neuron_to_area.get(&target_neuron)?;

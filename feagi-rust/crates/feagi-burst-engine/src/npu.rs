@@ -203,25 +203,8 @@ impl RustNPU {
         self.fire_candidate_list.clear();
         
         // Swap fire queues: current becomes previous for next burst
-        eprintln!("🦀 [RUST-NPU-DEBUG] BEFORE swap: burst={}, current_fq={} neurons, previous_fq={} neurons", 
-                  self.burst_count,
-                  self.current_fire_queue.get_all_neuron_ids().len(),
-                  self.previous_fire_queue.get_all_neuron_ids().len());
-        
         self.previous_fire_queue = self.current_fire_queue.clone();
         self.current_fire_queue = dynamics_result.fire_queue.clone();
-        
-        eprintln!("🦀 [RUST-NPU-DEBUG] AFTER swap: burst={}, current_fq={} neurons, previous_fq={} neurons", 
-                  self.burst_count,
-                  self.current_fire_queue.get_all_neuron_ids().len(),
-                  self.previous_fire_queue.get_all_neuron_ids().len());
-        
-        if !self.current_fire_queue.is_empty() {
-            let fired = self.current_fire_queue.get_all_neuron_ids();
-            if fired.len() <= 5 {
-                eprintln!("🦀 [RUST-NPU-DEBUG] Neurons that fired this burst: {:?}", fired);
-            }
-        }
         
         // Build result
         let fired_neurons = self.current_fire_queue.get_all_neuron_ids();
@@ -335,44 +318,25 @@ fn phase1_injection_with_synapses(
     for &neuron_id in power_neurons {
         let idx = neuron_id.0 as usize;
         if idx < neuron_array.count {
-            eprintln!("🦀 [INJECTION-DEBUG] Power neuron {} (idx={}): threshold={:.3}, power_amount={:.3}, leak_coeff={:.3}, refrac={}, refrac_countdown={}, membrane_potential={:.3}", 
-                      neuron_id.0, idx, neuron_array.thresholds[idx], power_amount, 
-                      neuron_array.leak_coefficients[idx], neuron_array.refractory_periods[idx],
-                      neuron_array.refractory_countdowns[idx], neuron_array.membrane_potentials[idx]);
             fcl.add_candidate(neuron_id, power_amount);
             power_count += 1;
-        } else {
-            eprintln!("🦀 [INJECTION-DEBUG] Power neuron {} out of bounds (idx={} >= count={})", 
-                      neuron_id.0, idx, neuron_array.count);
         }
     }
     
     // 2. Synaptic Propagation
     if !previous_fire_queue.is_empty() {
         let fired_ids = previous_fire_queue.get_all_neuron_ids();
-        eprintln!("🦀 [RUST-NPU-DEBUG] Synaptic propagation: {} previously fired neurons", fired_ids.len());
-        if !fired_ids.is_empty() && fired_ids.len() <= 5 {
-            eprintln!("🦀 [RUST-NPU-DEBUG] Previously fired: {:?}", fired_ids);
-        }
         
         // Call synaptic propagation engine (ZERO-COPY: pass synapse_array by reference)
         let propagation_result = propagation_engine.propagate(&fired_ids, synapse_array)?;
-        eprintln!("🦀 [RUST-NPU-DEBUG] Propagation engine returned {} source neurons with targets", propagation_result.len());
         
         // Inject propagated potentials into FCL
-        for (source_id, targets) in propagation_result {
-            eprintln!("🦀 [RUST-NPU-DEBUG] Source neuron {} → {} targets", source_id.0, targets.len());
+        for (_cortical_area, targets) in propagation_result {
             for &(target_neuron_id, contribution) in &targets {
                 fcl.add_candidate(target_neuron_id, contribution.0);  // Extract f32 from SynapticContribution
                 synaptic_count += 1;
-                if synaptic_count <= 5 {
-                    eprintln!("🦀 [RUST-NPU-DEBUG] Injecting: neuron {} += {}", target_neuron_id.0, contribution.0);
-                }
             }
         }
-        eprintln!("🦀 [RUST-NPU-DEBUG] Total synaptic injections: {}", synaptic_count);
-    } else {
-        eprintln!("🦀 [RUST-NPU-DEBUG] Skipping synaptic propagation - previous_fire_queue is empty");
     }
     
     Ok(InjectionResult {
