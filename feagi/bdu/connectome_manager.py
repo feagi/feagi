@@ -1866,11 +1866,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def batch_create_synapses(
         self, synapse_specs: List[Tuple[int, int, float]]
     ) -> int:
-        """Create multiple synapses using ultra-high-performance
-        NPU SynapseArray.
-
-        This method achieves 300x+ performance improvement over legacy sparse matrices
-        by using SIMD-friendly vectorized operations on the SoA structure.
+        """Create multiple synapses using Rust NPU.
 
         Args:
             synapse_specs: List of tuples (pre_neuron_id, post_neuron_id, weight)
@@ -1878,53 +1874,40 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Number of synapses successfully created
         """
-        # Ensure synapse array is initialized
-        if not hasattr(self, "synapse_array") or self.synapse_array is None:
-            raise RuntimeError(
-                "SynapseArray is not initialized. Initialize NPU interface and set ConnectomeManager.synapse_array before synaptogenesis."
-            )
+        # ✅ RUST NPU: Use NPUInterface API (single source of truth)
+        if not hasattr(self, "_npu_interface") or self._npu_interface is None:
+            raise RuntimeError("NPU Interface is not initialized")
 
-
-        # Validate that all neurons exist using NPU-owned mapping before batch creation
+        # Validate that all neurons exist
         valid_specs = []
         invalid_specs = []
         for pre_id, post_id, weight in synapse_specs:
-            pre_exists = self.get_neuron_index(pre_id) is not None
-            post_exists = self.get_neuron_index(post_id) is not None
+            pre_exists = self._npu_interface.neuron_exists(pre_id)
+            post_exists = self._npu_interface.neuron_exists(post_id)
             if pre_exists and post_exists:
                 valid_specs.append((pre_id, post_id, weight))
             else:
                 invalid_specs.append((pre_id, post_id, weight))
+                logger.warning(f"Invalid synapse: {pre_id} → {post_id} (pre_exists={pre_exists}, post_exists={post_exists})")
 
         if not valid_specs:
             logger.warning("No valid synapse specifications found")
             return 0
 
-
-        # Convert synapse specs to the format expected by add_synapses_batch
-        source_neuron_ids = [spec[0] for spec in valid_specs]
-        target_neuron_ids = [spec[1] for spec in valid_specs] 
-        weights = [spec[2] for spec in valid_specs]
+        # Convert to NPUInterface SynapseCreationRequest format
+        from feagi.npu.interface import SynapseCreationRequest
         
-        # Default values for other parameters - ALL FROM GENOME
-        delays = [1] * len(valid_specs)  # Default delay of 1 timestep
-        conductances = [1.0] * len(valid_specs)  # DEFAULT: postsynaptic_current from genome template
-        synapse_types = [0] * len(valid_specs)  # DEFAULT: excitatory synapses
-        plasticity_types = [0] * len(valid_specs)  # Default: no plasticity  
-        plasticity_coefficients = [1.0] * len(valid_specs)  # Default coefficient
-        
-        created_count = self.synapse_array.add_synapses_batch(
-            source_neuron_ids=source_neuron_ids,
-            target_neuron_ids=target_neuron_ids,
-            weights=weights,
-            delays=delays,
-            conductances=conductances,  # NEW: REQUIRED for synaptic propagation
-            synapse_types=synapse_types,  # NEW: REQUIRED for excitatory/inhibitory
-            plasticity_types=plasticity_types,
-            plasticity_coefficients=plasticity_coefficients
+        request = SynapseCreationRequest(
+            source_neuron_ids=[spec[0] for spec in valid_specs],
+            target_neuron_ids=[spec[1] for spec in valid_specs],
+            weights=[int(spec[2]) for spec in valid_specs],  # Convert to u8
         )
         
-        # Update state manager with new synapse count (optimized - synapse count only)
+        # Call NPUInterface to create synapses in Rust NPU
+        result = self._npu_interface.create_synapses_batch(request)
+        created_count = result.successful_count
+        
+        # Update state manager with new synapse count
         if created_count > 0:
             self._update_synapse_count_only()
         

@@ -441,8 +441,8 @@ class NPUInterface:
                     
                     # Add synapse to Rust NPU
                     self.rust_npu.add_synapse(
-                        source_neuron=source,
-                        target_neuron=target,
+                        source=source,
+                        target=target,
                         weight=weight,
                         conductance=weight,  # Same as weight for now
                         synapse_type=0  # 0 = excitatory

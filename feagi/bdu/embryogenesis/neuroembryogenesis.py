@@ -3283,6 +3283,9 @@ class NeuroEmbryogenesis:
                         neuron_positions_batch = []
                     
                     # Group neurons by position
+                    logger.error(f"🔗 [SYNAPSE-DEBUG] neuron_weight_pairs count: {len(neuron_weight_pairs)}")
+                    logger.error(f"🔗 [SYNAPSE-DEBUG] neuron_positions_batch count: {len(neuron_positions_batch)}")
+                    
                     for i, (neuron_id, weight) in enumerate(
                         neuron_weight_pairs
                     ):
@@ -3293,9 +3296,17 @@ class NeuroEmbryogenesis:
                             position_to_neurons[neuron_pos].append(
                                 (neuron_id, weight)
                             )
+                            if i < 3:
+                                logger.error(f"🔗 [SYNAPSE-DEBUG]   [{i}] neuron {neuron_id} at position {neuron_pos}")
+                        else:
+                            logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ [{i}] Skipped neuron {neuron_id} - no position in batch!")
                 
                 # Step 7: Create synapses (vectorized where possible)
                 synapse_connections = []
+                logger.error(f"🔗 [SYNAPSE-DEBUG] valid_candidate_positions count: {len(valid_candidate_positions)}")
+                logger.error(f"🔗 [SYNAPSE-DEBUG] position_to_neurons keys: {list(position_to_neurons.keys())[:5]}")
+                logger.error(f"🔗 [SYNAPSE-DEBUG] valid_candidate_positions sample: {valid_candidate_positions[:3]}")
+                
                 for i, candidate_pos in enumerate(valid_candidate_positions):
                     candidate_pos_tuple = tuple(candidate_pos)
                     if candidate_pos_tuple in position_to_neurons:
@@ -3306,9 +3317,17 @@ class NeuroEmbryogenesis:
                             synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
+                            if len(synapse_connections) <= 3:
+                                logger.error(f"🔗 [SYNAPSE-DEBUG] Added connection: {src_neuron_id} → {dst_neuron_id} (weight={weight})")
+                    else:
+                        if i < 3:
+                            logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ Candidate position {candidate_pos_tuple} NOT in position_to_neurons!")
+                
+                logger.error(f"🔗 [SYNAPSE-DEBUG] Total synapse_connections to create: {len(synapse_connections)}")
                 
                 # Step 8: Batch create synapses
                 if synapse_connections:
+                    logger.error(f"🔗 [SYNAPSE-DEBUG] Calling batch_create_synapses with {len(synapse_connections)} synapses")
                     created = self.connectome_manager.batch_create_synapses(
                         synapse_connections
                     )
@@ -3316,6 +3335,8 @@ class NeuroEmbryogenesis:
                     logger.debug(
                         f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}"
                     )
+                else:
+                    logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ No synapse_connections to create!")
 
             logger.info(
                 f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations"
