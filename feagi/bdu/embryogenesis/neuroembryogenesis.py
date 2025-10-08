@@ -1147,7 +1147,8 @@ class NeuroEmbryogenesis:
                     if result != OperationResult.SUCCESS:
                         raise RuntimeError(f"Failed to register cortical area {area.cortical_idx} with NPU Interface")
                 
-                if npu_interface.neuron_array.neuron_count + area_neuron_count > npu_interface.neuron_array.max_neurons:
+                # ✅ Use Rust NPU directly for capacity check (no proxy)
+                if npu_interface.get_neuron_count() + area_neuron_count > npu_interface.max_neurons:
                     raise ValueError(
                         f"Not enough capacity for {area_neuron_count} neurons"
                     )

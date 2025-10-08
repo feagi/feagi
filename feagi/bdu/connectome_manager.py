@@ -1924,9 +1924,7 @@ class ConnectomeManager(NeuronMappingProvider):
             # Only update synapse count - more efficient
             self.state_manager.update_synapse_count(current_synapse_count)
             
-            # Update GPU keep-alive system based on new synapse count
-            if hasattr(self.neuron_array, 'backend') and hasattr(self.neuron_array.backend, 'update_keepalive_based_on_brain_size'):
-                self.neuron_array.backend.update_keepalive_based_on_brain_size()
+            # ✅ REMOVED: GPU keep-alive irrelevant with Rust NPU (no Python backend)
                 
         except Exception as e:
             self.logger.warning(f"Failed to update synapse count in state manager: {e}")
@@ -4358,51 +4356,29 @@ class ConnectomeManager(NeuronMappingProvider):
     def update_neuron_position(
         self, neuron_id: int, new_position: Tuple[int, int, int]
     ) -> bool:
-        """Update the position of a neuron within its cortical area.
+        """DEPRECATED: Update neuron position - Requires Rust NPU implementation.
+        
+        ⚠️ TODO: Implement in Rust ConnectomeManager
+        Dynamic neuron position updates not yet supported in Rust NPU.
 
         Args:
             neuron_id: ID of the neuron
             new_position: New 3D coordinates within the cortical area (x, y, z)
 
         Returns:
-            True if the position was updated, False if the neuron doesn't exist
+            False (not implemented)
 
         Raises:
-            ValueError: If the new position is outside the area's boundaries
+            NotImplementedError: Position updates require Rust NPU refactor
         """
-        # Check if neuron exists
-        if neuron_id not in self.neuron_id_to_index:
-            return False
-
-        index = self.neuron_id_to_index[neuron_id]
-
-        # Get the cortical_idx from the neuron array
-        cortical_idx = int(self.neuron_array.cortical_idxs[index])
-
-        # Find the corresponding cortical_id using O(1) translation layer
-        cortical_id = self.cortical_mapping.get_id(cortical_idx)
-        if cortical_id is None:
-            raise RuntimeError(
-                f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected"
-            )
-
-        # Validate new position
-        area = self.cortical_areas[cortical_id]
-        if not area.contains_position(new_position):
-            raise ValueError(
-                f"Position {new_position} is outside the bounds of area {area.name}"
-            )
-
-        # Update position in neuron array
-        self.neuron_array.coordinates_x[index] = new_position[
-            0
-        ]  # ✅ FIXED: Use coordinates_x
-        self.neuron_array.coordinates_y[index] = new_position[
-            1
-        ]  # ✅ FIXED: Use coordinates_y
-        self.neuron_array.coordinates_z[index] = new_position[
-            2
-        ]  # ✅ FIXED: Use coordinates_z
+        logger.warning(
+            f"⚠️ [DEPRECATED] update_neuron_position called for neuron {neuron_id} - "
+            f"Not implemented in Rust NPU. Will be added to Rust ConnectomeManager."
+        )
+        raise NotImplementedError(
+            "Dynamic neuron position updates not yet supported in Rust NPU. "
+            "Will be implemented in Rust ConnectomeManager migration."
+        )
 
         # Update position tracking
         if hasattr(self, "_neuron_to_position"):
@@ -4633,50 +4609,16 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
             update_values = np.array(values)[valid_mask]
 
-        # Update the appropriate property array
-        try:
-            # Get the target property array
-            if property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
-                target_array = self.neuron_array.membrane_potentials
-            elif property_name == NeuronPropertyType.THRESHOLD:
-                target_array = self.neuron_array.thresholds
-            elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
-                target_array = self.neuron_array.resting_potentials
-            elif property_name == NeuronPropertyType.DECAY_RATE:
-                target_array = self.neuron_array.decay_rates
-            elif property_name == NeuronPropertyType.REFRACTORY_PERIOD:
-                target_array = self.neuron_array.refractory_periods
-            elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
-                target_array = self.neuron_array.refractory_counters
-            elif property_name == NeuronPropertyType.ACTIVE:
-                target_array = self.neuron_array.valid_mask
-            else:
-                logger.warning(
-                    f"Property {property_name} cannot be batch updated"
-                )
-                return False
-
-            #  Convert update_values to the same type as the target array if
-            #  needed
-            if isinstance(target_array, torch.Tensor):
-                # Handle PyTorch tensors
-                idx_tensor = torch.tensor(
-                    indices, dtype=torch.long, device=target_array.device
-                )
-                values_tensor = torch.tensor(
-                    update_values,
-                    dtype=target_array.dtype,
-                    device=target_array.device,
-                )
-                target_array.index_copy_(0, idx_tensor, values_tensor)
-            else:
-                # Handle NumPy arrays
-                target_array[indices] = update_values
-
-            return True
-        except Exception as e:
-            logger.error(f"Error updating property {property_name}: {e}")
-            return False
+        # ⚠️ TODO: Implement property updates in Rust ConnectomeManager
+        # For now, raise NotImplementedError for unsupported properties
+        logger.warning(
+            f"⚠️ [DEPRECATED] batch_update_neuron_properties called for property {property_name} - "
+            f"Not fully implemented in Rust NPU. Will be added to Rust ConnectomeManager."
+        )
+        raise NotImplementedError(
+            f"Batch neuron property updates for {property_name} not yet supported in Rust NPU. "
+            f"Will be implemented in Rust ConnectomeManager migration."
+        )
 
     def batch_get_neuron_properties(
         self,
@@ -4717,39 +4659,15 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize result with NaN for invalid indices
         result = np.full(len(neuron_ids), np.nan)
 
-        # Get property values for valid indices
-        if property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
-            result[valid_mask] = self.neuron_array.membrane_potentials[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.THRESHOLD:
-            result[valid_mask] = self.neuron_array.thresholds[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
-            result[valid_mask] = self.neuron_array.resting_potentials[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.DECAY_RATE:
-            result[valid_mask] = self.neuron_array.decay_rates[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.REFRACTORY_PERIOD:
-            result[valid_mask] = self.neuron_array.refractory_periods[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
-            result[valid_mask] = self.neuron_array.refractory_counters[
-                indices[valid_mask]
-            ]
-        elif property_name == NeuronPropertyType.ACTIVE:
-            result[valid_mask] = self.neuron_array.valid_mask[
-                indices[valid_mask]
-            ]
-        else:
-            raise ValueError(
-                f"Property {property_name} cannot be batch queried"
-            )
+        # ⚠️ TODO: Implement property queries in Rust ConnectomeManager
+        logger.warning(
+            f"⚠️ [DEPRECATED] batch_get_neuron_properties called for property {property_name} - "
+            f"Not fully implemented in Rust NPU. Will be added to Rust ConnectomeManager."
+        )
+        raise NotImplementedError(
+            f"Batch neuron property queries for {property_name} not yet supported in Rust NPU. "
+            f"Will be implemented in Rust ConnectomeManager migration."
+        )
 
         return result
 
@@ -4852,34 +4770,24 @@ class ConnectomeManager(NeuronMappingProvider):
                 # Update area dimensions
                 area.dimensions = new_dimensions
 
-                # Find neurons that would be outside the new bounds
-                if cortical_id in self.area_neuron_masks:
-                    mask = self.area_neuron_masks[cortical_id]
-                    indices = np.where(mask)[0]
-
+                # ✅ Use Rust NPU to find neurons outside new bounds
+                cortical_idx = self.cortical_mapping.get_index(cortical_id)
+                if cortical_idx is not None:
+                    # Get all neurons in this cortical area from Rust NPU
+                    neuron_positions = self._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+                    
                     removed_neuron_ids = []
-                    for idx in indices:
-                        x = self.neuron_array.coordinates_x[
-                            idx
-                        ]  # ✅ FIXED: Use coordinates_x
-                        y = self.neuron_array.coordinates_y[
-                            idx
-                        ]  # ✅ FIXED: Use coordinates_y
-                        z = self.neuron_array.coordinates_z[
-                            idx
-                        ]  # ✅ FIXED: Use coordinates_z
-
+                    for neuron_id, x, y, z in neuron_positions:
                         if (
                             x >= new_dimensions[0]
                             or y >= new_dimensions[1]
                             or z >= new_dimensions[2]
                         ):
-                            #  This neuron is now outside bounds - get its ID
-                            #  and delete it
-                            neuron_id = self.index_to_neuron_id.get(idx)
-                            if neuron_id is not None:
-                                self.delete_neuron(neuron_id)
-                                removed_neuron_ids.append(neuron_id)
+                            # This neuron is now outside bounds - delete it
+                            self.delete_neuron(neuron_id)
+                            removed_neuron_ids.append(neuron_id)
+                else:
+                    removed_neuron_ids = []
 
                     results[cortical_id] = {
                         "success": True,
@@ -5075,33 +4983,15 @@ class ConnectomeManager(NeuronMappingProvider):
                 max_synapses, min(len(source_neurons), len(target_neurons))
             )
 
-            # Sort neurons by position for consistent mapping
+            # ✅ Sort neurons by position for consistent mapping (using Rust NPU)
             source_positions = []
             for neuron_id in source_neurons[:max_connections]:
-                idx = self.neuron_id_to_index[neuron_id]
-                pos = (
-                    self.neuron_array.coordinates_x[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_x
-                    self.neuron_array.coordinates_y[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_y
-                    self.neuron_array.coordinates_z[idx],
-                )  # ✅ FIXED: Use coordinates_z
+                pos = self.get_neuron_position(neuron_id)  # Use existing method that queries Rust NPU
                 source_positions.append((neuron_id, pos))
 
             target_positions = []
             for neuron_id in target_neurons[:max_connections]:
-                idx = self.neuron_id_to_index[neuron_id]
-                pos = (
-                    self.neuron_array.coordinates_x[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_x
-                    self.neuron_array.coordinates_y[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_y
-                    self.neuron_array.coordinates_z[idx],
-                )  # ✅ FIXED: Use coordinates_z
+                pos = self.get_neuron_position(neuron_id)  # Use existing method that queries Rust NPU
                 target_positions.append((neuron_id, pos))
 
             # Sort by position
@@ -5278,19 +5168,10 @@ class ConnectomeManager(NeuronMappingProvider):
             source_area = self.cortical_areas[source_cortical_id]
             target_area = self.cortical_areas[target_cortical_id]
 
-            # Get positions in global coordinates
+            # ✅ Get positions in global coordinates (using Rust NPU)
             source_global_positions = {}
             for neuron_id in source_neurons:
-                idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (
-                    self.neuron_array.coordinates_x[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_x
-                    self.neuron_array.coordinates_y[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_y
-                    self.neuron_array.coordinates_z[idx],
-                )  # ✅ FIXED: Use coordinates_z
+                local_pos = self.get_neuron_position(neuron_id)  # Use existing method that queries Rust NPU
                 global_pos = tuple(
                     lp + ap for lp, ap in zip(local_pos, source_area.position)
                 )
@@ -5298,16 +5179,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
             target_global_positions = {}
             for neuron_id in target_neurons:
-                idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (
-                    self.neuron_array.coordinates_x[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_x
-                    self.neuron_array.coordinates_y[
-                        idx
-                    ],  # ✅ FIXED: Use coordinates_y
-                    self.neuron_array.coordinates_z[idx],
-                )  # ✅ FIXED: Use coordinates_z
+                local_pos = self.get_neuron_position(neuron_id)  # Use existing method that queries Rust NPU
                 global_pos = tuple(
                     lp + ap for lp, ap in zip(local_pos, target_area.position)
                 )
@@ -5720,29 +5592,19 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.remove_synapse(pre_neuron, post_neuron)
 
     def find_neurons_above_threshold(self) -> List[int]:
-        """Find neurons whose membrane potential is above their threshold.
-
-        This method is provided for backward compatibility with the test suite.
+        """DEPRECATED: Neural dynamics now handled entirely in Rust NPU.
+        
+        ⚠️ TODO: Remove after test suite refactor
+        This method is obsolete as firing detection is now part of Rust NPU burst processing.
 
         Returns:
-            List of neuron IDs with membrane potential above threshold
+            Empty list (neural dynamics in Rust NPU)
         """
-        # Get valid neuron indices
-        valid_mask = self.neuron_array.valid_mask
-
-        # Find neurons above threshold
-        above_threshold_mask = (
-            self.neuron_array.membrane_potentials
-            >= self.neuron_array.thresholds
-        ) & valid_mask
-        above_threshold_indices = np.where(above_threshold_mask)[0]
-
-        # Convert indices to neuron IDs using vectorized operation
-        result = self._vectorized_index_to_neuron_id(
-            above_threshold_indices
-        ).tolist()
-
-        return result
+        logger.warning(
+            "⚠️ [DEPRECATED] find_neurons_above_threshold called - "
+            "Neural dynamics handled in Rust NPU. Returning empty list."
+        )
+        return []
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
         """DEPRECATED: BDU neural processing is prohibited.
@@ -5771,22 +5633,24 @@ class ConnectomeManager(NeuronMappingProvider):
         return self.next_neuron_id
 
     def enable_refractory_debug_logging(self):
-        """Enable debug logging for refractory period behavior in the neuron
-        array."""
-        if hasattr(self, "neuron_array") and self.neuron_array:
-            self.neuron_array.enable_refractory_debug()
-            print("🔬 [CONNECTOME] Refractory debug logging enabled")
-        else:
-            print("❌ [CONNECTOME] No neuron array available")
+        """DEPRECATED: Debug logging in Rust NPU controlled via environment variables.
+        
+        ⚠️ TODO: Document Rust NPU debug environment variables
+        """
+        logger.warning(
+            "⚠️ [DEPRECATED] enable_refractory_debug_logging called - "
+            "Rust NPU debug logging controlled via RUST_LOG environment variable."
+        )
 
     def disable_refractory_debug_logging(self):
-        """Disable debug logging for refractory period behavior in the neuron
-        array."""
-        if hasattr(self, "neuron_array") and self.neuron_array:
-            self.neuron_array.disable_refractory_debug()
-            print("🔇 [CONNECTOME] Refractory debug logging disabled")
-        else:
-            print("❌ [CONNECTOME] No neuron array available")
+        """DEPRECATED: Debug logging in Rust NPU controlled via environment variables.
+        
+        ⚠️ TODO: Document Rust NPU debug environment variables
+        """
+        logger.warning(
+            "⚠️ [DEPRECATED] disable_refractory_debug_logging called - "
+            "Rust NPU debug logging controlled via RUST_LOG environment variable."
+        )
 
     def delete_neurons(self, neuron_ids: List[int]) -> int:
         """Delete multiple neurons at once.
@@ -5811,34 +5675,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 [self.neuron_id_to_index[nid] for nid in valid_neuron_ids]
             )
 
-            # Bulk deletion using vectorized operations
-            try:
-                # Mark neurons as invalid in bulk
-                self.neuron_array.valid_mask[indices_to_delete] = False
-
-                # Remove from mappings in bulk
-                for neuron_id, index in zip(
-                    valid_neuron_ids, indices_to_delete
-                ):
-                    neuron_id = int(neuron_id)
-                    index = int(index)
-                    if neuron_id in self.neuron_id_to_index:
-                        del self.neuron_id_to_index[neuron_id]
-                    if index in self.index_to_neuron_id:
-                        del self.index_to_neuron_id[index]
-
-                deleted_count = len(valid_neuron_ids)
-
-            except Exception as e:
-                logger.warning(
-                    f"Bulk deletion failed, falling back to individual deletion: {e}"
-                )
-                # Fallback to individual deletion only for error cases
-                for neuron_id in valid_neuron_ids:
-                    try:
-                        self.delete_neuron(int(neuron_id))
-                        deleted_count += 1
-                    except (ValueError, KeyError) as e:
+            # ✅ Use Rust NPU for neuron deletion
+            for neuron_id in valid_neuron_ids:
+                try:
+                    self.delete_neuron(int(neuron_id))
+                    deleted_count += 1
+                except (ValueError, KeyError) as e:
                         logger.warning(
                             f"Failed to delete neuron {neuron_id}: {e}"
                         )
@@ -6009,15 +5851,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
         #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
         #  synchronized
-        if hasattr(self, "neuron_array") and hasattr(
-            self.neuron_array, "_next_neuron_id"
-        ):
-            if self.neuron_array._next_neuron_id != self.next_neuron_id:
-                logger.warning(
-                    f"🚨 NEURON ID SYNC FIX: NeuronArray counter was {self.neuron_array._next_neuron_id}, "
-                    f"ConnectomeManager counter was {self.next_neuron_id}. Synchronizing both to 1."
-                )
-                self.neuron_array._next_neuron_id = 1
+        # ✅ REMOVED: Neuron ID tracking now in Rust NPU only
+        # No need to sync Python-side counters
 
         # 7. Clear synapse matrix efficiently
         if hasattr(self, "synapse_matrix"):
@@ -6277,15 +6112,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 neuron_array.next_index = 0
                 neuron_array.neuron_count = 0
                 neuron_array.free_indices = set()
-                #  CRITICAL FIX: Reset NeuronArray's neuron ID counter to
-                #  prevent ID instability
-                neuron_array._next_neuron_id = 1
+                # ✅ REMOVED: Neuron ID tracking and cortical indices now in Rust NPU only
+                # Reset Python-side mappings
                 self._neuron_id_to_index_map.clear()
                 self._index_to_neuron_id_map.clear()
-                if hasattr(self.neuron_array, "cortical_id_to_indices"):
-                    self.neuron_array.cortical_id_to_indices.clear()
                 logger.info(
-                    "Post-reallocation NeuronArray reset confirmed",
+                    "Post-reallocation Python mappings reset confirmed",
                     status="[OK]",
                 )
         else:
@@ -6333,22 +6165,32 @@ class ConnectomeManager(NeuronMappingProvider):
             f"in {caller.name}() - Requires Rust NPU refactor"
         )
         
-        # Return a stub that provides minimal compatibility
-        # If this causes AttributeError, that code path needs Rust NPU implementation
+        # Return a minimal compatibility stub for transitional period
+        # This will be REMOVED when Rust ConnectomeManager is implemented
         class _DeprecatedNeuronArrayStub:
-            """Stub to catch legacy neuron_array usage and guide refactoring."""
+            """TEMPORARY stub until Rust ConnectomeManager migration.
+            
+            Provides minimal compatibility for code paths that still access neuron_array.
+            Logs all accesses to track what needs refactoring.
+            
+            ⚠️ DO NOT add new code that depends on this!
+            ✅ This will be REMOVED in Rust ConnectomeManager migration.
+            """
             def __init__(self, npu_interface):
                 self._npu = npu_interface
             
             def __getattr__(self, name):
-                logger.error(
-                    f"🚫 [DEPRECATED] Attempted to access neuron_array.{name} - "
-                    f"This requires Rust NPU refactor! "
-                    f"Add a dedicated Rust NPU method instead."
+                # Log access for tracking (helps identify what needs Rust implementation)
+                logger.debug(
+                    f"⚠️ [DEPRECATED-BRIDGE] neuron_array.{name} accessed - "
+                    f"Will be removed in Rust ConnectomeManager"
                 )
+                
+                # Raise error - forces explicit handling
                 raise AttributeError(
-                    f"neuron_array.{name} is deprecated - Rust NPU refactor required. "
-                    f"See logs for details."
+                    f"neuron_array.{name} not available in Rust NPU. "
+                    f"This will be implemented in Rust ConnectomeManager migration. "
+                    f"If critical, contact team to prioritize."
                 )
         
         return _DeprecatedNeuronArrayStub(self._npu_interface)
@@ -7296,11 +7138,8 @@ class ConnectomeManager(NeuronMappingProvider):
     def _serialize_neuron_data(self) -> Dict[str, Any]:
         """Serialize neuron data for saving."""
         try:
-            # Get all valid neuron IDs
-            neuron_ids = []
-            for neuron_id, idx in self._neuron_id_to_index_map.items():
-                if self.neuron_array.valid_mask[idx]:
-                    neuron_ids.append(neuron_id)
+            # ✅ Get all valid neuron IDs from Python-side mapping (Rust NPU is source of truth)
+            neuron_ids = list(self._neuron_id_to_index_map.keys())
 
             # Serialize neuron properties
             neuron_data = {}
@@ -7309,9 +7148,7 @@ class ConnectomeManager(NeuronMappingProvider):
 
             return {
                 "neurons": neuron_data,
-                "next_neuron_id": getattr(
-                    self.neuron_array, "_next_neuron_id", 1
-                ),
+                "next_neuron_id": self.next_neuron_id,  # Use ConnectomeManager's counter
             }
 
         except Exception as e:
@@ -7323,18 +7160,17 @@ class ConnectomeManager(NeuronMappingProvider):
         try:
             synapses = []
 
-            # Get all synapses
-            for neuron_id in self.neuron_array.id_to_index_map.keys():
-                if neuron_id in self.neuron_array.id_to_index_map:
-                    outgoing = self.get_outgoing_connections(neuron_id)
-                    for target_id, weight in outgoing:
-                        synapses.append(
-                            {
-                                "pre_neuron_id": neuron_id,
-                                "post_neuron_id": target_id,
-                                "weight": weight,
-                            }
-                        )
+            # ✅ Get all synapses from Python-side mapping (Rust NPU is source of truth)
+            for neuron_id in self._neuron_id_to_index_map.keys():
+                outgoing = self.get_outgoing_connections(neuron_id)
+                for target_id, weight in outgoing:
+                    synapses.append(
+                        {
+                            "pre_neuron_id": neuron_id,
+                            "post_neuron_id": target_id,
+                            "weight": weight,
+                        }
+                    )
 
             return {"synapses": synapses}
 
@@ -7369,9 +7205,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 # ... other properties ...
 
-            # Restore next neuron ID
-            if hasattr(self.neuron_array, "_next_neuron_id"):
-                self.neuron_array._next_neuron_id = next_neuron_id
+            # ✅ REMOVED: Neuron ID tracking now in Rust NPU only
+            # No need to restore Python-side counters
 
             return True
 
