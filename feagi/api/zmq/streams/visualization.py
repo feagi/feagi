@@ -702,23 +702,36 @@ class VisualizationStream:
         want to overwrite it with binary data.
         """
         if not self.socket:
-            logger.debug("Cannot publish to ZMQ: no socket")
+            logger.debug("Cannot publish to ZMQ: no socket available")
             return
-        
+            
         if not self.running:
             logger.debug("Cannot publish to ZMQ: stream is not running")
             return
         
+        # Apply compression if enabled
+        final_data = data
+        compression_ratio = 1.0
+        compression_time_ms = 0.0
+        
+        if self.compressor:
+            try:
+                final_data, compression_info = self.compressor.compress(data)
+                compression_time_ms = compression_info["time_ms"]
+                compression_ratio = compression_info["ratio"]
+                
+                if compression_info["compressed"]:
+                    self.stats["bytes_saved_compression"] += compression_info["bytes_saved"]
+                    self.stats["compression_time_ms"] += compression_time_ms
+            except Exception as e:
+                logger.warning(f"Compression error, sending uncompressed: {e}")
+                final_data = data
+        
+        # Publish to ZMQ socket only (skip SHM)
         try:
-            # Compress if compressor is available
-            if self.compressor:
-                compressed_data = self._compress_data(data)
-                if compressed_data:
-                    self.socket.send_multipart([b"activity", compressed_data])
-                    return
-            
-            # Send uncompressed
-            self.socket.send_multipart([b"activity", data])
+            self.socket.send_multipart([b"activity", final_data])
+            self.stats["data_sent"] += 1
+            self.stats["bytes_sent"] += len(final_data)
         except Exception as e:
             logger.error(f"Error publishing to ZMQ: {e}")
     

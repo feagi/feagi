@@ -785,7 +785,8 @@ impl CorticalMappedXYZPNeuronDataDecoder {
             let cid_str = std::str::from_utf8(cid_bytes)
                 .unwrap_or("??????")
                 .trim_end_matches('\0');
-            let cortical_id = CorticalID::new_custom_cortical_area_id(cid_str.to_string())
+            // Use from_string() to accept both built-in (iic, ooc, etc.) and custom (c*) cortical IDs
+            let cortical_id = CorticalID::from_string(cid_str.to_string())
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID: {}", e)))?;
             
             offset += 6;

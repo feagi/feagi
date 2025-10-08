@@ -37,12 +37,6 @@ from .fcl_manager import (
     example_fcl_usage,
     inject_neurons_into_fcl
 )
-from .gpu_fcl_adapter import (
-    GPUBitMap,
-    GPUAcceleratedFCL,
-    create_gpu_accelerated_fcl,
-    get_backend
-)
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
 from .data_structures import (
@@ -96,12 +90,6 @@ __all__ = [
     'example_enhanced_fcl_usage',
     'example_fcl_usage',
     'inject_neurons_into_fcl',
-    
-    # GPU acceleration
-    'GPUBitMap',
-    'GPUAcceleratedFCL',
-    'create_gpu_accelerated_fcl',
-    'get_backend',
     
     # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',

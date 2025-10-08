@@ -667,6 +667,13 @@ class SensoryNeuralStream:
 
                 # Create FeagiByteStructure directly from raw bytes (native Rust API)
                 raw_bytes = data[:nbytes]
+                
+                # Debug: Log byte structure details
+                if len(raw_bytes) < 10:
+                    logger.error(f"[DECODE-DEBUG] Received very short data: {len(raw_bytes)} bytes, hex={raw_bytes.hex()}")
+                elif len(raw_bytes) < 100:
+                    logger.debug(f"[DECODE-DEBUG] Received data: {len(raw_bytes)} bytes, first 20 bytes hex={raw_bytes[:20].hex()}")
+                
                 byte_structure = feagi_rust.FeagiByteStructure(raw_bytes)
 
                 # Get structure type using FEAGI's API (informational only)

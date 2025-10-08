@@ -15,7 +15,6 @@ from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .coordinate_converter import CoordinateConverter
 from .fq_sampler import FQSampler
-from .simd_neural_ops import simd_batch_neural_update
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
 from .rust_npu_integration import RustNPUIntegration, RUST_AVAILABLE
