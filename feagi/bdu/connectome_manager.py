@@ -347,9 +347,9 @@ class ConnectomeManager(NeuronMappingProvider):
     def has_neuron(self, neuron_id: int) -> bool:
         """Check if a neuron ID exists (NPU mapping authoritative)."""
         try:
-            if hasattr(self, "neuron_array") and self.neuron_array:
-                if neuron_id in self.neuron_array.neuron_id_to_index:
-                    return True
+            # ✅ Use NPU interface to check neuron existence
+            if self._npu_interface and neuron_id in self._npu_interface.neuron_id_to_index:
+                return True
             if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
                 if neuron_id in self.memory_neuron_array.neuron_id_to_index:
                     return True
@@ -1618,14 +1618,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 else:
                     logger.warning(f"Unknown property for NPU sync: {property_name}")
                 
-                # Also update BDU for backward compatibility
-                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+                # ✅ Rust NPU is the single source of truth - no backward compatibility layer needed
             else:
-                logger.warning(f"Neuron {neuron_id} not found in NPU - updating BDU only")
-                self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+                logger.warning(f"Neuron {neuron_id} not found in NPU")
         else:
-            # NPU not configured - update BDU only
-            self.neuron_array.set_neuron_property(neuron_id, property_name, value)
+            # ✅ Rust NPU is required for neuron property updates
+            logger.warning(f"NPU not configured - cannot update neuron property {property_name}")
 
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
         """Get all neurons in a specific cortical area using GPU/SIMD-optimized
@@ -1762,8 +1760,9 @@ class ConnectomeManager(NeuronMappingProvider):
         for source_id, _ in incoming_connections:
             self.remove_synapse(source_id, neuron_id)
 
-        # Mark neuron as inactive in neuron array
-        self.neuron_array.delete_neuron(neuron_id)
+        # ✅ Mark neuron as inactive in Rust NPU
+        if self._npu_interface and self._npu_interface.rust_npu:
+            self._npu_interface.rust_npu.delete_neuron(neuron_id)
 
         # Remove from ID-to-index mapping (legacy compatibility)
         if (
@@ -2175,14 +2174,12 @@ class ConnectomeManager(NeuronMappingProvider):
         if fcl_manager:
             fcl_manager.advance_timestep()
 
-        # Let the neuron array handle the update
-        fired_indices = self.neuron_array.decay_and_check_firing()
-
-        # Add fired neurons to the next FCL
-        if len(fired_indices):
-            fcl_manager = self._get_fcl_manager()
-            if fcl_manager:
-                fcl_manager.add_to_current_fcl(fired_indices)
+        # ✅ REMOVED: Old Python firing logic - Rust NPU handles all neural dynamics
+        # The Rust NPU's process_burst() handles:
+        #   - Membrane potential decay/leak
+        #   - Threshold checking
+        #   - Firing decisions
+        #   - FCL management
 
         #  Convert fired indices to neuron IDs - CRITICAL FIX: Use correct
         #  vectorized method
@@ -3465,22 +3462,10 @@ class ConnectomeManager(NeuronMappingProvider):
             refractory_values = []
 
             # Sample neurons in this cortical area
-            for idx in range(neuron_array.next_index):
-                if (
-                    neuron_array.valid_mask[idx]
-                    and neuron_array.cortical_idxs[idx] == cortical_idx
-                ):
-                    # Excitability is now per-area; use area.properties
-                    pass
-                    threshold_values.append(
-                        float(neuron_array.thresholds[idx])
-                    )
-                    decay_rate_values.append(
-                        float(neuron_array.decay_rates[idx])
-                    )
-                    refractory_values.append(
-                        int(neuron_array.refractory_periods[idx])
-                    )
+            # ✅ TODO: Reimplement using Rust NPU APIs for property extraction
+            # For now, skip neuron-level property extraction (use genome defaults)
+            # This method is used for serialization - genome data is authoritative
+            logger.warning(f"[DEPRECATED] Neuron property extraction needs Rust NPU refactor for {cortical_id}")
 
             # If no neurons found, return zeros
             # Report neuron_excitability from area properties
@@ -6325,14 +6310,73 @@ class ConnectomeManager(NeuronMappingProvider):
         }
 
     @property
+    def neuron_array(self):
+        """DEPRECATED: Legacy neuron_array access - Requires Rust NPU refactor.
+        
+        This property exists ONLY for backward compatibility with legacy code.
+        49 instances remain in ConnectomeManager that need refactoring.
+        
+        ⚠️ WARNING: Direct neuron_array access is DEPRECATED!
+        ✅ Use Rust NPU methods instead via _npu_interface.rust_npu
+        
+        This stub allows old code to continue functioning while we migrate,
+        but logs warnings to identify what needs refactoring.
+        """
+        import warnings
+        import traceback
+        
+        # Log which method is accessing neuron_array (for refactoring tracking)
+        stack = traceback.extract_stack()
+        caller = stack[-2]  # Get caller's location
+        logger.warning(
+            f"⚠️ [DEPRECATED] neuron_array accessed from {caller.filename}:{caller.lineno} "
+            f"in {caller.name}() - Requires Rust NPU refactor"
+        )
+        
+        # Return a stub that provides minimal compatibility
+        # If this causes AttributeError, that code path needs Rust NPU implementation
+        class _DeprecatedNeuronArrayStub:
+            """Stub to catch legacy neuron_array usage and guide refactoring."""
+            def __init__(self, npu_interface):
+                self._npu = npu_interface
+            
+            def __getattr__(self, name):
+                logger.error(
+                    f"🚫 [DEPRECATED] Attempted to access neuron_array.{name} - "
+                    f"This requires Rust NPU refactor! "
+                    f"Add a dedicated Rust NPU method instead."
+                )
+                raise AttributeError(
+                    f"neuron_array.{name} is deprecated - Rust NPU refactor required. "
+                    f"See logs for details."
+                )
+        
+        return _DeprecatedNeuronArrayStub(self._npu_interface)
+    
+    @neuron_array.setter
+    def neuron_array(self, value):
+        """DEPRECATED: Ignore neuron_array assignments during migration.
+        
+        Legacy code tries to set self.neuron_array during initialization.
+        We ignore these assignments since Rust NPU is the source of truth.
+        """
+        if value is not None:
+            logger.debug(
+                f"⚠️ [DEPRECATED] Attempted to assign neuron_array = {type(value).__name__} - "
+                f"Ignored (Rust NPU is source of truth)"
+            )
+        # Silently ignore - no-op
+    
+    @property
     def neuron_id_to_index(self):
         """Return NPU-owned neuron_id->index mapping for compatibility.
 
-        Prefer the NPU NeuronArray mapping; legacy map kept only as last resort.
+        Prefer the NPU mapping; legacy map kept only as last resort.
         """
         try:
-            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
-                return self._npu_interface.neuron_array.neuron_id_to_index
+            # ✅ Use NPU interface's neuron_id_to_index directly (no proxy)
+            if hasattr(self, "_npu_interface") and self._npu_interface:
+                return self._npu_interface.neuron_id_to_index
         except Exception:
             pass
         return getattr(self, "_neuron_id_to_index_map", {})
@@ -6341,8 +6385,9 @@ class ConnectomeManager(NeuronMappingProvider):
     def index_to_neuron_id(self):
         """Return NPU-owned index->neuron_id mapping for compatibility."""
         try:
-            if hasattr(self, "_npu_interface") and self._npu_interface and hasattr(self._npu_interface, "neuron_array"):
-                return self._npu_interface.neuron_array.index_to_neuron_id
+            # ✅ Use NPU interface's index_to_neuron_id directly (no proxy)
+            if hasattr(self, "_npu_interface") and self._npu_interface:
+                return self._npu_interface.index_to_neuron_id
         except Exception:
             pass
         return getattr(self, "_index_to_neuron_id_map", {})
@@ -6365,19 +6410,14 @@ class ConnectomeManager(NeuronMappingProvider):
             Single neuron ID (int) or array of neuron IDs (np.ndarray)
         """
         if isinstance(indices, (int, np.integer)):
-            # Single index lookup via NPU map
-            return self.neuron_array.index_to_neuron_id.get(indices, -1)
+            # ✅ Single index lookup via NPU interface
+            return self.index_to_neuron_id.get(indices, -1)
         else:
-            # Batch lookup using NPU-owned conversion
-            if hasattr(self.neuron_array, "indices_to_neuron_ids"):
-                result = self.neuron_array.indices_to_neuron_ids(
-                    np.asarray(indices), filter_invalid=True
-                )
-                return result.astype(np.int64)
-            # Fallback to dict mapping without touching BDU arrays
+            # ✅ Batch lookup using NPU interface mapping
+            mapping = self.index_to_neuron_id
             mapped = []
             for idx in list(np.asarray(indices)):
-                nid = self.neuron_array.index_to_neuron_id.get(int(idx))
+                nid = mapping.get(int(idx))
                 if nid is not None:
                     mapped.append(int(nid))
             return np.array(mapped, dtype=np.int64)
@@ -7509,8 +7549,9 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Maximum number of neurons that can be stored
         """
+        # ✅ Use NPU interface max_neurons directly (no proxy)
         if self._npu_interface:
-            return self._npu_interface.neuron_array.max_neurons
+            return self._npu_interface.max_neurons
         return 0
 
     @property

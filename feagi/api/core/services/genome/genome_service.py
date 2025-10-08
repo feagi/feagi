@@ -5963,7 +5963,12 @@ class GenomeService(BaseService):
                         if len(existing_neurons) > 0:
                             existing_neuron_ids = [int(nid) for nid in existing_neurons]
                             try:
-                                removed = self._connectome_manager.neuron_array.remove_neurons_batch(existing_neuron_ids)
+                                # ✅ Use Rust NPU for neuron deletion
+                                rust_npu = self._connectome_manager._npu_interface.rust_npu
+                                removed = 0
+                                for nid in existing_neuron_ids:
+                                    if rust_npu.delete_neuron(nid):
+                                        removed += 1
                                 self.logger.info(
                                     f"[LOCALIZED-REBUILD] Removed {removed} existing neurons for density change"
                                 )
@@ -5988,7 +5993,12 @@ class GenomeService(BaseService):
                                 neuron_ids_to_remove.append(nid)
                         if neuron_ids_to_remove:
                             try:
-                                removed = self._connectome_manager.neuron_array.remove_neurons_batch(neuron_ids_to_remove)
+                                # ✅ Use Rust NPU for neuron deletion
+                                rust_npu = self._connectome_manager._npu_interface.rust_npu
+                                removed = 0
+                                for nid in neuron_ids_to_remove:
+                                    if rust_npu.delete_neuron(nid):
+                                        removed += 1
                                 self.logger.info(
                                     f"[LOCALIZED-REBUILD] Marked {removed} neurons as deleted (logical removal)"
                                 )
@@ -6079,8 +6089,9 @@ class GenomeService(BaseService):
                             f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}"
                         )
 
+                    # ✅ Rust NPU doesn't track free_indices (uses dynamic allocation)
                     self.logger.info(
-                        f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized - {len(self._connectome_manager.neuron_array.free_indices)} neurons in free pool"
+                        f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized"
                     )
                 else:
                     self.logger.info(
@@ -6316,12 +6327,9 @@ class GenomeService(BaseService):
                 f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}"
             )
 
-            free_pool_size = len(
-                self._connectome_manager.neuron_array.free_indices
-            )
+            # ✅ Rust NPU doesn't track free_indices (uses dynamic allocation)
             self.logger.info(
-                f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id} "
-                f"(free pool size: {free_pool_size})"
+                f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id}"
             )
 
             return neuron_ids
@@ -6647,12 +6655,9 @@ class GenomeService(BaseService):
                 f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}"
             )
 
-            free_pool_size = len(
-                self._connectome_manager.neuron_array.free_indices
-            )
+            # ✅ Rust NPU doesn't track free_indices (uses dynamic allocation)
             self.logger.info(
-                f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id} "
-                f"(free pool size after allocation: {free_pool_size})"
+                f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id}"
             )
 
         except Exception as e:

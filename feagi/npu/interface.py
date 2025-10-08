@@ -256,36 +256,12 @@ class NPUInterface:
         """API compatibility: alias for get_neurons_in_cortical_area."""
         return self.get_neurons_in_cortical_area(cortical_idx)
     
-    @property
-    def neuron_array(self):
-        """DEPRECATED: Temporary compatibility property.
-        
-        Returns an object that provides ONLY neuron_count.
-        All other neuron operations should use the clean API methods above.
-        This will be removed once ConnectomeManager is fully migrated to clean APIs.
-        """
-        logger.debug("[DEPRECATED] neuron_array property accessed - migrate to clean API methods")
-        
-        class _MinimalNeuronArrayProxy:
-            def __init__(self, npu_interface):
-                self._npu = npu_interface
-            
-            @property
-            def neuron_count(self):
-                if self._npu._rust_npu_integration and self._npu._rust_npu_integration._rust_npu_initialized:
-                    return self._npu.rust_npu.get_neuron_count()
-                return 0
-            
-            @property
-            def count(self):
-                return self.neuron_count
-            
-            @property
-            def max_neurons(self):
-                """Return the maximum neuron capacity."""
-                return self._npu.max_neurons
-        
-        return _MinimalNeuronArrayProxy(self)
+    # ✅ REMOVED: neuron_array proxy - Rust NPU is the ONLY source of truth
+    # Use clean API methods instead:
+    #   - get_neuron_count() for neuron count
+    #   - max_neurons property for capacity
+    #   - rust_npu.update_cortical_area_excitability() for property updates
+    #   - rust_npu.delete_neuron() for neuron deletion
     
     @property
     def synapse_array(self):

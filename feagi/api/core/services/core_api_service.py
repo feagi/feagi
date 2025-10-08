@@ -1389,7 +1389,7 @@ class CoreAPIService:
 
                 self.logger.info("✅ NPU unified: BurstEngine and ConnectomeManager share the same NPUInterface instance")
                 self.logger.info(f"   NPU id: {id(npu_interface)}")
-                self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
                 self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                 # NPU configured
             else:
@@ -1422,7 +1422,7 @@ class CoreAPIService:
 
                     self.logger.info("✅ NPU unified for existing singleton")
                     self.logger.info(f"   NPU id: {id(npu_interface)}")
-                    self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                    self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
                     self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                     # NPU is configured at this point
                 else:

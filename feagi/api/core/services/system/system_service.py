@@ -846,7 +846,8 @@ class SystemService(BaseService):
             if not npu_interface:
                 return {"total": 0, "regular": 0, "memory": 0}
             
-            regular_count = npu_interface.neuron_array.count
+            # ✅ Use Rust NPU directly for neuron counts
+            regular_count = npu_interface.get_neuron_count()
             memory_count = npu_interface.memory_neuron_array.count
             total_count = regular_count + memory_count
             
