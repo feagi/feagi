@@ -3242,7 +3242,7 @@ class NeuroEmbryogenesis:
             
             if npu_interface is not None:
                 # Get positions for all found neurons from Rust NPU
-                for neuron_id, weight, _ in neuron_weight_pairs:
+                for neuron_id, weight in neuron_weight_pairs:
                     position = npu_interface.get_neuron_position(neuron_id)
                     if position is not None:
                         pos_tuple = tuple(position)
