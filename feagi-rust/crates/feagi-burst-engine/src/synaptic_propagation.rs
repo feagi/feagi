@@ -50,7 +50,7 @@ pub struct SynapticPropagationEngine {
     /// Pre-built index: source neuron → synapse indices
     pub synapse_index: SynapseIndex,
     /// Neuron → Cortical Area mapping
-    neuron_to_area: AHashMap<NeuronId, CorticalAreaId>,
+    pub neuron_to_area: AHashMap<NeuronId, CorticalAreaId>,
     /// Performance stats
     total_propagations: u64,
     total_synapses_processed: u64,
@@ -131,17 +131,33 @@ impl SynapticPropagationEngine {
             return Ok(AHashMap::new());
         }
 
+        // DEBUG: Show neuron_to_area mapping size
+        eprintln!("🦀 [PROPAGATE-DEBUG] neuron_to_area has {} entries", self.neuron_to_area.len());
+        if self.neuron_to_area.len() <= 10 {
+            eprintln!("🦀 [PROPAGATE-DEBUG] neuron_to_area contents: {:?}", self.neuron_to_area);
+        }
+
         // PHASE 1: GATHER - Collect all synapse indices for fired neurons (parallel)
         let synapse_indices: Vec<usize> = fired_neurons
             .par_iter()
-            .filter_map(|&neuron_id| self.synapse_index.get(&neuron_id))
+            .filter_map(|&neuron_id| {
+                let indices = self.synapse_index.get(&neuron_id);
+                if neuron_id.0 == 1 {
+                    eprintln!("🦀 [PROPAGATE-DEBUG] Neuron 1 lookup: found {} synapses", 
+                             indices.map(|v| v.len()).unwrap_or(0));
+                }
+                indices
+            })
             .flatten()
             .copied()
             .collect();
 
         if synapse_indices.is_empty() {
+            eprintln!("🦀 [PROPAGATE-DEBUG] No synapse_indices found for fired neurons!");
             return Ok(AHashMap::new());
         }
+        
+        eprintln!("🦀 [PROPAGATE-DEBUG] Found {} synapse_indices", synapse_indices.len());
 
         let total_synapses = synapse_indices.len();
         self.total_synapses_processed += total_synapses as u64;
@@ -159,6 +175,13 @@ impl SynapticPropagationEngine {
 
                 // Get target neuron from SoA
                 let target_neuron = NeuronId(synapse_array.target_neurons[syn_idx]);
+                
+                // DEBUG: Log target neuron lookup for first synapse
+                if syn_idx == synapse_indices[0] {
+                    let found = self.neuron_to_area.contains_key(&target_neuron);
+                    eprintln!("🦀 [PROPAGATE-DEBUG] First synapse: target_neuron={}, in_mapping={}", 
+                             target_neuron.0, found);
+                }
                 
                 // Get target cortical area
                 let cortical_area = *self.neuron_to_area.get(&target_neuron)?;

@@ -114,7 +114,7 @@ impl RustNPU {
         y: u32,
         z: u32,
     ) -> Result<NeuronId> {
-        self.neuron_array.add_neuron(
+        let neuron_id = self.neuron_array.add_neuron(
             threshold,
             leak_coefficient,
             resting_potential,
@@ -127,7 +127,13 @@ impl RustNPU {
             x,
             y,
             z,
-        )
+        )?;
+        
+        // CRITICAL: Add to propagation engine's neuron-to-area mapping
+        // This is required for synaptic propagation to work!
+        self.propagation_engine.neuron_to_area.insert(neuron_id, CorticalAreaId(cortical_area));
+        
+        Ok(neuron_id)
     }
     
     /// Add a synapse to the NPU
