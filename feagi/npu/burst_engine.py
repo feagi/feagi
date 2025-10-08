@@ -192,6 +192,8 @@ class BurstEngine:
                 logger.info("🦀 [RUST-NPU] Current state: %d neurons, %d synapses",
                            self._rust_npu_integration.get_neuron_count(),
                            self._rust_npu_integration.get_synapse_count())
+                logger.error(f"🦀 [INSTANCE-DEBUG] BurstEngine RustNPU instance ID: {id(self._rust_npu_integration._rust_npu)}")
+                logger.error(f"🦀 [INSTANCE-DEBUG] NPUInterface RustNPU instance ID: {id(npu_interface._rust_npu_integration._rust_npu)}")
                 return
         
         # Fallback: Create new Rust NPU (should not happen in normal flow)
@@ -220,30 +222,26 @@ class BurstEngine:
                     self._rust_npu_integration.get_synapse_count())
     
     def reinitialize_rust_npu(self) -> None:
-        """Force re-initialization of Rust NPU (e.g., after genome changes).
+        """Rebuild synapse indexes after morphology changes.
         
-        SAFETY: Keeps the old integration active if reinitialization fails.
+        NOTE: This does NOT recreate the Rust NPU - it only rebuilds the synapse index
+        to pick up newly created synapses. The Rust NPU maintains the single source of truth.
         """
-        logger.info("🦀 [RUST-NPU] Force re-initialization requested")
+        logger.info("🦀 [RUST-NPU] Rebuilding synapse indexes after morphology change")
         
-        # Keep reference to old integration in case reinitialization fails
-        old_integration = self._rust_npu_integration
+        if self._rust_npu_integration is None:
+            logger.warning("🦀 [RUST-NPU] No Rust NPU integration - skipping index rebuild")
+            return
         
         try:
-            # Clear and reinitialize
-            self._rust_npu_integration = None
-            self._initialize_rust_npu()
-            logger.info("🦀 [RUST-NPU] ✅ Reinitialization completed successfully")
+            # Just rebuild the synapse index - synapses are already in the Rust NPU
+            self._rust_npu_integration._rust_npu.rebuild_indexes()
+            synapse_count = self._rust_npu_integration._rust_npu.get_synapse_count()
+            logger.info(f"🦀 [RUST-NPU] ✅ Synapse indexes rebuilt ({synapse_count} synapses)")
         except Exception as e:
-            # Restore old integration if reinitialization failed
-            logger.error(f"🦀 [RUST-NPU] Reinitialization failed: {e}")
+            logger.error(f"🦀 [RUST-NPU] Failed to rebuild synapse indexes: {e}")
             logger.exception("Full stack trace:")
-            self._rust_npu_integration = old_integration
-            if old_integration:
-                logger.warning("🦀 [RUST-NPU] Restored previous Rust NPU state - continuing with stale synapse index")
-            else:
-                logger.error("🦀 [RUST-NPU] CRITICAL: No previous state to restore - Rust NPU is unavailable")
-            raise  # Re-raise to let caller know it failed
+            raise
     
     def _old_reinitialize_rust_engine(self) -> bool:
         """Force re-initialization of Rust engine (e.g., after connectome changes).

@@ -256,6 +256,30 @@ impl RustNPU {
         self.synapse_array.valid_count()
     }
     
+    /// Get all outgoing synapses from a source neuron
+    /// Returns Vec of (target_neuron_id, weight)
+    pub fn get_outgoing_synapses(&self, source_neuron_id: u32) -> Vec<(u32, u8)> {
+        let source = NeuronId(source_neuron_id);
+        
+        // Look up synapse indices for this source neuron
+        let synapse_indices = match self.propagation_engine.synapse_index.get(&source) {
+            Some(indices) => indices,
+            None => return Vec::new(),  // No synapses from this neuron
+        };
+        
+        // Collect all valid synapses
+        let mut outgoing = Vec::new();
+        for &syn_idx in synapse_indices {
+            if syn_idx < self.synapse_array.count && self.synapse_array.valid_mask[syn_idx] {
+                let target = self.synapse_array.target_neurons[syn_idx];
+                let weight = self.synapse_array.weights[syn_idx];
+                outgoing.push((target, weight));
+            }
+        }
+        
+        outgoing
+    }
+    
     /// Get neuron state for diagnostics (CFC, snooze, potential, etc.)
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
     pub fn get_neuron_state(&self, neuron_id: NeuronId) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {

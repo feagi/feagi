@@ -454,6 +454,12 @@ impl RustNPU {
         self.npu.get_synapse_count()
     }
     
+    /// Get all outgoing synapses from a source neuron
+    /// Returns list of tuples (target_neuron_id, weight)
+    fn get_outgoing_synapses(&self, source_neuron_id: u32) -> Vec<(u32, u8)> {
+        self.npu.get_outgoing_synapses(source_neuron_id)
+    }
+    
     /// Get neuron state for diagnostics
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
     fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {

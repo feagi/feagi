@@ -316,6 +316,25 @@ class NPUInterface:
             def max_synapses(self):
                 """Return the maximum synapse capacity."""
                 return self._npu.max_synapses
+            
+            def get_outgoing_connections(self, source_neuron_id: int) -> List[Tuple[int, int]]:
+                """Get all outgoing synapses from a source neuron.
+                
+                Args:
+                    source_neuron_id: ID of the source neuron
+                
+                Returns:
+                    List of tuples (target_neuron_id, weight)
+                """
+                if not self._npu._rust_npu_integration or not self._npu._rust_npu_integration._rust_npu_initialized:
+                    return []
+                
+                # Read from Rust NPU (single source of truth)
+                try:
+                    return self._npu.rust_npu.get_outgoing_synapses(source_neuron_id)
+                except Exception as e:
+                    logger.error(f"🦀 [SYNAPSE-READ] Failed to get outgoing synapses for neuron {source_neuron_id}: {e}")
+                    return []
         
         return _MinimalSynapseArrayProxy(self)
     

@@ -48,7 +48,7 @@ pub type PropagationResult = AHashMap<CorticalAreaId, Vec<(NeuronId, SynapticCon
 /// High-performance synaptic propagation engine
 pub struct SynapticPropagationEngine {
     /// Pre-built index: source neuron → synapse indices
-    synapse_index: SynapseIndex,
+    pub synapse_index: SynapseIndex,
     /// Neuron → Cortical Area mapping
     neuron_to_area: AHashMap<NeuronId, CorticalAreaId>,
     /// Performance stats
@@ -74,15 +74,36 @@ impl SynapticPropagationEngine {
     pub fn build_synapse_index(&mut self, synapse_array: &SynapseArray) {
         self.synapse_index.clear();
         
+        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Building synapse index from {} synapses", synapse_array.count);
+        let mut indexed_count = 0;
+        let mut neuron_1_synapses = Vec::new();
+        
         for i in 0..synapse_array.count {
             if synapse_array.valid_mask[i] {
                 let source = NeuronId(synapse_array.source_neurons[i]);
+                let target = synapse_array.target_neurons[i];
+                
+                // Debug: Track neuron 1's synapses
+                if source.0 == 1 {
+                    neuron_1_synapses.push((source.0, target, i));
+                }
+                
                 self.synapse_index
                     .entry(source)
                     .or_insert_with(Vec::new)
                     .push(i);
+                indexed_count += 1;
             }
         }
+        
+        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Indexed {} valid synapses", indexed_count);
+        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] Neuron 1 has {} synapses: {:?}", neuron_1_synapses.len(), neuron_1_synapses);
+        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] synapse_index has {} source neurons", self.synapse_index.len());
+        
+        // Show first few source neurons in the index
+        let mut sources: Vec<_> = self.synapse_index.keys().map(|k| k.0).collect();
+        sources.sort();
+        eprintln!("🦀 [SYNAPSE-INDEX-DEBUG] First 10 source neurons: {:?}", &sources[..sources.len().min(10)]);
     }
 
     /// Set the neuron-to-cortical-area mapping
