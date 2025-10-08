@@ -18,25 +18,10 @@ Architecture Principles:
 """
 
 from .coordinate_converter import CoordinateConverter
-from .fire_candidate_list import FireCandidateList, FCLCandidate
 from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .burst_engine import BurstEngine
 from .fq_sampler import FQSampler, UnifiedFQSampler
-from .fcl_injector import FCLInjector
-from .fcl_manager import (
-    FCLManager,
-    EnhancedFCLManager, 
-    BitMap,
-    TimestepOutOfRangeError,
-    FCLError,
-    MembraneUpdate,
-    NeuronCollection,
-    NeuronCollectionType,
-    example_enhanced_fcl_usage,
-    example_fcl_usage,
-    inject_neurons_into_fcl
-)
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
 from .data_structures import (
@@ -66,30 +51,14 @@ from .interface import (
 )
 
 __all__ = [
-    # Clean NPU Architecture
+    # Core NPU Components
     'CoordinateConverter',
-    'FireCandidateList', 
-    'FCLCandidate',
     'FireQueue',
     'FiringNeuron', 
     'FireLedgerInterface',
     'BurstEngine',
     'FQSampler',
     'UnifiedFQSampler',
-    'FCLInjector',
-    
-    # Legacy compatibility (FCL Managers)
-    'FCLManager',
-    'EnhancedFCLManager',
-    'BitMap',
-    'TimestepOutOfRangeError',
-    'FCLError',
-    'MembraneUpdate',
-    'NeuronCollection',
-    'NeuronCollectionType',
-    'example_enhanced_fcl_usage',
-    'example_fcl_usage',
-    'inject_neurons_into_fcl',
     
     # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',

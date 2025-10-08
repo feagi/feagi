@@ -10,7 +10,6 @@ import numpy as np
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-from .fire_candidate_list import FireCandidateList, FCLCandidate
 from .fire_queue import FireQueue, FiringNeuron
 from .fire_ledger import FireLedgerInterface
 from .coordinate_converter import CoordinateConverter
@@ -1398,7 +1397,7 @@ class BurstEngine:
         self._excitability_cache_dirty = True
         self.logger.debug("Excitability cache invalidated - will rebuild on next access")
     
-    def _process_neural_dynamics(self, fcl: FireCandidateList) -> List[int]:
+    def _process_neural_dynamics(self, fcl: Any) -> List[int]:
         """Process neural dynamics with SIMD-optimized operations.
         
         Applies the complete neural processing pipeline:
@@ -1724,7 +1723,7 @@ class BurstEngine:
             logger.error("Error in neural dynamics processing: %s", str(e))
             return []
     
-    def _apply_fcl_candidates_to_membrane_potentials(self, fcl: FireCandidateList, 
+    def _apply_fcl_candidates_to_membrane_potentials(self, fcl: Any, 
                                                     neuron_array, valid_range: int) -> None:
         """Apply FCL candidate potentials to neuron membrane potentials.
         
@@ -2044,7 +2043,7 @@ class PowerInjectionService:
         actual_threshold = float(thresholds[neuron_index])
         return actual_threshold
     
-    def inject_power_neurons(self, fcl: FireCandidateList, current_timestep: int) -> int:
+    def inject_power_neurons(self, fcl: Any, current_timestep: int) -> int:
         """Inject power neurons into FCL every burst for constant brain activity."""
         
         # NPU Debug logging for power injection - use periodic logging to prevent spam
