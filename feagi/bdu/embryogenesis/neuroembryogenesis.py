@@ -3177,6 +3177,7 @@ class NeuroEmbryogenesis:
             )
             
             total_synapses = 0
+            synapse_connections = []  # Accumulate ALL synapses across ALL vectors for single batch creation
             
             # Process each vector in the morphology
             for vector in vectors:
@@ -3267,46 +3268,29 @@ class NeuroEmbryogenesis:
                         pair[0] for pair in neuron_weight_pairs
                     ]
                     
-                    # ✅ RUST NPU: Get all positions using NPUInterface API
-                    npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-                    if npu_interface is not None:
-                        # Get positions directly from NPUInterface (reads from Rust NPU)
-                        neuron_positions_batch = []
-                        for neuron_id in found_neuron_ids:
-                            position = npu_interface.get_neuron_position(neuron_id)
-                            if position is not None:
-                                neuron_positions_batch.append(position)
-                            else:
-                                logger.warning(f"[VECTOR-NUMPY] No position found for neuron {neuron_id}")
-                    else:
-                        logger.error("[VECTOR-NUMPY] NPU interface not available - cannot get neuron positions!")
-                        neuron_positions_batch = []
-                    
-                    # Group neurons by position
-                    logger.error(f"🔗 [SYNAPSE-DEBUG] neuron_weight_pairs count: {len(neuron_weight_pairs)}")
-                    logger.error(f"🔗 [SYNAPSE-DEBUG] neuron_positions_batch count: {len(neuron_positions_batch)}")
-                    
-                    for i, (neuron_id, weight) in enumerate(
-                        neuron_weight_pairs
-                    ):
-                        if i < len(neuron_positions_batch):
-                            neuron_pos = neuron_positions_batch[i]
-                            if neuron_pos not in position_to_neurons:
-                                position_to_neurons[neuron_pos] = []
-                            position_to_neurons[neuron_pos].append(
-                                (neuron_id, weight)
-                            )
-                            if i < 3:
-                                logger.error(f"🔗 [SYNAPSE-DEBUG]   [{i}] neuron {neuron_id} at position {neuron_pos}")
-                        else:
-                            logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ [{i}] Skipped neuron {neuron_id} - no position in batch!")
+                # ✅ RUST NPU: Get all positions using NPUInterface API
+                npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+                if npu_interface is not None:
+                    # Get positions directly from NPUInterface (reads from Rust NPU)
+                    neuron_positions_batch = []
+                    for neuron_id in found_neuron_ids:
+                        position = npu_interface.get_neuron_position(neuron_id)
+                        if position is not None:
+                            neuron_positions_batch.append(position)
+                else:
+                    neuron_positions_batch = []
                 
-                # Step 7: Create synapses (vectorized where possible)
-                synapse_connections = []
-                logger.error(f"🔗 [SYNAPSE-DEBUG] valid_candidate_positions count: {len(valid_candidate_positions)}")
-                logger.error(f"🔗 [SYNAPSE-DEBUG] position_to_neurons keys: {list(position_to_neurons.keys())[:5]}")
-                logger.error(f"🔗 [SYNAPSE-DEBUG] valid_candidate_positions sample: {valid_candidate_positions[:3]}")
+                # Group neurons by position
+                for i, (neuron_id, weight) in enumerate(neuron_weight_pairs):
+                    if i < len(neuron_positions_batch):
+                        neuron_pos = neuron_positions_batch[i]
+                        if neuron_pos not in position_to_neurons:
+                            position_to_neurons[neuron_pos] = []
+                        position_to_neurons[neuron_pos].append(
+                            (neuron_id, weight)
+                        )
                 
+                # Step 7: Accumulate synapses (vectorized where possible) - batch create AFTER loop
                 for i, candidate_pos in enumerate(valid_candidate_positions):
                     candidate_pos_tuple = tuple(candidate_pos)
                     if candidate_pos_tuple in position_to_neurons:
@@ -3317,27 +3301,17 @@ class NeuroEmbryogenesis:
                             synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
-                            if len(synapse_connections) <= 3:
-                                logger.error(f"🔗 [SYNAPSE-DEBUG] Added connection: {src_neuron_id} → {dst_neuron_id} (weight={weight})")
-                    else:
-                        if i < 3:
-                            logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ Candidate position {candidate_pos_tuple} NOT in position_to_neurons!")
-                
-                logger.error(f"🔗 [SYNAPSE-DEBUG] Total synapse_connections to create: {len(synapse_connections)}")
-                
-                # Step 8: Batch create synapses
-                if synapse_connections:
-                    logger.error(f"🔗 [SYNAPSE-DEBUG] Calling batch_create_synapses with {len(synapse_connections)} synapses")
-                    created = self.connectome_manager.batch_create_synapses(
-                        synapse_connections
-                    )
-                    total_synapses += created
-                    logger.debug(
-                        f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}"
-                    )
-                else:
-                    logger.error(f"🔗 [SYNAPSE-DEBUG] ❌ No synapse_connections to create!")
 
+            # Step 8: Batch create ALL accumulated synapses in ONE call (massive performance improvement!)
+            if synapse_connections:
+                created = self.connectome_manager.batch_create_synapses(
+                    synapse_connections
+                )
+                total_synapses += created
+                logger.info(
+                    f"[VECTOR-NUMPY] Created {created} synapses in single batch for all vectors"
+                )
+            
             logger.info(
                 f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations"
             )
