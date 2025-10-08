@@ -3179,36 +3179,26 @@ class NeuroEmbryogenesis:
             total_synapses = 0
             synapse_connections = []  # Accumulate ALL synapses across ALL vectors for single batch creation
             
-            # Process each vector in the morphology
+            # Get destination area dimensions ONCE (shared by all vectors)
+            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+            if not dst_area:
+                logger.warning(f"Cannot get destination area {dst_area_id}")
+                return 0
+            dst_dimensions = dst_area.dimensions
+            
+            # PHASE 1: Accumulate all candidate positions from ALL vectors
+            all_candidate_positions = set()  # (x, y, z) tuples
+            vector_mapping_data = []  # Store (valid_candidate_positions, valid_source_neurons) for each vector
+            
             for vector in vectors:
                 # Get morphology scalar (default to 1.0 if not provided)
                 scalar = morphology_scalar[0] if morphology_scalar else 1.0
                 
-                #  Step 2: Apply vector [m,n,t] to ALL positions at once (pure
-                #  numpy)
-                vector_array = np.array(vector) * scalar  # Shape: (3,)
-                candidate_positions = (
-                    source_positions + vector_array
-                )  # Broadcasting! Shape: (N, 3)
+                # Apply vector to ALL positions at once (numpy broadcasting)
+                vector_array = np.array(vector) * scalar
+                candidate_positions = source_positions + vector_array
                 
-                logger.debug(
-                    f"[VECTOR-NUMPY] Applied vector {vector} * {scalar} to {len(candidate_positions)} positions"
-                )
-                
-                # Step 3: Get destination area dimensions for boundary checking
-                dst_area = self.connectome_manager.get_cortical_area(
-                    dst_area_id
-                )
-                if not dst_area:
-                    logger.warning(
-                        f"Cannot get destination area {dst_area_id}"
-                    )
-                    continue
-                    
-                dst_dimensions = dst_area.dimensions
-                
-                #  Step 4: Filter candidate positions to be within bounds
-                #  (vectorized)
+                # Filter candidate positions to be within bounds
                 valid_mask = (
                     (candidate_positions[:, 0] >= 0)
                     & (candidate_positions[:, 0] < dst_dimensions[0])
@@ -3219,88 +3209,55 @@ class NeuroEmbryogenesis:
                 )
                 
                 valid_candidate_positions = candidate_positions[valid_mask]
-                valid_source_neurons_for_vector = source_neuron_ids[valid_mask]
+                valid_source_neurons = source_neuron_ids[valid_mask]
                 
-                if len(valid_candidate_positions) == 0:
-                    logger.debug(
-                        "[VECTOR-NUMPY] No valid candidate positions after boundary filtering"
-                    )
-                    continue
+                if len(valid_candidate_positions) > 0:
+                    # Store mapping data for later processing
+                    vector_mapping_data.append((valid_candidate_positions, valid_source_neurons))
                     
-                logger.debug(
-                    f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds"
-                )
-                
-                # Step 5: Batch lookup ALL candidate positions at once
-                candidate_positions_set = set(
-                    map(tuple, valid_candidate_positions)
-                )
-                
-                neuron_weight_pairs = (
-                    self.connectome_manager.batch_voxel_to_neuron_lookup(
-                    cortical_id=dst_area_id,
-                    candidate_positions=candidate_positions_set,
-                    post_synaptic_current=psc_multiplier,
-                    )
-                )
-                
-                if not neuron_weight_pairs:
-                    logger.debug(
-                        "[VECTOR-NUMPY] No neurons found at candidate positions"
-                    )
-                    continue
-                
-                #  Step 6: Create position-to-neurons mapping using global
-                #  spatial hash
-                #  ULTRA-FAST: Use pre-computed spatial hash system to
-                #  eliminate all coordinate lookups
-                position_to_neurons = {}
-                
-                # Build reverse mapping using global spatial hash system
-                if neuron_weight_pairs:
-                    # Import global spatial hash system
-                    from feagi.bdu.spatial_hash import get_spatial_hash
-
-                    _ = get_spatial_hash()
-                    
-                    # Extract neuron IDs from the pairs
-                    found_neuron_ids = [
-                        pair[0] for pair in neuron_weight_pairs
-                    ]
-                    
-                # ✅ RUST NPU: Get all positions using NPUInterface API
-                npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-                if npu_interface is not None:
-                    # Get positions directly from NPUInterface (reads from Rust NPU)
-                    neuron_positions_batch = []
-                    for neuron_id in found_neuron_ids:
-                        position = npu_interface.get_neuron_position(neuron_id)
-                        if position is not None:
-                            neuron_positions_batch.append(position)
-                else:
-                    neuron_positions_batch = []
-                
-                # Group neurons by position
-                for i, (neuron_id, weight) in enumerate(neuron_weight_pairs):
-                    if i < len(neuron_positions_batch):
-                        neuron_pos = neuron_positions_batch[i]
-                        if neuron_pos not in position_to_neurons:
-                            position_to_neurons[neuron_pos] = []
-                        position_to_neurons[neuron_pos].append(
-                            (neuron_id, weight)
-                        )
-                
-                # Step 7: Accumulate synapses (vectorized where possible) - batch create AFTER loop
+                    # Accumulate unique positions for batch lookup
+                    for pos in valid_candidate_positions:
+                        all_candidate_positions.add(tuple(pos))
+            
+            if not all_candidate_positions:
+                logger.debug("[VECTOR-NUMPY] No valid candidate positions after processing all vectors")
+                return 0
+            
+            logger.info(f"[VECTOR-NUMPY] Processed {len(vectors)} vectors → {len(all_candidate_positions)} unique candidate positions")
+            
+            # PHASE 2: ONE batch lookup for ALL candidate positions from ALL vectors (MASSIVE performance gain!)
+            neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                cortical_id=dst_area_id,
+                candidate_positions=all_candidate_positions,
+                post_synaptic_current=psc_multiplier,
+            )
+            
+            if not neuron_weight_pairs:
+                logger.debug("[VECTOR-NUMPY] No neurons found at any candidate positions")
+                return 0
+            
+            # PHASE 3: Create position-to-neurons mapping
+            position_to_neurons = {}  # (x, y, z) → list of (neuron_id, weight)
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            
+            if npu_interface is not None:
+                # Get positions for all found neurons from Rust NPU
+                for neuron_id, weight, _ in neuron_weight_pairs:
+                    position = npu_interface.get_neuron_position(neuron_id)
+                    if position is not None:
+                        pos_tuple = tuple(position)
+                        if pos_tuple not in position_to_neurons:
+                            position_to_neurons[pos_tuple] = []
+                        position_to_neurons[pos_tuple].append((neuron_id, weight))
+            
+            # PHASE 4: Match source neurons to target neurons for ALL vectors
+            for valid_candidate_positions, valid_source_neurons in vector_mapping_data:
                 for i, candidate_pos in enumerate(valid_candidate_positions):
                     candidate_pos_tuple = tuple(candidate_pos)
                     if candidate_pos_tuple in position_to_neurons:
-                        src_neuron_id = valid_source_neurons_for_vector[i]
-                        for dst_neuron_id, weight in position_to_neurons[
-                            candidate_pos_tuple
-                        ]:
-                            synapse_connections.append(
-                                (src_neuron_id, dst_neuron_id, weight)
-                            )
+                        src_neuron_id = valid_source_neurons[i]
+                        for dst_neuron_id, weight in position_to_neurons[candidate_pos_tuple]:
+                            synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
 
             # Step 8: Batch create ALL accumulated synapses in ONE call (massive performance improvement!)
             if synapse_connections:

@@ -246,11 +246,10 @@ class NPUInterface:
             logger.warning("neuron_to_area not initialized!")
             return []
         
-        logger.info(f"🔍 [NPU-API] Looking for neurons in cortical_idx={cortical_idx}")
-        logger.info(f"🔍 [NPU-API] neuron_to_area has {len(self.neuron_to_area)} entries: {list(self.neuron_to_area.items())[:5]}")
+        logger.debug(f"🔍 [NPU-API] Looking for neurons in cortical_idx={cortical_idx}")
         
         result = [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
-        logger.info(f"🔍 [NPU-API] Found {len(result)} neurons: {result}")
+        logger.debug(f"🔍 [NPU-API] Found {len(result)} neurons")
         return result
     
     def get_neurons_by_area(self, cortical_idx: int) -> List[int]:

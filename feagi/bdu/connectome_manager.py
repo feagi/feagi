@@ -7383,16 +7383,21 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
                 return []
             
-            logger.info(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
+            logger.debug(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
 
-            # ✅ RUST NPU: Use NPUInterface API (single source of truth)
-            # Get all neurons in this cortical area
-            neuron_ids_in_area = npu.get_neurons_in_cortical_area(cortical_idx)
-            if not neuron_ids_in_area:
+            # ✅ RUST NPU: Use batch API to get ALL neuron positions at once (massive performance gain!)
+            rust_npu = npu.rust_npu  # Direct access to RustNPU for batch operations
+            if rust_npu is None:
+                logger.error(f"[BATCH-LOOKUP] Rust NPU not available for {cortical_id}")
+                return []
+            
+            # Get all (neuron_id, x, y, z) tuples for this cortical area in ONE call
+            neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+            if not neuron_positions:
                 logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
             
-            logger.info(f"[BATCH-LOOKUP] Found {len(neuron_ids_in_area)} neurons in {cortical_id}")
+            logger.debug(f"[BATCH-LOOKUP] Found {len(neuron_positions)} neurons in {cortical_id}")
 
             # Build a hash set of target positions for O(1) membership checks
             targets = set(candidate_positions)
@@ -7400,22 +7405,14 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
                 return []
 
-            # ✅ Find neurons at target positions using NPUInterface API
+            # ✅ Match neurons to target positions (single Python loop, no Rust boundary crossings!)
             found: List[Tuple[int, float]] = []
-            for neuron_id in neuron_ids_in_area:
-                position = npu.get_neuron_position(neuron_id)
-                if position is None:
-                    continue
-                
+            for neuron_id, x, y, z in neuron_positions:
+                position = (int(x), int(y), int(z))
                 if position in targets:
                     found.append((int(neuron_id), float(post_synaptic_current)))
             
-            logger.info(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
-            if len(found) == 0:
-                # Debug: show first few target positions and neuron positions
-                sample_targets = list(targets)[:5]
-                sample_neurons = [npu.get_neuron_position(nid) for nid in neuron_ids_in_area[:5]]
-                logger.error(f"[BATCH-LOOKUP] No matches for {cortical_id}. Targets: {sample_targets}, Neurons: {sample_neurons}")
+            logger.debug(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
             
             return found
 

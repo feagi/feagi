@@ -225,6 +225,28 @@ impl RustNPU {
         self.burst_count
     }
     
+    /// Get all neuron positions for a cortical area (for fast batch lookups)
+    /// Returns Vec<(neuron_id, x, y, z)>
+    pub fn get_neuron_positions_in_cortical_area(&self, cortical_area: u32) -> Vec<(u32, u32, u32, u32)> {
+        let mut positions = Vec::new();
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                // Coordinates stored as flat array: [x0, y0, z0, x1, y1, z1, ...]
+                let coord_idx = neuron_id * 3;
+                positions.push((
+                    neuron_id as u32,
+                    self.neuron_array.coordinates[coord_idx],
+                    self.neuron_array.coordinates[coord_idx + 1],
+                    self.neuron_array.coordinates[coord_idx + 2],
+                ));
+            }
+        }
+        
+        positions
+    }
+    
     /// Get fire history for a specific burst
     pub fn get_fire_history(&self, burst: u64) -> Option<&FireHistory> {
         self.fire_ledger.get_burst(burst)

@@ -460,6 +460,12 @@ impl RustNPU {
         self.npu.get_outgoing_synapses(source_neuron_id)
     }
     
+    /// Get all neuron positions in a cortical area (for fast batch lookups)
+    /// Returns list of tuples (neuron_id, x, y, z)
+    fn get_neuron_positions_in_cortical_area(&self, cortical_area: u32) -> Vec<(u32, u32, u32, u32)> {
+        self.npu.get_neuron_positions_in_cortical_area(cortical_area)
+    }
+    
     /// Get neuron state for diagnostics
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
     fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {
