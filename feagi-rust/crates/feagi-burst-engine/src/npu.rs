@@ -30,6 +30,8 @@
 use feagi_types::*;
 use crate::neural_dynamics::*;
 use crate::synaptic_propagation::SynapticPropagationEngine;
+use crate::fire_structures::{FireQueue, FiringNeuron};
+use crate::fire_ledger::RustFireLedger;
 use ahash::AHashMap;
 
 /// Burst processing result
@@ -61,7 +63,7 @@ pub struct RustNPU {
     fire_candidate_list: FireCandidateList,
     current_fire_queue: FireQueue,
     previous_fire_queue: FireQueue,
-    fire_ledger: FireLedger,
+    fire_ledger: RustFireLedger,
     
     // Engines
     propagation_engine: SynapticPropagationEngine,
@@ -86,7 +88,7 @@ impl RustNPU {
             fire_candidate_list: FireCandidateList::new(),
             current_fire_queue: FireQueue::new(),
             previous_fire_queue: FireQueue::new(),
-            fire_ledger: FireLedger::new(fire_ledger_window),
+            fire_ledger: RustFireLedger::new(fire_ledger_window),
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
             power_amount: 1.0,
@@ -255,16 +257,15 @@ impl RustNPU {
             self.burst_count,
         )?;
         
-        // Phase 3: Archival (record to Fire Ledger)
-        let neuron_ids = dynamics_result.fire_queue.get_all_neuron_ids();
-        self.fire_ledger.record_burst(self.burst_count, neuron_ids);
+        // Phase 3: Archival (ZERO-COPY archive to Fire Ledger)
+        self.fire_ledger.archive_burst(self.burst_count, &dynamics_result.fire_queue);
+        
+        // Phase 4: Swap fire queues (current becomes previous for next burst)
+        self.previous_fire_queue = self.current_fire_queue.clone();
+        self.current_fire_queue = dynamics_result.fire_queue.clone();
         
         // Phase 5: Cleanup (clear FCL for next burst)
         self.fire_candidate_list.clear();
-        
-        // Swap fire queues: current becomes previous for next burst
-        self.previous_fire_queue = self.current_fire_queue.clone();
-        self.current_fire_queue = dynamics_result.fire_queue.clone();
         
         // Build result
         let fired_neurons = self.current_fire_queue.get_all_neuron_ids();
@@ -352,19 +353,28 @@ impl RustNPU {
                 // Get the actual neuron_id for this array index
                 let neuron_id = self.neuron_array.index_to_neuron_id[idx];
                 
-                // Update base refractory period
+                // Update base refractory period (used when neuron fires)
                 self.neuron_array.refractory_periods[idx] = refractory_period;
 
-                // Enforce immediately: if period > 0, set countdown to period
-                // This guarantees next burst will respect the updated refractory
-                // and stops continuous firing carried over from previous genome values.
-                if refractory_period > 0 {
-                    self.neuron_array.refractory_countdowns[idx] = refractory_period;
-                } else {
-                    // If set to 0, allow immediate firing by clearing countdown
+                // CRITICAL FIX: Do NOT set countdown here!
+                // The countdown should only be set AFTER a neuron fires.
+                // Setting it now would block the neuron immediately, which is backward.
+                // 
+                // Correct behavior:
+                // 1. Neuron fires → countdown = refractory_period
+                // 2. Next burst: countdown > 0 → BLOCKED
+                // 3. Decrement countdown each burst
+                // 4. When countdown = 0 → neuron can fire again
+                //
+                // If we set countdown=refractory_period NOW (before firing),
+                // the neuron would be blocked for N bursts FIRST, then fire.
+                // That's backward!
+                
+                // Only clear countdown if setting refractory to 0 (allow immediate firing)
+                if refractory_period == 0 {
                     self.neuron_array.refractory_countdowns[idx] = 0;
                 }
-
+                
                 // Reset consecutive fire count when applying a new period to avoid
                 // stale state causing unexpected immediate extended refractory.
                 self.neuron_array.consecutive_fire_counts[idx] = 0;
@@ -646,16 +656,6 @@ impl RustNPU {
         true
     }
     
-    /// Get fire history for a specific burst
-    pub fn get_fire_history(&self, burst: u64) -> Option<&FireHistory> {
-        self.fire_ledger.get_burst(burst)
-    }
-    
-    /// Get recent firing history
-    pub fn get_recent_history(&self, count: usize) -> Vec<&FireHistory> {
-        self.fire_ledger.get_recent_history(count)
-    }
-    
     /// Get neuron count
     pub fn get_neuron_count(&self) -> usize {
         self.neuron_array.count
@@ -793,6 +793,32 @@ fn phase1_injection_with_synapses(
         synaptic_injections: synaptic_count,
         sensory_injections: 0,
     })
+}
+
+// ═══════════════════════════════════════════════════════════
+// Fire Ledger API (Extension of RustNPU impl)
+// ═══════════════════════════════════════════════════════════
+impl RustNPU {
+    /// Get firing history for a cortical area from Fire Ledger
+    /// Returns Vec of (timestep, Vec<neuron_id>) tuples, newest first
+    pub fn get_fire_ledger_history(&self, cortical_idx: u32, lookback_steps: usize) -> Vec<(u64, Vec<u32>)> {
+        self.fire_ledger.get_history(cortical_idx, lookback_steps)
+    }
+    
+    /// Get Fire Ledger window size for a cortical area
+    pub fn get_fire_ledger_window_size(&self, cortical_idx: u32) -> usize {
+        self.fire_ledger.get_area_window_size(cortical_idx)
+    }
+    
+    /// Configure Fire Ledger window size for a specific cortical area
+    pub fn configure_fire_ledger_window(&mut self, cortical_idx: u32, window_size: usize) {
+        self.fire_ledger.configure_area_window(cortical_idx, window_size);
+    }
+    
+    /// Get all configured Fire Ledger window sizes
+    pub fn get_all_fire_ledger_configs(&self) -> Vec<(u32, usize)> {
+        self.fire_ledger.get_all_window_configs()
+    }
 }
 
 #[cfg(test)]

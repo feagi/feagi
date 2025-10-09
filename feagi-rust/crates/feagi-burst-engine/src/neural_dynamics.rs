@@ -18,6 +18,7 @@
 //! 3. **Cache-friendly**: Sequential access patterns, no pointer chasing
 
 use feagi_types::*;
+use crate::fire_structures::{FireQueue, FiringNeuron};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -116,7 +117,7 @@ pub fn process_neural_dynamics(
     // Build Fire Queue
     let mut fire_queue = FireQueue::new();
     for neuron in fired_neurons.iter() {
-        fire_queue.add_neuron(*neuron);
+        fire_queue.add_neuron(neuron.clone());
     }
     
     Ok(DynamicsResult {
@@ -146,6 +147,15 @@ fn process_single_neuron(
     // Validate index (should always be valid if in HashMap, but check anyway)
     if idx >= neuron_array.count {
         return None;
+    }
+    
+    // CRITICAL DEBUG: Log entry for neuron 16438
+    if neuron_id.0 == 16438 {
+        println!("[RUST-16438-ENTRY] Burst {}: neuron_id={}, idx={}, refrac_countdown={}, refrac_period={}, potential={}", 
+                 burst_count, neuron_id.0, idx, 
+                 neuron_array.refractory_countdowns[idx],
+                 neuron_array.refractory_periods[idx],
+                 neuron_array.membrane_potentials[idx]);
     }
     
     // 1. Handle unified refractory period (normal + extended)
@@ -251,11 +261,17 @@ fn process_single_neuron(
             
             // CRITICAL DEBUG: Log actual values for neuron 16438
             if neuron_id.0 == 16438 {
+                println!("[RUST-FIRE-16438] ═══════════════════════════════════════");
                 println!("[RUST-FIRE-16438] Neuron 16438 FIRED at burst {}!", burst_count);
-                println!("  refractory_period={}, consecutive_fire_limit={}", 
-                         refractory_period, consecutive_fire_limit);
-                println!("  consecutive_fire_count={} (before increment it was {})", 
+                println!("[RUST-FIRE-16438]   Array index: {}", idx);
+                println!("[RUST-FIRE-16438]   refractory_period={} (from neuron_array.refractory_periods[{}])", 
+                         refractory_period, idx);
+                println!("[RUST-FIRE-16438]   consecutive_fire_limit={}", consecutive_fire_limit);
+                println!("[RUST-FIRE-16438]   consecutive_fire_count={} (before increment it was {})", 
                          new_count, new_count - 1);
+                println!("[RUST-FIRE-16438]   membrane_potential={}, threshold={}", 
+                         current_potential, threshold);
+                println!("[RUST-FIRE-16438] ═══════════════════════════════════════");
             }
             
             if consecutive_fire_limit > 0 && new_count >= consecutive_fire_limit {

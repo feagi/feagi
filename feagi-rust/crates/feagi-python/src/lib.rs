@@ -702,6 +702,54 @@ impl RustNPU {
     fn get_incoming_synapses(&self, neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
         self.npu.get_incoming_synapses(neuron_id)
     }
+    
+    // ═══════════════════════════════════════════════════════════
+    // FIRE LEDGER API (Entry Point #3: Debugging & STDP)
+    // ═══════════════════════════════════════════════════════════
+    
+    /// Get firing history for a cortical area from Fire Ledger
+    /// 
+    /// Args:
+    ///     cortical_idx: Cortical area index (u32)
+    ///     lookback_steps: Number of timesteps to retrieve
+    /// 
+    /// Returns:
+    ///     List of (timestep, [neuron_ids]) tuples, newest first
+    /// 
+    /// Example:
+    ///     history = npu.get_fire_ledger_history(9, 50)
+    ///     # Returns: [(2275, [16438, ...]), (2274, [16438, ...]), ...]
+    fn get_fire_ledger_history(&self, cortical_idx: u32, lookback_steps: usize) -> Vec<(u64, Vec<u32>)> {
+        self.npu.get_fire_ledger_history(cortical_idx, lookback_steps)
+    }
+    
+    /// Get Fire Ledger window size for a cortical area
+    /// 
+    /// Args:
+    ///     cortical_idx: Cortical area index (u32)
+    /// 
+    /// Returns:
+    ///     Window size (number of timesteps retained)
+    fn get_fire_ledger_window_size(&self, cortical_idx: u32) -> usize {
+        self.npu.get_fire_ledger_window_size(cortical_idx)
+    }
+    
+    /// Configure Fire Ledger window size for a specific cortical area
+    /// 
+    /// Args:
+    ///     cortical_idx: Cortical area index (u32)
+    ///     window_size: Number of timesteps to retain
+    fn configure_fire_ledger_window(&mut self, cortical_idx: u32, window_size: usize) {
+        self.npu.configure_fire_ledger_window(cortical_idx, window_size);
+    }
+    
+    /// Get all configured Fire Ledger window sizes
+    /// 
+    /// Returns:
+    ///     List of (cortical_idx, window_size) tuples
+    fn get_all_fire_ledger_configs(&self) -> Vec<(u32, usize)> {
+        self.npu.get_all_fire_ledger_configs()
+    }
 }
 
 /// Python wrapper for visualization neuron data encoding

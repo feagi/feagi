@@ -659,6 +659,11 @@ class NeuronPropertiesResponse(BaseModel):
     decay_rate: float
     refractory_period: int
     refractory_counter: int
+    consecutive_fire_count: int
+    consecutive_fire_limit: int
+    snooze_period: int
+    excitability: float
+    neuron_type: int
     properties: Dict[str, Any]
     outgoing_synapses: List[OutgoingSynapse]
     incoming_synapses: List[IncomingSynapse]

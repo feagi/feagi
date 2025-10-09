@@ -411,6 +411,13 @@ class BurstEngine:
             # Archive firing data to Fire Ledger (for historical access and STDP)
             if self.fire_ledger:
                 try:
+                    # CRITICAL DEBUG: Log what's being archived for area 9 (iic000)
+                    if 9 in fire_queue.firing_neurons_by_area:
+                        area_9_neurons = [n.neuron_id for n in fire_queue.firing_neurons_by_area[9]]
+                        logger.info(f"🔥 [FIRE-LEDGER-DEBUG] Archiving area 9 at timestep {self.current_timestep}: neurons={area_9_neurons}")
+                    else:
+                        logger.info(f"🔥 [FIRE-LEDGER-DEBUG] Area 9 NOT in fire_queue at timestep {self.current_timestep}")
+                    
                     self.fire_ledger.archive_timestep(
                         self.current_timestep,
                         fire_queue.firing_neurons_by_area

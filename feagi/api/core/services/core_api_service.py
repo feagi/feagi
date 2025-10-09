@@ -2092,7 +2092,7 @@ class CoreAPIService:
             return {}
     
     def get_fire_ledger_history(self, cortical_idx: int, lookback_steps: Optional[int] = None) -> Dict[str, Any]:
-        """Get historical firing data for a cortical area from Fire Ledger.
+        """Get historical firing data for a cortical area from RUST Fire Ledger.
         
         Args:
             cortical_idx: Cortical area index
@@ -2113,45 +2113,36 @@ class CoreAPIService:
             }
         """
         try:
-            burst_engine = self.get_burst_engine()
-            if not burst_engine or not burst_engine.fire_ledger:
+            npu_interface = self.get_npu_interface()
+            if not npu_interface:
                 return {
                     "success": False,
-                    "error": "Fire Ledger not available"
+                    "error": "NPU not available"
                 }
             
-            fire_ledger = burst_engine.fire_ledger
+            # Get Fire Ledger history from RUST NPU
+            # If lookback_steps is None, use a large default (e.g., 10000)
+            rust_lookback = lookback_steps if lookback_steps is not None else 10000
             
-            # Check if cortical area has history
-            if cortical_idx not in fire_ledger.cortical_histories:
-                return {
-                    "success": False,
-                    "cortical_idx": cortical_idx,
-                    "error": f"No firing history available for cortical area {cortical_idx}"
-                }
+            # Call Rust: Returns Vec<(timestep: u64, neuron_ids: Vec<u32>)>
+            rust_history = npu_interface.get_fire_ledger_history(cortical_idx, rust_lookback)
             
-            cortical_history = fire_ledger.cortical_histories[cortical_idx]
-            window_size = cortical_history.window_size
+            # Get window size from Rust
+            window_size = npu_interface.get_fire_ledger_window_size(cortical_idx)
             
-            # Determine how many timesteps to retrieve
-            if lookback_steps is None or lookback_steps > len(cortical_history.firing_history):
-                lookback_steps = len(cortical_history.firing_history)
-            else:
-                lookback_steps = min(lookback_steps, len(cortical_history.firing_history))
-            
-            # Extract firing history (most recent first)
+            # Convert Rust data to API format
+            # rust_history is Vec<(timestep: u64, neuron_ids: Vec<u32>)>, newest first
             history_data = []
-            current_timestep = cortical_history.current_timestep
-            
-            for i in range(lookback_steps):
-                bitmap = cortical_history.firing_history[-(i + 1)]
-                neuron_ids = list(bitmap.to_array())  # Convert roaring bitmap to list
-                
+            for (timestep, neuron_ids) in rust_history:
                 history_data.append({
-                    "timestep": current_timestep - i,
-                    "neuron_ids": neuron_ids,
+                    "timestep": int(timestep),
+                    "neuron_ids": [int(nid) for nid in neuron_ids],
                     "count": len(neuron_ids)
                 })
+            
+            # Get current timestep from burst engine
+            burst_engine = self.get_burst_engine()
+            current_timestep = burst_engine.burst_counter if burst_engine else 0
             
             # Get cortical ID from connectome if available
             cortical_id = None
@@ -2167,8 +2158,8 @@ class CoreAPIService:
                 "cortical_id": cortical_id,
                 "current_timestep": current_timestep,
                 "window_size": window_size,
-                "lookback_steps": lookback_steps,
-                "total_timesteps_available": len(cortical_history.firing_history),
+                "lookback_steps": len(rust_history),
+                "total_timesteps_available": len(rust_history),
                 "history": history_data
             }
             

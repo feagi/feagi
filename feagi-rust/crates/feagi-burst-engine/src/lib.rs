@@ -34,11 +34,15 @@ pub mod backend;
 pub mod synaptic_propagation;
 pub mod neural_dynamics;
 pub mod npu;
+pub mod fire_structures;
+pub mod fire_ledger;
 
 pub use backend::*;
 pub use synaptic_propagation::*;
 pub use neural_dynamics::*;
 pub use npu::*;
+pub use fire_structures::*;
+pub use fire_ledger::*;
 
 /// Burst engine performance statistics
 #[derive(Debug, Clone, Default)]
