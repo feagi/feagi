@@ -47,20 +47,14 @@ pub struct WGPUBackend {
     current_neuron_count: usize,
 }
 
-/// GPU buffer management
+/// GPU buffer management (consolidated for Metal's 8-binding limit)
 struct WGPUBuffers {
-    // Neuron arrays (persistent)
-    membrane_potentials: Option<wgpu::Buffer>,
-    thresholds: Option<wgpu::Buffer>,
-    leak_coefficients: Option<wgpu::Buffer>,
-    resting_potentials: Option<wgpu::Buffer>,
-    refractory_periods: Option<wgpu::Buffer>,
-    refractory_countdowns: Option<wgpu::Buffer>,
-    excitabilities: Option<wgpu::Buffer>,
-    consecutive_fire_counts: Option<wgpu::Buffer>,
-    consecutive_fire_limits: Option<wgpu::Buffer>,
-    snooze_periods: Option<wgpu::Buffer>,  // Extended refractory (additive)
-    valid_mask: Option<wgpu::Buffer>,
+    // Neuron arrays (consolidated, persistent)
+    membrane_potentials: Option<wgpu::Buffer>,  // Frequently updated
+    f32_params: Option<wgpu::Buffer>,           // Interleaved: [threshold, leak, resting, excite, ...]
+    u16_static_params: Option<wgpu::Buffer>,    // Interleaved: [refrac_period, consec_limit, snooze, ...]
+    u16_dynamic_state: Option<wgpu::Buffer>,    // Interleaved: [refrac_countdown, consec_count, ...]
+    valid_mask: Option<wgpu::Buffer>,           // Bitpacked
     
     // Synapse arrays (persistent)
     source_neurons: Option<wgpu::Buffer>,
@@ -82,15 +76,9 @@ impl WGPUBuffers {
     fn new() -> Self {
         Self {
             membrane_potentials: None,
-            thresholds: None,
-            leak_coefficients: None,
-            resting_potentials: None,
-            refractory_periods: None,
-            refractory_countdowns: None,
-            excitabilities: None,
-            consecutive_fire_counts: None,
-            consecutive_fire_limits: None,
-            snooze_periods: None,
+            f32_params: None,
+            u16_static_params: None,
+            u16_dynamic_state: None,
             valid_mask: None,
             source_neurons: None,
             target_neurons: None,
@@ -225,66 +213,66 @@ impl WGPUBackend {
             buffer
         };
         
-        // Upload all neuron arrays
+        // ═══════════════════════════════════════════════════════════
+        // CONSOLIDATE BUFFERS FOR METAL (≤8 bindings)
+        // ═══════════════════════════════════════════════════════════
+        
+        // 1. Membrane potentials (separate, frequently updated)
         self.buffers.membrane_potentials = Some(create_buffer_f32(
             &self.device, &self.queue, &neuron_array.membrane_potentials[..neuron_count], 
             "Membrane Potentials"
         ));
         
-        self.buffers.thresholds = Some(create_buffer_f32(
-            &self.device, &self.queue, &neuron_array.thresholds[..neuron_count],
-            "Thresholds"
+        // 2. Interleaved f32 params: [threshold, leak, resting, excitability, ...]
+        let mut f32_params = Vec::with_capacity(neuron_count * 4);
+        for i in 0..neuron_count {
+            f32_params.push(neuron_array.thresholds[i]);
+            f32_params.push(neuron_array.leak_coefficients[i]);
+            f32_params.push(neuron_array.resting_potentials[i]);
+            f32_params.push(neuron_array.excitabilities[i]);
+        }
+        self.buffers.f32_params = Some(create_buffer_f32(
+            &self.device, &self.queue, &f32_params,
+            "F32 Params (interleaved)"
         ));
         
-        self.buffers.leak_coefficients = Some(create_buffer_f32(
-            &self.device, &self.queue, &neuron_array.leak_coefficients[..neuron_count],
-            "Leak Coefficients"
-        ));
-        
-        self.buffers.resting_potentials = Some(create_buffer_f32(
-            &self.device, &self.queue, &neuron_array.resting_potentials[..neuron_count],
-            "Resting Potentials"
-        ));
-        
-        // Convert u16 to u32 for GPU (easier alignment)
-        let refractory_periods_u32: Vec<u32> = neuron_array.refractory_periods[..neuron_count]
-            .iter().map(|&x| x as u32).collect();
-        self.buffers.refractory_periods = Some({
+        // 3. Interleaved u16 static params: [refrac_period, consec_limit, snooze_period, ...]
+        // Convert u16 to u32 for GPU (easier alignment, matches shader)
+        let mut u16_static = Vec::with_capacity(neuron_count * 3);
+        for i in 0..neuron_count {
+            u16_static.push(neuron_array.refractory_periods[i] as u32);
+            u16_static.push(neuron_array.consecutive_fire_limits[i] as u32);
+            u16_static.push(neuron_array.snooze_periods[i] as u32);
+        }
+        self.buffers.u16_static_params = Some({
             let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Refractory Periods"),
-                size: (refractory_periods_u32.len() * 4) as u64,
+                label: Some("U16 Static Params (interleaved)"),
+                size: (u16_static.len() * 4) as u64,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            self.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&refractory_periods_u32));
+            self.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&u16_static));
             buffer
         });
         
-        self.buffers.refractory_countdowns = Some(create_buffer_u16(
-            &self.device, &self.queue, &neuron_array.refractory_countdowns[..neuron_count],
-            "Refractory Countdowns"
-        ));
+        // 4. Interleaved u16 dynamic state: [refrac_countdown, consec_count, ...]
+        let mut u16_dynamic = Vec::with_capacity(neuron_count * 2);
+        for i in 0..neuron_count {
+            u16_dynamic.push(neuron_array.refractory_countdowns[i] as u32);
+            u16_dynamic.push(neuron_array.consecutive_fire_counts[i] as u32);
+        }
+        self.buffers.u16_dynamic_state = Some({
+            let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("U16 Dynamic State (interleaved)"),
+                size: (u16_dynamic.len() * 4) as u64,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
+            self.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&u16_dynamic));
+            buffer
+        });
         
-        self.buffers.excitabilities = Some(create_buffer_f32(
-            &self.device, &self.queue, &neuron_array.excitabilities[..neuron_count],
-            "Excitabilities"
-        ));
-        
-        self.buffers.consecutive_fire_counts = Some(create_buffer_u16(
-            &self.device, &self.queue, &neuron_array.consecutive_fire_counts[..neuron_count],
-            "Consecutive Fire Counts"
-        ));
-        
-        self.buffers.consecutive_fire_limits = Some(create_buffer_u16(
-            &self.device, &self.queue, &neuron_array.consecutive_fire_limits[..neuron_count],
-            "Consecutive Fire Limits"
-        ));
-        
-        self.buffers.snooze_periods = Some(create_buffer_u16(
-            &self.device, &self.queue, &neuron_array.snooze_periods[..neuron_count],
-            "Snooze Periods"
-        ));
-        
+        // 5. Valid mask (bitpacked)
         self.buffers.valid_mask = Some(create_buffer_bool(
             &self.device, &self.queue, &neuron_array.valid_mask[..neuron_count],
             "Valid Mask"
@@ -442,7 +430,10 @@ impl WGPUBackend {
             };
         }
         
-        // Create bind group layout for neural dynamics (matches shader @group(0))
+        // ═══════════════════════════════════════════════════════════
+        // CONSOLIDATED BIND GROUP LAYOUT FOR METAL (7 bindings)
+        // ═══════════════════════════════════════════════════════════
+        
         let neural_dynamics_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Neural Dynamics Layout"),
             entries: &[
@@ -457,7 +448,7 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(1): thresholds (read-only)
+                // @binding(1): f32_params - interleaved (read-only)
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -468,7 +459,7 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(2): leak_coefficients (read-only)
+                // @binding(2): u16_static_params - interleaved (read-only)
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -479,18 +470,18 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(3): resting_potentials (read-only)
+                // @binding(3): u16_dynamic_state - interleaved (read-write)
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
                     count: None,
                 },
-                // @binding(4): refractory_periods (read-only)
+                // @binding(4): valid_mask - bitpacked (read-only)
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -501,7 +492,7 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(5): refractory_countdowns (read-write)
+                // @binding(5): fired_mask - bitpacked (read-write output)
                 wgpu::BindGroupLayoutEntry {
                     binding: 5,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -512,7 +503,7 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(6): excitabilities (read-only)
+                // @binding(6): params - uniform buffer
                 wgpu::BindGroupLayoutEntry {
                     binding: 6,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -523,52 +514,6 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(7): consecutive_fire_counts (read-write)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(8): consecutive_fire_limits (read-only)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 8,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(9): snooze_periods (read-only)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(10): valid_mask (read-only, bitpacked)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 11,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(12): fired_mask (read-write, bitpacked output)
-                // Will create this buffer on-demand
             ],
         });
         
@@ -581,6 +526,29 @@ impl WGPUBackend {
             mapped_at_creation: false,
         });
         
+        // Create params buffer (uniform) - stores burst_count and neuron_count
+        #[repr(C)]
+        #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+        struct NeuralParams {
+            neuron_count: u32,
+            burst_count: u32,
+            _padding0: u32,
+            _padding1: u32,
+        }
+        let params_data = NeuralParams {
+            neuron_count: self.current_neuron_count as u32,
+            burst_count: 0, // Will be updated per-dispatch
+            _padding0: 0,
+            _padding1: 0,
+        };
+        let params_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Neural Params"),
+            size: std::mem::size_of::<NeuralParams>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&params_buffer, 0, bytemuck::bytes_of(&params_data));
+        
         // Create bind group for neural dynamics
         let neural_dynamics_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Neural Dynamics Bind Group"),
@@ -592,47 +560,27 @@ impl WGPUBackend {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: get_buffer!(self.buffers.thresholds, "thresholds").as_entire_binding(),
+                    resource: get_buffer!(self.buffers.f32_params, "f32_params").as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: get_buffer!(self.buffers.leak_coefficients, "leak_coefficients").as_entire_binding(),
+                    resource: get_buffer!(self.buffers.u16_static_params, "u16_static_params").as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: get_buffer!(self.buffers.resting_potentials, "resting_potentials").as_entire_binding(),
+                    resource: get_buffer!(self.buffers.u16_dynamic_state, "u16_dynamic_state").as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,
-                    resource: get_buffer!(self.buffers.refractory_periods, "refractory_periods").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: get_buffer!(self.buffers.refractory_countdowns, "refractory_countdowns").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 6,
-                    resource: get_buffer!(self.buffers.excitabilities, "excitabilities").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 7,
-                    resource: get_buffer!(self.buffers.consecutive_fire_counts, "consecutive_fire_counts").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 8,
-                    resource: get_buffer!(self.buffers.consecutive_fire_limits, "consecutive_fire_limits").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 9,
-                    resource: get_buffer!(self.buffers.snooze_periods, "snooze_periods").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 10,
                     resource: get_buffer!(self.buffers.valid_mask, "valid_mask").as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 11,
+                    binding: 5,
                     resource: fired_mask_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: params_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -640,7 +588,7 @@ impl WGPUBackend {
         self.neural_dynamics_bind_group = Some(neural_dynamics_bind_group);
         self.buffers.fired_neurons_output = Some(fired_mask_buffer);
         
-        println!("✅ Neural dynamics bind group created (12 bindings)");
+        println!("✅ Neural dynamics bind group created (7 bindings - Metal compatible!)");
         
         // Note: Synaptic propagation bind group needs GPU hash table first
         // Will be created separately once hash table is built

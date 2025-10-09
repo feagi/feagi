@@ -1,4 +1,4 @@
-// Neural Dynamics Compute Shader (WGSL)
+// Neural Dynamics Compute Shader (WGSL) - Optimized for Metal (≤8 bindings)
 // 
 // Processes neural dynamics for all neurons in parallel on GPU.
 // 
@@ -9,25 +9,31 @@
 // 4. Apply probabilistic excitability
 // 5. Update consecutive fire counts
 // 6. Apply additive extended refractory when consecutive fire limit hit
+//
+// Buffer Layout (interleaved for Metal compatibility):
+// - f32_params: [threshold, leak, resting, excitability] per neuron (stride=4)
+// - u16_static: [refrac_period, consec_limit, snooze_period] per neuron (stride=3)
+// - u16_dynamic: [refrac_countdown, consec_count] per neuron (stride=2)
 
-// Neuron state buffers (Structure-of-Arrays)
+// Neuron state buffers (consolidated for Metal's 8-binding limit)
 @group(0) @binding(0) var<storage, read_write> membrane_potentials: array<f32>;
-@group(0) @binding(1) var<storage, read> thresholds: array<f32>;
-@group(0) @binding(2) var<storage, read> leak_coefficients: array<f32>;
-@group(0) @binding(3) var<storage, read> resting_potentials: array<f32>;
-@group(0) @binding(4) var<storage, read> refractory_periods: array<u32>;
-@group(0) @binding(5) var<storage, read_write> refractory_countdowns: array<u32>;
-@group(0) @binding(6) var<storage, read> excitabilities: array<f32>;
-@group(0) @binding(7) var<storage, read_write> consecutive_fire_counts: array<u32>;
-@group(0) @binding(8) var<storage, read> consecutive_fire_limits: array<u32>;
-@group(0) @binding(9) var<storage, read> snooze_periods: array<u32>;  // Extended refractory (additive)
-@group(0) @binding(10) var<storage, read> valid_mask: array<u32>;  // Bitpacked
+
+// Interleaved f32 parameters: [threshold, leak_coef, resting, excitability, ...]
+@group(0) @binding(1) var<storage, read> f32_params: array<f32>;
+
+// Interleaved u16 static params: [refrac_period, consec_limit, snooze_period, ...]
+@group(0) @binding(2) var<storage, read> u16_static_params: array<u32>;
+
+// Interleaved u16 dynamic state: [refrac_countdown, consec_count, ...]
+@group(0) @binding(3) var<storage, read_write> u16_dynamic_state: array<u32>;
+
+@group(0) @binding(4) var<storage, read> valid_mask: array<u32>;  // Bitpacked
 
 // Output: Fired neurons (1 = fired, 0 = not fired)
-@group(0) @binding(11) var<storage, read_write> fired_mask: array<u32>;  // Bitpacked
+@group(0) @binding(5) var<storage, read_write> fired_mask: array<u32>;  // Bitpacked
 
 // Constants
-@group(0) @binding(12) var<storage, read> params: NeuralParams;
+@group(0) @binding(6) var<storage, read> params: NeuralParams;
 
 struct NeuralParams {
     neuron_count: u32,
@@ -73,24 +79,46 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     
+    // ═══════════════════════════════════════════════════════════
+    // LOAD INTERLEAVED PARAMETERS (optimized for Metal)
+    // ═══════════════════════════════════════════════════════════
+    
+    // f32_params: stride=4 (threshold, leak, resting, excitability)
+    let f32_idx = neuron_id * 4u;
+    let threshold = f32_params[f32_idx + 0u];
+    let leak_coef = f32_params[f32_idx + 1u];
+    let resting = f32_params[f32_idx + 2u];
+    let excitability = f32_params[f32_idx + 3u];
+    
+    // u16_static_params: stride=3 (refrac_period, consec_limit, snooze_period)
+    let u16_static_idx = neuron_id * 3u;
+    let refractory_period = u16_static_params[u16_static_idx + 0u];
+    let consecutive_limit = u16_static_params[u16_static_idx + 1u];
+    let snooze_period = u16_static_params[u16_static_idx + 2u];
+    
+    // u16_dynamic_state: stride=2 (refrac_countdown, consec_count)
+    let u16_dyn_idx = neuron_id * 2u;
+    var refractory_countdown = u16_dynamic_state[u16_dyn_idx + 0u];
+    var consecutive_fires = u16_dynamic_state[u16_dyn_idx + 1u];
+    
+    // ═══════════════════════════════════════════════════════════
+    // NEURAL DYNAMICS LOGIC
+    // ═══════════════════════════════════════════════════════════
+    
     // 1. Apply leak toward resting potential
     let current_potential = membrane_potentials[neuron_id];
-    let leak_coef = leak_coefficients[neuron_id];
-    let resting = resting_potentials[neuron_id];
-    
     var new_potential = current_potential * (1.0 - leak_coef) + resting * leak_coef;
     
     // 2. Update unified refractory countdown (handles both normal and extended)
-    var refractory_countdown = refractory_countdowns[neuron_id];
     if (refractory_countdown > 0u) {
-        refractory_countdowns[neuron_id] = refractory_countdown - 1u;
+        refractory_countdown = refractory_countdown - 1u;
+        u16_dynamic_state[u16_dyn_idx + 0u] = refractory_countdown;
         
         // Check if extended refractory just expired → reset consecutive fire count
-        let consecutive_fires = consecutive_fire_counts[neuron_id];
-        let consecutive_limit = consecutive_fire_limits[neuron_id];
-        if (refractory_countdown == 1u && consecutive_limit > 0u && consecutive_fires >= consecutive_limit) {
+        if (refractory_countdown == 0u && consecutive_limit > 0u && consecutive_fires >= consecutive_limit) {
             // Reset happens when countdown expires (Option A logic)
-            consecutive_fire_counts[neuron_id] = 0u;
+            consecutive_fires = 0u;
+            u16_dynamic_state[u16_dyn_idx + 1u] = consecutive_fires;
         }
         
         membrane_potentials[neuron_id] = new_potential;
@@ -98,14 +126,12 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     
     // 3. Check firing threshold
-    let threshold = thresholds[neuron_id];
     if (new_potential < threshold) {
         membrane_potentials[neuron_id] = new_potential;
         return;  // Below threshold
     }
     
     // 4. Apply probabilistic excitability
-    let excitability = excitabilities[neuron_id];
     if (excitability < 1.0) {
         let random_val = excitability_random(neuron_id, params.burst_count);
         if (random_val > excitability) {
@@ -114,28 +140,27 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════
     // NEURON FIRES!
+    // ═══════════════════════════════════════════════════════════
     
     // 5. Reset membrane potential
     membrane_potentials[neuron_id] = 0.0;
     
     // 6. Update consecutive fire count
-    var consecutive_fires = consecutive_fire_counts[neuron_id] + 1u;
-    consecutive_fire_counts[neuron_id] = consecutive_fires;
+    consecutive_fires = consecutive_fires + 1u;
+    u16_dynamic_state[u16_dyn_idx + 1u] = consecutive_fires;
     
     // 7. Apply refractory period (additive if hit consecutive fire limit)
-    let refractory_period = refractory_periods[neuron_id];
-    let consecutive_limit = consecutive_fire_limits[neuron_id];
-    
     if (consecutive_limit > 0u && consecutive_fires >= consecutive_limit) {
         // Hit burst limit → ADDITIVE extended refractory
-        let snooze_period = snooze_periods[neuron_id];
-        refractory_countdowns[neuron_id] = refractory_period + snooze_period;
+        refractory_countdown = refractory_period + snooze_period;
         // Note: consecutive_fire_count will be reset when countdown expires
     } else {
         // Normal fire → normal refractory only
-        refractory_countdowns[neuron_id] = refractory_period;
+        refractory_countdown = refractory_period;
     }
+    u16_dynamic_state[u16_dyn_idx + 0u] = refractory_countdown;
     
     // 8. Mark as fired (inline bit set)
     // Note: No need for atomic as each neuron writes to its own unique bit
