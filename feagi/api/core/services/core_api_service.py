@@ -640,69 +640,104 @@ class CoreAPIService:
         )
 
         try:
-            # Try NPU interface first for better performance
-            properties = {}
-            
-            # Get all standard neuron properties from NPU
-            property_names = [
-                'position', 'membrane_potential', 'threshold', 'leak_coefficient', 
-                'excitability', 'refractory_counter', 'neuron_type'
-            ]
-            
-            for prop_name in property_names:
-                try:
-                    result = self._npu_service.get_neuron_property(neuron_id, prop_name)
-                    if result.get("success", False):
-                        properties[prop_name] = result["data"]["value"]
-                except Exception:
-                    # Continue with other properties if one fails
-                    continue
-            
-            # Build full response strictly from NPU + mappings (no legacy fallbacks)
+            # Get neuron data directly from Rust NPU using neuron_id
+            # Rust NPU handles ID→index mapping internally via HashMap
             cm = self._connectome_manager
-            npu = getattr(cm, "_npu_interface", None)
-            if not npu or not hasattr(npu, "neuron_array"):
+            npu_interface = getattr(cm, "_npu_interface", None)
+            
+            if not npu_interface:
                 return None
-            na = npu.neuron_array
-            if neuron_id not in na.neuron_id_to_index:
+            
+            # Get Rust NPU handle
+            rust_npu = npu_interface.rust_npu
+            if not rust_npu:
                 return None
-            idx = na.neuron_id_to_index[neuron_id]
-            cortical_idx = int(na.cortical_idxs[idx])
+            
+            # CLEAN ARCHITECTURE: Pass neuron_id directly to Rust
+            # Rust NPU uses internal neuron_id_to_index HashMap to find the array index
+            state = rust_npu.get_neuron_state(neuron_id)
+            if not state:
+                return None
+            
+            consecutive_fire_count, consecutive_fire_limit, snooze_period, threshold, membrane_potential, refractory_countdown = state
+            
+            # Get cortical area from NPUInterface mapping (still needed for API response)
+            cortical_idx = npu_interface.neuron_to_area.get(neuron_id)
+            
+            properties = {}
             # cortical_id via NPU registry
             cortical_id = None
             try:
-                area_info = npu.cortical_areas.get(cortical_idx)
+                area_info = npu_interface.cortical_areas.get(cortical_idx)
                 if area_info:
                     cortical_id = area_info.get("cortical_id")
             except Exception:
                 cortical_id = None
 
-            # Populate required fields (override any partial/None values)
-            properties["position"] = [
-                int(na.coordinates_x[idx]),
-                int(na.coordinates_y[idx]),
-                int(na.coordinates_z[idx]),
-            ]
-            properties["threshold"] = float(na.thresholds[idx])
-            properties["membrane_potential"] = float(na.membrane_potentials[idx])
-            properties["resting_potential"] = float(na.resting_potentials[idx]) if hasattr(na, "resting_potentials") else 0.0
-            properties["decay_rate"] = float(na.decay_rates[idx])
-            properties["refractory_period"] = int(na.refractory_periods[idx])
-            properties["refractory_counter"] = int(na.refractory_counters[idx])
-            if "properties" not in properties or properties["properties"] is None:
-                properties["properties"] = {}
+            # Get position from NPUInterface mapping
+            position = npu_interface.neuron_to_position.get(neuron_id, (0, 0, 0))
+            
+            # Get additional properties by calling Rust NPU individual getters (use neuron_id directly!)
+            # CRITICAL: These methods now use neuron_id_to_index HashMap internally
+            refractory_period_val = rust_npu.get_neuron_refractory_period(neuron_id) if hasattr(rust_npu, 'get_neuron_refractory_period') else 0
+            leak_coef = rust_npu.get_neuron_leak_coefficient(neuron_id) if hasattr(rust_npu, 'get_neuron_leak_coefficient') else 0.0
+            resting = rust_npu.get_neuron_resting_potential(neuron_id) if hasattr(rust_npu, 'get_neuron_resting_potential') else 0.0
+            excitability = rust_npu.get_neuron_excitability(neuron_id) if hasattr(rust_npu, 'get_neuron_excitability') else 1.0
+            
+            # Populate required fields from Rust NPU state
+            properties["position"] = list(position) if isinstance(position, tuple) else position
+            properties["threshold"] = float(threshold)  # From Rust NPU state
+            properties["membrane_potential"] = float(membrane_potential)  # From Rust NPU state
+            properties["resting_potential"] = float(resting)
+            properties["decay_rate"] = float(leak_coef)
+            properties["refractory_period"] = int(refractory_period_val) if refractory_period_val is not None else 0
+            properties["refractory_counter"] = int(refractory_countdown)  # From Rust NPU state
+            properties["consecutive_fire_count"] = int(consecutive_fire_count)  # From Rust NPU state
+            properties["consecutive_fire_limit"] = int(consecutive_fire_limit)  # From Rust NPU state
+            properties["snooze_period"] = int(snooze_period)  # From Rust NPU state
+            properties["excitability"] = float(excitability) if excitability is not None else 1.0
+            properties["neuron_type"] = 0  # TODO: Add to get_neuron_state or getter
+            properties["properties"] = {}
 
-            # Synapses via NPU SynapseArray
-            sa = getattr(cm, "synapse_array", None)
-            if sa is None and hasattr(npu, "synapse_array"):
-                sa = npu.synapse_array
-            outgoing = sa.get_outgoing_connections(neuron_id) if sa else []
-            incoming = sa.get_incoming_connections(neuron_id) if sa else []
+            # Synapses - get from Rust NPU
+            outgoing = []
+            incoming = []
+            
+            if hasattr(rust_npu, 'get_outgoing_synapses'):
+                try:
+                    # Returns Vec<(target_neuron_id, weight, conductance, synapse_type)>
+                    outgoing_raw = rust_npu.get_outgoing_synapses(neuron_id)
+                    outgoing = [(target_id, weight, conductance, syn_type) 
+                               for (target_id, weight, conductance, syn_type) in outgoing_raw]
+                except Exception as e:
+                    self.logger.debug(f"Failed to get outgoing synapses for neuron {neuron_id}: {e}")
+            
+            if hasattr(rust_npu, 'get_incoming_synapses'):
+                try:
+                    # Returns Vec<(source_neuron_id, weight, conductance, synapse_type)>
+                    incoming_raw = rust_npu.get_incoming_synapses(neuron_id)
+                    incoming = [(source_id, weight, conductance, syn_type) 
+                               for (source_id, weight, conductance, syn_type) in incoming_raw]
+                except Exception as e:
+                    self.logger.debug(f"Failed to get incoming synapses for neuron {neuron_id}: {e}")
+            
             properties["outgoing_synapses"] = [
-                {"target_neuron_id": int(t), "weight": float(w)} for (t, w) in outgoing
+                {
+                    "target_neuron_id": int(t),
+                    "weight": float(w) / 255.0,  # Convert u8 to float
+                    "conductance": float(c) / 255.0,  # Convert u8 to float
+                    "synapse_type": "excitatory" if syn_type == 0 else "inhibitory"
+                } 
+                for (t, w, c, syn_type) in outgoing
             ]
             properties["incoming_synapses"] = [
-                {"source_neuron_id": int(s), "weight": float(w)} for (s, w) in incoming
+                {
+                    "source_neuron_id": int(s),
+                    "weight": float(w) / 255.0,  # Convert u8 to float
+                    "conductance": float(c) / 255.0,  # Convert u8 to float
+                    "synapse_type": "excitatory" if syn_type == 0 else "inhibitory"
+                }
+                for (s, w, c, syn_type) in incoming
             ]
             properties["synapse_counts"] = {
                 "outgoing": len(outgoing),

@@ -72,8 +72,12 @@ class CorticalParameterUpdater:
         Returns:
             True if successful, False otherwise
         """
+        # CRITICAL DEBUG: Log what property is being requested
+        self.logger.info(f"🔍 [PROPERTY-UPDATE] _update_neuron_array_property called: property_name='{property_name}', cortical_id={cortical_id}, cortical_idx={cortical_idx}, value={value}")
+        
         # Check if this property has a neuron_array mapping
         if property_name not in self.NEURON_PROPERTY_MAPPING:
+            self.logger.warning(f"❌ [PROPERTY-UPDATE] Property '{property_name}' not in NEURON_PROPERTY_MAPPING!")
             return False
         
         array_field, converter, display_name = self.NEURON_PROPERTY_MAPPING[property_name]

@@ -531,12 +531,6 @@ impl RustNPU {
         self.npu.get_synapse_count()
     }
     
-    /// Get all outgoing synapses from a source neuron
-    /// Returns list of tuples (target_neuron_id, weight)
-    fn get_outgoing_synapses(&self, source_neuron_id: u32) -> Vec<(u32, u8)> {
-        self.npu.get_outgoing_synapses(source_neuron_id)
-    }
-    
     /// Get all neuron positions in a cortical area (for fast batch lookups)
     /// Returns list of tuples (neuron_id, x, y, z)
     fn get_neuron_positions_in_cortical_area(&self, cortical_area: u32) -> Vec<(u32, u32, u32, u32)> {
@@ -657,37 +651,56 @@ impl RustNPU {
     
     /// Get neuron refractory period
     fn get_neuron_refractory_period(&self, neuron_id: u32) -> Option<u16> {
-        self.npu.neuron_array.refractory_periods.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.refractory_periods.get(idx).copied()
     }
     
     /// Get neuron firing threshold
     fn get_neuron_threshold(&self, neuron_id: u32) -> Option<f32> {
-        self.npu.neuron_array.thresholds.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.thresholds.get(idx).copied()
     }
     
     /// Get neuron leak coefficient (decay rate)
     fn get_neuron_leak_coefficient(&self, neuron_id: u32) -> Option<f32> {
-        self.npu.neuron_array.leak_coefficients.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.leak_coefficients.get(idx).copied()
     }
     
     /// Get neuron membrane potential
     fn get_neuron_membrane_potential(&self, neuron_id: u32) -> Option<f32> {
-        self.npu.neuron_array.membrane_potentials.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.membrane_potentials.get(idx).copied()
     }
     
     /// Get neuron resting potential
     fn get_neuron_resting_potential(&self, neuron_id: u32) -> Option<f32> {
-        self.npu.neuron_array.resting_potentials.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.resting_potentials.get(idx).copied()
     }
     
     /// Get neuron excitability
     fn get_neuron_excitability(&self, neuron_id: u32) -> Option<f32> {
-        self.npu.neuron_array.excitabilities.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.excitabilities.get(idx).copied()
     }
     
     /// Get neuron consecutive fire limit
     fn get_neuron_consecutive_fire_limit(&self, neuron_id: u32) -> Option<u16> {
-        self.npu.neuron_array.consecutive_fire_limits.get(neuron_id as usize).copied()
+        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.neuron_array.consecutive_fire_limits.get(idx).copied()
+    }
+    
+    /// Get outgoing synapses for a neuron
+    /// Returns list of (target_neuron_id, weight, conductance, synapse_type)
+    fn get_outgoing_synapses(&self, neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
+        self.npu.get_outgoing_synapses(neuron_id)
+    }
+    
+    /// Get incoming synapses for a neuron
+    /// Returns list of (source_neuron_id, weight, conductance, synapse_type)
+    fn get_incoming_synapses(&self, neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
+        self.npu.get_incoming_synapses(neuron_id)
     }
 }
 

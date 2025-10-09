@@ -81,6 +81,15 @@ pub struct NeuronArray {
     
     /// Valid neuron mask - true for initialized neurons
     pub valid_mask: Vec<bool>,
+    
+    /// CRITICAL: Neuron ID to array index mapping
+    /// This allows Python to use arbitrary neuron IDs (e.g., 16438)
+    /// while Rust stores neurons sequentially (indices 0, 1, 2, ...)
+    /// Key = neuron_id (from Python/genome), Value = array index (0..count-1)
+    pub neuron_id_to_index: HashMap<u32, usize>,
+    
+    /// Reverse mapping: array index to neuron ID
+    pub index_to_neuron_id: Vec<u32>,
 }
 
 impl NeuronArray {
@@ -103,6 +112,8 @@ impl NeuronArray {
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
             valid_mask: vec![false; capacity],
+            neuron_id_to_index: HashMap::new(),
+            index_to_neuron_id: vec![0; capacity],
         }
     }
     
@@ -146,8 +157,14 @@ impl NeuronArray {
         self.coordinates[id * 3 + 2] = z;
         self.valid_mask[id] = true;
         
+        // CRITICAL: For now, neuron_id == index (sequential assignment)
+        // In the future, Python can pass explicit neuron_ids
+        let neuron_id = id as u32;
+        self.neuron_id_to_index.insert(neuron_id, id);
+        self.index_to_neuron_id[id] = neuron_id;
+        
         self.count += 1;
-        Ok(NeuronId(id as u32))
+        Ok(NeuronId(neuron_id))
     }
     
     /// Get neuron threshold

@@ -325,10 +325,11 @@ impl RustNPU {
         let clamped_excitability = excitability.clamp(0.0, 1.0);
         let mut updated_count = 0;
         
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id] 
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
-                self.neuron_array.excitabilities[neuron_id] = clamped_excitability;
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx] 
+                && self.neuron_array.cortical_areas[idx] == cortical_area {
+                self.neuron_array.excitabilities[idx] = clamped_excitability;
                 updated_count += 1;
             }
         }
@@ -343,33 +344,37 @@ impl RustNPU {
         
         let mut updated_count = 0;
 
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id]
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx]
+                && self.neuron_array.cortical_areas[idx] == cortical_area
             {
+                // Get the actual neuron_id for this array index
+                let neuron_id = self.neuron_array.index_to_neuron_id[idx];
+                
                 // Update base refractory period
-                self.neuron_array.refractory_periods[neuron_id] = refractory_period;
+                self.neuron_array.refractory_periods[idx] = refractory_period;
 
                 // Enforce immediately: if period > 0, set countdown to period
                 // This guarantees next burst will respect the updated refractory
                 // and stops continuous firing carried over from previous genome values.
                 if refractory_period > 0 {
-                    self.neuron_array.refractory_countdowns[neuron_id] = refractory_period;
+                    self.neuron_array.refractory_countdowns[idx] = refractory_period;
                 } else {
                     // If set to 0, allow immediate firing by clearing countdown
-                    self.neuron_array.refractory_countdowns[neuron_id] = 0;
+                    self.neuron_array.refractory_countdowns[idx] = 0;
                 }
 
                 // Reset consecutive fire count when applying a new period to avoid
                 // stale state causing unexpected immediate extended refractory.
-                self.neuron_array.consecutive_fire_counts[neuron_id] = 0;
+                self.neuron_array.consecutive_fire_counts[idx] = 0;
 
                 updated_count += 1;
                 
-                // Log first few neurons
+                // Log first few neurons (show actual neuron_id, not array index!)
                 if updated_count <= 3 {
-                    println!("[RUST-UPDATE]   Neuron {}: refractory_period={}, countdown={}", 
-                             neuron_id, refractory_period, self.neuron_array.refractory_countdowns[neuron_id]);
+                    println!("[RUST-BATCH-UPDATE]   Neuron {}: refractory_period={}, countdown={}", 
+                             neuron_id, refractory_period, self.neuron_array.refractory_countdowns[idx]);
                 }
             }
         }
@@ -381,10 +386,11 @@ impl RustNPU {
     pub fn update_cortical_area_threshold(&mut self, cortical_area: u32, threshold: f32) -> usize {
         let mut updated_count = 0;
         
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id] 
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
-                self.neuron_array.thresholds[neuron_id] = threshold;
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx] 
+                && self.neuron_array.cortical_areas[idx] == cortical_area {
+                self.neuron_array.thresholds[idx] = threshold;
                 updated_count += 1;
             }
         }
@@ -396,10 +402,11 @@ impl RustNPU {
     pub fn update_cortical_area_leak(&mut self, cortical_area: u32, leak: f32) -> usize {
         let mut updated_count = 0;
         
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id] 
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
-                self.neuron_array.leak_coefficients[neuron_id] = leak;
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx] 
+                && self.neuron_array.cortical_areas[idx] == cortical_area {
+                self.neuron_array.leak_coefficients[idx] = leak;
                 updated_count += 1;
             }
         }
@@ -411,10 +418,11 @@ impl RustNPU {
     pub fn update_cortical_area_consecutive_fire_limit(&mut self, cortical_area: u32, limit: u16) -> usize {
         let mut updated_count = 0;
         
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id] 
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
-                self.neuron_array.consecutive_fire_limits[neuron_id] = limit;
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx] 
+                && self.neuron_array.cortical_areas[idx] == cortical_area {
+                self.neuron_array.consecutive_fire_limits[idx] = limit;
                 updated_count += 1;
             }
         }
@@ -426,10 +434,11 @@ impl RustNPU {
     pub fn update_cortical_area_snooze_period(&mut self, cortical_area: u32, snooze_period: u16) -> usize {
         let mut updated_count = 0;
         
-        for neuron_id in 0..self.neuron_array.count {
-            if self.neuron_array.valid_mask[neuron_id] 
-                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
-                self.neuron_array.snooze_periods[neuron_id] = snooze_period;
+        // CRITICAL: Iterate by ARRAY INDEX (not neuron_id!)
+        for idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[idx] 
+                && self.neuron_array.cortical_areas[idx] == cortical_area {
+                self.neuron_array.snooze_periods[idx] = snooze_period;
                 updated_count += 1;
             }
         }
@@ -659,7 +668,7 @@ impl RustNPU {
     
     /// Get all outgoing synapses from a source neuron
     /// Returns Vec of (target_neuron_id, weight)
-    pub fn get_outgoing_synapses(&self, source_neuron_id: u32) -> Vec<(u32, u8)> {
+    pub fn get_outgoing_synapses(&self, source_neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
         let source = NeuronId(source_neuron_id);
         
         // Look up synapse indices for this source neuron
@@ -668,23 +677,50 @@ impl RustNPU {
             None => return Vec::new(),  // No synapses from this neuron
         };
         
-        // Collect all valid synapses
+        // Collect all valid synapses with full properties
         let mut outgoing = Vec::new();
         for &syn_idx in synapse_indices {
             if syn_idx < self.synapse_array.count && self.synapse_array.valid_mask[syn_idx] {
                 let target = self.synapse_array.target_neurons[syn_idx];
                 let weight = self.synapse_array.weights[syn_idx];
-                outgoing.push((target, weight));
+                let conductance = self.synapse_array.conductances[syn_idx];
+                let synapse_type = self.synapse_array.types[syn_idx];
+                outgoing.push((target, weight, conductance, synapse_type));
             }
         }
         
         outgoing
     }
     
+    /// Get incoming synapses for a neuron (neuron is the target)
+    /// Returns Vec<(source_neuron_id, weight, conductance, synapse_type)>
+    pub fn get_incoming_synapses(&self, target_neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
+        let mut synapses = Vec::new();
+        
+        // Iterate through all synapses to find ones targeting this neuron
+        // Note: This is O(n) - we could optimize with a target_index HashMap if needed
+        for i in 0..self.synapse_array.count {
+            if self.synapse_array.valid_mask[i] 
+                && self.synapse_array.target_neurons[i] == target_neuron_id {
+                synapses.push((
+                    self.synapse_array.source_neurons[i],
+                    self.synapse_array.weights[i],
+                    self.synapse_array.conductances[i],
+                    self.synapse_array.types[i],
+                ));
+            }
+        }
+        
+        synapses
+    }
+    
     /// Get neuron state for diagnostics (CFC, extended refractory, potential, etc.)
     /// Returns (cfc, cfc_limit, extended_refrac_period, potential, threshold, refrac_countdown)
     pub fn get_neuron_state(&self, neuron_id: NeuronId) -> Option<(u16, u16, u16, f32, f32, u16)> {
-        let idx = neuron_id.0 as usize;
+        // CRITICAL: Use neuron_id_to_index HashMap to convert ID to array index
+        let idx = *self.neuron_array.neuron_id_to_index.get(&neuron_id.0)?;
+        
+        // Validate index (should always be valid if in HashMap, but check anyway)
         if idx >= self.neuron_array.count || !self.neuron_array.valid_mask[idx] {
             return None;
         }
@@ -727,10 +763,12 @@ fn phase1_injection_with_synapses(
     
     // 1. Power Injection
     for &neuron_id in power_neurons {
-        let idx = neuron_id.0 as usize;
-        if idx < neuron_array.count {
+        // CRITICAL: Use neuron_id_to_index HashMap to convert ID to array index
+        if let Some(&idx) = neuron_array.neuron_id_to_index.get(&neuron_id.0) {
+            if idx < neuron_array.count && neuron_array.valid_mask[idx] {
             fcl.add_candidate(neuron_id, power_amount);
             power_count += 1;
+            }
         }
     }
     
