@@ -60,14 +60,21 @@ pub struct NeuronArray {
     /// Consecutive fire limits (max consecutive fires, 0 = unlimited)
     pub consecutive_fire_limits: Vec<u16>,
     
-    /// Snooze periods (rest period after consecutive fires, in bursts)
+    /// Extended refractory periods (additive cooldown after consecutive fire limit)
+    /// Gene name: snooze_length (kept for backward compatibility)
+    /// Applied as: refractory_countdown = refractory_period + snooze_periods
+    /// Note: Previously used separate snooze_countdowns, now unified with refractory_countdowns
     pub snooze_periods: Vec<u16>,
-    
-    /// Snooze countdowns (current snooze countdown, blocks firing when > 0)
-    pub snooze_countdowns: Vec<u16>,
     
     /// Cortical area ID for each neuron
     pub cortical_areas: Vec<u32>,
+    
+    // TODO: Future plasticity feature - Dynamic consecutive fire limit adjustment
+    // Proposed: plasticity.adjust_consecutive_limit(neuron_id, delta)
+    // Use cases:
+    // - Increase limit for frequently firing neurons (allow more bursts)
+    // - Decrease limit for overactive neurons (force cooldown sooner)
+    // - Adaptive based on synaptic input patterns
     
     /// 3D coordinates (x, y, z) - flat array of [x0, y0, z0, x1, y1, z1, ...]
     pub coordinates: Vec<u32>,
@@ -92,8 +99,7 @@ impl NeuronArray {
             excitabilities: vec![1.0; capacity],
             consecutive_fire_counts: vec![0; capacity],
             consecutive_fire_limits: vec![0; capacity],  // 0 = unlimited
-            snooze_periods: vec![0; capacity],  // 0 = no snooze
-            snooze_countdowns: vec![0; capacity],
+            snooze_periods: vec![0; capacity],  // 0 = no extended refractory
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
             valid_mask: vec![false; capacity],
@@ -133,8 +139,7 @@ impl NeuronArray {
         self.excitabilities[id] = excitability.clamp(0.0, 1.0);
         self.consecutive_fire_counts[id] = 0;
         self.consecutive_fire_limits[id] = consecutive_fire_limit;
-        self.snooze_periods[id] = snooze_period;  // From genome (nx-snooze-f)
-        self.snooze_countdowns[id] = 0;  // Initialize to 0 (not in snooze)
+        self.snooze_periods[id] = snooze_period;  // From genome (nx-snooze-f), used as extended refractory
         self.cortical_areas[id] = cortical_area;
         self.coordinates[id * 3] = x;
         self.coordinates[id * 3 + 1] = y;

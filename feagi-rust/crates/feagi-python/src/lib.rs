@@ -563,7 +563,7 @@ impl RustNPU {
     
     /// Get neuron state for diagnostics
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
-    fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {
+    fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, f32, f32, u16)> {
         self.npu.get_neuron_state(NeuronId(neuron_id))
     }
 }

@@ -142,24 +142,17 @@ fn process_single_neuron(
         return None;
     }
     
-    // 1. Handle refractory period
+    // 1. Handle unified refractory period (normal + extended)
     if neuron_array.refractory_countdowns[idx] > 0 {
         neuron_array.refractory_countdowns[idx] -= 1;
-        return None;
-    }
-    
-    // 1b. Handle snooze period (rest after consecutive fires)
-    // Snooze blocks firing even if neuron is above threshold
-    if neuron_array.snooze_countdowns[idx] > 0 {
-        neuron_array.snooze_countdowns[idx] -= 1;
         
-        // Apply leak during snooze to prevent potential buildup
-        let leak_coefficient = neuron_array.leak_coefficients[idx];
-        if leak_coefficient > 0.0 {
-            let resting_potential = neuron_array.resting_potentials[idx];
-            let current_potential = neuron_array.membrane_potentials[idx];
-            let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
-            neuron_array.membrane_potentials[idx] = leaked_potential;
+        // Check if extended refractory just expired → reset consecutive fire count
+        let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
+        if neuron_array.refractory_countdowns[idx] == 0 
+            && consecutive_fire_limit > 0 
+            && neuron_array.consecutive_fire_counts[idx] >= consecutive_fire_limit {
+            // Reset happens when countdown expires (Option A logic)
+            neuron_array.consecutive_fire_counts[idx] = 0;
         }
         
         return None;
@@ -218,27 +211,24 @@ fn process_single_neuron(
         };
         
         if should_fire {
-            // Increment consecutive fire count (matches Python SIMD implementation)
-            if consecutive_fire_limit > 0 {
-                neuron_array.consecutive_fire_counts[idx] += 1;
-                
-                // Check if neuron hit consecutive fire limit → trigger snooze
-                let new_count = neuron_array.consecutive_fire_counts[idx];
-                if new_count >= consecutive_fire_limit {
-                    let snooze_period = neuron_array.snooze_periods[idx];
-                    if snooze_period > 0 {
-                        // Reset consecutive count and enter snooze
-                        neuron_array.consecutive_fire_counts[idx] = 0;
-                        neuron_array.snooze_countdowns[idx] = snooze_period;
-                    }
-                }
-            }
-            
             // Reset membrane potential
             neuron_array.membrane_potentials[idx] = 0.0;
             
-            // Set refractory period
-            neuron_array.refractory_countdowns[idx] = neuron_array.refractory_periods[idx];
+            // Increment consecutive fire count
+            neuron_array.consecutive_fire_counts[idx] += 1;
+            let new_count = neuron_array.consecutive_fire_counts[idx];
+            
+            // Apply refractory period (additive if hit consecutive fire limit)
+            let refractory_period = neuron_array.refractory_periods[idx];
+            if consecutive_fire_limit > 0 && new_count >= consecutive_fire_limit {
+                // Hit burst limit → ADDITIVE extended refractory
+                let snooze_period = neuron_array.snooze_periods[idx];
+                neuron_array.refractory_countdowns[idx] = refractory_period + snooze_period;
+                // Note: consecutive_fire_count will be reset when countdown expires
+            } else {
+                // Normal fire → normal refractory only
+                neuron_array.refractory_countdowns[idx] = refractory_period;
+            }
             
             // Get neuron coordinates
             let coord_idx = idx * 3;

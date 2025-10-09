@@ -59,8 +59,7 @@ struct WGPUBuffers {
     excitabilities: Option<wgpu::Buffer>,
     consecutive_fire_counts: Option<wgpu::Buffer>,
     consecutive_fire_limits: Option<wgpu::Buffer>,
-    snooze_periods: Option<wgpu::Buffer>,
-    snooze_countdowns: Option<wgpu::Buffer>,
+    snooze_periods: Option<wgpu::Buffer>,  // Extended refractory (additive)
     valid_mask: Option<wgpu::Buffer>,
     
     // Synapse arrays (persistent)
@@ -92,7 +91,6 @@ impl WGPUBuffers {
             consecutive_fire_counts: None,
             consecutive_fire_limits: None,
             snooze_periods: None,
-            snooze_countdowns: None,
             valid_mask: None,
             source_neurons: None,
             target_neurons: None,
@@ -285,11 +283,6 @@ impl WGPUBackend {
         self.buffers.snooze_periods = Some(create_buffer_u16(
             &self.device, &self.queue, &neuron_array.snooze_periods[..neuron_count],
             "Snooze Periods"
-        ));
-        
-        self.buffers.snooze_countdowns = Some(create_buffer_u16(
-            &self.device, &self.queue, &neuron_array.snooze_countdowns[..neuron_count],
-            "Snooze Countdowns"
         ));
         
         self.buffers.valid_mask = Some(create_buffer_bool(
@@ -563,18 +556,7 @@ impl WGPUBackend {
                     },
                     count: None,
                 },
-                // @binding(10): snooze_countdowns (read-write)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 10,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(11): valid_mask (read-only, bitpacked)
+                // @binding(10): valid_mask (read-only, bitpacked)
                 wgpu::BindGroupLayoutEntry {
                     binding: 11,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -646,14 +628,10 @@ impl WGPUBackend {
                 },
                 wgpu::BindGroupEntry {
                     binding: 10,
-                    resource: get_buffer!(self.buffers.snooze_countdowns, "snooze_countdowns").as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 11,
                     resource: get_buffer!(self.buffers.valid_mask, "valid_mask").as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 12,
+                    binding: 11,
                     resource: fired_mask_buffer.as_entire_binding(),
                 },
             ],

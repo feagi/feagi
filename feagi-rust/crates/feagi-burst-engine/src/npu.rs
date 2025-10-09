@@ -392,9 +392,9 @@ impl RustNPU {
         outgoing
     }
     
-    /// Get neuron state for diagnostics (CFC, snooze, potential, etc.)
-    /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
-    pub fn get_neuron_state(&self, neuron_id: NeuronId) -> Option<(u16, u16, u16, u16, f32, f32, u16)> {
+    /// Get neuron state for diagnostics (CFC, extended refractory, potential, etc.)
+    /// Returns (cfc, cfc_limit, extended_refrac_period, potential, threshold, refrac_countdown)
+    pub fn get_neuron_state(&self, neuron_id: NeuronId) -> Option<(u16, u16, u16, f32, f32, u16)> {
         let idx = neuron_id.0 as usize;
         if idx >= self.neuron_array.count || !self.neuron_array.valid_mask[idx] {
             return None;
@@ -403,8 +403,7 @@ impl RustNPU {
         Some((
             self.neuron_array.consecutive_fire_counts[idx],
             self.neuron_array.consecutive_fire_limits[idx],
-            self.neuron_array.snooze_countdowns[idx],
-            self.neuron_array.snooze_periods[idx],
+            self.neuron_array.snooze_periods[idx],  // Extended refractory period (additive)
             self.neuron_array.membrane_potentials[idx],
             self.neuron_array.thresholds[idx],
             self.neuron_array.refractory_countdowns[idx],

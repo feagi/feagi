@@ -4,11 +4,11 @@
 // 
 // Algorithm:
 // 1. Apply leak toward resting potential
-// 2. Check refractory period
+// 2. Check unified refractory period (handles both normal and extended)
 // 3. Check firing threshold
 // 4. Apply probabilistic excitability
 // 5. Update consecutive fire counts
-// 6. Handle snooze periods
+// 6. Apply additive extended refractory when consecutive fire limit hit
 
 // Neuron state buffers (Structure-of-Arrays)
 @group(0) @binding(0) var<storage, read_write> membrane_potentials: array<f32>;
@@ -20,15 +20,14 @@
 @group(0) @binding(6) var<storage, read> excitabilities: array<f32>;
 @group(0) @binding(7) var<storage, read_write> consecutive_fire_counts: array<u32>;
 @group(0) @binding(8) var<storage, read> consecutive_fire_limits: array<u32>;
-@group(0) @binding(9) var<storage, read> snooze_periods: array<u32>;
-@group(0) @binding(10) var<storage, read_write> snooze_countdowns: array<u32>;
-@group(0) @binding(11) var<storage, read> valid_mask: array<u32>;  // Bitpacked
+@group(0) @binding(9) var<storage, read> snooze_periods: array<u32>;  // Extended refractory (additive)
+@group(0) @binding(10) var<storage, read> valid_mask: array<u32>;  // Bitpacked
 
 // Output: Fired neurons (1 = fired, 0 = not fired)
-@group(0) @binding(12) var<storage, read_write> fired_mask: array<u32>;  // Bitpacked
+@group(0) @binding(11) var<storage, read_write> fired_mask: array<u32>;  // Bitpacked
 
 // Constants
-@group(0) @binding(13) var<storage, read> params: NeuralParams;
+@group(0) @binding(12) var<storage, read> params: NeuralParams;
 
 struct NeuralParams {
     neuron_count: u32,
@@ -81,30 +80,31 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     var new_potential = current_potential * (1.0 - leak_coef) + resting * leak_coef;
     
-    // 2. Update refractory countdown
+    // 2. Update unified refractory countdown (handles both normal and extended)
     var refractory_countdown = refractory_countdowns[neuron_id];
     if (refractory_countdown > 0u) {
         refractory_countdowns[neuron_id] = refractory_countdown - 1u;
+        
+        // Check if extended refractory just expired → reset consecutive fire count
+        let consecutive_fires = consecutive_fire_counts[neuron_id];
+        let consecutive_limit = consecutive_fire_limits[neuron_id];
+        if (refractory_countdown == 1u && consecutive_limit > 0u && consecutive_fires >= consecutive_limit) {
+            // Reset happens when countdown expires (Option A logic)
+            consecutive_fire_counts[neuron_id] = 0u;
+        }
+        
         membrane_potentials[neuron_id] = new_potential;
         return;  // In refractory period, cannot fire
     }
     
-    // 3. Update snooze countdown
-    var snooze_countdown = snooze_countdowns[neuron_id];
-    if (snooze_countdown > 0u) {
-        snooze_countdowns[neuron_id] = snooze_countdown - 1u;
-        membrane_potentials[neuron_id] = new_potential;
-        return;  // In snooze period, cannot fire
-    }
-    
-    // 4. Check firing threshold
+    // 3. Check firing threshold
     let threshold = thresholds[neuron_id];
     if (new_potential < threshold) {
         membrane_potentials[neuron_id] = new_potential;
         return;  // Below threshold
     }
     
-    // 5. Apply probabilistic excitability
+    // 4. Apply probabilistic excitability
     let excitability = excitabilities[neuron_id];
     if (excitability < 1.0) {
         let random_val = excitability_random(neuron_id, params.burst_count);
@@ -116,29 +116,28 @@ fn neural_dynamics_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // NEURON FIRES!
     
-    // 6. Reset membrane potential
+    // 5. Reset membrane potential
     membrane_potentials[neuron_id] = 0.0;
     
-    // 7. Set refractory period
-    let refractory_period = refractory_periods[neuron_id];
-    refractory_countdowns[neuron_id] = refractory_period;
-    
-    // 8. Update consecutive fire count
+    // 6. Update consecutive fire count
     var consecutive_fires = consecutive_fire_counts[neuron_id] + 1u;
     consecutive_fire_counts[neuron_id] = consecutive_fires;
     
-    // 9. Check consecutive fire limit
+    // 7. Apply refractory period (additive if hit consecutive fire limit)
+    let refractory_period = refractory_periods[neuron_id];
     let consecutive_limit = consecutive_fire_limits[neuron_id];
+    
     if (consecutive_limit > 0u && consecutive_fires >= consecutive_limit) {
-        // Enter snooze period
+        // Hit burst limit → ADDITIVE extended refractory
         let snooze_period = snooze_periods[neuron_id];
-        snooze_countdowns[neuron_id] = snooze_period;
-        
-        // Reset consecutive fire count
-        consecutive_fire_counts[neuron_id] = 0u;
+        refractory_countdowns[neuron_id] = refractory_period + snooze_period;
+        // Note: consecutive_fire_count will be reset when countdown expires
+    } else {
+        // Normal fire → normal refractory only
+        refractory_countdowns[neuron_id] = refractory_period;
     }
     
-    // 10. Mark as fired (inline bit set)
+    // 8. Mark as fired (inline bit set)
     // Note: No need for atomic as each neuron writes to its own unique bit
     let fired_word_idx = neuron_id / 32u;
     let fired_bit_idx = neuron_id % 32u;
