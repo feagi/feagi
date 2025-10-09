@@ -590,8 +590,9 @@ class NPUInterface:
             if state is None:
                 return None
             
-            # Unpack state: (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
-            cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown = state
+            # Unpack state: (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+            # Note: snooze_countdown removed - now unified in refractory_countdown
+            cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown = state
             
             property_map = {
                 'membrane_potential': potential,
@@ -599,8 +600,8 @@ class NPUInterface:
                 'refractory_countdown': refrac_countdown,
                 'consecutive_fire_count': cfc,
                 'consecutive_fire_limit': cfc_limit,
-                'snooze_countdown': snooze_countdown,
                 'snooze_period': snooze_period,
+                # Note: snooze_countdown no longer available as separate field (unified in refractory_countdown)
             }
             
             return property_map.get(property_name)

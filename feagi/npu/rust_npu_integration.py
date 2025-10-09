@@ -169,8 +169,9 @@ class RustNPUIntegration:
                 logger.warning("🔍 [NEURON-DEBUG] Neuron %d not found in Rust NPU", neuron_id)
                 return
             
-            # Unpack state: (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown)
-            cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown = state
+            # Unpack state: (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+            # Note: snooze_countdown removed - now unified in refractory_countdown
+            cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown = state
             
             # Get cortical_idx from neuron_to_area mapping (no Python array needed!)
             cortical_idx = -1
@@ -178,15 +179,15 @@ class RustNPUIntegration:
                 npu_interface = self.connectome_manager._npu_interface
                 cortical_idx = npu_interface.neuron_to_area.get(neuron_id, -1)
             
-            logger.error("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
-            logger.error("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 
+            logger.info("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
+            logger.info("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 
                         potential, threshold, potential >= threshold)
-            logger.error("🔍   refractory_countdown=%d", refrac_countdown)
-            logger.error("🔍   consecutive_fire_count=%d/%d", cfc, cfc_limit)
-            logger.error("🔍   snooze_countdown=%d (period=%d)", snooze_countdown, snooze_period)
-            logger.error("🔍   BLOCKED=%s (refrac=%s, snooze=%s, cfc_limit=%s)", 
-                        refrac_countdown > 0 or snooze_countdown > 0 or (cfc_limit > 0 and cfc >= cfc_limit),
-                        refrac_countdown > 0, snooze_countdown > 0, 
+            logger.info("🔍   refractory_countdown=%d (unified, includes extended period)", refrac_countdown)
+            logger.info("🔍   consecutive_fire_count=%d/%d", cfc, cfc_limit)
+            logger.info("🔍   snooze_period=%d (gene value, applied when cfc_limit hit)", snooze_period)
+            logger.info("🔍   BLOCKED=%s (refrac=%s, cfc_limit=%s)", 
+                        refrac_countdown > 0 or (cfc_limit > 0 and cfc >= cfc_limit),
+                        refrac_countdown > 0, 
                         cfc_limit > 0 and cfc >= cfc_limit)
             
         except Exception as e:

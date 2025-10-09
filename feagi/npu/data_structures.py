@@ -207,6 +207,8 @@ class NeuronArray:
         # Snooze period tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
         # Snooze = rest period after consecutive fires, measured in bursts
         self.snooze_periods = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
+        # DEPRECATED: snooze_countdowns removed in unified refractory design (now part of refractory_countdowns)
+        # Kept for legacy compatibility only - Rust NPU does not use this field
         self.snooze_countdowns = np.zeros(max_neurons, dtype=np.uint16)
         
         # Cortical area mapping
