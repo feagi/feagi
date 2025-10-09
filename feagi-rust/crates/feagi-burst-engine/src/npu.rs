@@ -32,6 +32,7 @@ use crate::neural_dynamics::*;
 use crate::synaptic_propagation::SynapticPropagationEngine;
 use crate::fire_structures::{FireQueue, FiringNeuron};
 use crate::fire_ledger::RustFireLedger;
+use crate::fq_sampler::{FQSampler, SamplingMode};
 use ahash::AHashMap;
 
 /// Burst processing result
@@ -64,6 +65,7 @@ pub struct RustNPU {
     current_fire_queue: FireQueue,
     previous_fire_queue: FireQueue,
     fire_ledger: RustFireLedger,
+    fq_sampler: FQSampler,
     
     // Engines
     propagation_engine: SynapticPropagationEngine,
@@ -89,6 +91,7 @@ impl RustNPU {
             current_fire_queue: FireQueue::new(),
             previous_fire_queue: FireQueue::new(),
             fire_ledger: RustFireLedger::new(fire_ledger_window),
+            fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
             power_amount: 1.0,
@@ -818,6 +821,75 @@ impl RustNPU {
     /// Get all configured Fire Ledger window sizes
     pub fn get_all_fire_ledger_configs(&self) -> Vec<(u32, usize)> {
         self.fire_ledger.get_all_window_configs()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FQ Sampler API (Entry Point #2: Motor/Visualization Output)
+// ═══════════════════════════════════════════════════════════
+impl RustNPU {
+    /// Sample the current Fire Queue for visualization/motor output
+    /// 
+    /// Returns None if:
+    /// - Rate limit not met
+    /// - Fire Queue is empty
+    /// - Burst already sampled (deduplication)
+    /// 
+    /// Returns HashMap of cortical_idx -> area data
+    pub fn sample_fire_queue(&mut self) -> Option<AHashMap<u32, (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<f32>)>> {
+        let sample_result = self.fq_sampler.sample(&self.current_fire_queue)?;
+        
+        // Convert to Python-friendly format
+        let mut result = AHashMap::new();
+        for (cortical_idx, area_data) in sample_result.areas {
+            result.insert(
+                cortical_idx,
+                (
+                    area_data.neuron_ids,
+                    area_data.coordinates_x,
+                    area_data.coordinates_y,
+                    area_data.coordinates_z,
+                    area_data.potentials,
+                )
+            );
+        }
+        
+        Some(result)
+    }
+    
+    /// Set FQ Sampler frequency (Hz)
+    pub fn set_fq_sampler_frequency(&mut self, frequency_hz: f64) {
+        self.fq_sampler.set_sample_frequency(frequency_hz);
+    }
+    
+    /// Get FQ Sampler frequency (Hz)
+    pub fn get_fq_sampler_frequency(&self) -> f64 {
+        self.fq_sampler.get_sample_frequency()
+    }
+    
+    /// Set visualization subscriber state
+    pub fn set_visualization_subscribers(&mut self, has_subscribers: bool) {
+        self.fq_sampler.set_visualization_subscribers(has_subscribers);
+    }
+    
+    /// Check if visualization subscribers are connected
+    pub fn has_visualization_subscribers(&self) -> bool {
+        self.fq_sampler.has_visualization_subscribers()
+    }
+    
+    /// Set motor subscriber state
+    pub fn set_motor_subscribers(&mut self, has_subscribers: bool) {
+        self.fq_sampler.set_motor_subscribers(has_subscribers);
+    }
+    
+    /// Check if motor subscribers are connected
+    pub fn has_motor_subscribers(&self) -> bool {
+        self.fq_sampler.has_motor_subscribers()
+    }
+    
+    /// Get total FQ Sampler samples taken
+    pub fn get_fq_sampler_samples_taken(&self) -> u64 {
+        self.fq_sampler.get_samples_taken()
     }
 }
 

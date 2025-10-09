@@ -750,6 +750,108 @@ impl RustNPU {
     fn get_all_fire_ledger_configs(&self) -> Vec<(u32, usize)> {
         self.npu.get_all_fire_ledger_configs()
     }
+    
+    // ═══════════════════════════════════════════════════════════
+    // FQ SAMPLER API (Entry Point #2: Motor/Visualization Output)
+    // ═══════════════════════════════════════════════════════════
+    
+    /// Sample the current Fire Queue for visualization/motor output
+    /// 
+    /// Returns None if:
+    /// - Rate limit not met
+    /// - Fire Queue is empty
+    /// - Burst already sampled (deduplication)
+    /// 
+    /// Returns:
+    ///     Dict[cortical_idx: int, tuple] where tuple is:
+    ///     (neuron_ids, coords_x, coords_y, coords_z, potentials)
+    /// 
+    /// Example:
+    ///     sample = npu.sample_fire_queue()
+    ///     if sample:
+    ///         for cortical_idx, (ids, x, y, z, potentials) in sample.items():
+    ///             # Process firing neurons for this area
+    ///             pass
+    fn sample_fire_queue(&mut self, py: Python) -> PyResult<Option<PyObject>> {
+        match self.npu.sample_fire_queue() {
+            Some(areas) => {
+                // Convert HashMap to Python dict
+                let py_dict = PyDict::new_bound(py);
+                
+                for (cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials)) in areas {
+                    // Create a tuple of arrays for this area
+                    let area_tuple = (
+                        neuron_ids.to_object(py),
+                        coords_x.to_object(py),
+                        coords_y.to_object(py),
+                        coords_z.to_object(py),
+                        potentials.to_object(py),
+                    );
+                    
+                    py_dict.set_item(cortical_idx, area_tuple)?;
+                }
+                
+                Ok(Some(py_dict.into()))
+            }
+            None => Ok(None),
+        }
+    }
+    
+    /// Set FQ Sampler frequency (Hz)
+    /// 
+    /// Args:
+    ///     frequency_hz: Sampling frequency in Hz (e.g., 10.0 for 10Hz)
+    fn set_fq_sampler_frequency(&mut self, frequency_hz: f64) {
+        self.npu.set_fq_sampler_frequency(frequency_hz);
+    }
+    
+    /// Get FQ Sampler frequency (Hz)
+    /// 
+    /// Returns:
+    ///     Current sampling frequency in Hz
+    fn get_fq_sampler_frequency(&self) -> f64 {
+        self.npu.get_fq_sampler_frequency()
+    }
+    
+    /// Set visualization subscriber state
+    /// 
+    /// Args:
+    ///     has_subscribers: True if Brain Visualizer is connected
+    fn set_visualization_subscribers(&mut self, has_subscribers: bool) {
+        self.npu.set_visualization_subscribers(has_subscribers);
+    }
+    
+    /// Check if visualization subscribers are connected
+    /// 
+    /// Returns:
+    ///     True if Brain Visualizer is connected
+    fn has_visualization_subscribers(&self) -> bool {
+        self.npu.has_visualization_subscribers()
+    }
+    
+    /// Set motor subscriber state
+    /// 
+    /// Args:
+    ///     has_subscribers: True if motor agents are connected
+    fn set_motor_subscribers(&mut self, has_subscribers: bool) {
+        self.npu.set_motor_subscribers(has_subscribers);
+    }
+    
+    /// Check if motor subscribers are connected
+    /// 
+    /// Returns:
+    ///     True if motor agents are connected
+    fn has_motor_subscribers(&self) -> bool {
+        self.npu.has_motor_subscribers()
+    }
+    
+    /// Get total FQ Sampler samples taken
+    /// 
+    /// Returns:
+    ///     Total number of samples taken since initialization
+    fn get_fq_sampler_samples_taken(&self) -> u64 {
+        self.npu.get_fq_sampler_samples_taken()
+    }
 }
 
 /// Python wrapper for visualization neuron data encoding

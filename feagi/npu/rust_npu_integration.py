@@ -256,3 +256,82 @@ class RustNPUIntegration:
         if self._rust_npu:
             return self._rust_npu.get_synapse_count()
         return 0
+    
+    # ═══════════════════════════════════════════════════════════
+    # FQ SAMPLER API (Entry Point #2: Motor/Visualization Output)
+    # ═══════════════════════════════════════════════════════════
+    
+    def sample_fire_queue(self) -> Optional[Dict[int, Dict[str, List]]]:
+        """Sample the current Fire Queue for visualization/motor output.
+        
+        This is Entry Point #2: The thin Python API for external systems.
+        All sampling logic is in Rust for maximum performance.
+        
+        Returns:
+            Dict mapping cortical_idx to area data:
+            {
+                cortical_idx: {
+                    "neuron_ids": [id1, id2, ...],
+                    "coordinates_x": [x1, x2, ...],
+                    "coordinates_y": [y1, y2, ...],
+                    "coordinates_z": [z1, z2, ...],
+                    "membrane_potentials": [p1, p2, ...]
+                }
+            }
+            
+            Returns None if:
+            - Rate limit not met
+            - Fire Queue is empty
+            - Burst already sampled (deduplication)
+        
+        Example:
+            sample = rust_npu_integration.sample_fire_queue()
+            if sample:
+                for cortical_idx, area_data in sample.items():
+                    neuron_ids = area_data["neuron_ids"]
+                    coords_x = area_data["coordinates_x"]
+                    # Process firing neurons...
+        """
+        if not self._rust_npu:
+            return None
+        
+        # Call Rust FQ Sampler
+        rust_sample = self._rust_npu.sample_fire_queue()
+        if rust_sample is None:
+            return None
+        
+        # Convert from Rust tuple format to Python dict format
+        # Rust returns: Dict[int, Tuple[neuron_ids, coords_x, coords_y, coords_z, potentials]]
+        # Python expects: Dict[int, Dict[str, List]]
+        result = {}
+        for cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials) in rust_sample.items():
+            result[cortical_idx] = {
+                "neuron_ids": list(neuron_ids),
+                "coordinates_x": list(coords_x),
+                "coordinates_y": list(coords_y),
+                "coordinates_z": list(coords_z),
+                "membrane_potentials": list(potentials)
+            }
+        
+        return result
+    
+    def set_fq_sampler_frequency(self, frequency_hz: float):
+        """Set FQ Sampler frequency (Hz)."""
+        if self._rust_npu:
+            self._rust_npu.set_fq_sampler_frequency(frequency_hz)
+    
+    def get_fq_sampler_frequency(self) -> float:
+        """Get FQ Sampler frequency (Hz)."""
+        if self._rust_npu:
+            return self._rust_npu.get_fq_sampler_frequency()
+        return 10.0
+    
+    def set_visualization_subscribers(self, has_subscribers: bool):
+        """Set visualization subscriber state."""
+        if self._rust_npu:
+            self._rust_npu.set_visualization_subscribers(has_subscribers)
+    
+    def set_motor_subscribers(self, has_subscribers: bool):
+        """Set motor subscriber state."""
+        if self._rust_npu:
+            self._rust_npu.set_motor_subscribers(has_subscribers)
