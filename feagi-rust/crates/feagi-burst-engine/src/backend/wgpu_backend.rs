@@ -431,91 +431,14 @@ impl WGPUBackend {
         }
         
         // ═══════════════════════════════════════════════════════════
-        // CONSOLIDATED BIND GROUP LAYOUT FOR METAL (7 bindings)
+        // GET BIND GROUP LAYOUT FROM PIPELINE (auto-derived from shader)
         // ═══════════════════════════════════════════════════════════
         
-        let neural_dynamics_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Neural Dynamics Layout"),
-            entries: &[
-                // @binding(0): membrane_potentials (read-write)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(1): f32_params - interleaved (read-only)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(2): u16_static_params - interleaved (read-only)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(3): u16_dynamic_state - interleaved (read-write)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(4): valid_mask - bitpacked (read-only)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(5): fired_mask - bitpacked (read-write output)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // @binding(6): params - uniform buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let pipeline = self.neural_dynamics_pipeline.as_ref()
+            .ok_or_else(|| Error::ComputationError("Neural dynamics pipeline not initialized".to_string()))?;
+        
+        // Get the bind group layout from the pipeline (derived from shader)
+        let neural_dynamics_layout = pipeline.get_bind_group_layout(0);
         
         // Create fired_mask buffer (output, bitpacked)
         let fired_mask_size = ((self.neuron_capacity + 31) / 32 * 4) as u64;

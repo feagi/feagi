@@ -44,37 +44,29 @@ mod gpu_integration {
             &config,
         );
 
-        match backend_result {
-            Ok(mut backend) => {
-                println!("✅ GPU backend created: {}", backend.backend_name());
+        // GPU test must run on GPU - fail if GPU not available
+        let mut backend = backend_result.expect("GPU backend must be available for GPU tests");
+        println!("✅ GPU backend created: {}", backend.backend_name());
 
-                // Initialize persistent data
-                backend
-                    .initialize_persistent_data(&neuron_array, &synapse_array)
-                    .expect("Failed to initialize persistent data");
-                println!("✅ GPU buffers uploaded");
+        // Initialize persistent data
+        backend
+            .initialize_persistent_data(&neuron_array, &synapse_array)
+            .expect("Failed to initialize persistent data");
+        println!("✅ GPU buffers uploaded");
 
-                // Process neural dynamics (no fired neurons yet)
-                let result = backend
-                    .process_neural_dynamics(&mut neuron_array, 1)
-                    .expect("Failed to process neural dynamics");
+        // Process neural dynamics (no fired neurons yet)
+        let result = backend
+            .process_neural_dynamics(&mut neuron_array, 1)
+            .expect("Failed to process neural dynamics");
 
-                println!(
-                    "✅ Neural dynamics processed: {} neurons, {} fired",
-                    result.1,
-                    result.0.len()
-                );
+        println!(
+            "✅ Neural dynamics processed: {} neurons, {} fired",
+            result.1,
+            result.0.len()
+        );
 
-                assert_eq!(result.1, neuron_count, "Should process all neurons");
-                println!("✅ GPU integration test passed!");
-            }
-            Err(e) => {
-                println!(
-                    "⚠️  GPU backend not available ({}), test skipped",
-                    e
-                );
-            }
-        }
+        assert_eq!(result.1, neuron_count, "Should process all neurons");
+        println!("✅ GPU integration test passed!");
     }
 
     #[test]
@@ -120,7 +112,6 @@ mod gpu_integration {
             consecutive_fire_counts: vec![0; count],
             consecutive_fire_limits: vec![5; count],
             snooze_periods: vec![0; count],
-            snooze_countdowns: vec![0; count],
             cortical_areas: vec![0; count],
             coordinates: (0..count).flat_map(|i| vec![i as u32, 0, 0]).collect(),
             valid_mask: vec![true; count],

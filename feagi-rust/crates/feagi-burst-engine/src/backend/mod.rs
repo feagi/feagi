@@ -334,25 +334,42 @@ fn is_gpu_available() -> bool {
 /// Estimate GPU speedup based on genome size
 #[cfg(feature = "gpu")]
 fn estimate_gpu_speedup(neuron_count: usize, synapse_count: usize) -> f32 {
-    // Empirical model based on our analysis:
-    // - Transfer overhead dominates for small genomes
-    // - Compute benefit grows with genome size
+    // Empirical model based on realistic hardware:
+    // - PCIe 4.0: ~25 GB/s bidirectional
+    // - M4 Pro GPU: ~10 TFLOPS FP32
+    // - CPU (16-core): ~100 GFLOPS effective
     // - Full GPU pipeline (synaptic + neural) assumed
     
     let neurons = neuron_count as f32;
     let synapses = synapse_count as f32;
     
-    // Transfer time (microseconds) - approximately linear with neuron count
-    let transfer_us = (neurons * 0.12) + 100.0; // ~0.12 μs per neuron + fixed overhead
+    // Transfer time (microseconds) - realistic PCIe 4.0 speeds
+    // NOTE: Synapses are PERSISTENT on GPU - no transfer cost per burst!
+    // Per-burst transfers:
+    // - Membrane potentials (4 bytes/neuron, both ways)
+    // - Fired neuron mask (1 bit/neuron = 0.125 bytes/neuron, output only)
+    // - Fired neuron IDs (assumed ~1% fire rate, 4 bytes each)
+    let firing_rate = 0.01; // Assume 1% neurons fire per burst
+    let transfer_bytes = (neurons * 4.0 * 2.0)  // Membrane potentials bidirectional
+                       + (neurons * 0.125)     // Fired mask (bitpacked)
+                       + (neurons * firing_rate * 4.0);  // Fired neuron IDs
+    let transfer_bandwidth_gbs = 25.0;  // GB/s for PCIe 4.0
+    // Convert: bytes / (GB/s * 1e9 bytes/GB) = seconds, then * 1e6 = microseconds
+    let transfer_us = (transfer_bytes / (transfer_bandwidth_gbs * 1_000_000_000.0)) * 1_000_000.0 + 200.0; // +200μs fixed overhead
     
     // CPU compute time (microseconds)
-    let cpu_synaptic_us = (synapses * 0.05) / 1000.0; // 5 ops/synapse, 100 GFLOPS CPU
-    let cpu_neural_us = (neurons * 12.0) / 100000.0; // 12 ops/neuron, 100 GFLOPS CPU
+    // Synaptic: ~10 ops per synapse (hash lookup, weight calc, accumulation)
+    // Neural: ~20 ops per neuron (leak, threshold check, refractory, RNG)
+    let cpu_flops = 100_000_000_000.0; // 100 GFLOPS effective (cache locality, branching)
+    let cpu_synaptic_us = (synapses * 10.0) / (cpu_flops / 1_000_000.0);
+    let cpu_neural_us = (neurons * 20.0) / (cpu_flops / 1_000_000.0);
     let cpu_total_us = cpu_synaptic_us + cpu_neural_us;
     
     // GPU compute time (microseconds)
-    let gpu_synaptic_us = (synapses * 0.05) / 10000.0; // 10 TFLOPS GPU (100x faster)
-    let gpu_neural_us = (neurons * 12.0) / 10000000.0; // 10 TFLOPS GPU
+    // GPU benefits from massive parallelism: 100-200x speedup for compute
+    let gpu_flops = 10_000_000_000_000.0; // 10 TFLOPS (M4 Pro/RTX 4090)
+    let gpu_synaptic_us = (synapses * 10.0) / (gpu_flops / 1_000_000.0);
+    let gpu_neural_us = (neurons * 20.0) / (gpu_flops / 1_000_000.0);
     let gpu_compute_us = gpu_synaptic_us + gpu_neural_us;
     
     let gpu_total_us = transfer_us + gpu_compute_us;
@@ -360,8 +377,8 @@ fn estimate_gpu_speedup(neuron_count: usize, synapse_count: usize) -> f32 {
     // Speedup = CPU time / GPU time
     let speedup = cpu_total_us / gpu_total_us;
     
-    // Cap at reasonable maximum (50x)
-    speedup.min(50.0).max(0.1)
+    // Cap at reasonable maximum (100x)
+    speedup.min(100.0).max(0.1)
 }
 
 /// Create backend based on type

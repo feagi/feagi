@@ -192,34 +192,28 @@ impl Default for SynapticPropagationEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
-    fn create_test_synapses() -> Vec<Synapse> {
-        vec![
-            Synapse {
-                source_neuron: NeuronId(1),
-                target_neuron: NeuronId(10),
-                weight: SynapticWeight(255),
-                conductance: SynapticConductance(255),
-                synapse_type: SynapseType::Excitatory,
-                valid: true,
-            },
-            Synapse {
-                source_neuron: NeuronId(1),
-                target_neuron: NeuronId(11),
-                weight: SynapticWeight(128),
-                conductance: SynapticConductance(255),
-                synapse_type: SynapseType::Inhibitory,
-                valid: true,
-            },
-            Synapse {
-                source_neuron: NeuronId(2),
-                target_neuron: NeuronId(10),
-                weight: SynapticWeight(200),
-                conductance: SynapticConductance(200),
-                synapse_type: SynapseType::Excitatory,
-                valid: true,
-            },
-        ]
+    fn create_test_synapses() -> SynapseArray {
+        let mut synapse_array = SynapseArray {
+            capacity: 10,
+            count: 3,
+            source_neurons: vec![1, 1, 2],  // Raw u32 values
+            target_neurons: vec![10, 11, 10],  // Raw u32 values
+            weights: vec![255, 128, 200],  // Raw u8 values
+            conductances: vec![255, 255, 200],  // Raw u8 values
+            types: vec![0, 1, 0],  // 0=excitatory, 1=inhibitory
+            valid_mask: vec![true, true, true],
+            source_index: HashMap::new(),
+        };
+        
+        // Build source index
+        for i in 0..synapse_array.count {
+            let source = synapse_array.source_neurons[i];
+            synapse_array.source_index.entry(source).or_insert_with(Vec::new).push(i);
+        }
+        
+        synapse_array
     }
 
     #[test]

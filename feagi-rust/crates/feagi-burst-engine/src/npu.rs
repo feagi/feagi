@@ -485,8 +485,8 @@ mod tests {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
         // (threshold, decay_rate, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, cortical_area, x, y, z)
-        let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
-        let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
+        let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
+        let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
         
         assert_eq!(id1.0, 0);
         assert_eq!(id2.0, 1);
@@ -497,8 +497,8 @@ mod tests {
     fn test_add_synapses() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
         
         npu.add_synapse(
             n1,
@@ -516,7 +516,7 @@ mod tests {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
         // Add a power neuron
-        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
+        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
         
         // Process burst with power injection
         let result = npu.process_burst(&[power_neuron]).unwrap();
@@ -530,8 +530,8 @@ mod tests {
     fn test_synapse_removal() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
         
         npu.add_synapse(n1, n2, SynapticWeight(128), SynapticConductance(255), SynapseType::Excitatory).unwrap();
         assert_eq!(npu.get_synapse_count(), 1);
