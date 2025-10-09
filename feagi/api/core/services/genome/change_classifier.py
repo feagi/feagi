@@ -90,8 +90,8 @@ class CorticalChangeClassifier:
             "firing_threshold_limit",
             float,
         ),  # API parameter name
-        "snooze_length": ("snooze_length", float),  # Custom handling needed
-        "neuron_snooze_period": ("snooze_length", float),  # API parameter name
+        "snooze_length": (NeuronPropertyType.SNOOZE_PERIOD, int),  # Batch update supported
+        "neuron_snooze_period": (NeuronPropertyType.SNOOZE_PERIOD, int),  # API parameter name
         "degeneration": ("degeneration", float),  # Custom handling needed
         "neuron_degeneracy_coefficient": (
             "degeneration",

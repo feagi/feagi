@@ -118,7 +118,7 @@ class RustNPUIntegration:
         if not self._rust_npu_initialized:
             raise RuntimeError("🦀 [RUST-NPU] CRITICAL: Rust NPU not initialized! This should never happen.")
         
-        logger.warning("🦀 [POWER-DEBUG] process_burst called with %d power neurons: %s", 
+        logger.debug("🦀 process_burst called with %d power neurons: %s", 
                       len(power_neurons),
                       power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
         
@@ -127,7 +127,7 @@ class RustNPUIntegration:
         
         try:
             result = self._rust_npu.process_burst(power_neurons=power_neurons)
-            logger.warning("🦀 [POWER-DEBUG] Rust NPU process_burst returned: power_injections=%d, fired_neurons=%d", 
+            logger.debug("🦀 Rust NPU process_burst returned: power_injections=%d, fired_neurons=%d", 
                           result.power_injections, len(result.fired_neurons))
             burst_time = (time.perf_counter() - burst_start) * 1000
             
@@ -138,8 +138,27 @@ class RustNPUIntegration:
             if result.burst % self._performance_log_interval == 0:
                 self._log_performance(result, burst_time)
             
-            # DIAGNOSTIC: Check snooze state of neuron 16439 (target of power synapse in iic000)
-            self._diagnose_neuron_state(16439)
+            # DIAGNOSTIC: Track firing intervals to validate refractory periods
+            # (Only log for non-power neurons to reduce spam)
+            if not hasattr(self, '_last_fire_burst'):
+                self._last_fire_burst = {}
+            
+            for neuron_id in result.fired_neurons:
+                if neuron_id == 1:  # Skip power neuron
+                    continue
+                    
+                current_burst = result.burst
+                if neuron_id in self._last_fire_burst:
+                    interval = current_burst - self._last_fire_burst[neuron_id]
+                    try:
+                        state = self._rust_npu.get_neuron_state(neuron_id)
+                        if state:
+                            cfc, cfc_limit, _, _, _, refrac_countdown = state
+                            logger.info(f"🔥 [FIRE-INTERVAL] Neuron {neuron_id}: {interval} bursts since last fire (refrac now={refrac_countdown}, cfc={cfc}/{cfc_limit})")
+                    except:
+                        pass
+                
+                self._last_fire_burst[neuron_id] = current_burst
             
             # Return as dict for easier integration
             return {

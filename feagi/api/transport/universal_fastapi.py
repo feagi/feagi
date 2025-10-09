@@ -197,9 +197,9 @@ else:
     # Normal mode - import all FastAPI dependencies and create actual routers
     import asyncio
     import inspect
-    from typing import Any, Callable, Dict
+    from typing import Any, Callable, Dict, Optional
 
-    from fastapi import APIRouter, Depends, HTTPException, UploadFile
+    from fastapi import APIRouter, Depends, HTTPException, UploadFile, Path, Query
 
     from feagi.api.core.services.core_api_service import CoreAPIService
     from feagi.api.rest.dependencies import get_core_api_service
@@ -814,6 +814,33 @@ else:
                                     ) from e
 
                             return fastapi_handler_with_cortical_area_id
+                        elif param_name == "area_id":
+
+                            async def fastapi_handler_with_area_id(
+                                area_id: str = Path(..., description="Cortical area ID or index"),
+                                lookback_steps: Optional[int] = Query(None, description="Number of timesteps to retrieve"),
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    # Pass path param + query param
+                                    result = await original_handler(
+                                        api_instance, area_id, lookback_steps
+                                    )
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(
+                                        status_code=400, detail=str(e)
+                                    ) from e
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail="Internal server error",
+                                    ) from e
+
+                            return fastapi_handler_with_area_id
                         else:
                             # Generic parameter handling
                             async def fastapi_handler_with_path_params(
@@ -1053,6 +1080,33 @@ else:
                                     ) from e
 
                             return fastapi_handler_with_cortical_area_id
+                        elif param_name == "area_id":
+
+                            def fastapi_handler_with_area_id(
+                                area_id: str = Path(..., description="Cortical area ID or index"),
+                                lookback_steps: Optional[int] = Query(None, description="Number of timesteps to retrieve"),
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    # Pass path param + query param
+                                    result = original_handler(
+                                        api_instance, area_id, lookback_steps
+                                    )
+                                    return _maybe_file_response(result)
+                                except ValueError as e:
+                                    raise HTTPException(
+                                        status_code=400, detail=str(e)
+                                    ) from e
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail="Internal server error",
+                                    ) from e
+
+                            return fastapi_handler_with_area_id
                         else:
                             # Generic parameter handling
                             def fastapi_handler_with_path_params(

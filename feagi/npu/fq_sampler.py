@@ -44,6 +44,9 @@ class FQSampler:
         self.running = False
         self.target_areas = target_areas or []
         
+        # Burst tracking to avoid duplicate sampling
+        self._last_sampled_burst_id = None
+        
         # FQ Sampler initialized
     
     def sample(self) -> Dict[str, Any]:
@@ -58,6 +61,17 @@ class FQSampler:
         fire_queue = self._get_current_fire_queue()
         if fire_queue is None or fire_queue.is_empty():
             return {}  # Return empty dict instead of None for consistent interface
+        
+        # CRITICAL FIX: Skip if we've already sampled this burst (prevents duplicate visualization)
+        # Fire Queue only changes once per burst, but visualization stream samples at higher frequency
+        current_burst_id = fire_queue.current_timestep
+        if current_burst_id == self._last_sampled_burst_id:
+            # Already sampled this burst - return empty to avoid sending duplicates to BV
+            logger.debug(f"[FQ-SAMPLER-DEDUP] Skipping duplicate sample for burst {current_burst_id}")
+            return {}
+        
+        logger.info(f"[FQ-SAMPLER-DEDUP] Sampling burst {current_burst_id} (previous was {self._last_sampled_burst_id})")
+        self._last_sampled_burst_id = current_burst_id
         
         active_areas = fire_queue.get_active_areas()
         

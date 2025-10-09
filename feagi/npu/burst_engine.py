@@ -269,13 +269,13 @@ class BurstEngine:
         if self.injection_service and self.enable_injection:
             try:
                 power_neurons = self.injection_service._get_power_neurons()
-                logger.warning("🦀 [POWER-DEBUG] Power neurons retrieved: %d neurons - %s", 
+                logger.debug("🦀 Power neurons retrieved: %d neurons - %s", 
                            len(power_neurons),
                            power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
             except Exception as e:
                 logger.error("🦀 [POWER-DEBUG] Failed to get power neurons: %s", str(e), exc_info=True)
         else:
-            logger.warning("🦀 [POWER-DEBUG] injection_service=%s, enable_injection=%s", 
+            logger.debug("🦀 injection_service=%s, enable_injection=%s", 
                           self.injection_service, self.enable_injection)
         
         # 2. Get manual stimulation / sensory neurons
@@ -315,14 +315,14 @@ class BurstEngine:
         # Combine all injection neurons
         all_injection_neurons = power_neurons + manual_neurons
         
-        logger.warning("🦀 [POWER-DEBUG] Total injection neurons: %d (power=%d, manual=%d) - %s", 
+        logger.debug("🦀 Total injection neurons: %d (power=%d, manual=%d) - %s", 
                       len(all_injection_neurons), len(power_neurons), len(manual_neurons),
                       all_injection_neurons[:10] if len(all_injection_neurons) > 10 else all_injection_neurons)
         
         # Process burst in Rust (ALL IN RUST!)
         result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)
         
-        logger.warning("🦀 [POWER-DEBUG] Rust result: neuron_count=%d, fired_neurons=%s", 
+        logger.debug("🦀 Rust result: neuron_count=%d, fired_neurons=%s", 
                       result.get('neuron_count', 0), 
                       result.get('fired_neurons', [])[:10])
         
@@ -332,44 +332,75 @@ class BurstEngine:
         
         # Create FiringNeuron objects and FireQueue for API/FQ sampler compatibility
         if result['neuron_count'] > 0:
-            logger.warning("🦀 [POWER-DEBUG] Creating FireQueue for %d fired neurons", result['neuron_count'])
-            logger.warning("🦀 [PYTHON-LOOP-DEBUG] Processing %d neurons from result['fired_neurons']", len(result['fired_neurons']))
+            logger.debug("🦀 Creating FireQueue for %d fired neurons", result['neuron_count'])
+            
+            # Get Rust NPU for querying live neuron state
+            rust_npu = None
+            if self._rust_npu_integration and hasattr(self._rust_npu_integration, '_rust_npu'):
+                rust_npu = self._rust_npu_integration._rust_npu
+            
             # Get actual neuron properties from connectome for proper visualization
             firing_neurons = []
             neurons_by_area = {}  # Track neurons per area for summary
             failed_lookups = 0
             
             for neuron_id in result['fired_neurons']:
-                # Try to get actual neuron properties from connectome
+                # Try to get actual neuron properties from connectome and Rust NPU
                 try:
                     cortical_area = self.connectome_manager.get_cortical_area_for_neuron(neuron_id) if self.connectome_manager else None
                     cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_area) if cortical_area else 0
                     coords = self.connectome_manager.get_neuron_position(neuron_id) if self.connectome_manager else (0, 0, 0)
                     
+                    # Query actual neuron state from Rust NPU for accurate visualization
+                    membrane_potential = 0.0
+                    threshold = 1.0
+                    refractory_counter = 0
+                    consecutive_fire_count = 0
+                    
+                    if rust_npu:
+                        try:
+                            state = rust_npu.get_neuron_state(neuron_id)
+                            if state:
+                                # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+                                cfc, _cfc_limit, _snooze, potential, thresh, refrac = state
+                                membrane_potential = float(potential)
+                                threshold = float(thresh)
+                                refractory_counter = int(refrac)
+                                consecutive_fire_count = int(cfc)
+                        except Exception as e:
+                            # Use defaults if query fails
+                            logger.debug(f"Failed to get state for neuron {neuron_id}: {e}")
+                    
                     # Track neurons by area
                     area_key = cortical_area if cortical_area else "unknown"
                     neurons_by_area[area_key] = neurons_by_area.get(area_key, 0) + 1
                     
-                    # Only log first 5 and last 5 neurons per area to avoid log spam
-                    if neurons_by_area[area_key] <= 5 or neurons_by_area[area_key] > len(result['fired_neurons']) - 5:
-                        logger.info(f"🦀 [RUST-NPU] Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}, coords={coords}")
+                    # Only log first 2 per area to avoid log spam
+                    if neurons_by_area[area_key] <= 2:
+                        logger.debug(f"🦀 Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}")
                 except Exception as e:
                     failed_lookups += 1
                     if failed_lookups <= 5:  # Only log first 5 failures
                         logger.warning(f"🦀 [RUST-NPU] Failed to get properties for neuron {neuron_id}: {e}")
                     cortical_idx = 0
                     coords = (0, 0, 0)
+                    membrane_potential = 0.0
+                    threshold = 1.0
+                    refractory_counter = 0
+                    consecutive_fire_count = 0
                 
                 firing_neurons.append(FiringNeuron(
                     neuron_id=neuron_id,
-                    membrane_potential=0.0,
+                    membrane_potential=membrane_potential,
                     cortical_idx=cortical_idx,
                     coordinates=coords,
-                    threshold=1.0
+                    threshold=threshold,
+                    refractory_counter=refractory_counter,
+                    consecutive_fire_count=consecutive_fire_count
                 ))
             
-            # Log summary
-            logger.warning("🦀 [PYTHON-LOOP-DEBUG] Processed %d neurons: %s (failed_lookups=%d)", 
+            # Log summary (reduced spam)
+            logger.debug("🦀 Processed %d neurons: %s (failed_lookups=%d)", 
                           len(firing_neurons), neurons_by_area, failed_lookups)
             
             # Update previous_fire_queue (used by FQ sampler via get_current_fire_queue())
@@ -377,17 +408,34 @@ class BurstEngine:
             fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
             self.previous_fire_queue = fire_queue
             
-            # Debug: Check what's in the fire queue
-            logger.warning("🦀 [POWER-DEBUG] FireQueue updated: %d neurons, %d areas, empty=%s, firing_neurons=%s", 
+            # Archive firing data to Fire Ledger (for historical access and STDP)
+            if self.fire_ledger:
+                try:
+                    self.fire_ledger.archive_timestep(
+                        self.current_timestep,
+                        fire_queue.firing_neurons_by_area
+                    )
+                    logger.debug("🔥 Fire Ledger archived: %d areas at timestep %d", 
+                               len(fire_queue.firing_neurons_by_area), self.current_timestep)
+                except Exception as e:
+                    logger.error("Failed to archive Fire Ledger data: %s", e, exc_info=True)
+            
+            # Debug: Check what's in the fire queue (reduced spam)
+            logger.debug("🦀 FireQueue updated: %d neurons, %d areas", 
                        result['neuron_count'], 
-                       len(fire_queue.firing_neurons_by_area),
-                       fire_queue.is_empty(),
-                       [(fn.neuron_id, fn.cortical_idx) for fn in firing_neurons[:5]])
+                       len(fire_queue.firing_neurons_by_area))
         else:
             # No neurons fired, but still update the reference
-            logger.warning("🦀 [POWER-DEBUG] No neurons fired (neuron_count=%d), creating empty FireQueue", 
+            logger.debug("🦀 No neurons fired (neuron_count=%d), creating empty FireQueue", 
                           result.get('neuron_count', 0))
             self.previous_fire_queue = FireQueue()
+            
+            # Still archive empty timestep to Fire Ledger
+            if self.fire_ledger:
+                try:
+                    self.fire_ledger.archive_timestep(self.current_timestep, {})
+                except Exception as e:
+                    logger.error("Failed to archive empty Fire Ledger timestep: %s", e)
             
         return result['fired_neurons']
     

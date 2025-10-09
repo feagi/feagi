@@ -491,8 +491,8 @@ class SensoryNeuralStream:
                     sm = FeagiStateManager.instance()
                     connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
                     
-                    # DEBUG: Log connected agents to understand the issue
-                    logger.info(f"🔍 [DEBUG] Connected agents check: {list(connected_agents.keys())} vs slot readers: {list(self._slot_readers.keys())}")
+                    # DEBUG: Log connected agents to understand the issue (commented out - too spammy)
+                    # logger.info(f"🔍 [DEBUG] Connected agents check: {list(connected_agents.keys())} vs slot readers: {list(self._slot_readers.keys())}")
                     
                     # CRITICAL FIX: Don't remove agents if connected_agents is suspiciously empty
                     if not connected_agents and self._slot_readers:

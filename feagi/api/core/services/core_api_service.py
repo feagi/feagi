@@ -1547,15 +1547,41 @@ class CoreAPIService:
             refractory_counters = []
             coordinates = []
             
+            # Get Rust NPU for querying live neuron state
+            rust_npu = None
+            if burst_engine.connectome_manager and hasattr(burst_engine.connectome_manager, '_npu_interface'):
+                npu_interface = burst_engine.connectome_manager._npu_interface
+                if npu_interface and hasattr(npu_interface, 'rust_npu'):
+                    rust_npu = npu_interface.rust_npu
+            
             # Collect data from all cortical areas in fire queue
             for cortical_idx, firing_neurons in fire_queue.firing_neurons_by_area.items():
                 for neuron in firing_neurons:
                     neuron_ids.append(neuron.neuron_id)
                     membrane_potentials.append(float(neuron.membrane_potential))
-                    # Note: FireQueue doesn't store thresholds/refractory data yet
-                    # These could be looked up from NPU if needed
-                    thresholds.append(1.0)  # Default threshold
-                    refractory_counters.append(0)  # Default refractory
+                    
+                    # Query actual neuron state from Rust NPU
+                    if rust_npu:
+                        try:
+                            state = rust_npu.get_neuron_state(neuron.neuron_id)
+                            if state:
+                                # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+                                _cfc, _cfc_limit, _snooze, _potential, threshold_val, refrac_countdown = state
+                                thresholds.append(float(threshold_val))
+                                refractory_counters.append(int(refrac_countdown))
+                            else:
+                                # Neuron not found in NPU
+                                thresholds.append(1.0)
+                                refractory_counters.append(0)
+                        except Exception as e:
+                            self.logger.warning(f"Failed to get state for neuron {neuron.neuron_id}: {e}")
+                            thresholds.append(1.0)
+                            refractory_counters.append(0)
+                    else:
+                        # No Rust NPU available - use defaults
+                        thresholds.append(1.0)
+                        refractory_counters.append(0)
+                    
                     coordinates.append(tuple(neuron.coordinates))
             
             self.logger.debug(
@@ -2029,6 +2055,95 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger areas window configuration: {str(e)}")
             return {}
+    
+    def get_fire_ledger_history(self, cortical_idx: int, lookback_steps: Optional[int] = None) -> Dict[str, Any]:
+        """Get historical firing data for a cortical area from Fire Ledger.
+        
+        Args:
+            cortical_idx: Cortical area index
+            lookback_steps: Number of timesteps to retrieve (None = all available)
+            
+        Returns:
+            Dict with firing history data:
+            {
+                "cortical_idx": int,
+                "cortical_id": str,
+                "current_timestep": int,
+                "window_size": int,
+                "lookback_steps": int,
+                "history": [
+                    {"timestep": int, "neuron_ids": [int, ...], "count": int},
+                    ...
+                ]
+            }
+        """
+        try:
+            burst_engine = self.get_burst_engine()
+            if not burst_engine or not burst_engine.fire_ledger:
+                return {
+                    "success": False,
+                    "error": "Fire Ledger not available"
+                }
+            
+            fire_ledger = burst_engine.fire_ledger
+            
+            # Check if cortical area has history
+            if cortical_idx not in fire_ledger.cortical_histories:
+                return {
+                    "success": False,
+                    "cortical_idx": cortical_idx,
+                    "error": f"No firing history available for cortical area {cortical_idx}"
+                }
+            
+            cortical_history = fire_ledger.cortical_histories[cortical_idx]
+            window_size = cortical_history.window_size
+            
+            # Determine how many timesteps to retrieve
+            if lookback_steps is None or lookback_steps > len(cortical_history.firing_history):
+                lookback_steps = len(cortical_history.firing_history)
+            else:
+                lookback_steps = min(lookback_steps, len(cortical_history.firing_history))
+            
+            # Extract firing history (most recent first)
+            history_data = []
+            current_timestep = cortical_history.current_timestep
+            
+            for i in range(lookback_steps):
+                bitmap = cortical_history.firing_history[-(i + 1)]
+                neuron_ids = list(bitmap.to_array())  # Convert roaring bitmap to list
+                
+                history_data.append({
+                    "timestep": current_timestep - i,
+                    "neuron_ids": neuron_ids,
+                    "count": len(neuron_ids)
+                })
+            
+            # Get cortical ID from connectome if available
+            cortical_id = None
+            if self._connectome_manager:
+                try:
+                    cortical_id = self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
+                except:
+                    pass
+            
+            return {
+                "success": True,
+                "cortical_idx": cortical_idx,
+                "cortical_id": cortical_id,
+                "current_timestep": current_timestep,
+                "window_size": window_size,
+                "lookback_steps": lookback_steps,
+                "total_timesteps_available": len(cortical_history.firing_history),
+                "history": history_data
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger history for area {cortical_idx}: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "cortical_idx": cortical_idx,
+                "error": str(e)
+            }
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""

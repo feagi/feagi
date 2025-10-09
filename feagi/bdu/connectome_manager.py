@@ -34,6 +34,7 @@ class NeuronPropertyType(Enum):
     RESTING_POTENTIAL = "resting_potential"
     THRESHOLD = "threshold"
     REFRACTORY_PERIOD = "refractory_period"
+    SNOOZE_PERIOD = "snooze_period"  # Extended refractory period
     DECAY_RATE = "decay_rate"
     CORTICAL_IDX = "cortical_idx"
     POSITION = "position"
@@ -4640,6 +4641,10 @@ class ConnectomeManager(NeuronMappingProvider):
             elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
                 values_f32 = update_values.astype(np.float32).tolist()
                 updated_count = rust_npu.batch_update_resting_potential(valid_ids_list, values_f32)
+            elif property_name == NeuronPropertyType.SNOOZE_PERIOD:
+                # Snooze period (extended refractory) - stored as u16
+                values_u16 = np.round(update_values).astype(np.uint16).tolist()
+                updated_count = rust_npu.batch_update_snooze_period(valid_ids_list, values_u16)
             else:
                 logger.warning(
                     f"⚠️ Property {property_name} batch update not yet implemented in Rust NPU"

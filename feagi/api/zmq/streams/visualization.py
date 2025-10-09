@@ -458,13 +458,14 @@ class VisualizationStream:
                 from feagi.core.state_manager import FeagiStateManager
                 state_manager = FeagiStateManager.instance()
                 
-                # ALWAYS log this to verify FQ sampler is working
+                # Log only when there's actual activity (reduce spam)
                 if cortical_data:
                     area_count = len(cortical_data)
                     total_neurons = sum(len(area_data.get("neuron_ids", [])) for area_data in cortical_data.values() if area_data)
                     logger.info(f"[VIZ-SAMPLER] FQ sampler returned {area_count} areas, {total_neurons} total neurons")
-                else:
-                    logger.debug("[VIZ-SAMPLER] FQ sampler returned empty data (no neural activity)")
+                # else:
+                #     # Spammy when no activity - commented out
+                #     logger.debug("[VIZ-SAMPLER] FQ sampler returned empty data (no neural activity)")
                 
                 if state_manager and state_manager.is_debug_npu_enabled() and cortical_data:
                     sensory_areas_found = []
