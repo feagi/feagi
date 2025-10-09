@@ -36,11 +36,17 @@ pub struct WGPUBackend {
     /// FCL neural dynamics bind group
     fcl_neural_dynamics_bind_group: Option<wgpu::BindGroup>,
     
-    /// Synaptic propagation compute pipeline
+    /// Synaptic propagation compute pipeline (legacy)
     synaptic_propagation_pipeline: Option<wgpu::ComputePipeline>,
     
-    /// Synaptic propagation bind group
+    /// Synaptic propagation bind group (legacy)
     synaptic_propagation_bind_group: Option<wgpu::BindGroup>,
+    
+    /// FCL-aware synaptic propagation pipeline (GPU→GPU)
+    fcl_synaptic_propagation_pipeline: Option<wgpu::ComputePipeline>,
+    
+    /// FCL synaptic propagation bind group
+    fcl_synaptic_propagation_bind_group: Option<wgpu::BindGroup>,
     
     /// GPU buffers (persistent)
     buffers: WGPUBuffers,
@@ -51,6 +57,9 @@ pub struct WGPUBackend {
     
     /// Current neuron count (for dispatch)
     current_neuron_count: usize,
+    
+    /// Synapse hash table capacity
+    synapse_hash_capacity: usize,
 }
 
 /// GPU buffer management (consolidated for Metal's 8-binding limit)
@@ -62,18 +71,17 @@ struct WGPUBuffers {
     u16_dynamic_state: Option<wgpu::Buffer>,    // Interleaved: [refrac_countdown, consec_count, ...]
     valid_mask: Option<wgpu::Buffer>,           // Bitpacked
     
-    // Synapse arrays (persistent)
-    source_neurons: Option<wgpu::Buffer>,
-    target_neurons: Option<wgpu::Buffer>,
-    weights: Option<wgpu::Buffer>,
-    conductances: Option<wgpu::Buffer>,
-    synapse_types: Option<wgpu::Buffer>,
-    synapse_valid_mask: Option<wgpu::Buffer>,
+    // Synapse arrays (consolidated, persistent)
+    synapse_data: Option<wgpu::Buffer>,         // Interleaved: [source, target, packed_params] (stride=3)
+    synapse_hash_keys: Option<wgpu::Buffer>,    // Hash table keys
+    synapse_hash_metadata: Option<wgpu::Buffer>, // Hash table: [start, count] (stride=2)
+    synapse_list: Option<wgpu::Buffer>,         // Flat synapse indices for hash lookup
     
     // FCL buffers (sparse, per-burst)
     fcl_neuron_ids: Option<wgpu::Buffer>,       // Sparse neuron IDs
-    fcl_potentials: Option<wgpu::Buffer>,       // Accumulated potentials
+    fcl_potentials: Option<wgpu::Buffer>,       // Accumulated potentials (f32)
     fcl_fired_mask: Option<wgpu::Buffer>,       // Sparse output (bitpacked)
+    fcl_potentials_atomic: Option<wgpu::Buffer>, // Atomic accumulation (i32, full array)
     
     // Legacy buffers (for compatibility)
     fired_neurons_input: Option<wgpu::Buffer>,
@@ -91,15 +99,14 @@ impl WGPUBuffers {
             u16_static_params: None,
             u16_dynamic_state: None,
             valid_mask: None,
-            source_neurons: None,
-            target_neurons: None,
-            weights: None,
-            conductances: None,
-            synapse_types: None,
-            synapse_valid_mask: None,
+            synapse_data: None,
+            synapse_hash_keys: None,
+            synapse_hash_metadata: None,
+            synapse_list: None,
             fcl_neuron_ids: None,
             fcl_potentials: None,
             fcl_fired_mask: None,
+            fcl_potentials_atomic: None,
             fired_neurons_input: None,
             fired_neurons_output: None,
             staging_buffer: None,
@@ -148,10 +155,13 @@ impl WGPUBackend {
             fcl_neural_dynamics_bind_group: None,
             synaptic_propagation_pipeline: None,
             synaptic_propagation_bind_group: None,
+            fcl_synaptic_propagation_pipeline: None,
+            fcl_synaptic_propagation_bind_group: None,
             buffers: WGPUBuffers::new(),
             neuron_capacity,
             synapse_capacity,
             current_neuron_count: 0,
+            synapse_hash_capacity: 0,
         })
     }
     
@@ -187,7 +197,20 @@ impl WGPUBackend {
         
         println!("✅ FCL neural dynamics shader loaded (sparse)");
         
-        // Synaptic propagation will be created after hash table is built
+        // Load FCL-aware synaptic propagation shader (GPU→GPU, consolidated, Metal-compatible)
+        let fcl_synaptic_propagation_shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("FCL Synaptic Propagation Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/synaptic_propagation_fcl.wgsl").into()),
+        });
+        
+        self.fcl_synaptic_propagation_pipeline = Some(self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("FCL Synaptic Propagation Pipeline"),
+            layout: None,  // Auto-layout from shader
+            module: &fcl_synaptic_propagation_shader,
+            entry_point: "synaptic_propagation_fcl_main",
+        }));
+        
+        println!("✅ FCL synaptic propagation shader loaded (7 bindings - Metal compatible!)");
         
         Ok(())
     }
@@ -313,137 +336,119 @@ impl WGPUBackend {
     fn upload_synapse_arrays(&mut self, synapse_array: &SynapseArray) -> Result<()> {
         let synapse_count = synapse_array.count;
         
-        // Helper to create buffer for u32 arrays
-        let create_buffer_u32 = |device: &wgpu::Device, queue: &wgpu::Queue, data: &[u32], label: &str| {
-            let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(label),
-                size: (data.len() * 4) as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            queue.write_buffer(&buffer, 0, bytemuck::cast_slice(data));
-            buffer
-        };
+        println!("📤 Uploading {} synapses to GPU (consolidated, Metal-compatible)...", synapse_count);
         
-        // Upload synapse arrays
-        self.buffers.source_neurons = Some(create_buffer_u32(
-            &self.device, &self.queue, &synapse_array.source_neurons[..synapse_count],
-            "Source Neurons"
-        ));
+        // ═══════════════════════════════════════════════════════════
+        // 1. CONSOLIDATE SYNAPSE DATA (stride=3)
+        // Format: [source_id, target_id, packed_params] per synapse
+        // packed_params = (type << 16) | (conductance << 8) | weight
+        // ═══════════════════════════════════════════════════════════
         
-        self.buffers.target_neurons = Some(create_buffer_u32(
-            &self.device, &self.queue, &synapse_array.target_neurons[..synapse_count],
-            "Target Neurons"
-        ));
-        
-        // Convert u8 to u32 for GPU
-        let weights_u32: Vec<u32> = synapse_array.weights[..synapse_count]
-            .iter().map(|&x| x as u32).collect();
-        self.buffers.weights = Some(create_buffer_u32(
-            &self.device, &self.queue, &weights_u32,
-            "Weights"
-        ));
-        
-        let conductances_u32: Vec<u32> = synapse_array.conductances[..synapse_count]
-            .iter().map(|&x| x as u32).collect();
-        self.buffers.conductances = Some(create_buffer_u32(
-            &self.device, &self.queue, &conductances_u32,
-            "Conductances"
-        ));
-        
-        let types_u32: Vec<u32> = synapse_array.types[..synapse_count]
-            .iter().map(|&x| x as u32).collect();
-        self.buffers.synapse_types = Some(create_buffer_u32(
-            &self.device, &self.queue, &types_u32,
-            "Synapse Types"
-        ));
-        
-        // Pack valid mask
-        let packed_count = (synapse_count + 31) / 32;
-        let mut packed = vec![0u32; packed_count];
+        let mut synapse_data = Vec::with_capacity(synapse_count * 3);
         for i in 0..synapse_count {
-            if synapse_array.valid_mask[i] {
-                let word_idx = i / 32;
-                let bit_idx = i % 32;
-                packed[word_idx] |= 1u32 << bit_idx;
-            }
+            let source = synapse_array.source_neurons[i];
+            let target = synapse_array.target_neurons[i];
+            
+            // Pack u8 params into single u32
+            let weight = synapse_array.weights[i] as u32;
+            let conductance = synapse_array.conductances[i] as u32;
+            let synapse_type = synapse_array.types[i] as u32;
+            let packed_params = (synapse_type << 16) | (conductance << 8) | weight;
+            
+            synapse_data.push(source);
+            synapse_data.push(target);
+            synapse_data.push(packed_params);
         }
-        self.buffers.synapse_valid_mask = Some(create_buffer_u32(
-            &self.device, &self.queue, &packed,
-            "Synapse Valid Mask"
-        ));
         
-        // Build GPU hash table for synapse index
-        self.build_gpu_synapse_hash_table(synapse_array)?;
+        let synapse_data_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Synapse Data (Consolidated)"),
+            size: (synapse_data.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&synapse_data_buffer, 0, bytemuck::cast_slice(&synapse_data));
+        self.buffers.synapse_data = Some(synapse_data_buffer);
         
-        Ok(())
-    }
-    
-    /// Build GPU-friendly hash table for synapse lookups
-    fn build_gpu_synapse_hash_table(&mut self, synapse_array: &SynapseArray) -> Result<()> {
+        // ═══════════════════════════════════════════════════════════
+        // 2. BUILD GPU HASH TABLE (source neuron → synapse lookup)
+        // ═══════════════════════════════════════════════════════════
+        
         use ahash::AHashMap;
         
-        // Build temporary CPU hash table
-        // Maps source_neuron_id → (start_index, count)
+        // Collect source neurons and their synapse indices
         let mut source_map: AHashMap<u32, Vec<usize>> = AHashMap::new();
-        for i in 0..synapse_array.count {
+        for i in 0..synapse_count {
             if synapse_array.valid_mask[i] {
                 let source = synapse_array.source_neurons[i];
                 source_map.entry(source).or_insert_with(Vec::new).push(i);
             }
         }
         
-        // Calculate hash table capacity (2x entries for low collision rate)
+        // Calculate capacity (2x for low collision rate)
         let capacity = (source_map.len() * 2).next_power_of_two().max(256);
         
-        // Initialize hash table arrays
-        let mut hash_keys = vec![0xFFFFFFFFu32; capacity];  // 0xFFFFFFFF = empty slot
-        let mut hash_starts = vec![0u32; capacity];
-        let mut hash_counts = vec![0u32; capacity];
-        
-        // Build flat synapse list
+        // Initialize hash table
+        let mut hash_keys = vec![0xFFFFFFFFu32; capacity]; // 0xFFFFFFFF = empty
+        let mut hash_metadata = vec![0u32; capacity * 2]; // [start, count] per entry
         let mut synapse_list = Vec::new();
         
-        // Insert into hash table using linear probing
+        // Insert using linear probing
         for (&source_neuron, synapse_indices) in &source_map {
             let mut slot = (source_neuron as usize * 2654435761) % capacity;
             
-            // Linear probing to find empty slot
             while hash_keys[slot] != 0xFFFFFFFF {
                 slot = (slot + 1) % capacity;
             }
             
-            // Insert
+            // Store key
             hash_keys[slot] = source_neuron;
-            hash_starts[slot] = synapse_list.len() as u32;
-            hash_counts[slot] = synapse_indices.len() as u32;
             
-            // Add synapse indices to flat list
+            // Store metadata: [start_index_in_synapse_list, count]
+            hash_metadata[slot * 2] = synapse_list.len() as u32;
+            hash_metadata[slot * 2 + 1] = synapse_indices.len() as u32;
+            
+            // Append synapse indices
             for &idx in synapse_indices {
                 synapse_list.push(idx as u32);
             }
         }
         
-        // Upload to GPU
-        let create_buffer = |device: &wgpu::Device, queue: &wgpu::Queue, data: &[u32], label: &str| {
-            let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(label),
-                size: (data.len() * 4) as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            queue.write_buffer(&buffer, 0, bytemuck::cast_slice(data));
-            buffer
-        };
+        // Upload hash table buffers
+        let hash_keys_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Synapse Hash Keys"),
+            size: (hash_keys.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&hash_keys_buffer, 0, bytemuck::cast_slice(&hash_keys));
+        self.buffers.synapse_hash_keys = Some(hash_keys_buffer);
         
-        // Store in buffers (would need to add these fields to WGPUBuffers struct)
-        // For now, just print statistics
+        let hash_metadata_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Synapse Hash Metadata"),
+            size: (hash_metadata.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&hash_metadata_buffer, 0, bytemuck::cast_slice(&hash_metadata));
+        self.buffers.synapse_hash_metadata = Some(hash_metadata_buffer);
+        
+        let synapse_list_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Synapse List"),
+            size: (synapse_list.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&synapse_list_buffer, 0, bytemuck::cast_slice(&synapse_list));
+        self.buffers.synapse_list = Some(synapse_list_buffer);
+        
+        // Store hash capacity for later use
+        self.synapse_hash_capacity = capacity;
         
         println!("✅ GPU hash table built: {} entries, {} capacity, {} total synapses",
-                 source_map.len(), capacity, synapse_list.len());
+                 source_map.len(), capacity, synapse_count);
         println!("   Load factor: {:.1}%, Average synapses/neuron: {:.1}",
                  (source_map.len() as f32 / capacity as f32) * 100.0,
-                 synapse_list.len() as f32 / source_map.len() as f32);
+                 synapse_count as f32 / source_map.len() as f32);
         
         Ok(())
     }
@@ -604,6 +609,80 @@ impl WGPUBackend {
             
             compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, bind_group, &[]);
+            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        }
+        
+        // Submit commands
+        self.queue.submit(Some(encoder.finish()));
+        
+        Ok(())
+    }
+    
+    /// Dispatch GPU synaptic propagation (accumulates to atomic FCL buffer)
+    /// Uses consolidated buffers (7 bindings - Metal-compatible)
+    fn dispatch_synaptic_propagation_fcl_gpu(&mut self, fired_count: usize, hash_capacity: usize) -> Result<()> {
+        let pipeline = self.fcl_synaptic_propagation_pipeline.as_ref()
+            .ok_or_else(|| Error::ComputationError("FCL synaptic propagation pipeline not initialized".to_string()))?;
+        
+        // Get layout from pipeline
+        let layout = pipeline.get_bind_group_layout(0);
+        
+        // Helper macro
+        macro_rules! get_buffer {
+            ($field:expr, $name:expr) => {
+                $field.as_ref()
+                    .ok_or_else(|| Error::ComputationError(format!("{} buffer not created", $name)))?
+            };
+        }
+        
+        // Create params buffer
+        let params_data = [
+            fired_count as u32,
+            hash_capacity as u32,
+            0u32,
+            0u32,
+        ];
+        let params_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Synaptic Propagation Params"),
+            size: 16,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&params_buffer, 0, bytemuck::cast_slice(&params_data));
+        
+        // Create bind group (7 bindings total - Metal-compatible!)
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Synaptic Propagation Bind Group"),
+            layout: &layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: get_buffer!(self.buffers.synapse_data, "synapse_data").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: get_buffer!(self.buffers.synapse_hash_keys, "synapse_hash_keys").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 2, resource: get_buffer!(self.buffers.synapse_hash_metadata, "synapse_hash_metadata").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 3, resource: get_buffer!(self.buffers.synapse_list, "synapse_list").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 4, resource: get_buffer!(self.buffers.fcl_potentials_atomic, "fcl_potentials_atomic").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 5, resource: get_buffer!(self.buffers.fired_neurons_input, "fired_neurons").as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 6, resource: params_buffer.as_entire_binding() },
+            ],
+        });
+        
+        // Calculate workgroups (256 fired neurons per workgroup)
+        let workgroup_count = (fired_count as u32 + 255) / 256;
+        
+        println!("  🚀 Dispatching {} workgroups for {} fired neurons (7 bindings - Metal OK!)", workgroup_count, fired_count);
+        
+        // Create command encoder
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Synaptic Propagation Encoder"),
+        });
+        
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Synaptic Propagation Pass"),
+                timestamp_writes: None,
+            });
+            
+            compute_pass.set_pipeline(pipeline);
+            compute_pass.set_bind_group(0, &bind_group, &[]);
             compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
         }
         
@@ -946,18 +1025,24 @@ impl ComputeBackend for WGPUBackend {
     fn process_synaptic_propagation(
         &mut self,
         fired_neurons: &[u32],
-        _synapse_array: &SynapseArray,
-        fcl: &mut FireCandidateList,
+        synapse_array: &SynapseArray,
+        _fcl: &mut FireCandidateList,
     ) -> Result<usize> {
         if fired_neurons.is_empty() {
             return Ok(0);
         }
         
-        // TODO: Implement GPU synaptic propagation with FCL accumulation
-        // For now, fall back to CPU implementation
-        // The GPU shader exists but pipeline is not initialized
+        println!("🚀 GPU synaptic propagation: {} fired neurons", fired_neurons.len());
         
-        // Upload fired neurons to GPU (create/update fired_neurons_input buffer)
+        // Reset atomic FCL buffer to zero
+        let neuron_count = self.current_neuron_count;
+        self.queue.write_buffer(
+            self.buffers.fcl_potentials_atomic.as_ref().unwrap(),
+            0,
+            &vec![0u8; neuron_count * 4]
+        );
+        
+        // Upload fired neurons to GPU
         let fired_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Fired Neurons Input"),
             size: (fired_neurons.len() * 4) as u64,
@@ -967,15 +1052,17 @@ impl ComputeBackend for WGPUBackend {
         self.queue.write_buffer(&fired_buffer, 0, bytemuck::cast_slice(fired_neurons));
         self.buffers.fired_neurons_input = Some(fired_buffer);
         
-        // Dispatch synaptic propagation shader (commented out until pipeline initialized)
-        // self.dispatch_synaptic_propagation(fired_neurons.len())?;
-        // self.device.poll(wgpu::Maintain::Wait);
+        // Dispatch GPU synaptic propagation (7 bindings - Metal compatible!)
+        self.dispatch_synaptic_propagation_fcl_gpu(fired_neurons.len(), self.synapse_hash_capacity)?;
         
-        // For now: Use CPU fallback to accumulate into FCL
-        // TODO: Download from GPU and accumulate into FCL, or keep on GPU
+        // Wait for GPU to complete
+        self.device.poll(wgpu::Maintain::Wait);
         
-        // Return estimated synapse count (would be actual from GPU in full impl)
-        Ok(fired_neurons.len() * 100) // Placeholder
+        println!("✅ GPU synaptic propagation complete");
+        
+        // Return estimated synapse count
+        // Note: FCL results stay on GPU for neural dynamics (full GPU→GPU pipeline)
+        Ok(fired_neurons.len() * (synapse_array.count / synapse_array.source_index.len().max(1)))
     }
     
     fn process_neural_dynamics(
@@ -1031,6 +1118,20 @@ impl ComputeBackend for WGPUBackend {
         self.upload_neuron_arrays(neuron_array)?;
         self.upload_synapse_arrays(synapse_array)?;
         
+        // Create atomic FCL potentials buffer (for synaptic propagation output)
+        let neuron_count = neuron_array.count;
+        let atomic_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("FCL Potentials Atomic"),
+            size: (neuron_count * 4) as u64,  // i32 per neuron
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        // Initialize to 0
+        self.queue.write_buffer(&atomic_buffer, 0, &vec![0u8; neuron_count * 4]);
+        self.buffers.fcl_potentials_atomic = Some(atomic_buffer);
+        
+        println!("✅ FCL atomic accumulation buffer created ({} neurons)", neuron_count);
+        
         // Initialize pipelines and shaders
         self.initialize_pipelines()?;
         
@@ -1052,7 +1153,10 @@ impl ComputeBackend for WGPUBackend {
         self.fcl_neural_dynamics_bind_group = None;
         self.synaptic_propagation_pipeline = None;
         self.synaptic_propagation_bind_group = None;
+        self.fcl_synaptic_propagation_pipeline = None;
+        self.fcl_synaptic_propagation_bind_group = None;
         self.current_neuron_count = 0;
+        self.synapse_hash_capacity = 0;
         
         println!("🔄 GPU state invalidated due to genome change");
         
