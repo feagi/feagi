@@ -585,6 +585,30 @@ impl RustNPU {
         self.npu.batch_update_snooze_period(&neuron_ids, &values)
     }
     
+    /// Batch update membrane potential for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_membrane_potential(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
+        self.npu.batch_update_membrane_potential(&neuron_ids, &values)
+    }
+    
+    /// Batch update resting potential for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_resting_potential(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
+        self.npu.batch_update_resting_potential(&neuron_ids, &values)
+    }
+    
+    /// Batch update excitability for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_excitability(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
+        self.npu.batch_update_excitability(&neuron_ids, &values)
+    }
+    
+    /// Batch update neuron type for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_neuron_type(&mut self, neuron_ids: Vec<u32>, values: Vec<i32>) -> usize {
+        self.npu.batch_update_neuron_type(&neuron_ids, &values)
+    }
+    
     /// Delete a neuron (mark as invalid)
     /// Returns true if successful, false if neuron out of bounds
     fn delete_neuron(&mut self, neuron_id: u32) -> bool {
@@ -595,6 +619,45 @@ impl RustNPU {
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
     fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, f32, f32, u16)> {
         self.npu.get_neuron_state(NeuronId(neuron_id))
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // PROPERTY GETTERS (for batch_get_neuron_properties)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /// Get neuron refractory period
+    fn get_neuron_refractory_period(&self, neuron_id: u32) -> Option<u16> {
+        self.npu.neuron_array.refractory_periods.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron firing threshold
+    fn get_neuron_threshold(&self, neuron_id: u32) -> Option<f32> {
+        self.npu.neuron_array.thresholds.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron leak coefficient (decay rate)
+    fn get_neuron_leak_coefficient(&self, neuron_id: u32) -> Option<f32> {
+        self.npu.neuron_array.leak_coefficients.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron membrane potential
+    fn get_neuron_membrane_potential(&self, neuron_id: u32) -> Option<f32> {
+        self.npu.neuron_array.membrane_potentials.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron resting potential
+    fn get_neuron_resting_potential(&self, neuron_id: u32) -> Option<f32> {
+        self.npu.neuron_array.resting_potentials.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron excitability
+    fn get_neuron_excitability(&self, neuron_id: u32) -> Option<f32> {
+        self.npu.neuron_array.excitabilities.get(neuron_id as usize).copied()
+    }
+    
+    /// Get neuron consecutive fire limit
+    fn get_neuron_consecutive_fire_limit(&self, neuron_id: u32) -> Option<u16> {
+        self.npu.neuron_array.consecutive_fire_limits.get(neuron_id as usize).copied()
     }
 }
 

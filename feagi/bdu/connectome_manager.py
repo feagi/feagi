@@ -4581,6 +4581,13 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"Unknown neuron property: {property_name}"
                 ) from err
 
+        # Check for unsupported properties early (before value validation)
+        if property_name == NeuronPropertyType.POSITION:
+            raise NotImplementedError(
+                "Batch update of neuron positions is not supported. "
+                "Position cannot be changed after neuron creation as per user requirements."
+            )
+
         # Validate neuron IDs
         valid_mask = np.zeros(len(neuron_ids), dtype=bool)
         for i, neuron_id in enumerate(neuron_ids):
@@ -4609,20 +4616,30 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
             update_values = np.array(values)[valid_mask]
 
-        # Call appropriate Rust NPU batch update function
+        # Call appropriate Rust NPU batch update function via NPUInterface
         valid_ids_list = valid_ids.tolist()
+        
+        # Access Rust NPU through NPUInterface
+        rust_npu = self._npu_interface.rust_npu
         
         try:
             if property_name == NeuronPropertyType.REFRACTORY_PERIOD:
-                values_u16 = update_values.astype(np.uint16).tolist()
-                updated_count = self.rust_npu.batch_update_refractory_period(valid_ids_list, values_u16)
+                # Round before converting to int (7.9 → 8, not 7)
+                values_u16 = np.round(update_values).astype(np.uint16).tolist()
+                updated_count = rust_npu.batch_update_refractory_period(valid_ids_list, values_u16)
             elif property_name == NeuronPropertyType.THRESHOLD:
                 values_f32 = update_values.astype(np.float32).tolist()
-                updated_count = self.rust_npu.batch_update_threshold(valid_ids_list, values_f32)
+                updated_count = rust_npu.batch_update_threshold(valid_ids_list, values_f32)
             elif property_name == NeuronPropertyType.DECAY_RATE:
                 # decay_rate maps to leak_coefficient in Rust
                 values_f32 = update_values.astype(np.float32).tolist()
-                updated_count = self.rust_npu.batch_update_leak_coefficient(valid_ids_list, values_f32)
+                updated_count = rust_npu.batch_update_leak_coefficient(valid_ids_list, values_f32)
+            elif property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
+                values_f32 = update_values.astype(np.float32).tolist()
+                updated_count = rust_npu.batch_update_membrane_potential(valid_ids_list, values_f32)
+            elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
+                values_f32 = update_values.astype(np.float32).tolist()
+                updated_count = rust_npu.batch_update_resting_potential(valid_ids_list, values_f32)
             else:
                 logger.warning(
                     f"⚠️ Property {property_name} batch update not yet implemented in Rust NPU"
@@ -4677,15 +4694,40 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize result with NaN for invalid indices
         result = np.full(len(neuron_ids), np.nan)
 
-        # ⚠️ TODO: Implement property queries in Rust ConnectomeManager
-        logger.warning(
-            f"⚠️ [DEPRECATED] batch_get_neuron_properties called for property {property_name} - "
-            f"Not fully implemented in Rust NPU. Will be added to Rust ConnectomeManager."
-        )
-        raise NotImplementedError(
-            f"Batch neuron property queries for {property_name} not yet supported in Rust NPU. "
-            f"Will be implemented in Rust ConnectomeManager migration."
-        )
+        # Query properties from Rust NPU one by one
+        # TODO: Optimize with batched getter in Rust
+        rust_npu = self._npu_interface.rust_npu
+        
+        for i, neuron_id in enumerate(neuron_ids):
+            if not valid_mask[i]:
+                continue  # Skip invalid neurons
+            
+            try:
+                value = None
+                if property_name == NeuronPropertyType.REFRACTORY_PERIOD:
+                    value = rust_npu.get_neuron_refractory_period(neuron_id)
+                elif property_name == NeuronPropertyType.THRESHOLD:
+                    value = rust_npu.get_neuron_threshold(neuron_id)
+                elif property_name == NeuronPropertyType.DECAY_RATE:
+                    value = rust_npu.get_neuron_leak_coefficient(neuron_id)
+                elif property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
+                    value = rust_npu.get_neuron_membrane_potential(neuron_id)
+                elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
+                    value = rust_npu.get_neuron_resting_potential(neuron_id)
+                elif property_name == NeuronPropertyType.EXCITABILITY:
+                    value = rust_npu.get_neuron_excitability(neuron_id)
+                elif property_name == NeuronPropertyType.CONSECUTIVE_FIRE_LIMIT:
+                    value = rust_npu.get_neuron_consecutive_fire_limit(neuron_id)
+                else:
+                    logger.warning(f"⚠️ Unsupported property for batch get: {property_name}")
+                
+                # Handle Optional (None means neuron not found or invalid)
+                if value is not None:
+                    result[i] = value
+            except AttributeError as e:
+                logger.warning(f"⚠️ Rust NPU getter not available for {property_name}: {e}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to get property {property_name} for neuron {neuron_id}: {e}")
 
         return result
 
@@ -7476,28 +7518,36 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Newly created neuron ID
         """
-        if not self._npu_interface or not self._npu_interface.neuron_array:
+        if not self._npu_interface:
             raise RuntimeError("NPU interface not configured - cannot create neurons")
-
-        na: NeuronArray = self._npu_interface.neuron_array
-        neuron_id = na._next_neuron_id
-        na.add_neurons_batch(
-            neuron_ids=[neuron_id],
-            positions=[position],
-            neuron_types=[0],
-            initial_potentials=[membrane_potential],
-            thresholds=[threshold],
-            leak_coefficients=[decay_rate],
-            cortical_idx=cortical_idx,
+        
+        # Create neuron directly through Rust NPU
+        neuron_id = self._npu_interface.rust_npu.add_neuron(
+            threshold=float(threshold),
+            leak_coefficient=float(decay_rate),
+            resting_potential=float(resting_potential),
+            neuron_type=0,  # Default type
+            refractory_period=int(refractory_period),
+            excitability=1.0,  # Default excitability
+            consecutive_fire_limit=0,  # Default no limit
+            snooze_period=0,  # Default no extended refractory
+            cortical_area=int(cortical_idx),
+            x=int(position[0]),
+            y=int(position[1]),
+            z=int(position[2])
         )
-        # Set refractory period and resting potential directly
-        idx = na.neuron_id_to_index.get(neuron_id)
-        if idx is not None:
-            na.refractory_periods[idx] = int(refractory_period)
-            na.resting_potentials[idx] = float(resting_potential)
-        # Update mappings owned by ConnectomeManager for backward compatibility
-        self.neuron_id_to_index[neuron_id] = idx
-        self.index_to_neuron_id[idx] = neuron_id
+        
+        # Update NPU Interface mappings
+        self._npu_interface.neuron_id_to_index[neuron_id] = neuron_id
+        self._npu_interface.index_to_neuron_id[neuron_id] = neuron_id
+        self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
+        self._npu_interface.neuron_to_position[neuron_id] = position
+        
+        # Update ConnectomeManager mappings for backward compatibility
+        self.neuron_id_to_index[neuron_id] = neuron_id
+        self.index_to_neuron_id[neuron_id] = neuron_id
+        self._neuron_to_position[neuron_id] = (cortical_idx, position[0], position[1], position[2], 0)
+        
         return neuron_id
 
     def get_neuron_count(self) -> int:

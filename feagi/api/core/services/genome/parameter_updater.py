@@ -40,7 +40,11 @@ class CorticalParameterUpdater:
         'firing_threshold_limit': ('thresholds', float, 'Firing threshold'),
         'leak': ('leak_coefficients', float, 'Leak coefficient'),
         'refrac': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),
+        'neuron_refractory_period': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),  # Alternative name
         'consecutive_fire_cnt_max': ('consecutive_fire_limits', lambda v: int(max(0, round(float(v)))), 'Consecutive fire limit'),
+        'neuron_membrane_potential': ('membrane_potentials', float, 'Membrane potential'),
+        'neuron_resting_potential': ('resting_potentials', float, 'Resting potential'),
+        'neuron_type': ('neuron_types', int, 'Neuron type'),
     }
 
     def __init__(self, connectome_manager: ConnectomeManager):
