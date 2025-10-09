@@ -19,7 +19,8 @@ Architecture Principles:
 
 from .fire_queue import FireQueue, FiringNeuron
 from .burst_engine import BurstEngine
-from .fq_sampler import FQSampler, UnifiedFQSampler
+# FQSampler is now in Rust - use RustFQSamplerWrapper from rust_fq_sampler_wrapper
+from .rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
 from .data_structures import (
@@ -46,8 +47,7 @@ __all__ = [
     'FireQueue',
     'FiringNeuron', 
     'BurstEngine',
-    'FQSampler',
-    'UnifiedFQSampler',
+    'RustFQSamplerWrapper',  # Rust FQ Sampler wrapper
     
     # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',

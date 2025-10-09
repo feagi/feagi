@@ -11,7 +11,7 @@ from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 from .fire_queue import FireQueue, FiringNeuron
-from .fq_sampler import FQSampler
+# FQ Sampler is now in Rust - access via RustNPUIntegration.sample_fire_queue()
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
 from .rust_npu_integration import RustNPUIntegration, RUST_AVAILABLE
@@ -427,19 +427,25 @@ class BurstEngine:
         """Get current fire queue for FQ Sampler access."""
         return self.previous_fire_queue
     
-    def initialize_fq_sampler(self, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization") -> FQSampler:
-        """Initialize FQ Sampler with this burst engine as provider."""
-        self.fq_sampler = FQSampler(
-            fire_queue_provider=self,  # BurstEngine provides get_current_fire_queue()
-            sample_frequency_hz=sample_frequency_hz,
-            sampling_mode=sampling_mode
-        )
-        logger.debug("FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
-        return self.fq_sampler
+    def initialize_fq_sampler(self, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization"):
+        """Initialize FQ Sampler with this burst engine as provider.
+        
+        NOTE: FQ Sampler is now in Rust and accessed via RustNPUIntegration.
+        This method is kept for backward compatibility but delegates to Rust.
+        """
+        if self.rust_npu:
+            self.rust_npu.set_fq_sampler_frequency(sample_frequency_hz)
+            logger.debug("Rust FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
+        else:
+            logger.warning("Cannot initialize FQ Sampler: Rust NPU not available")
     
-    def get_fq_sampler(self) -> Optional[FQSampler]:
-        """Get FQ Sampler instance."""
-        return self.fq_sampler
+    def get_fq_sampler(self):
+        """Get FQ Sampler instance.
+        
+        NOTE: FQ Sampler is now in Rust. Use RustNPUIntegration.sample_fire_queue() instead.
+        This method returns None for backward compatibility.
+        """
+        return None  # FQ Sampler is now in Rust
     
     def register_fq_sampler(self, fq_sampler: Any):
         """Register an external FQ sampler with this burst engine.

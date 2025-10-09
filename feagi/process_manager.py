@@ -1792,24 +1792,19 @@ class ProcessManager:
                 )
                 return True
 
-            # Import FQ sampler
-            from feagi.npu.fq_sampler import UnifiedFQSampler
+            # Import Rust FQ sampler wrapper
+            from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
-            # Create the sampler
-            fq_sampler = UnifiedFQSampler(
-                fire_queue_provider=self._core_api,
+            # Create the Rust-backed sampler
+            # RustFQSamplerWrapper handles the Rust NPU integration internally
+            fq_sampler = RustFQSamplerWrapper(
+                npu_integration=(
+                    self._core_api.get_burst_engine().rust_npu
+                    if self._core_api and hasattr(self._core_api.get_burst_engine(), 'rust_npu')
+                    else None
+                ),
                 sample_frequency_hz=frequency,
                 sampling_mode=mode,
-                connectome_manager=(
-                    self._core_api.get_connectome_manager()
-                    if self._core_api
-                    else None
-                ),
-                state_manager=(
-                    self._core_api.get_state_manager()
-                    if self._core_api
-                    else None
-                ),
             )
 
             # Store the sampler based on mode

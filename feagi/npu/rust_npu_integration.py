@@ -335,3 +335,53 @@ class RustNPUIntegration:
         """Set motor subscriber state."""
         if self._rust_npu:
             self._rust_npu.set_motor_subscribers(has_subscribers)
+    
+    # ═══════════════════════════════════════════════════════════
+    # FIRE LEDGER API (Entry Point #3: Historical Debugging)
+    # ═══════════════════════════════════════════════════════════
+    
+    def get_fire_ledger_history(self, cortical_idx: int, num_timesteps: int) -> List[Dict]:
+        """Get Fire Ledger history for a cortical area.
+        
+        Args:
+            cortical_idx: Cortical area ID
+            num_timesteps: Number of recent timesteps to retrieve
+        
+        Returns:
+            List of timesteps, each containing:
+            {
+                "timestep": int,
+                "neuron_ids": [int, ...],
+                "coordinates_x": [int, ...],
+                "coordinates_y": [int, ...],
+                "coordinates_z": [int, ...],
+                "potentials": [float, ...]
+            }
+        """
+        if not self._rust_npu:
+            return []
+        
+        return self._rust_npu.get_fire_ledger_history(cortical_idx, num_timesteps)
+    
+    def get_fire_ledger_window_size(self, cortical_idx: int) -> int:
+        """Get Fire Ledger window size for a cortical area."""
+        if not self._rust_npu:
+            return 0
+        
+        return self._rust_npu.get_fire_ledger_window_size(cortical_idx)
+    
+    def configure_fire_ledger_window(self, cortical_idx: int, window_size: int):
+        """Configure Fire Ledger window size for a cortical area."""
+        if self._rust_npu:
+            self._rust_npu.configure_fire_ledger_window(cortical_idx, window_size)
+    
+    def get_all_fire_ledger_configs(self) -> Dict[int, int]:
+        """Get all Fire Ledger window configurations.
+        
+        Returns:
+            Dict mapping cortical_idx -> window_size
+        """
+        if not self._rust_npu:
+            return {}
+        
+        return self._rust_npu.get_all_fire_ledger_configs()
