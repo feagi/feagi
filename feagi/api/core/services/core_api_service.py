@@ -1537,26 +1537,11 @@ class CoreAPIService:
         return self._connectome_manager
 
     # =================================================================
-    # CRITICAL MISSING METHODS - FIRE QUEUE & STATE MANAGEMENT
+    # FIRE QUEUE & STATE MANAGEMENT
     # =================================================================
-
-    def get_current_fire_queue(self):
-        """Get current fire queue from burst engine for FQ sampler access.
-        
-        This method is called by FQ samplers to get access to the current
-        fire queue data. It delegates to the BurstEngine's get_current_fire_queue method.
-        
-        Returns:
-            FireQueue instance or None if not available
-        """
-        try:
-            burst_engine = self.get_burst_engine()
-            if burst_engine and hasattr(burst_engine, 'get_current_fire_queue'):
-                return burst_engine.get_current_fire_queue()
-            return None
-        except Exception as e:
-            self.logger.error(f"Error accessing current fire queue: {e}")
-            return None
+    # NOTE: Fire Queue is now in Rust. Access via:
+    #   burst_engine.rust_npu.sample_fire_queue()
+    # Legacy get_current_fire_queue() removed - use Rust FQ Sampler instead.
     
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
         """Get the global fire queue data from new FireQueue architecture."""

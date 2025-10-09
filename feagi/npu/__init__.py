@@ -17,7 +17,7 @@ Architecture Principles:
 5. High-performance SoA (Structure of Arrays) format
 """
 
-from .fire_queue import FireQueue, FiringNeuron
+# Fire Queue is now in Rust - accessed via RustNPUIntegration.sample_fire_queue()
 from .burst_engine import BurstEngine
 # FQSampler is now in Rust - use RustFQSamplerWrapper from rust_fq_sampler_wrapper
 from .rust_fq_sampler_wrapper import RustFQSamplerWrapper
@@ -44,8 +44,6 @@ from .interface import (
 
 __all__ = [
     # Core NPU Components
-    'FireQueue',
-    'FiringNeuron', 
     'BurstEngine',
     'RustFQSamplerWrapper',  # Rust FQ Sampler wrapper
     

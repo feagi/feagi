@@ -10,7 +10,7 @@ import numpy as np
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-from .fire_queue import FireQueue, FiringNeuron
+# Fire Queue is now in Rust - access via RustNPUIntegration.sample_fire_queue()
 # FQ Sampler is now in Rust - access via RustNPUIntegration.sample_fire_queue()
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
@@ -117,7 +117,7 @@ class BurstEngine:
         
         self.current_timestep = 0
         self.burst_count = 0
-        self.previous_fire_queue: Optional[FireQueue] = None
+        # Fire Queue is now in Rust - accessed via rust_npu.sample_fire_queue()
         
         # Performance monitoring for actual vs desired frequency
         self._last_burst_time = None
@@ -329,103 +329,11 @@ class BurstEngine:
         self.burst_count = result['burst']
         self.current_timestep += 1
         
-        # Create FiringNeuron objects and FireQueue for API/FQ sampler compatibility
-        if result['neuron_count'] > 0:
-            logger.debug("🦀 Creating FireQueue for %d fired neurons", result['neuron_count'])
-            
-            # Get Rust NPU for querying live neuron state
-            rust_npu = None
-            if self._rust_npu_integration and hasattr(self._rust_npu_integration, '_rust_npu'):
-                rust_npu = self._rust_npu_integration._rust_npu
-            
-            # Get actual neuron properties from connectome for proper visualization
-            firing_neurons = []
-            neurons_by_area = {}  # Track neurons per area for summary
-            failed_lookups = 0
-            
-            for neuron_id in result['fired_neurons']:
-                # Try to get actual neuron properties from connectome and Rust NPU
-                try:
-                    cortical_area = self.connectome_manager.get_cortical_area_for_neuron(neuron_id) if self.connectome_manager else None
-                    cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_area) if cortical_area else 0
-                    coords = self.connectome_manager.get_neuron_position(neuron_id) if self.connectome_manager else (0, 0, 0)
-                    
-                    # Query actual neuron state from Rust NPU for accurate visualization
-                    membrane_potential = 0.0
-                    threshold = 1.0
-                    refractory_counter = 0
-                    consecutive_fire_count = 0
-                    
-                    if rust_npu:
-                        try:
-                            state = rust_npu.get_neuron_state(neuron_id)
-                            if state:
-                                # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
-                                cfc, _cfc_limit, _snooze, potential, thresh, refrac = state
-                                membrane_potential = float(potential)
-                                threshold = float(thresh)
-                                refractory_counter = int(refrac)
-                                consecutive_fire_count = int(cfc)
-                        except Exception as e:
-                            # Use defaults if query fails
-                            logger.debug(f"Failed to get state for neuron {neuron_id}: {e}")
-                    
-                    # Track neurons by area
-                    area_key = cortical_area if cortical_area else "unknown"
-                    neurons_by_area[area_key] = neurons_by_area.get(area_key, 0) + 1
-                    
-                    # Only log first 2 per area to avoid log spam
-                    if neurons_by_area[area_key] <= 2:
-                        logger.debug(f"🦀 Neuron {neuron_id} -> area={cortical_area}, idx={cortical_idx}")
-                except Exception as e:
-                    failed_lookups += 1
-                    if failed_lookups <= 5:  # Only log first 5 failures
-                        logger.warning(f"🦀 [RUST-NPU] Failed to get properties for neuron {neuron_id}: {e}")
-                    cortical_idx = 0
-                    coords = (0, 0, 0)
-                    membrane_potential = 0.0
-                    threshold = 1.0
-                    refractory_counter = 0
-                    consecutive_fire_count = 0
-                
-                firing_neurons.append(FiringNeuron(
-                    neuron_id=neuron_id,
-                    membrane_potential=membrane_potential,
-                    cortical_idx=cortical_idx,
-                    coordinates=coords,
-                    threshold=threshold,
-                    refractory_counter=refractory_counter,
-                    consecutive_fire_count=consecutive_fire_count
-                ))
-            
-            # Log summary (reduced spam)
-            logger.debug("🦀 Processed %d neurons: %s (failed_lookups=%d)", 
-                          len(firing_neurons), neurons_by_area, failed_lookups)
-            
-            # Update previous_fire_queue (used by FQ sampler via get_current_fire_queue())
-            fire_queue = FireQueue()
-            fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
-            self.previous_fire_queue = fire_queue
-            
-            # NOTE: Fire Ledger archival now happens in Rust NPU's process_burst()!
-            # No Python archival needed - Rust handles it automatically.
-            
-            # Debug: Check what's in the fire queue (reduced spam)
-            logger.debug("🦀 FireQueue updated: %d neurons, %d areas", 
-                       result['neuron_count'], 
-                       len(fire_queue.firing_neurons_by_area))
-        else:
-            # No neurons fired, but still update the reference
-            logger.debug("🦀 No neurons fired (neuron_count=%d), creating empty FireQueue", 
-                          result.get('neuron_count', 0))
-            self.previous_fire_queue = FireQueue()
-            # NOTE: Rust Fire Ledger handles empty timesteps automatically
-            
+        # Fire Queue and Fire Ledger archival now handled entirely in Rust!
+        # No Python reconstruction needed - all visualization/motor data comes from
+        # Rust via sample_fire_queue()
+        
         return result['fired_neurons']
-    
-    def get_current_fire_queue(self) -> Optional[FireQueue]:
-        """Get current fire queue for FQ Sampler access."""
-        return self.previous_fire_queue
     
     def initialize_fq_sampler(self, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization"):
         """Initialize FQ Sampler with this burst engine as provider.
