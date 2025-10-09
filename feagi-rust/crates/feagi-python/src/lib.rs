@@ -555,6 +555,36 @@ impl RustNPU {
         self.npu.update_cortical_area_excitability(cortical_area, excitability)
     }
     
+    /// Batch update refractory period for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_refractory_period(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
+        self.npu.batch_update_refractory_period(&neuron_ids, &values)
+    }
+    
+    /// Batch update threshold for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_threshold(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
+        self.npu.batch_update_threshold(&neuron_ids, &values)
+    }
+    
+    /// Batch update leak coefficient for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_leak_coefficient(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
+        self.npu.batch_update_leak_coefficient(&neuron_ids, &values)
+    }
+    
+    /// Batch update consecutive fire limit for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_consecutive_fire_limit(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
+        self.npu.batch_update_consecutive_fire_limit(&neuron_ids, &values)
+    }
+    
+    /// Batch update snooze period (extended refractory) for multiple neurons
+    /// Returns number of neurons updated
+    fn batch_update_snooze_period(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
+        self.npu.batch_update_snooze_period(&neuron_ids, &values)
+    }
+    
     /// Delete a neuron (mark as invalid)
     /// Returns true if successful, false if neuron out of bounds
     fn delete_neuron(&mut self, neuron_id: u32) -> bool {

@@ -336,6 +336,101 @@ impl RustNPU {
         updated_count
     }
     
+    /// Batch update refractory period for multiple neurons
+    /// Returns number of neurons updated
+    pub fn batch_update_refractory_period(&mut self, neuron_ids: &[u32], values: &[u16]) -> usize {
+        if neuron_ids.len() != values.len() {
+            return 0;
+        }
+        
+        let mut updated_count = 0;
+        for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
+            let idx = *neuron_id as usize;
+            if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                self.neuron_array.refractory_periods[idx] = *value;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Batch update threshold for multiple neurons
+    /// Returns number of neurons updated
+    pub fn batch_update_threshold(&mut self, neuron_ids: &[u32], values: &[f32]) -> usize {
+        if neuron_ids.len() != values.len() {
+            return 0;
+        }
+        
+        let mut updated_count = 0;
+        for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
+            let idx = *neuron_id as usize;
+            if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                self.neuron_array.thresholds[idx] = *value;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Batch update leak coefficient for multiple neurons
+    /// Returns number of neurons updated
+    pub fn batch_update_leak_coefficient(&mut self, neuron_ids: &[u32], values: &[f32]) -> usize {
+        if neuron_ids.len() != values.len() {
+            return 0;
+        }
+        
+        let mut updated_count = 0;
+        for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
+            let idx = *neuron_id as usize;
+            if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                self.neuron_array.leak_coefficients[idx] = value.clamp(0.0, 1.0);
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Batch update consecutive fire limit for multiple neurons
+    /// Returns number of neurons updated
+    pub fn batch_update_consecutive_fire_limit(&mut self, neuron_ids: &[u32], values: &[u16]) -> usize {
+        if neuron_ids.len() != values.len() {
+            return 0;
+        }
+        
+        let mut updated_count = 0;
+        for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
+            let idx = *neuron_id as usize;
+            if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                self.neuron_array.consecutive_fire_limits[idx] = *value;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Batch update snooze period (extended refractory) for multiple neurons
+    /// Returns number of neurons updated
+    pub fn batch_update_snooze_period(&mut self, neuron_ids: &[u32], values: &[u16]) -> usize {
+        if neuron_ids.len() != values.len() {
+            return 0;
+        }
+        
+        let mut updated_count = 0;
+        for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
+            let idx = *neuron_id as usize;
+            if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                self.neuron_array.snooze_periods[idx] = *value;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
     /// Delete a neuron (mark as invalid)
     /// Returns true if successful, false if neuron out of bounds
     pub fn delete_neuron(&mut self, neuron_id: u32) -> bool {

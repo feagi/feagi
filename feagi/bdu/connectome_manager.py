@@ -4609,16 +4609,34 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
             update_values = np.array(values)[valid_mask]
 
-        # ⚠️ TODO: Implement property updates in Rust ConnectomeManager
-        # For now, raise NotImplementedError for unsupported properties
-        logger.warning(
-            f"⚠️ [DEPRECATED] batch_update_neuron_properties called for property {property_name} - "
-            f"Not fully implemented in Rust NPU. Will be added to Rust ConnectomeManager."
-        )
-        raise NotImplementedError(
-            f"Batch neuron property updates for {property_name} not yet supported in Rust NPU. "
-            f"Will be implemented in Rust ConnectomeManager migration."
-        )
+        # Call appropriate Rust NPU batch update function
+        valid_ids_list = valid_ids.tolist()
+        
+        try:
+            if property_name == NeuronPropertyType.REFRACTORY_PERIOD:
+                values_u16 = update_values.astype(np.uint16).tolist()
+                updated_count = self.rust_npu.batch_update_refractory_period(valid_ids_list, values_u16)
+            elif property_name == NeuronPropertyType.THRESHOLD:
+                values_f32 = update_values.astype(np.float32).tolist()
+                updated_count = self.rust_npu.batch_update_threshold(valid_ids_list, values_f32)
+            elif property_name == NeuronPropertyType.DECAY_RATE:
+                # decay_rate maps to leak_coefficient in Rust
+                values_f32 = update_values.astype(np.float32).tolist()
+                updated_count = self.rust_npu.batch_update_leak_coefficient(valid_ids_list, values_f32)
+            else:
+                logger.warning(
+                    f"⚠️ Property {property_name} batch update not yet implemented in Rust NPU"
+                )
+                raise NotImplementedError(
+                    f"Batch neuron property updates for {property_name} not yet supported in Rust NPU."
+                )
+                
+            logger.info(f"✅ Batch updated {updated_count} neurons for property {property_name}")
+            return updated_count > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to batch update {property_name}: {e}")
+            raise
 
     def batch_get_neuron_properties(
         self,
