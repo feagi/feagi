@@ -18,7 +18,6 @@ Architecture Principles:
 """
 
 from .fire_queue import FireQueue, FiringNeuron
-from .fire_ledger import FireLedgerInterface
 from .burst_engine import BurstEngine
 from .fq_sampler import FQSampler, UnifiedFQSampler
 
@@ -46,7 +45,6 @@ __all__ = [
     # Core NPU Components
     'FireQueue',
     'FiringNeuron', 
-    'FireLedgerInterface',
     'BurstEngine',
     'FQSampler',
     'UnifiedFQSampler',

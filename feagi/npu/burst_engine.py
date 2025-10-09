@@ -11,7 +11,6 @@ from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 from .fire_queue import FireQueue, FiringNeuron
-from .fire_ledger import FireLedgerInterface
 from .fq_sampler import FQSampler
 
 # Rust NPU integration (PRODUCTION PATH - NO FALLBACKS)
@@ -75,7 +74,7 @@ class BurstEngine:
             pass
         
         # Core NPU components
-        self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
+        # NOTE: Fire Ledger is now in Rust NPU - no Python Fire Ledger needed!
         
         # Per-area excitability cache for performance optimization (like old NPU)
         self._area_excitability_cache: Dict[int, float] = {}
@@ -205,7 +204,7 @@ class BurstEngine:
         
         self._rust_npu_integration = RustNPUIntegration(
             connectome_manager=self.connectome_manager,
-            fire_ledger_window=self.fire_ledger.window_size if self.fire_ledger else 20,
+            fire_ledger_window=fire_ledger_window_size,
             neuron_capacity=neuron_capacity,
             synapse_capacity=synapse_capacity
         )
@@ -408,24 +407,8 @@ class BurstEngine:
             fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
             self.previous_fire_queue = fire_queue
             
-            # Archive firing data to Fire Ledger (for historical access and STDP)
-            if self.fire_ledger:
-                try:
-                    # CRITICAL DEBUG: Log what's being archived for area 9 (iic000)
-                    if 9 in fire_queue.firing_neurons_by_area:
-                        area_9_neurons = [n.neuron_id for n in fire_queue.firing_neurons_by_area[9]]
-                        logger.info(f"🔥 [FIRE-LEDGER-DEBUG] Archiving area 9 at timestep {self.current_timestep}: neurons={area_9_neurons}")
-                    else:
-                        logger.info(f"🔥 [FIRE-LEDGER-DEBUG] Area 9 NOT in fire_queue at timestep {self.current_timestep}")
-                    
-                    self.fire_ledger.archive_timestep(
-                        self.current_timestep,
-                        fire_queue.firing_neurons_by_area
-                    )
-                    logger.debug("🔥 Fire Ledger archived: %d areas at timestep %d", 
-                               len(fire_queue.firing_neurons_by_area), self.current_timestep)
-                except Exception as e:
-                    logger.error("Failed to archive Fire Ledger data: %s", e, exc_info=True)
+            # NOTE: Fire Ledger archival now happens in Rust NPU's process_burst()!
+            # No Python archival needed - Rust handles it automatically.
             
             # Debug: Check what's in the fire queue (reduced spam)
             logger.debug("🦀 FireQueue updated: %d neurons, %d areas", 
@@ -436,23 +419,13 @@ class BurstEngine:
             logger.debug("🦀 No neurons fired (neuron_count=%d), creating empty FireQueue", 
                           result.get('neuron_count', 0))
             self.previous_fire_queue = FireQueue()
-            
-            # Still archive empty timestep to Fire Ledger
-            if self.fire_ledger:
-                try:
-                    self.fire_ledger.archive_timestep(self.current_timestep, {})
-                except Exception as e:
-                    logger.error("Failed to archive empty Fire Ledger timestep: %s", e)
+            # NOTE: Rust Fire Ledger handles empty timesteps automatically
             
         return result['fired_neurons']
     
     def get_current_fire_queue(self) -> Optional[FireQueue]:
         """Get current fire queue for FQ Sampler access."""
         return self.previous_fire_queue
-    
-    def get_fire_ledger(self) -> FireLedgerInterface:
-        """Get fire ledger interface."""
-        return self.fire_ledger
     
     def initialize_fq_sampler(self, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization") -> FQSampler:
         """Initialize FQ Sampler with this burst engine as provider."""
