@@ -2075,7 +2075,7 @@
     "_____10c-iic200-cx-gd_vis-b": true,
     "_____10c-iic200-nx-pstcr_-f": 5,
     "_____10c-iic200-nx-fire_t-f": 0.1,
-    "_____10c-iic200-nx-refrac-i": 0,
+    "_____10c-iic200-nx-refrac-i": 1,
     "_____10c-iic200-nx-leak_c-f": 0,
     "_____10c-iic200-nx-leak_v-f": 0,
     "_____10c-iic200-nx-c_fr_c-i": 3,

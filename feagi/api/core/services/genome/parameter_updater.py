@@ -107,6 +107,21 @@ class CorticalParameterUpdater:
                     # Use dedicated Rust method for excitability updates
                     updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('neuron_refractory_period', 'refractory_period'):
+                    updated_count = rust_npu.update_cortical_area_refractory_period(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated refractory_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('neuron_fire_threshold', 'firing_threshold'):
+                    updated_count = rust_npu.update_cortical_area_threshold(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated threshold to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('leak_coefficient', 'neuron_leak_coefficient'):
+                    updated_count = rust_npu.update_cortical_area_leak(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated leak to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('consecutive_fire_cnt_max', 'neuron_consecutive_fire_cnt_max'):
+                    updated_count = rust_npu.update_cortical_area_consecutive_fire_limit(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated consecutive_fire_limit to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('snooze_length', 'neuron_snooze_period'):
+                    updated_count = rust_npu.update_cortical_area_snooze_period(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated snooze_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 else:
                     # For other properties, we'll need to add specific Rust methods as needed
                     self.logger.warning(f"🦀 [RUST-NPU] Live update for {property_name} not yet implemented - will require FEAGI restart")

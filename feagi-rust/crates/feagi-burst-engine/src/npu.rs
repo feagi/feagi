@@ -336,9 +336,112 @@ impl RustNPU {
         updated_count
     }
     
+    /// Update refractory period for all neurons in a cortical area (bulk parameter change)
+    pub fn update_cortical_area_refractory_period(&mut self, cortical_area: u32, refractory_period: u16) -> usize {
+        println!("[RUST-UPDATE] update_cortical_area_refractory_period: cortical_area={}, refractory_period={}", 
+                 cortical_area, refractory_period);
+        
+        let mut updated_count = 0;
+
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id]
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area
+            {
+                // Update base refractory period
+                self.neuron_array.refractory_periods[neuron_id] = refractory_period;
+
+                // Enforce immediately: if period > 0, set countdown to period
+                // This guarantees next burst will respect the updated refractory
+                // and stops continuous firing carried over from previous genome values.
+                if refractory_period > 0 {
+                    self.neuron_array.refractory_countdowns[neuron_id] = refractory_period;
+                } else {
+                    // If set to 0, allow immediate firing by clearing countdown
+                    self.neuron_array.refractory_countdowns[neuron_id] = 0;
+                }
+
+                // Reset consecutive fire count when applying a new period to avoid
+                // stale state causing unexpected immediate extended refractory.
+                self.neuron_array.consecutive_fire_counts[neuron_id] = 0;
+
+                updated_count += 1;
+                
+                // Log first few neurons
+                if updated_count <= 3 {
+                    println!("[RUST-UPDATE]   Neuron {}: refractory_period={}, countdown={}", 
+                             neuron_id, refractory_period, self.neuron_array.refractory_countdowns[neuron_id]);
+                }
+            }
+        }
+
+        updated_count
+    }
+    
+    /// Update threshold for all neurons in a cortical area (bulk parameter change)
+    pub fn update_cortical_area_threshold(&mut self, cortical_area: u32, threshold: f32) -> usize {
+        let mut updated_count = 0;
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                self.neuron_array.thresholds[neuron_id] = threshold;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Update leak coefficient for all neurons in a cortical area (bulk parameter change)
+    pub fn update_cortical_area_leak(&mut self, cortical_area: u32, leak: f32) -> usize {
+        let mut updated_count = 0;
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                self.neuron_array.leak_coefficients[neuron_id] = leak;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Update consecutive fire limit for all neurons in a cortical area (bulk parameter change)
+    pub fn update_cortical_area_consecutive_fire_limit(&mut self, cortical_area: u32, limit: u16) -> usize {
+        let mut updated_count = 0;
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                self.neuron_array.consecutive_fire_limits[neuron_id] = limit;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
+    /// Update snooze period (extended refractory) for all neurons in a cortical area (bulk parameter change)
+    pub fn update_cortical_area_snooze_period(&mut self, cortical_area: u32, snooze_period: u16) -> usize {
+        let mut updated_count = 0;
+        
+        for neuron_id in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_id] 
+                && self.neuron_array.cortical_areas[neuron_id] == cortical_area {
+                self.neuron_array.snooze_periods[neuron_id] = snooze_period;
+                updated_count += 1;
+            }
+        }
+        
+        updated_count
+    }
+    
     /// Batch update refractory period for multiple neurons
     /// Returns number of neurons updated
     pub fn batch_update_refractory_period(&mut self, neuron_ids: &[u32], values: &[u16]) -> usize {
+        println!("[RUST-BATCH-UPDATE] batch_update_refractory_period: {} neurons", neuron_ids.len());
+        
         if neuron_ids.len() != values.len() {
             return 0;
         }
@@ -347,8 +450,23 @@ impl RustNPU {
         for (neuron_id, value) in neuron_ids.iter().zip(values.iter()) {
             let idx = *neuron_id as usize;
             if idx < self.neuron_array.count && self.neuron_array.valid_mask[idx] {
+                // Update base period
                 self.neuron_array.refractory_periods[idx] = *value;
+                // Enforce immediately: set countdown to new period (or 0)
+                if *value > 0 {
+                    self.neuron_array.refractory_countdowns[idx] = *value;
+                } else {
+                    self.neuron_array.refractory_countdowns[idx] = 0;
+                }
+                // Reset consecutive fire count to avoid stale extended refractory state
+                self.neuron_array.consecutive_fire_counts[idx] = 0;
                 updated_count += 1;
+                
+                // Log first few neurons and any that match our monitored neuron 16438
+                if updated_count <= 3 || *neuron_id == 16438 {
+                    println!("[RUST-BATCH-UPDATE]   Neuron {}: refractory_period={}, countdown={}", 
+                             neuron_id, value, self.neuron_array.refractory_countdowns[idx]);
+                }
             }
         }
         

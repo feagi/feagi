@@ -555,6 +555,36 @@ impl RustNPU {
         self.npu.update_cortical_area_excitability(cortical_area, excitability)
     }
     
+    /// Update refractory period for all neurons in a cortical area
+    /// Returns number of neurons updated
+    fn update_cortical_area_refractory_period(&mut self, cortical_area: u32, refractory_period: u16) -> usize {
+        self.npu.update_cortical_area_refractory_period(cortical_area, refractory_period)
+    }
+    
+    /// Update threshold for all neurons in a cortical area
+    /// Returns number of neurons updated
+    fn update_cortical_area_threshold(&mut self, cortical_area: u32, threshold: f32) -> usize {
+        self.npu.update_cortical_area_threshold(cortical_area, threshold)
+    }
+    
+    /// Update leak coefficient for all neurons in a cortical area
+    /// Returns number of neurons updated
+    fn update_cortical_area_leak(&mut self, cortical_area: u32, leak: f32) -> usize {
+        self.npu.update_cortical_area_leak(cortical_area, leak)
+    }
+    
+    /// Update consecutive fire limit for all neurons in a cortical area
+    /// Returns number of neurons updated
+    fn update_cortical_area_consecutive_fire_limit(&mut self, cortical_area: u32, limit: u16) -> usize {
+        self.npu.update_cortical_area_consecutive_fire_limit(cortical_area, limit)
+    }
+    
+    /// Update snooze period (extended refractory) for all neurons in a cortical area
+    /// Returns number of neurons updated
+    fn update_cortical_area_snooze_period(&mut self, cortical_area: u32, snooze_period: u16) -> usize {
+        self.npu.update_cortical_area_snooze_period(cortical_area, snooze_period)
+    }
+    
     /// Batch update refractory period for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_refractory_period(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {

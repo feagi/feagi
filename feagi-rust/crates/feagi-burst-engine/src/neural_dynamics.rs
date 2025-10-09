@@ -144,7 +144,15 @@ fn process_single_neuron(
     
     // 1. Handle unified refractory period (normal + extended)
     if neuron_array.refractory_countdowns[idx] > 0 {
+        let old_countdown = neuron_array.refractory_countdowns[idx];
         neuron_array.refractory_countdowns[idx] -= 1;
+        let new_countdown = neuron_array.refractory_countdowns[idx];
+        
+        // Log for monitored neuron 16438
+        if neuron_id.0 == 16438 {
+            println!("[RUST-REFRAC] Neuron 16438: countdown {} -> {} (burst_count={})", 
+                     old_countdown, new_countdown, burst_count);
+        }
         
         // Check if extended refractory just expired → reset consecutive fire count
         let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
@@ -219,21 +227,29 @@ fn process_single_neuron(
             let new_count = neuron_array.consecutive_fire_counts[idx];
             
             // Apply refractory period (additive if hit consecutive fire limit)
-            // SEMANTICS: refractory_period=N means "fire every N bursts" (N-burst interval)
-            // Not "blocked for N bursts" (which would create N+1-burst interval)
-            // So we set countdown = max(0, refractory_period - 1)
+            // SEMANTICS: refractory_period=N means "skip N bursts between fires"
+            // e.g., refrac=1 → fire, skip 1, fire → pattern: 1_1_1_
+            //       refrac=2 → fire, skip 2, fire → pattern: 1__1__
             let refractory_period = neuron_array.refractory_periods[idx];
+            let consecutive_fire_limit = neuron_array.consecutive_fire_limits[idx];
+            
             if consecutive_fire_limit > 0 && new_count >= consecutive_fire_limit {
                 // Hit burst limit → ADDITIVE extended refractory
-                // countdown = (refrac-1) + snooze to create (refrac+snooze)-burst interval
+                // countdown = refrac + snooze (total bursts to skip)
+                // e.g., refrac=1, snooze=2, cfc_limit=3 → 1_1_1___1_1_1___
                 let snooze_period = neuron_array.snooze_periods[idx];
-                neuron_array.refractory_countdowns[idx] = refractory_period.saturating_sub(1) + snooze_period;
+                let countdown = refractory_period + snooze_period;
+                neuron_array.refractory_countdowns[idx] = countdown;
+                println!("[RUST-DEBUG] Neuron {} fired (cfc={}/{}), extended refractory: refrac={} + snooze={} = countdown={}",
+                         neuron_id.0, new_count, consecutive_fire_limit, refractory_period, snooze_period, countdown);
                 // Note: consecutive_fire_count will be reset when countdown expires
             } else {
                 // Normal fire → normal refractory only
-                // countdown = refrac-1 to create refrac-burst interval
-                // e.g., refrac=2 → countdown=1 → fire, 1 blocked, fire (2-burst interval)
-                neuron_array.refractory_countdowns[idx] = refractory_period.saturating_sub(1);
+                // countdown = refrac (bursts to skip)
+                // e.g., refrac=1 → countdown=1 → fire, 1 blocked, fire
+                neuron_array.refractory_countdowns[idx] = refractory_period;
+                println!("[RUST-DEBUG] Neuron {} fired (cfc={}/{}), normal refractory: countdown={}",
+                         neuron_id.0, new_count, consecutive_fire_limit, refractory_period);
             }
             
             // Get neuron coordinates

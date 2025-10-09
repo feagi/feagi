@@ -3163,20 +3163,29 @@ class ConnectomeManager(NeuronMappingProvider):
             return False
 
     def _convert_hierarchical_to_flat_parameters(self, hierarchical_params: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert hierarchical genome property names to flat parameter names expected by API.
+        """Convert hierarchical genome property names to API format.
         
-        This handles the mapping between:
-        - Hierarchical format (consecutive_fire_cnt_max) used internally
-        - Flat format (c_fr_c) expected by API consumers
+        Returns BOTH canonical names AND legacy names for backward compatibility.
+        Canonical names are the source of truth for API consumers.
         
         Args:
             hierarchical_params: Parameters in hierarchical genome format
             
         Returns:
-            Parameters in flat format for API compatibility
+            Parameters with both canonical and legacy names
         """
-        # Map hierarchical property names to flat parameter names
-        hierarchical_to_flat = {
+        # Canonical property names (used by API consumers)
+        canonical_names = {
+            "consecutive_fire_cnt_max": "consecutive_fire_cnt_max",
+            "firing_threshold": "firing_threshold",
+            "refractory_period": "refractory_period",
+            "leak_coefficient": "leak_coefficient",
+            "snooze_length": "neuron_snooze_period",  # Canonical: neuron_snooze_period
+            "neuron_excitability": "neuron_excitability",
+        }
+        
+        # Legacy aliases (for backward compatibility only - will be phased out)
+        legacy_aliases = {
             "consecutive_fire_cnt_max": "c_fr_c",
             "synapse_attractivity": "synatt", 
             "postsynaptic_current": "pstcr",
@@ -3197,25 +3206,25 @@ class ConnectomeManager(NeuronMappingProvider):
             "longterm_mem_threshold": "mem__t",
             "lifespan_growth_rate": "mem_gr",
             "init_lifespan": "mem_ls",
-            "temporal_depth": "temporal_depth",  # Same in both formats
             "neuron_excitability": "excite",
-            # Structural properties - pass through unchanged
-            "per_voxel_neuron_cnt": "per_voxel_neuron_cnt",
-            "visualization": "gd_vis",
-            "group_id": "_group", 
-            "sub_group_id": "subgrp",
-            "mapping": "mapping",  # Pass through unchanged
         }
         
         flat_params = {}
         
-        # Convert known hierarchical properties to flat format
+        # Process each hierarchical property
         for hierarchical_key, hierarchical_value in hierarchical_params.items():
-            if hierarchical_key in hierarchical_to_flat:
-                flat_key = hierarchical_to_flat[hierarchical_key]
-                flat_params[flat_key] = hierarchical_value
-            else:
-                # Keep unknown properties unchanged
+            # Always add canonical name (source of truth)
+            if hierarchical_key in canonical_names:
+                canonical_key = canonical_names[hierarchical_key]
+                flat_params[canonical_key] = hierarchical_value
+            
+            # Add legacy alias for backward compatibility
+            if hierarchical_key in legacy_aliases:
+                legacy_key = legacy_aliases[hierarchical_key]
+                flat_params[legacy_key] = hierarchical_value
+            
+            # If not in either mapping, keep as-is
+            if hierarchical_key not in canonical_names and hierarchical_key not in legacy_aliases:
                 flat_params[hierarchical_key] = hierarchical_value
                 
         return flat_params
@@ -3534,27 +3543,25 @@ class ConnectomeManager(NeuronMappingProvider):
             self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: existing={existing_props_count} props, has_destinations={existing_has_destinations}")
             self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: updating {len(property_updates)} properties: {list(property_updates.keys())}")
 
-            # Update each property
+            # Update each property - write BOTH canonical and legacy names
             updated_properties = []
             for prop_name, new_value in property_updates.items():
                 # Handle special property name mappings
                 if prop_name == "neuron_consecutive_fire_count":
-                    #  Update both the full name and the abbreviated name that
-                    #  the API looks for
+                    # Canonical + legacy
                     area.properties["consecutive_fire_cnt_max"] = new_value
-                    area.properties["c_fr_c"] = (
-                        new_value  # The API looks for this field first
-                    )
+                    area.properties["c_fr_c"] = new_value
                     updated_properties.append(
-                        f"consecutive_fire_cnt_max={new_value}, c_fr_c={new_value}"
+                        f"consecutive_fire_cnt_max={new_value}"
                     )
                 elif prop_name == "cortical_name":
                     area.name = str(new_value)
                     updated_properties.append(f"name='{new_value}'")
                 elif prop_name == "neuron_fire_threshold":
-                    # Legacy key used across API/clients
+                    # Canonical + legacy
+                    area.properties["firing_threshold"] = float(new_value)
                     area.properties["fire_t"] = float(new_value)
-                    updated_properties.append(f"fire_t={float(new_value)}")
+                    updated_properties.append(f"firing_threshold={float(new_value)}")
                 elif prop_name == "neuron_fire_threshold_increment":
                     try:
                         inc = list(new_value)
@@ -3571,18 +3578,23 @@ class ConnectomeManager(NeuronMappingProvider):
                     area.properties["fthlim"] = int(new_value)
                     updated_properties.append(f"fthlim={int(new_value)}")
                 elif prop_name == "neuron_refractory_period":
+                    # Canonical + legacy
+                    area.properties["refractory_period"] = int(new_value)
                     area.properties["refrac"] = int(new_value)
-                    updated_properties.append(f"refrac={int(new_value)}")
+                    updated_properties.append(f"refractory_period={int(new_value)}")
                 elif prop_name == "neuron_leak_coefficient":
-                    # Stored as leak_c (percent-based in legacy); keep raw float
+                    # Canonical + legacy
+                    area.properties["leak_coefficient"] = float(new_value)
                     area.properties["leak_c"] = float(new_value)
-                    updated_properties.append(f"leak_c={float(new_value)}")
+                    updated_properties.append(f"leak_coefficient={float(new_value)}")
                 elif prop_name == "neuron_leak_variability":
                     area.properties["leak_v"] = float(new_value)
                     updated_properties.append(f"leak_v={float(new_value)}")
                 elif prop_name == "neuron_snooze_period":
+                    # Canonical + legacy
+                    area.properties["neuron_snooze_period"] = int(new_value)
                     area.properties["snooze"] = int(new_value)
-                    updated_properties.append(f"snooze={int(new_value)}")
+                    updated_properties.append(f"neuron_snooze_period={int(new_value)}")
                 elif prop_name == "neuron_post_synaptic_potential":
                     area.properties["pstcr"] = float(new_value)
                     updated_properties.append(f"pstcr={float(new_value)}")
@@ -3599,10 +3611,11 @@ class ConnectomeManager(NeuronMappingProvider):
                     area.properties["mp_psp"] = bool(new_value)
                     updated_properties.append(f"mp_psp={bool(new_value)}")
                 elif prop_name == "neuron_excitability":
-                    # Area-level default; keep in legacy 'excite' for API consumers
+                    # Canonical + legacy
                     ex = max(0.0, min(1.0, float(new_value)))
+                    area.properties["neuron_excitability"] = ex
                     area.properties["excite"] = ex
-                    updated_properties.append(f"excite={ex}")
+                    updated_properties.append(f"neuron_excitability={ex}")
                 else:
                     # Direct property update
                     area.properties[prop_name] = new_value
@@ -4357,10 +4370,7 @@ class ConnectomeManager(NeuronMappingProvider):
     def update_neuron_position(
         self, neuron_id: int, new_position: Tuple[int, int, int]
     ) -> bool:
-        """DEPRECATED: Update neuron position - Requires Rust NPU implementation.
-        
-        ⚠️ TODO: Implement in Rust ConnectomeManager
-        Dynamic neuron position updates not yet supported in Rust NPU.
+        """NOT IMPLEMENTED: Dynamic neuron position updates not yet supported in Rust NPU.
 
         Args:
             neuron_id: ID of the neuron
@@ -4370,26 +4380,12 @@ class ConnectomeManager(NeuronMappingProvider):
             False (not implemented)
 
         Raises:
-            NotImplementedError: Position updates require Rust NPU refactor
+            NotImplementedError: Position updates require Rust NPU implementation
         """
-        logger.warning(
-            f"⚠️ [DEPRECATED] update_neuron_position called for neuron {neuron_id} - "
-            f"Not implemented in Rust NPU. Will be added to Rust ConnectomeManager."
-        )
         raise NotImplementedError(
             "Dynamic neuron position updates not yet supported in Rust NPU. "
-            "Will be implemented in Rust ConnectomeManager migration."
+            "Requires implementation in Rust ConnectomeManager."
         )
-
-        # Update position tracking
-        if hasattr(self, "_neuron_to_position"):
-            self._neuron_to_position[neuron_id] = (
-                cortical_id,
-                *new_position,
-                index,
-            )
-
-        return True
 
     def batch_create_neurons(
         self,
@@ -5649,66 +5645,12 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         return self.remove_synapse(pre_neuron, post_neuron)
 
-    def find_neurons_above_threshold(self) -> List[int]:
-        """DEPRECATED: Neural dynamics now handled entirely in Rust NPU.
-        
-        ⚠️ TODO: Remove after test suite refactor
-        This method is obsolete as firing detection is now part of Rust NPU burst processing.
-
-        Returns:
-            Empty list (neural dynamics in Rust NPU)
-        """
-        logger.warning(
-            "⚠️ [DEPRECATED] find_neurons_above_threshold called - "
-            "Neural dynamics handled in Rust NPU. Returning empty list."
-        )
-        return []
-
-    def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
-        """DEPRECATED: BDU neural processing is prohibited.
-
-        NPU has 100% exclusive ownership of neural processing.
-        Update tests to use NPU-based neural processing.
-
-        Args:
-            firing_neurons: List of neuron IDs that are firing
-
-        Returns:
-            List of neuron IDs that will fire in the next timestep
-            
-        Raises:
-            RuntimeError: Always - BDU neural processing is prohibited
-        """
-        raise RuntimeError(
-            "BDU neural processing is prohibited. "
-            "NPU has 100% exclusive ownership of neural processing. "
-            "Update tests to use NPU-based neural processing."
-        )
 
     @property
     def next_neuron_index(self) -> int:
         """Alias for next_neuron_id for backward compatibility with tests."""
         return self.next_neuron_id
 
-    def enable_refractory_debug_logging(self):
-        """DEPRECATED: Debug logging in Rust NPU controlled via environment variables.
-        
-        ⚠️ TODO: Document Rust NPU debug environment variables
-        """
-        logger.warning(
-            "⚠️ [DEPRECATED] enable_refractory_debug_logging called - "
-            "Rust NPU debug logging controlled via RUST_LOG environment variable."
-        )
-
-    def disable_refractory_debug_logging(self):
-        """DEPRECATED: Debug logging in Rust NPU controlled via environment variables.
-        
-        ⚠️ TODO: Document Rust NPU debug environment variables
-        """
-        logger.warning(
-            "⚠️ [DEPRECATED] disable_refractory_debug_logging called - "
-            "Rust NPU debug logging controlled via RUST_LOG environment variable."
-        )
 
     def delete_neurons(self, neuron_ids: List[int]) -> int:
         """Delete multiple neurons at once.
