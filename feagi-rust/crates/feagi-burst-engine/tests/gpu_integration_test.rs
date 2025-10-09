@@ -54,19 +54,30 @@ mod gpu_integration {
             .expect("Failed to initialize persistent data");
         println!("✅ GPU buffers uploaded");
 
-        // Process neural dynamics (no fired neurons yet)
+        // Create test FCL with some candidates
+        use feagi_types::FireCandidateList;
+        let mut fcl = FireCandidateList::new();
+        
+        // Add 10% of neurons to FCL (simulating realistic burst scenario)
+        for i in 0..neuron_count / 10 {
+            fcl.add_candidate(feagi_types::NeuronId(i as u32), 10.0);
+        }
+        
+        println!("📋 Created FCL with {} candidates", neuron_count / 10);
+
+        // Process neural dynamics (FCL-aware)
         let result = backend
-            .process_neural_dynamics(&mut neuron_array, 1)
+            .process_neural_dynamics(&fcl, &mut neuron_array, 1)
             .expect("Failed to process neural dynamics");
 
         println!(
-            "✅ Neural dynamics processed: {} neurons, {} fired",
+            "✅ Neural dynamics processed: {} FCL neurons, {} fired",
             result.1,
             result.0.len()
         );
 
-        assert_eq!(result.1, neuron_count, "Should process all neurons");
-        println!("✅ GPU integration test passed!");
+        assert_eq!(result.1, neuron_count / 10, "Should process only FCL neurons");
+        println!("✅ GPU FCL-aware integration test passed!");
     }
 
     #[test]

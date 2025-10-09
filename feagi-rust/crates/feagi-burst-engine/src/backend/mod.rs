@@ -53,16 +53,21 @@ pub struct BurstTiming {
 }
 
 /// Compute backend trait - abstracts CPU vs GPU execution
+/// 
+/// **FCL-Aware Design**: Backends process only Fire Candidate List neurons,
+/// not the entire neuron array. This enables efficient sparse processing on GPU.
 pub trait ComputeBackend: Send + Sync {
     /// Get backend type name for logging/debugging
     fn backend_name(&self) -> &str;
     
     /// Process synaptic propagation: fired neurons → membrane potential updates
     /// 
+    /// **FCL Integration**: Results are accumulated into FCL, not written to NeuronArray.
+    /// 
     /// # Arguments
-    /// * `fired_neurons` - Neurons that fired in previous burst
+    /// * `fired_neurons` - Neurons that fired in previous burst (sparse list)
     /// * `synapse_array` - All synapses (SoA structure)
-    /// * `neuron_array` - Target neuron array (membrane potentials updated)
+    /// * `fcl` - Fire Candidate List (accumulates synaptic contributions)
     /// 
     /// # Returns
     /// Number of synapses processed
@@ -70,24 +75,31 @@ pub trait ComputeBackend: Send + Sync {
         &mut self,
         fired_neurons: &[u32],
         synapse_array: &SynapseArray,
-        neuron_array: &mut NeuronArray,
+        fcl: &mut FireCandidateList,
     ) -> Result<usize>;
     
-    /// Process neural dynamics: membrane potentials → firing decisions
+    /// Process neural dynamics: FCL candidates → firing decisions
+    /// 
+    /// **FCL-Aware**: Only processes neurons in FCL (~1-10% of total neurons).
+    /// GPU backends upload FCL as sparse array, CPU backends iterate FCL directly.
     /// 
     /// # Arguments
-    /// * `neuron_array` - Neuron array with updated membrane potentials
+    /// * `fcl` - Fire Candidate List (which neurons to process)
+    /// * `neuron_array` - Full neuron array (read state, update refractory/consecutive counts)
     /// * `burst_count` - Current burst number (for excitability randomness)
     /// 
     /// # Returns
     /// List of neurons that fired + statistics
     fn process_neural_dynamics(
         &mut self,
+        fcl: &FireCandidateList,
         neuron_array: &mut NeuronArray,
         burst_count: u64,
     ) -> Result<(Vec<u32>, usize, usize)>;
     
     /// Process full burst cycle (synaptic + neural)
+    /// 
+    /// **FCL-Aware**: Takes FCL as input/output for both phases.
     /// 
     /// This is the primary entry point. Backends can override this for
     /// optimizations (e.g., keep data on GPU between stages).
@@ -97,23 +109,25 @@ pub trait ComputeBackend: Send + Sync {
         &mut self,
         fired_neurons: &[u32],
         synapse_array: &SynapseArray,
+        fcl: &mut FireCandidateList,
         neuron_array: &mut NeuronArray,
         burst_count: u64,
     ) -> Result<BackendBurstResult> {
         let start = std::time::Instant::now();
         
-        // Phase 1: Synaptic propagation
+        // Phase 1: Synaptic propagation → FCL
         let synaptic_start = std::time::Instant::now();
         let _synapses_processed = self.process_synaptic_propagation(
             fired_neurons,
             synapse_array,
-            neuron_array,
+            fcl,
         )?;
         let synaptic_us = synaptic_start.elapsed().as_micros() as f64;
         
-        // Phase 2: Neural dynamics
+        // Phase 2: Neural dynamics (FCL → fired neurons)
         let neural_start = std::time::Instant::now();
         let (new_fired, processed, in_refractory) = self.process_neural_dynamics(
+            fcl,
             neuron_array,
             burst_count,
         )?;

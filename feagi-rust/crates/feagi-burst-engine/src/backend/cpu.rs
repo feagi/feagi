@@ -44,31 +44,46 @@ impl ComputeBackend for CPUBackend {
         &mut self,
         fired_neurons: &[u32],
         synapse_array: &SynapseArray,
-        neuron_array: &mut NeuronArray,
+        fcl: &mut FireCandidateList,
     ) -> Result<usize> {
-        // TODO: Implement CPU synaptic propagation
-        // For now, just count synapses that would be processed
+        // FCL-aware: Accumulate synaptic contributions into FCL
         let mut synapse_count = 0;
-        for &neuron_id in fired_neurons {
-            if let Some(synapses) = synapse_array.source_index.get(&neuron_id) {
-                synapse_count += synapses.len();
+        
+        for &source_id in fired_neurons {
+            if let Some(synapse_indices) = synapse_array.source_index.get(&source_id) {
+                for &syn_idx in synapse_indices {
+                    if !synapse_array.valid_mask[syn_idx] {
+                        continue;
+                    }
+                    
+                    let target_id = synapse_array.target_neurons[syn_idx];
+                    let weight = synapse_array.weights[syn_idx] as f32 / 255.0; // Normalize to [0,1]
+                    let conductance = synapse_array.conductances[syn_idx] as f32 / 255.0;
+                    let synapse_type = synapse_array.types[syn_idx];
+                    
+                    // Calculate synaptic contribution
+                    let sign = if synapse_type == 0 { 1.0 } else { -1.0 }; // 0=excitatory, 1=inhibitory
+                    let contribution = sign * weight * conductance * 10.0; // Scale factor
+                    
+                    // Accumulate into FCL
+                    fcl.add_candidate(NeuronId(target_id), contribution);
+                    synapse_count += 1;
+                }
             }
         }
+        
         Ok(synapse_count)
     }
     
     fn process_neural_dynamics(
         &mut self,
+        fcl: &FireCandidateList,
         neuron_array: &mut NeuronArray,
         burst_count: u64,
     ) -> Result<(Vec<u32>, usize, usize)> {
-        // Convert FireCandidateList from all neurons
-        // For now, create an empty FCL - this will be updated when we integrate properly
-        let fcl = FireCandidateList::new();
-        
-        // Process neural dynamics
+        // FCL-aware: Process only FCL neurons (existing neural_dynamics already supports this!)
         let result = neural_dynamics::process_neural_dynamics(
-            &fcl,
+            fcl,
             neuron_array,
             burst_count,
         )?;
@@ -104,13 +119,13 @@ mod tests {
         // Create minimal test data
         let fired_neurons = vec![0, 1];
         let synapse_array = SynapseArray::new(100);
-        let mut neuron_array = NeuronArray::new(10);
+        let mut fcl = FireCandidateList::new();
         
         // Should not panic
         let result = backend.process_synaptic_propagation(
             &fired_neurons,
             &synapse_array,
-            &mut neuron_array,
+            &mut fcl,
         );
         
         assert!(result.is_ok());
