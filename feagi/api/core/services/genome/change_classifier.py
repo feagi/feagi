@@ -69,9 +69,9 @@ class CorticalChangeClassifier:
             NeuronPropertyType.REFRACTORY_PERIOD,
             int,
         ),  # API parameter name
-        "leak_coefficient": (NeuronPropertyType.DECAY_RATE, float),
+        "leak_coefficient": (NeuronPropertyType.LEAK_COEFFICIENT, float),
         "neuron_leak_coefficient": (
-            NeuronPropertyType.DECAY_RATE,
+            NeuronPropertyType.LEAK_COEFFICIENT,
             float,
         ),  # API parameter name
         "consecutive_fire_cnt_max": (

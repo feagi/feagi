@@ -225,7 +225,7 @@ class FEAGI:
             "maximum_firing_rate": 100,
             "refractory_period": 5,
             "threshold": 0.5,
-            "decay_rate": 0.1,
+            "leak_coefficient": 0.1,
             "firing_threshold": 0.7,
             "membrane_potential_decay": 0.05,
             "average_processing_time": 8.5,
@@ -268,7 +268,7 @@ class FEAGI:
             "parameters": {
                 "ipu": ["modality", "input_channels", "mapping"],
                 "opu": ["modality", "output_channels", "mapping"],
-                "memory": ["capacity", "decay_rate", "association_threshold"],
+                "memory": ["capacity", "leak_coefficient", "association_threshold"],
                 "custom": [],  # Custom areas can have any parameters
             },
         }

@@ -936,7 +936,7 @@ mod tests {
     fn test_add_neurons() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        // (threshold, decay_rate, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, cortical_area, x, y, z)
+        // (threshold, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, cortical_area, x, y, z, snooze_period)
         let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
         let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
         

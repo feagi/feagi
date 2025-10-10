@@ -674,7 +674,7 @@ class NeuralPropagationBenchmark:
                 total_bursts=len(burst_times),
                 total_neurons_fired=total_neurons_fired,
                 propagation_cycles=len(burst_times),
-                activity_decay_rate=0.0,  # Not measured in this simplified test
+                activity_leak_coefficient=0.0,  # Not measured in this simplified test
                 
                 # Frequency stability
                 target_frequency_hz=target_frequency,
@@ -730,7 +730,7 @@ class NeuralPropagationBenchmark:
                 total_bursts=0,
                 total_neurons_fired=0,
                 propagation_cycles=0,
-                activity_decay_rate=0.0,
+                activity_leak_coefficient=0.0,
                 
                 # Frequency stability (failed)
                 target_frequency_hz=1000.0 / timestep_ms,

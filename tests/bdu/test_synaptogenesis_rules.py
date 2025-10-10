@@ -237,7 +237,7 @@ def test_neurons(embryo, test_areas):
                     position=(x, y, z),
                     threshold=1.0,
                     refractory_period=1,
-                    decay_rate=0.5,
+                    leak_coefficient=0.5,
                     resting_potential=0.0,
                 )
             except ValueError:
@@ -262,7 +262,7 @@ def test_neurons(embryo, test_areas):
                     position=(x, y, z),
                     threshold=1.0,
                     refractory_period=1,
-                    decay_rate=0.5,
+                    leak_coefficient=0.5,
                     resting_potential=0.0,
                 )
             except ValueError:

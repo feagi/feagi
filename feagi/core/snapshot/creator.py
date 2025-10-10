@@ -240,7 +240,7 @@ def create_brain_snapshot(
                 "resting_potentials",
                 "thresholds",
                 "excitability",
-                "decay_rates",
+                "leak_coefficients",
                 "refractory_periods",
                 "refractory_counters",
                 "coordinates_x",

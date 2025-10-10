@@ -74,7 +74,7 @@ def test_neurons(connectome, test_area):
             position=(i, 0, 0),
             threshold=1.0,
             refractory_period=5,
-            decay_rate=0.9,
+            leak_coefficient=0.9,
             resting_potential=0.0,
         )
         neuron_ids.append(neuron_id)
@@ -91,7 +91,7 @@ def test_create_neuron(connectome, test_area):
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
-        decay_rate=0.9,
+        leak_coefficient=0.9,
         resting_potential=0.0,
     )
 

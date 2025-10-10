@@ -156,7 +156,7 @@ class TestBackendCompatibility:
             
             # Create Rust neuron with excitability
             neuron = Neuron.new_with_excitability(
-                id=1, threshold=1.0, decay_rate=0.95, refractory_period=2, excitability=0.8
+                id=1, threshold=1.0, leak_coefficient=0.95, refractory_period=2, excitability=0.8
             )
             
             # Test firing with excitability

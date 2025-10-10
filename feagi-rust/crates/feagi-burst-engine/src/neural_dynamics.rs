@@ -221,13 +221,10 @@ fn process_single_neuron(
             // This allows the neuron to fire again after being blocked for one burst
             neuron_array.consecutive_fire_counts[idx] = 0;
             
-            // Apply leak to prevent potential from growing unbounded
-            let leak_coefficient = neuron_array.leak_coefficients[idx];
-            if leak_coefficient > 0.0 {
-                let resting_potential = neuron_array.resting_potentials[idx];
-                let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
-                neuron_array.membrane_potentials[idx] = leaked_potential;
-            }
+            // CRITICAL FIX: Don't apply leak when blocked by consecutive fire limit
+            // The neuron will enter refractory period, and leak will be applied during refractory
+            // Applying leak here causes the neuron to lose potential and need extra time to re-fire
+            // This was causing the "gap of 3 instead of 2" bug
             
             return None;
         }
@@ -315,15 +312,17 @@ fn process_single_neuron(
     }
     
     // Apply LIF leak toward resting potential (only for non-firing neurons)
-    // Formula: V_new = V_current + leak_coeff * (V_rest - V_current)
-    // This naturally pulls the potential toward resting potential
+    // SEMANTICS: leak_coefficient (0.0 to 1.0) = percentage of potential LOST per burst
+    //   leak=0.0 → no decay (potential persists)
+    //   leak=0.5 → lose 50% of potential per burst
+    //   leak=1.0 → lose 100% of potential (instant reset to 0)
+    // Formula: V_new = V_current * (1.0 - leak_coefficient)
     let leak_coefficient = neuron_array.leak_coefficients[idx];
     if leak_coefficient > 0.0 {
-        let resting_potential = neuron_array.resting_potentials[idx];
-        let leaked_potential = current_potential + leak_coefficient * (resting_potential - current_potential);
+        let leaked_potential = current_potential * (1.0 - leak_coefficient);
         neuron_array.membrane_potentials[idx] = leaked_potential;
     }
-    // If leak_coefficient == 0, potential remains unchanged (e.g., power neurons)
+    // If leak_coefficient == 0, potential remains unchanged (bypassed for performance)
     
     None
 }

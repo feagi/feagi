@@ -35,7 +35,7 @@ class NeuronPropertyType(Enum):
     THRESHOLD = "threshold"
     REFRACTORY_PERIOD = "refractory_period"
     SNOOZE_PERIOD = "snooze_period"  # Extended refractory period
-    DECAY_RATE = "decay_rate"
+    LEAK_COEFFICIENT = "leak_coefficient"
     CORTICAL_IDX = "cortical_idx"
     POSITION = "position"
     FIRING = "firing"
@@ -1358,7 +1358,7 @@ class ConnectomeManager(NeuronMappingProvider):
         threshold: float = 1.0,
         membrane_potential: float = 0.0,
         resting_potential: float = 0.0,
-        decay_rate: float = 0.5,
+        leak_coefficient: float = 0.0,
         refractory_period: int = 1,
         properties: Optional[Dict[str, Any]] = None,
         cortical_idx: Optional[int] = None,
@@ -1371,7 +1371,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold: Firing threshold potential
             membrane_potential: Initial membrane potential
             resting_potential: Base membrane potential
-            decay_rate: Rate at which potential decays each timestep
+            leak_coefficient: Leak coefficient (0.0-1.0, percentage of potential lost per burst)
             refractory_period: Number of timesteps after firing during which the neuron cannot fire
             properties: Additional properties for the neuron (optional)
             cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
@@ -1409,7 +1409,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold=threshold,
             membrane_potential=membrane_potential,
             resting_potential=resting_potential,
-            decay_rate=decay_rate,
+            leak_coefficient=leak_coefficient,
             refractory_period=refractory_period,
             properties=properties,
         )
@@ -1458,7 +1458,7 @@ class ConnectomeManager(NeuronMappingProvider):
             "threshold": 1.0,  # Static genome value
             "membrane_potential": 0.0,  # Live state not exposed via API
             "resting_potential": 0.0,  # Static genome value
-            "decay_rate": 0.0,  # Deprecated (using leak now)
+            "leak_coefficient": 0.0,  # Static genome value
             "refractory_period": 0,  # Static genome value
             "refractory_counter": 0,  # Live state not exposed via API
             "properties": {},  # We don't store additional properties in the optimized version
@@ -1554,8 +1554,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     return float(self._npu_processor.neurons.membrane_potentials[idx])
                 elif property_name == "threshold":
                     return float(self._npu_processor.neurons.thresholds[idx])
-                elif property_name == "decay_rate":
-                    return float(self._npu_processor.neurons.decay_rates[idx])
+                elif property_name == "leak_coefficient":
+                    return float(self._npu_processor.neurons.leak_coefficients[idx])
                 elif property_name == "resting_potential":
                     return float(self._npu_processor.neurons.resting_potentials[idx])
                 elif property_name == "refractory_period":
@@ -1608,8 +1608,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.debug(f"[NPU-SYNC] Updated neuron {neuron_id} membrane_potential = {value}")
                 elif property_name == "threshold":
                     self._npu_processor.neurons.thresholds[idx] = float(value)
-                elif property_name == "decay_rate":
-                    self._npu_processor.neurons.decay_rates[idx] = float(value)
+                elif property_name == "leak_coefficient":
+                    self._npu_processor.neurons.leak_coefficients[idx] = float(value)
                 elif property_name == "resting_potential":
                     self._npu_processor.neurons.resting_potentials[idx] = float(value)
                 elif property_name == "refractory_period":
@@ -4394,10 +4394,11 @@ class ConnectomeManager(NeuronMappingProvider):
         threshold: float,
         membrane_potential: float,
         resting_potential: float,
-        decay_rate: float,
-        refractory_period: int,
-        excitability: float,
-        consecutive_fire_limit: int,
+        leak_coefficient: float,
+        leak_variability: float = 0.0,
+        refractory_period: int = 1,
+        excitability: float = 1.0,
+        consecutive_fire_limit: int = 10,
         snooze_period: int = 0,
         properties: Optional[Dict[str, Any]] = None,
         cortical_idx: Optional[int] = None,
@@ -4412,8 +4413,12 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold: Firing threshold potential (can be a single value or a list)
             membrane_potential: Initial membrane potential (can be a single value or a list)
             resting_potential: Base membrane potential (can be a single value or a list)
-            decay_rate: Rate at which potential decays each timestep (can be a single value or a list)
+            leak_coefficient: Leak coefficient 0.0-1.0 (can be a single value or a list)
+            leak_variability: Standard deviation for leak variation during neurogenesis (0.0-1.0)
             refractory_period: Number of timesteps after firing during which neurons cannot fire (can be a single value or a list)
+            excitability: Neuron excitability 0.0-1.0 (can be a single value or a list)
+            consecutive_fire_limit: Maximum consecutive fires before extended refractory (can be a single value or a list)
+            snooze_period: Extended refractory period after hitting consecutive fire limit (can be a single value or a list)
             properties: Additional properties for the neurons (optional)
             cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
 
@@ -4471,9 +4476,21 @@ class ConnectomeManager(NeuronMappingProvider):
         rp_list = (
             [resting_potential] * count if isinstance(resting_potential, (int, float)) else list(resting_potential)
         )
-        decay_list = (
-            [decay_rate] * count if isinstance(decay_rate, (int, float)) else list(decay_rate)
-        )
+        
+        # Apply leak_variability to introduce per-neuron variation (neurogenesis only)
+        import numpy as np
+        if leak_variability > 0.0:
+            # Generate per-neuron leak coefficients with Gaussian variation
+            leak_list = np.clip(
+                np.random.normal(leak_coefficient, leak_variability, count),
+                0.0,  # Minimum: no leak
+                1.0   # Maximum: full leak
+            ).tolist()
+        else:
+            leak_list = (
+                [leak_coefficient] * count if isinstance(leak_coefficient, (int, float)) else list(leak_coefficient)
+            )
+        
         refr_list = (
             [refractory_period] * count if isinstance(refractory_period, int) else list(refractory_period)
         )
@@ -4494,9 +4511,8 @@ class ConnectomeManager(NeuronMappingProvider):
             neuron_types=[0] * count,
             initial_potentials=mp_list,
             thresholds=thresholds_list,
-            leak_coefficients=decay_list,
+            leak_coefficients=leak_list,
             cortical_idx=cortical_idx,
-            decay_rates=decay_list,  # Same as leak_coefficients for compatibility
             refractory_periods=refr_list,
             excitabilities=excitability_list,
             resting_potentials=rp_list,
@@ -4627,8 +4643,7 @@ class ConnectomeManager(NeuronMappingProvider):
             elif property_name == NeuronPropertyType.THRESHOLD:
                 values_f32 = update_values.astype(np.float32).tolist()
                 updated_count = rust_npu.batch_update_threshold(valid_ids_list, values_f32)
-            elif property_name == NeuronPropertyType.DECAY_RATE:
-                # decay_rate maps to leak_coefficient in Rust
+            elif property_name == NeuronPropertyType.LEAK_COEFFICIENT:
                 values_f32 = update_values.astype(np.float32).tolist()
                 updated_count = rust_npu.batch_update_leak_coefficient(valid_ids_list, values_f32)
             elif property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
@@ -4709,7 +4724,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     value = rust_npu.get_neuron_refractory_period(neuron_id)
                 elif property_name == NeuronPropertyType.THRESHOLD:
                     value = rust_npu.get_neuron_threshold(neuron_id)
-                elif property_name == NeuronPropertyType.DECAY_RATE:
+                elif property_name == NeuronPropertyType.LEAK_COEFFICIENT:
                     value = rust_npu.get_neuron_leak_coefficient(neuron_id)
                 elif property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
                     value = rust_npu.get_neuron_membrane_potential(neuron_id)
@@ -5415,7 +5430,7 @@ class ConnectomeManager(NeuronMappingProvider):
         threshold: float = 1.0,
         membrane_potential: float = 0.0,
         resting_potential: float = 0.0,
-        decay_rate: float = 0.5,
+        leak_coefficient: float = 0.0,
         refractory_period: int = 1,
         properties: Optional[Dict[str, Any]] = None,
     ) -> int:
@@ -5429,7 +5444,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold: Firing threshold
             membrane_potential: Initial membrane potential
             resting_potential: Resting potential
-            decay_rate: Membrane potential decay rate
+            leak_coefficient: Leak coefficient (0.0-1.0, percentage of potential lost per burst)
             refractory_period: Refractory period in timesteps
             properties: Additional properties to set
 
@@ -5460,7 +5475,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold=threshold,
             membrane_potential=membrane_potential,
             resting_potential=resting_potential,
-            decay_rate=decay_rate,
+            leak_coefficient=leak_coefficient,
             refractory_period=refractory_period,
             properties=properties,
         )
@@ -5473,7 +5488,7 @@ class ConnectomeManager(NeuronMappingProvider):
         threshold: float = 1.0,
         membrane_potential: float = 0.0,
         resting_potential: float = 0.0,
-        decay_rate: float = 0.5,
+        leak_coefficient: float = 0.0,
         refractory_period: int = 1,
         properties: Optional[Dict[str, Any]] = None,
     ) -> List[int]:
@@ -5486,7 +5501,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold: Firing threshold
             membrane_potential: Initial membrane potential
             resting_potential: Resting potential
-            decay_rate: Membrane potential decay rate
+            leak_coefficient: Leak coefficient (0.0-1.0, percentage of potential lost per burst)
             refractory_period: Refractory period in timesteps
             properties: Additional properties to set
 
@@ -5523,7 +5538,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold=threshold,
             membrane_potential=membrane_potential,
             resting_potential=resting_potential,
-            decay_rate=decay_rate,
+            leak_coefficient=leak_coefficient,
             refractory_period=refractory_period,
             excitability=1.0,  # Default excitability
             consecutive_fire_limit=10,  # Default consecutive fire limit
@@ -7446,7 +7461,7 @@ class ConnectomeManager(NeuronMappingProvider):
         threshold: float,
         membrane_potential: float,
         resting_potential: float,
-        decay_rate: float,
+        leak_coefficient: float,
         refractory_period: int,
         properties: Optional[Dict[str, Any]],
     ) -> int:
@@ -7458,7 +7473,7 @@ class ConnectomeManager(NeuronMappingProvider):
             threshold: threshold
             membrane_potential: initial potential
             resting_potential: resting potential
-            decay_rate: leak coefficient
+            leak_coefficient: leak coefficient (0.0-1.0)
             refractory_period: refractory period
             properties: optional extra properties (unused here)
 
@@ -7471,7 +7486,7 @@ class ConnectomeManager(NeuronMappingProvider):
         # Create neuron directly through Rust NPU
         neuron_id = self._npu_interface.rust_npu.add_neuron(
             threshold=float(threshold),
-            leak_coefficient=float(decay_rate),
+            leak_coefficient=float(leak_coefficient),
             resting_potential=float(resting_potential),
             neuron_type=0,  # Default type
             refractory_period=int(refractory_period),

@@ -34,11 +34,16 @@ class CorticalParameterUpdater:
     
     # SYSTEMATIC MAPPING: Genome property → NeuronArray attribute
     # This maps genome parameter names to their corresponding neuron_array fields
+    # Validation lambdas for 0-1 range (percentage values)
+    _validate_0_1_float = lambda v: max(0.0, min(1.0, float(v)))
+    
     NEURON_PROPERTY_MAPPING = {
-        'neuron_excitability': ('excitabilities', float, 'Excitability'),
+        'neuron_excitability': ('excitabilities', _validate_0_1_float, 'Excitability'),
         'snooze_length': ('snooze_periods', lambda v: int(max(0, round(float(v)))), 'Snooze period'),
         'firing_threshold_limit': ('thresholds', float, 'Firing threshold'),
-        'leak': ('leak_coefficients', float, 'Leak coefficient'),
+        'leak': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),
+        'neuron_leak_coefficient': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),  # Alternative name
+        'neuron_leak_variability': ('leak_coefficients', _validate_0_1_float, 'Leak variability'),  # Neurogenesis parameter (genome only)
         'refrac': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),
         'neuron_refractory_period': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),  # Alternative name
         'consecutive_fire_cnt_max': ('consecutive_fire_limits', lambda v: int(max(0, round(float(v)))), 'Consecutive fire limit'),
@@ -108,6 +113,10 @@ class CorticalParameterUpdater:
                 
                 # Property-specific update logic
                 if property_name == 'neuron_excitability':
+                    # Validate 0-1 range for excitability
+                    if not (0.0 <= converted_value <= 1.0):
+                        self.logger.error(f"🦀 [RUST-NPU] ❌ Excitability must be in range 0.0-1.0, got {converted_value}")
+                        return False
                     # Use dedicated Rust method for excitability updates
                     updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
@@ -117,7 +126,11 @@ class CorticalParameterUpdater:
                 elif property_name in ('neuron_fire_threshold', 'firing_threshold'):
                     updated_count = rust_npu.update_cortical_area_threshold(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated threshold to {converted_value} for {updated_count} neurons in area {cortical_id}")
-                elif property_name in ('leak_coefficient', 'neuron_leak_coefficient'):
+                elif property_name in ('leak', 'leak_coefficient', 'neuron_leak_coefficient', 'neuron_leak_variability'):
+                    # Validate 0-1 range for leak parameters
+                    if not (0.0 <= converted_value <= 1.0):
+                        self.logger.error(f"🦀 [RUST-NPU] ❌ Leak coefficient must be in range 0.0-1.0, got {converted_value}")
+                        return False
                     updated_count = rust_npu.update_cortical_area_leak(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated leak to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 elif property_name in ('consecutive_fire_cnt_max', 'neuron_consecutive_fire_cnt_max'):

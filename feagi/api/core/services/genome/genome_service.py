@@ -2386,15 +2386,17 @@ class GenomeService(BaseService):
 
                     # Extract ALL neural dynamics parameters from hierarchical genome
                     base_threshold = new_area.get("firing_threshold", 1.0)
-                    base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
+                    base_leak_coefficient = new_area.get("leak_coefficient", 0) / 100.0  # 0-100 → 0.0-1.0
+                    leak_variability = new_area.get("leak_variability", 0) / 100.0  # 0-100 → 0.0-1.0
                     base_refractory = new_area.get("refractory_period", 1)
                     excitability = new_area.get("neuron_excitability", 1.0)
                     consecutive_fire_limit = new_area.get("consecutive_fire_cnt_max", 10)  # Default from template is 0, use 10 if 0
+                    snooze_period = new_area.get("snooze_length", 0)
                     if consecutive_fire_limit == 0:
                         consecutive_fire_limit = 10  # Prevent infinite consecutive firing
 
                     self.logger.info(
-                        f"Creating neurons with properties from genome: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}, consecutive_fire_limit={consecutive_fire_limit}"
+                        f"Creating neurons with properties from genome: threshold={base_threshold}, leak_coefficient={base_leak_coefficient}, leak_variability={leak_variability}, refractory={base_refractory}, excitability={excitability}, consecutive_fire_limit={consecutive_fire_limit}, snooze_period={snooze_period}"
                     )
 
                     self._connectome_manager.batch_create_neurons(
@@ -2403,10 +2405,12 @@ class GenomeService(BaseService):
                         threshold=base_threshold,
                         membrane_potential=0.0,
                         resting_potential=0.0,
-                        decay_rate=base_decay_rate,
+                        leak_coefficient=base_leak_coefficient,
+                        leak_variability=leak_variability,
                         refractory_period=base_refractory,
                         excitability=excitability,
                         consecutive_fire_limit=consecutive_fire_limit,
+                        snooze_period=snooze_period,
                     )
 
                     # Update per-area excitability cache in NPU (per-area, not per-neuron)

@@ -129,7 +129,7 @@ def test_neuron_creation_parity(py_connectome, rust_connectome):
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
-        decay_rate=0.9,
+        leak_coefficient=0.9,
         resting_potential=0.0,
     )
 
@@ -138,7 +138,7 @@ def test_neuron_creation_parity(py_connectome, rust_connectome):
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
-        decay_rate=0.9,
+        leak_coefficient=0.9,
         resting_potential=0.0,
     )
 

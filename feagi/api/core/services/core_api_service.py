@@ -726,7 +726,7 @@ class CoreAPIService:
             properties["threshold"] = float(threshold)  # From Rust NPU state
             properties["membrane_potential"] = float(membrane_potential)  # From Rust NPU state
             properties["resting_potential"] = float(resting)
-            properties["decay_rate"] = float(leak_coef)
+            properties["leak_coefficient"] = float(leak_coef)  # 0.0-1.0 (percentage loss per burst)
             properties["refractory_period"] = int(refractory_period_val) if refractory_period_val is not None else 0
             properties["refractory_counter"] = int(refractory_countdown)  # From Rust NPU state
             properties["consecutive_fire_count"] = int(consecutive_fire_count)  # From Rust NPU state
