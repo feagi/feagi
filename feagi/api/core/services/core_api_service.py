@@ -58,66 +58,123 @@ class FCLManagerAdapter:
     def get_global_fcl(self):
         """Get global FCL as roaring bitmap (compatibility method).
         
-        In new architecture, returns firing neurons from previous Fire Queue,
-        since FCL is transient and gets reset each burst.
+        In new architecture, returns firing neurons from Rust Fire Queue.
+        Uses direct Fire Queue access to bypass FQ Sampler rate limiting.
         """
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
-            # Return empty roaring bitmap-like structure
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"[FCL-DEBUG] self.burst_engine = {self.burst_engine}")
+        logger.info(f"[FCL-DEBUG] self.burst_engine type = {type(self.burst_engine)}")
+        if self.burst_engine:
+            logger.info(f"[FCL-DEBUG] hasattr(self.burst_engine, 'rust_npu') = {hasattr(self.burst_engine, 'rust_npu')}")
+            logger.info(f"[FCL-DEBUG] dir(self.burst_engine) = {[x for x in dir(self.burst_engine) if 'rust' in x.lower() or 'npu' in x.lower()]}")
+        
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
+            logger.error("[FCL-DEBUG] No burst_engine or rust_npu attribute")
             return EmptyBitmapAdapter()
-            
-        fire_queue = self.burst_engine.previous_fire_queue
+        
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            logger.error("[FCL-DEBUG] rust_npu is None")
+            return EmptyBitmapAdapter()
+        
+        logger.info(f"[FCL-DEBUG] Calling rust_npu.get_current_fire_queue()")
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        
+        logger.info(f"[FCL-DEBUG] get_current_fire_queue() returned: {fire_queue_data}")
+        logger.info(f"[FCL-DEBUG] Data type: {type(fire_queue_data)}")
+        
+        if not fire_queue_data:
+            logger.warning("[FCL-DEBUG] fire_queue_data is empty or None")
+            return EmptyBitmapAdapter()
+        
+        # Extract all neuron IDs from all cortical areas
         neuron_ids = []
-        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
-            neuron_ids.extend([n.neuron_id for n in cortical_neurons])
+        for cortical_idx, area_data in fire_queue_data.items():
+            logger.info(f"[FCL-DEBUG] Area {cortical_idx}: {area_data}")
+            neuron_ids.extend(area_data.get('neuron_ids', []))
+        
+        logger.info(f"[FCL-DEBUG] Total neuron IDs collected: {len(neuron_ids)}, IDs: {neuron_ids[:10]}")
         
         return BitmapAdapter(neuron_ids)
     
     def get_fcl_by_cortical(self):
         """Get FCL organized by cortical areas (compatibility method)."""
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
             return {}
-            
-        fire_queue = self.burst_engine.previous_fire_queue
+        
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            return {}
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        if not fire_queue_data:
+            return {}
+        
+        # Convert to cortical FCL format
         cortical_fcl = {}
-        for cortical_idx, neurons in fire_queue.firing_neurons_by_area.items():
-            neuron_ids = [n.neuron_id for n in neurons]
+        for cortical_idx, area_data in fire_queue_data.items():
+            neuron_ids = area_data.get('neuron_ids', [])
             cortical_fcl[cortical_idx] = BitmapAdapter(neuron_ids)
         
         return cortical_fcl
     
     @property
     def window_size(self):
-        """Get default window size from fire ledger."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            return self.burst_engine.fire_ledger.default_window_size
+        """Get default window size from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Rust Fire Ledger default is 20 (hardcoded in Rust)
+            return 20
         return 20  # Default window size
         
     def get_cortical_window_size(self, cortical_idx: int) -> int:
-        """Get window size for specific cortical area."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            fire_ledger = self.burst_engine.fire_ledger
-            if cortical_idx in fire_ledger.cortical_histories:
-                return fire_ledger.cortical_histories[cortical_idx].window_size
-            return fire_ledger.default_window_size
+        """Get window size for specific cortical area from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Get window size from Rust Fire Ledger
+            try:
+                return self.burst_engine.rust_npu.get_fire_ledger_window_size(cortical_idx)
+            except Exception:
+                return 20
         return 20  # Default window size
     
     @property
     def memory_cortical_indices(self):
-        """Get memory cortical area indices from Fire Ledger."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            return set(self.burst_engine.fire_ledger.memory_areas.keys())
+        """Get memory cortical area indices from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Get all configured areas from Rust Fire Ledger
+            try:
+                configs = self.burst_engine.rust_npu.get_all_fire_ledger_configs()
+                return set(configs.keys())
+            except Exception:
+                return set()
         return set()
     
     @property 
     def total_neurons_fired(self):
         """Get total neurons that fired in the last timestep."""
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
             return 0
         
-        fire_queue = self.burst_engine.previous_fire_queue
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            return 0
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        if not fire_queue_data:
+            return 0
+        
+        # Count total neurons across all areas
         total = 0
-        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
-            total += len(cortical_neurons)
+        for area_data in fire_queue_data.values():
+            total += len(area_data.get('neuron_ids', []))
         return total
 
 
@@ -1544,9 +1601,9 @@ class CoreAPIService:
     # Legacy get_current_fire_queue() removed - use Rust FQ Sampler instead.
     
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data from new FireQueue architecture."""
+        """Get the global fire queue data from Rust Fire Queue."""
         try:
-            # Get the current or previous fire queue from burst engine
+            # Get burst engine
             from feagi.npu.burst_engine import BurstEngine
             burst_engine = BurstEngine.get_instance()
             
@@ -1554,55 +1611,52 @@ class CoreAPIService:
                 self.logger.debug("🔥 [CORE API] No burst engine available")
                 return self._empty_fire_queue_response()
             
-            # Try to get the previous fire queue (contains last timestep's fired neurons)
-            fire_queue = burst_engine.previous_fire_queue
-            if not fire_queue or fire_queue.is_empty():
+            # Get Rust NPU
+            if not hasattr(burst_engine, 'rust_npu') or not burst_engine.rust_npu:
+                self.logger.debug("🔥 [CORE API] Rust NPU not available")
+                return self._empty_fire_queue_response()
+            
+            # Sample from Rust Fire Queue
+            sample = burst_engine.rust_npu.sample_fire_queue()
+            if not sample:
                 self.logger.debug("🔥 [CORE API] Fire queue is empty - no neurons fired globally")
                 return self._empty_fire_queue_response()
             
-            # Extract data directly from FireQueue
+            # Extract data from all cortical areas
             neuron_ids = []
             membrane_potentials = []
             thresholds = []
             refractory_counters = []
             coordinates = []
             
-            # Get Rust NPU for querying live neuron state
-            rust_npu = None
-            if burst_engine.connectome_manager and hasattr(burst_engine.connectome_manager, '_npu_interface'):
-                npu_interface = burst_engine.connectome_manager._npu_interface
-                if npu_interface and hasattr(npu_interface, 'rust_npu'):
-                    rust_npu = npu_interface.rust_npu
-            
-            # Collect data from all cortical areas in fire queue
-            for cortical_idx, firing_neurons in fire_queue.firing_neurons_by_area.items():
-                for neuron in firing_neurons:
-                    neuron_ids.append(neuron.neuron_id)
-                    membrane_potentials.append(float(neuron.membrane_potential))
-                    
-                    # Query actual neuron state from Rust NPU
-                    if rust_npu:
-                        try:
-                            state = rust_npu.get_neuron_state(neuron.neuron_id)
-                            if state:
-                                # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
-                                _cfc, _cfc_limit, _snooze, _potential, threshold_val, refrac_countdown = state
-                                thresholds.append(float(threshold_val))
-                                refractory_counters.append(int(refrac_countdown))
-                            else:
-                                # Neuron not found in NPU
-                                thresholds.append(1.0)
-                                refractory_counters.append(0)
-                        except Exception as e:
-                            self.logger.warning(f"Failed to get state for neuron {neuron.neuron_id}: {e}")
+            for cortical_idx, area_data in sample.items():
+                neuron_ids.extend(area_data.get('neuron_ids', []))
+                membrane_potentials.extend(area_data.get('membrane_potentials', []))
+                
+                # Extract coordinates as tuples
+                coords_x = area_data.get('coordinates_x', [])
+                coords_y = area_data.get('coordinates_y', [])
+                coords_z = area_data.get('coordinates_z', [])
+                for i in range(len(coords_x)):
+                    coordinates.append((coords_x[i], coords_y[i], coords_z[i]))
+                
+                # Get neuron states from Rust NPU
+                rust_npu = burst_engine.rust_npu._rust_npu
+                for nid in area_data.get('neuron_ids', []):
+                    try:
+                        state = rust_npu.get_neuron_state(nid)
+                        if state:
+                            # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+                            _cfc, _cfc_limit, _snooze, _potential, threshold_val, refrac_countdown = state
+                            thresholds.append(float(threshold_val))
+                            refractory_counters.append(int(refrac_countdown))
+                        else:
                             thresholds.append(1.0)
                             refractory_counters.append(0)
-                    else:
-                        # No Rust NPU available - use defaults
+                    except Exception as e:
+                        self.logger.warning(f"Failed to get state for neuron {nid}: {e}")
                         thresholds.append(1.0)
                         refractory_counters.append(0)
-                    
-                    coordinates.append(tuple(neuron.coordinates))
             
             self.logger.debug(
                 f"🔥 [CORE API] Global fire queue has {len(neuron_ids)} firing neurons"
@@ -2016,61 +2070,52 @@ class CoreAPIService:
     # =================================================================
     
     def get_fire_ledger_default_window_size(self) -> int:
-        """Get the default window size for Fire Ledger historical storage."""
+        """Get the default window size for Rust Fire Ledger historical storage."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                return burst_engine.fire_ledger.default_window_size
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                # Rust Fire Ledger default is 20 (hardcoded in Rust)
+                return 20
             return 20  # Default window size
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger default window size: {str(e)}")
             return 20
     
     def get_fire_ledger_area_window_size(self, cortical_idx: int) -> int:
-        """Get window size for specific cortical area in Fire Ledger."""
+        """Get window size for specific cortical area in Rust Fire Ledger."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                fire_ledger = burst_engine.fire_ledger
-                if cortical_idx in fire_ledger.cortical_histories:
-                    return fire_ledger.cortical_histories[cortical_idx].window_size
-                return fire_ledger.default_window_size
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                return burst_engine.rust_npu.get_fire_ledger_window_size(cortical_idx)
             return 20  # Default window size
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger window size for area {cortical_idx}: {str(e)}")
             return 20
     
     def set_fire_ledger_area_window_size(self, cortical_idx: int, window_size: int) -> bool:
-        """Set window size for specific cortical area in Fire Ledger."""
+        """Set window size for specific cortical area in Rust Fire Ledger."""
         try:
             if window_size <= 0 or window_size > 10000:
                 raise ValueError("Window size must be between 1 and 10000")
                 
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                burst_engine.fire_ledger.configure_area_window(cortical_idx, window_size)
-                self.logger.info(f"Updated Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                burst_engine.rust_npu.configure_fire_ledger_window(cortical_idx, window_size)
+                self.logger.info(f"Updated Rust Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
                 return True
             
-            self.logger.warning("No Fire Ledger available to configure window size")
+            self.logger.warning("No Rust Fire Ledger available to configure window size")
             return False
         except Exception as e:
             self.logger.error(f"Error setting Fire Ledger window size for area {cortical_idx}: {str(e)}")
             return False
     
     def get_fire_ledger_areas_window_config(self) -> Dict[int, int]:
-        """Get window size configuration for all cortical areas in Fire Ledger."""
+        """Get window size configuration for all cortical areas in Rust Fire Ledger."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                fire_ledger = burst_engine.fire_ledger
-                window_config = {}
-                
-                # Get window sizes for all configured areas
-                for cortical_idx, history in fire_ledger.cortical_histories.items():
-                    window_config[cortical_idx] = history.window_size
-                    
-                return window_config
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                return burst_engine.rust_npu.get_all_fire_ledger_configs()
             return {}
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger areas window configuration: {str(e)}")
@@ -2098,11 +2143,19 @@ class CoreAPIService:
             }
         """
         try:
-            npu_interface = self.get_npu_interface()
-            if not npu_interface:
+            # Get burst engine
+            burst_engine = self.get_burst_engine()
+            if not burst_engine or not hasattr(burst_engine, 'rust_npu'):
                 return {
                     "success": False,
                     "error": "NPU not available"
+                }
+            
+            rust_npu = burst_engine.rust_npu
+            if not rust_npu:
+                return {
+                    "success": False,
+                    "error": "Rust NPU not initialized"
                 }
             
             # Get Fire Ledger history from RUST NPU
@@ -2110,10 +2163,10 @@ class CoreAPIService:
             rust_lookback = lookback_steps if lookback_steps is not None else 10000
             
             # Call Rust: Returns Vec<(timestep: u64, neuron_ids: Vec<u32>)>
-            rust_history = npu_interface.get_fire_ledger_history(cortical_idx, rust_lookback)
+            rust_history = rust_npu.get_fire_ledger_history(cortical_idx, rust_lookback)
             
             # Get window size from Rust
-            window_size = npu_interface.get_fire_ledger_window_size(cortical_idx)
+            window_size = rust_npu.get_fire_ledger_window_size(cortical_idx)
             
             # Convert Rust data to API format
             # rust_history is Vec<(timestep: u64, neuron_ids: Vec<u32>)>, newest first

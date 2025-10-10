@@ -755,6 +755,29 @@ impl RustNPU {
     // FQ SAMPLER API (Entry Point #2: Motor/Visualization Output)
     // ═══════════════════════════════════════════════════════════
     
+    /// Get current Fire Queue directly (bypasses FQ Sampler - for FCL endpoint)
+    /// Returns the current Fire Queue without rate limiting or deduplication
+    fn get_current_fire_queue(&self, py: Python) -> PyResult<PyObject> {
+        let areas = self.npu.get_current_fire_queue();
+        
+        // Convert to Python dict
+        let py_dict = PyDict::new_bound(py);
+        
+        for (cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials)) in areas {
+            let area_tuple = (
+                neuron_ids.to_object(py),
+                coords_x.to_object(py),
+                coords_y.to_object(py),
+                coords_z.to_object(py),
+                potentials.to_object(py),
+            );
+            
+            py_dict.set_item(cortical_idx, area_tuple)?;
+        }
+        
+        Ok(py_dict.into())
+    }
+    
     /// Sample the current Fire Queue for visualization/motor output
     /// 
     /// Returns None if:

@@ -336,6 +336,45 @@ class RustNPUIntegration:
         if self._rust_npu:
             self._rust_npu.set_motor_subscribers(has_subscribers)
     
+    def get_current_fire_queue(self):
+        """Get current Fire Queue directly (bypasses FQ Sampler rate limiting).
+        
+        Used by FCL endpoint to get real-time firing data without sampling delays.
+        Unlike sample_fire_queue(), this always returns the current Fire Queue.
+        
+        Returns:
+            Dict[int, Dict[str, List]] or None
+            {
+                cortical_idx: {
+                    "neuron_ids": [int, ...],
+                    "coordinates_x": [int, ...],
+                    "coordinates_y": [int, ...],
+                    "coordinates_z": [int, ...],
+                    "membrane_potentials": [float, ...]
+                }
+            }
+        """
+        if not self._rust_npu:
+            return None
+        
+        # Call Rust to get current Fire Queue (no rate limiting)
+        rust_data = self._rust_npu.get_current_fire_queue()
+        if not rust_data:
+            return {}
+        
+        # Convert from Rust tuple format to Python dict format
+        result = {}
+        for cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials) in rust_data.items():
+            result[cortical_idx] = {
+                "neuron_ids": list(neuron_ids),
+                "coordinates_x": list(coords_x),
+                "coordinates_y": list(coords_y),
+                "coordinates_z": list(coords_z),
+                "membrane_potentials": list(potentials)
+            }
+        
+        return result
+    
     # ═══════════════════════════════════════════════════════════
     # FIRE LEDGER API (Entry Point #3: Historical Debugging)
     # ═══════════════════════════════════════════════════════════

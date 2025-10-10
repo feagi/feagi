@@ -268,13 +268,13 @@ class BurstEngine:
         if self.injection_service and self.enable_injection:
             try:
                 power_neurons = self.injection_service._get_power_neurons()
-                logger.debug("🦀 Power neurons retrieved: %d neurons - %s", 
+                logger.info("🦀 [POWER-INJECT] Power neurons retrieved: %d neurons - %s", 
                            len(power_neurons),
                            power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
             except Exception as e:
                 logger.error("🦀 [POWER-DEBUG] Failed to get power neurons: %s", str(e), exc_info=True)
         else:
-            logger.debug("🦀 injection_service=%s, enable_injection=%s", 
+            logger.info("🦀 [POWER-INJECT] No injection: injection_service=%s, enable_injection=%s", 
                           self.injection_service, self.enable_injection)
         
         # 2. Get manual stimulation / sensory neurons
@@ -314,12 +314,15 @@ class BurstEngine:
         # Combine all injection neurons
         all_injection_neurons = power_neurons + manual_neurons
         
-        logger.debug("🦀 Total injection neurons: %d (power=%d, manual=%d) - %s", 
+        logger.info("🦀 [POWER-INJECT] Total injection neurons: %d (power=%d, manual=%d) - %s", 
                       len(all_injection_neurons), len(power_neurons), len(manual_neurons),
                       all_injection_neurons[:10] if len(all_injection_neurons) > 10 else all_injection_neurons)
         
         # Process burst in Rust (ALL IN RUST!)
         result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)
+        
+        logger.info("🦀 [POWER-INJECT] Rust returned: power_injections=%d, neuron_count=%d", 
+                      result.get('power_injections', 0), result.get('neuron_count', 0))
         
         logger.debug("🦀 Rust result: neuron_count=%d, fired_neurons=%s", 
                       result.get('neuron_count', 0), 
@@ -417,6 +420,14 @@ class BurstEngine:
     # ==============================================================
     # STATE MANAGER INTEGRATION METHODS
     # ==============================================================
+    
+    @property
+    def rust_npu(self):
+        """Get the Rust NPU integration instance.
+        
+        This provides public access to the Rust NPU for API endpoints and other services.
+        """
+        return self._rust_npu_integration
     
     @property
     def _running(self):
@@ -843,7 +854,7 @@ class BurstEngine:
         """Initialize injection service for power areas and special neuron injection."""
         try:
             if not self.connectome_manager:
-                logger.info("No connectome manager - injection service disabled")
+                logger.info("⚡ [POWER-INIT] No connectome manager - injection service disabled")
                 return
             
             # Create simple power injection service
@@ -851,10 +862,10 @@ class BurstEngine:
                 connectome_manager=self.connectome_manager
             )
             
-            logger.info("Power injection service initialized for automatic burst injection")
+            logger.info("⚡ [POWER-INIT] Power injection service initialized for automatic burst injection")
             
-        except Exception:
-            logger.error("Failed to initialize injection service")
+        except Exception as e:
+            logger.error("⚡ [POWER-INIT] Failed to initialize injection service: %s", str(e), exc_info=True)
             self.injection_service = None
     
     # ==============================================================
@@ -1134,10 +1145,12 @@ class PowerInjectionService:
     
     def _get_power_neurons(self) -> List[int]:
         """Get neurons from power areas (cached for performance)."""
-        if self._cache_valid and self._power_neurons_cache is not None:
-            return self._power_neurons_cache
+        # TEMP DEBUG: Disable cache to always search
+        # if self._cache_valid and self._power_neurons_cache is not None:
+        #     return self._power_neurons_cache
         
         power_neurons = []
+        logger.info("🔍 [POWER-DEBUG] _get_power_neurons() called - searching for power area...")
         
         # Debug power neuron detection
         debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
@@ -1161,33 +1174,45 @@ class PowerInjectionService:
             
             if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
                 npu_interface = self.connectome_manager._npu_interface
-                # Only use reserved power area at cortical_idx=1
-                if hasattr(npu_interface, 'cortical_areas') and 1 in npu_interface.cortical_areas:
-                    area_data = npu_interface.cortical_areas[1]
-                    cortical_id = area_data.get('cortical_id', '')
-                    neurons = npu_interface.get_neurons_by_area(1)
+                
+                # Find power area by cortical_id (not hardcoded idx!)
+                power_cortical_idx = None
+                if hasattr(npu_interface, 'cortical_areas'):
+                    logger.info("🔍 [POWER-DEBUG] Searching for _power in %d cortical areas", len(npu_interface.cortical_areas))
+                    for idx, area_data in npu_interface.cortical_areas.items():
+                        cid = area_data.get('cortical_id', '')
+                        if cid == '_power':
+                            power_cortical_idx = idx
+                            logger.info("🔍 [POWER-DEBUG] Found _power at cortical_idx=%d", idx)
+                            break
+                    if power_cortical_idx is None:
+                        logger.info("🔍 [POWER-DEBUG] _power NOT found. Available: %s", 
+                                   [area_data.get('cortical_id', 'unknown') for area_data in list(npu_interface.cortical_areas.values())[:10]])
+                
+                if power_cortical_idx is not None:
+                    neurons = npu_interface.get_neurons_by_area(power_cortical_idx)
                     if neurons:
                         # SINGLE KNOWN POWER NEURON: choose deterministically (minimum ID)
                         single_power_neuron = int(min(neurons))
                         power_neurons = [single_power_neuron]
                         if debug_enabled:
                             logger.debug(
-                                "PowerInjectionService: Using single power neuron %d from cortical_idx=1 (cortical_id='%s')",
+                                "PowerInjectionService: Using single power neuron %d from _power area (cortical_idx=%d)",
                                 single_power_neuron,
-                                cortical_id,
+                                power_cortical_idx,
                             )
                         else:
                             logger.info(
-                                "Using single power neuron %d from reserved power area at cortical_idx=1 ('%s')",
+                                "Using single power neuron %d from _power area (cortical_idx=%d)",
                                 single_power_neuron,
-                                cortical_id,
+                                power_cortical_idx,
                             )
                     else:
                         if debug_enabled:
-                            logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 has no neurons")
+                            logger.debug("PowerInjectionService: _power area (cortical_idx=%d) has no neurons", power_cortical_idx)
                 else:
                     if debug_enabled:
-                        logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 not found")
+                        logger.debug("PowerInjectionService: _power area not found in cortical_areas")
             
             # CRITICAL: Set refractory period to 0 for the selected power neuron (so it can fire every burst)
             if power_neurons and hasattr(self.connectome_manager, '_npu_interface'):

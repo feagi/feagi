@@ -857,6 +857,51 @@ impl RustNPU {
         Some(result)
     }
     
+    /// Get current Fire Queue directly (bypasses FQ Sampler rate limiting)
+    /// Used by FCL endpoint to get real-time firing data without sampling delays
+    pub fn get_current_fire_queue(&self) -> AHashMap<u32, (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<f32>)> {
+        let mut result = AHashMap::new();
+        
+        // Calculate total neurons from all areas
+        let total_neurons: usize = self.current_fire_queue.neurons_by_area.values()
+            .map(|neurons| neurons.len())
+            .sum();
+        
+        println!("[RUST-FCL] get_current_fire_queue() called");
+        println!("[RUST-FCL] Fire Queue total neurons: {}", total_neurons);
+        println!("[RUST-FCL] Fire Queue timestep: {}", self.current_fire_queue.timestep);
+        println!("[RUST-FCL] Fire Queue areas: {}", self.current_fire_queue.neurons_by_area.len());
+        
+        // Convert current Fire Queue to the same format as sample_fire_queue
+        for (cortical_idx, neurons) in &self.current_fire_queue.neurons_by_area {
+            println!("[RUST-FCL] Area {}: {} neurons", cortical_idx, neurons.len());
+            
+            let mut neuron_ids = Vec::with_capacity(neurons.len());
+            let mut coords_x = Vec::with_capacity(neurons.len());
+            let mut coords_y = Vec::with_capacity(neurons.len());
+            let mut coords_z = Vec::with_capacity(neurons.len());
+            let mut potentials = Vec::with_capacity(neurons.len());
+            
+            for neuron in neurons {
+                neuron_ids.push(neuron.neuron_id.0);
+                coords_x.push(neuron.x);
+                coords_y.push(neuron.y);
+                coords_z.push(neuron.z);
+                potentials.push(neuron.membrane_potential);
+            }
+            
+            if !neuron_ids.is_empty() {
+                println!("[RUST-FCL] Area {}: First neuron ID = {}", cortical_idx, neuron_ids[0]);
+            }
+            
+            result.insert(*cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials));
+        }
+        
+        println!("[RUST-FCL] Returning {} cortical areas", result.len());
+        
+        result
+    }
+    
     /// Set FQ Sampler frequency (Hz)
     pub fn set_fq_sampler_frequency(&mut self, frequency_hz: f64) {
         self.fq_sampler.set_sample_frequency(frequency_hz);
