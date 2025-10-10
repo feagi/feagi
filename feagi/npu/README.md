@@ -74,7 +74,7 @@ NPU owns the runtime SoA for neurons (and exposes SoA for synapses via the NPU i
 For `max_neurons` capacity, the following parallel arrays exist (types in parentheses):
 - membrane_potentials (float32)
 - thresholds (float32)
-- decay_rates (float32)
+- leak_coefficients (float32)
 - leak_coefficients (float32)
 - resting_potentials (float32)
 - neuron_types (int32)
@@ -90,7 +90,7 @@ For `max_neurons` capacity, the following parallel arrays exist (types in parent
 - neuron_id_to_index / index_to_neuron_id (Python dicts; will become FFI-safe maps in Rust)
 
 Mandatory genome-provided fields per neuron at creation time:
-- thresholds, decay_rates, leak_coefficients, resting_potentials, excitabilities,
+- thresholds, leak_coefficients, leak_coefficients, resting_potentials, excitabilities,
 - refractory_periods, consecutive_fire_limits, neuron_types, (x,y,z) positions.
 
 Invariants:

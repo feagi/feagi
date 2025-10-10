@@ -443,7 +443,6 @@ class CorticalAreaService(BaseService):
                                 "properties": {
                                     "membrane_potential": 0.0,  # Live state not exposed via API
                                     "threshold": 1.0,  # Static genome value
-                                    "decay_rate": 0.0,  # Deprecated (using leak now)
                                 },
                             }
                         )
@@ -483,7 +482,6 @@ class CorticalAreaService(BaseService):
                     # For now, use placeholder values as live state is not exposed via API
                     membrane_potential = 0.0  # Live state not exposed via API
                     threshold = 1.0  # Static genome value
-                    decay_rate = 0.0  # Deprecated (using leak now)
 
                     result.append(
                         {
@@ -496,7 +494,6 @@ class CorticalAreaService(BaseService):
                             "properties": {
                                 "membrane_potential": membrane_potential,
                                 "threshold": threshold,
-                                "decay_rate": decay_rate,
                             },
                         }
                     )
@@ -558,9 +555,6 @@ class CorticalAreaService(BaseService):
                 threshold = float(
                     self._connectome_manager.thresholds[neuron_index]
                 )
-                decay_rate = float(
-                    self._connectome_manager.decay_rates[neuron_index]
-                )
 
                 result.append(
                     {
@@ -573,7 +567,6 @@ class CorticalAreaService(BaseService):
                         "properties": {
                             "membrane_potential": membrane_potential,
                             "threshold": threshold,
-                            "decay_rate": decay_rate,
                         },
                     }
                 )

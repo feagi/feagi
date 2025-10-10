@@ -70,7 +70,6 @@ class NeuronCreationRequest:
     initial_potentials: Optional[List[float]] = None
     thresholds: Optional[List[float]] = None
     leak_coefficients: Optional[List[float]] = None
-    decay_rates: Optional[List[float]] = None
     refractory_periods: Optional[List[int]] = None
     excitabilities: Optional[List[float]] = None
     resting_potentials: Optional[List[float]] = None

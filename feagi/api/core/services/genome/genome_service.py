@@ -2385,10 +2385,11 @@ class GenomeService(BaseService):
                                     positions.append((x, y, z))
 
                     # Extract ALL neural dynamics parameters from hierarchical genome
+                    # Handle genome key variations (leak_c vs leak_coefficient)
                     base_threshold = new_area.get("firing_threshold", 1.0)
-                    base_leak_coefficient = new_area.get("leak_coefficient", 0) / 100.0  # 0-100 → 0.0-1.0
-                    leak_variability = new_area.get("leak_variability", 0) / 100.0  # 0-100 → 0.0-1.0
-                    base_refractory = new_area.get("refractory_period", 1)
+                    base_leak_coefficient = new_area.get("leak_c", new_area.get("leak_coefficient", 0)) / 100.0  # 0-100 → 0.0-1.0
+                    leak_variability = new_area.get("leak_v", new_area.get("leak_variability", 0)) / 100.0  # 0-100 → 0.0-1.0
+                    base_refractory = new_area.get("refrac", new_area.get("refractory_period", 1))
                     excitability = new_area.get("neuron_excitability", 1.0)
                     consecutive_fire_limit = new_area.get("consecutive_fire_cnt_max", 10)  # Default from template is 0, use 10 if 0
                     snooze_period = new_area.get("snooze_length", 0)
@@ -6305,10 +6306,12 @@ class GenomeService(BaseService):
                 threshold=properties.get("fire_t", 1.0),
                 membrane_potential=0.0,
                 resting_potential=0.0,
-                decay_rate=1.0 - (properties.get("leak_c", 0) / 100.0),
+                leak_coefficient=properties.get("leak_c", properties.get("leak_coefficient", 0)) / 100.0,  # 0-100 → 0.0-1.0
+                leak_variability=properties.get("leak_v", properties.get("leak_variability", 0)) / 100.0,  # 0-100 → 0.0-1.0
                 refractory_period=properties.get("refrac", 1),
                 excitability=properties.get("neuron_excitability", 1.0),
                 consecutive_fire_limit=max(properties.get("consecutive_fire_cnt_max", 10), 1),
+                snooze_period=properties.get("snooze_length", 0),
             )
 
             # Update per-area excitability cache in NPU
@@ -6599,9 +6602,8 @@ class GenomeService(BaseService):
 
             # Calculate base properties with safety checks
             base_threshold = properties.get("fire_t", 1.0)
-            leak_c = properties.get("leak_c", 0.0)
-            # Safety check to prevent division by zero
-            base_decay_rate = 1.0 - (leak_c / 100.0) if leak_c != 0 else 1.0
+            base_leak_coefficient = properties.get("leak_c", properties.get("leak_coefficient", 0)) / 100.0  # 0-100 → 0.0-1.0
+            leak_variability = properties.get("leak_v", properties.get("leak_variability", 0)) / 100.0  # 0-100 → 0.0-1.0
             base_refractory = max(1, properties.get("refrac", 1))  # Ensure minimum 1
 
             # Handle position-based variations for thresholds
@@ -6611,38 +6613,20 @@ class GenomeService(BaseService):
                 for i, (x, y, z) in enumerate(positions):
                     thresholds[i] = base_threshold + (z * fire_increment)
 
-            # Handle leak variability for decay rates
-            decay_rates = [base_decay_rate] * area_neuron_count
-            leak_variability = properties.get("leak_variability", 0.0)
-            base_leak = properties.get("leak_c", 0.0)
-            if leak_variability != 0.0 and base_leak != 0.0:
-                import numpy as np
-
-                np.random.seed(42)  # Deterministic for reproducibility
-                variations = (
-                    np.random.uniform(
-                        -leak_variability, leak_variability, area_neuron_count
-                    )
-                    / 100.0
-                )
-                for i in range(area_neuron_count):
-                    varied_leak = np.clip(
-                        base_leak / 100.0 + variations[i], 0.0, 1.0
-                    )
-                    decay_rates[i] = 1.0 - varied_leak
-
             #  Use ConnectomeManager's batch creation method (handles position
-            #  mapping automatically)
+            #  mapping automatically - leak_variability is applied inside batch_create_neurons)
             neuron_ids = self._connectome_manager.batch_create_neurons(
                 cortical_id=cortical_id,
                 positions=positions,
                 threshold=thresholds,
                 membrane_potential=0.0,
                 resting_potential=0.0,
-                decay_rate=decay_rates,
+                leak_coefficient=base_leak_coefficient,
+                leak_variability=leak_variability,
                 refractory_period=base_refractory,
                 excitability=properties.get("neuron_excitability", 1.0),
                 consecutive_fire_limit=max(properties.get("consecutive_fire_cnt_max", 10), 1),
+                snooze_period=properties.get("snooze_length", 0),
             )
 
             # CRITICAL FIX: Set excitability for all created neurons

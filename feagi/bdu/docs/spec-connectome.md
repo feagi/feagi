@@ -55,7 +55,7 @@ neuron_id = connectome.create_neuron(
     position=(10, 10, 2),
     threshold=1.0,
     refractory_period=5,
-    decay_rate=0.9,
+    leak_coefficient=0.9,
     resting_potential=0.0
 )
 

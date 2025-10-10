@@ -183,7 +183,6 @@ class NeuronArray:
         # Core neuron properties (SoA format) - NO HARDCODED VALUES, ALL FROM GENOME
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.thresholds = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
-        self.decay_rates = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         self.leak_coefficients = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         self.resting_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.neuron_types = np.zeros(max_neurons, dtype=np.int32)
@@ -232,7 +231,6 @@ class NeuronArray:
                          neuron_types: List[int], initial_potentials: List[float],
                          thresholds: List[float], leak_coefficients: List[float],
                          cortical_idx: int, 
-                         decay_rates: Optional[List[float]] = None,
                          refractory_periods: Optional[List[int]] = None,
                          excitabilities: Optional[List[float]] = None,
                          resting_potentials: Optional[List[float]] = None,
@@ -253,13 +251,6 @@ class NeuronArray:
         self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
         self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
         self.cortical_idxs[start_idx:end_idx] = cortical_idx
-        
-        # Set additional neural dynamics parameters from genome
-        if decay_rates is not None:
-            self.decay_rates[start_idx:end_idx] = np.array(decay_rates, dtype=np.float32)
-        else:
-            # Set default decay rates for backward compatibility
-            self.decay_rates[start_idx:end_idx] = 0.1
             
         if refractory_periods is not None:
             self.refractory_periods[start_idx:end_idx] = np.array(refractory_periods, dtype=np.uint8)
@@ -629,7 +620,6 @@ class SynapseArray:
         self.is_plastic_flags = np.zeros(max_synapses, dtype=np.bool_)
         self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)
         self.plasticity_coeffs = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
-        self.decay_rates = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
         # Synapse state
         self.valid_mask = np.zeros(max_synapses, dtype=np.bool_)

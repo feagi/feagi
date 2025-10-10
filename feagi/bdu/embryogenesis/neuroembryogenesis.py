@@ -1155,7 +1155,7 @@ class NeuroEmbryogenesis:
                 
                 # Extract neuron properties from area configuration
                 base_threshold = properties.get("fire_t", 1.0)
-                base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
+                base_leak_coefficient = properties.get("leak_c", properties.get("leak_coefficient", 0)) / 100.0  # 0-100 → 0.0-1.0
                 # ARCHITECTURE COMPLIANCE: No fallbacks for required properties
                 if "refrac" not in properties:
                     raise ValueError(f"ARCHITECTURE VIOLATION: Missing required property 'refrac' for area {cortical_id}")
@@ -1200,8 +1200,7 @@ class NeuroEmbryogenesis:
                         positions=positions,
                         thresholds=[base_threshold] * area_neuron_count,
                         initial_potentials=[0.0] * area_neuron_count,
-                        leak_coefficients=[base_decay_rate] * area_neuron_count,
-                        decay_rates=[base_decay_rate] * area_neuron_count,
+                        leak_coefficients=[base_leak_coefficient] * area_neuron_count,
                         refractory_periods=[properties["refrac"]] * area_neuron_count,
                         excitabilities=[base_excitability] * area_neuron_count,
                         resting_potentials=[0.0] * area_neuron_count,

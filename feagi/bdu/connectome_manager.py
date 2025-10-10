@@ -3462,40 +3462,18 @@ class ConnectomeManager(NeuronMappingProvider):
             #  For regular cortical areas, extract properties from actual
             #  neurons
             cortical_idx = area.cortical_idx
-            neuron_array = self.neuron_array
-
-            # Collect property values from all neurons in this area
-            threshold_values = []
-            decay_rate_values = []
-            refractory_values = []
-
-            # Sample neurons in this cortical area
-            # ✅ TODO: Reimplement using Rust NPU APIs for property extraction
-            # For now, skip neuron-level property extraction (use genome defaults)
-            # This method is used for serialization - genome data is authoritative
-            logger.warning(f"[DEPRECATED] Neuron property extraction needs Rust NPU refactor for {cortical_id}")
-
-            # If no neurons found, return zeros
-            # Report neuron_excitability from area properties
+            # Return properties from cortical area (genome-derived, authoritative)
+            # Neuron-level property extraction should use Rust NPU APIs if needed
             area_props_ex = area.properties.get("neuron_excitability", 1.0) if hasattr(area, "properties") and area.properties else 1.0
-
-            # Calculate averages of neuron properties
-            avg_excitability = float(area_props_ex)
-            avg_threshold = sum(threshold_values) / len(threshold_values)
-            avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
-            avg_refractory = sum(refractory_values) / len(refractory_values)
-
-            #  Convert decay_rate back to leak_coefficient (reverse the
-            #  calculation)
-            # decay_rate = 1.0 - (leak_coefficient / 100.0)
-            # leak_coefficient = (1.0 - decay_rate) * 100.0
-            avg_leak_coefficient = (1.0 - avg_decay_rate) * 100.0
+            area_props_threshold = area.properties.get("firing_threshold", 1.0) if hasattr(area, "properties") and area.properties else 1.0
+            area_props_refractory = area.properties.get("refractory_period", 1) if hasattr(area, "properties") and area.properties else 1
+            area_props_leak = area.properties.get("leak_coefficient", 0.0) if hasattr(area, "properties") and area.properties else 0.0
 
             return {
-                "neuron_excitability": avg_excitability,
-                "firing_threshold": avg_threshold,
-                "refractory_period": int(avg_refractory),
-                "leak_coefficient": avg_leak_coefficient,
+                "neuron_excitability": float(area_props_ex),
+                "firing_threshold": float(area_props_threshold),
+                "refractory_period": int(area_props_refractory),
+                "leak_coefficient": float(area_props_leak),  # Already in 0-100 range from genome
             }
 
         except Exception as e:
