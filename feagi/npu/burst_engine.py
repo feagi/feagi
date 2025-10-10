@@ -269,8 +269,7 @@ class BurstEngine:
             try:
                 power_neurons = self.injection_service._get_power_neurons()
                 logger.debug("[POWER] Power neurons retrieved: %d neurons", 
-                           len(power_neurons),
-                           power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
+                           len(power_neurons))
             except Exception as e:
                 logger.error("🦀 [POWER-DEBUG] Failed to get power neurons: %s", str(e), exc_info=True)
         else:
@@ -315,8 +314,7 @@ class BurstEngine:
         all_injection_neurons = power_neurons + manual_neurons
         
         logger.debug("[POWER] Total injection neurons: %d (power=%d, manual=%d)", 
-                      len(all_injection_neurons), len(power_neurons), len(manual_neurons),
-                      all_injection_neurons[:10] if len(all_injection_neurons) > 10 else all_injection_neurons)
+                      len(all_injection_neurons), len(power_neurons), len(manual_neurons))
         
         # Process burst in Rust (ALL IN RUST!)
         result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)

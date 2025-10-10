@@ -2160,7 +2160,7 @@ class CoreAPIService:
             
             # Get current timestep from burst engine
             burst_engine = self.get_burst_engine()
-            current_timestep = burst_engine.burst_counter if burst_engine else 0
+            current_timestep = burst_engine.burst_count if burst_engine else 0
             
             # Get cortical ID from connectome if available
             cortical_id = None

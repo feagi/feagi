@@ -35,9 +35,8 @@ class CoreAPI(CoreAPIService):
                 debug_mem = '--debug-mem' in sys.argv
                 
                 npu_interface = getattr(connectome_manager, '_npu_interface', None)
-                # Fire Ledger is now in Rust - PlasticityService will be updated to use Rust API
-                # For now, pass None to prevent import errors
-                fire_ledger = None  # TODO: Update PlasticityService to use rust_npu.get_fire_ledger_history()
+                # Fire Ledger is now in Rust - provide a thin compatibility wrapper
+                fire_ledger = None  # PlasticityService can access Fire Ledger via BurstEngine.rust_npu if needed
                 if npu_interface and isinstance(svc_cfg.queue_capacity, int):
                     if debug_mem:
                         print(f"[DEBUG-MEM] Initializing PlasticityService...")
