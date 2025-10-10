@@ -462,7 +462,7 @@ class VisualizationStream:
                 if cortical_data:
                     area_count = len(cortical_data)
                     total_neurons = sum(len(area_data.get("neuron_ids", [])) for area_data in cortical_data.values() if area_data)
-                    logger.info(f"[VIZ-SAMPLER] FQ sampler returned {area_count} areas, {total_neurons} total neurons")
+                    # Removed verbose FQ sampler logging
                 # else:
                 #     # Spammy when no activity - commented out
                 #     logger.debug("[VIZ-SAMPLER] FQ sampler returned empty data (no neural activity)")
@@ -519,8 +519,7 @@ class VisualizationStream:
                             logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes (BINARY) to ZMQ visualization stream")
                             # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
                             self._publish_zmq_only(binary_data)
-                        else:
-                            logger.debug("[VIZ-PUBLISH] No binary data to publish (encoding returned empty)")
+                        # else: No data to publish (encoding returned empty)
                     except Exception as e:
                         logger.error(f"Error encoding visualization data for ZMQ: {e}")
 
@@ -872,7 +871,7 @@ class VisualizationStream:
                 coords_y = area.get("coordinates_y", [])
                 coords_z = area.get("coordinates_z", [])
                 
-                logger.debug(f"[JSON-PAYLOAD] Area {area_id}: {len(neuron_ids)} neurons, coords=({len(coords_x)},{len(coords_y)},{len(coords_z)}), {len(pots)} potentials")
+                # Removed verbose JSON payload logging
                 
                 if not neuron_ids:
                     logger.debug(f"[JSON-PAYLOAD] Skipping area {area_id}: no neuron IDs")
@@ -885,7 +884,7 @@ class VisualizationStream:
                     xs = [int(x) for x in coords_x]
                     ys = [int(y) for y in coords_y]
                     zs = [int(z) for z in coords_z]
-                    logger.debug(f"[JSON-PAYLOAD] Area {area_id}: using Rust FQ Sampler coordinates ({len(xs)} neurons)")
+                    # Using Rust FQ Sampler coordinates
                 # LEGACY: Check for combined coordinates array (old format)
                 elif "coordinates" in area:
                     coords = area.get("coordinates", [])
@@ -1392,7 +1391,7 @@ class VisualizationStream:
             )
             return b""
         except Exception as e:
-            logger.error(f"Error encoding visualization data: {e}")
+            # Encoding failed (expected when coordinates unavailable in legacy mode)
             return b""
 
     def _broadcast_to_clients(self, broadcast_data: bytes) -> None:
@@ -1921,7 +1920,7 @@ class _ShmRingWriter:
             )
             return b""
         except Exception as e:
-            logger.error(f"Error encoding visualization data: {e}")
+            # Encoding failed (expected when coordinates unavailable in legacy mode)
             return b""
 
     def _broadcast_to_clients(self, broadcast_data: bytes) -> None:

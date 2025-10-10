@@ -7258,7 +7258,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
                 return []
             
-            logger.debug(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
+            # Removed verbose debug logging for production
 
             # ✅ RUST NPU: Use batch API to get ALL neuron positions at once (massive performance gain!)
             rust_npu = npu.rust_npu  # Direct access to RustNPU for batch operations
@@ -7272,7 +7272,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
             
-            logger.debug(f"[BATCH-LOOKUP] Found {len(neuron_positions)} neurons in {cortical_id}")
+            # Removed verbose batch lookup logging
 
             # Build a hash set of target positions for O(1) membership checks
             targets = set(candidate_positions)
@@ -7287,7 +7287,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 if position in targets:
                     found.append((int(neuron_id), float(post_synaptic_current)))
             
-            logger.debug(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
+            # Removed verbose batch lookup logging
             
             return found
 

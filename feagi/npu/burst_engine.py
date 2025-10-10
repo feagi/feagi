@@ -268,7 +268,7 @@ class BurstEngine:
         if self.injection_service and self.enable_injection:
             try:
                 power_neurons = self.injection_service._get_power_neurons()
-                logger.info("🦀 [POWER-INJECT] Power neurons retrieved: %d neurons - %s", 
+                logger.debug("[POWER] Power neurons retrieved: %d neurons", 
                            len(power_neurons),
                            power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
             except Exception as e:
@@ -314,14 +314,14 @@ class BurstEngine:
         # Combine all injection neurons
         all_injection_neurons = power_neurons + manual_neurons
         
-        logger.info("🦀 [POWER-INJECT] Total injection neurons: %d (power=%d, manual=%d) - %s", 
+        logger.debug("[POWER] Total injection neurons: %d (power=%d, manual=%d)", 
                       len(all_injection_neurons), len(power_neurons), len(manual_neurons),
                       all_injection_neurons[:10] if len(all_injection_neurons) > 10 else all_injection_neurons)
         
         # Process burst in Rust (ALL IN RUST!)
         result = self._rust_npu_integration.process_burst(power_neurons=all_injection_neurons)
         
-        logger.info("🦀 [POWER-INJECT] Rust returned: power_injections=%d, neuron_count=%d", 
+        logger.debug("[POWER] Rust returned: power_injections=%d, neuron_count=%d", 
                       result.get('power_injections', 0), result.get('neuron_count', 0))
         
         logger.debug("🦀 Rust result: neuron_count=%d, fired_neurons=%s", 
@@ -1150,7 +1150,7 @@ class PowerInjectionService:
         #     return self._power_neurons_cache
         
         power_neurons = []
-        logger.info("🔍 [POWER-DEBUG] _get_power_neurons() called - searching for power area...")
+        # Removed verbose power neuron search logging
         
         # Debug power neuron detection
         debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
@@ -1178,12 +1178,12 @@ class PowerInjectionService:
                 # Find power area by cortical_id (not hardcoded idx!)
                 power_cortical_idx = None
                 if hasattr(npu_interface, 'cortical_areas'):
-                    logger.info("🔍 [POWER-DEBUG] Searching for _power in %d cortical areas", len(npu_interface.cortical_areas))
+                    # Verbose logging removed
                     for idx, area_data in npu_interface.cortical_areas.items():
                         cid = area_data.get('cortical_id', '')
                         if cid == '_power':
                             power_cortical_idx = idx
-                            logger.info("🔍 [POWER-DEBUG] Found _power at cortical_idx=%d", idx)
+                            logger.debug("[POWER] Found _power at cortical_idx=%d", idx)
                             break
                     if power_cortical_idx is None:
                         logger.info("🔍 [POWER-DEBUG] _power NOT found. Available: %s", 
@@ -1202,8 +1202,8 @@ class PowerInjectionService:
                                 power_cortical_idx,
                             )
                         else:
-                            logger.info(
-                                "Using single power neuron %d from _power area (cortical_idx=%d)",
+                            logger.debug(
+                                "[POWER] Using single power neuron %d from _power area (cortical_idx=%d)",
                                 single_power_neuron,
                                 power_cortical_idx,
                             )
@@ -1242,7 +1242,7 @@ class PowerInjectionService:
                     logger.debug("PowerInjectionService: Consider adding '_power', 'xxx_pwr', or 'xxx_power' cortical area to genome")
             
             if power_neurons:
-                logger.info("Power neuron detection complete: %d total power neurons cached", len(power_neurons))
+                logger.debug("[POWER] Power neuron detection complete: %d total power neurons cached", len(power_neurons))
             else:
                 logger.warning("No power areas detected - consider adding '_power' area to genome for constant brain activity")
                 

@@ -61,44 +61,24 @@ class FCLManagerAdapter:
         In new architecture, returns firing neurons from Rust Fire Queue.
         Uses direct Fire Queue access to bypass FQ Sampler rate limiting.
         """
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"[FCL-DEBUG] self.burst_engine = {self.burst_engine}")
-        logger.info(f"[FCL-DEBUG] self.burst_engine type = {type(self.burst_engine)}")
-        if self.burst_engine:
-            logger.info(f"[FCL-DEBUG] hasattr(self.burst_engine, 'rust_npu') = {hasattr(self.burst_engine, 'rust_npu')}")
-            logger.info(f"[FCL-DEBUG] dir(self.burst_engine) = {[x for x in dir(self.burst_engine) if 'rust' in x.lower() or 'npu' in x.lower()]}")
-        
         if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
-            logger.error("[FCL-DEBUG] No burst_engine or rust_npu attribute")
             return EmptyBitmapAdapter()
         
         # Get Rust NPU
         rust_npu = self.burst_engine.rust_npu
         if not rust_npu:
-            logger.error("[FCL-DEBUG] rust_npu is None")
             return EmptyBitmapAdapter()
-        
-        logger.info(f"[FCL-DEBUG] Calling rust_npu.get_current_fire_queue()")
         
         # Get current Fire Queue directly (bypasses rate limiting)
         fire_queue_data = rust_npu.get_current_fire_queue()
         
-        logger.info(f"[FCL-DEBUG] get_current_fire_queue() returned: {fire_queue_data}")
-        logger.info(f"[FCL-DEBUG] Data type: {type(fire_queue_data)}")
-        
         if not fire_queue_data:
-            logger.warning("[FCL-DEBUG] fire_queue_data is empty or None")
             return EmptyBitmapAdapter()
         
         # Extract all neuron IDs from all cortical areas
         neuron_ids = []
-        for cortical_idx, area_data in fire_queue_data.items():
-            logger.info(f"[FCL-DEBUG] Area {cortical_idx}: {area_data}")
+        for area_data in fire_queue_data.values():
             neuron_ids.extend(area_data.get('neuron_ids', []))
-        
-        logger.info(f"[FCL-DEBUG] Total neuron IDs collected: {len(neuron_ids)}, IDs: {neuron_ids[:10]}")
         
         return BitmapAdapter(neuron_ids)
     
@@ -4873,9 +4853,7 @@ class CoreAPIService:
 
                 valid_indices = neuron_indices[:valid_count][valid_mask]
             else:
-                self.logger.warning(
-                    "Coordinates not available in neuron array, using fallback"
-                )
+                # Coordinates not available in legacy neuron_array (using Rust NPU coordinates)
                 valid_mask = np.ones(valid_count, dtype=bool)
                 valid_indices = neuron_indices[:valid_count]
 
@@ -4938,7 +4916,7 @@ class CoreAPIService:
             }
 
         except Exception as e:
-            self.logger.error(f"Error getting neuron coordinates: {str(e)}")
+            # Coordinate extraction failed (expected with Rust NPU - coordinates provided by FQ Sampler)
             return None
 
     def get_neuron_coordinates_numpy(
@@ -5198,9 +5176,7 @@ class CoreAPIService:
             else:
                 # ❌ NO FALLBACK - Coordinates must exist in neuron array
                 # Creating fake coordinates violates architectural rules
-                self.logger.error(
-                    "Neuron array missing coordinate properties - cannot extract coordinates"
-                )
+                # Coordinate arrays not in legacy neuron_array
                 raise ValueError(
                     "Neuron coordinate arrays not available in connectome - check genome initialization"
                 )
@@ -5291,9 +5267,7 @@ class CoreAPIService:
             else:
                 # ❌ NO FALLBACK - Coordinates must exist in neuron array
                 # Creating fake coordinates violates architectural rules
-                self.logger.error(
-                    "Neuron array missing coordinate properties - cannot extract coordinates"
-                )
+                # Coordinate arrays not in legacy neuron_array
                 raise ValueError(
                     "Neuron coordinate arrays not available in connectome - check genome initialization"
                 )
@@ -5309,7 +5283,7 @@ class CoreAPIService:
             return coords_x, coords_y, coords_z
 
         except Exception as e:
-            self.logger.error(f"Vectorized coordinate extraction failed: {e}")
+            # Vectorized extraction failed (expected with Rust NPU - coordinates provided directly)
             # ❌ NO FALLBACK - Don't create fake coordinates
             #  Real coordinates must exist - this is a
             #  configuration/initialization error

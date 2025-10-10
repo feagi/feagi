@@ -627,7 +627,7 @@ def find_candidate_neurons(
                 f"[BDU DEBUG] ===== END SYNAPTOGENESIS: {src_area_id} -> {dst_area_id} ====="
             )
 
-        logger.debug(f"Found {len(candidate_neuron_list)} destination neurons")
+        # Removed verbose synaptogenesis logging
         return candidate_neuron_list
 
     except Exception as e:

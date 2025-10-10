@@ -126,36 +126,24 @@ impl FQSampler {
     /// - Fire Queue is empty
     /// - Burst already sampled (deduplication)
     pub fn sample(&mut self, fire_queue: &FireQueue) -> Option<FQSampleResult> {
-        println!("[RUST-FQ-SAMPLE] sample() called");
-        println!("[RUST-FQ-SAMPLE] Fire Queue timestep: {}", fire_queue.timestep);
-        println!("[RUST-FQ-SAMPLE] Fire Queue empty: {}", fire_queue.is_empty());
-        println!("[RUST-FQ-SAMPLE] has_visualization_subscribers: {}", self.has_visualization_subscribers);
-        println!("[RUST-FQ-SAMPLE] has_motor_subscribers: {}", self.has_motor_subscribers);
-        
         // Rate limiting
         let now = Instant::now();
         if let Some(last_time) = self.last_sample_time {
-            let elapsed = now.duration_since(last_time);
-            if elapsed < self.sample_interval {
-                println!("[RUST-FQ-SAMPLE] Rate limited: {:?} < {:?}", elapsed, self.sample_interval);
+            if now.duration_since(last_time) < self.sample_interval {
                 return None; // Too soon
             }
         }
         
         // Empty check
         if fire_queue.is_empty() {
-            println!("[RUST-FQ-SAMPLE] Fire Queue is empty");
             return None;
         }
         
         // Deduplication: Skip if we've already sampled this burst
         let current_burst_id = fire_queue.timestep;
         if self.last_sampled_burst_id == Some(current_burst_id) {
-            println!("[RUST-FQ-SAMPLE] Already sampled burst {}", current_burst_id);
             return None; // Already sampled
         }
-        
-        println!("[RUST-FQ-SAMPLE] Sampling burst {} with {} areas", current_burst_id, fire_queue.neurons_by_area.len());
         
         // Sample the Fire Queue
         let mut areas = AHashMap::new();
