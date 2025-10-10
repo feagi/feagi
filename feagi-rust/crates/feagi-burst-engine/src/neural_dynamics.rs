@@ -82,8 +82,10 @@ pub fn process_neural_dynamics(
     let candidates = fcl.get_all_candidates();
     
     if candidates.is_empty() {
+        let mut fire_queue = FireQueue::new();
+        fire_queue.set_timestep(burst_count);
         return Ok(DynamicsResult {
-            fire_queue: FireQueue::new(),
+            fire_queue,
             neurons_processed: 0,
             neurons_fired: 0,
             neurons_in_refractory: 0,
@@ -116,6 +118,7 @@ pub fn process_neural_dynamics(
     
     // Build Fire Queue
     let mut fire_queue = FireQueue::new();
+    fire_queue.set_timestep(burst_count); // CRITICAL: Set timestep for FQ Sampler deduplication
     for neuron in fired_neurons.iter() {
         fire_queue.add_neuron(neuron.clone());
     }

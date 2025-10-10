@@ -1797,15 +1797,17 @@ class ProcessManager:
 
             # Create the Rust-backed sampler
             # RustFQSamplerWrapper handles the Rust NPU integration internally
-            fq_sampler = RustFQSamplerWrapper(
-                npu_integration=(
-                    self._core_api.get_burst_engine().rust_npu
-                    if self._core_api and hasattr(self._core_api.get_burst_engine(), 'rust_npu')
-                    else None
-                ),
-                sample_frequency_hz=frequency,
-                sampling_mode=mode,
-            )
+            burst_engine = self._core_api.get_burst_engine() if self._core_api else None
+            rust_npu = burst_engine.rust_npu if burst_engine and hasattr(burst_engine, 'rust_npu') else None
+            
+            if not rust_npu:
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust NPU not available")
+                return False
+            
+            fq_sampler = RustFQSamplerWrapper(rust_npu_integration=rust_npu)
+            
+            # Configure the sampler after creation
+            fq_sampler.set_sample_frequency(frequency)
 
             # Store the sampler based on mode
             if mode == "visualization":

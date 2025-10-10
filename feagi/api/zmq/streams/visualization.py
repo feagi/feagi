@@ -865,23 +865,38 @@ class VisualizationStream:
                 if not area:
                     continue
                 neuron_ids = area.get("neuron_ids", [])
-                coords = area.get("coordinates", [])
                 pots = area.get("membrane_potentials", [])
                 
-                logger.debug(f"[JSON-PAYLOAD] Area {area_id}: {len(neuron_ids)} neurons, {len(coords)} coords, {len(pots)} potentials")
+                # NEW FORMAT: Rust FQ Sampler returns separate coordinate arrays
+                coords_x = area.get("coordinates_x", [])
+                coords_y = area.get("coordinates_y", [])
+                coords_z = area.get("coordinates_z", [])
+                
+                logger.debug(f"[JSON-PAYLOAD] Area {area_id}: {len(neuron_ids)} neurons, coords=({len(coords_x)},{len(coords_y)},{len(coords_z)}), {len(pots)} potentials")
                 
                 if not neuron_ids:
                     logger.debug(f"[JSON-PAYLOAD] Skipping area {area_id}: no neuron IDs")
                     continue
                 ids = list(neuron_ids)
                 xs = ys = zs = None
-                # Prefer provided coordinates; otherwise fetch from core_api
-                if coords and len(coords) >= len(ids):
-                    xs = [int(c[0]) for c in coords[: len(ids)]]
-                    ys = [int(c[1]) for c in coords[: len(ids)]]
-                    zs = [int(c[2]) for c in coords[: len(ids)]]
-                    logger.debug(f"[JSON-PAYLOAD] Area {area_id}: using provided coordinates ({len(xs)} neurons)")
-                else:
+                
+                # NEW: Check for separate coordinate arrays (Rust FQ Sampler format)
+                if coords_x and coords_y and coords_z and len(coords_x) == len(ids):
+                    xs = [int(x) for x in coords_x]
+                    ys = [int(y) for y in coords_y]
+                    zs = [int(z) for z in coords_z]
+                    logger.debug(f"[JSON-PAYLOAD] Area {area_id}: using Rust FQ Sampler coordinates ({len(xs)} neurons)")
+                # LEGACY: Check for combined coordinates array (old format)
+                elif "coordinates" in area:
+                    coords = area.get("coordinates", [])
+                    if coords and len(coords) >= len(ids):
+                        xs = [int(c[0]) for c in coords[: len(ids)]]
+                        ys = [int(c[1]) for c in coords[: len(ids)]]
+                        zs = [int(c[2]) for c in coords[: len(ids)]]
+                        logger.debug(f"[JSON-PAYLOAD] Area {area_id}: using legacy coordinate format ({len(xs)} neurons)")
+                
+                # If coordinates not provided, fetch from core_api
+                if xs is None or ys is None or zs is None:
                     logger.warning(f"[JSON-PAYLOAD] Area {area_id}: coords={len(coords) if coords else 0}, need to fetch from core_api")
                     try:
                         if self.core_api and hasattr(self.core_api, "get_neuron_coordinates"):

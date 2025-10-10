@@ -36,7 +36,9 @@ class RustFQSamplerWrapper:
             
             Returns empty dict if no data available.
         """
+        logger.info("[PY-FQ-WRAPPER] sample() called - delegating to Rust")
         result = self._rust_npu.sample_fire_queue()
+        logger.info(f"[PY-FQ-WRAPPER] Rust returned: {result}")
         return result if result is not None else {}
     
     def set_sample_frequency(self, frequency_hz: float):
@@ -50,7 +52,9 @@ class RustFQSamplerWrapper:
     
     def set_visualization_subscribers(self, has_subscribers: bool):
         """Set visualization subscriber state."""
+        logger.info(f"[PY-FQ-WRAPPER] set_visualization_subscribers({has_subscribers}) called")
         self._rust_npu.set_visualization_subscribers(has_subscribers)
+        logger.info(f"[PY-FQ-WRAPPER] set_visualization_subscribers({has_subscribers}) completed")
     
     def set_motor_subscribers(self, has_subscribers: bool):
         """Set motor subscriber state."""
