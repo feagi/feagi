@@ -6605,7 +6605,7 @@ class CoreAPIService:
                     "membrane_potentials",
                     "resting_potentials",
                     "thresholds",
-                    "excitability",
+                    "excitabilities",
                     "leak_coefficients",
                     "refractory_periods",
                     "refractory_counters",

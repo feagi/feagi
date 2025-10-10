@@ -148,16 +148,6 @@ class RustNPUIntegration:
                     continue
                     
                 current_burst = result.burst
-                if neuron_id in self._last_fire_burst:
-                    interval = current_burst - self._last_fire_burst[neuron_id]
-                    try:
-                        state = self._rust_npu.get_neuron_state(neuron_id)
-                        if state:
-                            cfc, cfc_limit, _, _, _, refrac_countdown = state
-                            logger.info(f"🔥 [FIRE-INTERVAL] Neuron {neuron_id}: {interval} bursts since last fire (refrac now={refrac_countdown}, cfc={cfc}/{cfc_limit})")
-                    except:
-                        pass
-                
                 self._last_fire_burst[neuron_id] = current_burst
             
             # Return as dict for easier integration
