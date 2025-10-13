@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 rust = [
-    "feagi-rust-py-libs>=0.0.68",
+    "feagi-rust-py-libs>=0.0.70",
 ]
 video = [
     "opencv-python>=4.9.0",
@@ -54,7 +54,7 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
-    "feagi-rust-py-libs>=0.0.68",
+    "feagi-rust-py-libs>=0.0.70",
     "requests>=2.31.0",
     "opencv-python>=4.9.0",
 ]
