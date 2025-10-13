@@ -688,8 +688,8 @@ class SensoryNeuralStream:
                 except Exception:
                     structure_type = None
 
-                # Create CorticalMappedXYZPNeuronDataDecoder from the byte structure (native Rust API)
-                cortical_mapped = feagi_rust.CorticalMappedXYZPNeuronDataDecoder.new_from_feagi_byte_structure(
+                # Create CorticalMappedXYZPNeuronVoxelsDecoder from the byte structure (native Rust API)
+                cortical_mapped = feagi_rust.CorticalMappedXYZPNeuronVoxelsDecoder.new_from_feagi_byte_structure(
                     byte_structure
                 )
 
