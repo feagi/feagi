@@ -491,15 +491,23 @@ class SensoryNeuralStream:
                     sm = FeagiStateManager.instance()
                     connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
                     
-                    for agent_id in list(self._slot_readers.keys()):
-                        if agent_id not in connected_agents:
-                            try:
-                                with self._slot_lock:
-                                    self._slot_readers.pop(agent_id, None)
-                                _release_slot_reader(agent_id)
-                                logger.info(f"🗑️ [RATE] Removed slot reader for disconnected agent {agent_id}")
-                            except Exception as e:
-                                logger.warning(f"[RATE] Error removing slot reader for {agent_id}: {e}")
+                    # DEBUG: Log connected agents to understand the issue (commented out - too spammy)
+                    # logger.info(f"🔍 [DEBUG] Connected agents check: {list(connected_agents.keys())} vs slot readers: {list(self._slot_readers.keys())}")
+                    
+                    # CRITICAL FIX: Don't remove agents if connected_agents is suspiciously empty
+                    if not connected_agents and self._slot_readers:
+                        logger.warning(f"🚨 [CRITICAL] Connected agents registry is empty but we have {len(self._slot_readers)} slot readers!")
+                        logger.warning("🚨 [CRITICAL] This suggests connected_agents was cleared unexpectedly - SKIPPING CLEANUP")
+                    else:
+                        for agent_id in list(self._slot_readers.keys()):
+                            if agent_id not in connected_agents:
+                                try:
+                                    with self._slot_lock:
+                                        self._slot_readers.pop(agent_id, None)
+                                    _release_slot_reader(agent_id)
+                                    logger.warning(f"🗑️ [CLEANUP] Removed slot reader for legitimately disconnected agent {agent_id}")
+                                except Exception as e:
+                                    logger.warning(f"[CLEANUP] Error removing slot reader for {agent_id}: {e}")
                 except Exception as e:
                     logger.debug(f"[RATE] Agent registry cleanup error: {e}")
                 
@@ -653,13 +661,20 @@ class SensoryNeuralStream:
             self._stats["bytes_received"] += nbytes
             self._stats["last_message_time"] = time.time()
 
-            # Decode feagi_data_processing format
+            # Decode feagi_data_processing format using native feagi_rust module
             try:
-                import feagi_rust_py_libs as fdp
+                import feagi_rust
 
-                # Create FeagiByteStructure directly from raw bytes (modern API)
+                # Create FeagiByteStructure directly from raw bytes (native Rust API)
                 raw_bytes = data[:nbytes]
-                byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
+                
+                # Debug: Log byte structure details
+                if len(raw_bytes) < 10:
+                    logger.error(f"[DECODE-DEBUG] Received very short data: {len(raw_bytes)} bytes, hex={raw_bytes.hex()}")
+                elif len(raw_bytes) < 100:
+                    logger.debug(f"[DECODE-DEBUG] Received data: {len(raw_bytes)} bytes, first 20 bytes hex={raw_bytes[:20].hex()}")
+                
+                byte_structure = feagi_rust.FeagiByteStructure(raw_bytes)
 
                 # Get structure type using FEAGI's API (informational only)
                 try:
@@ -673,8 +688,8 @@ class SensoryNeuralStream:
                 except Exception:
                     structure_type = None
 
-                # Create CorticalMappedXYZPNeuronData from the byte structure (modern API)
-                cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                # Create CorticalMappedXYZPNeuronVoxelsDecoder from the byte structure (native Rust API)
+                cortical_mapped = feagi_rust.CorticalMappedXYZPNeuronVoxelsDecoder.new_from_feagi_byte_structure(
                     byte_structure
                 )
 
@@ -747,7 +762,7 @@ class SensoryNeuralStream:
 
                 if self._is_debug_npu_enabled():
                     logger.info(
-                        f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding"
+                        f"✅ Decoded {neuron_count} neurons using native feagi_rust decoder"
                     )
 
                 # Convert back to numpy arrays for SIMD performance
@@ -835,7 +850,7 @@ class SensoryNeuralStream:
 
             except Exception as e:
                 logger.error(
-                    f"❌ Failed to decode feagi_data_processing format: {e}"
+                    f"❌ Failed to decode using native feagi_rust decoder: {e}"
                 )
                 import traceback
 
@@ -869,21 +884,24 @@ class SensoryNeuralStream:
                 self._stats["decode_errors"] = self._stats.get("decode_errors", 0) + 1
                 return
 
-            # Fallback: standard feagi_data_processing byte structure
-            import feagi_rust_py_libs as fdp
-
-            byte_structure = fdp.data_serialization.FeagiByteStructure(raw_bytes)
-            structure_type = byte_structure.structure_type
-            # Log once if not the typical neuron categories type; do not early-return
+            # Fallback decoding - simplified
+            structure_type = raw_bytes[0] if len(raw_bytes) > 0 else 0
+            
+            # Log once if not the typical neuron categories type
             if structure_type != 11 and not hasattr(self, "_stype_warned_fallback"):
                 logger.info(
-                    f"[NPU-FALLBACK] structure_type={structure_type} (proceeding to decode)"
+                    f"[NPU-FALLBACK] structure_type={structure_type} (use REST API for sensory injection)"
                 )
                 self._stype_warned_fallback = True
 
-            cortical_mapped = fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
-                byte_structure
-            )
+            # For now, skip binary decoding - agents should use REST API for sensory injection
+            logger.debug("[SENSORY-SHM-FALLBACK] Binary sensory data - use REST API instead")
+            return
+            
+            # Placeholder for future Rust-based decoder
+            cortical_mapped = None  # TODO: Add feagi_rust.DataDecoder when available
+            if False:  # Disabled until decoder is available
+                byte_structure = None
             cortical_areas: Dict[str, Dict[str, Any]] = {}
             neuron_count = 0
             for (cortical_id_obj, neuron_arrays) in cortical_mapped.iter_full():

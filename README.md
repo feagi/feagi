@@ -2,6 +2,41 @@
 
 FEAGI (Framework for Evolutionary Artificial General Intelligence) Core is the main neural simulation engine that provides brain-like processing capabilities.
 
+## Deployment
+
+### Prerequisites
+- Python 3.9+ 
+- Rust toolchain (for building Rust extensions)
+
+### Deploy FEAGI in 3 Steps
+
+```bash
+# 1. Create and activate virtual environment
+cd feagi_core
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 2. Install FEAGI with dependencies
+pip install -e .
+
+# 3. Start FEAGI
+python -m feagi.main
+```
+
+### Verify Deployment
+Once FEAGI starts, verify it's running:
+```bash
+# Check health endpoint
+curl http://localhost:8000/v1/system/health_check
+
+# Expected response: {"status":"healthy",...}
+```
+
+FEAGI is now ready to accept connections on:
+- **REST API**: `http://localhost:8000` (web interface)
+- **ZMQ Sensory**: `tcp://localhost:5558` (agent input)
+- **ZMQ Motor**: `tcp://localhost:5564` (agent output)
+
 ## Quick Start
 
 ### Installation

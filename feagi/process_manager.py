@@ -1176,6 +1176,15 @@ class ProcessManager:
         # Start monitoring thread
         self._start_monitoring()
 
+        # Initialize and start the heartbeat coordinator
+        try:
+            from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+            heartbeat_coordinator = get_heartbeat_coordinator()
+            heartbeat_coordinator.start_monitoring()
+            logger.info("💗 Agent Heartbeat Coordinator started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start heartbeat coordinator: {e}")
+
         # Transition from startup phase to runtime phase
         #  This allows FQ samplers to be created without critical service
         #  checks during runtime
@@ -1338,6 +1347,15 @@ class ProcessManager:
 
             # Stop running flag to signal all services to stop
             self._running = False
+
+            # Shutdown heartbeat coordinator first
+            try:
+                from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+                heartbeat_coordinator = get_heartbeat_coordinator()
+                heartbeat_coordinator._running = False  # Stop the monitoring flag
+                print("💔 Heartbeat coordinator shutdown initiated", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"Error stopping heartbeat coordinator: {e}", file=sys.stderr, flush=True)
 
             # Import required modules for timeout handling
             import threading
@@ -1604,8 +1622,20 @@ class ProcessManager:
         return getattr(self, "_motor_fq_sampler", None)
 
     def get_viz_fq_sampler(self):
-        """Get the visualization FQ sampler instance."""
-        return getattr(self, "_viz_fq_sampler", None)
+        """Get the visualization FQ sampler instance.
+        
+        RUST/RTOS COMPATIBLE: Direct reference retrieval with no fallbacks.
+        Returns None if no sampler exists (normal during startup before agents connect).
+        """
+        sampler = getattr(self, "_viz_fq_sampler", None)
+        if sampler:
+            logger.debug(f"✅ get_viz_fq_sampler: Found sampler {sampler.instance_id} in ProcessManager id={id(self)}")
+        else:
+            logger.debug(
+                f"ℹ️ get_viz_fq_sampler: No visualization sampler in ProcessManager id={id(self)} "
+                "(normal if no visualization agents have connected yet)"
+            )
+        return sampler
 
     def get_fq_sampler_performance_stats(self):
         """Get performance statistics from both samplers."""
@@ -1752,7 +1782,8 @@ class ProcessManager:
             # Check if sampler already exists for this mode
             if mode == "visualization" and self._viz_fq_sampler is not None:
                 logger.warning(
-                    f"🔥 Visualization FQ Sampler already exists: {self._viz_fq_sampler.instance_id}"
+                    f"🔄🔄🔄 Visualization FQ Sampler already exists: {self._viz_fq_sampler.instance_id} - "
+                    f"reusing existing sampler (ProcessManager id={id(self)})"
                 )
                 return True
             elif mode == "opu" and self._motor_fq_sampler is not None:
@@ -1761,32 +1792,31 @@ class ProcessManager:
                 )
                 return True
 
-            # Import FQ sampler
-            from feagi.npu.fq_sampler import UnifiedFQSampler
+            # Import Rust FQ sampler wrapper
+            from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
-            # Create the sampler
-            fq_sampler = UnifiedFQSampler(
-                fire_queue_provider=self._core_api,
-                sample_frequency_hz=frequency,
-                sampling_mode=mode,
-                connectome_manager=(
-                    self._core_api.get_connectome_manager()
-                    if self._core_api
-                    else None
-                ),
-                state_manager=(
-                    self._core_api.get_state_manager()
-                    if self._core_api
-                    else None
-                ),
-            )
+            # Create the Rust-backed sampler
+            # RustFQSamplerWrapper handles the Rust NPU integration internally
+            burst_engine = self._core_api.get_burst_engine() if self._core_api else None
+            rust_npu = burst_engine.rust_npu if burst_engine and hasattr(burst_engine, 'rust_npu') else None
+            
+            if not rust_npu:
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust NPU not available")
+                return False
+            
+            fq_sampler = RustFQSamplerWrapper(rust_npu_integration=rust_npu)
+            
+            # Configure the sampler after creation
+            fq_sampler.set_sample_frequency(frequency)
 
             # Store the sampler based on mode
             if mode == "visualization":
                 self._viz_fq_sampler = fq_sampler
-                logger.info(
-                    f"🎨 Visualization FQ Sampler created: {fq_sampler.instance_id}"
+                # CRITICAL DIAGNOSTIC: This should ALWAYS show if sampler is created
+                logger.warning(
+                    f"🎨🎨🎨 Visualization FQ Sampler created: {fq_sampler.instance_id} at {frequency}Hz"
                 )
+                logger.warning(f"🎨🎨🎨 [DIAGNOSTIC] Stored in ProcessManager instance id={id(self)}, _viz_fq_sampler={id(fq_sampler)}")
             elif mode == "opu":
                 self._motor_fq_sampler = fq_sampler
                 logger.info(
@@ -2101,10 +2131,11 @@ def get_process_manager() -> ProcessManager:
     """Get the global ProcessManager instance."""
     global _process_manager
     if _process_manager is None:
-        logger.info("[SINGLETON] Creating new ProcessManager instance")
+        logger.warning("🏭🏭🏭 [SINGLETON] Creating new ProcessManager instance")
         _process_manager = ProcessManager()
+        logger.warning(f"🏭🏭🏭 [SINGLETON] ProcessManager created with id={id(_process_manager)}")
     else:
-        logger.debug("[SINGLETON] Reusing existing ProcessManager instance")
+        logger.warning(f"🏭🏭🏭 [SINGLETON] Reusing existing ProcessManager instance id={id(_process_manager)}")
     return _process_manager
 
 

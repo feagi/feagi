@@ -317,18 +317,73 @@ class CorticalAreaAPI:
                 "cortical_destinations": parameters.get("mapping", {}),
                 "neuron_post_synaptic_potential": float(parameters.get("pstcr")) if "pstcr" in parameters else None,
                 "neuron_post_synaptic_potential_max": float(parameters.get("pstcrm")) if "pstcrm" in parameters else None,
-                "neuron_fire_threshold": float(area_data.get("firing_threshold")) if "firing_threshold" in area_data else None,
+                # Support both canonical and legacy parameter names
+                "neuron_fire_threshold": (
+                    float(
+                        parameters.get("firing_threshold")
+                        or parameters.get("fire_t")
+                    )
+                    if (
+                        parameters.get("firing_threshold") is not None
+                        or parameters.get("fire_t") is not None
+                    )
+                    else None
+                ),
                 "neuron_fire_threshold_increment": [
                     float(parameters.get("ftincx")) if "ftincx" in parameters else None,
                     float(parameters.get("ftincy")) if "ftincy" in parameters else None,
                     float(parameters.get("ftincz")) if "ftincz" in parameters else None,
                 ],
                 "neuron_firing_threshold_limit": int(parameters.get("fthlim")) if "fthlim" in parameters else None,
-                "neuron_refractory_period": int(area_data.get("refractory_period")) if "refractory_period" in area_data else None,
-                "neuron_leak_coefficient": float(area_data.get("leak_coefficient")) if "leak_coefficient" in area_data else None,
+                # Support both canonical and legacy parameter names
+                "neuron_refractory_period": (
+                    int(
+                        parameters.get("refractory_period")
+                        or parameters.get("refrac")
+                    )
+                    if (
+                        parameters.get("refractory_period") is not None
+                        or parameters.get("refrac") is not None
+                    )
+                    else None
+                ),
+                # Support both canonical and legacy parameter names
+                "neuron_leak_coefficient": (
+                    float(
+                        parameters.get("leak_coefficient")
+                        or parameters.get("leak_c")
+                    )
+                    if (
+                        parameters.get("leak_coefficient") is not None
+                        or parameters.get("leak_c") is not None
+                    )
+                    else None
+                ),
                 "neuron_leak_variability": float(parameters.get("leak_v")) if "leak_v" in parameters else None,
-                "neuron_consecutive_fire_count": int(parameters.get("c_fr_c")) if "c_fr_c" in parameters else None,
-                "neuron_snooze_period": int(parameters.get("snooze")) if "snooze" in parameters else None,
+                # Support both canonical and legacy parameter names
+                "neuron_consecutive_fire_count": (
+                    int(
+                        parameters.get("consecutive_fire_cnt_max")
+                        or parameters.get("c_fr_c")
+                    )
+                    if (
+                        parameters.get("consecutive_fire_cnt_max") is not None
+                        or parameters.get("c_fr_c") is not None
+                    )
+                    else None
+                ),
+                # Support both canonical and legacy parameter names
+                "neuron_snooze_period": (
+                    int(
+                        parameters.get("neuron_snooze_period")
+                        or parameters.get("snooze")
+                    )
+                    if (
+                        parameters.get("neuron_snooze_period") is not None
+                        or parameters.get("snooze") is not None
+                    )
+                    else None
+                ),
                 "neuron_degeneracy_coefficient": int(parameters.get("de_gen")) if "de_gen" in parameters else None,
                 "neuron_psp_uniform_distribution": bool(parameters.get("pspuni")) if "pspuni" in parameters else None,
                 "neuron_mp_charge_accumulation": bool(parameters.get("mp_acc")) if "mp_acc" in parameters else None,
@@ -337,7 +392,18 @@ class CorticalAreaAPI:
                 "neuron_lifespan_growth_rate": float(parameters.get("mem_gr")) if "mem_gr" in parameters else None,
                 "neuron_init_lifespan": int(parameters.get("mem_ls")) if "mem_ls" in parameters else None,
                 "temporal_depth": int(parameters.get("temporal_depth")) if "temporal_depth" in parameters else None,
-                "neuron_excitability": float(parameters.get("excite")) if "excite" in parameters else None,
+                # Support both canonical and legacy parameter names
+                "neuron_excitability": (
+                    float(
+                        parameters.get("neuron_excitability")
+                        or parameters.get("excite")
+                    )
+                    if (
+                        parameters.get("neuron_excitability") is not None
+                        or parameters.get("excite") is not None
+                    )
+                    else None
+                ),
                 "transforming": parameters.get(
                     "transforming", False
                 ),  # Runtime state flag - not from templates

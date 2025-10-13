@@ -221,7 +221,7 @@ def test_neuron_wrapper_class():
         position=(1, 2, 3),
         threshold=0.5,
         membrane_potential=0.2,
-        decay_rate=0.4,
+        leak_coefficient=0.4,
     )
 
     # Check properties

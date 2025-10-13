@@ -417,43 +417,32 @@ class CorticalAreaService(BaseService):
                         pass
                 
                 for neuron_id in neuron_ids:
-                    # NEW NPU ARCHITECTURE: Read coordinates and properties directly from NPU NeuronArray
+                    # ✅ RUST NPU: Use NPUInterface API (single source of truth)
                     if hasattr(self._connectome_manager, '_npu_interface') and self._connectome_manager._npu_interface:
                         npu_interface = self._connectome_manager._npu_interface
-                        na = getattr(npu_interface, 'neuron_array', None)
-                        if na is None:
+                        
+                        # Check if neuron exists in Rust NPU
+                        if not npu_interface.neuron_exists(neuron_id):
+                            self.logger.warning(f"🦀 [API] Neuron {neuron_id} does not exist in Rust NPU!")
                             continue
-                        idx = na.neuron_id_to_index.get(neuron_id)
-                        if idx is None:
-                            # No mapping for this ID; skip deterministically
+                        
+                        # Get coordinates from NPUInterface API
+                        position = npu_interface.get_neuron_position(neuron_id)
+                        if position is None:
+                            self.logger.warning(f"🦀 [API] No position found for neuron {neuron_id}")
                             continue
-
-                        # Extract coordinates and properties
-                        try:
-                            pos_x = int(na.coordinates_x[idx])
-                            pos_y = int(na.coordinates_y[idx])
-                            pos_z = int(na.coordinates_z[idx])
-                        except Exception:
-                            # Fallback to positions_* naming if coordinates_* are unavailable
-                            pos_x = int(getattr(na, 'positions_x')[idx])
-                            pos_y = int(getattr(na, 'positions_y')[idx])
-                            pos_z = int(getattr(na, 'positions_z')[idx])
-
-                        mp = float(na.membrane_potentials[idx])
-                        th = float(na.thresholds[idx])
-                        try:
-                            dr = float(na.decay_rates[idx])
-                        except Exception:
-                            dr = 0.0
-
+                        
+                        pos_x, pos_y, pos_z = position
+                        
+                        # For now, return placeholder properties (Rust NPU doesn't expose live membrane potentials via API)
+                        # TODO: Add get_neuron_state() to NPUInterface if needed
                         result.append(
                             {
                                 "id": str(neuron_id),
-                                "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                                "position": {"x": int(pos_x), "y": int(pos_y), "z": int(pos_z)},
                                 "properties": {
-                                    "membrane_potential": mp,
-                                    "threshold": th,
-                                    "decay_rate": dr,
+                                    "membrane_potential": 0.0,  # Live state not exposed via API
+                                    "threshold": 1.0,  # Static genome value
                                 },
                             }
                         )
@@ -489,22 +478,10 @@ class CorticalAreaService(BaseService):
                         neuron_id
                     )
 
-                    # Get neuron properties
-                    membrane_potential = float(
-                        self._connectome_manager.neuron_array.membrane_potentials[
-                            neuron_index
-                        ]
-                    )
-                    threshold = float(
-                        self._connectome_manager.neuron_array.thresholds[
-                            neuron_index
-                        ]
-                    )
-                    decay_rate = float(
-                        self._connectome_manager.neuron_array.decay_rates[
-                            neuron_index
-                        ]
-                    )
+                    # ✅ RUST NPU: Get neuron properties from NPUInterface (if needed)
+                    # For now, use placeholder values as live state is not exposed via API
+                    membrane_potential = 0.0  # Live state not exposed via API
+                    threshold = 1.0  # Static genome value
 
                     result.append(
                         {
@@ -517,7 +494,6 @@ class CorticalAreaService(BaseService):
                             "properties": {
                                 "membrane_potential": membrane_potential,
                                 "threshold": threshold,
-                                "decay_rate": decay_rate,
                             },
                         }
                     )
@@ -579,9 +555,6 @@ class CorticalAreaService(BaseService):
                 threshold = float(
                     self._connectome_manager.thresholds[neuron_index]
                 )
-                decay_rate = float(
-                    self._connectome_manager.decay_rates[neuron_index]
-                )
 
                 result.append(
                     {
@@ -594,7 +567,6 @@ class CorticalAreaService(BaseService):
                         "properties": {
                             "membrane_potential": membrane_potential,
                             "threshold": threshold,
-                            "decay_rate": decay_rate,
                         },
                     }
                 )

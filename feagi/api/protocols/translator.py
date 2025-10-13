@@ -35,8 +35,9 @@ import time
 import zlib
 from typing import Any, Dict, List, Optional, Union
 
-# Import from the feagi-data-processing package
-import feagi_rust_py_libs as frpl
+# NOTE: Moving away from Python dependencies towards Rust-native implementations
+# Visualization encoding now uses feagi_rust.VisualizationEncoder
+# Agent communication uses plain JSON for handshakes/commands
 
 from feagi.api.protocols.constants import (
     ByteStructureID,
@@ -59,13 +60,15 @@ SUPPORTED_VERSIONS = {
 
 def get_structure_info(data: bytes) -> Dict[str, Any]:
     """Get structure info from byte data."""
+    # Simplified: Check first byte for structure type
     try:
-        byte_structure = frpl.data_serialization.FeagiByteStructure(data)
-        return {
-            "structure_type": byte_structure.structure_type,
-            "version": byte_structure.version,
-            "size": len(data),
-        }
+        if len(data) >= 2:
+            return {
+                "structure_type": data[0],
+                "version": data[1],
+                "size": len(data),
+            }
+        return {"error": "Insufficient data"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -90,8 +93,7 @@ class ByteStructureTranslator:
         Creates encoder and decoder instances and initializes the client
         capability registry.
         """
-        # Use the new feagi_data_processing API
-        self.frpl = frpl
+        # NOTE: Simplified for Rust migration - uses JSON for agent communication
 
         # Default versions to use if not specified
         self.default_versions = {
@@ -107,126 +109,16 @@ class ByteStructureTranslator:
         self.client_capabilities: Dict[str, Dict[str, Any]] = {}
 
     def _encode_json_message(self, data: dict) -> bytes:
-        """Encode JSON data using feagi_data_processing."""
-        try:
-            # Create a CorticalMappedXYZPNeuronData container for JSON data
-            cortical_mapped = (
-                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-            )
-            byte_structure = cortical_mapped.as_new_feagi_byte_structure()
-
-            # For now, we'll store the JSON as metadata in the structure
-            # This is a simplified approach - in practice you might want a more
-            # sophisticated mapping
-            return byte_structure.copy_out_as_byte_vector()
-        except Exception as e:
-            logger.error(
-                f"Failed to encode JSON with feagi_data_processing: {e}"
-            )
-            # Fallback to simple JSON encoding
-            return json.dumps(data).encode("utf-8")
+        """Encode JSON data as plain UTF-8 bytes."""
+        return json.dumps(data).encode("utf-8")
 
     def _encode_neuron_data(
         self, cortical_data: Dict[str, Dict[str, Any]], version: int = 1
     ) -> bytes:
-        """Encode neuron data using feagi_data_processing with high-performance
-        NumPy arrays."""
-        try:
-            import numpy as np
-
-            # Create the main mapped neuron data container
-            generated_mapped_neuron_data = (
-                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
-            )
-
-            # Process cortical data format:
-            # {cortical_id: {x: [...], y: [...], z: [...], potentials: [...]}}
-            for cortical_id, neuron_arrays in cortical_data.items():
-                if isinstance(neuron_arrays, dict):
-                    x_vals = neuron_arrays.get("x", [])
-                    y_vals = neuron_arrays.get("y", [])
-                    z_vals = neuron_arrays.get("z", [])
-                    p_vals = neuron_arrays.get(
-                        "potentials", neuron_arrays.get("p", [])
-                    )
-
-                    # Skip empty areas
-                    if not x_vals and not y_vals and not z_vals:
-                        continue
-
-                    # Ensure all arrays are the same length
-                    max_len = max(
-                        len(x_vals), len(y_vals), len(z_vals), len(p_vals)
-                    )
-                    if max_len == 0:
-                        continue
-
-                    # Pad arrays to same length if needed and convert to NumPy
-                    # with proper dtypes
-                    x_vals.extend([0] * (max_len - len(x_vals)))
-                    y_vals.extend([0] * (max_len - len(y_vals)))
-                    z_vals.extend([0] * (max_len - len(z_vals)))
-                    p_vals.extend([0.0] * (max_len - len(p_vals)))
-
-                    # Create NumPy arrays with proper dtypes for performance
-                    neurons_x = np.asarray(x_vals, dtype=np.uint32)
-                    neurons_y = np.asarray(y_vals, dtype=np.uint32)
-                    neurons_z = np.asarray(z_vals, dtype=np.uint32)
-                    neurons_p = np.asarray(p_vals, dtype=np.float32)
-
-                    #  Create cortical ID using modern feagi-rust-py-libs
-                    #  approach
-                    area_str = str(cortical_id)
-
-                    try:
-                        #  Try to create cortical ID directly from string -
-                        #  handles all modern format IDs
-                        cortical_id_obj = (
-                            self.frpl.genome.CorticalID.try_new_from_string(
-                                area_str
-                            )
-                        )
-                    except ValueError:
-                        # Fallback for areas that can't be parsed directly
-                        if area_str == "_power":
-                            cortical_id_obj = self.frpl.genome.CorticalID.new_core_cortical_area_id(
-                                self.frpl.genome.CoreCorticalType.Power
-                            )
-                        elif area_str == "_death":
-                            cortical_id_obj = self.frpl.genome.CorticalID.new_core_cortical_area_id(
-                                self.frpl.genome.CoreCorticalType.Death
-                            )
-                        else:
-                            # For unknown areas, use custom with 'c' prefix
-                            cortical_id_obj = self.frpl.genome.CorticalID.new_custom_cortical_area_id(
-                                f"c{area_str}"
-                            )
-
-                    #  Use high-performance NumPy approach to create neuron
-                    #  arrays
-                    # (no cortical_id parameter)
-                    neurons_array = self.frpl.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
-                        neurons_x, neurons_y, neurons_z, neurons_p
-                    )
-
-                    #  Insert the neuron array into the mapped data with its
-                    #  cortical ID
-                    generated_mapped_neuron_data.insert(
-                        cortical_id_obj, neurons_array
-                    )
-
-            # Create the final byte structure from the mapped data
-            byte_structure = (
-                generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            )
-            return byte_structure.copy_out_as_byte_vector()
-
-        except Exception as e:
-            logger.error(
-                f"Failed to encode neuron data with feagi_data_processing: {e}"
-            )
-            # Fallback to JSON encoding
-            return json.dumps(cortical_data).encode("utf-8")
+        """Encode neuron data - DEPRECATED: Use feagi_rust.VisualizationEncoder instead."""
+        logger.warning("translator._encode_neuron_data is deprecated - use feagi_rust.VisualizationEncoder")
+        # Fallback to JSON encoding for compatibility
+        return json.dumps(cortical_data).encode("utf-8")
 
     def register_client_capabilities(
         self, client_id: str, capabilities: Dict[str, Any]
@@ -535,87 +427,29 @@ class ByteStructureTranslator:
         Raises:
             ValueError: If the message is invalid
         """
+        # Simplified decoder - agent communication uses plain JSON
         try:
-            # Try to create a FeagiByteStructure from the data
-            try:
-                byte_structure = (
-                    self.frpl.data_serialization.FeagiByteStructure(
-                        message_data
-                    )
-                )
-                structure_info = get_structure_info(message_data)
-                structure_type = structure_info.get("structure_type", 0)
-
-                if structure_type == 11:  # NeuronCategoricalXYZP
-                    #  Create CorticalMappedXYZPNeuronData from the byte
-                    #  structure
-                    cortical_mapped = (
-                        self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
-                            byte_structure
-                        )
-                    )
-
-                    # Extract neuron data using iter_full()
-                    neurons = []
-                    for (
-                        cortical_id,
-                        neuron_arrays,
-                    ) in cortical_mapped.iter_full():
-                        #  neuron_arrays is a tuple: (x_coords, y_coords,
-                        #  z_coords, potentials)
-                        x_coords, y_coords, z_coords, potentials = (
-                            neuron_arrays
-                        )
-                        for i in range(len(x_coords)):
-                            neurons.append(
-                                {
-                                    "x": int(x_coords[i]),
-                                    "y": int(y_coords[i]),
-                                    "z": int(z_coords[i]),
-                                    "p": float(potentials[i]),
-                                    "cortical_id": cortical_id,
-                                }
-                            )
-
-                    return {
-                        "message_type": "neuron_data",
-                        "data": neurons,
-                        "structure_type": structure_type,
-                    }
-                else:
-                    return {
-                        "message_type": "unknown",
-                        "structure_type": structure_type,
-                        "data": (
-                            message_data.hex()
-                            if len(message_data) < 100
-                            else f"binary_data_{len(message_data)}_bytes"
-                        ),
-                    }
-
-            except Exception as decode_error:
-                # Fallback to JSON parsing
+            # Try JSON decoding first (most common for agent communication)
+            return json.loads(message_data.decode("utf-8"))
+        except Exception as json_error:
+            # Check if it's a binary structure
+            structure_info = get_structure_info(message_data)
+            structure_type = structure_info.get("structure_type", 0)
+            
+            if structure_type == 1:  # JSON byte structure - try again
                 try:
-                    import json
-
-                    decoded = json.loads(message_data.decode("utf-8"))
-                    return decoded
+                    return json.loads(message_data.decode("utf-8"))
                 except Exception:
-                    # Last resort - return raw data info
-                    return {
-                        "message_type": "raw_data",
-                        "error": str(decode_error),
-                        "data_length": len(message_data),
-                        "data_preview": (
-                            message_data[:50].hex()
-                            if len(message_data) >= 50
-                            else message_data.hex()
-                        ),
-                    }
-
-        except Exception as e:
-            logger.error(f"Failed to decode message: {e}")
-            raise ValueError(f"Failed to decode message: {e}") from e
+                    pass
+            
+            # Unknown binary data - return metadata
+            logger.warning(f"Received non-JSON binary data (type {structure_type}), returning metadata")
+            return {
+                "message_type": "binary_data",
+                "structure_type": structure_type,
+                "data_length": len(message_data),
+                "error": str(json_error),
+            }
 
     def extract_capabilities(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Extract capabilities from a decoded message.

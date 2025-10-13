@@ -58,66 +58,103 @@ class FCLManagerAdapter:
     def get_global_fcl(self):
         """Get global FCL as roaring bitmap (compatibility method).
         
-        In new architecture, returns firing neurons from previous Fire Queue,
-        since FCL is transient and gets reset each burst.
+        In new architecture, returns firing neurons from Rust Fire Queue.
+        Uses direct Fire Queue access to bypass FQ Sampler rate limiting.
         """
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
-            # Return empty roaring bitmap-like structure
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
             return EmptyBitmapAdapter()
-            
-        fire_queue = self.burst_engine.previous_fire_queue
+        
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            return EmptyBitmapAdapter()
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        
+        if not fire_queue_data:
+            return EmptyBitmapAdapter()
+        
+        # Extract all neuron IDs from all cortical areas
         neuron_ids = []
-        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
-            neuron_ids.extend([n.neuron_id for n in cortical_neurons])
+        for area_data in fire_queue_data.values():
+            neuron_ids.extend(area_data.get('neuron_ids', []))
         
         return BitmapAdapter(neuron_ids)
     
     def get_fcl_by_cortical(self):
         """Get FCL organized by cortical areas (compatibility method)."""
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
             return {}
-            
-        fire_queue = self.burst_engine.previous_fire_queue
+        
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            return {}
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        if not fire_queue_data:
+            return {}
+        
+        # Convert to cortical FCL format
         cortical_fcl = {}
-        for cortical_idx, neurons in fire_queue.firing_neurons_by_area.items():
-            neuron_ids = [n.neuron_id for n in neurons]
+        for cortical_idx, area_data in fire_queue_data.items():
+            neuron_ids = area_data.get('neuron_ids', [])
             cortical_fcl[cortical_idx] = BitmapAdapter(neuron_ids)
         
         return cortical_fcl
     
     @property
     def window_size(self):
-        """Get default window size from fire ledger."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            return self.burst_engine.fire_ledger.default_window_size
+        """Get default window size from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Rust Fire Ledger default is 20 (hardcoded in Rust)
+            return 20
         return 20  # Default window size
         
     def get_cortical_window_size(self, cortical_idx: int) -> int:
-        """Get window size for specific cortical area."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            fire_ledger = self.burst_engine.fire_ledger
-            if cortical_idx in fire_ledger.cortical_histories:
-                return fire_ledger.cortical_histories[cortical_idx].window_size
-            return fire_ledger.default_window_size
+        """Get window size for specific cortical area from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Get window size from Rust Fire Ledger
+            try:
+                return self.burst_engine.rust_npu.get_fire_ledger_window_size(cortical_idx)
+            except Exception:
+                return 20
         return 20  # Default window size
     
     @property
     def memory_cortical_indices(self):
-        """Get memory cortical area indices from Fire Ledger."""
-        if self.burst_engine and self.burst_engine.fire_ledger:
-            return set(self.burst_engine.fire_ledger.memory_areas.keys())
+        """Get memory cortical area indices from Rust Fire Ledger."""
+        if self.burst_engine and hasattr(self.burst_engine, 'rust_npu') and self.burst_engine.rust_npu:
+            # Get all configured areas from Rust Fire Ledger
+            try:
+                configs = self.burst_engine.rust_npu.get_all_fire_ledger_configs()
+                return set(configs.keys())
+            except Exception:
+                return set()
         return set()
     
     @property 
     def total_neurons_fired(self):
         """Get total neurons that fired in the last timestep."""
-        if not self.burst_engine or not self.burst_engine.previous_fire_queue:
+        if not self.burst_engine or not hasattr(self.burst_engine, 'rust_npu'):
             return 0
         
-        fire_queue = self.burst_engine.previous_fire_queue
+        # Get Rust NPU
+        rust_npu = self.burst_engine.rust_npu
+        if not rust_npu:
+            return 0
+        
+        # Get current Fire Queue directly (bypasses rate limiting)
+        fire_queue_data = rust_npu.get_current_fire_queue()
+        if not fire_queue_data:
+            return 0
+        
+        # Count total neurons across all areas
         total = 0
-        for cortical_neurons in fire_queue.firing_neurons_by_area.values():
-            total += len(cortical_neurons)
+        for area_data in fire_queue_data.values():
+            total += len(area_data.get('neuron_ids', []))
         return total
 
 
@@ -640,69 +677,104 @@ class CoreAPIService:
         )
 
         try:
-            # Try NPU interface first for better performance
-            properties = {}
-            
-            # Get all standard neuron properties from NPU
-            property_names = [
-                'position', 'membrane_potential', 'threshold', 'leak_coefficient', 
-                'excitability', 'refractory_counter', 'neuron_type'
-            ]
-            
-            for prop_name in property_names:
-                try:
-                    result = self._npu_service.get_neuron_property(neuron_id, prop_name)
-                    if result.get("success", False):
-                        properties[prop_name] = result["data"]["value"]
-                except Exception:
-                    # Continue with other properties if one fails
-                    continue
-            
-            # Build full response strictly from NPU + mappings (no legacy fallbacks)
+            # Get neuron data directly from Rust NPU using neuron_id
+            # Rust NPU handles ID→index mapping internally via HashMap
             cm = self._connectome_manager
-            npu = getattr(cm, "_npu_interface", None)
-            if not npu or not hasattr(npu, "neuron_array"):
+            npu_interface = getattr(cm, "_npu_interface", None)
+            
+            if not npu_interface:
                 return None
-            na = npu.neuron_array
-            if neuron_id not in na.neuron_id_to_index:
+            
+            # Get Rust NPU handle
+            rust_npu = npu_interface.rust_npu
+            if not rust_npu:
                 return None
-            idx = na.neuron_id_to_index[neuron_id]
-            cortical_idx = int(na.cortical_idxs[idx])
+            
+            # CLEAN ARCHITECTURE: Pass neuron_id directly to Rust
+            # Rust NPU uses internal neuron_id_to_index HashMap to find the array index
+            state = rust_npu.get_neuron_state(neuron_id)
+            if not state:
+                return None
+            
+            consecutive_fire_count, consecutive_fire_limit, snooze_period, threshold, membrane_potential, refractory_countdown = state
+            
+            # Get cortical area from NPUInterface mapping (still needed for API response)
+            cortical_idx = npu_interface.neuron_to_area.get(neuron_id)
+            
+            properties = {}
             # cortical_id via NPU registry
             cortical_id = None
             try:
-                area_info = npu.cortical_areas.get(cortical_idx)
+                area_info = npu_interface.cortical_areas.get(cortical_idx)
                 if area_info:
                     cortical_id = area_info.get("cortical_id")
             except Exception:
                 cortical_id = None
 
-            # Populate required fields (override any partial/None values)
-            properties["position"] = [
-                int(na.coordinates_x[idx]),
-                int(na.coordinates_y[idx]),
-                int(na.coordinates_z[idx]),
-            ]
-            properties["threshold"] = float(na.thresholds[idx])
-            properties["membrane_potential"] = float(na.membrane_potentials[idx])
-            properties["resting_potential"] = float(na.resting_potentials[idx]) if hasattr(na, "resting_potentials") else 0.0
-            properties["decay_rate"] = float(na.decay_rates[idx])
-            properties["refractory_period"] = int(na.refractory_periods[idx])
-            properties["refractory_counter"] = int(na.refractory_counters[idx])
-            if "properties" not in properties or properties["properties"] is None:
-                properties["properties"] = {}
+            # Get position from NPUInterface mapping
+            position = npu_interface.neuron_to_position.get(neuron_id, (0, 0, 0))
+            
+            # Get additional properties by calling Rust NPU individual getters (use neuron_id directly!)
+            # CRITICAL: These methods now use neuron_id_to_index HashMap internally
+            refractory_period_val = rust_npu.get_neuron_refractory_period(neuron_id) if hasattr(rust_npu, 'get_neuron_refractory_period') else 0
+            leak_coef = rust_npu.get_neuron_leak_coefficient(neuron_id) if hasattr(rust_npu, 'get_neuron_leak_coefficient') else 0.0
+            resting = rust_npu.get_neuron_resting_potential(neuron_id) if hasattr(rust_npu, 'get_neuron_resting_potential') else 0.0
+            excitability = rust_npu.get_neuron_excitability(neuron_id) if hasattr(rust_npu, 'get_neuron_excitability') else 1.0
+            
+            # Populate required fields from Rust NPU state
+            properties["position"] = list(position) if isinstance(position, tuple) else position
+            properties["threshold"] = float(threshold)  # From Rust NPU state
+            properties["membrane_potential"] = float(membrane_potential)  # From Rust NPU state
+            properties["resting_potential"] = float(resting)
+            properties["leak_coefficient"] = float(leak_coef)  # 0.0-1.0 (percentage loss per burst)
+            properties["refractory_period"] = int(refractory_period_val) if refractory_period_val is not None else 0
+            properties["refractory_counter"] = int(refractory_countdown)  # From Rust NPU state
+            properties["consecutive_fire_count"] = int(consecutive_fire_count)  # From Rust NPU state
+            properties["consecutive_fire_limit"] = int(consecutive_fire_limit)  # From Rust NPU state
+            properties["snooze_period"] = int(snooze_period)  # From Rust NPU state
+            properties["excitability"] = float(excitability) if excitability is not None else 1.0
+            properties["neuron_type"] = 0  # TODO: Add to get_neuron_state or getter
+            properties["properties"] = {}
 
-            # Synapses via NPU SynapseArray
-            sa = getattr(cm, "synapse_array", None)
-            if sa is None and hasattr(npu, "synapse_array"):
-                sa = npu.synapse_array
-            outgoing = sa.get_outgoing_connections(neuron_id) if sa else []
-            incoming = sa.get_incoming_connections(neuron_id) if sa else []
+            # Synapses - get from Rust NPU
+            outgoing = []
+            incoming = []
+            
+            if hasattr(rust_npu, 'get_outgoing_synapses'):
+                try:
+                    # Returns Vec<(target_neuron_id, weight, conductance, synapse_type)>
+                    outgoing_raw = rust_npu.get_outgoing_synapses(neuron_id)
+                    outgoing = [(target_id, weight, conductance, syn_type) 
+                               for (target_id, weight, conductance, syn_type) in outgoing_raw]
+                except Exception as e:
+                    self.logger.debug(f"Failed to get outgoing synapses for neuron {neuron_id}: {e}")
+            
+            if hasattr(rust_npu, 'get_incoming_synapses'):
+                try:
+                    # Returns Vec<(source_neuron_id, weight, conductance, synapse_type)>
+                    incoming_raw = rust_npu.get_incoming_synapses(neuron_id)
+                    incoming = [(source_id, weight, conductance, syn_type) 
+                               for (source_id, weight, conductance, syn_type) in incoming_raw]
+                except Exception as e:
+                    self.logger.debug(f"Failed to get incoming synapses for neuron {neuron_id}: {e}")
+            
             properties["outgoing_synapses"] = [
-                {"target_neuron_id": int(t), "weight": float(w)} for (t, w) in outgoing
+                {
+                    "target_neuron_id": int(t),
+                    "weight": float(w) / 255.0,  # Convert u8 to float
+                    "conductance": float(c) / 255.0,  # Convert u8 to float
+                    "synapse_type": "excitatory" if syn_type == 0 else "inhibitory"
+                } 
+                for (t, w, c, syn_type) in outgoing
             ]
             properties["incoming_synapses"] = [
-                {"source_neuron_id": int(s), "weight": float(w)} for (s, w) in incoming
+                {
+                    "source_neuron_id": int(s),
+                    "weight": float(w) / 255.0,  # Convert u8 to float
+                    "conductance": float(c) / 255.0,  # Convert u8 to float
+                    "synapse_type": "excitatory" if syn_type == 0 else "inhibitory"
+                }
+                for (s, w, c, syn_type) in incoming
             ]
             properties["synapse_counts"] = {
                 "outgoing": len(outgoing),
@@ -1389,7 +1461,7 @@ class CoreAPIService:
 
                 self.logger.info("✅ NPU unified: BurstEngine and ConnectomeManager share the same NPUInterface instance")
                 self.logger.info(f"   NPU id: {id(npu_interface)}")
-                self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
                 self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                 # NPU configured
             else:
@@ -1422,7 +1494,7 @@ class CoreAPIService:
 
                     self.logger.info("✅ NPU unified for existing singleton")
                     self.logger.info(f"   NPU id: {id(npu_interface)}")
-                    self.logger.info(f"   Max neurons: {npu_interface.neuron_array.max_neurons:,}")
+                    self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
                     self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
                     # NPU is configured at this point
                 else:
@@ -1502,31 +1574,16 @@ class CoreAPIService:
         return self._connectome_manager
 
     # =================================================================
-    # CRITICAL MISSING METHODS - FIRE QUEUE & STATE MANAGEMENT
+    # FIRE QUEUE & STATE MANAGEMENT
     # =================================================================
-
-    def get_current_fire_queue(self):
-        """Get current fire queue from burst engine for FQ sampler access.
-        
-        This method is called by FQ samplers to get access to the current
-        fire queue data. It delegates to the BurstEngine's get_current_fire_queue method.
-        
-        Returns:
-            FireQueue instance or None if not available
-        """
-        try:
-            burst_engine = self.get_burst_engine()
-            if burst_engine and hasattr(burst_engine, 'get_current_fire_queue'):
-                return burst_engine.get_current_fire_queue()
-            return None
-        except Exception as e:
-            self.logger.error(f"Error accessing current fire queue: {e}")
-            return None
+    # NOTE: Fire Queue is now in Rust. Access via:
+    #   burst_engine.rust_npu.sample_fire_queue()
+    # Legacy get_current_fire_queue() removed - use Rust FQ Sampler instead.
     
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data from new FireQueue architecture."""
+        """Get the global fire queue data from Rust Fire Queue."""
         try:
-            # Get the current or previous fire queue from burst engine
+            # Get burst engine
             from feagi.npu.burst_engine import BurstEngine
             burst_engine = BurstEngine.get_instance()
             
@@ -1534,29 +1591,52 @@ class CoreAPIService:
                 self.logger.debug("🔥 [CORE API] No burst engine available")
                 return self._empty_fire_queue_response()
             
-            # Try to get the previous fire queue (contains last timestep's fired neurons)
-            fire_queue = burst_engine.previous_fire_queue
-            if not fire_queue or fire_queue.is_empty():
+            # Get Rust NPU
+            if not hasattr(burst_engine, 'rust_npu') or not burst_engine.rust_npu:
+                self.logger.debug("🔥 [CORE API] Rust NPU not available")
+                return self._empty_fire_queue_response()
+            
+            # Sample from Rust Fire Queue
+            sample = burst_engine.rust_npu.sample_fire_queue()
+            if not sample:
                 self.logger.debug("🔥 [CORE API] Fire queue is empty - no neurons fired globally")
                 return self._empty_fire_queue_response()
             
-            # Extract data directly from FireQueue
+            # Extract data from all cortical areas
             neuron_ids = []
             membrane_potentials = []
             thresholds = []
             refractory_counters = []
             coordinates = []
             
-            # Collect data from all cortical areas in fire queue
-            for cortical_idx, firing_neurons in fire_queue.firing_neurons_by_area.items():
-                for neuron in firing_neurons:
-                    neuron_ids.append(neuron.neuron_id)
-                    membrane_potentials.append(float(neuron.membrane_potential))
-                    # Note: FireQueue doesn't store thresholds/refractory data yet
-                    # These could be looked up from NPU if needed
-                    thresholds.append(1.0)  # Default threshold
-                    refractory_counters.append(0)  # Default refractory
-                    coordinates.append(tuple(neuron.coordinates))
+            for cortical_idx, area_data in sample.items():
+                neuron_ids.extend(area_data.get('neuron_ids', []))
+                membrane_potentials.extend(area_data.get('membrane_potentials', []))
+                
+                # Extract coordinates as tuples
+                coords_x = area_data.get('coordinates_x', [])
+                coords_y = area_data.get('coordinates_y', [])
+                coords_z = area_data.get('coordinates_z', [])
+                for i in range(len(coords_x)):
+                    coordinates.append((coords_x[i], coords_y[i], coords_z[i]))
+                
+                # Get neuron states from Rust NPU
+                rust_npu = burst_engine.rust_npu._rust_npu
+                for nid in area_data.get('neuron_ids', []):
+                    try:
+                        state = rust_npu.get_neuron_state(nid)
+                        if state:
+                            # state = (cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown)
+                            _cfc, _cfc_limit, _snooze, _potential, threshold_val, refrac_countdown = state
+                            thresholds.append(float(threshold_val))
+                            refractory_counters.append(int(refrac_countdown))
+                        else:
+                            thresholds.append(1.0)
+                            refractory_counters.append(0)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to get state for neuron {nid}: {e}")
+                        thresholds.append(1.0)
+                        refractory_counters.append(0)
             
             self.logger.debug(
                 f"🔥 [CORE API] Global fire queue has {len(neuron_ids)} firing neurons"
@@ -1970,65 +2050,144 @@ class CoreAPIService:
     # =================================================================
     
     def get_fire_ledger_default_window_size(self) -> int:
-        """Get the default window size for Fire Ledger historical storage."""
+        """Get the default window size for Rust Fire Ledger historical storage."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                return burst_engine.fire_ledger.default_window_size
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                # Rust Fire Ledger default is 20 (hardcoded in Rust)
+                return 20
             return 20  # Default window size
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger default window size: {str(e)}")
             return 20
     
     def get_fire_ledger_area_window_size(self, cortical_idx: int) -> int:
-        """Get window size for specific cortical area in Fire Ledger."""
+        """Get window size for specific cortical area in Rust Fire Ledger."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                fire_ledger = burst_engine.fire_ledger
-                if cortical_idx in fire_ledger.cortical_histories:
-                    return fire_ledger.cortical_histories[cortical_idx].window_size
-                return fire_ledger.default_window_size
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                return burst_engine.rust_npu.get_fire_ledger_window_size(cortical_idx)
             return 20  # Default window size
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger window size for area {cortical_idx}: {str(e)}")
             return 20
     
     def set_fire_ledger_area_window_size(self, cortical_idx: int, window_size: int) -> bool:
-        """Set window size for specific cortical area in Fire Ledger."""
+        """Set window size for specific cortical area in Rust Fire Ledger."""
         try:
             if window_size <= 0 or window_size > 10000:
                 raise ValueError("Window size must be between 1 and 10000")
                 
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                burst_engine.fire_ledger.configure_area_window(cortical_idx, window_size)
-                self.logger.info(f"Updated Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                burst_engine.rust_npu.configure_fire_ledger_window(cortical_idx, window_size)
+                self.logger.info(f"Updated Rust Fire Ledger window size to {window_size} for cortical area {cortical_idx}")
                 return True
             
-            self.logger.warning("No Fire Ledger available to configure window size")
+            self.logger.warning("No Rust Fire Ledger available to configure window size")
             return False
         except Exception as e:
             self.logger.error(f"Error setting Fire Ledger window size for area {cortical_idx}: {str(e)}")
             return False
     
     def get_fire_ledger_areas_window_config(self) -> Dict[int, int]:
-        """Get window size configuration for all cortical areas in Fire Ledger."""
+        """Get window size configuration for all cortical areas in Rust Fire Ledger."""
         try:
             burst_engine = self.get_burst_engine()
-            if burst_engine and burst_engine.fire_ledger:
-                fire_ledger = burst_engine.fire_ledger
-                window_config = {}
-                
-                # Get window sizes for all configured areas
-                for cortical_idx, history in fire_ledger.cortical_histories.items():
-                    window_config[cortical_idx] = history.window_size
-                    
-                return window_config
+            if burst_engine and hasattr(burst_engine, 'rust_npu') and burst_engine.rust_npu:
+                return burst_engine.rust_npu.get_all_fire_ledger_configs()
             return {}
         except Exception as e:
             self.logger.error(f"Error getting Fire Ledger areas window configuration: {str(e)}")
             return {}
+    
+    def get_fire_ledger_history(self, cortical_idx: int, lookback_steps: Optional[int] = None) -> Dict[str, Any]:
+        """Get historical firing data for a cortical area from RUST Fire Ledger.
+        
+        Args:
+            cortical_idx: Cortical area index
+            lookback_steps: Number of timesteps to retrieve (None = all available)
+            
+        Returns:
+            Dict with firing history data:
+            {
+                "cortical_idx": int,
+                "cortical_id": str,
+                "current_timestep": int,
+                "window_size": int,
+                "lookback_steps": int,
+                "history": [
+                    {"timestep": int, "neuron_ids": [int, ...], "count": int},
+                    ...
+                ]
+            }
+        """
+        try:
+            # Get burst engine
+            burst_engine = self.get_burst_engine()
+            if not burst_engine or not hasattr(burst_engine, 'rust_npu'):
+                return {
+                    "success": False,
+                    "error": "NPU not available"
+                }
+            
+            rust_npu = burst_engine.rust_npu
+            if not rust_npu:
+                return {
+                    "success": False,
+                    "error": "Rust NPU not initialized"
+                }
+            
+            # Get Fire Ledger history from RUST NPU
+            # If lookback_steps is None, use a large default (e.g., 10000)
+            rust_lookback = lookback_steps if lookback_steps is not None else 10000
+            
+            # Call Rust: Returns Vec<(timestep: u64, neuron_ids: Vec<u32>)>
+            rust_history = rust_npu.get_fire_ledger_history(cortical_idx, rust_lookback)
+            
+            # Get window size from Rust
+            window_size = rust_npu.get_fire_ledger_window_size(cortical_idx)
+            
+            # Convert Rust data to API format
+            # rust_history is Vec<(timestep: u64, neuron_ids: Vec<u32>)>, newest first
+            history_data = []
+            for (timestep, neuron_ids) in rust_history:
+                history_data.append({
+                    "timestep": int(timestep),
+                    "neuron_ids": [int(nid) for nid in neuron_ids],
+                    "count": len(neuron_ids)
+                })
+            
+            # Get current timestep from burst engine
+            burst_engine = self.get_burst_engine()
+            current_timestep = burst_engine.burst_count if burst_engine else 0
+            
+            # Get cortical ID from connectome if available
+            cortical_id = None
+            if self._connectome_manager:
+                try:
+                    cortical_id = self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
+                except:
+                    pass
+            
+            return {
+                "success": True,
+                "cortical_idx": cortical_idx,
+                "cortical_id": cortical_id,
+                "current_timestep": current_timestep,
+                "window_size": window_size,
+                "lookback_steps": len(rust_history),
+                "total_timesteps_available": len(rust_history),
+                "history": history_data
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting Fire Ledger history for area {cortical_idx}: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "cortical_idx": cortical_idx,
+                "error": str(e)
+            }
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""
@@ -2134,9 +2293,11 @@ class CoreAPIService:
             sync_count = 0
             
             # Synchronize Visualization FQ Sampler AND Visualization Stream
+            self.logger.warning(f"🔍🔍🔍 [AUTO-SYNC] Using ProcessManager instance id={id(process_manager)}")
             viz_sampler = process_manager.get_viz_fq_sampler()
             
             if viz_sampler:
+                self.logger.warning(f"🔍🔍🔍 [AUTO-SYNC] Found viz sampler: {viz_sampler.instance_id}")
                 try:
                     #  Get configured frequency from ProcessManager (not
                     #  current frequency)
@@ -2201,8 +2362,9 @@ class CoreAPIService:
                         f"🎨 [AUTO-SYNC] Failed to update visualization sampler: {e}"
                     )
             else:
-                self.logger.warning(
-                    "🎨 [AUTO-SYNC] No active visualization sampler found"
+                self.logger.info(
+                    f"🎨 [AUTO-SYNC] No visualization sampler active (no agents connected yet or agents disconnected). "
+                    f"When visualization agents connect, they will use the new burst frequency: {new_burst_frequency}Hz"
                 )
             
             # Synchronize Motor FQ Sampler  
@@ -3941,6 +4103,33 @@ class CoreAPIService:
             if result.get("success", False):
                 created_count = result.get("successful_count", 0)
                 self.logger.info(f"Successfully created {created_count} synapses")
+                
+                # CRITICAL: Reinitialize Rust NPU after synapse changes
+                # The old Python NPU accessed synapse_array LIVE during each burst
+                # The Rust NPU loads synapses once at init, so we need to reload after changes
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
+                        # Only reinitialize if Rust NPU is already initialized
+                        if burst_engine._rust_npu_integration is not None:
+                            self.logger.info("🦀 [RUST-NPU] Synapse(s) added - reloading synapse index from synapse_array...")
+                            try:
+                                burst_engine.reinitialize_rust_npu()
+                                self.logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully")
+                            except Exception as reinit_error:
+                                # If reinitialization fails, the old state is restored (see reinitialize_rust_npu)
+                                self.logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                self.logger.warning("🦀 [RUST-NPU] ⚠️ New synapse(s) will not be active until FEAGI restart")
+                        else:
+                            self.logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                    else:
+                        self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                except Exception as rust_error:
+                    self.logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                    self.logger.exception("Full stack trace:")
+                    # Don't fail the synapse creation for Rust NPU issues
+                
                 return created_count
             else:
                 self.logger.error(f"NPU batch synapse creation failed: {result.get('error', 'Unknown error')}")
@@ -4664,9 +4853,7 @@ class CoreAPIService:
 
                 valid_indices = neuron_indices[:valid_count][valid_mask]
             else:
-                self.logger.warning(
-                    "Coordinates not available in neuron array, using fallback"
-                )
+                # Coordinates not available in legacy neuron_array (using Rust NPU coordinates)
                 valid_mask = np.ones(valid_count, dtype=bool)
                 valid_indices = neuron_indices[:valid_count]
 
@@ -4729,7 +4916,7 @@ class CoreAPIService:
             }
 
         except Exception as e:
-            self.logger.error(f"Error getting neuron coordinates: {str(e)}")
+            # Coordinate extraction failed (expected with Rust NPU - coordinates provided by FQ Sampler)
             return None
 
     def get_neuron_coordinates_numpy(
@@ -4989,9 +5176,7 @@ class CoreAPIService:
             else:
                 # ❌ NO FALLBACK - Coordinates must exist in neuron array
                 # Creating fake coordinates violates architectural rules
-                self.logger.error(
-                    "Neuron array missing coordinate properties - cannot extract coordinates"
-                )
+                # Coordinate arrays not in legacy neuron_array
                 raise ValueError(
                     "Neuron coordinate arrays not available in connectome - check genome initialization"
                 )
@@ -5082,9 +5267,7 @@ class CoreAPIService:
             else:
                 # ❌ NO FALLBACK - Coordinates must exist in neuron array
                 # Creating fake coordinates violates architectural rules
-                self.logger.error(
-                    "Neuron array missing coordinate properties - cannot extract coordinates"
-                )
+                # Coordinate arrays not in legacy neuron_array
                 raise ValueError(
                     "Neuron coordinate arrays not available in connectome - check genome initialization"
                 )
@@ -5100,7 +5283,7 @@ class CoreAPIService:
             return coords_x, coords_y, coords_z
 
         except Exception as e:
-            self.logger.error(f"Vectorized coordinate extraction failed: {e}")
+            # Vectorized extraction failed (expected with Rust NPU - coordinates provided directly)
             # ❌ NO FALLBACK - Don't create fake coordinates
             #  Real coordinates must exist - this is a
             #  configuration/initialization error
@@ -6422,8 +6605,8 @@ class CoreAPIService:
                     "membrane_potentials",
                     "resting_potentials",
                     "thresholds",
-                    "excitability",
-                    "decay_rates",
+                    "excitabilities",
+                    "leak_coefficients",
                     "refractory_periods",
                     "refractory_counters",
                     "coordinates_x",

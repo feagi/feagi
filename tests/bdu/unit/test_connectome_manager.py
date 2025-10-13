@@ -76,7 +76,7 @@ def test_neurons(connectome, test_area):
             position=(i, 0, 0),
             threshold=1.0,
             refractory_period=5,
-            decay_rate=0.9,
+            leak_coefficient=0.9,
             resting_potential=0.0,
         )
         neuron_ids.append(neuron_id)
@@ -95,7 +95,7 @@ def test_create_neuron(connectome, test_area):
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
-        decay_rate=0.9,
+        leak_coefficient=0.9,
         resting_potential=0.0,
     )
 
@@ -268,7 +268,7 @@ def test_get_set_neuron_property(connectome, test_area):
 
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        cortical_id=cortical_id, position=(0, 0, 0), threshold=1.0, decay_rate=0.5
+        cortical_id=cortical_id, position=(0, 0, 0), threshold=1.0, leak_coefficient=0.5
     )
 
     # Get properties

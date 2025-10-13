@@ -67,6 +67,46 @@ class FeagiAgentAPI:
         self.core_api_service = core_api_service
         self.logger = logger
 
+    @agent_endpoint(
+        "POST",
+        "/heartbeat",
+        request_model=AgentDeregistrationRequest,  # reuse minimal model with agent_id
+        response_model=SuccessResponse,
+    )
+    async def heartbeat(self, request: AgentDeregistrationRequest) -> SuccessResponse:
+        """Record a heartbeat for an agent to keep it registered.
+
+        Updates both the Registration Manager's last_seen and the Heartbeat Coordinator.
+        """
+        try:
+            from feagi.pns.registration_manager import get_registration_manager
+            from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+
+            # Update Registration Manager heartbeat
+            reg = get_registration_manager()
+            if not reg:
+                raise HTTPException(status_code=503, detail="Registration service unavailable")
+            
+            reg_ok = reg.heartbeat_agent(request.agent_id)
+            
+            # Update Heartbeat Coordinator
+            heartbeat_coordinator = get_heartbeat_coordinator()
+            coordinator_ok = heartbeat_coordinator.heartbeat_agent(request.agent_id)
+            
+            if reg_ok or coordinator_ok:
+                # Success if either system acknowledges the heartbeat
+                self.logger.debug(f"💗 Heartbeat recorded for agent '{request.agent_id}' "
+                                f"(reg_mgr={reg_ok}, coordinator={coordinator_ok})")
+                return SuccessResponse(message="heartbeat_ok", success=True)
+            else:
+                raise HTTPException(status_code=404, detail=f"Agent {request.agent_id} not found")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Heartbeat failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}")
+
     @agent_endpoint("GET", "/list", response_model=AgentListResponse)
     async def list_agents(self) -> AgentListResponse:
         """List all registered agents.
@@ -76,6 +116,13 @@ class FeagiAgentAPI:
         """
         try:
             from feagi.pns.registration_manager import get_registration_manager
+            # Optional config import for timeout
+            try:
+                from feagi.config.toml_loader import get_timeout_config, load_feagi_config
+            except Exception:
+                get_timeout_config = None  # type: ignore
+                load_feagi_config = None  # type: ignore
+            from datetime import datetime, timezone, timedelta
 
             registration_manager = get_registration_manager()
             if not registration_manager:
@@ -87,6 +134,34 @@ class FeagiAgentAPI:
                     status_code=503,
                     detail="Registration system unavailable - FEAGI not fully initialized"
                 )
+
+            # Aggressive on-demand cleanup: remove stale agents before returning
+            try:
+                inactive_ms = 60000
+                if load_feagi_config and get_timeout_config:
+                    cfg = load_feagi_config()
+                    to = get_timeout_config(cfg)
+                    inactive_ms = int(getattr(to, "inactive_client_timeout", inactive_ms))
+                cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(20, int(inactive_ms / 1000)))
+                current = registration_manager.list_agents()
+                for a in list(current.get("agents", [])):
+                    try:
+                        last_seen_iso = a.get("last_seen") or ""
+                        agent_id = a.get("agent_id", "")
+                        if not agent_id:
+                            continue
+                        if not last_seen_iso:
+                            # No last_seen: treat as stale
+                            registration_manager.deregister_agent(agent_id)
+                            continue
+                        last_seen = datetime.fromisoformat(last_seen_iso)
+                        if last_seen < cutoff:
+                            registration_manager.deregister_agent(agent_id)
+                    except Exception:
+                        continue
+            except Exception:
+                # Best-effort: if cleanup fails, continue to return current list
+                pass
 
             agents_data = registration_manager.list_agents()
             agent_ids = [
@@ -200,6 +275,55 @@ class FeagiAgentAPI:
             # Store capability rate configs for multi-rate polling
             if capability_configs:
                 self._store_capability_rates(request.agent_id, capability_configs)
+
+            # Register for heartbeat monitoring
+            try:
+                from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+                
+                heartbeat_coordinator = get_heartbeat_coordinator()
+                
+                # Determine heartbeat parameters based on agent type
+                # AGGRESSIVE: timeout = 2x heartbeat interval (2 missed heartbeats = disconnected)
+                if request.agent_type == "brain_visualizer":
+                    heartbeat_interval = 15.0  # Send every 15 seconds
+                    timeout_threshold = 30.0   # Disconnect after 2 missed (30s)
+                elif request.agent_type == "video_agent":
+                    heartbeat_interval = 10.0  # Send every 10 seconds  
+                    timeout_threshold = 20.0   # Disconnect after 2 missed (20s)
+                else:
+                    heartbeat_interval = 15.0  # Default 15 seconds
+                    timeout_threshold = 30.0   # Disconnect after 2 missed (30s)
+                
+                # Cleanup callback to deregister from both systems
+                def cleanup_callback(agent_id: str):
+                    try:
+                        self.logger.info(f"🧹 Automatic cleanup for timed-out agent: {agent_id}")
+                        reg_mgr.deregister_agent(agent_id)
+                        
+                        # Cleanup capability rates
+                        try:
+                            from feagi.core.capability_rate_manager import get_capability_rate_manager
+                            cap_mgr = get_capability_rate_manager()
+                            if cap_mgr:
+                                cap_mgr.deregister_agent(agent_id)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        self.logger.error(f"Error in cleanup callback for {agent_id}: {e}")
+                
+                heartbeat_coordinator.register_agent_heartbeat(
+                    agent_id=request.agent_id,
+                    agent_type=request.agent_type,
+                    heartbeat_interval_sec=heartbeat_interval,
+                    timeout_threshold_sec=timeout_threshold,
+                    cleanup_callback=cleanup_callback
+                )
+                
+                self.logger.info(f"💗 Heartbeat monitoring enabled for {request.agent_type} '{request.agent_id}' "
+                               f"(interval={heartbeat_interval}s, timeout={timeout_threshold}s)")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to register heartbeat monitoring for agent {request.agent_id}: {e}")
 
             # Include transport negotiation info in response
             transport_info = getattr(rm_resp, "transport_info", {})
@@ -415,6 +539,7 @@ class FeagiAgentAPI:
             #  Delegate to Registration Manager for centralized agent
             #  coordination
             from feagi.pns.registration_manager import get_registration_manager
+            from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
 
             registration_manager = get_registration_manager()
             if not registration_manager:
@@ -427,6 +552,14 @@ class FeagiAgentAPI:
             response = registration_manager.deregister_agent(request.agent_id)
 
             if response.success:
+                # Also deregister from heartbeat monitoring
+                try:
+                    heartbeat_coordinator = get_heartbeat_coordinator()
+                    heartbeat_coordinator.deregister_agent_heartbeat(request.agent_id)
+                    self.logger.info(f"💔 Removed heartbeat monitoring for agent '{request.agent_id}'")
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove heartbeat monitoring for {request.agent_id}: {e}")
+
                 self.logger.info(
                     f"✅ Agent '{request.agent_id}' deregistered via Registration Manager - "
                     f"FQ samplers coordinated: {response.fq_samplers_enabled}"
@@ -443,6 +576,16 @@ class FeagiAgentAPI:
                     self.logger.warning(
                         f"SHM cleanup skipped for agent {request.agent_id}: {e}"
                     )
+
+                # Cleanup capability rates
+                try:
+                    from feagi.core.capability_rate_manager import get_capability_rate_manager
+                    cap_mgr = get_capability_rate_manager()
+                    if cap_mgr:
+                        cap_mgr.deregister_agent(request.agent_id)
+                        self.logger.info(f"🗑️ Cleaned up capability rates for agent '{request.agent_id}'")
+                except Exception as e:
+                    self.logger.warning(f"Failed to cleanup capability rates for {request.agent_id}: {e}")
 
                 return SuccessResponse(message=response.message, success=True)
             else:

@@ -31,10 +31,132 @@ class CorticalParameterUpdater:
 
     Performance: ~2-5ms vs ~800ms for full rebuild (160-400x faster)
     """
+    
+    # SYSTEMATIC MAPPING: Genome property → NeuronArray attribute
+    # This maps genome parameter names to their corresponding neuron_array fields
+    # Validation lambdas for 0-1 range (percentage values)
+    _validate_0_1_float = lambda v: max(0.0, min(1.0, float(v)))
+    
+    NEURON_PROPERTY_MAPPING = {
+        'neuron_excitability': ('excitabilities', _validate_0_1_float, 'Excitability'),
+        'snooze_length': ('snooze_periods', lambda v: int(max(0, round(float(v)))), 'Snooze period'),
+        'firing_threshold_limit': ('thresholds', float, 'Firing threshold'),
+        'leak': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),
+        'neuron_leak_coefficient': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),  # Alternative name
+        'neuron_leak_variability': ('leak_coefficients', _validate_0_1_float, 'Leak variability'),  # Neurogenesis parameter (genome only)
+        'refrac': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),
+        'neuron_refractory_period': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),  # Alternative name
+        'consecutive_fire_cnt_max': ('consecutive_fire_limits', lambda v: int(max(0, round(float(v)))), 'Consecutive fire limit'),
+        'neuron_membrane_potential': ('membrane_potentials', float, 'Membrane potential'),
+        'neuron_resting_potential': ('resting_potentials', float, 'Resting potential'),
+        'neuron_type': ('neuron_types', int, 'Neuron type'),
+    }
 
     def __init__(self, connectome_manager: ConnectomeManager):
         self.connectome_manager = connectome_manager
         self.logger = logger
+    
+    def _update_neuron_array_property(
+        self,
+        cortical_id: str,
+        cortical_idx: int,
+        property_name: str,
+        value: Any
+    ) -> bool:
+        """Systematically update a neuron array property for all neurons in a cortical area.
+        
+        This is the UNIFIED method for updating any per-neuron property that maps to
+        a neuron_array field. It handles the update and Rust NPU reinitialization.
+        
+        Args:
+            cortical_id: Cortical area ID
+            cortical_idx: Cortical area index
+            property_name: Genome property name (e.g., 'neuron_excitability')
+            value: New value to set
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        # CRITICAL DEBUG: Log what property is being requested
+        self.logger.info(f"🔍 [PROPERTY-UPDATE] _update_neuron_array_property called: property_name='{property_name}', cortical_id={cortical_id}, cortical_idx={cortical_idx}, value={value}")
+        
+        # Check if this property has a neuron_array mapping
+        if property_name not in self.NEURON_PROPERTY_MAPPING:
+            self.logger.warning(f"❌ [PROPERTY-UPDATE] Property '{property_name}' not in NEURON_PROPERTY_MAPPING!")
+            return False
+        
+        array_field, converter, display_name = self.NEURON_PROPERTY_MAPPING[property_name]
+        
+        try:
+            # Convert value using the specified converter
+            converted_value = converter(value) if callable(converter) else converter(value)
+            
+            self.logger.info(
+                f"🔥 [{display_name.upper()}-UPDATE] Updating {property_name} to {converted_value} for area {cortical_id} (cortical_idx={cortical_idx})"
+            )
+            
+            # ✅ DIRECT RUST NPU UPDATE - Clean production-ready approach!
+            # Update the Rust NPU directly using dedicated update methods (no reinitialization needed)
+            try:
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                
+                if not burst_engine or not hasattr(burst_engine, '_rust_npu_integration'):
+                    self.logger.warning(f"🦀 [RUST-NPU] BurstEngine not available for {property_name} update")
+                    return False
+                
+                if burst_engine._rust_npu_integration is None or not burst_engine._rust_npu_integration._rust_npu_initialized:
+                    self.logger.debug(f"🦀 [RUST-NPU] Not yet initialized - {property_name} will be loaded on first burst")
+                    return True  # Will be picked up on init
+                
+                rust_npu = burst_engine._rust_npu_integration._rust_npu
+                
+                # Property-specific update logic
+                if property_name == 'neuron_excitability':
+                    # Validate 0-1 range for excitability
+                    if not (0.0 <= converted_value <= 1.0):
+                        self.logger.error(f"🦀 [RUST-NPU] ❌ Excitability must be in range 0.0-1.0, got {converted_value}")
+                        return False
+                    # Use dedicated Rust method for excitability updates
+                    updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('neuron_refractory_period', 'refractory_period'):
+                    updated_count = rust_npu.update_cortical_area_refractory_period(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated refractory_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('neuron_fire_threshold', 'firing_threshold'):
+                    updated_count = rust_npu.update_cortical_area_threshold(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated threshold to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('leak', 'leak_coefficient', 'neuron_leak_coefficient', 'neuron_leak_variability'):
+                    # Validate 0-1 range for leak parameters
+                    if not (0.0 <= converted_value <= 1.0):
+                        self.logger.error(f"🦀 [RUST-NPU] ❌ Leak coefficient must be in range 0.0-1.0, got {converted_value}")
+                        return False
+                    updated_count = rust_npu.update_cortical_area_leak(cortical_idx, float(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated leak to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('consecutive_fire_cnt_max', 'neuron_consecutive_fire_cnt_max'):
+                    updated_count = rust_npu.update_cortical_area_consecutive_fire_limit(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated consecutive_fire_limit to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name in ('snooze_length', 'neuron_snooze_period'):
+                    updated_count = rust_npu.update_cortical_area_snooze_period(cortical_idx, int(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated snooze_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                else:
+                    # For other properties, we'll need to add specific Rust methods as needed
+                    self.logger.warning(f"🦀 [RUST-NPU] Live update for {property_name} not yet implemented - will require FEAGI restart")
+                    return False
+                
+                return True
+                
+            except Exception as rust_error:
+                self.logger.error(f"🦀 [RUST-NPU] Error during Rust NPU property update: {rust_error}")
+                self.logger.exception("Full stack trace:")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to update {property_name} for {cortical_id}: {e}")
+            self.logger.exception("Full stack trace:")
+            return False
 
     def update_neuron_parameters(
         self, cortical_id: str, parameter_changes: Dict[str, Any]
@@ -53,7 +175,7 @@ class CorticalParameterUpdater:
         try:
             # Fetch neuron IDs via NPU interface to avoid legacy paths and ensure SoA source of truth
             npu = getattr(self.connectome_manager, "_npu_interface", None)
-            if not npu or not getattr(npu, "neuron_array", None):
+            if not npu:
                 self.logger.error(
                     "NPU Interface is not available on ConnectomeManager; fast parameter update requires NPU"
                 )
@@ -212,60 +334,51 @@ class CorticalParameterUpdater:
             )
             return True
 
-        elif property_type == "neuron_excitability":
-            #  SPECIAL CASE: update per-area excitability via NPU; avoid per-neuron index mapping
+        # SYSTEMATIC APPROACH: Check if this is a neuron array property
+        elif property_type in self.NEURON_PROPERTY_MAPPING:
+            # Use the unified method for all neuron array properties
             try:
                 cortical_area = self.connectome_manager.get_cortical_area(cortical_id)
                 if not cortical_area:
-                    self.logger.error(
-                        f"Cortical area {cortical_id} not found for excitability update"
-                    )
+                    self.logger.error(f"Cortical area {cortical_id} not found for {property_type} update")
                     return False
-
+                
                 cortical_idx = cortical_area.cortical_idx
-
-                # Update excitability in NPU (authoritative) and mirror on area properties for reads
-                try:
-                    npu = getattr(self.connectome_manager, "_npu_interface", None)
-                    if npu and hasattr(npu, "set_area_excitability"):
-                        npu.set_area_excitability(cortical_idx, float(value))
-                except Exception as npu_err:
-                    self.logger.warning(f"Could not set area excitability in NPU: {npu_err}")
-
-                # Mirror to ConnectomeManager area properties for API reads
-                try:
-                    if not hasattr(cortical_area, "properties") or cortical_area.properties is None:
-                        cortical_area.properties = {}
-                    cortical_area.properties["neuron_excitability"] = float(value)
-                except Exception:
-                    pass
-
-                # CRITICAL: Invalidate BurstEngine excitability cache after changes
-                try:
-                    from feagi.npu.burst_engine import BurstEngine
-                    burst_engine = BurstEngine.get_instance()
-                    if burst_engine:
-                        burst_engine.invalidate_excitability_cache()
-                        self.logger.debug("Invalidated BurstEngine excitability cache after parameter update")
-                except Exception as cache_err:
-                    self.logger.warning(f"Could not invalidate excitability cache: {cache_err}")
-
-                self.logger.info(
-                    f"[FAST-UPDATE] Updated neuron_excitability to {value} for area {cortical_id} (cortical_idx={cortical_idx})"
-                )
-                return True
-
+                
+                # Update neuron_array using the systematic method
+                success = self._update_neuron_array_property(cortical_id, cortical_idx, property_type, value)
+                
+                if success:
+                    # Mirror to ConnectomeManager area properties for API reads
+                    try:
+                        if not hasattr(cortical_area, "properties") or cortical_area.properties is None:
+                            cortical_area.properties = {}
+                        cortical_area.properties[property_type] = value
+                    except Exception:
+                        pass
+                    
+                    # Special handling for excitability cache (legacy compatibility)
+                    if property_type == "neuron_excitability":
+                        try:
+                            from feagi.npu.burst_engine import BurstEngine
+                            burst_engine = BurstEngine.get_instance()
+                            if burst_engine:
+                                burst_engine.invalidate_excitability_cache()
+                        except Exception:
+                            pass
+                    
+                    self.logger.info(f"[FAST-UPDATE] Updated {property_type} to {value} for area {cortical_id}")
+                
+                return success
+                
             except Exception as e:
-                self.logger.error(
-                    f"Failed to update neuron_excitability for {cortical_id}: {e}"
-                )
+                self.logger.error(f"Failed to update {property_type} for {cortical_id}: {e}")
                 return False
 
         elif property_type in [
             "postsynaptic_current",
             "postsynaptic_current_max",
             "firing_threshold_limit",
-            "snooze_length",
             "degeneration",
             "longterm_mem_threshold",
             "lifespan_growth_rate",

@@ -183,7 +183,6 @@ class NeuronArray:
         # Core neuron properties (SoA format) - NO HARDCODED VALUES, ALL FROM GENOME
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.thresholds = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
-        self.decay_rates = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         self.leak_coefficients = np.zeros(max_neurons, dtype=np.float32)  # MUST be set from genome
         self.resting_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.neuron_types = np.zeros(max_neurons, dtype=np.int32)
@@ -203,6 +202,13 @@ class NeuronArray:
         # Consecutive fire tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
         self.consecutive_fire_counts = np.zeros(max_neurons, dtype=np.uint16)
         self.consecutive_fire_limits = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
+        
+        # Snooze period tracking (RUST-COMPATIBLE: primitive arrays) - FROM GENOME ONLY
+        # Snooze = rest period after consecutive fires, measured in bursts
+        self.snooze_periods = np.zeros(max_neurons, dtype=np.uint16)  # MUST be set from genome
+        # DEPRECATED: snooze_countdowns removed in unified refractory design (now part of refractory_countdowns)
+        # Kept for legacy compatibility only - Rust NPU does not use this field
+        self.snooze_countdowns = np.zeros(max_neurons, dtype=np.uint16)
         
         # Cortical area mapping
         self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
@@ -225,11 +231,11 @@ class NeuronArray:
                          neuron_types: List[int], initial_potentials: List[float],
                          thresholds: List[float], leak_coefficients: List[float],
                          cortical_idx: int, 
-                         decay_rates: Optional[List[float]] = None,
                          refractory_periods: Optional[List[int]] = None,
                          excitabilities: Optional[List[float]] = None,
                          resting_potentials: Optional[List[float]] = None,
-                         consecutive_fire_limits: Optional[List[int]] = None) -> List[int]:
+                         consecutive_fire_limits: Optional[List[int]] = None,
+                         snooze_periods: Optional[List[int]] = None) -> List[int]:
         """Add multiple neurons in batch."""
         count = len(neuron_ids)
         if self.count + count > self.max_neurons:
@@ -245,13 +251,6 @@ class NeuronArray:
         self.leak_coefficients[start_idx:end_idx] = np.array(leak_coefficients, dtype=np.float32)
         self.neuron_types[start_idx:end_idx] = np.array(neuron_types, dtype=np.int32)
         self.cortical_idxs[start_idx:end_idx] = cortical_idx
-        
-        # Set additional neural dynamics parameters from genome
-        if decay_rates is not None:
-            self.decay_rates[start_idx:end_idx] = np.array(decay_rates, dtype=np.float32)
-        else:
-            # Set default decay rates for backward compatibility
-            self.decay_rates[start_idx:end_idx] = 0.1
             
         if refractory_periods is not None:
             self.refractory_periods[start_idx:end_idx] = np.array(refractory_periods, dtype=np.uint8)
@@ -290,6 +289,17 @@ class NeuronArray:
             # Set default consecutive fire limits for backward compatibility
             self.consecutive_fire_limits[start_idx:end_idx] = 5
         # Note: consecutive_fire_counts remain 0 (initialized by default)
+        
+        # Set snooze periods - MUST come from genome (nx-snooze-f gene)
+        if snooze_periods is not None:
+            # Convert float to uint16, ensuring only positive integers including 0
+            snooze_array = np.array(snooze_periods, dtype=np.float32)
+            snooze_array = np.maximum(0, np.round(snooze_array)).astype(np.uint16)
+            self.snooze_periods[start_idx:end_idx] = snooze_array
+        else:
+            # Set default snooze periods for backward compatibility
+            self.snooze_periods[start_idx:end_idx] = 0
+        # Note: snooze_countdowns remain 0 (initialized by default)
         
         # Update ID mappings
         for i, neuron_id in enumerate(neuron_ids):
@@ -378,6 +388,33 @@ class NeuronArray:
             
             # Update consecutive fire limits (vectorized)
             self.consecutive_fire_limits[area_mask] = int(limit)
+            
+            # Return count of updated neurons
+            return int(np.sum(area_mask))
+    
+    def update_excitability_by_cortical_area(self, cortical_idx: int, excitability: float) -> int:
+        """Update excitability for all neurons in a cortical area.
+        
+        CRITICAL: This is required for Rust NPU integration.
+        When excitability changes, the neuron_array must be updated BEFORE
+        reinitializing the Rust NPU.
+        
+        Args:
+            cortical_idx: Cortical area index
+            excitability: New excitability value (0.0 to 1.0)
+            
+        Returns:
+            Number of neurons updated
+        """
+        with self._lock:
+            # Find neurons in this cortical area
+            area_mask = (self.cortical_idxs == cortical_idx) & self.valid_mask
+            
+            if not np.any(area_mask):
+                return 0
+            
+            # Update excitability (vectorized)
+            self.excitabilities[area_mask] = float(excitability)
             
             # Return count of updated neurons
             return int(np.sum(area_mask))
@@ -583,7 +620,6 @@ class SynapseArray:
         self.is_plastic_flags = np.zeros(max_synapses, dtype=np.bool_)
         self.plasticity_types = np.zeros(max_synapses, dtype=np.uint8)
         self.plasticity_coeffs = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
-        self.decay_rates = np.zeros(max_synapses, dtype=np.float32)  # MUST be set from genome
         
         # Synapse state
         self.valid_mask = np.zeros(max_synapses, dtype=np.bool_)

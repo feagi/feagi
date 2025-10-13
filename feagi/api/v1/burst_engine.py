@@ -22,7 +22,7 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -361,6 +361,68 @@ class BurstEngineAPI:
                 "default_window_size": 20,
                 "areas": {},
                 "total_configured_areas": 0,
+                "error": str(e)
+            }
+    
+    @burst_engine_endpoint("GET", "/fire_ledger/area/{area_id}/history")
+    def get_fire_ledger_history(self, area_id: str, lookback_steps: Optional[int] = None) -> Dict[str, Any]:
+        """Get historical firing data for a cortical area from Fire Ledger.
+        
+        Args:
+            area_id: Cortical area ID (e.g., 'iic000') or index
+            lookback_steps: Number of timesteps to retrieve (optional, default=all available)
+            
+        Returns:
+            Historical firing data with timesteps and neuron IDs
+        """
+        try:
+            # Validate area_id parameter
+            if area_id is None:
+                return {
+                    "success": False,
+                    "error": "area_id parameter is required"
+                }
+            
+            logger.debug(f"[FIRE-LEDGER-API] Getting history for area_id={area_id}, lookback_steps={lookback_steps}")
+            
+            # Convert area_id to cortical_idx using connectome_manager
+            connectome_manager = self.core_api_service.get_connectome_manager()
+            if connectome_manager is None:
+                return {
+                    "success": False,
+                    "error": "Connectome not loaded"
+                }
+            
+            cortical_idx = None
+            
+            # Try as cortical ID first (e.g., "iic000")
+            try:
+                cortical_idx = connectome_manager.get_cortical_idx_for_id(area_id)
+                logger.debug(f"[FIRE-LEDGER-API] Lookup by ID '{area_id}' returned cortical_idx={cortical_idx}")
+            except Exception as lookup_err:
+                logger.debug(f"[FIRE-LEDGER-API] Lookup by ID failed: {lookup_err}")
+            
+            # If not found, try parsing as int (area_idx)
+            if cortical_idx is None:
+                try:
+                    cortical_idx = int(area_id)
+                    logger.debug(f"[FIRE-LEDGER-API] Parsed area_id '{area_id}' as index: {cortical_idx}")
+                except (ValueError, TypeError) as int_err:
+                    logger.error(f"[FIRE-LEDGER-API] Failed to parse area_id '{area_id}' as int: {int_err}")
+                    return {
+                        "success": False,
+                        "error": f"Invalid cortical area identifier: {area_id}. Must be cortical ID (e.g., 'iic000') or integer index."
+                    }
+            
+            # Get fire ledger history
+            logger.debug(f"[FIRE-LEDGER-API] Calling get_fire_ledger_history with cortical_idx={cortical_idx}")
+            result = self.core_api_service.get_fire_ledger_history(cortical_idx, lookback_steps)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting Fire Ledger history for area {area_id}: {e}", exc_info=True)
+            return {
+                "success": False,
                 "error": str(e)
             }
 

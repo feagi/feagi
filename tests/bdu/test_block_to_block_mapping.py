@@ -195,7 +195,7 @@ class TestBlockToBlockMapping:
                 threshold=1.0,
                 membrane_potential=0.0,
                 resting_potential=0.0,
-                decay_rate=0.5,
+                leak_coefficient=0.5,
                 refractory_period=1,
             )
         else:
@@ -209,7 +209,7 @@ class TestBlockToBlockMapping:
                 threshold=1.0,
                 membrane_potential=0.0,
                 resting_potential=0.0,
-                decay_rate=0.5,
+                leak_coefficient=0.5,
                 refractory_period=1,
             )
         else:

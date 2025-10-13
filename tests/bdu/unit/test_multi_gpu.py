@@ -216,7 +216,7 @@ class TestMultiGPUManager:
                     position=position,
                     threshold=0.5,
                     refractory_period=1,
-                    decay_rate=0.1,
+                    leak_coefficient=0.1,
                 )
                 neuron_ids.append(neuron_id)
 

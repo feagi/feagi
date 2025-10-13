@@ -1,0 +1,17 @@
+[package]
+name = "feagi-plasticity"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license = "PROPRIETARY"  # Different license for IP protection
+repository.workspace = true
+description = "FEAGI plasticity algorithms (proprietary)"
+
+[dependencies]
+feagi-types = { path = "../feagi-types" }
+thiserror.workspace = true
+rayon.workspace = true
+ndarray.workspace = true
+
+[features]
+default = []

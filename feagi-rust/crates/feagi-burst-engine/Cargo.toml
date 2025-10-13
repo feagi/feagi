@@ -1,0 +1,34 @@
+[package]
+name = "feagi-burst-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-performance burst engine for FEAGI neural processing"
+
+[dependencies]
+feagi-types = { path = "../feagi-types" }
+thiserror.workspace = true
+rayon.workspace = true
+ndarray.workspace = true
+ahash.workspace = true
+
+# GPU acceleration (optional feature)
+wgpu = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enable GPU acceleration via WGPU
+gpu = ["wgpu", "pollster", "bytemuck"]
+# Enable plasticity integration (trait-based, no direct dependency)
+with-plasticity = []
+
+[[bench]]
+name = "backend_comparison"
+harness = false
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }

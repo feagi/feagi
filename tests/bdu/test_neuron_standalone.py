@@ -34,7 +34,7 @@ class Neuron:
         position,
         threshold=1.0,
         membrane_potential=0.0,
-        decay_rate=0.5,
+        leak_coefficient=0.5,
         **kwargs,
     ):
         """
@@ -88,7 +88,7 @@ class Neuron:
             position=position,
             threshold=threshold,
             membrane_potential=membrane_potential,
-            decay_rate=decay_rate,
+            leak_coefficient=decay_rate,
         )
 
         # Add any additional properties
@@ -167,7 +167,7 @@ class NeuronArray:
         self.device = "cpu"
 
     def create_neuron(
-        self, area_id, position, threshold=1.0, membrane_potential=0.0, decay_rate=0.5
+        self, area_id, position, threshold=1.0, membrane_potential=0.0, leak_coefficient=0.5
     ):
         """
         Create a new neuron and store it in the array.
@@ -455,7 +455,7 @@ def test_create_neuron(neuron_array):
         position=(1, 2, 3),
         threshold=0.7,
         membrane_potential=0.2,
-        decay_rate=0.4,
+        leak_coefficient=0.4,
     )
 
     # Check if the neuron was created successfully
@@ -586,7 +586,7 @@ def test_neuron_wrapper_class():
         position=(1, 2, 3),
         threshold=0.5,
         membrane_potential=0.2,
-        decay_rate=0.4,
+        leak_coefficient=0.4,
     )
 
     # Check properties

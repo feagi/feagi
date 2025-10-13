@@ -656,9 +656,14 @@ class NeuronPropertiesResponse(BaseModel):
     threshold: float
     membrane_potential: float
     resting_potential: float
-    decay_rate: float
+    leak_coefficient: float  # 0.0-1.0 (percentage of potential lost per burst)
     refractory_period: int
     refractory_counter: int
+    consecutive_fire_count: int
+    consecutive_fire_limit: int
+    snooze_period: int
+    excitability: float
+    neuron_type: int
     properties: Dict[str, Any]
     outgoing_synapses: List[OutgoingSynapse]
     incoming_synapses: List[IncomingSynapse]

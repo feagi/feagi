@@ -64,7 +64,7 @@ class TestRefractoryPeriodCoreFix:
             threshold=1.0,
             membrane_potential=0.0,  # Start at 0
             resting_potential=0.0,
-            decay_rate=0.9,
+            leak_coefficient=0.9,
             refractory_period=5  # 5 timestep refractory period
         )
         
@@ -157,7 +157,7 @@ class TestRefractoryPeriodCoreFix:
             threshold=1.0,
             membrane_potential=0.0,
             resting_potential=0.0,
-            decay_rate=0.9,
+            leak_coefficient=0.9,
             refractory_period=10  # User's setting
         )
         

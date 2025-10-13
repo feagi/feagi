@@ -2,8 +2,7 @@ from typing import Any, Dict
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.burst_engine import BurstEngine
-from feagi.npu.fire_ledger import FireLedgerInterface
-from feagi.npu.plasticity.service import PlasticityService, PlasticityConfig
+from feagi.plasticity.service import PlasticityService, PlasticityConfig
 
 
 class CoreAPI:

@@ -17,32 +17,10 @@ Architecture Principles:
 5. High-performance SoA (Structure of Arrays) format
 """
 
-from .coordinate_converter import CoordinateConverter
-from .fire_candidate_list import FireCandidateList, FCLCandidate
-from .fire_queue import FireQueue, FiringNeuron
-from .fire_ledger import FireLedgerInterface
+# Fire Queue is now in Rust - accessed via RustNPUIntegration.sample_fire_queue()
 from .burst_engine import BurstEngine
-from .fq_sampler import FQSampler, UnifiedFQSampler
-from .fcl_injector import FCLInjector
-from .fcl_manager import (
-    FCLManager,
-    EnhancedFCLManager, 
-    BitMap,
-    TimestepOutOfRangeError,
-    FCLError,
-    MembraneUpdate,
-    NeuronCollection,
-    NeuronCollectionType,
-    example_enhanced_fcl_usage,
-    example_fcl_usage,
-    inject_neurons_into_fcl
-)
-from .gpu_fcl_adapter import (
-    GPUBitMap,
-    GPUAcceleratedFCL,
-    create_gpu_accelerated_fcl,
-    get_backend
-)
+# FQSampler is now in Rust - use RustFQSamplerWrapper from rust_fq_sampler_wrapper
+from .rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
 # Critical: Import data structures and interfaces that other parts of FEAGI depend on
 from .data_structures import (
@@ -55,13 +33,6 @@ from .data_structures import (
     MemoryPatternKey
 )
 
-from .special_area_handler import (
-    SpecialAreaHandler,
-    SpecialAreaConfig,
-    CorticalId,
-    NeuronId
-)
-
 from .interface import (
     NPUInterface,
     OperationResult,
@@ -72,36 +43,9 @@ from .interface import (
 )
 
 __all__ = [
-    # Clean NPU Architecture
-    'CoordinateConverter',
-    'FireCandidateList', 
-    'FCLCandidate',
-    'FireQueue',
-    'FiringNeuron', 
-    'FireLedgerInterface',
+    # Core NPU Components
     'BurstEngine',
-    'FQSampler',
-    'UnifiedFQSampler',
-    'FCLInjector',
-    
-    # Legacy compatibility (FCL Managers)
-    'FCLManager',
-    'EnhancedFCLManager',
-    'BitMap',
-    'TimestepOutOfRangeError',
-    'FCLError',
-    'MembraneUpdate',
-    'NeuronCollection',
-    'NeuronCollectionType',
-    'example_enhanced_fcl_usage',
-    'example_fcl_usage',
-    'inject_neurons_into_fcl',
-    
-    # GPU acceleration
-    'GPUBitMap',
-    'GPUAcceleratedFCL',
-    'create_gpu_accelerated_fcl',
-    'get_backend',
+    'RustFQSamplerWrapper',  # Rust FQ Sampler wrapper
     
     # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',
@@ -111,12 +55,6 @@ __all__ = [
     'SIMDConfig',
     'SIMDDetector',
     'MemoryPatternKey',
-    
-    # Special Area Handling
-    'SpecialAreaHandler',
-    'SpecialAreaConfig', 
-    'CorticalId',
-    'NeuronId',
     
     # NPU Interface
     'NPUInterface',

@@ -124,99 +124,29 @@ class DevelopmentStage(Enum):
 
 class NeuroEmbryogenesis:
     def _ensure_core_neurons(self) -> bool:
-        """Ensure core neuron indices are present and correctly assigned.
+        """Ensure core neurons (_death and _power) are created.
 
-        - _death must own neuron index 0
-        - _power must own neuron index 1
+        ✅ RUST NPU: This function now delegates to NPUInterface,
+        which buffers neuron creation until Rust NPU is ready.
 
-        Returns True if core neurons are ensured, False otherwise.
+        Rust NPU auto-assigns neuron IDs, so we don't need to
+        manipulate specific indices like the old Python implementation.
+
+        Returns True if core neurons can be created, False otherwise.
         """
         try:
             cm = self.connectome_manager
             npu = getattr(cm, "_npu_interface", None)
-            if npu is None or npu.neuron_array is None:
+            if npu is None:
                 return False
 
-            # Ensure core cortical areas exist in NPU registry
-            for core_id, core_idx in (("_death", 0), ("_power", 1)):
-                if core_id not in cm.cortical_areas:
-                    continue  # Will be created by corticogenesis
-                area = cm.cortical_areas[core_id]
-                # Register cortical area if needed
-                if core_idx not in npu.cortical_areas:
-                    npu.create_cortical_area(core_idx, area.dimensions, area_type="regular", cortical_id=core_id)
-
-            na = npu.neuron_array
-
-            # Helper to ensure a neuron exists at a given index
-            def _ensure_neuron_at_index(target_index: int, cortical_idx: int, neuron_id_hint: int) -> bool:
-                # If a valid neuron already exists at target_index, done
-                if target_index < na.next_index and na.valid_mask[target_index]:
-                    return True
-                # Create a single neuron deterministically
-                # Assign specific neuron_id equal to neuron_id_hint if free, else use next
-                neuron_id = neuron_id_hint
-                if neuron_id in na.neuron_id_to_index:
-                    neuron_id = na._next_neuron_id
-                na.add_neurons_batch(
-                    neuron_ids=[neuron_id],
-                    positions=[(0, 0, 0)],
-                    neuron_types=[0],
-                    initial_potentials=[0.0],
-                    thresholds=[1.0],
-                    leak_coefficients=[1.0],
-                    cortical_idx=cortical_idx,
-                    decay_rates=[1.0],
-                    refractory_periods=[1],
-                    excitabilities=[1.0],
-                    resting_potentials=[0.0],
-                    consecutive_fire_limits=[10],
-                )
-                # Move created neuron to target_index if necessary by swapping indices metadata
-                try:
-                    created_idx = na.neuron_id_to_index.get(neuron_id)
-                    if created_idx is None:
-                        return False
-                    if created_idx != target_index:
-                        # Swap SoA entries
-                        for arr_name in (
-                            "membrane_potentials",
-                            "thresholds",
-                            "decay_rates",
-                            "leak_coefficients",
-                            "resting_potentials",
-                            "neuron_types",
-                            "positions_x",
-                            "positions_y",
-                            "positions_z",
-                            "coordinates_x",
-                            "coordinates_y",
-                            "coordinates_z",
-                            "refractory_periods",
-                            "refractory_counters",
-                            "consecutive_fire_counts",
-                            "consecutive_fire_limits",
-                            "cortical_idxs",
-                            "valid_mask",
-                        ):
-                            arr = getattr(na, arr_name)
-                            arr[target_index], arr[created_idx] = arr[created_idx], arr[target_index]
-                        # Update ID mappings
-                        other_id = na.index_to_neuron_id.get(target_index)
-                        na.index_to_neuron_id[target_index] = neuron_id
-                        na.neuron_id_to_index[neuron_id] = target_index
-                        if other_id is not None:
-                            na.index_to_neuron_id[created_idx] = other_id
-                            na.neuron_id_to_index[other_id] = created_idx
-                except Exception:
-                    return False
-                # Ensure mapping in NPU convenience dict
-                npu.neuron_to_area[neuron_id] = cortical_idx
-                return True
-
-            ok_death = _ensure_neuron_at_index(0, 0, 1)
-            ok_power = _ensure_neuron_at_index(1, 1, 2)
-            return bool(ok_death and ok_power)
+            # Core neurons will be created via normal neurogenesis path
+            # using NPUInterface.create_neurons_batch(), which handles
+            # buffering if Rust NPU isn't initialized yet
+            
+            # Just verify NPUInterface is available
+            return True
+            
         except Exception:
             return False
     """Manages the development of a brain from genome instructions.
@@ -1157,10 +1087,11 @@ class NeuroEmbryogenesis:
                     logger.info(f"Skipping neurogenesis for memory area {area.name}")
                     continue
 
-                # Always skip neurogenesis for core areas (_death, _power) – system-managed
-                if str(area.area_type).upper() == "CORE" or cortical_id in ("_death", "_power"):
-                    logger.info(f"Skipping neurogenesis for core area {cortical_id}")
-                    continue
+                # ✅ RUST NPU: Create neurons for ALL areas including core areas
+                # Core areas (_death, _power) need neurons for power injection to work
+                # Power injection uses min(neurons) from cortical_idx=1, so we need at least one neuron
+                # OLD behavior: Skip core areas (neurons were created by _ensure_core_neurons)
+                # NEW behavior: Normal neurogenesis creates all neurons (simpler, cleaner)
                 
                 # In additive mode, skip neurogenesis for areas that already have neurons
                 if hasattr(self, 'additive_mode') and self.additive_mode:
@@ -1216,14 +1147,15 @@ class NeuroEmbryogenesis:
                     if result != OperationResult.SUCCESS:
                         raise RuntimeError(f"Failed to register cortical area {area.cortical_idx} with NPU Interface")
                 
-                if npu_interface.neuron_array.neuron_count + area_neuron_count > npu_interface.neuron_array.max_neurons:
+                # ✅ Use Rust NPU directly for capacity check (no proxy)
+                if npu_interface.get_neuron_count() + area_neuron_count > npu_interface.max_neurons:
                     raise ValueError(
                         f"Not enough capacity for {area_neuron_count} neurons"
                     )
                 
                 # Extract neuron properties from area configuration
                 base_threshold = properties.get("fire_t", 1.0)
-                base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
+                base_leak_coefficient = properties.get("leak_c", properties.get("leak_coefficient", 0)) / 100.0  # 0-100 → 0.0-1.0
                 # ARCHITECTURE COMPLIANCE: No fallbacks for required properties
                 if "refrac" not in properties:
                     raise ValueError(f"ARCHITECTURE VIOLATION: Missing required property 'refrac' for area {cortical_id}")
@@ -1259,18 +1191,21 @@ class NeuroEmbryogenesis:
                     if consecutive_fire_limit == 0:
                         consecutive_fire_limit = 10  # Prevent infinite consecutive firing
                     
+                    # Extract snooze period from genome (nx-snooze-f gene)
+                    snooze_period = int(max(0, round(properties.get("snooze_length", 0))))
+                    
                     # Create batch neuron creation request with ALL parameters from genome
                     request = NeuronCreationRequest(
                         cortical_idx=area.cortical_idx,
                         positions=positions,
                         thresholds=[base_threshold] * area_neuron_count,
                         initial_potentials=[0.0] * area_neuron_count,
-                        leak_coefficients=[base_decay_rate] * area_neuron_count,
-                        decay_rates=[base_decay_rate] * area_neuron_count,
+                        leak_coefficients=[base_leak_coefficient] * area_neuron_count,
                         refractory_periods=[properties["refrac"]] * area_neuron_count,
                         excitabilities=[base_excitability] * area_neuron_count,
                         resting_potentials=[0.0] * area_neuron_count,
                         consecutive_fire_limits=[consecutive_fire_limit] * area_neuron_count,
+                        snooze_periods=[snooze_period] * area_neuron_count,
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)
@@ -2914,6 +2849,29 @@ class NeuroEmbryogenesis:
                 logger.info(
                     f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
                 )
+                
+                # CRITICAL: Reinitialize Rust NPU after synapse creation
+                # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to reload its synapse index
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
+                        if burst_engine._rust_npu_integration is not None:
+                            logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - reloading synapse index...")
+                            try:
+                                burst_engine.reinitialize_rust_npu()
+                                logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after neuroembryogenesis")
+                            except Exception as reinit_error:
+                                logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
+                        else:
+                            logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                    else:
+                        logger.debug("Burst engine not available or Rust NPU not enabled")
+                except Exception as rust_error:
+                    logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                    logger.exception("Full stack trace:")
+                
                 return True
             else:
                     if memory_mappings_processed > 0:
@@ -3219,37 +3177,28 @@ class NeuroEmbryogenesis:
             )
             
             total_synapses = 0
+            synapse_connections = []  # Accumulate ALL synapses across ALL vectors for single batch creation
             
-            # Process each vector in the morphology
+            # Get destination area dimensions ONCE (shared by all vectors)
+            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+            if not dst_area:
+                logger.warning(f"Cannot get destination area {dst_area_id}")
+                return 0
+            dst_dimensions = dst_area.dimensions
+            
+            # PHASE 1: Accumulate all candidate positions from ALL vectors
+            all_candidate_positions = set()  # (x, y, z) tuples
+            vector_mapping_data = []  # Store (valid_candidate_positions, valid_source_neurons) for each vector
+            
             for vector in vectors:
                 # Get morphology scalar (default to 1.0 if not provided)
                 scalar = morphology_scalar[0] if morphology_scalar else 1.0
                 
-                #  Step 2: Apply vector [m,n,t] to ALL positions at once (pure
-                #  numpy)
-                vector_array = np.array(vector) * scalar  # Shape: (3,)
-                candidate_positions = (
-                    source_positions + vector_array
-                )  # Broadcasting! Shape: (N, 3)
+                # Apply vector to ALL positions at once (numpy broadcasting)
+                vector_array = np.array(vector) * scalar
+                candidate_positions = source_positions + vector_array
                 
-                logger.debug(
-                    f"[VECTOR-NUMPY] Applied vector {vector} * {scalar} to {len(candidate_positions)} positions"
-                )
-                
-                # Step 3: Get destination area dimensions for boundary checking
-                dst_area = self.connectome_manager.get_cortical_area(
-                    dst_area_id
-                )
-                if not dst_area:
-                    logger.warning(
-                        f"Cannot get destination area {dst_area_id}"
-                    )
-                    continue
-                    
-                dst_dimensions = dst_area.dimensions
-                
-                #  Step 4: Filter candidate positions to be within bounds
-                #  (vectorized)
+                # Filter candidate positions to be within bounds
                 valid_mask = (
                     (candidate_positions[:, 0] >= 0)
                     & (candidate_positions[:, 0] < dst_dimensions[0])
@@ -3260,130 +3209,66 @@ class NeuroEmbryogenesis:
                 )
                 
                 valid_candidate_positions = candidate_positions[valid_mask]
-                valid_source_neurons_for_vector = source_neuron_ids[valid_mask]
+                valid_source_neurons = source_neuron_ids[valid_mask]
                 
-                if len(valid_candidate_positions) == 0:
-                    logger.debug(
-                        "[VECTOR-NUMPY] No valid candidate positions after boundary filtering"
-                    )
-                    continue
+                if len(valid_candidate_positions) > 0:
+                    # Store mapping data for later processing
+                    vector_mapping_data.append((valid_candidate_positions, valid_source_neurons))
                     
-                logger.debug(
-                    f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds"
-                )
-                
-                # Step 5: Batch lookup ALL candidate positions at once
-                candidate_positions_set = set(
-                    map(tuple, valid_candidate_positions)
-                )
-                
-                neuron_weight_pairs = (
-                    self.connectome_manager.batch_voxel_to_neuron_lookup(
-                    cortical_id=dst_area_id,
-                    candidate_positions=candidate_positions_set,
-                    post_synaptic_current=psc_multiplier,
-                    )
-                )
-                
-                if not neuron_weight_pairs:
-                    logger.debug(
-                        "[VECTOR-NUMPY] No neurons found at candidate positions"
-                    )
-                    continue
-                
-                #  Step 6: Create position-to-neurons mapping using global
-                #  spatial hash
-                #  ULTRA-FAST: Use pre-computed spatial hash system to
-                #  eliminate all coordinate lookups
-                position_to_neurons = {}
-                
-                # Build reverse mapping using global spatial hash system
-                if neuron_weight_pairs:
-                    # Import global spatial hash system
-                    from feagi.bdu.spatial_hash import get_spatial_hash
-
-                    _ = get_spatial_hash()
-                    
-                    # Extract neuron IDs from the pairs
-                    found_neuron_ids = [
-                        pair[0] for pair in neuron_weight_pairs
-                    ]
-                    
-                    # Get all positions at once using vectorized lookup
-                    if hasattr(
-                        self.connectome_manager.neuron_array,
-                        "batch_get_coordinates",
-                    ):
-                        neuron_positions_batch = self.connectome_manager.neuron_array.batch_get_coordinates(
-                            found_neuron_ids
-                        )
-                    else:
-                        # Fallback: vectorized coordinate extraction
-                        neuron_indices = [
-                            self.connectome_manager.get_neuron_index(nid) 
-                            for nid in found_neuron_ids 
-                            if self.connectome_manager.has_neuron(nid)
-                        ]
-                        
-                        # Filter out None values from the mapping lookups
-                        neuron_indices = [
-                            idx for idx in neuron_indices if idx is not None
-                        ]
-                        
-                        if neuron_indices:
-                            indices_array = np.array(
-                                neuron_indices, dtype=np.int32
-                            )
-                            coords_x = self.connectome_manager.neuron_array.coordinates_x[
-                                indices_array
-                            ]
-                            coords_y = self.connectome_manager.neuron_array.coordinates_y[
-                                indices_array
-                            ]
-                            coords_z = self.connectome_manager.neuron_array.coordinates_z[
-                                indices_array
-                            ]
-                            neuron_positions_batch = list(
-                                zip(coords_x, coords_y, coords_z)
-                            )
-                        else:
-                            neuron_positions_batch = []
-                    
-                    # Group neurons by position
-                    for i, (neuron_id, weight) in enumerate(
-                        neuron_weight_pairs
-                    ):
-                        if i < len(neuron_positions_batch):
-                            neuron_pos = neuron_positions_batch[i]
-                            if neuron_pos not in position_to_neurons:
-                                position_to_neurons[neuron_pos] = []
-                            position_to_neurons[neuron_pos].append(
-                                (neuron_id, weight)
-                            )
-                
-                # Step 7: Create synapses (vectorized where possible)
-                synapse_connections = []
+                    # Accumulate unique positions for batch lookup
+                    for pos in valid_candidate_positions:
+                        all_candidate_positions.add(tuple(pos))
+            
+            if not all_candidate_positions:
+                logger.debug("[VECTOR-NUMPY] No valid candidate positions after processing all vectors")
+                return 0
+            
+            logger.info(f"[VECTOR-NUMPY] Processed {len(vectors)} vectors → {len(all_candidate_positions)} unique candidate positions")
+            
+            # PHASE 2: ONE batch lookup for ALL candidate positions from ALL vectors (MASSIVE performance gain!)
+            neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                cortical_id=dst_area_id,
+                candidate_positions=all_candidate_positions,
+                post_synaptic_current=psc_multiplier,
+            )
+            
+            if not neuron_weight_pairs:
+                logger.debug("[VECTOR-NUMPY] No neurons found at any candidate positions")
+                return 0
+            
+            # PHASE 3: Create position-to-neurons mapping
+            position_to_neurons = {}  # (x, y, z) → list of (neuron_id, weight)
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            
+            if npu_interface is not None:
+                # Get positions for all found neurons from Rust NPU
+                for neuron_id, weight in neuron_weight_pairs:
+                    position = npu_interface.get_neuron_position(neuron_id)
+                    if position is not None:
+                        pos_tuple = tuple(position)
+                        if pos_tuple not in position_to_neurons:
+                            position_to_neurons[pos_tuple] = []
+                        position_to_neurons[pos_tuple].append((neuron_id, weight))
+            
+            # PHASE 4: Match source neurons to target neurons for ALL vectors
+            for valid_candidate_positions, valid_source_neurons in vector_mapping_data:
                 for i, candidate_pos in enumerate(valid_candidate_positions):
                     candidate_pos_tuple = tuple(candidate_pos)
                     if candidate_pos_tuple in position_to_neurons:
-                        src_neuron_id = valid_source_neurons_for_vector[i]
-                        for dst_neuron_id, weight in position_to_neurons[
-                            candidate_pos_tuple
-                        ]:
-                            synapse_connections.append(
-                                (src_neuron_id, dst_neuron_id, weight)
-                            )
-                
-                # Step 8: Batch create synapses
-                if synapse_connections:
-                    created = self.connectome_manager.batch_create_synapses(
-                        synapse_connections
-                    )
-                    total_synapses += created
-                    logger.debug(
-                        f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}"
-                    )
+                        src_neuron_id = valid_source_neurons[i]
+                        for dst_neuron_id, weight in position_to_neurons[candidate_pos_tuple]:
+                            synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
 
+            # Step 8: Batch create ALL accumulated synapses in ONE call (massive performance improvement!)
+            if synapse_connections:
+                created = self.connectome_manager.batch_create_synapses(
+                    synapse_connections
+                )
+                total_synapses += created
+                logger.info(
+                    f"[VECTOR-NUMPY] Created {created} synapses in single batch for all vectors"
+                )
+            
             logger.info(
                 f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations"
             )

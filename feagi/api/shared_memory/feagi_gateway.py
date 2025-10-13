@@ -224,7 +224,7 @@ class SharedMemoryFEAGIGateway:
                 "maximum_firing_rate": 100,
                 "refractory_period": 5,
                 "threshold": 0.5,
-                "decay_rate": 0.1,
+                "leak_coefficient": 0.1,
                 "firing_threshold": 0.7,
                 "membrane_potential_decay": 0.05,
             },
