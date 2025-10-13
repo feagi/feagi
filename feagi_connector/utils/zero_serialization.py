@@ -29,8 +29,19 @@ def build_zero_serialized_xyzp(sensor_bytes: bytes) -> Optional[bytes]:
         # Try new API first (FeagiByteContainer), return None if not available
         if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
             return None
-        feagi_bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
-        mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_bs)
+        if not sensor_bytes or len(sensor_bytes) == 0:
+            return None
+        try:
+            feagi_bs = frpl.data_serialization.FeagiByteContainer()
+            feagi_bs.load_bytes_and_verify(sensor_bytes)
+            mapped = feagi_bs.try_create_new_struct_from_index(0)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            import logging
+            import sys
+            logging.debug(f"Failed to decode sensor bytes: {sys.exc_info()[1]}")
+            return None
 
         areas = []
         for (cid_obj, neuron_arrays) in mapped.iter_full():

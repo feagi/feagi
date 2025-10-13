@@ -25,14 +25,20 @@ def build_neural_image(sensor_bytes: bytes, target_wh: Tuple[int, int]) -> np.nd
 
     try:
         # Try new API first (FeagiByteContainer), fall back if not available
-        try:
-            bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
-        except AttributeError:
-            # Fallback for older feagi-rust-py-libs versions
-            import logging
-            logging.debug("FeagiByteContainer not available, skipping byte decoding")
+        if not sensor_bytes or len(sensor_bytes) == 0:
             return img
-        mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(bs)
+        try:
+            bs = frpl.data_serialization.FeagiByteContainer()
+            bs.load_bytes_and_verify(sensor_bytes)
+            mapped = bs.try_create_new_struct_from_index(0)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            # Catch all exceptions including Rust panics (pyo3_runtime.PanicException)
+            import logging
+            import sys
+            logging.debug(f"FeagiByteContainer failed: {sys.exc_info()[1]}")
+            return img
         # Prefer iic400
         target_id = frpl.data_structures.genomic.CorticalID.try_new_from_string("iic400")
         arrays = None
@@ -229,14 +235,20 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
 
     try:
         # Try new API first (FeagiByteContainer), fall back if not available
-        try:
-            bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
-        except AttributeError:
-            # Fallback for older feagi-rust-py-libs versions
-            import logging
-            logging.debug("FeagiByteContainer not available, returning empty mosaic")
+        if not sensor_bytes or len(sensor_bytes) == 0:
             return mosaic
-        mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(bs)
+        try:
+            bs = frpl.data_serialization.FeagiByteContainer()
+            bs.load_bytes_and_verify(sensor_bytes)
+            mapped = bs.try_create_new_struct_from_index(0)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            # Catch all exceptions including Rust panics (pyo3_runtime.PanicException)
+            import logging
+            import sys
+            logging.debug(f"FeagiByteContainer failed: {sys.exc_info()[1]}")
+            return mosaic
         order = [
             "iic600", "iic700", "iic800",
             "iic300", "iic400", "iic500",

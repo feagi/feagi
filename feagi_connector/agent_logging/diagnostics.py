@@ -27,8 +27,23 @@ def log_sensor_area_counts(logger: logging.Logger, sensor_bytes: bytes) -> None:
         # Try new API first (FeagiByteContainer), return if not available
         if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
             return
-        feagi_bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
-        mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_bs)
+        
+        # Skip if empty bytes
+        if not sensor_bytes or len(sensor_bytes) == 0:
+            return
+            
+        try:
+            feagi_bs = frpl.data_serialization.FeagiByteContainer()
+            feagi_bs.load_bytes_and_verify(sensor_bytes)
+            mapped = feagi_bs.try_create_new_struct_from_index(0)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            # Handle Rust panics or invalid byte structures
+            import sys
+            logging.debug(f"[DIAG] Failed to deserialize sensor bytes: {sys.exc_info()[1]}")
+            return
+            
         area_counts = []
         total = 0
         for (cid_obj, neuron_arrays) in mapped.iter_full():

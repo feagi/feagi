@@ -295,8 +295,18 @@ async def stream_segmented_camera(
                             if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
                                 logger.debug("[MOTOR] FeagiByteContainer not available, skipping decode")
                                 return
-                            fbs = frpl.data_serialization.FeagiByteContainer(payload)
-                            mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(fbs)
+                            if not payload or len(payload) == 0:
+                                return
+                            try:
+                                fbs = frpl.data_serialization.FeagiByteContainer()
+                                fbs.load_bytes_and_verify(payload)
+                                mapped = fbs.try_create_new_struct_from_index(0)
+                            except (KeyboardInterrupt, SystemExit):
+                                raise
+                            except:
+                                import sys
+                                logger.debug(f"[MOTOR] Failed to decode: {sys.exc_info()[1]}")
+                                return
                             for cid_obj, neuron_arrays in mapped.iter_full():
                                 try:
                                     x_coords, y_coords, z_coords, potentials = neuron_arrays

@@ -91,7 +91,9 @@ class FeagiAgentConnector:
                     import feagi_rust_py_libs as frpl
                     raw_bytes = self._py_sensor_cache._rust_cache.sensor_get_bytes()
                     if raw_bytes:
-                        return frpl.data_serialization.FeagiByteContainer(raw_bytes)
+                        container = frpl.data_serialization.FeagiByteContainer()
+                        container.load_bytes_and_verify(raw_bytes)
+                        return container
                 return None
             except Exception as e:
                 import logging
@@ -131,8 +133,18 @@ class MotorCache:
             if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
                 logger.warning("FeagiByteContainer not available in feagi-rust-py-libs, skipping motor decode")
                 return
-            feagi_byte_structure = frpl.data_serialization.FeagiByteContainer(motor_bytes)
-            mapped_neurons = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_byte_structure)
+            if not motor_bytes or len(motor_bytes) == 0:
+                return
+            try:
+                feagi_byte_structure = frpl.data_serialization.FeagiByteContainer()
+                feagi_byte_structure.load_bytes_and_verify(motor_bytes)
+                mapped_neurons = feagi_byte_structure.try_create_new_struct_from_index(0)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                import sys
+                logger.debug(f"Failed to decode motor bytes: {sys.exc_info()[1]}")
+                return
             
             # Store in cache for later retrieval
             self._motor_data_cache['latest'] = mapped_neurons

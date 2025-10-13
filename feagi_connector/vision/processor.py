@@ -377,7 +377,7 @@ class GazeMotorProcessor:
             Mapped neuron data for gaze control
         """
         # Create neurons as shown in the sample
-        neurons = self._frpl.data_structures.neurons.xyzp.NeuronXYZPArrays()
+        neurons = self._frpl.data_structures.neurons_voxels.xyzp.NeuronVoxelXYZPArrays()
         
         # Convert gaze position to coordinates
         x_coord = int(gaze_x * self.gaze_resolution)
@@ -385,11 +385,11 @@ class GazeMotorProcessor:
         
         # Create multiple neurons for smooth control (like the sample)
         for i in range(4):  # Sample shows 4 neurons
-            neuron = self._frpl.data_structures.neurons.xyzp.NeuronXYZP(x_coord, y_coord, 0, intensity)
+            neuron = self._frpl.data_structures.neurons_voxels.xyzp.NeuronVoxelXYZP(x_coord, y_coord, 0, intensity)
             neurons.push(neuron)
         
         # Create mapped neurons
-        mapped_neurons = self._frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
+        mapped_neurons = self._frpl.data_structures.neurons_voxels.xyzp.CorticalMappedXYZPNeuronVoxels()
         try:
             gaze_cortical_id = self._frpl.data_structures.genomic.CorticalID.new_motor_cortical_area_id(
                 self._frpl.data_structures.genomic.MotorCorticalType.Gaze, self.group_index
@@ -425,8 +425,19 @@ class GazeMotorProcessor:
             # Try new API first (FeagiByteContainer), return None if not available
             if not hasattr(self._frpl.data_serialization, 'FeagiByteContainer'):
                 return None
-            feagi_byte_structure = self._frpl.data_serialization.FeagiByteContainer(motor_bytes)
-            mapped_neurons = self._frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_byte_structure)
+            if not motor_bytes or len(motor_bytes) == 0:
+                return None
+            try:
+                feagi_byte_structure = self._frpl.data_serialization.FeagiByteContainer()
+                feagi_byte_structure.load_bytes_and_verify(motor_bytes)
+                mapped_neurons = feagi_byte_structure.try_create_new_struct_from_index(0)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                import logging
+                import sys
+                logging.debug(f"Failed to decode motor bytes: {sys.exc_info()[1]}")
+                return None
 
             # Accumulators per param index
             # index -> (weighted_z_sum, activation_sum, z_max)
@@ -538,7 +549,7 @@ def create_gaze_control_neurons(gaze_x: float, gaze_y: float, intensity: float =
     try:
         neurons = frpl.connector_core.data.neurons.NeuronXYZPArrays()
     except AttributeError:
-        neurons = frpl.data_structures.neurons.xyzp.NeuronXYZPArrays()
+        neurons = frpl.data_structures.neurons_voxels.xyzp.NeuronVoxelXYZPArrays()
     
     # Convert gaze position to coordinates
     x_coord = int(gaze_x * resolution)
@@ -559,7 +570,7 @@ def create_gaze_control_neurons(gaze_x: float, gaze_y: float, intensity: float =
                     nx, ny, 0, intensity * weight
                 )
             except AttributeError:
-                neuron = frpl.data_structures.neurons.xyzp.NeuronXYZP(
+                neuron = frpl.data_structures.neurons_voxels.xyzp.NeuronVoxelXYZP(
                     nx, ny, 0, intensity * weight
                 )
             neurons.push(neuron)
