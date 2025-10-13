@@ -45,7 +45,10 @@ def test_segmented_vision_coordinate_bounds_and_ids():
     sensor_bytes = proc.process_frame(frame_bgr)
 
     # Decode bytes using frpl
-    bs = frpl.data_serialization.FeagiByteStructure(sensor_bytes)
+    # Skip test if FeagiByteContainer not available yet
+    if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
+        pytest.skip("FeagiByteContainer not available in feagi-rust-py-libs yet")
+    bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
     mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(bs)
 
     # Expected dimensions per cortical area

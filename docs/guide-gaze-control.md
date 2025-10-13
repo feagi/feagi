@@ -1,15 +1,27 @@
 # FEAGI Connector Gaze Control Guide
 
-This guide explains how to use the enhanced segmented vision processing with gaze control capabilities in FEAGI Connector 2.0.
+This guide explains how to use the enhanced segmented vision processing with gaze control capabilities in FEAGI Connector 2.0, updated for `feagi-rust-py-libs` version 0.0.66+.
 
 ## Overview
 
-The updated FEAGI Connector includes advanced gaze control functionality that allows agents to dynamically adjust their visual attention based on motor feedback from FEAGI. This is implemented using the latest `feagi_rust_py_libs` patterns and provides:
+The updated FEAGI Connector includes advanced gaze control functionality that allows agents to dynamically adjust their visual attention based on motor feedback from FEAGI. This is implemented using the latest `feagi_rust_py_libs` 0.0.66+ patterns and provides:
 
 - **Dynamic Gaze Control**: Adjust visual focus in real-time
 - **Segmented Vision Processing**: 3x3 vision segmentation with center/peripheral regions
 - **Motor-Vision Integration**: Bidirectional communication between vision and motor systems
 - **Advanced Gaze Properties**: Eccentricity and modularity control for natural attention mechanisms
+
+## New in feagi-rust-py-libs 0.0.66+
+
+The latest version introduces several API improvements:
+
+- **New API Path**: `frpl.connector_core.data.*` instead of `frpl.data_structures.data.*`
+- **Stage Updates**: Dynamic stage property updates via `update_stage()` method
+- **Percentage4D**: Motor data now returns `Percentage4D` objects with `.get_as_0_1()` accessor
+- **Factory Method**: `FeagiAgentConnector.create_dummy_connector()` for testing
+- **Stage Properties**: New `ImageSegmentorStageProperties` for pipeline configuration
+
+The connector maintains backward compatibility with fallbacks to older API paths.
 
 ## Key Components
 

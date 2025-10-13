@@ -11,6 +11,17 @@ from feagi_connector.motor.processor import MotorProcessor
 from feagi_connector.state.connection import ConnectionState
 from feagi_connector.agent_logging.setup import setup_agent_logging
 
+# Convenience function for creating test/example connectors
+def create_dummy_connector():
+    """Create a dummy connector for testing and examples without actual server connection.
+    
+    This is a convenience wrapper around FeagiAgentConnector.create_dummy_connector().
+    
+    Returns:
+        FeagiAgentConnector: A connector instance with dummy server backend
+    """
+    return FeagiAgentConnector.create_dummy_connector()
+
 # New modular utilities
 from feagi_connector.agent_logging.diagnostics import log_sensor_area_counts
 from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter, ShmBytesReader
@@ -30,6 +41,7 @@ from feagi_connector.video.stream import stream_segmented_camera
 __all__ = [
     # High-level agent connector
     "FeagiAgentConnector",
+    "create_dummy_connector",
     "FeagiClient",
     "CapabilitiesManager", 
     "MotorProcessor",

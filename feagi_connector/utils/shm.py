@@ -218,6 +218,23 @@ class SharedFrameWriter:
             # Reopen with new size
             self.open(width, height, channels=channels, pixel_format=pixel_format)
 
+        # Validate mapping length to catch truncated/unlinked files and reopen
+        try:
+            expected_stride = int(width) * int(height) * int(channels)
+            expected_size = self.HEADER_SIZE + expected_stride * self.num_slots
+            if self._mm is None or self._mm.size() < expected_size:
+                # Mapping is invalid; reopen
+                self._close_mapping()
+                self._write_index = -1
+                self._frame_seq = 0
+                self.open(width, height, channels=channels, pixel_format=pixel_format)
+        except Exception:
+            # Best-effort: try reopen on any failure
+            self._close_mapping()
+            self._write_index = -1
+            self._frame_seq = 0
+            self.open(width, height, channels=channels, pixel_format=pixel_format)
+
     def write_frame(self, rgb_frame: np.ndarray) -> None:
         """Write a single RGB frame into the ring buffer and publish it.
 

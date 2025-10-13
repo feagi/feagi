@@ -71,23 +71,45 @@ class SegmentedVisionProcessor:
         self._seg_props = None
 
         # Establish base input properties with placeholder; updated on first frame
-        color_space = self._frpl.data_structures.data.image_descriptors.ColorSpace.Linear
-        color_channels = self._frpl.data_structures.data.image_descriptors.ColorChannelLayout.RGB
-        self._memory_order = (
-            self._frpl.data_structures.data.image_descriptors.MemoryOrderLayout.WidthsHeightsChannels
-        )
+        # Try new API path first, fallback to old
+        # NOTE: Use WidthsHeightsChannels as per segmented_autogaze.py sample
+        try:
+            color_space = self._frpl.connector_core.data.descriptors.ColorSpace.Linear
+            color_channels = self._frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+            self._memory_order = (
+                self._frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+            )
+        except AttributeError:
+            # Fallback to old API path
+            color_space = self._frpl.data_structures.data.image_descriptors.ColorSpace.Linear
+            color_channels = self._frpl.data_structures.data.image_descriptors.ColorChannelLayout.RGB
+            self._memory_order = (
+                self._frpl.data_structures.data.image_descriptors.MemoryOrderLayout.WidthsHeightsChannels
+            )
 
         # Segmented properties (output sizing)
         cw, ch = self.center_dims
         pw, ph = self.per_dims
-        out_center = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(cw, ch)
-        out_per = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(pw, ph)
-        seg_res = self._frpl.data_structures.data.image_descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
-            out_center, out_per
-        )
-        self._seg_props = self._frpl.data_structures.data.image_descriptors.SegmentedImageFrameProperties(
-            seg_res, color_channels, color_channels, color_space
-        )
+        try:
+            # Try new API path
+            out_center = self._frpl.connector_core.data.descriptors.ImageXYResolution(cw, ch)
+            out_per = self._frpl.connector_core.data.descriptors.ImageXYResolution(pw, ph)
+            seg_res = self._frpl.connector_core.data.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+                out_center, out_per
+            )
+            self._seg_props = self._frpl.connector_core.data.descriptors.SegmentedImageFrameProperties(
+                seg_res, color_channels, color_channels, color_space
+            )
+        except AttributeError:
+            # Fallback to old API path
+            out_center = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(cw, ch)
+            out_per = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(pw, ph)
+            seg_res = self._frpl.data_structures.data.image_descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+                out_center, out_per
+            )
+            self._seg_props = self._frpl.data_structures.data.image_descriptors.SegmentedImageFrameProperties(
+                seg_res, color_channels, color_channels, color_space
+            )
 
         # Setup advanced gaze properties as shown in the sample
         self._setup_gaze_properties()
@@ -103,35 +125,46 @@ class SegmentedVisionProcessor:
     def _setup_gaze_properties(self) -> None:
         """Setup gaze properties using the advanced pattern from feagi_rust_py_libs."""
         try:
-            # Try the current API path
-            eccentricity = self._frpl.data_structures.data.Percentage2D(
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[0]),
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[1]),
+            # Try the new connector_core API path (version 0.0.66+)
+            eccentricity = self._frpl.connector_core.data.Percentage2D(
+                self._frpl.connector_core.data.Percentage.new_from_0_1(self._eccentricity_params[0]),
+                self._frpl.connector_core.data.Percentage.new_from_0_1(self._eccentricity_params[1]),
             )
-            modulation = self._frpl.data_structures.data.Percentage2D(
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[0]),
-                self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[1]),
+            modulation = self._frpl.connector_core.data.Percentage2D(
+                self._frpl.connector_core.data.Percentage.new_from_0_1(self._modulation_params[0]),
+                self._frpl.connector_core.data.Percentage.new_from_0_1(self._modulation_params[1]),
             )
         except AttributeError:
             try:
-                # Try alternative API paths
-                eccentricity = self._frpl.data_structures.Percentage2D(
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._eccentricity_params[0]),
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._eccentricity_params[1]),
+                # Try old data_structures API path
+                eccentricity = self._frpl.data_structures.data.Percentage2D(
+                    self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[0]),
+                    self._frpl.data_structures.data.Percentage.new_from_0_1(self._eccentricity_params[1]),
                 )
-                modulation = self._frpl.data_structures.Percentage2D(
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._modulation_params[0]),
-                    self._frpl.data_structures.Percentage.new_from_0_1(self._modulation_params[1]),
+                modulation = self._frpl.data_structures.data.Percentage2D(
+                    self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[0]),
+                    self._frpl.data_structures.data.Percentage.new_from_0_1(self._modulation_params[1]),
                 )
             except AttributeError:
-                # Fallback to simple gaze properties
-                self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties.create_default_centered()
+                # Final fallback to simple gaze properties
+                try:
+                    self._gaze = self._frpl.connector_core.data.descriptors.GazeProperties.create_default_centered()
+                except AttributeError:
+                    self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties.create_default_centered()
                 return
         
         # Create the advanced gaze properties object
-        self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties(
-            eccentricity, modulation
-        )
+        try:
+            # Try new API path
+            self._gaze = self._frpl.connector_core.data.descriptors.GazeProperties(
+                eccentricity, modulation
+            )
+        except AttributeError:
+            # Try old API path
+            self._gaze = self._frpl.data_structures.data.image_descriptors.GazeProperties(
+                eccentricity, modulation
+            )
+        
         if logger.isEnabledFor(logging.DEBUG):
             try:
                 ex = float(self._eccentricity_params[0]); ey = float(self._eccentricity_params[1])
@@ -141,14 +174,26 @@ class SegmentedVisionProcessor:
                 pass
 
     def _ensure_registered(self, width: int, height: int) -> None:
+        logger.debug(f"[REGISTER] _ensure_registered called, _image_properties is None: {self._image_properties is None}")
         if self._image_properties is None:
-            cs = self._frpl.data_structures.data.image_descriptors.ColorSpace.Linear
-            cc = self._frpl.data_structures.data.image_descriptors.ColorChannelLayout.RGB
-            in_res = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(int(width), int(height))
-            self._image_properties = self._frpl.data_structures.data.image_descriptors.ImageFrameProperties(in_res, cs, cc)
+            try:
+                # Try new API path
+                cs = self._frpl.connector_core.data.descriptors.ColorSpace.Linear
+                cc = self._frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+                in_res = self._frpl.connector_core.data.descriptors.ImageXYResolution(int(width), int(height))
+                self._image_properties = self._frpl.connector_core.data.descriptors.ImageFrameProperties(in_res, cs, cc)
+            except AttributeError:
+                # Fallback to old API path
+                cs = self._frpl.data_structures.data.image_descriptors.ColorSpace.Linear
+                cc = self._frpl.data_structures.data.image_descriptors.ColorChannelLayout.RGB
+                in_res = self._frpl.data_structures.data.image_descriptors.ImageXYResolution(int(width), int(height))
+                self._image_properties = self._frpl.data_structures.data.image_descriptors.ImageFrameProperties(in_res, cs, cc)
             
             # Use image_camera_with_peripheral as shown in the sample
             try:
+                logger.debug(f"[REGISTER] Registering: group={self.group_index}, channels={self.number_of_channels}, input=({width}x{height})")
+                logger.debug(f"[REGISTER] Image properties: {self._image_properties}")
+                logger.debug(f"[REGISTER] Seg properties: {self._seg_props}")
                 self._cache.image_camera_with_peripheral.register(
                     self.group_index, self.number_of_channels, self._image_properties, self._seg_props, self._gaze
                 )
@@ -173,14 +218,34 @@ class SegmentedVisionProcessor:
         h, w = rgb.shape[:2]
         self._ensure_registered(w, h)
 
-        color_space = frpl.data_structures.data.image_descriptors.ColorSpace.Linear
+        # Use new API path
+        try:
+            color_space = frpl.connector_core.data.descriptors.ColorSpace.Linear
+        except AttributeError:
+            color_space = frpl.data_structures.data.image_descriptors.ColorSpace.Linear
+        
         memory_order = self._memory_order
-        image_frame = frpl.data_structures.data.ImageFrame.new_from_array(rgb, color_space, memory_order)
+        
+        # Create ImageFrame with new API
+        try:
+            image_frame = frpl.connector_core.data.ImageFrame.new_from_array(rgb, color_space, memory_order)
+        except AttributeError:
+            image_frame = frpl.data_structures.data.ImageFrame.new_from_array(rgb, color_space, memory_order)
+        
+        # Log ImageFrame details
+        logger.debug(f"[PROCESS] Created ImageFrame: shape={rgb.shape}, color_space={color_space}, memory_order={memory_order}")
+        logger.debug(f"[PROCESS] ImageFrame properties: {image_frame.get_image_frame_properties() if hasattr(image_frame, 'get_image_frame_properties') else 'N/A'}")
         
         # Use image_camera_with_peripheral.store as shown in the sample
         self._cache.image_camera_with_peripheral.store(self.group_index, 0, image_frame)
+        logger.debug(f"[PROCESS] Store completed for group={self.group_index}")
+        
         self._cache.encode_cached_data_into_bytes()
+        logger.debug(f"[PROCESS] Encode completed")
+        
         sensor_bytes = self._cache.get_most_recent_sensor_bytes()
+        logger.debug(f"[PROCESS] Got {len(sensor_bytes)} bytes from cache")
+        
         # Optional compact diagnostics when DEBUG is enabled
         try:
             log_sensor_area_counts(logger, sensor_bytes)
@@ -228,6 +293,36 @@ class SegmentedVisionProcessor:
     def gaze_properties(self):
         """Get the gaze properties object for motor integration."""
         return self._gaze
+    
+    def update_stage_properties(self, input_image_properties, segment_image_properties):
+        """Update stage properties dynamically, as shown in segmented_autogaze.py sample.
+        
+        This allows updating the segmentation pipeline properties at runtime,
+        for example to change gaze parameters based on motor feedback.
+        
+        Args:
+            input_image_properties: ImageFrameProperties for input
+            segment_image_properties: SegmentedImageFrameProperties for output
+        """
+        try:
+            # Create stage properties using the new API
+            stage_props = self._frpl.connector_core.data_pipeline.stage_properties.ImageSegmentorStageProperties(
+                input_image_properties, segment_image_properties, self._gaze
+            )
+        except AttributeError:
+            # API might not have stage_properties, skip
+            logger.warning("Stage properties update not available in current feagi_rust_py_libs version")
+            return
+        
+        # Update the stage (stage index 0 for the segmentor stage)
+        try:
+            self._cache.image_camera_with_peripheral.update_stage(
+                self.group_index, 0, 0, stage_props
+            )
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Updated stage properties for group {self.group_index}")
+        except Exception as e:
+            logger.warning(f"Failed to update stage properties: {e}")
 
 
 
@@ -327,7 +422,10 @@ class GazeMotorProcessor:
             if parameters could not be decoded.
         """
         try:
-            feagi_byte_structure = self._frpl.data_serialization.FeagiByteStructure(motor_bytes)
+            # Try new API first (FeagiByteContainer), return None if not available
+            if not hasattr(self._frpl.data_serialization, 'FeagiByteContainer'):
+                return None
+            feagi_byte_structure = self._frpl.data_serialization.FeagiByteContainer(motor_bytes)
             mapped_neurons = self._frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_byte_structure)
 
             # Accumulators per param index
@@ -409,9 +507,17 @@ def numpy_to_image_frame(np_rgb_uint8: np.ndarray):
         raise ValueError("Expected (H,W,3) RGB uint8 array")
     if np_rgb_uint8.dtype != np.uint8:
         np_rgb_uint8 = np_rgb_uint8.astype(np.uint8, copy=False)
-    color_space = frpl.data_structures.data.image_descriptors.ColorSpace.Linear
-    memory_order = frpl.data_structures.data.image_descriptors.MemoryOrderLayout.WidthsHeightsChannels
-    return frpl.data_structures.data.ImageFrame.new_from_array(np_rgb_uint8, color_space, memory_order)
+    
+    # Try new API path first
+    try:
+        color_space = frpl.connector_core.data.descriptors.ColorSpace.Linear
+        memory_order = frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+        return frpl.connector_core.data.ImageFrame.new_from_array(np_rgb_uint8, color_space, memory_order)
+    except AttributeError:
+        # Fallback to old API path
+        color_space = frpl.data_structures.data.image_descriptors.ColorSpace.Linear
+        memory_order = frpl.data_structures.data.image_descriptors.MemoryOrderLayout.WidthsHeightsChannels
+        return frpl.data_structures.data.ImageFrame.new_from_array(np_rgb_uint8, color_space, memory_order)
 
 
 def create_gaze_control_neurons(gaze_x: float, gaze_y: float, intensity: float = 1.0, resolution: int = 8):
@@ -428,7 +534,11 @@ def create_gaze_control_neurons(gaze_x: float, gaze_y: float, intensity: float =
     """
     import feagi_rust_py_libs as frpl
     
-    neurons = frpl.data_structures.neurons.xyzp.NeuronXYZPArrays()
+    # Try new API path first
+    try:
+        neurons = frpl.connector_core.data.neurons.NeuronXYZPArrays()
+    except AttributeError:
+        neurons = frpl.data_structures.neurons.xyzp.NeuronXYZPArrays()
     
     # Convert gaze position to coordinates
     x_coord = int(gaze_x * resolution)
@@ -443,9 +553,15 @@ def create_gaze_control_neurons(gaze_x: float, gaze_y: float, intensity: float =
             # Weight based on distance from center
             weight = 1.0 if (dx == 0 and dy == 0) else 0.5
             
-            neuron = frpl.data_structures.neurons.xyzp.NeuronXYZP(
-                nx, ny, 0, intensity * weight
-            )
+            # Try new API path
+            try:
+                neuron = frpl.connector_core.data.neurons.NeuronXYZP(
+                    nx, ny, 0, intensity * weight
+                )
+            except AttributeError:
+                neuron = frpl.data_structures.neurons.xyzp.NeuronXYZP(
+                    nx, ny, 0, intensity * weight
+                )
             neurons.push(neuron)
     
     return neurons

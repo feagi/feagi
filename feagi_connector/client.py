@@ -137,6 +137,8 @@ class FeagiClient:
         self.heartbeat_task = None
         self.motor_listen_task = None
         self.viz_listen_task = None
+        # Reused HTTP session for heartbeats (best-effort)
+        self._http_session = None
     
     async def register_with_capabilities(
         self,
@@ -598,6 +600,13 @@ Once both are ready, your agent will automatically connect.
         self.sensory_client.close()  # This is now a synchronous method
         await self.motor_client.close()
         await self.viz_client.close()
+        # Close shared HTTP session
+        try:
+            if self._http_session is not None:
+                await self._http_session.close()
+        except Exception:
+            pass
+        self._http_session = None
         
         logger.info("Disconnected from FEAGI")
     
@@ -660,15 +669,30 @@ Once both are ready, your agent will automatically connect.
     
     async def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats to keep the connection alive."""
+        interval_sec = 10.0
         try:
             while self.connected:
                 try:
-                    # Use ping for widest server compatibility
-                    await self.command_client.ping()
+                    # Send heartbeat over ZMQ control path
+                    await self.command_client.send_heartbeat(
+                        agent_id=self.agent_id,
+                        agent_type=self.agent_type,
+                    )
+                    # Also notify FEAGI over HTTP API to keep registration fresh
+                    try:
+                        import aiohttp  # type: ignore
+                        http_port = 8000  # Align with readiness check usage
+                        url = f"http://{self.host}:{http_port}/v1/agent/heartbeat"
+                        if self._http_session is None:
+                            self._http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3))
+                        await self._http_session.post(url, json={"agent_id": self.agent_id})
+                    except Exception:
+                        # Best-effort HTTP heartbeat; continue even if unavailable
+                        pass
                 except Exception as _:
                     # Non-fatal; keep connection state and retry later
                     pass
-                await asyncio.sleep(30)
+                await asyncio.sleep(interval_sec)
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully
             pass

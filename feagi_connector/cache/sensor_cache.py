@@ -11,8 +11,8 @@ temp_sensors_dict = {
     },
     "SegmentedImageFrame": {
         "image_camera_with_peripheral": {
-            "register_name": "register_image_camera_with_peripheral",
-            "write_name": "store_image_camera_with_peripheral"
+            "register_name": "sensor_register_segmented_vision_absolute",
+            "write_name": "sensor_write_segmented_vision_absolute"
         }
     }
 }
@@ -20,15 +20,19 @@ temp_sensors_dict = {
 class SensorCache:
     def __init__(self):
         try:
-            # Try the new API
-            self._rust_cache = frpl.connector_core.IOCache()
+            # Try the new API (correct path)
+            self._rust_cache = frpl.connector_core.caching.IOCache()
         except AttributeError:
             try:
-                # Fallback to old API
-                self._rust_cache = frpl.connector_core.SensorCache()
+                # Try alternate path
+                self._rust_cache = frpl.connector_core.IOCache()
             except AttributeError:
-                # Create a minimal cache stub
-                self._rust_cache = None
+                try:
+                    # Fallback to old API
+                    self._rust_cache = frpl.connector_core.SensorCache()
+                except AttributeError:
+                    # Create a minimal cache stub
+                    self._rust_cache = None
 
         for sensor_type, sensors in temp_sensors_dict.items():
             for sensor_name, sensor_details in sensors.items():
@@ -47,20 +51,55 @@ class SensorCache:
 
 
     def encode_cached_data_into_bytes(self):
+        import logging
+        logger = logging.getLogger(__name__)
         if self._rust_cache:
-            try:
-                # Try new API method name
-                self._rust_cache.sensor_encode_cached_data_into_bytes()
-            except AttributeError:
-                try:
-                    # Try old API method name
-                    self._rust_cache.encode_cached_data_into_bytes()
-                except AttributeError:
-                    # Skip if neither method exists
-                    pass
+            # Log available methods for debugging
+            available = [m for m in dir(self._rust_cache) if 'sensor' in m.lower() and 'encode' in m.lower()]
+            logger.debug(f"[CACHE-ENCODE] Available encode methods: {available}")
+            
+            # IOCache API: sensors_encode_cached_data_to_bytes (plural!)
+            if hasattr(self._rust_cache, 'sensors_encode_cached_data_to_bytes'):
+                logger.debug("[CACHE-ENCODE] Calling sensors_encode_cached_data_to_bytes()")
+                self._rust_cache.sensors_encode_cached_data_to_bytes()
+            else:
+                logger.warning(f"[CACHE-ENCODE] Method 'sensors_encode_cached_data_to_bytes' not found on {type(self._rust_cache)}")
 
     def get_most_recent_sensor_bytes(self) -> bytes:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"[CACHE-GET-ENTRY] Called, _rust_cache type: {type(self._rust_cache)}")
         if self._rust_cache:
-            list_bytes = self._rust_cache.retrieve_latest_bytes()
-            return bytes(list_bytes)
+            # Try sensor_get_bytes() first (available in current version)
+            if hasattr(self._rust_cache, 'sensor_get_bytes'):
+                logger.debug("[CACHE-GET] Using sensor_get_bytes()")
+                try:
+                    result = self._rust_cache.sensor_get_bytes()
+                    result_bytes = bytes(result) if result else b""
+                    logger.debug(f"[CACHE-GET] Got {len(result_bytes)} bytes")
+                    return result_bytes
+                except BaseException as rust_error:
+                    error_msg = str(rust_error)
+                    if "index out of bounds" in error_msg or "len is 0" in error_msg:
+                        logger.debug(f"[CACHE-GET] Cache is empty: {rust_error}")
+                        return b""
+                    else:
+                        logger.warning(f"[CACHE-GET] Rust error: {rust_error}")
+                        return b""
+            # Fallback: Try newer API sensor_get_byte_container()
+            elif hasattr(self._rust_cache, 'sensor_get_byte_container'):
+                logger.debug("[CACHE-GET] Using sensor_get_byte_container()")
+                try:
+                    container = self._rust_cache.sensor_get_byte_container()
+                    if container and hasattr(container, 'copy_out_as_byte_vector'):
+                        result_list = container.copy_out_as_byte_vector()
+                        result_bytes = bytes(result_list)
+                        logger.debug(f"[CACHE-GET] Got {len(result_bytes)} bytes")
+                        return result_bytes
+                except BaseException as e:
+                    logger.warning(f"[CACHE-GET] Error: {e}")
+                    return b""
+            else:
+                logger.warning(f"[CACHE-GET] No known method found on {type(self._rust_cache)}")
+                return b""
         return b""

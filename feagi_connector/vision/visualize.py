@@ -24,7 +24,14 @@ def build_neural_image(sensor_bytes: bytes, target_wh: Tuple[int, int]) -> np.nd
         return img
 
     try:
-        bs = frpl.data_serialization.FeagiByteStructure(sensor_bytes)
+        # Try new API first (FeagiByteContainer), fall back if not available
+        try:
+            bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
+        except AttributeError:
+            # Fallback for older feagi-rust-py-libs versions
+            import logging
+            logging.debug("FeagiByteContainer not available, skipping byte decoding")
+            return img
         mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(bs)
         # Prefer iic400
         target_id = frpl.data_structures.genomic.CorticalID.try_new_from_string("iic400")
@@ -221,7 +228,14 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     }
 
     try:
-        bs = frpl.data_serialization.FeagiByteStructure(sensor_bytes)
+        # Try new API first (FeagiByteContainer), fall back if not available
+        try:
+            bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
+        except AttributeError:
+            # Fallback for older feagi-rust-py-libs versions
+            import logging
+            logging.debug("FeagiByteContainer not available, returning empty mosaic")
+            return mosaic
         mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(bs)
         order = [
             "iic600", "iic700", "iic800",

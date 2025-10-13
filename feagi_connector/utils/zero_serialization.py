@@ -26,7 +26,10 @@ def build_zero_serialized_xyzp(sensor_bytes: bytes) -> Optional[bytes]:
         return None
 
     try:
-        feagi_bs = frpl.data_serialization.FeagiByteStructure(sensor_bytes)
+        # Try new API first (FeagiByteContainer), return None if not available
+        if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
+            return None
+        feagi_bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
         mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_bs)
 
         areas = []

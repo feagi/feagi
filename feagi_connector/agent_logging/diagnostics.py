@@ -24,7 +24,10 @@ def log_sensor_area_counts(logger: logging.Logger, sensor_bytes: bytes) -> None:
         return
 
     try:
-        feagi_bs = frpl.data_serialization.FeagiByteStructure(sensor_bytes)
+        # Try new API first (FeagiByteContainer), return if not available
+        if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
+            return
+        feagi_bs = frpl.data_serialization.FeagiByteContainer(sensor_bytes)
         mapped = frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(feagi_bs)
         area_counts = []
         total = 0

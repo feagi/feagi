@@ -2,9 +2,52 @@
 
 **Note: FEAGI Connector is now a pure SDK library. For complete agent examples and reference implementations, please see the `simple_agent` project.**
 
-This directory contains only SDK usage documentation and basic code snippets.
+This directory contains SDK usage documentation and code examples demonstrating the new Rust-powered API.
+
+## Requirements
+
+Install with Rust support for best performance:
+```bash
+pip install --extra-index-url https://test.pypi.org/simple/ feagi-connector[rust,video]
+```
 
 ## SDK Usage Examples
+
+### New API: Segmented Vision with Gaze Control (v0.0.68+)
+
+See `segmented_vision_gaze_example.py` for a complete example using the new Rust data structures.
+
+```python
+import feagi_rust_py_libs as frpl
+from feagi_connector import FeagiAgentConnector
+
+# Create image frames using Rust types
+color_space = frpl.connector_core.data.descriptors.ColorSpace.Linear
+memory_order = frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+image_frame = frpl.connector_core.data.ImageFrame.new_from_array(
+    numpy_array, color_space, memory_order
+)
+
+# Create gaze properties
+eccentricity = frpl.connector_core.data.Percentage2D(
+    frpl.connector_core.data.Percentage.new_from_0_1(0.2),
+    frpl.connector_core.data.Percentage.new_from_0_1(0.2)
+)
+
+# Register segmented vision sensor
+agent.sensors.image_camera_with_peripheral.register(
+    cortical_group, num_channels, input_props, segment_props, gaze
+)
+
+# Write image data
+agent.sensors.image_camera_with_peripheral.write(
+    cortical_group, channel, image_frame
+)
+
+# Get structured byte container
+byte_container = agent.sensor_get_byte_container()
+neuron_data = byte_container.try_create_new_struct_from_index(0)
+```
 
 ### Basic Connection Example
 
