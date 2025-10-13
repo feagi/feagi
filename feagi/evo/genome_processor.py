@@ -200,7 +200,13 @@ def genome_2_cortical_list(flat_genome):
     """Generates a list of cortical areas inside genome."""
     try:
         cortical_list = list()
-        for key in flat_genome:
+        # Check if genome has blueprint section (hierarchical format)
+        if 'blueprint' in flat_genome:
+            keys_to_check = flat_genome['blueprint']
+        else:
+            keys_to_check = flat_genome
+            
+        for key in keys_to_check:
             if json_comment_catcher(key):
                 # CRITICAL FIX: Extract cortical ID properly by finding the area between dashes
                 # Format: _____10c-CORTICAL_ID-cx-property-type
@@ -263,7 +269,13 @@ def genome_2_1_convertor(flat_genome):
     # Populate each cortical area with
     for cortical_area in genome["blueprint"]:
         try:
-            for gene in flat_genome:
+            # Check if genome has blueprint section (hierarchical format)
+            if 'blueprint' in flat_genome:
+                genes_to_check = flat_genome['blueprint']
+            else:
+                genes_to_check = flat_genome
+                
+            for gene in genes_to_check:
                 if json_comment_catcher(gene):
                     # CRITICAL FIX: Extract cortical ID properly by splitting on dashes
                     if gene.startswith("_____10c-"):
@@ -273,49 +285,61 @@ def genome_2_1_convertor(flat_genome):
                             cortical_id = cortical_area_id_update_checker(
                                 cortical_id=raw_cortical_id
                             )
-                            # Extract the property part (skip the cx/nx part)
-                            # Format: _____10c-AREA1-cx-dstmap-d -> we want "dstmap-d"
-                            exon = "-".join(parts[3:])  # Skip _____10c, cortical_id, cx/nx
+                            # Extract the property part (include the cx/nx part)
+                            # Format: _____10c-AREA1-cx-dstmap-d -> we want "cx-dstmap-d"
+                            exon = "-".join(parts[2:])  # Skip _____10c, cortical_id
+                            
+                            # Also create a version without the cx/nx prefix for dictionary lookup
+                            # Format: "cx-dstmap-d" -> "dstmap-d"
+                            exon_without_prefix = "-".join(parts[3:]) if len(parts) > 3 else exon
                         else:
                             continue  # Skip malformed keys
                     else:
                         continue  # Skip non-cortical keys
                     # gene_type = gene[16:18]  # Unused variable removed
+                    # Try both full exon and exon without prefix
                     if exon in genome_2_to_1:
+                        lookup_exon = exon
+                    elif exon_without_prefix in genome_2_to_1:
+                        lookup_exon = exon_without_prefix
+                    else:
+                        lookup_exon = None
+                        
+                    if lookup_exon:
                         if cortical_id == cortical_area:
-                            if genome_2_to_1[exon] == "cortical_name":
+                            if genome_2_to_1[lookup_exon] == "cortical_name":
                                 genome["blueprint"][cortical_area][
-                                    genome_2_to_1[exon]
-                                ] = flat_genome[gene]
+                                    genome_2_to_1[lookup_exon]
+                                ] = genes_to_check[gene]
                             elif (
-                                genome_2_to_1[exon]
+                                genome_2_to_1[lookup_exon]
                                 == "location_generation_type"
                             ):
-                                if flat_genome[gene]:
+                                if genes_to_check[gene]:
                                     genome["blueprint"][cortical_area][
-                                        genome_2_to_1[exon]
+                                        genome_2_to_1[lookup_exon]
                                     ] = "random"
                                 else:
                                     genome["blueprint"][cortical_area][
-                                        genome_2_to_1[exon]
+                                        genome_2_to_1[lookup_exon]
                                     ] = "sequential"
-                            elif genome_2_to_1[exon] == "cortical_mapping_dst":
-                                for destination in flat_genome[gene]:
+                            elif genome_2_to_1[lookup_exon] == "cortical_mapping_dst":
+                                for destination in genes_to_check[gene]:
                                     if json_comment_catcher(
-                                        flat_genome[gene][destination]
+                                        genes_to_check[gene][destination]
                                     ) and json_comment_catcher(destination):
-                                        for mapping_recipe in flat_genome[
+                                        for mapping_recipe in genes_to_check[
                                             gene
                                         ][destination]:
                                             if (
                                                 destination
                                                 not in genome["blueprint"][
                                                     cortical_area
-                                                ][genome_2_to_1[exon]]
+                                                ][genome_2_to_1[lookup_exon]]
                                             ):
                                                 genome["blueprint"][
                                                     cortical_area
-                                                ][genome_2_to_1[exon]][
+                                                ][genome_2_to_1[lookup_exon]][
                                                     destination
                                                 ] = list()
 
@@ -354,62 +378,79 @@ def genome_2_1_convertor(flat_genome):
                                             )
 
                                             genome["blueprint"][cortical_area][
-                                                genome_2_to_1[exon]
+                                                genome_2_to_1[lookup_exon]
                                             ][destination].append(temp_dict)
 
-                            elif genome_2_to_1[exon] == "block_boundaries":
+                            elif genome_2_to_1[lookup_exon] == "block_boundaries":
                                 if gene[24] == "x":
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
-                                    ][0] = flat_genome[gene]
+                                    ][0] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
-                                    ][1] = flat_genome[gene]
+                                    ][1] = genes_to_check[gene]
                                 elif gene[24] == "z":
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
-                                    ][2] = flat_genome[gene]
+                                    ][2] = genes_to_check[gene]
                                 else:
                                     pass
 
-                            elif genome_2_to_1[exon] == "relative_coordinate":
+                            elif genome_2_to_1[lookup_exon] == "relative_coordinate":
                                 if gene[24] == "x":
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
-                                    ][0] = flat_genome[gene]
+                                    ][0] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
-                                    ][1] = flat_genome[gene]
+                                    ][1] = genes_to_check[gene]
                                 elif gene[24] == "z":
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
-                                    ][2] = flat_genome[gene]
+                                    ][2] = genes_to_check[gene]
                                 else:
                                     pass
-                            elif genome_2_to_1[exon] == "2d_coordinate":
+                            elif genome_2_to_1[lookup_exon] == "2d_coordinate":
                                 if gene[24] == "x":
                                     genome["blueprint"][cortical_area][
                                         "2d_coordinate"
-                                    ][0] = flat_genome[gene]
+                                    ][0] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "2d_coordinate"
-                                    ][1] = flat_genome[gene]
+                                    ][1] = genes_to_check[gene]
                                 else:
                                     pass
 
                             else:
-                                try:
-                                    genome["blueprint"][cortical_area][
-                                        genome_2_to_1[exon]
-                                    ] = flat_genome[gene]
-                                except Exception as e:
-                                    logger.error(
-                                        f"Key not processed: {cortical_area} {e} "
-                                        f"{traceback.print_exc()}"
-                                    )
+                                # Enhanced property handling - explicit mappings for critical properties
+                                if "nx-mp_acc-b" in exon:
+                                    genome["blueprint"][cortical_area]["mp_charge_accumulation"] = genes_to_check[gene]
+                                elif "nx-mp_psp-b" in exon:
+                                    genome["blueprint"][cortical_area]["mp_driven_psp"] = genes_to_check[gene]
+                                elif "fire_t-f" in exon:
+                                    genome["blueprint"][cortical_area]["firing_threshold"] = genes_to_check[gene]
+                                elif "refrac-i" in exon:
+                                    genome["blueprint"][cortical_area]["refractory_period"] = genes_to_check[gene]
+                                elif "leak_c-f" in exon:
+                                    genome["blueprint"][cortical_area]["leak_coefficient"] = genes_to_check[gene]
+                                elif "leak_v-f" in exon:
+                                    genome["blueprint"][cortical_area]["leak_variability"] = genes_to_check[gene]
+                                elif "pspuni-b" in exon:
+                                    genome["blueprint"][cortical_area]["psp_uniform_distribution"] = genes_to_check[gene]
+                                else:
+                                    # Fallback to dictionary mapping for other properties
+                                    try:
+                                        genome["blueprint"][cortical_area][
+                                            genome_2_to_1[lookup_exon]
+                                        ] = genes_to_check[gene]
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Key not processed: {cortical_area} {e} "
+                                            f"{traceback.print_exc()}"
+                                        )
 
         except Exception as e:
             logger.error(
@@ -852,7 +893,9 @@ genome_2_to_1 = {
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
     "mp_acc-b": "mp_charge_accumulation",
+    "nx-mp_acc-b": "mp_charge_accumulation",
     "mp_psp-b": "mp_driven_psp",
+    "nx-mp_psp-b": "mp_driven_psp",
     "memory-b": "is_mem_type",
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
@@ -969,6 +1012,11 @@ class GenomeValidationError(Exception):
     pass
 
 
+# REMOVED: Duplicate genome processor classes
+# The production system uses genome_2_1_convertor function above
+# This eliminates duplication and ensures consistency
+
+# Placeholder for future OOP genome processor if needed
 class BaseGenomeProcessor(ABC):
     """Abstract base class for genome processors.
 
@@ -1034,356 +1082,6 @@ class BaseGenomeProcessor(ABC):
         pass
 
 
-class GenomeV2Processor(BaseGenomeProcessor):
-    """Processor for FEAGI 2.0 genome format.
-
-    Handles the flat genome structure with keys like
-    "_____10c-{cortical_id}-cx-{property}-{type}" This is the current format
-    used in FEAGI 2.0.
-    """
-
-    def get_version(self) -> str:
-        return "2.0"
-
-    def validate_genome(self) -> Tuple[bool, List[str]]:
-        """Validate FEAGI 2.0 genome structure."""
-        errors = []
-
-        # Check required top-level sections
-        required_sections = ["blueprint", "physiology", "neuron_morphologies"]
-        for section in required_sections:
-            if section not in self.genome_data:
-                errors.append(f"Missing required section: {section}")
-
-        # Validate blueprint structure
-        if "blueprint" in self.genome_data:
-            if not isinstance(self.genome_data["blueprint"], dict):
-                errors.append("Blueprint section must be a dictionary")
-            else:
-                # Check for valid cortical area keys
-                valid_keys_found = 0
-                for key in self.genome_data["blueprint"].keys():
-                    if isinstance(key, str) and key.startswith("_____10c-"):
-                        valid_keys_found += 1
-
-                if valid_keys_found == 0:
-                    errors.append(
-                        "No valid cortical area definitions found in blueprint"
-                    )
-
-        # Validate physiology section
-        if "physiology" in self.genome_data:
-            if not isinstance(self.genome_data["physiology"], dict):
-                errors.append("Physiology section must be a dictionary")
-
-        # Validate morphologies section
-        if "neuron_morphologies" in self.genome_data:
-            if not isinstance(self.genome_data["neuron_morphologies"], dict):
-                errors.append(
-                    "Neuron morphologies section must be a dictionary"
-                )
-
-        return len(errors) == 0, errors
-
-    def extract_cortical_areas(self) -> Dict[str, Dict[str, Any]]:
-        """Extract cortical areas from FEAGI 2.0 flat genome structure."""
-        cortical_areas = {}
-        blueprint = self.genome_data.get("blueprint", {})
-
-        # Group properties by cortical_id
-        area_properties = {}
-
-        for gene_key, gene_value in blueprint.items():
-            if not isinstance(gene_key, str) or not gene_key.startswith(
-                "_____10c-"
-            ):
-                continue
-
-            parts = gene_key.split("-")
-            if len(parts) < 4:
-                continue
-
-            cortical_id = parts[1]
-            property_key = parts[3] if len(parts) >= 4 else parts[-2]
-
-            if cortical_id not in area_properties:
-                area_properties[cortical_id] = {}
-
-            # Process specific properties
-            if "___bbx" in property_key:
-                if "dimensions" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["dimensions"] = [0, 0, 0]
-                area_properties[cortical_id]["dimensions"][0] = gene_value
-            elif "___bby" in property_key:
-                if "dimensions" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["dimensions"] = [0, 0, 0]
-                area_properties[cortical_id]["dimensions"][1] = gene_value
-            elif "___bbz" in property_key:
-                if "dimensions" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["dimensions"] = [0, 0, 0]
-                area_properties[cortical_id]["dimensions"][2] = gene_value
-            elif "rcordx" in property_key:
-                if "position" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["position"] = [0, 0, 0]
-                area_properties[cortical_id]["position"][0] = gene_value
-            elif "rcordy" in property_key:
-                if "position" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["position"] = [0, 0, 0]
-                area_properties[cortical_id]["position"][1] = gene_value
-            elif "rcordz" in property_key:
-                if "position" not in area_properties[cortical_id]:
-                    area_properties[cortical_id]["position"] = [0, 0, 0]
-                area_properties[cortical_id]["position"][2] = gene_value
-            elif "__name" in property_key:
-                area_properties[cortical_id]["name"] = gene_value
-            elif "_group" in property_key:
-                area_properties[cortical_id]["group"] = gene_value
-            elif "subgrp" in property_key:
-                area_properties[cortical_id]["subgroup"] = gene_value
-            elif "_n_cnt" in property_key:
-                area_properties[cortical_id]["neurons_per_voxel"] = gene_value
-            elif "synatt" in property_key:
-                area_properties[cortical_id][
-                    "synapse_attractivity"
-                ] = gene_value
-            elif "fire_t" in property_key:
-                area_properties[cortical_id]["firing_threshold"] = gene_value
-            elif "refrac" in property_key:
-                area_properties[cortical_id]["refractory_period"] = gene_value
-            elif "leak_c" in property_key:
-                area_properties[cortical_id]["leak_coefficient"] = gene_value
-            else:
-                # Store other properties with cleaned key
-                clean_key = property_key.strip("_")
-                area_properties[cortical_id][clean_key] = gene_value
-
-        # Convert to final format
-        for cortical_id, properties in area_properties.items():
-            # Ensure required properties exist
-            if all(
-                key in properties for key in ["dimensions", "position", "name"]
-            ):
-                cortical_areas[cortical_id] = properties
-            else:
-                logger.warning(
-                    f"Skipping cortical area {cortical_id} due to missing "
-                    f"required properties"
-                )
-
-        return cortical_areas
-
-    def extract_cortical_mappings(
-        self,
-    ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
-        """Extract cortical mappings from FEAGI 2.0 flat genome structure."""
-        mappings = {}
-        blueprint = self.genome_data.get("blueprint", {})
-
-        # Look for cortical mapping keys: "_____10c-{cortical_id}-cx-dstmap-d"
-        for gene_key, gene_value in blueprint.items():
-            if (
-                isinstance(gene_key, str)
-                and gene_key.startswith("_____10c-")
-                and gene_key.endswith("-cx-dstmap-d")
-            ):
-                # Extract cortical ID
-                parts = gene_key.split("-")
-                if len(parts) >= 3:
-                    src_id = parts[1]
-                else:
-                    continue
-
-                # Process mapping data
-                if isinstance(gene_value, dict) and gene_value:
-                    if src_id not in mappings:
-                        mappings[src_id] = {}
-
-                    for dst_id, mapping_specs in gene_value.items():
-                        if dst_id not in mappings[src_id]:
-                            mappings[src_id][dst_id] = []
-
-                        # Process each mapping specification
-                        for spec in mapping_specs:
-                            if isinstance(spec, list) and len(spec) >= 7:
-                                #  Convert from legacy array format to object
-                                #  format
-                                mapping_obj = {
-                                    "morphology_id": spec[0],
-                                    "morphology_scalar": (
-                                        spec[1]
-                                        if isinstance(spec[1], list)
-                                        else [1, 1, 1]
-                                    ),
-                                    "postSynapticCurrent_multiplier": (
-                                        spec[2] if len(spec) > 2 else 1.0
-                                    ),
-                                    "plasticity_flag": (
-                                        spec[3] if len(spec) > 3 else False
-                                    ),
-                                    "plasticity_constant": (
-                                        spec[4] if len(spec) > 4 else 1.0
-                                    ),
-                                    "ltp_multiplier": (
-                                        spec[5] if len(spec) > 5 else 1.0
-                                    ),
-                                    "ltd_multiplier": (
-                                        spec[6] if len(spec) > 6 else 1.0
-                                    ),
-                                }
-                                mappings[src_id][dst_id].append(mapping_obj)
-
-        return mappings
-
-    def extract_morphologies(self) -> Dict[str, Dict[str, Any]]:
-        """Extract morphology definitions from FEAGI 2.0 genome."""
-        morphologies = {}
-
-        if "neuron_morphologies" in self.genome_data:
-            for morphology_id, morphology_def in self.genome_data[
-                "neuron_morphologies"
-            ].items():
-                if isinstance(morphology_def, dict):
-                    morphologies[morphology_id] = morphology_def
-
-        return morphologies
-
-    def extract_physiology(self) -> Dict[str, Any]:
-        """Extract physiology parameters from FEAGI 2.0 genome."""
-        return self.genome_data.get("physiology", {})
-
-
-class GenomeV3Processor(BaseGenomeProcessor):
-    """Processor for future FEAGI 3.0 genome format.
-
-    This is a placeholder for future genome versions with hierarchical
-    structure.
-    """
-
-    def get_version(self) -> str:
-        return "3.0"
-
-    def validate_genome(self) -> Tuple[bool, List[str]]:
-        """Validate FEAGI 3.0 genome structure."""
-        # Placeholder for future implementation
-        return True, []
-
-    def extract_cortical_areas(self) -> Dict[str, Dict[str, Any]]:
-        """Extract cortical areas from FEAGI 3.0 hierarchical structure."""
-        # Placeholder for future implementation
-        return self.genome_data.get("cortical_areas", {})
-
-    def extract_cortical_mappings(
-        self,
-    ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
-        """Extract cortical mappings from FEAGI 3.0 structure."""
-        # Placeholder for future implementation
-        return self.genome_data.get("cortical_mappings", {})
-
-    def extract_morphologies(self) -> Dict[str, Dict[str, Any]]:
-        """Extract morphologies from FEAGI 3.0 structure."""
-        # Placeholder for future implementation
-        return self.genome_data.get("morphologies", {})
-
-    def extract_physiology(self) -> Dict[str, Any]:
-        """Extract physiology from FEAGI 3.0 structure."""
-        # Placeholder for future implementation
-        return self.genome_data.get("physiology", {})
-
-
-class GenomeProcessor:
-    """Main genome processor orchestrator.
-
-    This class determines the genome version and delegates to the appropriate
-    version-specific processor. It provides a unified interface for all genome
-    processing operations.
-    """
-
-    def __init__(self, genome_data: Dict[str, Any]):
-        self.genome_data = genome_data
-        self.processor = self._create_processor()
-
-    def _create_processor(self) -> BaseGenomeProcessor:
-        """Create the appropriate processor based on genome version."""
-        version = self._detect_genome_version()
-
-        if version == "2.0":
-            return GenomeV2Processor(self.genome_data)
-        elif version == "3.0":
-            return GenomeV3Processor(self.genome_data)
-        else:
-            raise GenomeVersionError(f"Unsupported genome version: {version}")
-
-    def _detect_genome_version(self) -> str:
-        """Detect the genome version from the data structure."""
-        # Check for explicit version field
-        if "version" in self.genome_data:
-            return str(self.genome_data["version"])
-
-        # Detect based on structure
-        if "blueprint" in self.genome_data:
-            blueprint = self.genome_data["blueprint"]
-            if isinstance(blueprint, dict):
-                # Check for flat structure (FEAGI 2.0)
-                for key in blueprint.keys():
-                    if isinstance(key, str) and key.startswith("_____10c-"):
-                        return "2.0"
-
-                # Check for hierarchical structure (future FEAGI 3.0)
-                if "cortical_areas" in blueprint:
-                    return "3.0"
-
-        # Default to 2.0 for backward compatibility
-        logger.warning("Could not detect genome version, defaulting to 2.0")
-        return "2.0"
-
-    def validate_genome(self) -> Tuple[bool, List[str]]:
-        """Validate the genome using the appropriate processor."""
-        return self.processor.validate_genome()
-
-    def extract_cortical_areas(self) -> Dict[str, Dict[str, Any]]:
-        """Extract cortical area definitions."""
-        return self.processor.extract_cortical_areas()
-
-    def extract_cortical_mappings(
-        self,
-    ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
-        """Extract cortical mappings."""
-        return self.processor.extract_cortical_mappings()
-
-    def extract_morphologies(self) -> Dict[str, Dict[str, Any]]:
-        """Extract morphology definitions."""
-        return self.processor.extract_morphologies()
-
-    def extract_physiology(self) -> Dict[str, Any]:
-        """Extract physiology parameters."""
-        return self.processor.extract_physiology()
-
-    def get_version(self) -> str:
-        """Get the detected genome version."""
-        return self.processor.get_version()
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get statistics about the genome."""
-        cortical_areas = self.extract_cortical_areas()
-        mappings = self.extract_cortical_mappings()
-        morphologies = self.extract_morphologies()
-
-        # Count total mappings
-        total_mappings = 0
-        for src_mappings in mappings.values():
-            for dst_connections in src_mappings.values():
-                total_mappings += len(dst_connections)
-
-        return {
-            "version": self.get_version(),
-            "cortical_areas_count": len(cortical_areas),
-            "morphologies_count": len(morphologies),
-            "total_mappings": total_mappings,
-            "areas_with_mappings": len(mappings),
-        }
-
-
-# Utility functions for modern OOP interface
 def load_genome_from_file(genome_path: Union[str, Path]) -> Dict[str, Any]:
     """Load genome data from a JSON file.
 
@@ -1411,37 +1109,9 @@ def load_genome_from_file(genome_path: Union[str, Path]) -> Dict[str, Any]:
         ) from e
 
 
-def create_genome_processor(genome_data: Dict[str, Any]) -> GenomeProcessor:
-    """Create a genome processor for the given genome data.
-
-    Args:
-        genome_data: Dictionary containing genome data
-
-    Returns:
-        GenomeProcessor instance
-
-    Raises:
-        GenomeVersionError: If genome version is not supported
-    """
-    return GenomeProcessor(genome_data)
-
-
-def process_genome_file(genome_path: Union[str, Path]) -> GenomeProcessor:
-    """Load and process a genome file.
-
-    Args:
-        genome_path: Path to the genome file
-
-    Returns:
-        GenomeProcessor instance
-
-    Raises:
-        FileNotFoundError: If genome file doesn't exist
-        json.JSONDecodeError: If genome file is not valid JSON
-        GenomeVersionError: If genome version is not supported
-    """
-    genome_data = load_genome_from_file(genome_path)
-    return create_genome_processor(genome_data)
+# REMOVED: create_genome_processor and process_genome_file functions
+# These referenced the removed GenomeProcessor class
+# Use genome_2_1_convertor directly for flat-to-hierarchical conversion
 
 
 def get_morphology_registry(

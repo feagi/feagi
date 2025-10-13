@@ -137,7 +137,7 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
     running."""
     from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-    # Skip the check for genome loading/initial operations
+    # Skip the check for genome loading/initial operations, agent registration, and visualization setup
     if (
         "/v1/genome/upload" in request.url.path
         or request.url.path.endswith("/v1/genome/download")
@@ -146,6 +146,13 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
         or request.url.path.endswith("/v1/burst_engine/start")
         or request.url.path.endswith("/v1/burst_engine/stop")
         or request.url.path.endswith("/v1/burst_engine/status")
+        or request.url.path.endswith("/v1/burst_engine/simulation_timestep")
+        or request.url.path.endswith("/v1/agent/register")
+        or request.url.path.endswith("/v1/agent/deregister")
+        or request.url.path.endswith("/v1/agent/list")
+        or request.url.path.endswith("/v1/neuroplasticity/plasticity_queue_depth")
+        or request.url.path.endswith("/v1/system/cortical_area_visualization_suppression_threshold")
+        or request.url.path.endswith("/v1/system/cortical_area_visualization_skip_rate")
     ):
         return
 

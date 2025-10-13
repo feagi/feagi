@@ -93,13 +93,21 @@ class BrainRegionHierarchy:
         
         # First pass: Create all nodes
         for region_id, region_data in brain_regions.items():
+            # Debug: Check what areas are in the region data
+            cortical_areas_field = region_data.get("cortical_areas", [])
+            areas_field = region_data.get("areas", [])
+            
+            # CRITICAL FIX: Merge both fields to ensure no memory areas are lost
+            # Memory areas might be added to "areas" but not "cortical_areas"
+            final_areas = list(set(cortical_areas_field + areas_field))
+            
             node = BrainRegionNode(
                 region_id=region_id,
                 parent_id=region_data.get("parent_region_id"),
                 # Accept both legacy 'regions' and modern 'child_regions'
                 children_ids=region_data.get("child_regions", region_data.get("regions", [])).copy(),
-                # Accept both legacy 'areas' and modern 'cortical_areas'
-                cortical_areas=region_data.get("cortical_areas", region_data.get("areas", [])).copy(),
+                # Use merged areas list to ensure memory areas are included
+                cortical_areas=final_areas,
                 inputs=region_data.get("inputs", []).copy(),
                 outputs=region_data.get("outputs", []).copy(),
                 depth=0  # Will be calculated in second pass

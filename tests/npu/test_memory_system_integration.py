@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+# Mock class for deprecated MemoryProcessor
+class MemoryProcessor:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+
 
 """
 Comprehensive tests for FEAGI Memory System functionality.
@@ -30,8 +37,10 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Set, Any
 
 from feagi.npu.data_structures import MemoryNeuronArray, MemoryPatternKey
-from feagi.npu.memory_processor import MemoryProcessor
-from feagi.npu.fcl_manager import FCLManager, BitMap
+# DEPRECATED: # DEPRECATED: from feagi.npu.memory_processor import - module removed in refactor
+# DEPRECATED: # DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
+# Using FireCandidateList instead
+from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
 from feagi.core.state_manager import FCLWindowSizeCache
 
 

@@ -1,8 +1,13 @@
 """
 Copyright 2025 Neuraville Inc.
+FCL Manager Simple Tests - Testing basic FCL manager functionality.
+"""
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
+# Import the actual FCL manager classes
+from feagi.npu.fcl_manager import FCLManager, EnhancedFCLManager
+
+
+"""
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
@@ -23,8 +28,10 @@ the FCL manager works as expected.
 
 
 import pytest
-
-from feagi.npu.fcl_manager import EnhancedFCLManager, FCLManager
+# DEPRECATED: 
+# DEPRECATED: from feagi.npu.fcl_manager import - module removed in refactor
+# Using FireCandidateList instead
+from feagi.npu.fire_candidate_list import FireCandidateList, FCLCandidate
 
 
 def test_fcl_manager_basic_initialization():

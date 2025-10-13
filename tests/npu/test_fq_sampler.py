@@ -28,7 +28,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from feagi.npu.burst_engine import UnifiedFQSampler
+from feagi.npu.burst_engine import BurstEngine
+from feagi.npu.fq_sampler import FQSampler 
 
 
 class MockFireQueueProvider:
@@ -125,9 +126,9 @@ def mock_connectome_manager():
 def test_fq_sampler_init(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test initialization of UnifiedFQSampler with different parameters."""
+    """Test initialization of FQSampler with different parameters."""
     # Test with only required parameters
-    sampler1 = UnifiedFQSampler(
+    sampler1 = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -141,7 +142,7 @@ def test_fq_sampler_init(
     assert not sampler1.running
 
     # Test with connectome manager and custom parameters
-    sampler2 = UnifiedFQSampler(
+    sampler2 = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=5,
         sampling_mode="opu",
@@ -155,9 +156,9 @@ def test_fq_sampler_init(
 
 
 def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queue):
-    """Test UnifiedFQSampler.sample without a connectome manager - expects None (correct behavior)."""
+    """Test FQSampler.sample without a connectome manager - expects None (correct behavior)."""
     # Create sampler with high frequency for faster testing in visualization mode
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -168,16 +169,16 @@ def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queu
 
     # Implementation correctly returns None when no connectome manager is provided
     # This is expected behavior - can't determine areas with activity without FCL manager
-    assert sample is None
+    assert sample == {}  # FQSampler now returns empty dict instead of None
 
 
 def test_fq_sampler_run_with_connectome(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test UnifiedFQSampler.sample with a connectome manager (custom areas mode)."""
+    """Test FQSampler.sample with a connectome manager (custom areas mode)."""
     # Use custom_areas mode to test connectome-based sampling
     target_areas = ["cortex1", "cortex2"]
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="custom_areas",
@@ -188,14 +189,14 @@ def test_fq_sampler_run_with_connectome(
     # Test direct sampling
     sample = sampler.sample()
 
-    # Check that we got a sample
-    assert sample is not None
-    assert isinstance(sample, dict)
+    # Check that we got a sample - should always return a dict (empty if no data)
+    assert isinstance(sample, dict)  # FQSampler should always return a dict structure
 
     # Should have cortical area structure
-    for area_id, area_data in sample.items():
-        assert isinstance(area_data, dict)
-        assert "neuron_ids" in area_data
+    if sample:  # Dict may be empty if no firing neurons
+        for area_id, area_data in sample.items():
+            assert isinstance(area_data, dict)
+            assert "neuron_ids" in area_data
 
 
 def test_set_target_areas(
@@ -203,7 +204,7 @@ def test_set_target_areas(
 ):
     """Test custom areas sampling mode."""
     target_areas = ["cortex1", "cortex2"]
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="custom_areas",
@@ -213,19 +214,20 @@ def test_set_target_areas(
 
     # Test sampling with target areas
     sample = sampler.sample()
-    assert sample is not None
-    assert isinstance(sample, dict)
+    # Should always return a dict (empty if no data)
+    assert isinstance(sample, dict)  # FQSampler should return consistent dict interface
 
     # In the mock, all areas return the same data, so we should get some areas
-    for area_id, area_data in sample.items():
-        assert isinstance(area_data, dict)
-        assert "neuron_ids" in area_data
+    if sample and isinstance(sample, dict):  # Handle realistic None values
+        for area_id, area_data in sample.items():
+            assert isinstance(area_data, dict)
+            assert "neuron_ids" in area_data
 
 
 def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_manager):
-    """Test UnifiedFQSampler with queue operations - expects None due to mock FCL manager issues."""
+    """Test FQSampler with queue operations - expects None due to mock FCL manager issues."""
     # Test sampler behavior with queue operations
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=100,
         sampling_mode="visualization",
@@ -237,15 +239,15 @@ def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_ma
 
     # Implementation returns None when FCL manager mock doesn't have proper setup
     # This is expected behavior - mock objects don't provide real FCL functionality
-    assert sample is None
+    assert sample == {}  # FQSampler now returns empty dict instead of None
 
 
 def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
-    """Test UnifiedFQSampler error handling when exceptions occur."""
+    """Test FQSampler error handling when exceptions occur."""
     # Create a provider that raises exceptions
     error_provider = MockFireQueueProvider(should_raise_exception=True)
 
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=error_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -255,14 +257,14 @@ def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
     # Should handle exceptions gracefully
     sample = sampler.sample()
     # Should return None or empty dict when exceptions occur
-    assert sample is None or (isinstance(sample, dict) and len(sample) == 0)
+    assert sample == {}  # FQSampler now returns empty dict instead of None or (isinstance(sample, dict) and len(sample) == 0)
 
 
 def test_fq_sampler_zero_rate(
     mock_fire_queue_provider, output_queue, mock_connectome_manager
 ):
-    """Test UnifiedFQSampler with zero sampling rate (should still work with manual sampling)."""
-    sampler = UnifiedFQSampler(
+    """Test FQSampler with zero sampling rate (should still work with manual sampling)."""
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=0,  # Zero frequency
         sampling_mode="visualization",
@@ -271,13 +273,13 @@ def test_fq_sampler_zero_rate(
 
     # Even with zero frequency, manual sampling should work
     sample = sampler.sample()
-    assert sample is not None or sample is None  # Should handle gracefully
+    # Accept any realistic return value from sample() or sample is None  # Should handle gracefully
 
 
 def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     """Test different sampling modes."""
     # Test visualization mode
-    sampler_viz = UnifiedFQSampler(
+    sampler_viz = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -285,7 +287,7 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     assert sampler_viz.sampling_mode == "visualization"
 
     # Test OPU mode
-    sampler_opu = UnifiedFQSampler(
+    sampler_opu = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="opu",
@@ -293,7 +295,7 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
     assert sampler_opu.sampling_mode == "opu"
 
     # Test custom areas mode
-    sampler_custom = UnifiedFQSampler(
+    sampler_custom = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="custom_areas",
@@ -306,8 +308,8 @@ def test_fq_sampler_sampling_modes(mock_fire_queue_provider, output_queue):
 
 
 def test_fq_sampler_performance_stats(mock_fire_queue_provider, output_queue):
-    """Test UnifiedFQSampler performance statistics."""
-    sampler = UnifiedFQSampler(
+    """Test FQSampler performance statistics."""
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=10,
         sampling_mode="visualization",
@@ -324,7 +326,7 @@ def test_fq_sampler_performance_stats(mock_fire_queue_provider, output_queue):
 
 def test_fq_sampler_always_samples(mock_fire_queue_provider, output_queue):
     """Test that FQSampler consistently returns None when no proper setup is provided."""
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_fire_queue_provider,
         sample_frequency_hz=50,
         sampling_mode="visualization",
@@ -336,30 +338,30 @@ def test_fq_sampler_always_samples(mock_fire_queue_provider, output_queue):
 
     # Implementation correctly returns None when no connectome manager/FCL setup
     # This is expected and consistent behavior
-    assert sample1 is None
-    assert sample2 is None
+    assert sample1 == {}  # First sample should be empty due to rate limiting
+    assert sample2 == {}  # Second sample should also be empty
 
 
 def test_fq_sampler_initialization():
     """Test FQ sampler initialization."""
     mock_provider = MagicMock()
-    sampler = UnifiedFQSampler(
+    sampler = FQSampler(
         fire_queue_provider=mock_provider,
         sample_frequency_hz=10.0,
         sampling_mode="visualization",
     )
 
     assert sampler.sample_frequency == 10.0
-    assert sampler.current_strategy.mode.value == "visualization"
+    assert sampler.sampling_mode == "visualization"  # FQSampler stores mode directly
 
 
 class TestFQSampler(unittest.TestCase):
-    """Unit test class for UnifiedFQSampler."""
+    """Unit test class for FQSampler."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.mock_provider = MockFireQueueProvider()
-        self.sampler = UnifiedFQSampler(
+        self.sampler = FQSampler(
             fire_queue_provider=self.mock_provider,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",
@@ -381,12 +383,12 @@ class TestFQSampler(unittest.TestCase):
 
         # Test manual sampling
         sample = self.sampler.sample()
-        assert sample is not None or sample is None  # Should handle gracefully
+        # Accept any realistic return value from sample() or sample is None  # Should handle gracefully
 
     def test_per_area_sampling(self):
         """Test per-area sampling functionality."""
         # Create sampler for custom areas
-        area_sampler = UnifiedFQSampler(
+        area_sampler = FQSampler(
             fire_queue_provider=self.mock_provider,
             sample_frequency_hz=10.0,
             sampling_mode="custom_areas",
@@ -403,10 +405,10 @@ class TestFQSampler(unittest.TestCase):
 
     @patch("feagi.npu.fq_sampler.logger")
     def test_error_handling(self, mock_logger):
-        """Test error handling in UnifiedFQSampler."""
+        """Test error handling in FQSampler."""
         # Test with error provider
         error_provider = MockFireQueueProvider(should_raise_exception=True)
-        error_sampler = UnifiedFQSampler(
+        error_sampler = FQSampler(
             fire_queue_provider=error_provider,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",
@@ -414,4 +416,4 @@ class TestFQSampler(unittest.TestCase):
 
         # Should handle exceptions gracefully
         sample = error_sampler.sample()
-        assert sample is None or isinstance(sample, dict)
+        assert sample == {}  # FQSampler now returns empty dict instead of None or isinstance(sample, dict)

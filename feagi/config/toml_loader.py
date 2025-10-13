@@ -30,7 +30,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 
 try:
     import tomllib  # Python 3.11+
@@ -538,6 +538,28 @@ def get_agent_config(config: Dict[str, Any]) -> AgentConfiguration:
     default_host = os.environ.get("FEAGI_AGENT_DEFAULT_HOST", default_host)
 
     return AgentConfiguration(default_host=default_host)
+
+
+@dataclass
+class RegionConstraintsConfiguration:
+    """Non-configurable brain region membership constraints (system constants)."""
+
+    root_allowed_area_categories: List[str] = None
+    subregion_allowed_area_categories: List[str] = None
+    enforce_on_load: bool = True
+    auto_create_subregion_for_custom_in_root: bool = True
+
+    def __post_init__(self):
+        # Set immutable defaults
+        if self.root_allowed_area_categories is None:
+            self.root_allowed_area_categories = ["IPU", "OPU", "CORE"]
+        if self.subregion_allowed_area_categories is None:
+            self.subregion_allowed_area_categories = ["CUSTOM", "MEMORY"]
+
+
+def get_region_constraints_config(_: Dict[str, Any]) -> RegionConstraintsConfiguration:
+    """Return system-enforced region constraints (ignores external config)."""
+    return RegionConstraintsConfiguration()
 
 
 def validate_configuration(config: Dict[str, Any]) -> None:

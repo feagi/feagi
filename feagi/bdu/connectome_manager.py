@@ -756,7 +756,29 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             Integer cortical_idx if found, None otherwise
         """
-        return self.cortical_mapping.get_idx(cortical_id)
+        # CRITICAL FIX: Strip literal quotes that may be embedded in cortical_id
+        # This handles cases where cortical_id comes in as "'iic400'" instead of "iic400"
+        cleaned_cortical_id = cortical_id.strip("'\"") if cortical_id else cortical_id
+        
+        result = self.cortical_mapping.get_idx(cleaned_cortical_id)
+        if result is None:
+            # Check if cortical mapping is empty and try to rebuild it
+            try:
+                all_mappings = self.cortical_mapping.get_all_mappings() if hasattr(self.cortical_mapping, 'get_all_mappings') else {}
+                all_ids = list(all_mappings.keys())
+                
+                # Fallback: Check if cleaned cortical_id exists in get_all_mappings
+                if cleaned_cortical_id in all_mappings:
+                    expected_idx = all_mappings[cleaned_cortical_id]
+                    logger.info(f"[CORTICAL-MAP] SUCCESS: After cleaning quotes, {cleaned_cortical_id} found -> {expected_idx}")
+                    # Return the result since we found it after cleaning
+                    return expected_idx
+                
+                # Not found even after cleaning
+                logger.error(f"[CORTICAL-MAP] {cortical_id} (cleaned: {cleaned_cortical_id}) not found. Available IDs: {all_ids[:10]}")
+            except Exception as e:
+                logger.error(f"[CORTICAL-MAP] Error during debug logging for {cortical_id}: {e}")
+        return result
 
     def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
         """Get cortical_id from cortical_idx.
@@ -771,6 +793,75 @@ class ConnectomeManager(NeuronMappingProvider):
             String cortical_id if found, None otherwise
         """
         return self.cortical_mapping.get_id(cortical_idx)
+
+    # ======================================================================
+    # OPERATIONAL HELPERS: STRICT IPU/OPU CLASSIFICATION
+    # ======================================================================
+    def is_opu(self, cortical_id_or_idx) -> bool:
+        """Return True iff the area's cortical_group is exactly 'OPU'.
+
+        Args:
+            cortical_id_or_idx: Cortical area ID (str) or index (int)
+        """
+        try:
+            if isinstance(cortical_id_or_idx, int):
+                cid = self.get_cortical_id_for_idx(int(cortical_id_or_idx))
+            else:
+                cid = str(cortical_id_or_idx)
+            if not cid:
+                return False
+            info = self.get_cortical_area_properties(cid) or {}
+            group = str(info.get("cortical_group", "")).upper()
+            return group == "OPU"
+        except Exception:
+            return False
+
+    def is_ipu(self, cortical_id_or_idx) -> bool:
+        """Return True iff the area's cortical_group is exactly 'IPU'.
+
+        Args:
+            cortical_id_or_idx: Cortical area ID (str) or index (int)
+        """
+        try:
+            if isinstance(cortical_id_or_idx, int):
+                cid = self.get_cortical_id_for_idx(int(cortical_id_or_idx))
+            else:
+                cid = str(cortical_id_or_idx)
+            if not cid:
+                return False
+            info = self.get_cortical_area_properties(cid) or {}
+            group = str(info.get("cortical_group", "")).upper()
+            return group == "IPU"
+        except Exception:
+            return False
+
+    def list_opu_areas(self) -> list:
+        """Return a list of cortical IDs whose cortical_group is 'OPU'."""
+        result = []
+        try:
+            for cid in list(self.cortical_areas.keys()):
+                try:
+                    if self.is_opu(cid):
+                        result.append(cid)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return result
+
+    def list_ipu_areas(self) -> list:
+        """Return a list of cortical IDs whose cortical_group is 'IPU'."""
+        result = []
+        try:
+            for cid in list(self.cortical_areas.keys()):
+                try:
+                    if self.is_ipu(cid):
+                        result.append(cid)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return result
 
     def validate_cortical_mapping(self) -> bool:
         """Validate that cortical mapping is consistent with cortical_areas.
@@ -837,7 +928,23 @@ class ConnectomeManager(NeuronMappingProvider):
             cortical_id: String identifier for cortical area
             cortical_idx: Integer index for cortical area
         """
-        self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+        logger.info(f"[CORTICAL-MAP] _sync_cortical_mapping called: {cortical_id} -> {cortical_idx}")
+        success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+        if success:
+            logger.info(f"[CORTICAL-MAP] Successfully added mapping: {cortical_id} -> {cortical_idx}")
+        else:
+            logger.error(f"[CORTICAL-MAP] FAILED to add mapping: {cortical_id} -> {cortical_idx}")
+            # Verify what went wrong
+            logger.error(f"[CORTICAL-MAP] Input validation: cortical_id='{cortical_id}' (len={len(cortical_id) if cortical_id else 0}), cortical_idx={cortical_idx}")
+            if cortical_idx in (0, 1) and cortical_id not in ("_death", "_power"):
+                logger.error(f"[CORTICAL-MAP] Rejected: Trying to use reserved cortical_idx {cortical_idx} for non-core area {cortical_id}")
+        
+        # Verify the mapping was actually added
+        verification = self.cortical_mapping.get_idx(cortical_id)
+        if verification != cortical_idx:
+            logger.error(f"[CORTICAL-MAP] VERIFICATION FAILED: get_idx({cortical_id}) returned {verification}, expected {cortical_idx}")
+        else:
+            logger.info(f"[CORTICAL-MAP] Verification passed: get_idx({cortical_id}) = {cortical_idx}")
 
     def _remove_cortical_mapping(self, cortical_id: str) -> None:
         """Remove cortical mapping for an area.
@@ -1795,11 +1902,17 @@ class ConnectomeManager(NeuronMappingProvider):
         # Use new NPU SynapseArray for O(1) synapse creation
         synapse_type_int = 3 if is_plastic else 0  # 3=PLASTIC, 0=EXCITATORY
 
+        # Extract conductance from genome or use default
+        conductance = kwargs.get('conductance', 1.0)  # Default from genome template postsynaptic_current
+        delay = kwargs.get('delay', 1)  # Default 1 timestep delay
+        
         success = self.synapse_array.create_synapse(
             source_neuron_id=pre_neuron_id,
             target_neuron_id=post_neuron_id,
             weight=weight,
             synapse_type=synapse_type_int,
+            delay=delay,
+            conductance=conductance,
             plasticity_coeff=plasticity_coeff
         )
         
@@ -1847,7 +1960,28 @@ class ConnectomeManager(NeuronMappingProvider):
             return 0
 
 
-        created_count = self.synapse_array.batch_create_synapses(valid_specs)
+        # Convert synapse specs to the format expected by add_synapses_batch
+        source_neuron_ids = [spec[0] for spec in valid_specs]
+        target_neuron_ids = [spec[1] for spec in valid_specs] 
+        weights = [spec[2] for spec in valid_specs]
+        
+        # Default values for other parameters - ALL FROM GENOME
+        delays = [1] * len(valid_specs)  # Default delay of 1 timestep
+        conductances = [1.0] * len(valid_specs)  # DEFAULT: postsynaptic_current from genome template
+        synapse_types = [0] * len(valid_specs)  # DEFAULT: excitatory synapses
+        plasticity_types = [0] * len(valid_specs)  # Default: no plasticity  
+        plasticity_coefficients = [1.0] * len(valid_specs)  # Default coefficient
+        
+        created_count = self.synapse_array.add_synapses_batch(
+            source_neuron_ids=source_neuron_ids,
+            target_neuron_ids=target_neuron_ids,
+            weights=weights,
+            delays=delays,
+            conductances=conductances,  # NEW: REQUIRED for synaptic propagation
+            synapse_types=synapse_types,  # NEW: REQUIRED for excitatory/inhibitory
+            plasticity_types=plasticity_types,
+            plasticity_coefficients=plasticity_coefficients
+        )
         
         # Update state manager with new synapse count (optimized - synapse count only)
         if created_count > 0:
@@ -2175,6 +2309,8 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             ValueError: If an area with the same name already exists or dimensions exceed Morton limits
         """
+        logger.info(f"[CORTICAL-MAP] add_cortical_area called: name='{name}', cortical_id='{cortical_id}', dimensions={dimensions}, position={position}")
+        
         # Validate cortical area dimensions against Morton spatial hash limits
         from feagi.core.state_manager import get_state_manager
 
@@ -2386,6 +2522,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             True if successful, False if area doesn't exist
         """
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] ConnectomeManager.register_memory_area called: cortical_id={cortical_id}, temporal_depth={temporal_depth}")
+        
         logger.info(
             f"[MEMORY-REG] Starting registration for cortical_id={cortical_id}, temporal_depth={temporal_depth}"
         )
@@ -2505,6 +2647,53 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.exception("[MEMORY-REG] FCL registration exception:")
             # Don't fail the entire registration if FCL registration fails
 
+        # CRITICAL FIX: Register memory area with PlasticityService
+        # This is the missing link that prevents memory neurons from being created!
+        try:
+            if debug_mem:
+                print(f"[DEBUG-MEM] Attempting to register with PlasticityService...")
+            
+            # Get the PlasticityService from BurstEngine
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine.get_instance()
+            plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+            
+            if plasticity_service:
+                # Get cortical area index and upstream areas
+                area = self.cortical_areas[cortical_id]
+                area_idx = area.cortical_idx
+                
+                # Get upstream areas from memory mappings
+                upstream_areas = list(self.memory_area_upstream_mappings.get(cortical_id, set()))
+                
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Registering with PlasticityService: area_idx={area_idx}, temporal_depth={temporal_depth}, upstream_areas={upstream_areas}")
+                
+                success = plasticity_service.register_memory_area(
+                    area_idx=area_idx,
+                    temporal_depth=temporal_depth,
+                    upstream_areas=upstream_areas
+                )
+                
+                if success:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ✅ Successfully registered memory area {cortical_id} with PlasticityService!")
+                    logger.info(f"[MEMORY-REG] Successfully registered {cortical_id} with PlasticityService")
+                else:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ Failed to register memory area {cortical_id} with PlasticityService")
+                    logger.warning(f"[MEMORY-REG] Failed to register {cortical_id} with PlasticityService")
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ PlasticityService not available - this is why memory neurons won't be created!")
+                logger.warning("[MEMORY-REG] PlasticityService not available for memory area registration")
+                
+        except Exception as e:
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ Exception registering with PlasticityService: {e}")
+            logger.warning(f"[MEMORY-REG] Failed to register with PlasticityService: {e}")
+            # Don't fail the entire registration if PlasticityService registration fails
+
         return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
@@ -2551,12 +2740,17 @@ class ConnectomeManager(NeuronMappingProvider):
             target_cortical_id: Target cortical area (memory area)
         """
         # Check if debug-mem is enabled
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
         try:
             from feagi.core.state_manager import get_state_manager
             state_manager = get_state_manager()
             mem_debug = state_manager.is_mem_debug_enabled() if state_manager else False
         except Exception:
             mem_debug = False
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] ConnectomeManager.add_memory_area_mapping called: {source_cortical_id} -> {target_cortical_id}")
             
         if mem_debug:
             logger.info(
@@ -2615,6 +2809,65 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.exception(
                     "[MEMORY-MAPPING] StateManager cache update exception:"
                 )
+
+            # CRITICAL FIX: Update PlasticityService with new upstream mapping
+            try:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Updating PlasticityService with new upstream mapping: {source_cortical_id} -> {target_cortical_id}")
+                
+                # Get the PlasticityService from BurstEngine
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+                
+                if plasticity_service:
+                    # Get cortical area index for the memory area
+                    target_area = self.cortical_areas.get(target_cortical_id)
+                    source_area = self.cortical_areas.get(source_cortical_id)
+                    
+                    if target_area and source_area:
+                        target_area_idx = target_area.cortical_idx
+                        source_area_idx = source_area.cortical_idx
+                        
+                        # Get current upstream areas for this memory area
+                        current_upstream = list(self.memory_area_upstream_mappings.get(target_cortical_id, set()))
+                        upstream_indices = []
+                        for upstream_id in current_upstream:
+                            upstream_area = self.cortical_areas.get(upstream_id)
+                            if upstream_area:
+                                upstream_indices.append(upstream_area.cortical_idx)
+                        
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Re-registering memory area {target_cortical_id} (idx={target_area_idx}) with updated upstream areas: {upstream_indices}")
+                        
+                        # Re-register the memory area with updated upstream areas
+                        temporal_depth = target_area.temporal_depth if hasattr(target_area, 'temporal_depth') else 3
+                        success = plasticity_service.register_memory_area(
+                            area_idx=target_area_idx,
+                            temporal_depth=temporal_depth,
+                            upstream_areas=upstream_indices
+                        )
+                        
+                        if success:
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ✅ Successfully updated PlasticityService with upstream mapping")
+                            logger.info(f"[MEMORY-MAPPING] Updated PlasticityService with upstream mapping: {source_cortical_id} -> {target_cortical_id}")
+                        else:
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] ❌ Failed to update PlasticityService with upstream mapping")
+                            logger.warning(f"[MEMORY-MAPPING] Failed to update PlasticityService with upstream mapping")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] ❌ Could not find cortical areas: target={target_area is not None}, source={source_area is not None}")
+                else:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] ❌ PlasticityService not available for upstream mapping update")
+                    logger.warning("[MEMORY-MAPPING] PlasticityService not available for upstream mapping update")
+                    
+            except Exception as e:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ Exception updating PlasticityService with upstream mapping: {e}")
+                logger.warning(f"[MEMORY-MAPPING] Failed to update PlasticityService with upstream mapping: {e}")
 
             # CRITICAL FIX: Update MemoryProcessor with new upstream mapping
             try:
@@ -2989,6 +3242,64 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.error(f"❌ [SPATIAL HASH] Failed to initialize: {e}")
             return False
 
+    def _convert_hierarchical_to_flat_parameters(self, hierarchical_params: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert hierarchical genome property names to flat parameter names expected by API.
+        
+        This handles the mapping between:
+        - Hierarchical format (consecutive_fire_cnt_max) used internally
+        - Flat format (c_fr_c) expected by API consumers
+        
+        Args:
+            hierarchical_params: Parameters in hierarchical genome format
+            
+        Returns:
+            Parameters in flat format for API compatibility
+        """
+        # Map hierarchical property names to flat parameter names
+        hierarchical_to_flat = {
+            "consecutive_fire_cnt_max": "c_fr_c",
+            "synapse_attractivity": "synatt", 
+            "postsynaptic_current": "pstcr",
+            "postsynaptic_current_max": "pstcrm",
+            "firing_threshold": "fire_t",
+            "refractory_period": "refrac",
+            "leak_coefficient": "leak_c",
+            "leak_variability": "leak_v",
+            "snooze_length": "snooze",
+            "degeneration": "de_gen",
+            "psp_uniform_distribution": "pspuni",
+            "firing_threshold_increment_x": "ftincx",
+            "firing_threshold_increment_y": "ftincy", 
+            "firing_threshold_increment_z": "ftincz",
+            "firing_threshold_limit": "fthlim",
+            "mp_charge_accumulation": "mp_acc",
+            "mp_driven_psp": "mp_psp",
+            "longterm_mem_threshold": "mem__t",
+            "lifespan_growth_rate": "mem_gr",
+            "init_lifespan": "mem_ls",
+            "temporal_depth": "temporal_depth",  # Same in both formats
+            "neuron_excitability": "excite",
+            # Structural properties - pass through unchanged
+            "per_voxel_neuron_cnt": "per_voxel_neuron_cnt",
+            "visualization": "gd_vis",
+            "group_id": "_group", 
+            "sub_group_id": "subgrp",
+            "mapping": "mapping",  # Pass through unchanged
+        }
+        
+        flat_params = {}
+        
+        # Convert known hierarchical properties to flat format
+        for hierarchical_key, hierarchical_value in hierarchical_params.items():
+            if hierarchical_key in hierarchical_to_flat:
+                flat_key = hierarchical_to_flat[hierarchical_key]
+                flat_params[flat_key] = hierarchical_value
+            else:
+                # Keep unknown properties unchanged
+                flat_params[hierarchical_key] = hierarchical_value
+                
+        return flat_params
+
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
         """Get properties of a cortical area.
 
@@ -3088,6 +3399,21 @@ class ConnectomeManager(NeuronMappingProvider):
                 if _neuron_ids_for_count is None:
                     _neuron_ids_for_count = []
 
+                # Convert hierarchical genome properties to flat API parameter format
+                hierarchical_params = area.properties.copy() if area.properties else {}
+                flat_parameters = self._convert_hierarchical_to_flat_parameters(hierarchical_params)
+                
+                # Derive canonical cortical_group strictly from parameters/type
+                try:
+                    raw_group = (
+                        flat_parameters.get("cortical_group")
+                        or flat_parameters.get("group")
+                        or getattr(area, "area_type", "")
+                    )
+                except Exception:
+                    raw_group = ""
+                cortical_group = str(raw_group).upper() if raw_group else "CUSTOM"
+
                 properties = {
                     "id": cortical_id,
                     "cortical_idx": (
@@ -3097,9 +3423,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     "coordinates": tuple(coordinates),
                     "dimensions": tuple(dimensions),
                     "type": area.area_type,
-                    "parameters": (
-                        area.properties.copy() if area.properties else {}
-                    ),
+                    "cortical_group": cortical_group,
+                    "parameters": flat_parameters,
                     "neuron_count": int(len(_neuron_ids_for_count)),
                 }
             except Exception as conversion_error:
@@ -3131,37 +3456,9 @@ class ConnectomeManager(NeuronMappingProvider):
             # Start with existing mapping data from NeuroEmbryogenesis
             outgoing_mappings = existing_mapping.copy()
 
-            #  ARCHITECTURE COMPLIANCE: Only supplement with connection matrix
-            #  data
-            # if there's no existing mapping specification for that target
-            for dst_area_id in self.cortical_areas.keys():
-                if dst_area_id != cortical_id:  # Skip self-connections
-                    #  Only check connection matrix if no mapping specification
-                    #  exists
-                    if dst_area_id not in outgoing_mappings:
-                        # Get connection matrix between areas
-                        connection_matrix = self.get_connection_matrix(
-                            cortical_id, dst_area_id
-                        )
-                        if connection_matrix and connection_matrix.get(
-                            "connections"
-                        ):
-                            # Store mapping information
-                            outgoing_mappings[dst_area_id] = (
-                                connection_matrix.get("connections", [])
-                            )
-
             #  Update mapping information in parameters (preserving
-            #  NeuroEmbryogenesis data)
+            #  NeuroEmbryogenesis data only - no expensive synapse operations)
             properties["parameters"]["mapping"] = outgoing_mappings
-
-            # CRITICAL FIX: Extract actual neuron properties from neuron array
-            #  The user expects to see excitability, threshold, etc. in the
-            #  cortical area properties
-            neuron_properties = self._extract_neuron_properties_for_area(
-                cortical_id
-            )
-            properties.update(neuron_properties)
 
             #  Convert all numpy types to native Python types for JSON
             #  serialization
@@ -3319,9 +3616,15 @@ class ConnectomeManager(NeuronMappingProvider):
 
             area = self.cortical_areas[cortical_id]
 
-            # Ensure area has properties dictionary
+            # Ensure area has properties dictionary - PRESERVE existing properties
+            existing_props_count = len(getattr(area, 'properties', {})) if hasattr(area, 'properties') and area.properties else 0
+            existing_has_destinations = hasattr(area, 'properties') and area.properties and 'cortical_destinations' in area.properties
+            
             if not hasattr(area, "properties") or area.properties is None:
                 area.properties = {}
+            
+            self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: existing={existing_props_count} props, has_destinations={existing_has_destinations}")
+            self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: updating {len(property_updates)} properties: {list(property_updates.keys())}")
 
             # Update each property
             updated_properties = []
@@ -3407,6 +3710,14 @@ class ConnectomeManager(NeuronMappingProvider):
                         )
                 except Exception:
                     pass
+
+                # CRITICAL DEBUG: Check if cortical_destinations survived the update
+                final_has_destinations = 'cortical_destinations' in area.properties
+                final_destinations_count = len(area.properties.get('cortical_destinations', {}))
+                self.logger.info(f"🔄 [CONNECTOME-UPDATE] {cortical_id}: AFTER update - has_destinations={final_has_destinations}, count={final_destinations_count}")
+                
+                if existing_has_destinations and not final_has_destinations:
+                    self.logger.error(f"💥 [CONNECTOME-UPDATE] CORRUPTION DETECTED: {cortical_id} lost cortical_destinations during update!")
 
                 # Update StateManager cortical areas cache
                 try:
@@ -3723,6 +4034,24 @@ class ConnectomeManager(NeuronMappingProvider):
             target_area_id: Target cortical area ID
         """
         try:
+            # CRITICAL FIX: Ensure brain region hierarchy is loaded before I/O designation
+            # This handles the case where mappings are created but hierarchy wasn't loaded at startup
+            if not self.brain_region_hierarchy.nodes:
+                logger.info("🔄 Brain region hierarchy empty during mapping creation - loading from genome")
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    
+                    if hasattr(state_manager, 'genome') and state_manager.genome:
+                        self.brain_region_hierarchy.load_from_genome(state_manager.genome)
+                        logger.info(f"✅ Loaded brain region hierarchy: {len(self.brain_region_hierarchy.nodes)} regions, {len(self.brain_region_hierarchy.area_to_region)} areas")
+                    else:
+                        logger.warning("Cannot load brain region hierarchy: no genome in StateManager")
+                        return  # Can't do I/O designation without hierarchy
+                except Exception as load_error:
+                    logger.error(f"Failed to load brain region hierarchy: {load_error}")
+                    return  # Can't do I/O designation without hierarchy
+            
             # Check if we should designate I/O based on hierarchy rules
             should_output, should_input = self.brain_region_hierarchy.should_designate_io(
                 source_area_id, target_area_id
@@ -3801,7 +4130,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 
             # Create NeuroEmbryogenesis instance for validation
             from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
-            embryo = NeuroEmbryogenesis(self, state_manager)
+            embryo = NeuroEmbryogenesis(self, config=None)
             
             # Run the brain region mapping validation
             success = embryo._validate_and_update_brain_region_mappings()
@@ -3902,6 +4231,7 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(
             f"Assigned cortical area {cortical_id} ({area.name}) to brain region {region_id} ({self.brain_regions[region_id]['name']})"
         )
+        
         return True
 
     def remove_cortical_area_from_region(
@@ -3940,7 +4270,130 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(
             f"Removed cortical area {cortical_id} ({area.name}) from brain region {region_id}"
         )
+        
         return True
+
+    def plan_clone_cortical_area(
+        self,
+        source_area_id: str,
+        coordinates_3d: Optional[List[int]] = None,
+        coordinates_2d: Optional[List[int]] = None,
+    ) -> Dict[str, Any]:
+        """Prepare a clone plan for a cortical area without performing writes.
+
+        Uses existing property/mapping readers to avoid duplicating logic.
+        """
+        if source_area_id not in self.cortical_areas:
+            raise KeyError(f"Cortical area {source_area_id} does not exist")
+
+        source_props = self.get_cortical_area_properties(source_area_id)
+        if not source_props:
+            raise ValueError(f"Failed to retrieve properties for {source_area_id}")
+
+        params = source_props.get("parameters", {}) or {}
+        dims_tuple = tuple(source_props.get("dimensions", (1, 1, 1)))
+        pos_tuple = tuple(source_props.get("coordinates", (0, 0, 0)))
+
+        # Parent region
+        parent_region_id: Optional[str] = None
+        try:
+            if hasattr(self, "brain_region_hierarchy") and self.brain_region_hierarchy:
+                parent_region_id = self.brain_region_hierarchy.get_region_for_area(source_area_id)
+        except Exception:
+            parent_region_id = None
+        if not parent_region_id:
+            parent_region_id = params.get("parent_region_id")
+        if not parent_region_id:
+            raise ValueError("Cannot determine parent region for clone plan")
+
+        # 3D coords
+        if coordinates_3d is None:
+            sx, sy, sz = int(pos_tuple[0]), int(pos_tuple[1]), int(pos_tuple[2])
+            coordinates_3d = [sx + 1, sy, sz]
+        else:
+            coordinates_3d = [int(coordinates_3d[0]), int(coordinates_3d[1]), int(coordinates_3d[2])]
+
+        # 2D coords
+        if coordinates_2d is None:
+            c2d = params.get("coordinates_2d")
+            if not c2d:
+                x2d = params.get("2dcorx")
+                y2d = params.get("2dcory")
+                if x2d is not None and y2d is not None:
+                    c2d = [int(x2d), int(y2d)]
+            if isinstance(c2d, (list, tuple)) and len(c2d) >= 2:
+                coordinates_2d = [int(c2d[0]) + 1, int(c2d[1])]
+            else:
+                coordinates_2d = [0, 0]
+        else:
+            coordinates_2d = [int(coordinates_2d[0]), int(coordinates_2d[1])]
+
+        # Derive canonical cortical_group with strict, deterministic mapping
+        raw_group = (
+            params.get("cortical_group")
+            or params.get("group")
+            or source_props.get("cortical_group")
+            or source_props.get("type")
+            or source_props.get("group_id")
+            or ""
+        )
+        cortical_group = str(raw_group).upper() if raw_group else "CUSTOM"
+        sub_group_id = params.get("sub_group_id") or params.get("cortical_sub_group") or source_props.get("subgroup")
+        is_memory = sub_group_id == "MEMORY"
+
+        dims_dict = {"width": int(dims_tuple[0]), "height": int(dims_tuple[1]), "depth": int(dims_tuple[2])}
+
+        pv = None
+        if not is_memory:
+            pv = params.get("per_voxel_neuron_cnt") or params.get("neurons_per_voxel")
+            if pv is not None:
+                pv = int(pv)
+
+        outgoing_mapping: Dict[str, Any] = {}
+        try:
+            if isinstance(params.get("mapping"), dict):
+                outgoing_mapping = params.get("mapping")
+        except Exception:
+            outgoing_mapping = {}
+
+        incoming_sources: List[Dict[str, Any]] = []
+        try:
+            for other_area_id in list(self.cortical_areas.keys()):
+                if other_area_id == source_area_id:
+                    continue
+                try:
+                    oprops = self.get_cortical_area_properties(other_area_id)
+                    oparams = (oprops or {}).get("parameters", {}) or {}
+                    omap = oparams.get("mapping", {}) or {}
+                    if isinstance(omap, dict) and source_area_id in omap:
+                        incoming_sources.append({
+                            "src": other_area_id,
+                            "connections": omap.get(source_area_id, []),
+                        })
+                except Exception:
+                    continue
+        except Exception:
+            incoming_sources = []
+
+        has_recursive = False
+        try:
+            has_recursive = isinstance(outgoing_mapping, dict) and source_area_id in outgoing_mapping
+        except Exception:
+            has_recursive = False
+
+        return {
+            "parent_region_id": parent_region_id,
+            "dimensions": dims_dict,
+            "coordinates_3d": coordinates_3d,
+            "coordinates_2d": coordinates_2d,
+            "cortical_group": cortical_group,
+            "sub_group_id": sub_group_id or "CUSTOM",
+            "is_memory": bool(is_memory),
+            "per_voxel_neuron_cnt": pv,
+            "outgoing_mapping": outgoing_mapping,
+            "incoming_sources": incoming_sources,
+            "has_recursive": has_recursive,
+        }
 
     def get_areas_in_region(self, region_id: str) -> List[str]:
         """Get all cortical areas in a brain region.
@@ -4056,11 +4509,13 @@ class ConnectomeManager(NeuronMappingProvider):
         self,
         cortical_id: str,
         positions: List[Tuple[int, int, int]],
-        threshold: float = 1.0,
-        membrane_potential: float = 0.0,
-        resting_potential: float = 0.0,
-        decay_rate: float = 0.5,
-        refractory_period: int = 1,
+        threshold: float,
+        membrane_potential: float,
+        resting_potential: float,
+        decay_rate: float,
+        refractory_period: int,
+        excitability: float,
+        consecutive_fire_limit: int,
         properties: Optional[Dict[str, Any]] = None,
         cortical_idx: Optional[int] = None,
     ) -> List[int]:
@@ -4093,6 +4548,14 @@ class ConnectomeManager(NeuronMappingProvider):
 
         area = self.cortical_areas[cortical_id]
 
+        # CRITICAL FIX: Handle empty positions list 
+        if not positions:
+            self.logger.warning(
+                f"batch_create_neurons called with empty positions list for {cortical_id}. "
+                f"This typically indicates an expansion logic error."
+            )
+            return []  # Return empty list instead of causing indexing errors
+
         # Validate positions
         for pos in positions:
             if not area.contains_position(pos):
@@ -4100,11 +4563,9 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"Position {pos} is outside the bounds of area {area.name}"
                 )
 
-        # Check for duplicates
-        if len(positions) != len(set(positions)):
-            raise ValueError(
-                "Duplicate positions detected. All positions must be unique."
-            )
+        # FEAGI DESIGN: Multiple neurons can share the same position (voxel)
+        # This is essential for neuron density > 1 and memory areas
+        # Removed duplicate position validation as it's incorrect for FEAGI's architecture
 
         # Use the provided cortical_idx or get it from the area
         if cortical_idx is None:
@@ -4117,14 +4578,14 @@ class ConnectomeManager(NeuronMappingProvider):
         start_id = npu_neurons._next_neuron_id
         neuron_ids = list(range(start_id, start_id + count))
 
-        # Normalize per-neuron lists
+        # Normalize per-neuron lists - ALL PARAMETERS FROM GENOME
         thresholds_list = (
             [threshold] * count if isinstance(threshold, (int, float)) else list(threshold)
         )
         mp_list = (
             [membrane_potential] * count if isinstance(membrane_potential, (int, float)) else list(membrane_potential)
         )
-        _rp_list = (
+        rp_list = (
             [resting_potential] * count if isinstance(resting_potential, (int, float)) else list(resting_potential)
         )
         decay_list = (
@@ -4133,8 +4594,14 @@ class ConnectomeManager(NeuronMappingProvider):
         refr_list = (
             [refractory_period] * count if isinstance(refractory_period, int) else list(refractory_period)
         )
+        excitability_list = (
+            [excitability] * count if isinstance(excitability, (int, float)) else list(excitability)
+        )
+        consecutive_fire_limits_list = (
+            [consecutive_fire_limit] * count if isinstance(consecutive_fire_limit, int) else list(consecutive_fire_limit)
+        )
 
-        # Use add_neurons_batch to create entries (neuron_types/excitabilities defaults)
+        # Use add_neurons_batch with ALL required parameters from genome
         indices = npu_neurons.add_neurons_batch(
             neuron_ids=neuron_ids,
             positions=positions,
@@ -4143,16 +4610,14 @@ class ConnectomeManager(NeuronMappingProvider):
             thresholds=thresholds_list,
             leak_coefficients=decay_list,
             cortical_idx=cortical_idx,
+            decay_rates=decay_list,  # Same as leak_coefficients for compatibility
+            refractory_periods=refr_list,
+            excitabilities=excitability_list,
+            resting_potentials=rp_list,
+            consecutive_fire_limits=consecutive_fire_limits_list,
         )
 
-        # Apply refractory periods vector if available
-        # Note: current NeuronArray stores refractory_periods array; set for new indices
-        if hasattr(npu_neurons, "refractory_periods"):
-            for off, idx in enumerate(indices):
-                try:
-                    npu_neurons.refractory_periods[idx] = int(refr_list[off])
-                except Exception:
-                    pass
+        # Refractory periods are now handled by add_neurons_batch - no manual setting needed
 
         # Use the IDs generated above - authoritative NPU IDs
         neuron_ids = neuron_ids
@@ -5220,6 +5685,8 @@ class ConnectomeManager(NeuronMappingProvider):
             resting_potential=resting_potential,
             decay_rate=decay_rate,
             refractory_period=refractory_period,
+            excitability=1.0,  # Default excitability
+            consecutive_fire_limit=10,  # Default consecutive fire limit
             properties=properties,
         )
 
@@ -5621,40 +6088,40 @@ class ConnectomeManager(NeuronMappingProvider):
                 status="[OK]",
             )
 
-        # 9. CRITICAL FIX: Clear FCL manager to prevent stale cortical indices
+        # 9. CRITICAL FIX: Clear FCL state via NPU-owned managers to prevent stale cortical indices
         fcl_cleared = False
-        if hasattr(self, "fcl_manager") and self.fcl_manager:
-            try:
+        try:
+            # Prefer clearing through NPU BurstEngine if available
+            burst_engine = getattr(self, "_npu_interface", None)
+            if burst_engine and hasattr(burst_engine, "fcl_manager") and burst_engine.fcl_manager:
+                fcl = burst_engine.fcl_manager
+                if hasattr(fcl, "clear_all_fcl_history"):
+                    fcl.clear_all_fcl_history()
+                    fcl_cleared = True
+                elif hasattr(fcl, "clear_all_window_caches"):
+                    fcl.clear_all_window_caches()
+                    fcl_cleared = True
+            
+            # Legacy local reference fallback
+            if not fcl_cleared and hasattr(self, "fcl_manager") and self.fcl_manager:
                 if hasattr(self.fcl_manager, "clear_all_fcl_history"):
                     self.fcl_manager.clear_all_fcl_history()
                     fcl_cleared = True
-                    logger.info(
-                        "Cleared FCL manager history and caches to prevent stale cortical indices",
-                        status="[OK]",
-                    )
                 elif hasattr(self.fcl_manager, "clear_all_window_caches"):
-                    # Fallback to partial clearing
                     self.fcl_manager.clear_all_window_caches()
-                    # Also clear history manually
-                    if hasattr(self.fcl_manager, "global_fcl_history"):
-                        for bitmap in self.fcl_manager.global_fcl_history:
-                            bitmap.clear()
-                    if hasattr(self.fcl_manager, "cortical_fcl_history"):
-                        self.fcl_manager.cortical_fcl_history.clear()
-                    if hasattr(self.fcl_manager, "custom_cortical_history"):
-                        self.fcl_manager.custom_cortical_history.clear()
                     fcl_cleared = True
-                    logger.info(
-                        "Manually cleared FCL manager history to prevent stale cortical indices",
-                        status="[OK]",
-                    )
-            except Exception as e:
-                logger.warning(f"Error clearing FCL manager: {e}")
-        
-        if not fcl_cleared and hasattr(self, "fcl_manager"):
-            logger.warning(
-                "FCL manager found but could not be cleared - may cause stale cortical index warnings"
-            )
+
+            if fcl_cleared:
+                logger.info(
+                    "Cleared FCL caches/history to prevent stale cortical indices",
+                    status="[OK]",
+                )
+            else:
+                logger.warning(
+                    "FCL manager found but could not be cleared - may cause stale cortical index warnings"
+                )
+        except Exception as e:
+            logger.warning(f"Error clearing FCL state: {e}")
 
         #  CRITICAL: Ensure NeuronArray and ConnectomeManager counters are
         #  synchronized
@@ -7004,15 +7471,25 @@ class ConnectomeManager(NeuronMappingProvider):
         try:
             npu = getattr(self, "_npu_interface", None)
             if npu is None:
+                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup for {cortical_id}")
                 raise RuntimeError("NPU Interface required for voxel lookup")
 
-            # Resolve to cortical_idx (authoritative key)
-            cortical_idx = npu.get_cortical_idx_by_id(cortical_id)
+            # Resolve to cortical_idx (authoritative key) - use ConnectomeManager method
+            cortical_idx = self.get_cortical_idx_for_id(cortical_id)
             if cortical_idx is None:
+                # Debug: Show what cortical areas actually exist
+                try:
+                    available_areas = list(self._cortical_areas.keys()) if hasattr(self, '_cortical_areas') else []
+                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}. Available areas: {available_areas[:10]}")
+                except Exception:
+                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
                 return []
+            
+            logger.info(f"[BATCH-LOOKUP] {cortical_id} -> cortical_idx={cortical_idx}, positions={len(candidate_positions)}")
 
             na = npu.neuron_array
             if na is None or na.neuron_count == 0:
+                logger.error(f"[BATCH-LOOKUP] No neuron array or empty for {cortical_id}")
                 return []
 
             import numpy as np
@@ -7021,7 +7498,10 @@ class ConnectomeManager(NeuronMappingProvider):
             valid_count = int(na.neuron_count)
             cort_mask = (na.cortical_idxs[:valid_count] == cortical_idx)
             if not np.any(cort_mask):
+                logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
+            
+            logger.info(f"[BATCH-LOOKUP] Found {np.sum(cort_mask)} neurons in {cortical_id}")
 
             idxs = np.nonzero(cort_mask)[0]
             xs = na.coordinates_x[idxs]
@@ -7031,6 +7511,7 @@ class ConnectomeManager(NeuronMappingProvider):
             # Build a hash set of target positions for O(1) membership checks
             targets = set(candidate_positions)
             if not targets:
+                logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
                 return []
 
             found: List[Tuple[int, float]] = []
@@ -7040,6 +7521,14 @@ class ConnectomeManager(NeuronMappingProvider):
                     nid = npu.neuron_array.index_to_neuron_id.get(int(idx))
                     if nid is not None:
                         found.append((int(nid), float(post_synaptic_current)))
+            
+            logger.info(f"[BATCH-LOOKUP] {cortical_id}: matched {len(found)}/{len(targets)} positions")
+            if len(found) == 0:
+                # Debug: show first few target positions and neuron positions
+                sample_targets = list(targets)[:5]
+                sample_neurons = [(int(xs[i]), int(ys[i]), int(zs[i])) for i in range(min(5, len(idxs)))]
+                logger.error(f"[BATCH-LOOKUP] No matches for {cortical_id}. Targets: {sample_targets}, Neurons: {sample_neurons}")
+            
             return found
 
         except Exception as e:

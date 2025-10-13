@@ -16,7 +16,7 @@ limitations under the License.
 FEAGI v1 Agent API - Single Source of Truth
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
@@ -40,6 +40,10 @@ from .schemas import (
     AgentRegistrationRequest,
     ManualStimulationRequest,
     SuccessResponse,
+)
+from feagi.api.shared_memory.capabilities import (
+    SharedMemoryCapability,
+    CAPABILITY_DESCRIPTIONS,
 )
 
 logger = setup_logger(__name__)
@@ -65,27 +69,43 @@ class FeagiAgentAPI:
 
     @agent_endpoint("GET", "/list", response_model=AgentListResponse)
     async def list_agents(self) -> AgentListResponse:
+        """List all registered agents.
+        
+        Returns agent IDs from the Registration Manager's unified registry.
+        Registration Manager must be initialized during startup.
+        """
         try:
-            # Delegate to Registration Manager for consistent agent listing
             from feagi.pns.registration_manager import get_registration_manager
 
             registration_manager = get_registration_manager()
             if not registration_manager:
-                self.logger.error("Registration Manager not available")
-                raise ValueError("Registration service unavailable")
+                self.logger.error(
+                    "Registration Manager not initialized - this is a system error. "
+                    "Check that ProcessManager.init_important_processes() was called during startup."
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="Registration system unavailable - FEAGI not fully initialized"
+                )
 
             agents_data = registration_manager.list_agents()
-
-            #  Extract just the agent IDs for the simple list format expected
-            #  by AgentListResponse
             agent_ids = [
                 agent["agent_id"] for agent in agents_data.get("agents", [])
             ]
 
+            self.logger.info(
+                f"📋 /v1/agent/list returning {len(agent_ids)} agents: {agent_ids}"
+            )
+
             return AgentListResponse(root=agent_ids)
+        except HTTPException:
+            raise
         except Exception as e:
             self.logger.error(f"Error listing agents: {e}")
-            raise ValueError(f"Failed to list agents: {str(e)}") from e
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to list agents: {str(e)}"
+            )
 
     @agent_endpoint(
         "GET", "/info/{agent_id}", response_model=AgentInfoResponse
@@ -127,71 +147,260 @@ class FeagiAgentAPI:
     async def register_agent(
         self, request: AgentRegistrationRequest
     ) -> SuccessResponse:
-        try:
-            #  Delegate to Registration Manager for centralized agent
-            #  coordination
-            from feagi.pns.registration_manager import (
-                AgentRegistrationRequest as RegistrationRequest,
-            )
-            from feagi.pns.registration_manager import get_registration_manager
+        """Agent registration with automatic capability rate handling.
 
-            registration_manager = get_registration_manager()
-            if not registration_manager:
-                self.logger.error("Registration Manager not available")
+        Registers agents through the Registration Manager, which coordinates:
+        - Unified agent registry for /v1/agent/list
+        - FQ sampler coordination for burst processing
+        - State Manager updates for legacy compatibility
+        - Capability rate processing for multi-rate polling
+
+        Registration Manager must be initialized during FEAGI startup.
+        """
+        try:
+            # Process capability rates from the capabilities dict
+            capability_configs = self._process_agent_capabilities(request)
+
+            # Get Registration Manager - must be available
+            from feagi.pns.registration_manager import (
+                AgentRegistrationRequest as RMRequest,
+                get_registration_manager,
+            )
+
+            reg_mgr = get_registration_manager()
+            if not reg_mgr:
+                self.logger.error(
+                    f"Registration Manager not initialized - cannot register agent '{request.agent_id}'. "
+                    "Check that ProcessManager.init_important_processes() was called during startup."
+                )
                 raise HTTPException(
-                    status_code=503, detail="Registration service unavailable"
+                    status_code=503,
+                    detail="Registration system unavailable - FEAGI not fully initialized"
                 )
 
-            # Create registration request for Registration Manager
-            reg_request = RegistrationRequest(
+            # Register through Registration Manager
+            rm_req = RMRequest(
                 agent_id=request.agent_id,
                 agent_type=request.agent_type,
                 capabilities=request.capabilities,
                 agent_data_port=request.agent_data_port,
                 agent_version=request.agent_version,
                 controller_version=request.controller_version,
-                agent_ip=request.agent_ip,  # Let RegistrationRequest handle None with configuration
+                agent_ip=request.agent_ip,
+                metadata=request.metadata,
+            )
+            rm_resp = reg_mgr.register_agent(rm_req)
+            
+            if not getattr(rm_resp, "success", False):
+                raise HTTPException(
+                    status_code=500,
+                    detail=rm_resp.message or "Registration failed"
+                )
+
+            # Store capability rate configs for multi-rate polling
+            if capability_configs:
+                self._store_capability_rates(request.agent_id, capability_configs)
+
+            # Include transport negotiation info in response
+            transport_info = getattr(rm_resp, "transport_info", {})
+            
+            self.logger.info(
+                f"✅ Agent '{request.agent_id}' registered successfully "
+                f"(type: {request.agent_type}, capabilities: {list(request.capabilities.keys())}, "
+                f"transport: {transport_info.get('recommended', 'unknown')})"
             )
 
-            # Process registration through Registration Manager
-            response = registration_manager.register_agent(reg_request)
-
-            if response.success:
-                self.logger.info(
-                    f"✅ Agent '{request.agent_id}' registered via Registration Manager - "
-                    f"FQ samplers coordinated: {response.fq_samplers_enabled}"
-                )
-
-                return SuccessResponse(message=response.message, success=True)
-            else:
-                self.logger.error(
-                    f"❌ Registration Manager failed: {response.message}"
-                )
-
-                # Map Registration Manager error codes to HTTP status codes
-                status_map = {
-                    "DUPLICATE_AGENT_ID": 409,  # Conflict
-                    "VALIDATION_FAILED": 400,  # Bad Request
-                    "FEAGI_NOT_READY": 503,  # Service Unavailable
-                    "MISSING_AGENT_ID": 400,  # Bad Request
-                    "MISSING_CAPABILITIES": 400,  # Bad Request
-                    "INVALID_CAPABILITIES_FORMAT": 400,  # Bad Request
-                }
-
-                status_code = status_map.get(response.error_code, 500)
-
-                raise HTTPException(
-                    status_code=status_code, detail=response.message
-                )
+            # Return success response with transport negotiation info
+            return SuccessResponse(
+                status="success",
+                message=f"Agent {request.agent_id} registered successfully",
+                transport=transport_info if transport_info else None
+            )
 
         except HTTPException:
-            # Re-raise HTTP exceptions as-is
             raise
         except Exception as e:
-            self.logger.error(f"Error registering agent: {e}")
+            self.logger.error(f"Agent registration failed for '{request.agent_id}': {e}")
             raise HTTPException(
-                status_code=500, detail=f"Error registering agent: {str(e)}"
-            ) from e
+                status_code=500,
+                detail=f"Registration failed: {str(e)}"
+            )
+
+    def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Optional[List[Any]]:
+        """Process agent capabilities and convert to rate specifications."""
+        if not request.capabilities:
+            return None
+            
+        try:
+            from feagi.api.v1.capability_rates import CapabilityType, CapabilityRateSpec
+            
+            capability_specs = []
+            seen_capability_types = set()
+            
+            # Default rates
+            default_rates = {
+                "sensory": 10.0,
+                "motor": 20.0, 
+                "visualization": 5.0,
+                "neurons_stream": 10.0,
+                "control": 1.0
+            }
+            
+            for cap_name, cap_config in request.capabilities.items():
+                # Handle sensorimotor as combined capability
+                if cap_name.lower() == "sensorimotor":
+                    sensory_rate = default_rates["sensory"]
+                    motor_rate = default_rates["motor"]
+                    
+                    if isinstance(cap_config, dict):
+                        if "sensory_rate_hz" in cap_config:
+                            sensory_rate = float(cap_config["sensory_rate_hz"])
+                        if "motor_rate_hz" in cap_config:
+                            motor_rate = float(cap_config["motor_rate_hz"])
+                        elif "rate_hz" in cap_config:
+                            sensory_rate = motor_rate = float(cap_config["rate_hz"])
+                    
+                    if CapabilityType.SENSORY not in seen_capability_types:
+                        capability_specs.append(CapabilityRateSpec(
+                            capability_type=CapabilityType.SENSORY,
+                            requested_rate_hz=sensory_rate,
+                            required=True
+                        ))
+                        seen_capability_types.add(CapabilityType.SENSORY)
+                    
+                    if CapabilityType.MOTOR not in seen_capability_types:
+                        capability_specs.append(CapabilityRateSpec(
+                            capability_type=CapabilityType.MOTOR,
+                            requested_rate_hz=motor_rate,
+                            required=True
+                        ))
+                        seen_capability_types.add(CapabilityType.MOTOR)
+                    continue
+                
+                # Map capability name to type
+                cap_type = None
+                default_rate = 10.0
+                
+                if cap_name.lower() in ["sensory", "sensor", "input", "sensors"]:
+                    cap_type = CapabilityType.SENSORY
+                    default_rate = default_rates["sensory"]
+                elif cap_name.lower() in ["motor", "output", "actuator", "motors", "actuators"]:
+                    cap_type = CapabilityType.MOTOR
+                    default_rate = default_rates["motor"]
+                elif cap_name.lower() in ["visualization", "viz", "visual", "display"]:
+                    cap_type = CapabilityType.VISUALIZATION
+                    default_rate = default_rates["visualization"]
+                elif cap_name.lower() in ["neurons_stream", "neuron_stream", "neural_stream"]:
+                    cap_type = CapabilityType.NEURONS_STREAM
+                    default_rate = default_rates["neurons_stream"]
+                elif cap_name.lower() in ["control", "command", "commands"]:
+                    cap_type = CapabilityType.CONTROL
+                    default_rate = default_rates["control"]
+                else:
+                    cap_type = CapabilityType.SENSORY
+                    default_rate = default_rates["sensory"]
+                
+                # Add capability if not already present
+                if cap_type not in seen_capability_types:
+                    final_rate = default_rate
+                    if isinstance(cap_config, dict) and "rate_hz" in cap_config:
+                        final_rate = float(cap_config["rate_hz"])
+                    
+                    capability_specs.append(CapabilityRateSpec(
+                        capability_type=cap_type,
+                        requested_rate_hz=final_rate,
+                        required=True
+                    ))
+                    seen_capability_types.add(cap_type)
+            
+            return capability_specs
+            
+        except Exception as e:
+            self.logger.warning(f"Could not process capability rates for {request.agent_id}: {e}")
+            return None
+    
+    def _store_capability_rates(self, agent_id: str, capability_specs: List[Any]) -> None:
+        """Store capability rate configurations in the capability manager."""
+        try:
+            from feagi.core.capability_rate_manager import get_capability_rate_manager
+            
+            capability_manager = get_capability_rate_manager()
+            if capability_manager:
+                approved_configs, rejections = capability_manager.register_agent_capabilities(
+                    agent_id, capability_specs
+                )
+                
+                if rejections:
+                    self.logger.warning(
+                        f"Some capabilities rejected for agent {agent_id}: {rejections}"
+                    )
+                
+                self.logger.info(
+                    f"Registered {len(approved_configs)} capability rates for agent {agent_id}"
+                )
+        except Exception as e:
+            self.logger.warning(f"Could not store capability rates for {agent_id}: {e}")
+
+    @agent_endpoint("GET", "/shared_mem")
+    async def list_agents_with_shared_mem(self) -> Dict[str, Any]:
+        """Return agents that provided shared memory details during registration.
+
+        Response format:
+            { "agent_id": { "video_preview_shared_mem_path": str, "metadata": {...} }, ... }
+        """
+        try:
+            # Prefer authoritative StateManager SHM registry
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            result: Dict[str, Any] = {}
+            if hasattr(sm, "_agent_shared_memory"):
+                seen_signatures = set()
+                for aid, mapping in getattr(sm, "_agent_shared_memory", {}).items():
+                    if not mapping:
+                        continue
+                    # Create a stable signature of the mapping to collapse duplicates
+                    try:
+                        signature_parts = []
+                        for k in sorted(mapping.keys()):
+                            v = mapping.get(k, "")
+                            signature_parts.append(f"{k}={v}")
+                        signature = "|".join(signature_parts)
+                    except Exception:
+                        signature = str(mapping)
+                    if signature in seen_signatures:
+                        # Duplicate mapping under a different agent_id; keep first
+                        try:
+                            self.logger.info(
+                                f"[SHM] Deduplicating shared_mem entry for agent '{aid}' (duplicate mapping)"
+                            )
+                        except Exception:
+                            pass
+                        continue
+                    seen_signatures.add(signature)
+                    result[aid] = {**mapping}
+            return result
+        except Exception as e:
+            self.logger.error(f"Error listing shared memory agents: {e}")
+            return {}
+
+    @agent_endpoint("GET", "/capabilities")
+    async def list_capabilities(self) -> Dict[str, Any]:
+        """List canonical shared-memory capability types recognized by FEAGI.
+
+        Returns a JSON object with the allowed capability keys and descriptions.
+        Agents should use ONLY these keys when requesting or advertising shared
+        memory capabilities.
+        """
+        try:
+            caps = {
+                "capabilities": [c.value for c in SharedMemoryCapability],
+                "descriptions": CAPABILITY_DESCRIPTIONS,
+            }
+            return caps
+        except Exception as e:
+            self.logger.error(f"Error listing capabilities: {e}")
+            return {"capabilities": [], "descriptions": {}}
 
     @agent_endpoint(
         "DELETE",
@@ -222,6 +431,18 @@ class FeagiAgentAPI:
                     f"✅ Agent '{request.agent_id}' deregistered via Registration Manager - "
                     f"FQ samplers coordinated: {response.fq_samplers_enabled}"
                 )
+
+                # Cleanup per-agent SHM files
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+
+                    sm = FeagiStateManager.instance()
+                    if hasattr(sm, "delete_agent_shm"):
+                        sm.delete_agent_shm(request.agent_id)
+                except Exception as e:
+                    self.logger.warning(
+                        f"SHM cleanup skipped for agent {request.agent_id}: {e}"
+                    )
 
                 return SuccessResponse(message=response.message, success=True)
             else:

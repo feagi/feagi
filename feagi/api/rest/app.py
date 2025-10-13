@@ -21,12 +21,13 @@ import time
 import traceback
 
 from feagi.utils.logger import setup_logger
+import threading
 
 logger = setup_logger(name="feagi.api.rest.app")
 logger.info("...")
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -247,6 +248,121 @@ app.add_middleware(
 )
 
 
+# --- Lightweight rate/concurrency tracker (always on) ---
+_RATE_WINDOW_SEC: float = 1.0
+_RATE_WARN_THRESHOLD: int = 20
+_RATE_SUPPRESS_SEC: float = 10.0
+_rate_track: Dict[Tuple[str, str], Dict[str, float]] = {}
+_INFLIGHT_WARN_THRESHOLD: int = 25
+_inflight_by_ip: Dict[str, int] = {}
+_inflight_lock = threading.Lock()
+_fd_hot_until: float = 0.0
+_hot_stats: Dict[str, Any] = {"start": 0.0, "count": 0, "per_path": {}, "per_ip": {}, "per_ua": {}}
+
+
+def _fd_monitor_thread() -> None:
+    """Background FD usage monitor; logs WARN when nearing soft limit."""
+    try:
+        import resource as _resource  # type: ignore
+        soft, hard = _resource.getrlimit(_resource.RLIMIT_NOFILE)
+    except Exception:
+        soft, hard = (256, 256)
+    warn_ratio = 0.8
+    last_detail = 0.0
+    was_hot = False
+    while True:
+        try:
+            import os as _os
+            fd_count = 0
+            try:
+                # macOS/Linux
+                fd_count = len(_os.listdir("/dev/fd"))
+            except Exception:
+                fd_count = 0
+            if soft and fd_count > int(soft * warn_ratio):
+                logger.warning(
+                    f"[FD] Open file descriptors near limit: {fd_count}/{soft} (hard {hard})."
+                )
+                # Detailed breakdown no more than every 5 seconds
+                now = time.time()
+                if now - last_detail > 5.0:
+                    last_detail = now
+                    sockets = 0
+                    pipes = 0
+                    files = 0
+                    shm = 0
+                    path_counts: Dict[str, int] = {}
+                    try:
+                        import stat as _stat
+                        for name in _os.listdir("/dev/fd"):
+                            p = f"/dev/fd/{name}"
+                            try:
+                                st = _os.stat(p)
+                            except Exception:
+                                continue
+                            mode = st.st_mode
+                            if _stat.S_ISSOCK(mode):
+                                sockets += 1
+                            elif _stat.S_ISFIFO(mode):
+                                pipes += 1
+                            else:
+                                files += 1
+                                try:
+                                    t = str(_os.readlink(p))
+                                    if "feagi-shm" in t or "feagi-shared-mem" in t:
+                                        shm += 1
+                                    # Tally top SHM paths
+                                    key = t
+                                    if len(key) > 80:
+                                        key = key[:77] + "..."
+                                    path_counts[key] = path_counts.get(key, 0) + 1
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                    logger.warning(
+                        f"[FD-DETAIL] sockets={sockets}, pipes={pipes}, files={files}, shm_like={shm}"
+                    )
+                    # Enable hot request sampling for next 5 seconds
+                    try:
+                        globals()["_fd_hot_until"] = now + 5.0
+                        globals()["_hot_stats"] = {"start": now, "count": 0, "per_path": {}, "per_ip": {}, "per_ua": {}}
+                        was_hot = True
+                    except Exception:
+                        pass
+                    # Log top file targets
+                    try:
+                        top = sorted(path_counts.items(), key=lambda kv: kv[1], reverse=True)[:5]
+                        if top:
+                            for k, v in top:
+                                logger.warning(f"[FD-DETAIL] {v} × {k}")
+                    except Exception:
+                        pass
+            else:
+                # If hot window just ended, summarize the captured calls
+                now = time.time()
+                if was_hot and now >= globals().get("_fd_hot_until", 0.0):
+                    was_hot = False
+                    try:
+                        hs = globals().get("_hot_stats", {})
+                        total = int(hs.get("count", 0) or 0)
+                        if total > 0:
+                            logger.warning(f"[FD-HOT-SUM] total_reqs={total} window={(now - float(hs.get('start', now))):.2f}s")
+                            for label, bucket in (("path", hs.get("per_path", {})), ("ua", hs.get("per_ua", {})), ("ip", hs.get("per_ip", {}))):
+                                try:
+                                    items = sorted(bucket.items(), key=lambda kv: kv[1], reverse=True)[:5]
+                                    parts = [f"{k}={(v*100.0/total):.1f}%" for k, v in items]
+                                    if parts:
+                                        logger.warning(f"[FD-HOT-SUM] by_{label}: " + ", ".join(parts))
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        time.sleep(2.0)
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Enhanced API debug logging middleware for comprehensive request/response
@@ -260,6 +376,66 @@ async def log_requests(request: Request, call_next):
 
     Enhanced to capture request body and response details for comprehensive debugging.
     """
+    # === ALWAYS-ON: request-rate tracking to detect abusive callers ===
+    try:
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        now = time.time()
+        key = (client_ip, path)
+        st = _rate_track.get(key)
+        if not st or (now - st.get("window_start", 0.0)) > _RATE_WINDOW_SEC:
+            _rate_track[key] = {"window_start": now, "count": 1.0, "last_warn": st.get("last_warn", 0.0) if st else 0.0}
+        else:
+            st["count"] = st.get("count", 0.0) + 1.0
+            # Warn when rate crosses threshold, suppress repeated warnings briefly
+            if st["count"] >= _RATE_WARN_THRESHOLD and (now - st.get("last_warn", 0.0)) > _RATE_SUPPRESS_SEC:
+                ua = request.headers.get("user-agent", "<none>")
+                logger.warning(
+                    f"[API-RATE] High call rate: {client_ip} → {path}: {int(st['count'])} req in {_RATE_WINDOW_SEC:.1f}s; UA={ua}"
+                )
+                st["last_warn"] = now
+    except Exception:
+        # Never fail request due to diagnostics
+        pass
+
+    # Track in-flight concurrently per client
+    client_ip = request.client.host if request.client else "unknown"
+    try:
+        with _inflight_lock:
+            _inflight_by_ip[client_ip] = _inflight_by_ip.get(client_ip, 0) + 1
+            if _inflight_by_ip[client_ip] >= _INFLIGHT_WARN_THRESHOLD:
+                ua = request.headers.get("user-agent", "<none>")
+                logger.warning(
+                    f"[API-CONC] High concurrent requests from {client_ip}: {_inflight_by_ip[client_ip]} in-flight; UA={ua}"
+                )
+    except Exception:
+        pass
+
+    # If FD pressure is hot, sample request sources for quick identification and accumulate stats
+    try:
+        import time as _t
+        hot_until = globals().get('_fd_hot_until', 0.0)
+        if _t.time() < hot_until:
+            ua = request.headers.get("user-agent", "<none>")
+            logger.warning(f"[FD-HOT] {client_ip} → {path} UA={ua}")
+            try:
+                hs = globals().get("_hot_stats", {})
+                hs['count'] = int(hs.get('count', 0) or 0) + 1
+                pp = hs.get('per_path', {})
+                pp[path] = pp.get(path, 0) + 1
+                hs['per_path'] = pp
+                pu = hs.get('per_ua', {})
+                pu[ua] = pu.get(ua, 0) + 1
+                hs['per_ua'] = pu
+                pi = hs.get('per_ip', {})
+                pi[client_ip] = pi.get(client_ip, 0) + 1
+                hs['per_ip'] = pi
+                globals()['_hot_stats'] = hs
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     # Check if debug API logging is enabled - try multiple methods to detect it
     state_manager = FeagiStateManager.instance()
     debug_api_enabled = False
@@ -291,8 +467,17 @@ async def log_requests(request: Request, call_next):
         log_requests._diagnostic_shown = True
 
     if not debug_api_enabled:
-        # If debug is not enabled, just pass through without logging
-        return await call_next(request)
+        # If debug is not enabled, still ensure inflight tracking is decremented
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            try:
+                with _inflight_lock:
+                    if client_ip in _inflight_by_ip:
+                        _inflight_by_ip[client_ip] = max(0, _inflight_by_ip[client_ip] - 1)
+            except Exception:
+                pass
 
     # Show debug enabled message on first request (if not already shown)
     if not hasattr(log_requests, "_debug_shown"):
@@ -411,60 +596,55 @@ async def log_requests(request: Request, call_next):
         for name, value in response.headers.items():
             logger.info(f"🟢 [API-DEBUG]   {name}: {value}")
 
-        # Try to capture and log response body
-        response_body = None
+        # Try to capture and log response body (route-scoped capture for JSON)
         try:
-            # For streaming responses, we need to be careful
-            if hasattr(response, "body_iterator"):
-                #  This is a streaming response, we can't easily capture the
-                #  body
-                logger.info(
-                    "🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
-                )
-            else:
-                # Try to get the response body
-                original_body = b""
-                async for chunk in response.body_iterator:
-                    original_body += chunk
-
-                if original_body:
-                    response_body = original_body.decode("utf-8")
-
-                    # Pretty print JSON if possible
+            should_capture = request.url.path in (
+                "/v1/cortical_mapping/mapping_properties",
+                "/v1/cortical_mapping/mapping",
+            )
+            content_type = response.headers.get("content-type", "")
+            if should_capture and content_type.startswith("application/json"):
+                # Safely materialize the response body for both standard and streaming responses
+                body_bytes = b""
+                if hasattr(response, "body_iterator") and response.body_iterator is not None:
                     try:
-                        import json
+                        async for chunk in response.body_iterator:
+                            if chunk:
+                                body_bytes += chunk
+                    except Exception:
+                        body_bytes = b""
+                else:
+                    # Starlette Response exposes raw body as bytes
+                    try:
+                        body_bytes = response.body  # type: ignore[attr-defined]
+                    except Exception:
+                        body_bytes = b""
 
-                        parsed_json = json.loads(response_body)
-                        formatted_json = json.dumps(parsed_json, indent=2)
+                if body_bytes:
+                    try:
+                        parsed = json.loads(body_bytes)
+                        pretty = json.dumps(parsed, indent=2)
                         logger.info("🟢 [API-DEBUG] Response Body (JSON):")
-                        for line in formatted_json.split("\n"):
+                        for line in pretty.split("\n"):
                             logger.info(f"🟢 [API-DEBUG]   {line}")
-                    except (json.JSONDecodeError, ValueError):
-                        # Not JSON, log as plain text (truncate if too long)
-                        if len(response_body) > 2000:
-                            truncated_body = (
-                                response_body[:2000] + "... (truncated)"
-                            )
-                            logger.info(
-                                f"🟢 [API-DEBUG] Response Body (truncated): {truncated_body}"
-                            )
-                        else:
-                            logger.info(
-                                f"🟢 [API-DEBUG] Response Body: {response_body}"
-                            )
+                    except Exception:
+                        # Not JSON or parse failed, log as text (truncate)
+                        text = body_bytes.decode("utf-8", errors="replace")
+                        if len(text) > 2000:
+                            text = text[:2000] + "... (truncated)"
+                        logger.info(f"🟢 [API-DEBUG] Response Body: {text}")
 
-                    # Recreate the response with the captured body
-                    from fastapi.responses import Response
-
+                    # Rebuild response so downstream can still read the body
                     response = Response(
-                        content=original_body,
+                        content=body_bytes,
                         status_code=response.status_code,
                         headers=dict(response.headers),
-                        media_type=response.headers.get("content-type"),
+                        media_type=content_type,
                     )
                 else:
                     logger.info("🟢 [API-DEBUG] Response Body: <empty>")
-
+            else:
+                logger.info("🟢 [API-DEBUG] Response Body: <streaming/uncaptured>")
         except Exception as e:
             logger.info(
                 f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>"
@@ -492,6 +672,14 @@ async def log_requests(request: Request, call_next):
 
         # Re-raise the exception
         raise
+    finally:
+        # Decrement inflight counter
+        try:
+            with _inflight_lock:
+                if client_ip in _inflight_by_ip:
+                    _inflight_by_ip[client_ip] = max(0, _inflight_by_ip[client_ip] - 1)
+        except Exception:
+            pass
 
 
 @app.middleware("http")
@@ -540,6 +728,12 @@ standard_response = {
 async def set_api_state_ready():
     state = FeagiStateManager.instance()
     state.set_api_state(ServiceState.READY)
+    # Start FD monitor thread
+    try:
+        t = threading.Thread(target=_fd_monitor_thread, daemon=True)
+        t.start()
+    except Exception:
+        pass
 
 
 def create_rest_app_direct(config: Dict[str, Any]):
@@ -751,7 +945,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         get_feagi_agent_router(),
         prefix="/v1/agent",
         tags=["FEAGI AGENT"],
-        dependencies=[Depends(check_burst_engine)],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
         responses=standard_response,
     )
 

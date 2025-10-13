@@ -25,6 +25,8 @@ from pydantic import BaseModel, root_validator
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.schemas import (
+    CloneCorticalAreaRequest,
+    CloneCorticalAreaResponse,
     CorticalAreaIdListResponse,
     CorticalAreaIndexListResponse,
     CorticalAreaMappingRestrictionRequest,
@@ -44,6 +46,7 @@ from feagi.api.v1.schemas import (
     MappingRestrictionsResponse,
     NeuronCountResponse,
     SuccessResponse,
+    AddCoreCorticalAreaRequest,
 )
 from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.utils.logger import setup_logger
@@ -300,7 +303,7 @@ class CorticalAreaAPI:
                     "neurons_per_voxel", parameters.get("per_voxel_neuron_cnt", 1)
                 ),
                 "cortical_visibility": parameters.get("gd_vis", False),
-                "cortical_synaptic_attractivity": parameters.get("synatt", 0),
+                "cortical_synaptic_attractivity": parameters.get("synatt") if "synatt" in parameters else None,
                 "coordinates_3d": coordinates_3d,
                 "coordinates_2d": [
                     parameters.get(
@@ -312,29 +315,29 @@ class CorticalAreaAPI:
                 ],
                 "cortical_dimensions": cortical_dimensions,
                 "cortical_destinations": parameters.get("mapping", {}),
-                "neuron_post_synaptic_potential": float(parameters.get("pstcr", 0.0)),
-                "neuron_post_synaptic_potential_max": float(parameters.get("pstcrm", 0.0)),
-                "neuron_fire_threshold": float(area_data.get("firing_threshold", 1.0)),
+                "neuron_post_synaptic_potential": float(parameters.get("pstcr")) if "pstcr" in parameters else None,
+                "neuron_post_synaptic_potential_max": float(parameters.get("pstcrm")) if "pstcrm" in parameters else None,
+                "neuron_fire_threshold": float(area_data.get("firing_threshold")) if "firing_threshold" in area_data else None,
                 "neuron_fire_threshold_increment": [
-                    float(parameters.get("ftincx", 0.0)),
-                    float(parameters.get("ftincy", 0.0)),
-                    float(parameters.get("ftincz", 0.0)),
+                    float(parameters.get("ftincx")) if "ftincx" in parameters else None,
+                    float(parameters.get("ftincy")) if "ftincy" in parameters else None,
+                    float(parameters.get("ftincz")) if "ftincz" in parameters else None,
                 ],
-                "neuron_firing_threshold_limit": int(parameters.get("fthlim", 0)),
-                "neuron_refractory_period": int(area_data.get("refractory_period", 0)),
-                "neuron_leak_coefficient": float(area_data.get("leak_coefficient", 0.0)),
-                "neuron_leak_variability": float(parameters.get("leak_v", 0.0)),
-                "neuron_consecutive_fire_count": int(parameters.get("c_fr_c", 0)),
-                "neuron_snooze_period": int(parameters.get("snooze", 0)),
-                "neuron_degeneracy_coefficient": int(parameters.get("de_gen", 0)),
-                "neuron_psp_uniform_distribution": bool(parameters.get("pspuni", 0)),
-                "neuron_mp_charge_accumulation": bool(parameters.get("mp_acc", 0)),
-                "neuron_mp_driven_psp": bool(parameters.get("mp_psp", 0)),
-                "neuron_longterm_mem_threshold": int(parameters.get("mem__t", 0)),
-                "neuron_lifespan_growth_rate": float(parameters.get("mem_gr", 0.0)),
-                "neuron_init_lifespan": int(parameters.get("mem_ls", 0)),
-                "temporal_depth": int(parameters.get("temporal_depth", 1)),
-                "neuron_excitability": float(area_data.get("neuron_excitability", 1.0)),
+                "neuron_firing_threshold_limit": int(parameters.get("fthlim")) if "fthlim" in parameters else None,
+                "neuron_refractory_period": int(area_data.get("refractory_period")) if "refractory_period" in area_data else None,
+                "neuron_leak_coefficient": float(area_data.get("leak_coefficient")) if "leak_coefficient" in area_data else None,
+                "neuron_leak_variability": float(parameters.get("leak_v")) if "leak_v" in parameters else None,
+                "neuron_consecutive_fire_count": int(parameters.get("c_fr_c")) if "c_fr_c" in parameters else None,
+                "neuron_snooze_period": int(parameters.get("snooze")) if "snooze" in parameters else None,
+                "neuron_degeneracy_coefficient": int(parameters.get("de_gen")) if "de_gen" in parameters else None,
+                "neuron_psp_uniform_distribution": bool(parameters.get("pspuni")) if "pspuni" in parameters else None,
+                "neuron_mp_charge_accumulation": bool(parameters.get("mp_acc")) if "mp_acc" in parameters else None,
+                "neuron_mp_driven_psp": bool(parameters.get("mp_psp")) if "mp_psp" in parameters else None,
+                "neuron_longterm_mem_threshold": int(parameters.get("mem__t")) if "mem__t" in parameters else None,
+                "neuron_lifespan_growth_rate": float(parameters.get("mem_gr")) if "mem_gr" in parameters else None,
+                "neuron_init_lifespan": int(parameters.get("mem_ls")) if "mem_ls" in parameters else None,
+                "temporal_depth": int(parameters.get("temporal_depth")) if "temporal_depth" in parameters else None,
+                "neuron_excitability": float(parameters.get("excite")) if "excite" in parameters else None,
                 "transforming": parameters.get(
                     "transforming", False
                 ),  # Runtime state flag - not from templates
@@ -349,6 +352,38 @@ class CorticalAreaAPI:
             raise ValueError(
                 f"Error retrieving cortical properties: {str(e)}"
             ) from e
+
+    @cortical_area_endpoint(
+        "POST",
+        "/clone",
+        request_model=CloneCorticalAreaRequest,
+        response_model=CloneCorticalAreaResponse,
+    )
+    def clone_cortical_area(self, request: CloneCorticalAreaRequest) -> CloneCorticalAreaResponse:
+        """Clone a cortical area with optional coordinate overrides and mapping duplication.
+
+        - Cloned area will be created in the same brain region as its source
+        - clone_cortical_mapping defaults to True
+        - If coordinates are not provided, new coordinates will be auto-suggested near the source
+        """
+        try:
+            result = self.core_api_service.clone_cortical_area(
+                source_area_id=request.source_area_id,
+                clone_cortical_mapping=(
+                    True if request.clone_cortical_mapping is None else bool(request.clone_cortical_mapping)
+                ),
+                coordinates_3d=request.coordinates_3d,
+                coordinates_2d=request.coordinates_2d,
+                cortical_name=request.cortical_name,
+            )
+            if not result or "new_area_id" not in result:
+                raise ValueError("Clone operation failed")
+            return CloneCorticalAreaResponse(
+                new_area_id=result["new_area_id"],
+                message=result.get("message", "Cortical area cloned successfully"),
+            )
+        except Exception as e:
+            raise ValueError(f"Error cloning cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
         "PUT",
@@ -401,10 +436,10 @@ class CorticalAreaAPI:
             raise ValueError(f"Error updating cortical area: {str(e)}") from e
 
     @cortical_area_endpoint(
-        "POST", "/cortical_area", response_model=Dict[str, str]
+        "POST", "/cortical_area", request_model=AddCoreCorticalAreaRequest, response_model=Dict[str, str]
     )
     def add_cortical_area(
-        self, new_cortical_properties: Dict[str, Any]
+        self, request: AddCoreCorticalAreaRequest
     ) -> Dict[str, str]:
         """Add a new core cortical area."""
         try:
@@ -414,11 +449,47 @@ class CorticalAreaAPI:
             if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            cortical_id = new_cortical_properties.get("cortical_id")
-            message = {"add_core_cortical_area": new_cortical_properties}
-            connectome.add_core_cortical_area(message)
+            # Route through GenomeService for architecture compliance
+            genome_service = self.core_api_service._genome_service
+            if not genome_service:
+                raise ValueError("GenomeService not available for WRITE operations")
 
-            return {"cortical_id": cortical_id}
+            data = request.model_dump(exclude_none=True)
+
+            cortical_id = data.get("cortical_id")
+            if not cortical_id:
+                raise ValueError("cortical_id is required")
+
+            coords3d = data.get("coordinates_3d")
+            if not coords3d or len(coords3d) < 3:
+                raise ValueError("coordinates_3d must be provided as [x, y, z]")
+
+            # Minimal valid structural dimensions for core cortical areas
+            dimensions = {"width": 1, "height": 1, "depth": 1}
+
+            # Map legacy/core fields to parameters
+            parameters: Dict[str, Any] = {
+                "coordinates_2d": data.get("coordinates_2d") or [0, 0],
+                "cortical_group": data.get("cortical_type", "CUSTOM"),
+                "cortical_sub_group": data.get("cortical_type", "CUSTOM"),
+                "sub_group_id": data.get("cortical_type", "CUSTOM"),
+                "dev_count": data.get("device_count", 1),
+                "cortical_id": cortical_id,
+            }
+
+            # Create the cortical area via proper pipeline
+            result = genome_service.create_cortical_area(
+                name=cortical_id,
+                coordinates={"x": int(coords3d[0]), "y": int(coords3d[1]), "z": int(coords3d[2])},
+                dimensions=dimensions,
+                area_type=str(data.get("cortical_type") or "custom"),
+                parameters=parameters,
+            )
+
+            if not result or "cortical_id" not in result:
+                raise ValueError("Failed to add cortical area")
+
+            return {"cortical_id": result["cortical_id"]}
         except Exception as e:
             raise ValueError(f"Error adding cortical area: {str(e)}") from e
 
@@ -518,6 +589,26 @@ class CorticalAreaAPI:
             #  ARCHITECTURE COMPLIANCE: Route through GenomeService instead of
             #  direct ConnectomeManager access
             genome_service = self.core_api_service._genome_service
+
+            # Enforce region membership constraints at API layer (defense in depth)
+            try:
+                from feagi.config.toml_loader import load_feagi_config, get_region_constraints_config
+                config = load_feagi_config()
+                constraints = get_region_constraints_config(config)
+            except Exception as e:
+                raise ValueError(f"Region constraints configuration error: {e}")
+
+            # Classify requested area category deterministically
+            requested_category = "MEMORY" if is_memory else "CUSTOM"
+            is_root = parent_region_id == "root"
+            if is_root and requested_category not in constraints.root_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: {requested_category} areas are not allowed in root"
+                )
+            if not is_root and requested_category not in constraints.subregion_allowed_area_categories:
+                raise ValueError(
+                    f"region_membership_violation: {requested_category} areas are not allowed in subregions"
+                )
 
             #  Create cortical area through proper pipeline: hierarchical
             #  genome -> GenomeService -> connectome

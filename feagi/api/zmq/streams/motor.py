@@ -37,12 +37,13 @@ This stream does NOT handle:
 import asyncio
 import time
 from typing import Any, Dict, Optional
+from pathlib import Path
 
 # CRITICAL FIX: Import numpy at module level to prevent scoping issues
 import numpy as np
 import zmq
 import zmq.asyncio
-import feagi_data_processing as fdp
+import feagi_rust_py_libs as fdp
 
 from feagi.core.state_manager import GenomeState
 from feagi.utils.logger import setup_logger
@@ -51,6 +52,11 @@ from feagi.utils.zmq_debug import MessageType, log_outbound
 # Import the unified CoreAPIService
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
+
+import mmap as _mmap
+import os as _os
+import struct as _struct
+import threading
 
 logger = setup_logger(__name__)
 
@@ -131,6 +137,28 @@ class MotorStream:
         # Motor stream processing task
         self._motor_data_task: Optional[asyncio.Task] = None
         self._subscriber_monitor_task: Optional[asyncio.Task] = None
+
+        # Optional SHM writer for core motor data and per-agent motor writers
+        self._shm_writer = None
+        self._agent_shm_writers: Dict[str, _ShmRingWriter] = {}
+        self._shm_lock = threading.Lock()
+        # Cache for area-type lookups to avoid hot-path metadata calls
+        self._area_is_opu_cache: Dict[str, bool] = {}
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            sm = FeagiStateManager.instance()
+            shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+            motor_path = shm.get("motor_stream", "")
+            if motor_path:
+                with self._shm_lock:
+                    if self._shm_writer is None:
+                        self._shm_writer = _ShmRingWriter(Path(motor_path))
+                        logger.info(f"[SHM] Motor stream writing to: {motor_path}")
+            else:
+                logger.info("[SHM] Motor shared memory not configured; using ZMQ PUB only")
+        except Exception as e:
+            logger.info(f"[SHM] Motor SHM registry unavailable; using ZMQ PUB only ({e})")
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
@@ -218,6 +246,31 @@ class MotorStream:
             # Default to standby mode on error
             self._active_mode = False
 
+    def _has_shm_consumers(self) -> bool:
+        """Return True if there is any SHM consumer configured for motor data.
+
+        This includes either a core motor SHM writer or at least one
+        per-agent motor SHM mapping registered in the state manager.
+        """
+        try:
+            if self._shm_writer is not None:
+                return True
+            # Check cached per-agent writers first
+            if getattr(self, "_agent_shm_writers", None):
+                if len(self._agent_shm_writers) > 0:
+                    return True
+            # Check registry for any agent with a motor SHM path
+            from feagi.core.state_manager import FeagiStateManager
+            sm = FeagiStateManager.instance()
+            agent_map = getattr(sm, "_agent_shared_memory", {})
+            for _aid, mapping in agent_map.items():
+                if mapping.get("motor") or mapping.get("motor_stream"):
+                    return True
+            return False
+        except Exception:
+            # Be conservative on error
+            return False
+
     async def start(self) -> None:
         """Start the motor stream server."""
         if self.running:
@@ -231,6 +284,13 @@ class MotorStream:
             self._motor_data_task = asyncio.create_task(
                 self._process_motor_data()
             )
+        else:
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info("[MOTOR-DEBUG] No FQ sampler attached; waiting for Process Manager to provide one for motor output")
+            except Exception:
+                pass
 
         # Start subscriber monitoring
         self._subscriber_monitor_task = asyncio.create_task(
@@ -238,6 +298,66 @@ class MotorStream:
         )
 
         logger.info("Motor Stream server started")
+
+    def set_fq_sampler(self, sampler) -> None:
+        """Attach/replace the motor FQ sampler at runtime.
+
+        If the server is already running and no processing task is active,
+        this will start the motor processing loop.
+        """
+        self.fq_sampler = sampler
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                logger.info("[MOTOR-DEBUG] FQ sampler attached to motor stream at runtime")
+        except Exception:
+            pass
+        # If already running but task wasn't started (due to missing sampler), start it now
+        if self.running and self._motor_data_task is None and self.fq_sampler is not None:
+            try:
+                self._motor_data_task = asyncio.create_task(self._process_motor_data())
+                logger.info("[MOTOR-DEBUG] Motor processing loop started after sampler attach")
+            except Exception as e:
+                logger.error(f"Failed to start motor processing after sampler attach: {e}")
+
+    def _is_opu_area(self, cortical_id: str) -> bool:
+        """Strict OPU classification using canonical field only.
+
+        Policy:
+        - Use ONLY 'cortical_group' from ConnectomeManager area info
+        - Consider the area OPU iff cortical_group.upper() == 'OPU'
+        - No aliases, no heuristics
+        """
+        cached = self._area_is_opu_cache.get(cortical_id)
+        if cached is not None:
+            return cached
+
+        is_opu = False
+        try:
+            cm = self.core_api.get_connectome_manager() if hasattr(self.core_api, "get_connectome_manager") else None
+            if cm and hasattr(cm, "get_area_info"):
+                info = cm.get_area_info(cortical_id) or {}
+                group_val = info.get("cortical_group", "")
+                group = str(group_val).upper()
+                is_opu = (group == "OPU")
+                # Optional targeted debug for gaze filtering decisions
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    if cortical_id.lower().startswith("ogaz") and FeagiStateManager.instance().is_debug_npu_enabled():
+                        logger.info(f"[MOTOR-DEBUG] ogaz area classification: group='{group}' → is_opu={is_opu}")
+                        # Also log the raw area info keys to diagnose mismatched metadata
+                        try:
+                            keys = list(info.keys())
+                        except Exception:
+                            keys = []
+                        logger.info(f"[MOTOR-DEBUG] ogaz area_info keys: {keys}")
+                except Exception:
+                    pass
+        except Exception:
+            is_opu = False
+
+        self._area_is_opu_cache[cortical_id] = is_opu
+        return is_opu
 
     async def stop(self) -> None:
         """Stop the motor stream server."""
@@ -274,6 +394,11 @@ class MotorStream:
             self.socket.close()
             self.socket = None
 
+        # RTOS-friendly: Simple SHM cleanup
+        if self._shm_writer:
+            self._shm_writer.close()
+            self._shm_writer = None
+
         logger.info("Motor Stream server stopped")
 
     async def _process_motor_data(self) -> None:
@@ -300,12 +425,30 @@ class MotorStream:
                     await asyncio.sleep(0.01)
                     continue
 
-                if motor_data is None:
-                    await asyncio.sleep(0.01)
+                # Treat empty dict as no data (rate-limited or no areas)
+                if not motor_data:
+                    # Pace by sampler frequency if available; fallback to 10ms
+                    try:
+                        freq = getattr(self.fq_sampler, 'sample_frequency_hz', None)
+                        if freq and freq > 0:
+                            await asyncio.sleep(max(0.0, 1.0 / float(freq)))
+                        else:
+                            await asyncio.sleep(0.01)
+                    except Exception:
+                        await asyncio.sleep(0.01)
                     continue
 
-                # Handle cortical area format data
+                # Handle cortical area format data (non-empty)
                 if isinstance(motor_data, dict):
+                    # If sampler produced data, consider stream ACTIVE
+                    if not self._active_mode:
+                        self._active_mode = True
+                        try:
+                            from feagi.core.state_manager import FeagiStateManager
+                            if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                                logger.info("[MOTOR-DEBUG] Motor stream switched to ACTIVE based on sampler output")
+                        except Exception:
+                            pass
                     logger.debug(
                         f"Processing cortical area format: {len(motor_data)} areas"
                     )
@@ -328,60 +471,186 @@ class MotorStream:
         """Process motor data in the cortical area format from
         UnifiedFQSampler."""
         try:
-            # Check if we have connected clients
+            # Check if we have active consumers
             client_count = self.get_connected_client_count()
+            has_shm = self._has_shm_consumers()
 
-            if client_count == 0:
+            if client_count == 0 and not has_shm:
                 logger.debug(
-                    "No motor clients connected, skipping cortical area data"
+                    "No motor consumers (no ZMQ clients, no SHM), skipping cortical area data"
                 )
                 return
+            elif client_count == 0 and has_shm:
+                logger.info("𒓉 [MOTOR] ZMQ has no subscribers, but SHM consumers detected → proceeding with SHM fan-out")
 
-            logger.debug(
-                f"Processing new cortical area format for motor: "
-                f"{len(cortical_data)} areas"
-            )
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                if FeagiStateManager.instance().is_debug_npu_enabled():
+                    logger.info(
+                        f"[MOTOR-DEBUG] Sampling produced {len(cortical_data)} areas for motor stream"
+                    )
+                    # Heavy debug: dump the entire motor_data snapshot for inspection
+                    logger.info("[MOTOR-DEBUG] FULL motor_data snapshot: %s", cortical_data)
+            except Exception:
+                pass
 
             # Process each cortical area separately for motor control
-            for area_id, area_data in cortical_data.items():
-                if not area_data or not area_data.get("neuron_ids"):
+            for area_key, area_data in cortical_data.items():
+                # Resolve cortical ID string from sampler key (int index or str)
+                cortical_id_str = None
+                try:
+                    if isinstance(area_key, int):
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(area_key)
+                    elif isinstance(area_key, str) and area_key.isdigit():
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(int(area_key))
+                    elif isinstance(area_key, str):
+                        cortical_id_str = area_key
+                except Exception:
+                    cortical_id_str = None
+
+                if not cortical_id_str:
                     continue
 
-                # Extract data from area
-                neuron_ids = area_data["neuron_ids"]
-                membrane_potentials = area_data.get("membrane_potentials", [])
-                coordinates = area_data.get("coordinates", [])
+                # STRICT: include only OPU areas, via CoreAPIService helper
+                try:
+                    is_opu = bool(self.core_api and hasattr(self.core_api, 'is_opu_area') and self.core_api.is_opu_area(cortical_id_str))
+                except Exception:
+                    is_opu = False
+                if not is_opu:
+                    # Targeted debug: explain why ogaz is not included
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if FeagiStateManager.instance().is_debug_npu_enabled():
+                            logger.info(f"[MOTOR-DEBUG] Skipping area '{cortical_id_str}' - not classified as OPU")
+                            # Aggressive diagnostics for root-cause: dump classification signals
+                            try:
+                                cm = self.core_api.get_connectome_manager() if hasattr(self.core_api, 'get_connectome_manager') else None
+                                area_props = cm.get_cortical_area_properties(cortical_id_str) if cm and hasattr(cm, 'get_cortical_area_properties') else {}
+                                group = str((area_props.get('cortical_group') or '')).upper()
+                                logger.info(f"[MOTOR-DEBUG] Area '{cortical_id_str}' cortical_group='{group}', props_keys={list(area_props.keys()) if area_props else []}")
+                                # Connectome helper verdicts
+                                cm_is_opu = bool(cm and hasattr(cm, 'is_opu') and cm.is_opu(cortical_id_str))
+                                cm_is_ipu = bool(cm and hasattr(cm, 'is_ipu') and cm.is_ipu(cortical_id_str))
+                                logger.info(f"[MOTOR-DEBUG] Connectome verdicts: is_opu={cm_is_opu}, is_ipu={cm_is_ipu}")
+                                # Core API list samples
+                                try:
+                                    opu_list = self.core_api.list_opu_areas() if hasattr(self.core_api, 'list_opu_areas') else []
+                                    ipu_list = self.core_api.list_ipu_areas() if hasattr(self.core_api, 'list_ipu_areas') else []
+                                except Exception:
+                                    opu_list, ipu_list = [], []
+                                logger.info(f"[MOTOR-DEBUG] OPU areas sample (first 12): {opu_list[:12]}")
+                                logger.info(f"[MOTOR-DEBUG] IPU areas sample (first 12): {ipu_list[:12]}")
+                                # If key is index, show resolution mapping
+                                try:
+                                    if isinstance(area_key, int) and hasattr(self.core_api, 'get_cortical_id_for_idx'):
+                                        resolved = self.core_api.get_cortical_id_for_idx(area_key)
+                                        logger.info(f"[MOTOR-DEBUG] area_key={area_key} resolved to cortical_id='{resolved}'")
+                                except Exception:
+                                    pass
+                            except Exception as diag_e:
+                                logger.info(f"[MOTOR-DEBUG] Diagnostic logging failed: {diag_e}")
+                    except Exception:
+                        pass
+                    continue
+
+                if not area_data:
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if cortical_id_str.lower().startswith("ogaz") and FeagiStateManager.instance().is_debug_npu_enabled():
+                            logger.info(f"[MOTOR-DEBUG] Area '{cortical_id_str}' has empty data from sampler")
+                    except Exception:
+                        pass
+                    continue
+
+                # Extract data from area (support multiple shapes)
+                neuron_ids = area_data.get("neuron_ids")
+                membrane_potentials = area_data.get("pre_fire_potentials") or area_data.get("membrane_potentials", [])
+                coordinates = area_data.get("coordinates")
+                x_values = y_values = z_values = None
+                # coordinates as list of triples
+                if coordinates and isinstance(coordinates, (list, tuple)):
+                    try:
+                        x_values = [int(c[0]) for c in coordinates]
+                        y_values = [int(c[1]) for c in coordinates]
+                        z_values = [int(c[2]) for c in coordinates]
+                    except Exception:
+                        x_values = y_values = z_values = None
+                # split coordinate arrays (newer FQ format)
+                if x_values is None:
+                    if "coordinates_x" in area_data and "coordinates_y" in area_data:
+                        try:
+                            x_values = list(area_data.get("coordinates_x") or [])
+                            y_values = list(area_data.get("coordinates_y") or [])
+                            z_values = list(area_data.get("coordinates_z") or [0] * len(x_values))
+                        except Exception:
+                            x_values = y_values = z_values = None
+                    elif "x" in area_data and "y" in area_data:
+                        try:
+                            x_values = list(area_data.get("x") or [])
+                            y_values = list(area_data.get("y") or [])
+                            z_values = list(area_data.get("z") or [0] * len(x_values))
+                        except Exception:
+                            x_values = y_values = z_values = None
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    if FeagiStateManager.instance().is_debug_npu_enabled():
+                        if cortical_id_str.lower().startswith("ogaz"):
+                            try:
+                                if neuron_ids is not None:
+                                    n_count = len(neuron_ids)
+                                elif x_values is not None and y_values is not None:
+                                    n_count = min(len(x_values), len(y_values))
+                                else:
+                                    n_count = 0
+                            except Exception:
+                                n_count = 0
+                            logger.info(f"[MOTOR-DEBUG] ogaz motor area selected: neurons={n_count}")
+                except Exception:
+                    pass
 
                 #  Use membrane potentials if available, otherwise default to
                 #  1.0
-                if membrane_potentials and len(membrane_potentials) == len(
-                    neuron_ids
-                ):
-                    potentials = membrane_potentials
+                # Determine target length
+                target_len = 0
+                try:
+                    if neuron_ids is not None:
+                        target_len = len(neuron_ids)
+                    elif x_values is not None and y_values is not None:
+                        target_len = min(len(x_values), len(y_values), len(z_values or []))
+                except Exception:
+                    target_len = 0
+                if target_len <= 0:
+                    continue
+                if membrane_potentials and len(membrane_potentials) >= target_len:
+                    potentials = list(membrane_potentials)[:target_len]
                 else:
-                    potentials = [1.0] * len(neuron_ids)
+                    potentials = [1.0] * target_len
 
                 # Encode using feagi_data_processing for motor data - USE
                 # HIGH-PERFORMANCE NUMPY APPROACH
                 try:
                     # Create the main mapped neuron data container
                     generated_mapped_neuron_data = (
-                        fdp.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                        fdp.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
                     )
 
                     # Generate coordinates if not available
-                    if coordinates and len(coordinates) == len(neuron_ids):
-                        x_values = [coord[0] for coord in coordinates]
-                        y_values = [coord[1] for coord in coordinates]
-                        z_values = [coord[2] for coord in coordinates]
+                    if x_values is None or y_values is None:
+                        if neuron_ids is not None:
+                            # Fallback to ID-based coordinates
+                            x_values = [int(nid) % 100 for nid in neuron_ids[:target_len]]
+                            y_values = [(int(nid) // 100) % 100 for nid in neuron_ids[:target_len]]
+                            z_values = [int(nid) // 10000 for nid in neuron_ids[:target_len]]
+                        else:
+                            continue
                     else:
-                        # Fallback to ID-based coordinates
-                        x_values = [nid % 100 for nid in neuron_ids]
-                        y_values = [(nid // 100) % 100 for nid in neuron_ids]
-                        z_values = [nid // 10000 for nid in neuron_ids]
+                        # Truncate to target_len
+                        x_values = x_values[:target_len]
+                        y_values = y_values[:target_len]
+                        z_values = (z_values or [0] * target_len)[:target_len]
 
                     # Ensure all arrays are the same length
-                    max_len = len(neuron_ids)
+                    max_len = target_len
                     if max_len == 0:
                         continue
 
@@ -402,23 +671,23 @@ class MotorStream:
 
                     #  Create cortical ID using modern feagi-rust-py-libs
                     #  approach
-                    area_str = str(area_id)
+                    area_str = str(cortical_id_str)
 
                     try:
                         #  Try to create cortical ID directly from string -
                         #  handles all modern format IDs
                         cortical_id_obj = (
-                            fdp.genome.CorticalID.try_new_from_string(area_str)
+                            fdp.data_structures.genomic.CorticalID.try_new_from_string(area_str)
                         )
                     except ValueError:
                         # Fallback for areas that can't be parsed directly
                         if area_str == "_power":
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                                fdp.genome.CoreCorticalType.Power
+                            cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_core_cortical_area_id(
+                                fdp.data_structures.genomic.CoreCorticalType.Power
                             )
                         elif area_str == "_death":
-                            cortical_id_obj = fdp.genome.CorticalID.new_core_cortical_area_id(
-                                fdp.genome.CoreCorticalType.Death
+                            cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_core_cortical_area_id(
+                                fdp.data_structures.genomic.CoreCorticalType.Death
                             )
                         else:
                             # For unknown areas, use custom cortical ID
@@ -431,19 +700,19 @@ class MotorStream:
                                     custom_id = area_str  # Already correct
                                 else:
                                     custom_id = f"c{area_str[:-1]}"  # Add 'c' prefix, truncate to 6 chars
-                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_custom_cortical_area_id(
                                     custom_id
                                 )
                             else:
                                 # Only add 'c' prefix if less than 6 characters
                                 custom_id = f"c{area_str}"[:6]  # Ensure max 6 characters
-                                cortical_id_obj = fdp.genome.CorticalID.new_custom_cortical_area_id(
+                                cortical_id_obj = fdp.data_structures.genomic.CorticalID.new_custom_cortical_area_id(
                                     custom_id
                                 )
 
                     # Use high-performance NumPy approach (neuron_c pattern)
                     neurons_array = (
-                        fdp.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
+                        fdp.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
                             neurons_x, neurons_y, neurons_z, neurons_p
                         )
                     )
@@ -479,12 +748,12 @@ class MotorStream:
                         )
 
                     await self._send_motor_binary_data(
-                        binary_data, channel=area_id
+                        binary_data, channel=cortical_id_str
                     )
 
                 except Exception as e:
                     logger.error(
-                        f"Error encoding motor data for area {area_id}: {e}"
+                        f"Error encoding motor data for area {cortical_id_str}: {e}"
                     )
 
         except Exception as e:
@@ -517,10 +786,78 @@ class MotorStream:
             except Exception:
                 pass
 
-            # Send data on specified motor channel
-            await self.socket.send_multipart(
-                [channel.encode("utf-8"), binary_data]
-            )
+            # Write to SHM if configured
+            if self._shm_writer:
+                try:
+                    self._shm_writer.write_payload(binary_data)
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                            logger.info(f"[MOTOR-DEBUG] Wrote {len(binary_data)} bytes to core motor SHM")
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logger.debug(f"[SHM] Motor write failed: {e}")
+            # Also fan-out to per-agent motor SHM files if available
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                agent_map = getattr(sm, "_agent_shared_memory", {})
+                prefer_shm_any = False
+                # Track if any agent has prefer_shm=true to optionally suppress ZMQ below
+                # We look into connected agents registry via state manager
+                connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
+                for aid, mapping in agent_map.items():
+                    path = mapping.get("motor") or mapping.get("motor_stream")
+                    if not path:
+                        continue
+                    # Check capability flag prefer_shm for this agent
+                    try:
+                        props = connected_agents.get(aid, {})
+                        caps = props.get('capabilities', {}) or {}
+                        motor_cap = caps.get('motor')
+                        if isinstance(motor_cap, dict) and motor_cap.get('prefer_shm', False):
+                            prefer_shm_any = True
+                    except Exception:
+                        pass
+                    writer = self._agent_shm_writers.get(aid)
+                    if writer is None:
+                        try:
+                            with self._shm_lock:
+                                writer = self._agent_shm_writers.get(aid)
+                                if writer is None:
+                                    writer = _ShmRingWriter(Path(path))
+                                    self._agent_shm_writers[aid] = writer
+                                    logger.info(f"[SHM] Motor fan-out enabled for agent {aid}: {path}")
+                        except Exception as we:
+                            logger.debug(f"[SHM] Failed to open agent motor SHM for {aid}: {we}")
+                            continue
+                    try:
+                        writer.write_payload(binary_data)
+                        try:
+                            if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                                logger.info(f"[MOTOR-DEBUG] Fan-out wrote {len(binary_data)} bytes to agent {aid} motor SHM")
+                        except Exception:
+                            pass
+                    except Exception as wre:
+                        logger.debug(f"[SHM] Agent motor write failed for {aid}: {wre}")
+            except Exception:
+                pass
+
+            # Send data on specified motor channel (retain ZMQ path) unless agent(s) prefer SHM
+            try:
+                if not prefer_shm_any:
+                    await self.socket.send_multipart(
+                        [channel.encode("utf-8"), binary_data]
+                    )
+                else:
+                    try:
+                        if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
+                            logger.info("[MOTOR-DEBUG] ZMQ publish suppressed due to prefer_shm=true for at least one agent")
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"Error publishing motor data on ZMQ: {e}")
 
             try:
                 from feagi.core.state_manager import FeagiStateManager
@@ -901,3 +1238,103 @@ def handle_motor_stream(
     except Exception as e:
         logger.error(f"Error in motor stream processing: {e}")
         return None
+
+
+class _ShmRingWriter:
+    MAGIC = b"FEAGIMOT"
+    VERSION = 1
+    HEADER_SIZE = 256
+    HEADER_FMT = "<8sIIIQI"
+
+    def __init__(self, path: Path, num_slots: int = 64, slot_size: int = 1 * 1024 * 1024):
+        self.path = Path(path)
+        self.num_slots = int(max(2, num_slots))
+        self.slot_size = int(max(1024, slot_size))
+        self._mm = None
+        self._fd = None
+        self._path_inode = None
+        self._frame_seq = 0
+        self._write_index = 0
+        self._open()
+
+    def _open(self) -> None:
+        total_size = self.HEADER_SIZE + self.num_slots * self.slot_size
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = _os.open(str(self.path), _os.O_CREAT | _os.O_RDWR)
+        _os.ftruncate(self._fd, total_size)
+        self._mm = _mmap.mmap(self._fd, total_size, access=_mmap.ACCESS_WRITE)
+        try:
+            st = _os.fstat(self._fd)
+            self._path_inode = st.st_ino
+        except Exception:
+            self._path_inode = None
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            0,
+            0,
+        )
+        self._mm.seek(0)
+        self._mm.write(header)
+        if self.HEADER_SIZE > len(header):
+            self._mm.write(b"\x00" * (self.HEADER_SIZE - len(header)))
+
+    def write_payload(self, payload: bytes) -> None:
+        if not self._mm:
+            return
+        # Detect external file replacement/truncation and reopen deterministically
+        try:
+            st = _os.stat(str(self.path))
+            current_inode = st.st_ino
+            current_size = st.st_size
+            if (self._path_inode is not None and current_inode != self._path_inode) or current_size < self.HEADER_SIZE:
+                # Reopen mapping to the current on-disk file
+                try:
+                    self.close()
+                except Exception:
+                    pass
+                self._open()
+        except Exception:
+            # Best effort: proceed; write may still succeed
+            pass
+        if len(payload) + 4 > self.slot_size:
+            payload = payload[: self.slot_size - 4]
+        slot_off = self.HEADER_SIZE + self._write_index * self.slot_size
+        self._mm.seek(slot_off)
+        self._mm.write(_struct.pack("<I", len(payload)))
+        self._mm.write(payload)
+        rem = self.slot_size - 4 - len(payload)
+        if rem > 0:
+            self._mm.write(b"\x00" * rem)
+        self._frame_seq += 1
+        self._write_index = (self._write_index + 1) % self.num_slots
+        # Update header
+        self._mm.seek(0)
+        header = _struct.pack(
+            self.HEADER_FMT,
+            self.MAGIC,
+            self.VERSION,
+            self.num_slots,
+            self.slot_size,
+            self._frame_seq,
+            self._write_index,
+        )
+        self._mm.write(header)
+
+    def close(self) -> None:
+        try:
+            if self._mm:
+                self._mm.flush()
+                self._mm.close()
+        except Exception:
+            pass
+        if self._fd is not None:
+            try:
+                _os.close(self._fd)
+            except Exception:
+                pass
+        self._mm = None
+        self._fd = None

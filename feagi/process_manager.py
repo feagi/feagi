@@ -943,6 +943,8 @@ class ProcessManager:
                                 access_log=api_config.get("access_log", True),
                                 log_level=uvicorn_log_level,
                                 loop="asyncio",
+                                timeout_keep_alive=1,
+                                limit_concurrency=256,
                             )
                         except Exception as e:
                             logger.error(f"Failed to start uvicorn: {e}")
@@ -1112,6 +1114,8 @@ class ProcessManager:
                         port=config["port"],
                         log_level=uvicorn_log_level,
                         loop="asyncio",
+                        timeout_keep_alive=1,
+                        limit_concurrency=256,
                     )
                 except Exception as e:
                     logger.error(f"API service task failed: {e}")
@@ -1185,6 +1189,46 @@ class ProcessManager:
 
         logger.info("FEAGI Process Manager started successfully")
         return True
+    
+    def _init_registration_manager(self) -> bool:
+        """Initialize RegistrationManager separately.
+        
+        This method extracts RegistrationManager initialization from init_important_processes()
+        to allow it to be called independently without starting ZMQ server.
+        
+        Returns:
+            True if RegistrationManager initialized successfully, False otherwise
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            from feagi.pns.registration_manager import create_registration_manager
+            
+            logger.info("🏛️ Initializing Registration Manager...")
+            
+            # Get State Manager instance
+            state_manager = FeagiStateManager.instance()
+
+            #  Create Registration Manager with references to State Manager
+            #  and Process Manager
+            registration_manager = create_registration_manager(
+                state_manager=state_manager,
+                process_manager=self,
+            )
+
+            if registration_manager:
+                logger.info(
+                    "🏛️ Registration Manager initialized - central agent coordination ready"
+                )
+                return True
+            else:
+                logger.error(
+                    "❌ Failed to initialize Registration Manager"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Registration Manager: {e}")
+            return False
 
     def _start_monitoring(self):
         """Start the process monitoring thread."""
@@ -1520,12 +1564,13 @@ class ProcessManager:
         # Check if it's an OPU area (motor) or other area (visualization)
         is_motor_area = False
 
-        # Try to determine if this is a motor area
+        # Try to determine if this is a motor area using strict helper
         try:
-            if self._connectome_manager:
-                area_info = self._connectome_manager.get_area_info(cortical_id)
-                if area_info and area_info.get("type") == "OPU":
-                    is_motor_area = True
+            from feagi.api.core.services.core_api_service import CoreAPIService
+            if hasattr(self, "_core_api") and isinstance(getattr(self, "_core_api"), CoreAPIService):
+                is_motor_area = bool(self._core_api.is_opu_area(cortical_id))
+            elif self._connectome_manager and hasattr(self._connectome_manager, "is_opu"):
+                is_motor_area = bool(self._connectome_manager.is_opu(cortical_id))
         except Exception:
             # If we can't determine area type, assume visualization
             pass
@@ -1747,6 +1792,23 @@ class ProcessManager:
                 logger.info(
                     f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}"
                 )
+                # Attach sampler to running ZMQ motor stream if available
+                try:
+                    if hasattr(self, "_zmq_server") and self._zmq_server:
+                        zmq_server = self._zmq_server
+                        if hasattr(zmq_server, "_motor") and zmq_server._motor:
+                            motor_stream = zmq_server._motor
+                            if hasattr(motor_stream, "set_fq_sampler"):
+                                motor_stream.set_fq_sampler(self._motor_fq_sampler)
+                                logger.info("🚗 [ON-DEMAND] Motor FQ sampler attached to motor stream at runtime")
+                            else:
+                                logger.debug("🚗 Motor stream does not support runtime sampler attach")
+                        else:
+                            logger.debug("🚗 ZMQ server has no motor stream instance to attach sampler")
+                    else:
+                        logger.debug("🚗 No ZMQ server reference; sampler will be picked up on next server start")
+                except Exception as e:
+                    logger.warning(f"🚗 Failed to attach motor sampler to motor stream at runtime: {e}")
             else:
                 logger.warning(f"Unknown FQ sampler mode: {mode}")
                 return False

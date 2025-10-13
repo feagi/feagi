@@ -1194,6 +1194,8 @@ else:
         from fastapi import APIRouter, Depends, Form, Query, UploadFile
         from feagi.api.rest.dependencies import get_core_api_service
         from feagi.api.v1.genome import create_genome_api, RewiringMode
+        from typing import Optional
+        from fastapi import Body
         
         router = APIRouter()
         
@@ -1204,17 +1206,19 @@ else:
             return create_genome_api(core_api_service)
         
         # Manually create the amalgamation_destination endpoint with proper parameter handling
-        @router.post("/amalgamation_destination", response_model=str)
+        @router.post("/amalgamation_destination", response_model=dict)
         async def amalgamation_destination(
-            circuit_origin_x: int = Form(..., description="X coordinate for circuit origin"),
-            circuit_origin_y: int = Form(..., description="Y coordinate for circuit origin"),
-            circuit_origin_z: int = Form(..., description="Z coordinate for circuit origin"),
-            amalgamation_id: str = Form(..., description="Amalgamation ID"),
-            brain_region_id: str = Form(default="root", description="Brain region ID"),
+            circuit_origin_x: int = Query(..., description="X coordinate for circuit origin"),
+            circuit_origin_y: int = Query(..., description="Y coordinate for circuit origin"),
+            circuit_origin_z: int = Query(..., description="Z coordinate for circuit origin"),
+            amalgamation_id: str = Query(..., description="Amalgamation ID"),
+            brain_region_id: Optional[str] = Body(default=None, embed=True, description="Brain region ID (expects {\"brain_region_id\": \"...\"} JSON; omitted defaults to 'root')"),
             rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all, description="Rewiring mode"),
             genome_api=Depends(_get_genome_api)
-        ) -> str:
+        ) -> dict:
             """Complete amalgamation by specifying destination coordinates."""
+            if brain_region_id is None:
+                brain_region_id = "root"
             return await genome_api.amalgamation_destination(
                 circuit_origin_x=circuit_origin_x,
                 circuit_origin_y=circuit_origin_y,

@@ -260,7 +260,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "o__mot": {
+            "omot00": {
                 "enabled": True,
                 "measurable": True,
                 "cortical_name": "Motor control",
@@ -440,23 +440,23 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [25, 0, 0],
             },
-            "ov_mod": {
+            "ogaz00": {
                 "enabled": True,
                 "measurable": True,
-                "cortical_name": "Central vision modulation",
-                "controller_id": "modulation_control",
+                "cortical_name": "Central vision gaze control (linear encoding)",
+                "controller_id": "gaze_control_l",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 10],
+                "resolution": [4, 1, 10],
                 "coordinate_3d": [30, 0, 0],
             },
-            "ov_ecc": {
+            "oGAZ00": {
                 "enabled": True,
                 "measurable": True,
-                "cortical_name": "Central vision eccentricity",
-                "controller_id": "eccentricity_control",
+                "cortical_name": "Central vision gaze control (binary encoding)",
+                "controller_id": "gaze_control_b",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "coordinate_3d": [35, 0, 0],
+                "resolution": [4, 1, 10],
+                "coordinate_3d": [30, 0, 0],
             },
             "ov_enh": {
                 "enabled": True,
@@ -515,7 +515,7 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "motor": [
-                "o__mot",
+                "omot00",
             ],
             "servo": [
                 "o__ser",
@@ -533,8 +533,8 @@ cortical_types = {
             ],
             "led": ["o__led"],
             "camera": [
-                "ov_mod",
-                "ov_ecc",
+                "ogaz00",
+                "oGAZ00",
                 "o_blnk",
                 "ov_enh",
                 "ovtune",
@@ -621,11 +621,14 @@ cortical_template_memory = {
     "leak_coefficient": 0,
     "neuron_excitability": 1.0,
     "visualization": True,
-    # Memory-specific properties
-    "init_lifespan": 9,  # Initial neuron lifespan
-    "lifespan_growth_rate": 1.0,  # Growth rate on reactivation
-    "longterm_mem_threshold": 100,  # Long-term conversion threshold
-    "temporal_depth": 1,  # Pattern history depth
+    # Memory-specific properties (aligned with TOML configuration)
+    "init_lifespan": 20,  # Initial neuron lifespan (bursts) - matches TOML default
+    "lifespan_growth_rate": 3.0,  # Additive growth rate on reactivation - matches TOML default
+    "longterm_mem_threshold": 100,  # Long-term conversion threshold - matches TOML default
+    "temporal_depth": 3,  # Pattern history depth - PER AREA CONFIGURABLE
+    "max_reactivations": 1000,  # Maximum reactivations before forced LTM
+    "pattern_cache_size": 10000,  # Pattern cache size for performance
+    "min_activation_count": 3,  # Minimum activations required for pattern formation
 }
 
 

@@ -1,85 +1,128 @@
-# Copyright 2016-2025 Neuraville Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#  ==============================================================================
 """
-FEAGI Neural Processing Unit (NPU) - High-Performance Neural Computation
+FEAGI Neural Processing Unit (NPU) - Clean Architecture
 
-This package provides the core neural processing components for FEAGI 2.0,
-designed for high-performance neural computation and Rust migration readiness.
+This is a complete rewrite of the FEAGI NPU with clean separation of concerns:
 
-Key Components:
-- NeuralProcessor: Primary neural processing engine
-- FCLManager: Fire Candidate List management
-- PlasticityManager: Synaptic plasticity operations
-- BurstEngine Integration: NPU integration with burst processing
+Components:
+- Fire Candidate List (FCL): Pre-burst candidate collection
+- Fire Queue: Current timestep firing neurons  
+- Fire Ledger: Historical firing data (Rust-optimized)
+- Burst Engine: Clean orchestration of neural processing
 
-Architecture:
-- NPU is PRIMARY OWNER of neural data structures
-- BDU gets controlled access during sleep periods
-- Memory neurons remain BDU-owned (CPU-based)
-- All runtime neural processing happens in NPU
+Architecture Principles:
+1. Single responsibility per component
+2. No mixed concerns or timing issues
+3. Rust/RTOS friendly data structures
+4. Clear data flow: FCL → Fire Queue → Fire Ledger
+5. High-performance SoA (Structure of Arrays) format
 """
 
-# Core NPU components
-from .fcl_manager import FCLManager
-
-# New NPU Interface and Data Structures (Single Source of Truth)
-from .interface import NPUInterface, OperationResult, BatchOperationResult
-from .data_structures import NeuronArray, MemoryNeuronArray, SynapseArray, BackendType
-
-# Plasticity system
-from .plasticity import (
-    PlasticityManager,
-    PlasticityConfig,
-    PlasticityType
+from .coordinate_converter import CoordinateConverter
+from .fire_candidate_list import FireCandidateList, FCLCandidate
+from .fire_queue import FireQueue, FiringNeuron
+from .fire_ledger import FireLedgerInterface
+from .burst_engine import BurstEngine
+from .fq_sampler import FQSampler, UnifiedFQSampler
+from .fcl_injector import FCLInjector
+from .fcl_manager import (
+    FCLManager,
+    EnhancedFCLManager, 
+    BitMap,
+    TimestepOutOfRangeError,
+    FCLError,
+    MembraneUpdate,
+    NeuronCollection,
+    NeuronCollectionType,
+    example_enhanced_fcl_usage,
+    example_fcl_usage,
+    inject_neurons_into_fcl
+)
+from .gpu_fcl_adapter import (
+    GPUBitMap,
+    GPUAcceleratedFCL,
+    create_gpu_accelerated_fcl,
+    get_backend
 )
 
-# Archived components removed - migration to new NPU Interface complete
+# Critical: Import data structures and interfaces that other parts of FEAGI depend on
+from .data_structures import (
+    NeuronArray,
+    MemoryNeuronArray,
+    SynapseArray,
+    BackendType,
+    SIMDConfig,
+    SIMDDetector,
+    MemoryPatternKey
+)
 
-# SIMD operations
-from .simd_neural_ops import (
-    simd_membrane_decay,
-    simd_refractory_update,
-    simd_firing_check,
-    simd_firing_check_with_excitability,
-    simd_batch_neural_update
+from .special_area_handler import (
+    SpecialAreaHandler,
+    SpecialAreaConfig,
+    CorticalId,
+    NeuronId
+)
+
+from .interface import (
+    NPUInterface,
+    OperationResult,
+    BatchOperationResult,
+    SynapseCreationRequest,
+    NeuronCreationRequest,
+    NeuronUpdateRequest
 )
 
 __all__ = [
-    # Core NPU
-    'FCLManager',
+    # Clean NPU Architecture
+    'CoordinateConverter',
+    'FireCandidateList', 
+    'FCLCandidate',
+    'FireQueue',
+    'FiringNeuron', 
+    'FireLedgerInterface',
+    'BurstEngine',
+    'FQSampler',
+    'UnifiedFQSampler',
+    'FCLInjector',
     
-    # New NPU Interface and Data Structures (Single Source of Truth)
-    'NPUInterface',
-    'OperationResult',
-    'BatchOperationResult',
+    # Legacy compatibility (FCL Managers)
+    'FCLManager',
+    'EnhancedFCLManager',
+    'BitMap',
+    'TimestepOutOfRangeError',
+    'FCLError',
+    'MembraneUpdate',
+    'NeuronCollection',
+    'NeuronCollectionType',
+    'example_enhanced_fcl_usage',
+    'example_fcl_usage',
+    'inject_neurons_into_fcl',
+    
+    # GPU acceleration
+    'GPUBitMap',
+    'GPUAcceleratedFCL',
+    'create_gpu_accelerated_fcl',
+    'get_backend',
+    
+    # Core Data Structures (for FEAGI compatibility)
     'NeuronArray',
     'MemoryNeuronArray',
     'SynapseArray',
     'BackendType',
+    'SIMDConfig',
+    'SIMDDetector',
+    'MemoryPatternKey',
     
-    # Plasticity system
-    'PlasticityManager',
-    'PlasticityConfig',
-    'PlasticityType',
+    # Special Area Handling
+    'SpecialAreaHandler',
+    'SpecialAreaConfig', 
+    'CorticalId',
+    'NeuronId',
     
-    # Archived components removed - migration complete
-    
-    # SIMD operations
-    'simd_membrane_decay',
-    'simd_refractory_update',
-    'simd_firing_check',
-    'simd_firing_check_with_excitability',
-    'simd_batch_neural_update'
+    # NPU Interface
+    'NPUInterface',
+    'OperationResult',
+    'BatchOperationResult',
+    'SynapseCreationRequest',
+    'NeuronCreationRequest',
+    'NeuronUpdateRequest'
 ]

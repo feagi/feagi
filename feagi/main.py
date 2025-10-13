@@ -277,6 +277,11 @@ def main():
         "--gpu", action="store_true", help="Use GPU acceleration if available"
     )
     parser.add_argument(
+        "--shared-mem",
+        action="store_true",
+        help="Enable shared-memory data transport as default (streams prefer SHM)",
+    )
+    parser.add_argument(
         "--cpu-cores",
         type=int,
         default=None,
@@ -371,6 +376,11 @@ def main():
         action="store_true",
         help="Enable detailed memory system debugging - shows memory neuron creation, pattern detection, and long-term conversion",
     )
+    parser.add_argument(
+        "--debug-shm",
+        action="store_true",
+        help="Enable detailed shared-memory debugging (attach/readers/payload/injection summaries)",
+    )
 
     # Performance profiling arguments
     parser.add_argument(
@@ -433,6 +443,7 @@ def main():
             "debug_zmq_inbound": bool(getattr(args, "debug_zmq_inbound", False)),
             "debug_zmq_outbound": bool(getattr(args, "debug_zmq_outbound", False)),
             "mem_debug": bool(getattr(args, "debug_mem", False)),
+            "debug_shm": bool(getattr(args, "debug_shm", False)),
         }
 
         # Keep env vars for newly created loggers
@@ -452,6 +463,8 @@ def main():
             os.environ["FEAGI_DEBUG_ZMQ"] = "1"
         if debug_cfg["mem_debug"]:
             os.environ["FEAGI_DEBUG_MEM"] = "1"
+        if debug_cfg["debug_shm"]:
+            os.environ["FEAGI_DEBUG_SHM"] = "1"
 
         baseline = os.environ.get("FEAGI_CLI_LOG_LEVEL", "INFO")
         baseline_level = getattr(logging, baseline.upper(), logging.INFO)
@@ -527,6 +540,19 @@ def main():
             except Exception:
                 pass
 
+        # SHM debug flag: make available via overrides, env, and StateManager immediately
+        if getattr(args, "debug_shm", False):
+            cli_overrides["debug_shm"] = True
+            os.environ["FEAGI_DEBUG_SHM"] = "1"
+            logger.info("SHM debugging enabled via --debug-shm flag")
+            try:
+                sm = FeagiStateManager.instance()
+                if not hasattr(sm, "_debug_config"):
+                    sm._debug_config = {}
+                sm._debug_config["debug_shm"] = True
+            except Exception:
+                pass
+
         if args.debug_zmq_outbound or args.debug_zmq_inbound:
             if args.debug_zmq_outbound:
                 cli_overrides["debug_zmq_outbound"] = True
@@ -566,6 +592,8 @@ def main():
 
         if args.debug_mem:
             cli_overrides["debug_mem"] = True
+        if args.debug_shm:
+            cli_overrides["debug_shm"] = True
             os.environ["FEAGI_DEBUG_MEM"] = "1"
             print("🔍 [MAIN-PRINT] --debug-mem flag detected! (using print to bypass logging)")
             logger.info("🔍 [MAIN-DEBUG] Memory debugging enabled via --debug-mem flag")
@@ -653,10 +681,41 @@ def main():
         return 1
 
     # Initialize state manager and set debug configuration
+    # Ensure CLI debug flags like --debug-shm are reflected in config.debug
+    try:
+        dbg_section = config.get("debug", {}) if isinstance(config, dict) else {}
+        dbg_section = dict(dbg_section)
+        if getattr(args, "debug_shm", False):
+            dbg_section["debug_shm"] = True
+        config["debug"] = dbg_section
+    except Exception:
+        pass
     print(f"🔍 [CONFIG-PRINT] Config being passed to set_debug_config: {config.get('debug', 'NO_DEBUG_SECTION')}")
     
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)
+    # If shared memory mode enabled, create core stream SHM files
+    if getattr(args, "shared_mem", False):
+        try:
+            # Visualization, motor, sensory core streams
+            # Registry lives in the State Manager; creation is delegated to its manager
+            if hasattr(state_manager, "_shm_manager") and state_manager._shm_manager:
+                # Use consistent underscore naming for stream keys and filenames
+                viz_path = state_manager._shm_manager.create_stream_file("visualization_stream")
+                motor_path = state_manager._shm_manager.create_stream_file("motor_stream")
+                sensory_path = state_manager._shm_manager.create_stream_file("sensory_stream")
+                # Register each path individually in the StateManager registry
+                try:
+                    state_manager.register_core_shared_memory_path("visualization_stream", viz_path)
+                    state_manager.register_core_shared_memory_path("motor_stream", motor_path)
+                    state_manager.register_core_shared_memory_path("sensory_stream", sensory_path)
+                    logger.info(
+                        f"[SHM] Core streams initialized: viz={viz_path}, motor={motor_path}, sensory={sensory_path}"
+                    )
+                except Exception as e:
+                    logger.warning(f"[SHM] Failed to register core SHM paths: {e}")
+        except Exception as e:
+            logger.warning(f"[SHM] Failed to initialize core stream SHM files: {e}")
     # Re-apply CLI debug flags to state manager to ensure they are not overwritten by config
     try:
         if not hasattr(state_manager, "_debug_config"):
@@ -681,25 +740,16 @@ def main():
     # Initialize the ProcessManager (which will create ConnectomeManager with proper config)
     process_manager = get_process_manager()
     
-    # Initialize critical processes with proper configuration
-    if not process_manager.init_critical_processes(config):
-        logger.error("Failed to initialize critical processes")
-        return 1
+    # NOTE: Do NOT call init_critical_processes() or _init_registration_manager() here
+    # The process_manager.start() method below will call all initialization methods
+    # in the correct order: init_critical_processes → init_important_processes → init_background_processes
+    # Calling them early causes Registration Manager to be created twice, breaking agent list functionality
     
-    # Get the properly configured connectome instance from ProcessManager
-    connectome = process_manager._connectome_manager
-
-    #  Set the connectome instance for FastAPI dependency injection (only in
-    #  normal mode)
+    # NOTE: Connectome instance will be created during process_manager.start()
+    # The REST API will get it via dependency injection after startup completes
+    # We don't set it here because process_manager hasn't initialized it yet
+    
     embedded_mode = config.get("system", {}).get("embedded", False)
-    if not embedded_mode:
-        from feagi.api.rest.dependencies import set_connectome_instance
-
-        set_connectome_instance(connectome)
-    else:
-        logger.info(
-            "[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup"
-        )
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):

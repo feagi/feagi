@@ -184,8 +184,28 @@ class CorticalParameterUpdater:
         if property_type == "consecutive_fire_count":
             # This is a cortical area-level parameter, not per-neuron
             # It sets the max consecutive fires allowed for the area
-            #  NOTE: The ConnectomeManager update will be handled by
-            #  GenomeService
+            
+            # CRITICAL: Update BurstEngine NPU consecutive fire limits
+            try:
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                
+                if burst_engine:
+                    update_success = burst_engine.update_consecutive_fire_limits(cortical_id, value)
+                    if update_success:
+                        self.logger.info(
+                            f"[FAST-UPDATE] Updated consecutive fire limits in NPU for cortical area {cortical_id} to {value}"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"[FAST-UPDATE] Failed to update consecutive fire limits in NPU for cortical area {cortical_id}"
+                        )
+                else:
+                    self.logger.warning("[FAST-UPDATE] BurstEngine not available for consecutive fire limit update")
+                    
+            except Exception as e:
+                self.logger.error(f"[FAST-UPDATE] Error updating BurstEngine consecutive fire limits: {e}")
+            
             self.logger.info(
                 f"[FAST-UPDATE] Updated cortical area consecutive fire limit to {value} "
                 f"(affects {len(neuron_ids)} neurons via area configuration)"
@@ -220,6 +240,16 @@ class CorticalParameterUpdater:
                 except Exception:
                     pass
 
+                # CRITICAL: Invalidate BurstEngine excitability cache after changes
+                try:
+                    from feagi.npu.burst_engine import BurstEngine
+                    burst_engine = BurstEngine.get_instance()
+                    if burst_engine:
+                        burst_engine.invalidate_excitability_cache()
+                        self.logger.debug("Invalidated BurstEngine excitability cache after parameter update")
+                except Exception as cache_err:
+                    self.logger.warning(f"Could not invalidate excitability cache: {cache_err}")
+
                 self.logger.info(
                     f"[FAST-UPDATE] Updated neuron_excitability to {value} for area {cortical_id} (cortical_idx={cortical_idx})"
                 )
@@ -241,6 +271,8 @@ class CorticalParameterUpdater:
             "lifespan_growth_rate",
             "init_lifespan",
             "temporal_depth",
+            "mp_charge_accumulation",
+            "mp_driven_psp",
         ]:
             #  These are cortical area-level parameters that affect neuron
             #  behavior

@@ -65,8 +65,8 @@ def test_memory_system_end_to_end():
         # Initialize BurstEngine with proper dependencies
         burst_engine = BurstEngine(
             connectome_manager=connectome_manager,
-            fcl_manager=connectome_manager.fcl_manager,
-            config={"memory_processing_batch_size": 100, "memory_pattern_cache_size": 1000}
+            # fcl_manager no longer needed - handled by FCLInjector internally
+        config={"memory_processing_batch_size": 100, "memory_pattern_cache_size": 1000}
         )
         
         # Load barebones genome
@@ -316,9 +316,9 @@ def test_memory_system_end_to_end():
     
     try:
         # Create FQ Sampler and test sampling
-        from feagi.npu.fq_sampler import UnifiedFQSampler
+        from feagi.npu.fq_sampler import FQSampler
         
-        sampler = UnifiedFQSampler(
+        sampler = FQSampler(
             fire_queue_provider=cm.fcl_manager,
             sample_frequency_hz=10.0,
             sampling_mode="visualization",

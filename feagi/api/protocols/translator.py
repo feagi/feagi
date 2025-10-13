@@ -60,10 +60,10 @@ SUPPORTED_VERSIONS = {
 def get_structure_info(data: bytes) -> Dict[str, Any]:
     """Get structure info from byte data."""
     try:
-        byte_structure = frpl.io_processing.bytes.FeagiByteStructure(data)
+        byte_structure = frpl.data_serialization.FeagiByteStructure(data)
         return {
-            "structure_type": byte_structure.try_get_structure_type(),
-            "version": byte_structure.get_version(),
+            "structure_type": byte_structure.structure_type,
+            "version": byte_structure.version,
             "size": len(data),
         }
     except Exception as e:
@@ -111,7 +111,7 @@ class ByteStructureTranslator:
         try:
             # Create a CorticalMappedXYZPNeuronData container for JSON data
             cortical_mapped = (
-                self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
             )
             byte_structure = cortical_mapped.as_new_feagi_byte_structure()
 
@@ -136,7 +136,7 @@ class ByteStructureTranslator:
 
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = (
-                self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
             )
 
             # Process cortical data format:
@@ -205,7 +205,7 @@ class ByteStructureTranslator:
                     #  Use high-performance NumPy approach to create neuron
                     #  arrays
                     # (no cortical_id parameter)
-                    neurons_array = self.frpl.neuron_data.xyzp.NeuronXYZPArrays.new_from_numpy(
+                    neurons_array = self.frpl.data_structures.neurons.xyzp.NeuronXYZPArrays.new_from_numpy(
                         neurons_x, neurons_y, neurons_z, neurons_p
                     )
 
@@ -539,7 +539,7 @@ class ByteStructureTranslator:
             # Try to create a FeagiByteStructure from the data
             try:
                 byte_structure = (
-                    self.frpl.io_processing.bytes.FeagiByteStructure(
+                    self.frpl.data_serialization.FeagiByteStructure(
                         message_data
                     )
                 )
@@ -550,9 +550,10 @@ class ByteStructureTranslator:
                     #  Create CorticalMappedXYZPNeuronData from the byte
                     #  structure
                     cortical_mapped = (
-                        self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                        self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                            byte_structure
+                        )
                     )
-                    cortical_mapped.from_feagi_byte_structure(byte_structure)
 
                     # Extract neuron data using iter_full()
                     neurons = []

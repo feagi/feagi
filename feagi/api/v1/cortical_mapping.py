@@ -28,6 +28,7 @@ from .schemas import (
     CreateCorticalMappingRequest,
     SuccessResponse,
     UpdateCorticalMappingPropertiesRequest,
+    UpdateCorticalMappingPropertiesResponse,
 )
 
 
@@ -159,6 +160,8 @@ class CorticalMappingAPI:
                     ltp_multiplier=prop["ltp_multiplier"],
                     ltd_multiplier=prop["ltd_multiplier"],
                 )
+                
+
                 connections.append(connection)
 
             return connections
@@ -171,11 +174,11 @@ class CorticalMappingAPI:
         "PUT",
         "/mapping_properties",
         request_model=UpdateCorticalMappingPropertiesRequest,
-        response_model=SuccessResponse,
+        response_model=UpdateCorticalMappingPropertiesResponse,
     )
     async def update_mapping_properties(
         self, request: UpdateCorticalMappingPropertiesRequest
-    ) -> SuccessResponse:
+    ) -> UpdateCorticalMappingPropertiesResponse:
         """Update cortical mapping properties between two cortical areas."""
         try:
             success = self.core_api_service.update_cortical_mapping_properties(
@@ -189,12 +192,34 @@ class CorticalMappingAPI:
                     "Failed to update cortical mapping properties"
                 )
 
-            return SuccessResponse(
+            # Attach brain region context (both source and destination) to response
+            src_region_obj = None
+            dst_region_obj = None
+            try:
+                regions = self.core_api_service.get_brain_regions()
+                region_by_id = {r.get("region_id"): r for r in regions}
+                cm = self.core_api_service.get_connectome_manager()
+                src_region_id = None
+                dst_region_id = None
+                if hasattr(cm, "brain_region_hierarchy"):
+                    src_region_id = cm.brain_region_hierarchy.get_region_for_area(request.src_cortical_area)
+                    dst_region_id = cm.brain_region_hierarchy.get_region_for_area(request.dst_cortical_area)
+                    
+                if src_region_id and src_region_id in region_by_id:
+                    src_region_obj = region_by_id[src_region_id]
+                if dst_region_id and dst_region_id in region_by_id:
+                    dst_region_obj = region_by_id[dst_region_id]
+            except Exception as e:
+                logger.warning(f"Failed to attach brain regions to PUT response: {e}")
+
+            return UpdateCorticalMappingPropertiesResponse(
                 message=(
                     f"Cortical mapping properties updated successfully from "
                     f"{request.src_cortical_area} to "
                     f"{request.dst_cortical_area}"
-                )
+                ),
+                src_region=src_region_obj,
+                dst_region=dst_region_obj,
             )
 
         except Exception as e:

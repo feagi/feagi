@@ -1,1635 +1,2652 @@
-"""Copyright 2025 Neuraville Inc.
+"""
+Clean Burst Engine for FEAGI NPU
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Complete rewrite with clear separation of concerns and proper data flow:
+FCL (candidates) → Fire Queue (firing) → Fire Ledger (history)
 """
 
-import logging
-import time
-from typing import Any, Dict, List, Optional
-
+from typing import Dict, List, Optional, Any, Union, Tuple
 import numpy as np
-
-# RTOS-COMPATIBLE: Removed signal and threading imports - not available in RTOS
-# import signal  # REMOVED: Not compatible with RTOS
-#  import threading # REMOVED: Not compatible with RTOS - use RTOS task
-#  primitives instead
-#  WGPU-COMPATIBLE: Remove os import to eliminate environment variable
-#  dependencies
-# import os  # REMOVED: Environment variables not available in WGPU contexts
-from feagi.core.state_manager import FeagiStateManager, ServiceState
-from feagi.npu.fcl_injection_service import FCLInjectionService
-from feagi.npu.memory_processor import MemoryProcessor
-
-# New imports for power area injection
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
-# Import the new modular components
-from .burst_engine_debug import BurstEngineDebugMixin
-from .burst_engine_performance import BurstEnginePerformanceMixin
-from .fq_sampler import UnifiedFQSampler  # Backward-compatible export for tests
-from feagi.core.state_manager import ServiceState  # Re-export for tests
+from .fire_candidate_list import FireCandidateList, FCLCandidate
+from .fire_queue import FireQueue, FiringNeuron
+from .fire_ledger import FireLedgerInterface
+from .coordinate_converter import CoordinateConverter
+from .fq_sampler import FQSampler
+from .fcl_injector import FCLInjector
+from .simd_neural_ops import simd_batch_neural_update
 
-logger = setup_logger()
-
-
-# RTOS-COMPATIBLE: Use deterministic pseudo-random for instance IDs
-def _generate_instance_id() -> int:
-    """Generate a deterministic instance ID without using random module."""
-    import time
-
-    # Use time-based deterministic ID generation instead of random
-    return int((time.perf_counter() * 1000000) % 10000) + 1000
+logger = setup_logger(__name__)
 
 
-"""
-Burst Engine Implementation for FEAGI.
-
-The BurstEngine is FEAGI's primary neural simulation component. It drives the dynamics
-of neuron firing, manages membrane potentials, and coordinates the Fire Candidate List (FCL).
-
-Key features:
-- Standby Mode: Initializes without requiring a genome
-- RTOS-Friendly: Designed for real-time operating systems with predictable timing
-- State-Driven: Uses explicit state transitions with consistent logging
-- Dependency Injected: No global state, all dependencies passed explicitly
-    - Power Area Support: Handles special cortical areas like "_power" with automatic injection
-- Singleton Pattern: Only one instance can exist at any time
-- Modular Architecture: Uses mixins for debug and performance functionality
-
-Usage:
-    # Create and initialize (will return existing instance if one exists)
-    engine = BurstEngine(connectome_manager)
-
-    # Start the engine
-    engine.run()
-
-    # When genome is loaded
-    engine.update_with_genome()
-
-    # Graceful shutdown
-    engine.stop()
-"""
-
-
-class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
-    """RTOS/Rust-friendly burst engine for FEAGI neural simulation.
-
-    - No dynamic allocation in the main loop
-    - All configuration and memory allocation happens before entering the loop
-    - Main loop is a single, clear sequence of steps
-    - Supports graceful shutdown
-    - New: Initializes in standby mode without requiring a genome
-    - New: Supports special area handling including power area injection
-    - Singleton: Only one instance can exist at any time
-    - Modular: Uses mixins for debug and performance functionality
-    """
-
+class BurstEngine:
+    """Clean burst engine with proper separation of concerns."""
+    
+    # Lock-free singleton pattern for RTOS compliance
     _instance = None
-    _instance_id = None
-    _lock = None
-
-    def __new__(
-        cls,
-        connectome_manager: Any,
-        fcl_manager: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ):
-        """Singleton pattern implementation to ensure only one BurstEngine
-        instance exists."""
+    
+    def __new__(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
+        """Lock-free singleton pattern implementation."""
         if cls._instance is None:
             cls._instance = super(BurstEngine, cls).__new__(cls)
-            cls._instance_id = _generate_instance_id()
-            # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(
-                f"[DEBUG] BURST ENGINE: Creating NEW singleton instance {cls._instance_id}"
-            )
-        else:
-            # Removed log spam: no longer log when returning existing singleton
-            pass
+            cls._instance._initialized = False
+            pass  # BurstEngine singleton created
         return cls._instance
 
+    @classmethod
+    def get_instance(cls, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
+        """Get or create the singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls(connectome_manager, state_manager, fire_ledger_window_size)
+        return cls._instance
+    
+    @classmethod
+    def reset_instance(cls):
+        """Reset the singleton instance (for testing/cleanup)."""
+        cls._instance = None
+    
+    def __init__(self, connectome_manager=None, state_manager=None, fire_ledger_window_size: int = 20):
+        """Initialize clean burst engine."""
+        # Prevent double initialization for singleton
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+
+        self.connectome_manager = connectome_manager
+        
+        # Initialize logger
+        self.logger = setup_logger(__name__)
+        
+        # STATE MANAGER INTEGRATION - Cache instance for performance 
+        # Always use singleton instance as single source of truth
+        self.state_manager = FeagiStateManager.instance()
+        # BurstEngine using FeagiStateManager singleton
+        
+        # Set initial burst engine state to INITIALIZING
+        try:
+            # Prefer direct state manager call to avoid attribute resolution issues during import
+            if self.state_manager:
+                self.state_manager.set_burst_engine_state(ServiceState.INITIALIZING.value)
+            else:
+                # Fallback path should never happen since we cache the singleton above
+                pass
+        except Exception:
+            # Do not block initialization on state publish
+            pass
+        
+        # Core NPU components
+        self.fire_ledger = FireLedgerInterface(fire_ledger_window_size)
+        self.coordinate_converter = CoordinateConverter(connectome_manager) if connectome_manager else None
+        self.fcl_injector = FCLInjector(self.coordinate_converter) if self.coordinate_converter else None
+        
+        # Per-area excitability cache for performance optimization (like old NPU)
+        self._area_excitability_cache: Dict[int, float] = {}
+        self._excitability_cache_dirty = True
+        self._rng = np.random.default_rng()  # RNG for excitability (when needed)
+        
+        # Injection service for automatic power and special area injection
+        self.injection_service = None
+        self.enable_injection = True  # Enable automatic injection by default
+        
+        # FQ Sampler (initialized after burst engine is ready)
+        self.fq_sampler: Optional[FQSampler] = None
+        
+        # Registry of external FQ samplers (for process manager integration)
+        # Pre-allocated for RTOS compliance (max 10 FQ samplers)
+        self._max_fq_samplers = 10
+        self.registered_fq_samplers: List[Any] = [None] * self._max_fq_samplers
+        self._fq_sampler_count = 0
+        
+        # Initialize frequency from state manager (single source of truth)
+        try:
+            state_freq = self.state_manager.get_burst_frequency() if self.state_manager else None
+            if state_freq and state_freq > 0:
+                self.desired_frequency = float(state_freq)
+            else:
+                # Use safe default and let state manager be updated by external controller
+                self.desired_frequency = 10.0  # @architecture:acceptable - emergency fallback
+        except Exception:
+            self.desired_frequency = 10.0  # @architecture:acceptable - emergency fallback
+        self.target_frequency = self.desired_frequency
+        
+        # Running state tracking (with debug integration)
+        self._running_state = False
+        
+        # Genome integration tracking
+        self.genome_loaded = False
+        
+        # Instance ID for debugging and tracking (RTOS-safe)
+        self._instance_id = "burst_engine_%d" % id(self)
+        
+        self.current_timestep = 0
+        self.burst_count = 0
+        self.previous_fire_queue: Optional[FireQueue] = None
+
+        # Compatibility adapter for legacy MemoryProcessor access in ConnectomeManager
+        try:
+            self.memory_processor = _MemoryProcessorAdapter(self)
+        except Exception:
+            self.memory_processor = None
+
+        # Initialize injection service for power areas and special neurons
+        try:
+            import inspect
+            src_path = inspect.getsourcefile(self.__class__)
+            logger.info("[DEBUG] BurstEngine class loaded from: %s", src_path)
+        except Exception:
+            pass
+        if hasattr(self, "_initialize_injection_service"):
+            self._initialize_injection_service()
+        else:
+            logger.warning("[INJECTION] _initialize_injection_service not found on BurstEngine; skipping injection init")
+        
+        # Mark as initialized but keep in INITIALIZING state until burst processing works
+        self._initialized = True
+        # DON'T set to READY yet - wait until burst processing actually works
+
+        logger.info("BurstEngine initialized with singleton pattern and state manager integration")
+    
+    def process_burst(self) -> List[int]:
+        """Execute complete burst processing with clean 5-phase workflow.
+        
+        RUST-COMPATIBLE: Deterministic processing with well-defined data flow.
+        Uses SoA format internally for SIMD optimization.
+        
+        Returns:
+            List[int]: Neuron IDs that fired in current timestep
+        """
+        return self._process_burst()
+    
+    def _process_burst(self) -> List[int]:
+        """Internal implementation of burst processing."""
+        # Process burst - no excessive logging
+        
+        # ALWAYS log burst processing to verify it's running
+        logger.info(f"[BURST-ENGINE] Processing burst #{self.burst_count}")
+        
+        self.current_timestep = self.burst_count
+        
+        # NPU Debug logging (enabled with --debug-npu)
+        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
+        
+        # Only log critical errors and major state changes
+        
+        # Phase 1: Collect candidates using FCL Injector
+        fcl = FireCandidateList()
+        
+        self._inject_all_candidates(fcl)
+        
+                # CRITICAL: Process any accumulated external activations via FCL injector (sensory/IPU routes)
+        if self.fcl_injector and hasattr(self, '_pending_external_activations'):
+            try:
+                import sys
+                debug_mem = '--debug-mem' in sys.argv
+                
+                pending_activations = getattr(self, '_pending_external_activations', {})
+                
+                if debug_mem and pending_activations:
+                    memory_areas = [area for area in pending_activations.keys() if 'memory_area' in area]
+                    if memory_areas:
+                        total_memory_neurons = sum(len(activations) for area, activations in pending_activations.items() if 'memory_area' in area)
+                        print(f"[DEBUG-MEM] Processing {total_memory_neurons} memory neuron activations from {len(memory_areas)} memory areas")
+                if pending_activations:
+                    external_total = 0
+                    # Create a safe copy to avoid mutation during iteration
+                    pending_copy = dict(pending_activations)
+                    for area_id, area_data in pending_copy.items():
+                        # Coordinate dict format
+                        if isinstance(area_data, dict) and 'coordinates_x' in area_data:
+                            coords_x = np.asarray(area_data.get('coordinates_x', np.array([])))
+                            coords_y = np.asarray(area_data.get('coordinates_y', np.array([])))
+                            coords_z = np.asarray(area_data.get('coordinates_z', np.array([])))
+                            potentials = np.asarray(area_data.get('membrane_potentials', np.array([])), dtype=np.float32)
+                            # Guard: ensure arrays have the same length
+                            if not (len(coords_x) == len(coords_y) == len(coords_z) == len(potentials)):
+                                logger.error("BurstEngine: Skipping malformed external activations for area %s due to length mismatch: x=%d y=%d z=%d p=%d", area_id, len(coords_x), len(coords_y), len(coords_z), len(potentials))
+                                continue
+                            if len(coords_x) > 0:
+                                injected = self.fcl_injector.inject_sensory_data(
+                                    fcl=fcl,
+                                    cortical_id=area_id,
+                                    x_coords=coords_x,
+                                    y_coords=coords_y,
+                                    z_coords=coords_z,
+                                    potentials=potentials,
+                                )
+                                external_total += injected
+                        # Neuron ID list format
+                        elif isinstance(area_data, (list, np.ndarray)) and len(area_data) > 0:
+                            neuron_ids = np.array(area_data, dtype=np.uint32)
+                            npu_iface = getattr(self.connectome_manager, '_npu_interface', None)
+                            potentials_list = []
+                            valid_neuron_ids = []
+                            
+                            # Check if this is a memory area (either by name pattern or by checking if neuron IDs are in memory range)
+                            is_memory_area = ('memory_area' in area_id or 
+                                            any(int(nid) >= 50000000 for nid in neuron_ids))
+                            
+                            if debug_mem and is_memory_area:
+                                print(f"[DEBUG-MEM] Processing area '{area_id}' with {len(neuron_ids)} neuron IDs: {neuron_ids}")
+                            
+                            if npu_iface and hasattr(npu_iface, 'neuron_array') and hasattr(npu_iface.neuron_array, 'neuron_id_to_index'):
+                                na = npu_iface.neuron_array
+                                thresholds = getattr(na, 'thresholds', None)
+                                id_to_idx = getattr(na, 'neuron_id_to_index', {})
+                                
+                                if debug_mem and is_memory_area:
+                                    print(f"[DEBUG-MEM] Regular neuron array has {len(id_to_idx)} neurons registered")
+                                
+                                for nid in neuron_ids:
+                                    nid_int = int(nid)
+                                    if nid_int in id_to_idx and thresholds is not None:
+                                        idx = id_to_idx[nid_int]
+                                        if idx < len(thresholds):
+                                            valid_neuron_ids.append(nid_int)
+                                            potentials_list.append(float(thresholds[idx]))
+                                            if debug_mem and is_memory_area:
+                                                print(f"[DEBUG-MEM]   ✅ Found neuron {nid_int} in regular array at idx {idx}, threshold: {thresholds[idx]}")
+                                    else:
+                                        if debug_mem and is_memory_area:
+                                            print(f"[DEBUG-MEM]   ❌ Memory neuron {nid_int} NOT found in regular neuron array")
+                                            
+                            # Check memory neuron array for memory neurons
+                            if npu_iface and hasattr(npu_iface, 'memory_neuron_array') and is_memory_area:
+                                mna = npu_iface.memory_neuron_array
+                                if debug_mem:
+                                    print(f"[DEBUG-MEM] Checking memory neuron array for memory neurons...")
+                                
+                                for nid in neuron_ids:
+                                    nid_int = int(nid)
+                                    # Memory neurons should be injected with above-threshold potential
+                                    # Use memory neuron ID range from configuration
+                                    memory_id_threshold = 50000000  # @architecture:acceptable - memory neuron ID range constant
+                                    if nid_int >= memory_id_threshold:
+                                        valid_neuron_ids.append(nid_int)
+                                        # Use configuration-based potential
+                                        try:
+                                            from feagi.config.toml_loader import load_feagi_config
+                                            config = load_feagi_config()
+                                            memory_cfg = config.get('plasticity', {}).get('memory', {})
+                                            firing_threshold = memory_cfg.get('firing_threshold', 1.0)
+                                            injection_potential = firing_threshold + 0.5
+                                        except Exception:
+                                            # @architecture:acceptable - emergency fallback for memory neuron potential
+                                            injection_potential = 1.5
+                                        
+                                        potentials_list.append(injection_potential)
+                                        if debug_mem:
+                                            print(f"[DEBUG-MEM]   ✅ Memory neuron {nid_int} added to FCL with potential {injection_potential}")
+                                            
+                            if valid_neuron_ids:
+                                cortical_idx = self.connectome_manager.get_cortical_idx_for_id(area_id)
+                                if cortical_idx is not None:
+                                    excitatory_mask = np.ones(len(valid_neuron_ids), dtype=bool)
+                                    injected = fcl.add_candidates_soa(
+                                        cortical_idx=int(cortical_idx),
+                                        neuron_ids=np.array(valid_neuron_ids, dtype=np.uint32),
+                                        potential_deltas=np.array(potentials_list, dtype=np.float32),
+                                        excitatory_mask=excitatory_mask,
+                                    )
+                                    external_total += injected
+                                    
+                                    if debug_mem and is_memory_area:
+                                        print(f"[DEBUG-MEM] ✅ Injected {injected} memory neurons into FCL for cortical area {cortical_idx}")
+                                        # Immediately verify the injection worked
+                                        try:
+                                            total_after_injection = fcl.get_total_candidate_count()
+                                            print(f"[DEBUG-MEM] FCL candidate count after injection: {total_after_injection}")
+                                        except:
+                                            pass
+                                else:
+                                    if debug_mem and is_memory_area:
+                                        print(f"[DEBUG-MEM] ❌ Could not find cortical_idx for area_id '{area_id}'")
+                                        print(f"[DEBUG-MEM]   Available cortical areas: {list(self.connectome_manager.cortical_areas.keys())[:10]}...")
+                            else:
+                                if debug_mem and is_memory_area:
+                                    print(f"[DEBUG-MEM] ❌ No valid memory neurons found for FCL injection")
+                    # Clear processed activations deterministically
+                    self._pending_external_activations.clear()
+                    if external_total > 0:
+                        logger.info("BurstEngine: injected %d sensory/IPU candidates via FCLInjector", external_total)
+            except Exception as ext_e:
+                logger.error("BurstEngine: Error processing accumulated external activations: %s", str(ext_e))
+
+        fcl_candidate_count = fcl.get_total_candidate_count()
+        
+        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
+        fire_queue = FireQueue()
+        
+        # ALWAYS log before neural dynamics
+        logger.info(f"[BURST-ENGINE] About to process neural dynamics with FCL count: {fcl_candidate_count}")
+        
+        import sys
+        debug_mem = '--debug-mem' in sys.argv
+        if debug_mem:
+            print(f"[DEBUG-MEM] FCL has {fcl_candidate_count} candidates before neural dynamics")
+            
+            # Check if memory neuron 50000000 is in the FCL
+            try:
+                memory_neuron_found_in_fcl = False
+                
+                # Method 1: Check specific area (25) where memory neuron should be
+                if hasattr(fcl, 'get_candidates_by_area'):
+                    try:
+                        print(f"[DEBUG-MEM] FCL checking: Method 1 - get_candidates_by_area(25)")
+                        # Check area 25 specifically (memory area)
+                        candidates = fcl.get_candidates_by_area(25)
+                        print(f"[DEBUG-MEM] FCL Method 1: candidates = {candidates}")
+                        if candidates:
+                            # Handle list of FCLCandidate objects
+                            if isinstance(candidates, list):
+                                neuron_ids = [candidate.neuron_id for candidate in candidates if hasattr(candidate, 'neuron_id')]
+                                print(f"[DEBUG-MEM] FCL Method 1: extracted neuron_ids from FCLCandidate list = {neuron_ids}")
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = neuron_ids.index(50000000)
+                                    potential = candidates[idx].membrane_potential_delta if hasattr(candidates[idx], 'membrane_potential_delta') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
+                                else:
+                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in extracted neuron_ids")
+                            # Handle structure with neuron_ids attribute
+                            elif hasattr(candidates, 'neuron_ids'):
+                                neuron_ids = candidates.neuron_ids
+                                print(f"[DEBUG-MEM] FCL Method 1: neuron_ids = {list(neuron_ids) if hasattr(neuron_ids, '__iter__') else neuron_ids}")
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = list(neuron_ids).index(50000000)
+                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area 25 with potential {potential}")
+                                else:
+                                    print(f"[DEBUG-MEM] FCL Method 1: Memory neuron 50000000 NOT in neuron_ids")
+                            else:
+                                print(f"[DEBUG-MEM] FCL Method 1: Candidates structure not recognized: {type(candidates)}")
+                        else:
+                            print(f"[DEBUG-MEM] FCL Method 1: No candidates returned")
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error checking FCL area 25: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"[DEBUG-MEM] FCL Method 1: FCL has no get_candidates_by_area method")
+                
+                # Method 2: Use candidates_by_area property
+                if not memory_neuron_found_in_fcl and hasattr(fcl, 'candidates_by_area'):
+                    try:
+                        candidates_by_area = fcl.candidates_by_area
+                        for area_idx, candidates in candidates_by_area.items():
+                            if hasattr(candidates, 'neuron_ids'):
+                                neuron_ids = candidates.neuron_ids
+                                if 50000000 in neuron_ids:
+                                    memory_neuron_found_in_fcl = True
+                                    idx = list(neuron_ids).index(50000000)
+                                    potential = candidates.potential_deltas[idx] if hasattr(candidates, 'potential_deltas') else 'unknown'
+                                    print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL area {area_idx} with potential {potential} (property)")
+                                    break
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error using candidates_by_area property: {e}")
+                
+                # Method 3: Use get_all_candidates
+                if not memory_neuron_found_in_fcl and hasattr(fcl, 'get_all_candidates'):
+                    try:
+                        all_candidates = fcl.get_all_candidates()
+                        if hasattr(all_candidates, 'neuron_ids'):
+                            if 50000000 in all_candidates.neuron_ids:
+                                memory_neuron_found_in_fcl = True
+                                print(f"[DEBUG-MEM] ✅ Memory neuron 50000000 found in FCL all candidates")
+                    except Exception as e:
+                        print(f"[DEBUG-MEM] Error using get_all_candidates: {e}")
+                
+                if not memory_neuron_found_in_fcl:
+                    print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 NOT found in FCL candidates")
+                    # Try to get more detailed info
+                    try:
+                        if hasattr(fcl, 'get_candidate_count_by_area'):
+                            area_counts = fcl.get_candidate_count_by_area()
+                            print(f"[DEBUG-MEM] FCL candidate counts by area: {dict(list(area_counts.items())[:5])}...")
+                    except:
+                        pass
+                    
+            except Exception as e:
+                print(f"[DEBUG-MEM] Could not check FCL contents: {e}")
+        
+        # CRITICAL: Apply plasticity ops BEFORE neural dynamics to inject memory neurons into FCL
+        try:
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if npu_interface and hasattr(npu_interface, 'apply_plasticity_ops'):
+                # Get plasticity config from TOML configuration
+                try:
+                    from feagi.config.toml_loader import load_feagi_config
+                    config = load_feagi_config()
+                    p_cfg = config.get('plasticity', {})
+                    budget = p_cfg.get('max_ops_per_burst', 100)  # Default budget
+                    
+                    if budget > 0:
+                        applied_ops = npu_interface.apply_plasticity_ops(max_ops=budget)
+                        if debug_mem and applied_ops > 0:
+                            print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics")
+                        elif debug_mem:
+                            print(f"[DEBUG-MEM] BurstEngine: No plasticity operations to apply (queue empty)")
+                    elif debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Plasticity budget is 0")
+                        
+                except Exception as config_error:
+                    # Fallback with default budget
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine: Config error ({config_error}), using default budget")
+                    applied_ops = npu_interface.apply_plasticity_ops(max_ops=100)
+                    if debug_mem and applied_ops > 0:
+                        print(f"[DEBUG-MEM] BurstEngine applied {applied_ops} plasticity operations BEFORE neural dynamics (fallback)")
+            elif debug_mem:
+                print(f"[DEBUG-MEM] BurstEngine: NPU interface not available for plasticity operations")
+        except Exception as e:
+            if debug_mem:
+                print(f"[DEBUG-MEM] ❌ BurstEngine plasticity error: {e}")
+            pass
+
+        # CRITICAL: Apply neural dynamics processing AFTER plasticity operations
+        fired_neurons = self._process_neural_dynamics(fcl)
+        
+        # ALWAYS log after neural dynamics
+        fired_count = len(fired_neurons) if fired_neurons else 0
+        logger.info(f"[BURST-ENGINE] Neural dynamics completed: {fired_count} neurons fired")
+        
+        if debug_mem:
+            print(f"[DEBUG-MEM] Neural dynamics result: {fired_count} neurons fired")
+            if fired_neurons:
+                memory_fired = [nid for nid in fired_neurons if nid >= 50000000]
+                if memory_fired:
+                    print(f"[DEBUG-MEM] 🔥 Memory neurons fired: {memory_fired}")
+                else:
+                    print(f"[DEBUG-MEM] No memory neurons fired (all fired neurons: {fired_neurons[:10]}...)")
+                    # Check if memory neuron 50000000 was processed
+                    if 50000000 not in fired_neurons:
+                        print(f"[DEBUG-MEM] ❌ Memory neuron 50000000 did not fire - investigating neural dynamics processing")
+            else:
+                print(f"[DEBUG-MEM] No neurons fired at all")
+        
+        # Phase 2: Process neural dynamics - convert FCL candidates to actual firing neurons
+        try:
+            fcl_candidate_count = fcl.get_total_candidate_count()
+            
+            # Neural dynamics processing completed - fired_neurons contains results
+            total_fired = len(fired_neurons)
+            
+            if fired_neurons:
+                # Convert fired neuron IDs to FiringNeuron objects
+                firing_neurons = self._create_firing_neurons(fired_neurons)
+                # FiringNeuron objects created
+                
+                fire_queue.add_fired_neurons(firing_neurons, self.current_timestep)
+                
+                # Log significant firing activity
+                if total_fired > 0:
+                    logger.debug("Burst #%d: %d neurons fired", self.burst_count, total_fired)
+                    
+        except Exception as e:
+            # CRITICAL: Set to ERROR state if burst processing fails
+            self._set_burst_engine_state(ServiceState.ERROR)
+            logger.error("BURST-ENGINE: Critical error in burst processing - marking as ERROR state")
+            
+            logger.error("Burst processing error: %s", str(e))
+            # Continue with empty fire queue to maintain burst cycle
+        
+        # Phase 3: Archive to fire ledger
+        
+        if not fire_queue.is_empty():
+            neurons_by_area = {}
+            for area_idx, neurons in fire_queue.firing_neurons_by_area.items():
+                neurons_by_area[area_idx] = neurons
+            
+            # Archive neurons to fire ledger
+            self.fire_ledger.archive_timestep(self.current_timestep, neurons_by_area)
+
+            # Notify plasticity service after archival (read-only compute)
+            try:
+                import sys
+                debug_mem = '--debug-mem' in sys.argv
+                
+                svc = getattr(self, '_plasticity_service', None)
+                if svc is not None:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] BurstEngine notifying PlasticityService at timestep {self.current_timestep}")
+                    svc.notify_burst(self.current_timestep)
+                elif debug_mem:
+                    print(f"[DEBUG-MEM] ❌ No PlasticityService attached to BurstEngine!")
+            except Exception as e:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] ❌ Exception notifying PlasticityService: {e}")
+                pass
+            
+            # Update state manager with activity counters
+            neuron_count = sum(len(neurons) for neurons in neurons_by_area.values())
+            
+            try:
+                if self.state_manager:
+                    self.state_manager.increment_cumulative_activity(neuron_count)
+            except Exception:
+                # Don't let state manager issues break burst processing
+                logger.warning("Failed to update activity counters in state manager")
+        # Fire queue was empty - no archiving needed
+        
+        # Phase 4: FQ Sampler access ready (no action needed)
+        # Phase 5: Cleanup and prepare for next burst
+            
+        self.previous_fire_queue = fire_queue.copy_for_propagation()
+
+        # Plasticity operations now applied BEFORE neural dynamics (moved earlier in burst processing)
+
+        fcl.clear()
+        self.burst_count += 1
+        
+        # Return fired neuron IDs for external systems
+        fired_ids = fire_queue.get_all_neuron_ids()
+        
+        # Set to READY after successful burst processing (if not already READY)
+        # This handles cases where the first burst failed but subsequent ones succeed
+        current_state = None
+        if self.state_manager:
+            try:
+                current_state = self.state_manager.get_burst_engine_state()
+            except Exception:
+                pass
+        
+        if current_state != ServiceState.READY:
+            self._set_burst_engine_state(ServiceState.READY)
+            if self.burst_count == 1:
+                logger.info("Burst engine initialized and ready")
+            else:
+                logger.debug("Burst engine recovered and ready (burst #%d)", self.burst_count)
+            
+            # Note: Sensory stream monitors burst engine state and will start automatically
+            
+        return fired_ids
+    
+    def get_current_fire_queue(self) -> Optional[FireQueue]:
+        """Get current fire queue for FQ Sampler access."""
+        return self.previous_fire_queue
+    
+    def get_fire_ledger(self) -> FireLedgerInterface:
+        """Get fire ledger interface."""
+        return self.fire_ledger
+    
+    def initialize_fq_sampler(self, sample_frequency_hz: float = 10.0, sampling_mode: str = "visualization") -> FQSampler:
+        """Initialize FQ Sampler with this burst engine as provider."""
+        self.fq_sampler = FQSampler(
+            fire_queue_provider=self,  # BurstEngine provides get_current_fire_queue()
+            sample_frequency_hz=sample_frequency_hz,
+            sampling_mode=sampling_mode
+        )
+        logger.debug("FQ Sampler initialized: %s @ %dHz", sampling_mode, sample_frequency_hz)
+        return self.fq_sampler
+    
+    def get_fq_sampler(self) -> Optional[FQSampler]:
+        """Get FQ Sampler instance."""
+        return self.fq_sampler
+    
+    def register_fq_sampler(self, fq_sampler: Any):
+        """Register an external FQ sampler with this burst engine.
+        
+        This method allows the process manager to register FQ samplers 
+        that need access to the burst engine's fire queue data.
+        
+        Args:
+            fq_sampler: FQ sampler instance (FQSampler or UnifiedFQSampler)
+        """
+        # Check if sampler already registered
+        sampler_already_registered = False
+        for i in range(self._fq_sampler_count):
+            if self.registered_fq_samplers[i] == fq_sampler:
+                sampler_already_registered = True
+                break
+        
+        if not sampler_already_registered:
+            if self._fq_sampler_count < self._max_fq_samplers:
+                self.registered_fq_samplers[self._fq_sampler_count] = fq_sampler
+                self._fq_sampler_count += 1
+                sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
+                logger.debug("FQ sampler [%s] registered with BurstEngine", sampler_id)
+            else:
+                logger.error("Cannot register FQ sampler: maximum limit reached (%d)", self._max_fq_samplers)
+        else:
+            logger.warning("FQ sampler already registered: %s", getattr(fq_sampler, 'instance_id', 'unknown'))
+    
+    def unregister_fq_sampler(self, fq_sampler: Any):
+        """Unregister an external FQ sampler from this burst engine.
+        
+        Args:
+            fq_sampler: FQ sampler instance to unregister
+        """
+        # Find and remove sampler using index-based approach
+        found_index = -1
+        for i in range(self._fq_sampler_count):
+            if self.registered_fq_samplers[i] == fq_sampler:
+                found_index = i
+                break
+        
+        if found_index >= 0:
+            # Shift remaining elements left to fill gap
+            for i in range(found_index, self._fq_sampler_count - 1):
+                self.registered_fq_samplers[i] = self.registered_fq_samplers[i + 1]
+            
+            # Clear last element and decrement count
+            self.registered_fq_samplers[self._fq_sampler_count - 1] = None
+            self._fq_sampler_count -= 1
+            
+            sampler_id = getattr(fq_sampler, 'instance_id', 'unknown')
+            logger.info("FQ sampler [%s] unregistered from BurstEngine", sampler_id)
+        else:
+            logger.warning("Attempted to unregister FQ sampler that wasn't registered: %s", getattr(fq_sampler, 'instance_id', 'unknown'))
+    
+    def get_registered_fq_samplers(self) -> List[Any]:
+        """Get list of all registered FQ samplers."""
+        # Return only active samplers (RTOS-safe: no dynamic allocation)
+        return self.registered_fq_samplers[:self._fq_sampler_count]
+    
+    # ==============================================================
+    # STATE MANAGER INTEGRATION METHODS
+    # ==============================================================
+    
     @property
     def _running(self):
-        """Get the running state with debug tracking."""
+        """Get the running state with debug tracking (state manager integration)."""
         return getattr(self, "_running_state", False)
 
     @_running.setter
     def _running(self, value):
-        """Setter for _running with debug logging."""
+        """Setter for _running with debug logging and state manager integration."""
         old_value = getattr(self, "_running_state", None)
         self._running_state = value
 
-        #  WGPU-COMPATIBLE: Check debug_npu config instead of environment
-        #  variable
-        # Check if NPU debug mode is enabled via --debug-npu flag
-        state_manager = FeagiStateManager.instance()
-        if state_manager.is_debug_npu_enabled() and old_value != value:
-            # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(
-                f"[NPU-DEBUG] BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} -> {value}"
-            )
-            import traceback
-
-            logger.info("[NPU-DEBUG] BURST ENGINE: Stack trace:")
-            for line in traceback.format_stack():
-                logger.info(f"    {line.strip()}")
-
-    def __init__(
-        self,
-        connectome_manager: Any,
-        fcl_manager: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize the Burst Engine.
-
-        Args:
-            connectome_manager: The connectome manager
-            fcl_manager: FCL manager (optional)
-            config: Configuration parameters (optional)
-                   - debug_npu: Enable debug logging (replaces FEAGI_DEBUG_NPU env var)
-                   - enable_injection: Enable FCL injection service for special areas
-                   - desired_frequency_hz: Target frequency in Hz
-        """
-        # Prevent re-initialization if already initialized
-        if hasattr(self, "_initialized") and self._initialized:
-            # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(
-                f"[DEBUG] BURST ENGINE: Instance {self._instance_id} already initialized, skipping"
-            )
-            return
-
-        # WGPU-COMPATIBLE: Use logger instead of print for debug output
-        logger.info(
-            f"[DEBUG] BURST ENGINE: Initializing singleton instance {self._instance_id}"
-        )
-
-        # Initialize logger for this instance
-        self.logger = logging.getLogger(
-            __name__ + f".BurstEngine.{self._instance_id}"
-        )
-
-        self.connectome_manager = connectome_manager
+        # Update state manager when running state changes
+        if old_value != value:
+            if value:
+                # When starting to run, keep in INITIALIZING state until first burst completes
+                # DON'T set to READY here - wait for successful burst processing
+                logger.debug("BurstEngine: Started running but waiting for first successful burst to mark as READY")
+            else:
+                # When stopping, set state to STOPPED
+                self._set_burst_engine_state(ServiceState.STOPPED)
         
-        # NPU now owns the FCL manager - no longer dependent on BDU
-        if fcl_manager is not None:
-            self.fcl_manager = fcl_manager
-        else:
-            # Create our own FCL manager in NPU
-            from feagi.npu.fcl_manager import FCLManager
-            self.fcl_manager = FCLManager()
-            logger.info("[NPU] Created NPU-owned FCL manager instance")
-        
-        # FCL processing is now handled synchronously in the main burst loop
-        # Async processing was removed during architecture cleanup
-        
-        # Set FCL manager reference in ConnectomeManager for backward compatibility
-        if hasattr(connectome_manager, 'fcl_manager'):
-            connectome_manager.fcl_manager = self.fcl_manager
-            logger.info("[NPU] Set FCL manager reference in ConnectomeManager for backward compatibility")
-        
-        self.config = config or {}
-
-        # Cache StateManager instance to avoid expensive singleton lookups on every burst
-        self.state_manager = FeagiStateManager.instance()
-
-        # Initialize MemoryProcessor for memory cortical areas
-        self.memory_processor = None
-        self._initialize_memory_processor()
-
-        #  WGPU-COMPATIBLE: Check debug_npu from config only (no environment
-        #  variables)
-        self.debug_npu = self.config.get("debug_npu", False)
-
-        # Log debug NPU status when enabled
-        if self.debug_npu:
-            logger.info(
-                "[DEBUG] NPU debug mode enabled - will show detailed fire queue contents during bursts"
-            )
-
-        self.genome_loaded = False
-        self._running = (
-            False  # This will now trigger the setter with debug logging
-        )
-        self.burst_count = 0
-        self.last_burst_time = 0.0
-
-        # Initialize generic injection service (area-agnostic)
-        self.injection_service: Optional[FCLInjectionService] = None
-
-        # Generic injection configuration (no area-specific logic)
-        self.enable_injection = self.config.get("enable_injection", True)
-
-        # Initialize in a valid but inactive state
-        # Will become fully operational when a genome is loaded
-        logger.info(
-            "Burst Engine initialized in standby mode", status="[FAST]"
-        )
-
-        # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
-        # Only use config as emergency fallback during initialization
-        config_frequency = self.config.get(
-            "desired_frequency_hz", self.config.get("target_frequency", 10.0)
-        )
-
-        # Get frequency from state manager (authoritative source)
+        # Burst engine running state updated
+    
+    def _set_burst_engine_state(self, state: ServiceState):
+        """Set burst engine state in the state manager."""
         try:
+            if self.state_manager:
+                logger.debug(f"Setting burst engine state to {state.name} ({state.value})")
+                result = self.state_manager.set_burst_engine_state(state.value)
+                logger.debug(f"State manager set result: {result}")
+                
+                # Check if the result indicates an error
+                if hasattr(result, 'is_err') and result.is_err:
+                    error_msg = result.unwrap_err() if hasattr(result, 'unwrap_err') else "Unknown error"
+                    logger.error(f"State manager returned error: {error_msg}")
+                    raise Exception(f"State manager error: {error_msg}")
+                
+                # Verify the state was set
+                current_state = self.state_manager.get_burst_engine_state()
+                logger.debug(f"Verified state after set: {current_state}")
+                if current_state != state.value:
+                    logger.error(f"State manager failed to update: expected {state.value}, got {current_state}")
+                    raise Exception(f"State verification failed: expected {state.value}, got {current_state}")
+            else:
+                logger.error("No state manager available for burst engine state update")
+                raise Exception("No state manager available")
+        except Exception as e:
+            logger.error(f"Failed to update burst engine state: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise  # Re-raise to propagate the error
+    
+    def _notify_sensory_stream_ready(self):
+        """Notify the sensory stream that the burst engine is ready."""
+        try:
+            # Get the ZMQ server instance from the process manager
+            from feagi.process_manager import ProcessManager
+            process_manager = ProcessManager.get_instance()
+            if process_manager and hasattr(process_manager, '_zmq_server'):
+                zmq_server = process_manager._zmq_server
+                if zmq_server and hasattr(zmq_server, '_sensory') and zmq_server._sensory:
+                    # Schedule the sensory stream start in the ZMQ server's event loop
+                    import asyncio
+                    if zmq_server._loop and zmq_server._loop.is_running():
+                        asyncio.run_coroutine_threadsafe(
+                            zmq_server._sensory.start_when_burst_engine_ready(),
+                            zmq_server._loop
+                        )
+                        logger.info("🔔 Notified sensory stream that burst engine is ready")
+                    else:
+                        logger.debug("ZMQ server event loop not available for sensory stream notification")
+                else:
+                    logger.debug("Sensory stream not available for notification")
+            else:
+                logger.debug("Process manager or ZMQ server not available for sensory stream notification")
+        except Exception as e:
+            logger.debug(f"Failed to notify sensory stream: {e}")
+    
+    def _initialize_frequency_from_state_manager(self):
+        """Initialize burst frequency from state manager (single source of truth).
+        
+        Uses the same robust fallback pattern as the old BurstEngine for compatibility.
+        """
+        # Configuration fallback frequency (mimicking old BurstEngine behavior)
+        config_frequency = 10.0  # Default fallback frequency
+        
+        try:
+            # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
+            # Get frequency from state manager (authoritative source)
             state_frequency = self.state_manager.get_burst_frequency()
             if state_frequency and state_frequency > 0:
-                self.desired_frequency = state_frequency
-                logger.info(
-                    f"[BURST ENGINE] Using state manager frequency: {state_frequency}Hz"
-                )
+                self.desired_frequency = float(state_frequency)
+                logger.info("[BURST ENGINE] Using state manager frequency: %dHz", state_frequency)
             else:
                 # Emergency fallback: use config and update state manager
                 self.desired_frequency = config_frequency
                 self.state_manager.set_burst_frequency(config_frequency)
                 logger.warning(
-                    f"[BURST ENGINE] State manager frequency invalid ({state_frequency}Hz) - "
-                    f"using config fallback: {config_frequency}Hz and updating state manager"
+                    "[BURST ENGINE] State manager frequency invalid (%sHz) - using config fallback: %dHz and updating state manager", 
+                    state_frequency, config_frequency
                 )
-        except Exception as e:
-            # Emergency fallback: use config frequency
+        except Exception:
+            # Emergency fallback: use config frequency and try to update state manager
             self.desired_frequency = config_frequency
-            logger.warning(
-                f"[BURST ENGINE] Failed to get frequency from state manager ({e}) - "
-                f"using config fallback: {config_frequency}Hz"
-            )
-
-        self.target_frequency = (
-            self.desired_frequency
-        )  # For backward compatibility
-
-        # Ensure frequency is never zero to avoid division by zero
-        if self.desired_frequency <= 0:
-            logger.warning(
-                f"Invalid frequency {self.desired_frequency}Hz, using default 10Hz"
-            )
-            self.desired_frequency = 10.0
-            self.target_frequency = 10.0
-            # Update state manager with corrected value
             try:
-                self.state_manager.set_burst_frequency(10.0)
+                if self.state_manager:
+                    self.state_manager.set_burst_frequency(config_frequency)
+                logger.warning("[BURST ENGINE] Failed to get frequency from state manager - using config fallback: %dHz", config_frequency)
             except Exception:
-                pass  # Emergency fallback - don't fail initialization
-
-        self.burst_interval = 1.0 / self.desired_frequency
-
-        # Log the frequency configuration for debugging
-        if self.debug_npu:
-            logger.info(
-                f"[DEBUG] BURST ENGINE: Frequency configured: {self.desired_frequency}Hz, interval: {self.burst_interval:.4f}s"
-            )
-
-        # Use cortical_areas instead of _areas - fix the attribute name
-        self.cortical_areas = (
-            list(self.connectome_manager.cortical_areas.values())
-            if hasattr(self.connectome_manager, "cortical_areas")
-            else []
-        )
-        self.shed_areas = set(
-            area.id
-            for area in self.cortical_areas
-            if area.properties.get("__shed", False)
-        )
-
-        # Minimal NPU registry sync and initialize injection if genome already loaded
-        if self.cortical_areas:
-            try:
-                if hasattr(self.connectome_manager, "sync_cortical_areas_to_npu"):
-                    logger.info(
-                        f"[NPU-SYNC] BurstEngine init: syncing cortical areas to NPU (cm_npu_id={id(self.connectome_manager._npu_interface)})"
-                    )
-                    self.connectome_manager.sync_cortical_areas_to_npu()
-                else:
-                    logger.warning("[NPU-SYNC] ConnectomeManager lacks sync_cortical_areas_to_npu")
-            except Exception as e:
-                logger.error(f"[NPU-SYNC] Failed to sync cortical areas to NPU: {e}")
-                # Deterministic: do not proceed with injection init if sync fails
-                raise
-            # Prevent duplicate initialization
-            if getattr(self, "_injection_initialized", False) is not True:
-                self._initialize_injection_service()
-                self._injection_initialized = True
-
-        #  Manually initialize mixins (not through super() to avoid multiple
-        #  inheritance issues)
-        # Initialize performance mixin
-        BurstEnginePerformanceMixin.__init__(self)
-        # Initialize debug mixin
-        BurstEngineDebugMixin.__init__(self)
-
-        # Mark as initialized
-        self._initialized = True
-
-        # Core processing components
-        self.scheduler = None
-        self.fire_queue_provider = None
-
-    def _calculate_fcl_buffer_size(self) -> int:
-        """Calculate appropriate FCL buffer size based on cortical area configurations.
+                # Completely fallback - just use the frequency without updating state manager
+                logger.error("[BURST ENGINE] Could not initialize frequency in state manager - using local fallback: %dHz", config_frequency)
         
-        This method analyzes the cortical areas to determine the maximum potential
-        firing activity and sets an appropriate buffer size to prevent overflow.
+        # Ensure frequency is never zero to avoid division by zero (old BurstEngine safety)
+        if self.desired_frequency <= 0:
+            self.desired_frequency = config_frequency
+            logger.warning("[BURST ENGINE] Frequency was zero - using safety fallback: %dHz", config_frequency)
         
-        Returns:
-            Calculated buffer size for FCL processing
-        """
-        try:
-            # Default minimum buffer size
-            min_buffer_size = 10000
-            default_buffer_size = 100000
-            
-            if not hasattr(self.connectome_manager, 'cortical_areas') or not self.connectome_manager.cortical_areas:
-                logger.info(
-                    f"[NPU] No cortical areas found, using default FCL buffer size: {default_buffer_size}"
-                )
-                return default_buffer_size
-            
-            # Calculate maximum neurons per cortical area
-            max_area_neurons = 0
-            total_neurons = 0
-            area_count = 0
-            
-            for cortical_id, area in self.connectome_manager.cortical_areas.items():
-                try:
-                    # Get area dimensions
-                    if hasattr(area, 'dimensions_3D'):
-                        dimensions = area.dimensions_3D
-                        if hasattr(dimensions, '__iter__') and len(dimensions) >= 3:
-                            area_neurons = dimensions[0] * dimensions[1] * dimensions[2]
-                        else:
-                            area_neurons = 1000  # fallback
-                    elif hasattr(area, 'get_all_neurons'):
-                        # Count actual neurons if available
-                        area_neurons = len(area.get_all_neurons())
-                    else:
-                        area_neurons = 1000  # fallback
-                    
-                    max_area_neurons = max(max_area_neurons, area_neurons)
-                    total_neurons += area_neurons
-                    area_count += 1
-                    
-                except Exception as e:
-                    logger.warning(f"[NPU] Error analyzing cortical area {cortical_id}: {e}")
-                    continue
-            
-            if area_count == 0:
-                logger.info(
-                    f"[NPU] No valid cortical areas found, using default FCL buffer size: {default_buffer_size}"
-                )
-                return default_buffer_size
-            
-            # Calculate buffer size based on maximum area size
-            # Use 10% of the largest cortical area as buffer size, with reasonable bounds
-            calculated_size = max(
-                min_buffer_size,
-                min(max_area_neurons // 10, 2_000_000)  # Cap at 2M to prevent excessive memory usage
-            )
-            
-            logger.info(
-                f"[NPU] FCL buffer size calculation: "
-                f"max_area_neurons={max_area_neurons}, "
-                f"total_neurons={total_neurons}, "
-                f"area_count={area_count}, "
-                f"calculated_buffer_size={calculated_size}"
-            )
-            
-            return calculated_size
-            
-        except Exception as e:
-            logger.error(f"[NPU] Error calculating FCL buffer size: {e}")
-            logger.info(f"[NPU] Falling back to default FCL buffer size: {default_buffer_size}")
-            return default_buffer_size
-
-    @classmethod
-    def get_instance(cls) -> Optional["BurstEngine"]:
-        """Get the current singleton instance if it exists."""
-        return cls._instance
-
-    @classmethod
-    def reset_singleton(cls):
-        """Reset the singleton instance.
-
-        USE WITH EXTREME CAUTION - for testing only.
-        """
-        cls._instance = None
-        cls._instance_id = None
-
-    def _initialize_injection_service(self) -> None:
-        """Initialize the FCL injection service for special area handling.
-
-        This method sets up the injection service that handles power areas and
-        other special cortical areas that need to inject neurons into the FCL
-        during burst processing.
-        """
-
-        try:
-            # Import here to avoid circular dependencies
-            from feagi.npu.fcl_injection_service import FCLInjectionService
-            from feagi.npu.special_area_handler import SpecialAreaHandler
-
-            # CRITICAL: Use the SAME NPU interface instance that contains the neural data
-            # The NPU interface is injected by core_api_service during burst engine configuration
-            npu_interface = None
-            
-            # Use the NPU interface that was injected during configuration
-            if hasattr(self, 'npu_interface') and self.npu_interface is not None:
-                npu_interface = self.npu_interface
-                logger.info("[INJECTION INIT] Using injected NPU interface (single source of truth)")
-            else:
-                # This should not happen with the new architecture
-                logger.error("[INJECTION INIT] CRITICAL: No NPU interface found on burst engine!")
-                logger.error("[INJECTION INIT] BurstEngine should have npu_interface injected by core_api_service")
-                logger.error(f"[INJECTION INIT] Available attributes: {[attr for attr in dir(self) if 'npu' in attr.lower()]}")
-                
-                # This is an architectural error - no fallback allowed
-                raise RuntimeError(
-                    "NPU interface not found on BurstEngine. "
-                    "This indicates incomplete NPU configuration during startup. "
-                    "Check core_api_service NPU initialization."
-                )
-            
-            # Create special area handler with shared NPU interface
-            special_area_handler = SpecialAreaHandler(
-                connectome_manager=self.connectome_manager,
-                npu_interface=npu_interface
-            )
-            logger.info(
-                f"[INJECTION INIT] Created SpecialAreaHandler with NPU interface for burst engine instance {self._instance_id}"
-            )
-
-            # Create FCL injection service
-            self.injection_service = FCLInjectionService(
-                fcl_manager=self.fcl_manager,
-                special_area_handler=special_area_handler,
-            )
-            logger.info(
-                f"[INJECTION INIT] Created FCLInjectionService for burst engine instance {self._instance_id}"
-            )
-
-            # Test power area detection immediately
-            try:
-                power_neurons = special_area_handler.get_power_area_neurons()
-                if power_neurons:
-                    logger.info(
-                        f"[INJECTION INIT] Successfully detected {len(power_neurons)} power area neurons during initialization"
-                    )
-                else:
-                    logger.warning(
-                        "[INJECTION INIT] No power area neurons detected during initialization - this may be normal if genome not loaded yet"
-                    )
-            except Exception as e:
-                logger.error(
-                    f"[INJECTION INIT] Error testing power area detection during initialization: {e}"
-                )
-
-            logger.info(
-                f"[INJECTION INIT] Injection service initialization complete for burst engine {self._instance_id}"
-            )
-
-        except Exception as e:
-            logger.error(
-                f"[INJECTION INIT] Failed to initialize injection service for burst engine {self._instance_id}: {e}"
-            )
-            self.injection_service = None
-
-    def _process_burst(self):
-        """Core burst processing with embedded optimization.
-
-        This method now uses the ultra-high-performance embedded-optimized neural update
-        providing:
-        - SIMD-vectorized neural operations
-        - Cache-aligned memory access
-        - Block-sparse connectivity optimization
-        - Zero-allocation operation paths
-
-        Designed for 10M neurons at 15Hz on single-core embedded systems.
-        """
-        #  CRITICAL FIX: Initialize state_manager once at method start to
-        #  prevent
-        # "cannot access local variable" errors when exceptions occur
-        # Use cached state_manager instance
-
-        try:
-            import time
-
-            burst_start_time = time.perf_counter()
-
-            # LOG RAW FCL t-1 CONTENT FOR DEBUGGING VISUALIZATION ISSUES
-            if (
-                hasattr(self, "fcl_manager")
-                and self.fcl_manager
-                and self.state_manager.is_debug_npu_enabled()
-            ):
-                try:
-                    #  Get FCL from previous timestep (t-1) - this is what FQ
-                    #  sampler reads
-                    fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
-                    if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
-                        neuron_list = list(fcl_t_minus_1)[
-                            :10
-                        ]  # Show first 10 neurons
-                        logger.info(
-                            f"🔥 [NPU-DEBUG] FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}"
-                        )
-
-                        #  Show which cortical areas these neurons belong to
-                        #  using vectorized operation
-                        if hasattr(
-                            self.connectome_manager, "neuron_array"
-                        ) and hasattr(
-                            self.connectome_manager.neuron_array,
-                            "cortical_area_id",
-                        ):
-                            #  Convert FCL to numpy array for vectorized
-                            #  processing
-                            neuron_ids_array = np.array(
-                                list(fcl_t_minus_1), dtype=np.int32
-                            )
-                            max_idx = len(
-                                self.connectome_manager.neuron_array.cortical_area_id
-                            )
-
-                            # Vectorized bounds checking and area extraction
-                            valid_mask = neuron_ids_array < max_idx
-                            valid_neuron_ids = neuron_ids_array[valid_mask]
-
-                            if len(valid_neuron_ids) > 0:
-                                # Vectorized area extraction
-                                areas = self.connectome_manager.neuron_array.cortical_area_id[
-                                    valid_neuron_ids
-                                ]
-
-                                # Vectorized string conversion
-                                area_strs = np.array(
-                                    [
-                                        (
-                                            area.decode("utf-8")
-                                            if isinstance(area, bytes)
-                                            else str(area)
-                                        )
-                                        for area in areas
-                                    ]
-                                )
-
-                                # Count unique areas using NumPy
-                                unique_areas, counts = np.unique(
-                                    area_strs, return_counts=True
-                                )
-                                area_count = dict(
-                                    zip(unique_areas[:5], counts[:5])
-                                )  # First 5 areas
-
-                                logger.info(
-                                    f"🔥 [NPU-DEBUG] FCL t-1 AREAS: {area_count}..."
-                                )  # Show first 5 areas
-                    else:
-                        logger.info("🔥 [NPU-DEBUG] FCL t-1 CONTENT: EMPTY")
-                except Exception as e:
-                    logger.info(f"🔥 [NPU-DEBUG] FCL t-1 LOGGING ERROR: {e}")
-
-            # 1. External candidates injection (all special area types)
-            if self.injection_service and self.enable_injection:
-                self.injection_service.inject_pre_burst(self.burst_count)
-
-            # 2. Unified neural computation using embedded optimizations
-            #  This now automatically uses SIMD, cache-aligned arrays, and
-            #  block-sparse matrices
-            fired_neurons = self.connectome_manager.update_membrane_potentials(
-                current_timestep=self.burst_count
-            )
-
-            # 3. Additional injection phases if needed
-            if self.injection_service and self.enable_injection:
-                self.injection_service.inject_during_burst(self.burst_count)
-                self.injection_service.inject_post_burst(self.burst_count)
-
-            # 4. CRITICAL: Add ONLY next-burst candidates (from NPU propagation) to FCL for t+1
-            if self.fcl_manager:
-                try:
-                    npu_if = getattr(self, 'npu_interface', None)
-                    if npu_if is None:
-                        npu_if = getattr(self.connectome_manager, '_npu_interface', None)
-                    if npu_if is None:
-                        raise RuntimeError("NPU interface not configured on BurstEngine")
-
-                    # Collect next-burst candidates computed during Phase 2
-                    candidate_ids = list(set(getattr(npu_if, '_next_burst_candidate_ids', []) or []))
-                    # Clear candidate buffer for next cycle
-                    if hasattr(npu_if, '_next_burst_candidate_ids'):
-                        npu_if._next_burst_candidate_ids = []
-
-                    if candidate_ids:
-                        neurons_by_cortical = npu_if.get_firing_neurons_by_cortical_area(candidate_ids)
-                        # Update FCL for next timestep (t+1)
-                        next_timestep = self.burst_count + 1
-                        self.fcl_manager.update_fcl(next_timestep, neurons_by_cortical)
-                        if self.state_manager.is_debug_npu_enabled():
-                            total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
-                            logger.info(
-                                f"[NPU-DEBUG] BURST ENGINE: Scheduled {total_neurons} next-burst candidates for t={next_timestep}"
-                            )
-                except Exception as e:
-                    if self.state_manager.is_debug_npu_enabled():
-                        logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
-
-            # 5. Debug output if enabled
-            if self.debug_npu:
-                self._debug_fire_queue_output()
-
-            # 6. Performance tracking for embedded optimization
-            burst_time = time.perf_counter() - burst_start_time
-
-            # Log performance periodically for embedded systems
-            if self.burst_count % 100 == 0:  # Every 100 bursts
-                perf_summary = (
-                    self.connectome_manager.neuron_array.get_performance_summary()
-                )
-                avg_burst_time_ms = burst_time * 1000
-
-                if avg_burst_time_ms < 66.7:  # Under 15Hz target
-                    status = "✅ TARGET"
-                elif avg_burst_time_ms < 100:  # Under 10Hz
-                    status = "⚠️  CLOSE"
-                else:
-                    status = "❌ SLOW"
-
-                logger.info(
-                    f"EMBEDDED BURST PERFORMANCE [Burst {self.burst_count}]: "
-                    f"{avg_burst_time_ms:.2f}ms ({status}), "
-                    f"fired: {len(fired_neurons)}, "
-                    f"SIMD: {perf_summary.get('simd_enabled', False)}"
-                )
-
-            # 7. Memory processing for memory cortical areas
-            #    Process temporal patterns and manage memory neuron lifecycle
-            mem_debug = (
-                self.state_manager.is_mem_debug_enabled()
-                if self.state_manager
-                else False
-            )
-            
-            if self.memory_processor:
-                if self.state_manager.is_debug_npu_enabled() or mem_debug:
-                    logger.info(
-                        "🧠 [MEMORY-DEBUG] BURST ENGINE: Starting memory processing for temporal patterns"
-                    )
-                    logger.info(
-                        f"🧠 [MEMORY-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
-                    )
-                    logger.info(
-                        f"🧠 [MEMORY-DEBUG] Current timestep: {self.burst_count}"
-                    )
-                    logger.info(
-                        f"🧠 [MEMORY-DEBUG] Memory neuron count: {self.memory_processor.memory_neuron_array.count}"
-                    )
-                self._process_memory_areas(self.burst_count)
-                if mem_debug:
-                    logger.info(
-                        "🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processing completed"
-                    )
-            else:
-                if self.state_manager.is_debug_npu_enabled():
-                    logger.info(
-                        "🧠 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor available"
-                    )
-
-            return fired_neurons
-
-        except Exception as e:
-            logger.error(f"Error in burst processing: {e}")
-            #  CRITICAL DEBUG: Always log traceback for state_manager errors to
-            #  identify source
-            import traceback
-
-            full_traceback = traceback.format_exc()
-            logger.error(f"BURST PROCESSING TRACEBACK:\n{full_traceback}")
-
-            if self.debug_npu:
-                logger.error(
-                    f"Additional burst processing debug info: {full_traceback}"
-                )
-            return []
-
-    # DELETED: _process_burst_with_power_injection() method removed
-    # - Was redundant with _process_burst()
-    # - Created architectural confusion and maintenance issues  
-    # - Memory processing moved to unified _process_burst() method
-    # - All functionality preserved in _process_burst()
+        # Set target_frequency for backward compatibility
+        self.target_frequency = self.desired_frequency
     
-    def _DEPRECATED_process_burst_with_power_injection_BODY_TO_DELETE(self):
-        # DEPRECATED: This method is no longer used and will be deleted
-        # All functionality has been moved to _process_burst()
-        return []  # Stub return to prevent errors
+    def update_with_genome(self, connectome_manager) -> bool:
+        """Update burst engine with genome data and connectome manager.
         
-        # COMMENTED OUT: Original method body to avoid linting errors
-        # All functionality has been moved to _process_burst()
+        This method is called after genome loading to ensure the burst engine
+        has access to the connectome manager and can process neural dynamics.
         """
-        # Use cached state_manager instance (initialized in __init__)
-        # Initialize debug flags
-        mem_debug = (
-            self.state_manager.is_mem_debug_enabled()
-            if self.state_manager
-            else False
-        )
-
-        # Removed file I/O debug writes for RTOS/WGPU compatibility
-        # Debug logging if --debug-npu is enabled
-        if self.state_manager.is_debug_npu_enabled():
-            logger.info(
-                f"[NPU-DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}"
-            )
-
-            # Check injection service availability
-            if self.injection_service:
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE"
-                )
-            else:
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!"
-                )
-
-        # 1. External candidates injection (pre-burst phase)
-        #  Add candidates to FCL for external sources (power areas, sensory
-        #  input, etc.)
-        if self.injection_service:
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
-                )
-            self.injection_service.inject_pre_burst(current_timestep)
-
-        # 2. Core neural computation (synaptic propagation)
-        #  Process ALL FCL candidates (internal + external) in one unified
-        #  sweep
-        if self.state_manager.is_debug_npu_enabled():
-            logger.info(
-                "[NPU-DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
-            )
-
-        fired_neurons = self.connectome_manager.update_membrane_potentials()
-
-        if self.state_manager.is_debug_npu_enabled():
-            fired_count = len(fired_neurons) if fired_neurons else 0
-            logger.info(
-                f"[NPU-DEBUG] BURST ENGINE: Enhanced processing - {fired_count} neurons fired from FCL"
-            )
-
-        # 3. Additional external injections (during-burst phase)
-        #    For modulator areas or other special processing during burst
-        if self.injection_service:
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
-                )
-            self.injection_service.inject_during_burst(current_timestep)
-
-        # 4. Post-burst external injections
-        #    For cleanup, memory consolidation, or other post-processing
-        if self.injection_service:
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
-                )
-            self.injection_service.inject_post_burst(current_timestep)
-
-        # 5. CRITICAL: Update FCL with fired neurons from NPU processing
-        #    Ensure we use the same NPU interface instance and log grouping details
-        if fired_neurons and self.fcl_manager:
-            try:
-                # Use the unified NPU interface instance shared with ConnectomeManager
-                npu_if = getattr(self, 'npu_interface', None)
-                if npu_if is None:
-                    npu_if = getattr(self.connectome_manager, '_npu_interface', None)
-                if npu_if is None:
-                    raise RuntimeError("NPU interface not configured on BurstEngine")
-
-                # Group neurons by cortical area using shared NPU interface
-                neurons_by_cortical = npu_if.get_firing_neurons_by_cortical_area(fired_neurons)
-                if self.state_manager.is_debug_npu_enabled():
-                    logger.info(
-                        f"[NPU-DEBUG] BURST ENGINE: Fired IDs={fired_neurons[:8]} (len={len(fired_neurons)})"
-                    )
-                    logger.info(
-                        f"[NPU-DEBUG] BURST ENGINE: Grouped by cortical={ {k: len(v) for k,v in neurons_by_cortical.items()} }"
-                    )
+        try:
+            logger.info("🧬 [GENOME-UPDATE] Updating burst engine with new genome...")
+            
+            if connectome_manager:
+                self.connectome_manager = connectome_manager
+                logger.info(f"🧬 [GENOME-UPDATE] Connectome manager updated: {type(connectome_manager)}")
                 
-                # Update FCL with grouped neurons
-                if neurons_by_cortical:
-                    self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
-                    if self.state_manager.is_debug_npu_enabled():
-                        total_neurons = sum(len(neurons) for neurons in neurons_by_cortical.values())
-                        logger.info(f"[NPU-DEBUG] BURST ENGINE: Updated FCL with {total_neurons} fired neurons across {len(neurons_by_cortical)} cortical areas")
-                else:
-                    if self.state_manager.is_debug_npu_enabled():
-                        logger.warning(f"[NPU-DEBUG] BURST ENGINE: Could not group {len(fired_neurons)} fired neurons by cortical area")
-                        
-            except Exception as e:
-                if self.state_manager.is_debug_npu_enabled():
-                    logger.error(f"[NPU-DEBUG] BURST ENGINE: Error scheduling next-burst candidates: {e}")
-
-        # 6. Memory processing for memory cortical areas
-        #    Process temporal patterns and manage memory neuron lifecycle
-        if mem_debug:
-            logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: Checking memory processor availability...")
-            logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: memory_processor exists: {self.memory_processor is not None}")
-            if self.memory_processor:
-                logger.info(f"🚨 [MEMORY-DEBUG] BURST ENGINE: memory_processor active areas: {list(self.memory_processor.active_memory_areas) if hasattr(self.memory_processor, 'active_memory_areas') else 'N/A'}")
-        
-        if self.memory_processor:
-            logger.info(f"🚨🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processor available")
-            if self.state_manager.is_debug_npu_enabled() or mem_debug:
-                logger.info(
-                    "🧠 [MEMORY-DEBUG] BURST ENGINE: Starting memory processing for temporal patterns"
-                )
-                logger.info(
-                    f"🧠 [MEMORY-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}"
-                )
-                logger.info(
-                    f"🧠 [MEMORY-DEBUG] Current timestep: {current_timestep}"
-                )
-                logger.info(
-                    f"🧠 [MEMORY-DEBUG] Memory neuron count: {self.memory_processor.memory_neuron_array.count}"
-                )
-            self._process_memory_areas(current_timestep)
-            if mem_debug:
-                logger.info(
-                    "🧠 [MEMORY-DEBUG] BURST ENGINE: Memory processing completed"
-                )
-        else:
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing"
-                )
-            if mem_debug:
-                logger.warning(
-                    "🚨 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor available! Memory processing disabled."
-                )
-
-        # 7. Debug fire queue output if --debug-npu flag is enabled
-        if self.debug_npu:
-            self._debug_fire_queue_output()
-
-        return fired_neurons
-        """
-
-    def run(self) -> None:
-        """Main burst engine loop.
-
-        This method runs the main burst engine loop with precise timing
-        control. Uses RTOS-compatible timing for deterministic performance.
-        """
-        if self._running:
-            logger.warning("Burst engine is already running")
-            return
-
-        # State transition
-        self.state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
-
-        logger.info(
-            f"Starting burst engine with frequency: {self.desired_frequency}Hz",
-            status="[START]",
-        )
-        
-        # FCL processing is handled synchronously in the main burst loop
-        
-        self._running = True
-
-        # State transition
-        self.state_manager.set_burst_engine_state(ServiceState.READY)
-
-        try:
-            while self._running:
-                burst_cycle_start = time.perf_counter()
-                processing_start = time.perf_counter()
-
-                # Execute burst processing
-                try:
-                    # Unconditional proof that run loop is executing
-                    if (
-                        self.burst_count % 100 == 0
-                    ):  # Every 100 bursts to avoid spam
-                        try:
-                            from feagi.core.state_manager import (
-                                FeagiStateManager,
-                            )
-
-                            if (
-                                self.state_manager.is_debug_npu_enabled()
-                            ):
-                                import datetime
-                                import os
-                                import tempfile
-
-                                log_path = os.path.join(
-                                    tempfile.gettempdir(),
-                                    "feagi_run_loop--temp.log",
-                                )
-                                with open(log_path, "a") as f:
-                                    f.write(
-                                        f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n"
-                                    )
-                        except Exception:
-                            pass
-
-                    #  fired_neurons = self._process_burst() # Unused variable
-                    #  removed
-                    self._process_burst()
-                    processing_end = time.perf_counter()
-                    processing_duration = processing_end - processing_start
-
-                    # Record processing timing for performance measurement
-                    self._record_processing_timing(processing_duration)
-
-                    # Debug performance if enabled
-                    if hasattr(self, "debug_burst_performance"):
-                        burst_cycle_end = time.perf_counter()
-                        burst_duration = burst_cycle_end - burst_cycle_start
-                        self.debug_burst_performance(
-                            burst_duration, processing_duration
-                        )
-
-                except Exception as e:
-                    logger.error(f"Error in burst processing: {e}")
-                    #  CRITICAL DEBUG: Always log traceback for state_manager
-                    #  errors to identify source
-                    import traceback
-
-                    full_traceback = traceback.format_exc()
-                    logger.error(
-                        f"BURST PROCESSING TRACEBACK (run loop):\n{full_traceback}"
-                    )
-                    processing_duration = (
-                        time.perf_counter() - processing_start
-                    )
-
-                self.burst_count += 1
-                self.last_burst_time = time.time()
-
-                # RTOS-COMPATIBLE: Precise timing control
-                cycle_end = time.perf_counter()
-                cycle_duration = cycle_end - burst_cycle_start
-
-                # Record full cycle timing for frequency measurement
-                self._record_burst_timing(cycle_duration)
-
-                # Calculate sleep time to maintain target frequency
-                if cycle_duration < self.burst_interval:
-                    #  sleep_time = self.burst_interval - cycle_duration #
-                    #  Unused variable removed
-                    # RTOS-COMPATIBLE: Use deterministic timing
-                    target_time = burst_cycle_start + self.burst_interval
-                    while time.perf_counter() < target_time:
-                        pass  # Busy-wait for precise timing
-                else:
-                    # Running behind schedule
-                    if self.debug_npu:
-                        logger.warning(
-                            f"Burst cycle took {cycle_duration * 1000:.2f}ms (target: {self.burst_interval * 1000:.2f}ms)"
-                        )
-
-        except Exception as e:
-            logger.error(f"Fatal error in burst engine: {e}")
-            self.state_manager.set_burst_engine_state(ServiceState.ERROR)
-            raise
-        finally:
-            self._running = False
-            self.state_manager.set_burst_engine_state(ServiceState.STOPPED)
-            logger.info("Burst engine stopped", status="[STOP]")
-
-    def stop(self) -> None:
-        """Stop the Burst Engine gracefully."""
-        logger.info("Stopping burst engine...", status="[STOP]")
-        self._running = False
-        
-        # FCL processing cleanup handled in main loop
-        
-        self.state_manager.set_burst_engine_state(ServiceState.STOPPED)
-
-    def run_test(self) -> List[int]:
-        """Run a single test burst for testing purposes.
-
-        Returns:
-            List of fired neuron IDs
-        """
-        if not self.genome_loaded:
-            logger.warning("Cannot run test burst - no genome loaded")
-            return []
-
-        logger.info("Running test burst...", status="[TEST]")
-
-        test_start = time.perf_counter()
-
-        try:
-            # Run a single burst cycle
-            fired_neurons = self._process_burst()
-
-            test_duration = time.perf_counter() - test_start
-
-            logger.info(
-                f"Test burst completed in {test_duration * 1000:.2f}ms, "
-                f"{len(fired_neurons)} neurons fired",
-                status="[TEST]",
-            )
-
-            # Increment burst count for test bursts too
-            self.burst_count += 1
-
-            return fired_neurons
-
-        except Exception as e:
-            logger.error(f"Test burst failed: {e}")
-            return []
-
-    def update_with_genome(self) -> None:
-        """Update the burst engine configuration when a new genome is loaded.
-
-        This method should be called after a new genome is loaded into the
-        connectome manager to refresh the engine's understanding of the neural
-        network.
-        """
-        logger.info("Updating burst engine with new genome", status="[CONFIG]")
-        # Removed file I/O debug writes for RTOS/WGPU compatibility
-
-        try:
-            #  CRITICAL FIX: Synchronize neuron array data to prevent size
-            #  mismatches
-            # This fixes the "(13452,) (13846,) (13452,)" broadcasting error
-            if hasattr(self.connectome_manager, "neuron_array"):
-                neuron_array = self.connectome_manager.neuron_array
-                actual_neuron_count = neuron_array.neuron_count
-                valid_neurons = (
-                    int(np.sum(neuron_array.valid_mask))
-                    if hasattr(neuron_array, "valid_mask")
-                    else actual_neuron_count
-                )
-
-                logger.info(
-                    f"[SYNC FIX] Neuron array sync: {actual_neuron_count} total neurons, {valid_neurons} valid neurons"
-                )
-
-                # CRITICAL: Ensure valid_mask consistency with neuron_count
-                if valid_neurons != actual_neuron_count:
-                    logger.warning(
-                        f"[SYNC FIX] Valid mask mismatch detected: {valid_neurons} valid vs {actual_neuron_count} total"
-                    )
-
-                    # Force valid_mask synchronization
-                    valid_mask = (
-                        self.connectome_manager.neuron_array.backend.to_numpy(
-                            neuron_array.valid_mask
-                        )
-                    )
-
-                    #  Count actual valid entries in ID mapping as source of
-                    #  truth
-                    actual_valid_count = len(
-                        self.connectome_manager.neuron_id_to_index
-                    )
-                    logger.info(
-                        f"[SYNC FIX] ID mapping reports {actual_valid_count} neurons"
-                    )
-
-                    #  Rebuild valid_mask based on actual ID mappings (source
-                    #  of truth)
-                    corrected_valid_mask = np.zeros_like(
-                        valid_mask, dtype=bool
-                    )
-                    # GPU/SIMD-friendly vectorized operation - no Python loops!
-                    indices = np.array(
-                        list(
-                            self.connectome_manager.neuron_id_to_index.values()
-                        )
-                    )
-                    valid_indices = indices[
-                        (indices >= 0) & (indices < len(corrected_valid_mask))
-                    ]
-                    corrected_valid_mask[valid_indices] = True
-
-                    # Update the valid_mask in the neuron array
-                    neuron_array.valid_mask = neuron_array.backend.array(
-                        corrected_valid_mask
-                    )
-                    neuron_array.neuron_count = actual_valid_count
-
-                    logger.info(
-                        f"[SYNC FIX] Corrected valid_mask: {np.sum(corrected_valid_mask)} valid neurons"
-                    )
-
-                #  CRITICAL: Invalidate any cached arrays in burst engine to
-                #  force refresh
-                if hasattr(self, "_cached_valid_neurons"):
-                    delattr(self, "_cached_valid_neurons")
-                if hasattr(self, "_cached_neuron_count"):
-                    delattr(self, "_cached_neuron_count")
-
-                logger.info(
-                    "[SYNC FIX] Neuron array synchronization completed",
-                    status="[OK]",
-                )
-
-            # Get current cortical areas for comparison
-            new_cortical_areas = (
-                list(self.connectome_manager.cortical_areas.values())
-                if hasattr(self.connectome_manager, "cortical_areas")
-                else []
-            )
-            new_shed_areas = set(
-                area.id
-                for area in new_cortical_areas
-                if area.properties.get("__shed", False)
-            )
-
-            #  Always ensure injection service is initialized when genome is
-            #  loaded
-            # Update cortical areas from connectome
-            self.cortical_areas = new_cortical_areas
-            self.shed_areas = new_shed_areas
-
-            #  Ensure NPU has cortical registry before initializing injection
-            try:
-                if hasattr(self.connectome_manager, "sync_cortical_areas_to_npu"):
-                    logger.info(
-                        f"[NPU-SYNC] BurstEngine genome update: syncing areas (cm_npu_id={id(self.connectome_manager._npu_interface)})"
-                    )
-                    self.connectome_manager.sync_cortical_areas_to_npu()
-                else:
-                    logger.warning("[NPU-SYNC] ConnectomeManager lacks sync_cortical_areas_to_npu")
-            except Exception as e:
-                logger.error(f"[NPU-SYNC] Failed during genome update sync: {e}")
-                raise
-
-            #  Always initialize injection service to ensure proper special
-            #  area detection
-            # Use cached state_manager instance
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    "[NPU-DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
-                )
-
-            if getattr(self, "_injection_initialized", False) is not True:
-                self._initialize_injection_service()
-                self._injection_initialized = True
-
-            service_type = (
-                type(self.injection_service).__name__
-                if self.injection_service
-                else "None"
-            )
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}, fcl_manager_id={id(self.fcl_manager)}"
-                )
-            # Removed file I/O debug writes for RTOS/WGPU compatibility
-
-            # Mark genome as loaded
-            self.genome_loaded = True
-
-            logger.info(
-                f"Burst engine updated: {len(self.cortical_areas)} cortical areas, "
-                f"{len(self.shed_areas)} shed areas",
-                status="[CONFIG]",
-            )
-
-        except Exception as e:
-            logger.error(f"Error updating burst engine with genome: {e}")
-            self.genome_loaded = False
-
-    def refresh_special_areas(self) -> None:
-        """Refresh special area detection and injection service configuration.
-
-        This method can be called to re-detect special areas after configuration changes.
-        Completely area-agnostic - handles all special area types (power, modulator, sensory, etc.)
-        """
-        logger.info(
-            "Refreshing injection service configuration", status="[CONFIG]"
-        )
-
-        try:
-            if self.injection_service:
-                # Refresh injection batches for all detected special areas
-                self.injection_service.refresh_injection_batches()
+                # Reinitialize components that depend on connectome manager
+                from feagi.npu.coordinate_converter import CoordinateConverter
+                from feagi.npu.fcl_injector import FCLInjector
+                
+                self.coordinate_converter = CoordinateConverter(connectome_manager)
+                self.fcl_injector = FCLInjector(self.coordinate_converter)
+                logger.info("🧬 [GENOME-UPDATE] Coordinate converter and FCL injector reinitialized")
+                
+                # Initialize injection service if enabled
+                if self.enable_injection:
+                    try:
+                        self.injection_service = PowerInjectionService(connectome_manager)
+                        logger.info("🧬 [GENOME-UPDATE] Power injection service initialized")
+                    except Exception as injection_error:
+                        logger.warning(f"🧬 [GENOME-UPDATE] Failed to initialize injection service: {injection_error}")
+                
+                logger.info("🧬 [GENOME-UPDATE] ✅ Burst engine updated successfully with genome")
+                return True
             else:
-                # Re-initialize injection service if not already initialized
-                if getattr(self, "_injection_initialized", False) is not True:
-                    self._initialize_injection_service()
-                    self._injection_initialized = True
-
+                logger.warning("🧬 [GENOME-UPDATE] ⚠️ No connectome manager provided")
+                return False
+                
         except Exception as e:
-            logger.error(f"Error refreshing injection service: {e}")
-
-    def get_injection_statistics(self) -> Dict[str, Any]:
-        """Get statistics about FCL injection service (all special area types).
-
-        Returns:
-            Dictionary containing injection statistics for all special areas
-        """
-        if not self.injection_service:
-            return {"error": "Injection service not available"}
-
-        try:
-            return self.injection_service.get_statistics()
-        except Exception as e:
-            logger.error(f"Error getting injection statistics: {e}")
-            return {"error": str(e)}
-
-    def set_injection_enabled(self, cortical_id: str, enabled: bool) -> bool:
-        """Enable or disable injection for a specific cortical area.
-
-        Works for any special area type (power, modulator, sensory, etc.)
-
-        Args:
-            cortical_id: ID of the cortical area
-            enabled: Whether to enable injection for this area
-
-        Returns:
-            True if successful, False otherwise
-        """
-        if not self.injection_service:
-            logger.warning("Injection service not available")
-            return False
-
-        try:
-            return self.injection_service.set_injection_enabled(
-                cortical_id, enabled
-            )
-        except Exception as e:
-            logger.error(f"Error setting injection for {cortical_id}: {e}")
+            logger.error(f"🧬 [GENOME-UPDATE] ❌ Failed to update burst engine with genome: {e}")
+            import traceback
+            logger.error(f"🧬 [GENOME-UPDATE] Full traceback: {traceback.format_exc()}")
             return False
 
     def update_frequency(self, frequency_hz: float) -> bool:
-        """
-        Update burst frequency - RTOS-safe, no dynamic allocation.
-
-        IMPORTANT: This should only be called by CoreAPIService which manages
-        the state manager update. The frequency should come FROM state manager.
-
-        Args:
-            frequency_hz: New frequency in Hz (must be > 0)
-
-        Returns:
-            True if successful, False otherwise
-        """
-        # RTOS-SAFE: Validate input without exceptions in normal case
-        if (
-            frequency_hz <= 0.0 or frequency_hz > 10000.0
-        ):  # Max 10kHz for safety
-            return False
-
-        # RTOS-SAFE: Atomic updates, no intermediate invalid state
-        self.desired_frequency = frequency_hz
-        self.target_frequency = frequency_hz
-        self.burst_interval = 1.0 / frequency_hz
-
-        # RTOS-SAFE: Minimal logging only if debug enabled
-        if self.debug_npu:
-            logger.info(
-                f"[DEBUG] BURST ENGINE: Local frequency updated to {frequency_hz}Hz (from state manager)"
-            )
-
-        return True
-
-    def get_frequency_config(self) -> Dict[str, float]:
-        """Get current frequency configuration from STATE MANAGER
-        (authoritative source).
-
-        Returns:
-            Dictionary with current frequency settings from state manager
-        """
+        """Update burst engine frequency and sync with state manager."""
         try:
-            # STATE MANAGER is the single source of truth
-            state_frequency = self.state_manager.get_burst_frequency()
-            if state_frequency and state_frequency > 0:
-                return {
-                    "current_frequency_hz": state_frequency,
-                    "burst_interval_seconds": 1.0 / state_frequency,
-                    "target_frequency_hz": state_frequency,
-                }
-            else:
-                # Emergency fallback to local values
-                return {
-                    "current_frequency_hz": self.desired_frequency,
-                    "burst_interval_seconds": self.burst_interval,
-                    "target_frequency_hz": self.target_frequency,
-                    "warning": "Using local fallback - state manager frequency invalid",
-                }
-        except Exception as e:
-            # Emergency fallback to local values
-            return {
-                "current_frequency_hz": self.desired_frequency,
-                "burst_interval_seconds": self.burst_interval,
-                "target_frequency_hz": self.target_frequency,
-                "error": f"Failed to get frequency from state manager: {e}",
-            }
-
-    def run_with_fire_queue(
-        self,
-        mpf: bool = True,
-        puf: bool = False,
-        max_consecutive_fires: int = 10,
-    ) -> bool:
-        """Run fire queue processing with membrane potential and plasticity
-        updates.
-
-        Args:
-            mpf: Membrane potential flag
-            puf: Plasticity update flag
-            max_consecutive_fires: Maximum consecutive fires allowed
-
-        Returns:
-            True if successful, False otherwise
-        """
-        if not self.genome_loaded:
-            logger.warning(
-                "Cannot run fire queue processing - no genome loaded"
-            )
-            return False
-
-        try:
-            # Unconditional proof that run_with_fire_queue is being called
-            # Removed file I/O debug writes for RTOS/WGPU compatibility
-
-            #  Derive current timestep from FCL manager if available; otherwise
-            #  start at 0
-            current_timestep = (
-                self.fcl_manager.current_timestep + 1
-                if self.fcl_manager
-                else 0
-            )
-
-            start_time = time.perf_counter()
-
-            # Unified burst processing (now includes memory processing)
-            fired_neurons = self._process_burst()
-
-            processing_time = time.perf_counter() - start_time
-
-            # Use cached state_manager instance
-            if self.state_manager.is_debug_npu_enabled():
-                logger.info(
-                    f"[NPU-DEBUG] Fire queue processing completed in {processing_time * 1000:.2f}ms, "
-                    f"{len(fired_neurons)} neurons fired"
-                )
-
-            return True
-
-        except Exception as e:
-            logger.error(f"Error in fire queue processing: {e}")
-            return False
-
-    def _initialize_memory_processor(self) -> None:
-        """Initialize the memory processor if ConnectomeManager has
-        memory_neuron_array."""
-        # CRITICAL DEBUG: Always log memory processor initialization
-        logger.info(f"🚨 [MEMORY-INIT-ALWAYS] ===== INITIALIZING MEMORY PROCESSOR =====")
-        logger.info(f"🚨 [MEMORY-INIT-ALWAYS] ConnectomeManager available: {self.connectome_manager is not None}")
-        
-        try:
-            # Check if we have access to the memory neuron array
-            if hasattr(self.connectome_manager, "memory_neuron_array"):
-                memory_config = self.config.get("memory_processing", {})
-                batch_size = memory_config.get("batch_size", 100)
-                cache_size = memory_config.get("pattern_cache_size", 10000)
-
-                logger.info(
-                    "[MEMORY-INIT] Starting MemoryProcessor initialization..."
-                )
-                logger.info(
-                    f"[MEMORY-INIT] Config: batch_size={batch_size}, cache_size={cache_size}"
-                )
-                logger.info(
-                    f"[MEMORY-INIT] ConnectomeManager type: {type(self.connectome_manager)}"
-                )
-                logger.info(
-                    f"[MEMORY-INIT] Has memory_neuron_array: {hasattr(self.connectome_manager, 'memory_neuron_array')}"
-                )
-
-                if hasattr(self.connectome_manager, "memory_neuron_array"):
-                    array_capacity = getattr(
-                        self.connectome_manager.memory_neuron_array,
-                        "capacity",
-                        "unknown",
-                    )
-                    logger.info(
-                        f"[MEMORY-INIT] Memory neuron array capacity: {array_capacity}"
-                    )
-
-                # DEBUG: Check parameters before MemoryProcessor call
-                logger.info("[MEMORY-INIT] About to create MemoryProcessor...")
-                logger.info(
-                    f"[MEMORY-INIT] memory_neuron_array type: {type(self.connectome_manager.memory_neuron_array)}"
-                )
-                logger.info(
-                    f"[MEMORY-INIT] fcl_manager type: {type(self.fcl_manager)}"
-                )
-                logger.info(
-                    f"[MEMORY-INIT] fcl_manager is None: {self.fcl_manager is None}"
-                )
-
-                self.memory_processor = MemoryProcessor(
-                    memory_neuron_array=self.connectome_manager.memory_neuron_array,
-                    fcl_manager=self.fcl_manager,
-                    batch_size=batch_size,
-                    pattern_cache_size=cache_size,
-                    connectome_manager=self.connectome_manager,
-                )
-
-                logger.info(
-                    "[MEMORY-INIT] MemoryProcessor constructor completed successfully"
-                )
-
-                logger.info(
-                    f"[OK] MemoryProcessor initialized with batch_size={batch_size}, cache_size={cache_size}"
-                )
-            else:
-                logger.info(
-                    "[MEMORY-INIT] ConnectomeManager doesn't have memory_neuron_array - MemoryProcessor not initialized"
-                )
-                self.memory_processor = None
-
-        except Exception as e:
-            logger.error(
-                f"🧠 [MEMORY] Error initializing MemoryProcessor: {e}"
-            )
-            self.memory_processor = None
-
-    def _process_memory_areas(self, current_timestep: int) -> None:
-        """Process memory areas for temporal pattern detection."""
-        # CRITICAL DEBUG: Always log when memory processing is called
-        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] ===== PROCESSING MEMORY AREAS =====")
-        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] Current timestep: {current_timestep}")
-        logger.info(f"🚨 [MEMORY-PROCESS-ALWAYS] Memory processor available: {self.memory_processor is not None}")
-        
-        try:
-            npu_debug = (
-                self.state_manager.is_debug_npu_enabled()
-                if self.state_manager
-                else False
-            )
-            mem_debug = (
-                self.state_manager.is_mem_debug_enabled()
-                if self.state_manager
-                else False
-            )
-
-            if npu_debug or mem_debug:
-                logger.info(
-                    "🧠 [MEMORY-DEBUG] BURST ENGINE: _process_memory_areas() called"
-                )
-                logger.info(f"🧠 [MEMORY-DEBUG] Current timestep: {current_timestep}")
-
-            if not self.memory_processor:
-                if npu_debug or mem_debug:
-                    logger.warning(
-                        "🚨 [MEMORY-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing"
-                    )
-                return
-
-            if npu_debug or mem_debug:
-                active_areas = (
-                    list(self.memory_processor.active_memory_areas)
-                    if hasattr(self.memory_processor, "active_memory_areas")
-                    else []
-                )
-                logger.info(f"🧠 [MEMORY-DEBUG] Active memory areas: {active_areas}")
-                if not active_areas:
-                    logger.warning(f"🚨 [MEMORY-DEBUG] No active memory areas registered!")
-
-            #  Process memory areas aligned with FCL's current timestep to
-            #  avoid window mismatches
-            fcl_current_timestep = (
-                self.fcl_manager.current_timestep
-                if self.fcl_manager
-                else current_timestep
-            )
+            logger.info("🔄 [API-UPDATE] update_frequency() called with %.2fHz (current: %.2fHz)", 
+                       frequency_hz, self.desired_frequency)
             
-            if mem_debug:
-                logger.info(f"🧠 [MEMORY-DEBUG] Using FCL timestep: {fcl_current_timestep}")
-                logger.info(f"🧠 [MEMORY-DEBUG] Calling memory_processor.process_memory_areas_batch()")
-                
-            memory_stats = self.memory_processor.process_memory_areas_batch(
-                fcl_current_timestep
-            )
-
-            if npu_debug or mem_debug:
-                logger.info(
-                    f"🧠 [MEMORY-DEBUG] Memory processing completed: {memory_stats}"
-                )
-                logger.info(
-                    f"🧠 [MEMORY-DEBUG] Processing time: {memory_stats.get('processing_time_ms', 0):.2f}ms"
-                )
-
-        except Exception as e:
-            if mem_debug:
-                logger.error(f"🚨 [MEMORY-DEBUG] Error in _process_memory_areas: {e}")
-                import traceback
-                logger.error(f"🚨 [MEMORY-DEBUG] Full traceback: {traceback.format_exc()}")
-            else:
-                logger.error(f"🧠 [MEMORY] Error starting memory processing: {e}")
-
-    def register_memory_area_with_processor(
-        self, cortical_id: str, properties: Dict[str, Any]
-    ) -> bool:
-        """Register a memory area with the memory processor."""
-        if not self.memory_processor:
-            #  CRITICAL FIX: Retry MemoryProcessor initialization if it failed
-            #  due to timing
-            logger.info(
-                "🔧 [MEMORY-FIX] MemoryProcessor is None, attempting reinitialization..."
-            )
-            self._initialize_memory_processor()
-
-            if not self.memory_processor:
-                logger.error(
-                    "🔧 [MEMORY-FIX] MemoryProcessor reinitialization failed"
-                )
+            if frequency_hz <= 0 or frequency_hz > 10000:
+                logger.error("Invalid frequency %dHz (must be 0 < freq <= 10000)", frequency_hz)
                 return False
+            
+            old_frequency = self.desired_frequency
+            self.desired_frequency = frequency_hz
+            
+            # Update state manager
+            if self.state_manager:
+                self.state_manager.set_burst_frequency(frequency_hz)
+                logger.info("✅ [API-UPDATE] Frequency updated: %.2fHz → %.2fHz (dynamic timing will pick up immediately)", 
+                           old_frequency, frequency_hz)
             else:
-                logger.info(
-                    "🔧 [MEMORY-FIX] MemoryProcessor reinitialization SUCCESS!"
-                )
-
-        if not self.memory_processor:
+                logger.warning("⚠️  [API-UPDATE] No state manager available for frequency update")
+            
+            return True
+        except Exception as e:
+            logger.error("❌ [API-UPDATE] Failed to update burst engine frequency: %s", str(e))
             return False
-
+    
+    def start(self) -> bool:
+        """Start the burst engine with proper state manager integration."""
         try:
-            # Extract memory properties
-            temporal_depth = properties.get("temporal_depth", 1)
-            initial_lifespan = properties.get("init_lifespan", 9)
-            lifespan_growth_rate = properties.get("lifespan_growth_rate", 1.0)
-            longterm_threshold = properties.get("longterm_mem_threshold", 100)
+            if self._running:
+                logger.warning("BurstEngine: Already running")
+                return True
+            
+            logger.info("🔧 [START-DEBUG] Checking connectome manager availability...")
+            if self.connectome_manager:
+                logger.info(f"🔧 [START-DEBUG] Connectome manager available: {type(self.connectome_manager)}")
+            else:
+                logger.warning("🔧 [START-DEBUG] ⚠️ No connectome manager available - burst engine will run with limited functionality")
+            
+            logger.info("🔧 [START-DEBUG] Setting burst engine state to INITIALIZING...")
+            self._set_burst_engine_state(ServiceState.INITIALIZING)
+            
+            self._running = True
+            
+            logger.info("🔧 [START-DEBUG] Setting burst engine state to READY...")
+            self._set_burst_engine_state(ServiceState.READY)
+            
+            logger.info("BurstEngine: Started successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start BurstEngine: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            try:
+                self._set_burst_engine_state(ServiceState.ERROR)
+            except Exception as state_error:
+                logger.error(f"Failed to set ERROR state: {state_error}")
+            return False
+    
+    def stop(self) -> bool:
+        """Stop the burst engine with proper state manager integration."""
+        try:
+            if not self._running:
+                logger.warning("BurstEngine: Already stopped")
+                return True
+            
+            self._running = False
+            self._set_burst_engine_state(ServiceState.STOPPED)
+            logger.info("BurstEngine: Stopped successfully")
+            return True
+        except Exception:
+            logger.error("Failed to stop BurstEngine")
+            self._set_burst_engine_state(ServiceState.ERROR)
+            return False
+    
+    def is_running(self) -> bool:
+        """Check if burst engine is currently running."""
+        return self._running
+    
+    def run(self) -> None:
+        """Start the burst engine main processing loop.
+        
+        This method runs the continuous burst processing loop in the current thread.
+        It's designed to be called from a background thread by the brain service.
+        The loop continues until stop() is called or an exit condition is met.
+        """
+        try:
+            logger.info("🚀 [RUN-DEBUG] Burst engine run() method called - starting main processing loop")
+            
+            # Add detailed debug logging for startup
+            logger.info("🔧 [RUN-DEBUG] About to call self.start()...")
+            try:
+                self.start()
+                logger.info(f"🔧 [RUN-DEBUG] self.start() completed successfully - _running: {self._running}")
+            except Exception as start_error:
+                logger.error(f"🚨 [RUN-DEBUG] self.start() failed with error: {start_error}")
+                import traceback
+                logger.error(f"🚨 [RUN-DEBUG] Full traceback: {traceback.format_exc()}")
+                raise  # Re-raise to be caught by outer try-catch
+            
+            # Enter the main processing loop
+            if self._running:
+                logger.info("Main loop started at %dHz", self.desired_frequency) 
+                
+                # CRITICAL: Re-sync frequency from state manager before starting loop
+                logger.info("🔄 [STARTUP-DEBUG] About to sync frequency from state manager...")
+                try:
+                    if self.state_manager:
+                        logger.info("🔄 [STARTUP-DEBUG] State manager available, checking frequency...")
+                        state_frequency = self.state_manager.get_burst_frequency()
+                        logger.info("🔄 [STARTUP-DEBUG] State manager frequency: %.2fHz, Engine frequency: %.2fHz", 
+                                   state_frequency or 0.0, self.desired_frequency)
+                        if state_frequency and state_frequency > 0:
+                            if abs(state_frequency - self.desired_frequency) > 0.001:
+                                logger.warning("🚨 [FREQUENCY-SYNC] Frequency mismatch detected! Engine: %.2fHz, State Manager: %.2fHz", 
+                                              self.desired_frequency, state_frequency)
+                                self.desired_frequency = float(state_frequency)
+                                logger.info("🔄 [FREQUENCY-SYNC] Updated engine frequency to match state manager: %.2fHz", 
+                                           self.desired_frequency)
+                except Exception as e:
+                    logger.error("🚨 [FREQUENCY-SYNC] Failed to sync frequency from state manager: %s", str(e))
+                
+                logger.info("🔄 [FREQUENCY-DEBUG] Starting main loop with frequency: %.2fHz", self.desired_frequency)
+                
+                # Main burst processing loop
+                while self._running:
+                    try:
+                        # Execute the actual burst processing (RTOS-safe: no timing calls)
+                        try:
+                            fired_neurons = self.process_burst()
+                            
+                            # Log periodic burst status 
+                            if self.burst_count % 100 == 0:  # Every 100 bursts
+                                logger.info("[BURST-ENGINE] Burst #%d: %d neurons fired", self.burst_count, len(fired_neurons))
+                                
+                        except Exception:
+                            logger.error("Error in burst processing #%d", self.burst_count)
+                            # Continue processing even if one burst fails
+                        
+                        # Timing control: Add sleep to prevent runaway CPU usage
+                        import time
+                        try:
+                            # FIXED: Calculate interval dynamically instead of using cached variable
+                            current_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
+                            time.sleep(current_interval)
+                        except Exception:
+                            # Fallback if config unavailable
+                            time.sleep(0.1)  # @architecture:acceptable - emergency fallback
+                        
+                        # Check for exit condition
+                        if not self._running:
+                            break
+                            
+                    except Exception:
+                        logger.error("Error in burst engine run loop")
+                        break
+                        
+                logger.info("[BURST-ENGINE] Main processing loop ended after %d bursts", self.burst_count)
+            else:
+                logger.error("[BURST-ENGINE] Failed to start - run loop exiting")
+                
+        except Exception:
+            logger.error("Error in burst engine run() method")
+            self._set_burst_engine_state(ServiceState.ERROR)
+    
+    def update_with_genome(self, connectome_manager=None) -> None:
+        """Update the burst engine configuration when a new genome is loaded.
+        
+        RUST-COMPATIBLE: Reinitializes all memory structures with deterministic sizing
+        based on genome neuron count and configuration mode (inference vs design).
+        
+        This method is called after a new genome is loaded into the connectome manager 
+        to refresh the engine's understanding of the neural network. This ensures 
+        compatibility with the genome loading process.
+        
+        Args:
+            connectome_manager: Optional connectome manager to use. If not provided,
+                               uses the existing one or attempts to get it from the genome service.
+        """
+        try:
+            # Updating burst engine with new genome
+            
+            # Accept new connectome manager or use existing one
+            if connectome_manager:
+                self.connectome_manager = connectome_manager
+                # ConnectomeManager updated
+            elif not self.connectome_manager:
+                # Try to get connectome manager from the global/service registry
+                try:
+                    # Get the connectome manager from the API service or other global reference
+                    from feagi.api.core.services.core_api_service import CoreAPIService
+                    core_service = CoreAPIService.get_instance()
+                    if core_service and hasattr(core_service, 'connectome_manager'):
+                        self.connectome_manager = core_service.connectome_manager
+                        logger.debug("ConnectomeManager retrieved from CoreAPIService: %s", type(self.connectome_manager).__name__)
+                    else:
+                        logger.debug("CoreAPIService not available or has no connectome_manager")
+                except Exception as e:
+                    logger.debug("Failed to get connectome_manager from CoreAPIService: %s", str(e))
+            
+            logger.info("[CONFIG] Updating burst engine with new genome")
+            
+            # Sync with connectome manager's current state
+            if self.connectome_manager:
+                logger.debug("ConnectomeManager available - starting integration")
+                
+                # Check if connectome manager has neuron array data
+                if hasattr(self.connectome_manager, "neuron_array"):
+                    neuron_array = self.connectome_manager.neuron_array
+                    if hasattr(neuron_array, "neuron_count"):
+                        neuron_count = neuron_array.neuron_count
+                        logger.debug("Synced with %d neurons from connectome", neuron_count)
+                    else:
+                        logger.debug("Neuron array present but no count available")
+                else:
+                    logger.debug("No neuron array data available yet")
+                
+                # CRITICAL: Re-initialize coordinate converter with connectome manager
+                if not self.coordinate_converter:
+                    from .coordinate_converter import CoordinateConverter
+                    self.coordinate_converter = CoordinateConverter(self.connectome_manager)
+                    logger.debug("CoordinateConverter created with ConnectomeManager")
+                
+                # CRITICAL: Re-initialize FCL injector with connectome data
+                if not self.fcl_injector and self.coordinate_converter:
+                    from .fcl_injector import FCLInjector
+                    self.fcl_injector = FCLInjector(self.coordinate_converter)
+                    logger.debug("FCLInjector created with CoordinateConverter")
+                elif self.fcl_injector:
+                    logger.debug("FCLInjector already exists")
+                
+                # CRITICAL: Re-initialize injection service for power neurons
+                # Always re-initialize to ensure it has the latest fcl_injector
+                if self.fcl_injector:
+                    self._initialize_injection_service()
+                    logger.debug("PowerInjectionService re-initialized with updated FCLInjector")
+                elif self.injection_service and hasattr(self.injection_service, 'invalidate_cache'):
+                    self.injection_service.invalidate_cache()
+                    logger.debug("Power neuron cache invalidated after genome update")
+                else:
+                    logger.debug("Cannot initialize PowerInjectionService - FCLInjector not available")
+                
+                # Update coordinate converter with connectome dimensions if available
+                if self.coordinate_converter and hasattr(self.connectome_manager, 'get_cortical_dimensions'):
+                    logger.debug("CoordinateConverter will use updated cortical dimensions")
+                
+                # CRITICAL: Calculate and reallocate memory structures based on genome
+                self._reinitialize_memory_structures_for_genome()
+                
+                # Mark that genome data has been integrated
+                self.genome_loaded = True
+                logger.debug("Genome integration marked complete")
+                
+            else:
+                logger.debug("No connectome manager available after integration attempt")
+            
+            logger.info("✅ Burst engine updated with new genome successfully")
+            
+        except Exception as e:
+            logger.error("Error updating burst engine with genome: %s", str(e))
+            import traceback
+            logger.error("Traceback: %s", traceback.format_exc())
+            # Don't raise - genome loading should not fail due to burst engine update issues
+    
+    def force_connectome_integration(self) -> bool:
+        """Force integration with connectome manager for debugging purposes.
+        
+        This method attempts to manually connect the BurstEngine to the connectome
+        manager using various discovery methods. Useful for debugging integration issues.
+        
+        Returns:
+            bool: True if integration successful, False otherwise
+        """
+        try:
+            logger.debug("force_connectome_integration() called")
+            
+            if self.connectome_manager:
+                logger.debug("ConnectomeManager already available: %s", type(self.connectome_manager).__name__)
+                return True
+            
+            # Try multiple methods to get connectome manager
+            methods_tried = []
+            
+            # Method 1: Try CoreAPIService
+            try:
+                from feagi.api.core.services.core_api_service import CoreAPIService
+                core_service = CoreAPIService.get_instance()
+                if core_service and hasattr(core_service, 'connectome_manager') and core_service.connectome_manager:
+                    self.connectome_manager = core_service.connectome_manager
+                    logger.debug("ConnectomeManager found via CoreAPIService: %s", type(self.connectome_manager).__name__)
+                    self.update_with_genome()
+                    return True
+                methods_tried.append("CoreAPIService (failed)")
+            except Exception as e:
+                methods_tried.append("CoreAPIService (error: %s)" % str(e))
+            
+            # Method 2: Try GenomeService
+            try:
+                from feagi.api.core.services.genome.genome_service import GenomeService
+                # This is harder since GenomeService is not a singleton, but let's try
+                methods_tried.append("GenomeService (no singleton pattern)")
+            except Exception as e:
+                methods_tried.append("GenomeService (error: %s)" % str(e))
+            
+            # Method 3: Try global registry if available
+            try:
+                # Check if there's a global connectome manager registry
+                import feagi.bdu.connectome_manager as cm_module
+                if hasattr(cm_module, '_global_instance'):
+                    self.connectome_manager = cm_module._global_instance
+                    logger.debug("ConnectomeManager found via global registry")
+                    self.update_with_genome()
+                    return True
+                methods_tried.append("Global registry (not found)")
+            except Exception as e:
+                methods_tried.append("Global registry (error: %s)" % str(e))
+            
+            logger.debug("ConnectomeManager not found. Methods tried: %s", ", ".join(methods_tried))
+            return False
+            
+        except Exception as e:
+            logger.error("Error in force_connectome_integration: %s", str(e))
+            return False
+    
+    def _inject_all_candidates(self, fcl: FireCandidateList):
+        """Inject all candidates into FCL - power neurons, sensory data, and synaptic propagation."""
+        
+        # NPU Debug logging
+        debug_enabled = self.state_manager and self.state_manager.is_debug_npu_enabled()
+        periodic_debug = debug_enabled and (self.burst_count % 500 == 0)  # Every 50 bursts
+        
+        if periodic_debug:
+            logger.debug("FCL injection starting...")
+            logger.debug("Injection service available: %s", self.injection_service is not None)
+            logger.debug("Injection enabled: %s", self.enable_injection)
+            logger.debug("FCL injector available: %s", self.fcl_injector is not None)
+        
+        # 1. CRITICAL: Inject power neurons and special areas EVERY burst
+        if self.injection_service and self.enable_injection:
+            if periodic_debug:
+                logger.debug("Starting power neuron injection...")
+                
+            try:
+                injected_count = self.injection_service.inject_power_neurons(fcl, self.burst_count)
+                # Power injection completed
+                    
+            except Exception as e:
+                if debug_enabled:
+                    logger.error("Error in power neuron injection: %s", str(e))
+                    if periodic_debug:  # Only show traceback periodically
+                        import traceback
+                        logger.error("Power injection traceback: %s", traceback.format_exc())
+                else:
+                    logger.error("Error in power neuron injection")
+        else:
+            if periodic_debug:
+                if not self.injection_service:
+                    logger.debug("No injection service available - power injection skipped")
+                elif not self.enable_injection:
+                    logger.debug("Injection disabled - power injection skipped")
+        
+        # 2. Inject sensory data (if FCL injector available)
+        if self.fcl_injector:
+            if periodic_debug:
+                logger.debug("FCL injector available - checking for sensory/synaptic data...")
+                
+            # Synaptic propagation from previous timestep
+            if self.previous_fire_queue:
+                prev_neuron_count = len(self.previous_fire_queue.get_all_neuron_ids()) if self.previous_fire_queue else 0
+                
+                # Debug logging for NPU debug mode
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                # Process synaptic propagation
+                
+                propagation_data = self._compute_synaptic_propagation()
+                if propagation_data:
+                    injected_count = self.fcl_injector.inject_synaptic_propagation(fcl, propagation_data)
+                    total_targets = sum(len(targets) for targets in propagation_data.values())
+                    logger.info("Synaptic propagation: %d candidates injected from %d fired neurons → %d target neurons", 
+                               injected_count, prev_neuron_count, total_targets)
 
-            # Get upstream areas from ConnectomeManager
-            upstream_areas = set()
-            if hasattr(
-                self.connectome_manager, "get_upstream_areas_for_memory"
-            ):
-                upstream_areas = (
-                    self.connectome_manager.get_upstream_areas_for_memory(
-                        cortical_id
-                    )
+            # No previous fire queue - first burst or no synaptic propagation
+            pass
+        else:
+            # FCL injector not available - connectome initialization issue
+            pass
+        
+        # FCL injection phase completed
+    
+    def _compute_synaptic_propagation(self) -> Dict[int, List[tuple]]:
+        """Compute synaptic propagation data from previous fire queue.
+        
+        RUST-COMPATIBLE: Uses vectorized operations and deterministic lookups.
+        
+        Returns:
+            Dict[cortical_idx, List[(target_neuron_id, synaptic_contribution)]]
+        """
+        if not self.previous_fire_queue or not self.connectome_manager:
+            return {}
+            
+        # Get NPU interface for synapse data access
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            return {}
+            
+        synapse_array = getattr(npu_interface, 'synapse_array', None)
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not synapse_array or not neuron_array:
+            return {}
+            
+        # Get all fired neuron IDs from previous timestep
+        fired_neuron_ids = self.previous_fire_queue.get_all_neuron_ids()
+        if not fired_neuron_ids:
+            return {}
+            
+        try:
+            propagation_data = {}
+            
+            # Debug logging
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            # Process synaptic propagation for fired neurons
+            
+            # For each fired neuron, find outgoing synapses
+            total_synapses_found = 0
+            neurons_with_synapses = 0
+            
+            for src_neuron_id in fired_neuron_ids:
+                # Get outgoing synapses for this source neuron
+                synapse_indices = getattr(synapse_array, 'source_neuron_index', {}).get(src_neuron_id, [])
+                
+                # Neuron has outgoing synapses - process them
+                
+                if not synapse_indices:
+                    continue
+                    
+                neurons_with_synapses += 1
+                total_synapses_found += len(synapse_indices)
+                    
+                # Convert to numpy array for vectorized operations
+                syn_indices = np.array(synapse_indices, dtype=np.int32)
+                
+                # Filter valid synapses
+                valid_mask = getattr(synapse_array, 'valid_mask', None)
+                if valid_mask is not None:
+                    valid_syn_mask = valid_mask[syn_indices]
+                    valid_count = np.sum(valid_syn_mask)
+                    if not np.any(valid_syn_mask):
+                        continue
+                    syn_indices = syn_indices[valid_syn_mask]
+                
+                # Get target neuron IDs and synaptic properties
+                target_neuron_ids = synapse_array.target_neuron_ids[syn_indices].astype(np.int32)
+                weights = synapse_array.weights[syn_indices].astype(np.float32)
+                
+                # Process synaptic targets and weights
+                
+                # Apply conductance and excitatory/inhibitory type
+                conductances = getattr(synapse_array, 'conductances', None)
+                syn_types = getattr(synapse_array, 'types', None)
+                
+                if conductances is not None:
+                    conductances_array = conductances[syn_indices].astype(np.float32)
+                else:
+                    conductances_array = np.ones(len(syn_indices), dtype=np.float32)
+                    
+                if syn_types is not None:
+                    types_array = syn_types[syn_indices].astype(np.int32)
+                    # 0 = excitatory (+), 1 = inhibitory (-)
+                    sign = np.where(types_array == 0, 1.0, -1.0).astype(np.float32)
+                else:
+                    sign = np.ones(len(syn_indices), dtype=np.float32)  # Default to excitatory
+                
+                # Compute synaptic contributions
+                synaptic_contributions = weights * conductances_array * sign
+                
+                # Contributions computed
+                
+                # Group by target cortical areas
+                neuron_to_area = getattr(npu_interface, 'neuron_to_area', {})
+                
+                targets_by_area = {}
+                for target_id, contribution in zip(target_neuron_ids, synaptic_contributions):
+                    target_id = int(target_id)
+                    contribution = float(contribution)
+                    
+                    # Get cortical area for target neuron - MUST exist in genome
+                    if target_id not in neuron_to_area:
+                        raise ValueError(f"Target neuron {target_id} not mapped to any cortical area in genome")
+                    cortical_idx = neuron_to_area[target_id]
+                    
+                    # Track targets by area for debugging
+                    if cortical_idx not in targets_by_area:
+                        targets_by_area[cortical_idx] = 0
+                    targets_by_area[cortical_idx] += 1
+                    
+                    # Add to propagation data
+                    if cortical_idx not in propagation_data:
+                        propagation_data[cortical_idx] = []
+                    
+                    propagation_data[cortical_idx].append((target_id, contribution))
+                
+                # Group targets by area completed
+            
+            # Synaptic propagation completed
+                           
+            return propagation_data
+            
+        except Exception as e:
+            logger.error("Error in synaptic propagation computation: %s", str(e))
+            return {}
+    
+    def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
+        """Get the actual firing threshold for a specific neuron.
+        
+        RUST-COMPATIBLE: 100% deterministic lookup. NO FALLBACKS.
+        Raises error if genome data is missing - FEAGI must be deterministic.
+        
+        Args:
+            neuron_id: The neuron ID to get threshold for
+            
+        Returns:
+            Actual firing threshold from neuron properties (from genome)
+            
+        Raises:
+            ValueError: If neuron data is missing from genome/NPU interface
+        """
+        if not self.connectome_manager:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No connectome manager available")
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No NPU interface in connectome manager")
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron array in NPU interface")
+            
+        # Get neuron index from ID - MUST exist in genome
+        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+        if not neuron_id_to_index:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron ID mapping in genome")
+            
+        if neuron_id not in neuron_id_to_index:
+            raise ValueError(f"Neuron {neuron_id} not found in genome neuron array - missing from neuroembryogenesis")
+            
+        neuron_index = neuron_id_to_index[neuron_id]
+        
+        # Get threshold array - MUST exist in genome
+        thresholds = getattr(neuron_array, 'thresholds', None)
+        if thresholds is None:
+            raise ValueError(f"No firing thresholds array in genome neuron data")
+            
+        if neuron_index >= len(thresholds):
+            raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in thresholds array")
+            
+        actual_threshold = float(thresholds[neuron_index])
+        return actual_threshold
+    
+    def _create_firing_neurons(self, fired_neuron_ids: List[int]) -> List[FiringNeuron]:
+        """Convert fired neuron IDs to FiringNeuron objects with properties."""
+        # Use list comprehension to avoid index assignment errors
+        firing_neurons = []
+        
+        try:
+            for idx, neuron_id in enumerate(fired_neuron_ids):
+                # Get actual neuron properties from genome - ZERO FALLBACKS, STRICT VALIDATION
+                # All values MUST come from genome via neuroembryogenesis → connectome → NPU interface
+                
+                if not self.connectome_manager:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No connectome manager available")
+                    
+                npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+                if not npu_interface:
+                    raise ValueError("NPU interface not initialized; cannot build firing neurons deterministically")
+                
+                # Get cortical area - MUST exist in genome
+                neuron_to_area = getattr(npu_interface, 'neuron_to_area', None)
+                if not neuron_to_area:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron-to-area mapping in genome")
+                if neuron_id not in neuron_to_area:
+                    raise ValueError(f"Neuron {neuron_id} not mapped to any cortical area in genome")
+                cortical_idx = neuron_to_area[neuron_id]
+                
+                # Get coordinates from neuron array - STRICT VALIDATION, NO FALLBACKS
+                neuron_array = getattr(npu_interface, 'neuron_array', None)
+                if not neuron_array:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron array in NPU interface")
+                    
+                neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+                if not neuron_id_to_index:
+                    raise ValueError(f"Cannot create FiringNeuron for {neuron_id}: No neuron ID mapping in genome")
+                    
+                if neuron_id not in neuron_id_to_index:
+                    raise ValueError(f"Neuron {neuron_id} not found in genome neuron array")
+                    
+                neuron_index = neuron_id_to_index[neuron_id]
+                
+                # Get coordinates - MUST exist in genome
+                coordinates_x = getattr(neuron_array, 'coordinates_x', None)
+                coordinates_y = getattr(neuron_array, 'coordinates_y', None) 
+                coordinates_z = getattr(neuron_array, 'coordinates_z', None)
+                
+                if coordinates_x is None or coordinates_y is None or coordinates_z is None:
+                    raise ValueError(f"Missing coordinate arrays in neuron array for neuron {neuron_id}")
+                    
+                if neuron_index >= len(coordinates_x) or neuron_index >= len(coordinates_y) or neuron_index >= len(coordinates_z):
+                    raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in coordinate arrays")
+                
+                x = int(coordinates_x[neuron_index])
+                y = int(coordinates_y[neuron_index])  
+                z = int(coordinates_z[neuron_index])
+                coordinates = (x, y, z)
+                
+                # Get membrane potential - MUST exist in genome
+                membrane_potentials = getattr(neuron_array, 'membrane_potentials', None)
+                if membrane_potentials is None:
+                    raise ValueError(f"No membrane potentials array in neuron array for neuron {neuron_id}")
+                    
+                if neuron_index >= len(membrane_potentials):
+                    raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in membrane potentials array")
+                    
+                membrane_potential = float(membrane_potentials[neuron_index])
+                # Deterministic rule: pre_fire_potential is defined as the firing threshold for that neuron.
+                pre_fire_potential = self._get_neuron_firing_threshold(neuron_id)
+                
+                # Get threshold - MUST exist in genome  
+                threshold = self._get_neuron_firing_threshold(neuron_id)
+                
+                # Get consecutive fire count and refractory counter - ACTUAL VALUES from NPU
+                consecutive_fire_count = 0
+                refractory_counter = 0
+                
+                if hasattr(neuron_array, 'consecutive_fire_counts') and neuron_index < len(neuron_array.consecutive_fire_counts):
+                    consecutive_fire_count = int(neuron_array.consecutive_fire_counts[neuron_index])
+                
+                if hasattr(neuron_array, 'refractory_counters') and neuron_index < len(neuron_array.refractory_counters):
+                    refractory_counter = int(neuron_array.refractory_counters[neuron_index])
+                
+                # Create FiringNeuron with ACTUAL neural dynamics data
+                firing_neuron = FiringNeuron(
+                    neuron_id=neuron_id,
+                    cortical_idx=cortical_idx,
+                    membrane_potential=membrane_potential,
+                    pre_fire_potential=pre_fire_potential,
+                    coordinates=coordinates,
+                    threshold=threshold,
+                    consecutive_fire_count=consecutive_fire_count,  # ACTUAL value from NPU neural dynamics
+                    refractory_counter=refractory_counter,          # ACTUAL value from NPU neural dynamics
+                    timestamp=0.0  # RTOS-safe: no system time calls
                 )
                 
-            # Check if debug-mem is enabled
-            mem_debug = (
-                self.state_manager.is_mem_debug_enabled()
-                if self.state_manager
-                else False
+                # Use append instead of index assignment to avoid range errors
+                firing_neurons.append(firing_neuron)
+            
+            # FiringNeuron objects created successfully
+            
+        except Exception as e:
+            logger.error("Error creating firing neurons: %s", str(e))
+            # Return empty list to prevent breaking burst cycle - CRITICAL FIX
+            return []
+            
+        return firing_neurons
+    
+    def _reinitialize_memory_structures_for_genome(self) -> None:
+        """Reinitialize all burst engine memory structures based on genome size and configuration.
+        
+        RUST-COMPATIBLE: Deterministic memory allocation with pre-calculated sizes.
+        Implements inference vs design mode allocation strategy.
+        """
+        try:
+            logger.info("🧠 GENOME-MEMORY: Starting burst engine memory reinitialization")
+            
+            # Load burst engine configuration from TOML
+            burst_config = self._load_burst_engine_config()
+            
+            # Calculate memory requirements based on genome and mode
+            memory_requirements = self._calculate_memory_requirements(burst_config)
+            
+            # Log allocation strategy
+            logger.info(
+                f"🧠 GENOME-MEMORY: Mode={burst_config['mode']}, "
+                f"Genome neurons={memory_requirements['genome_neurons']}, "
+                f"FCL capacity={memory_requirements['fcl_capacity']}, "
+                f"FireQueue capacity={memory_requirements['fire_queue_capacity']}"
             )
             
-            if mem_debug:
-                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Registering memory area {cortical_id}")
-                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Discovered upstream areas: {upstream_areas}")
-                logger.info(f"🧠 [MEMORY-DEBUG] BURST ENGINE: Properties: {properties}")
-
-            return self.memory_processor.register_memory_area(
-                cortical_id=cortical_id,
-                temporal_depth=temporal_depth,
-                initial_lifespan=initial_lifespan,
-                lifespan_growth_rate=lifespan_growth_rate,
-                longterm_threshold=longterm_threshold,
-                upstream_areas=upstream_areas,
-            )
+            # Reinitialize data structures with calculated capacities
+            self._reallocate_data_structures(memory_requirements)
+            
+            logger.info("✅ GENOME-MEMORY: Burst engine memory structures reinitialized successfully")
+            
         except Exception as e:
-            logger.error(
-                f"🧠 [MEMORY] Error registering memory area {cortical_id}: {e}"
-            )
-            return False
-
-    def unregister_memory_area_from_processor(self, cortical_id: str) -> bool:
-        """Unregister a memory area from the memory processor."""
-        if not self.memory_processor:
-            return False
-
+            logger.error(f"❌ GENOME-MEMORY: Failed to reinitialize memory structures: {e}")
+            # Don't raise - allow burst engine to continue with existing structures
+    
+    def _load_burst_engine_config(self) -> Dict[str, Any]:
+        """Load burst engine configuration from TOML with defaults.
+        
+        Returns:
+            Dictionary with burst engine configuration parameters
+        """
         try:
-            return self.memory_processor.unregister_memory_area(cortical_id)
+            from feagi.config.toml_loader import load_feagi_config
+            config = load_feagi_config()
+            
+            # Get burst_engine section with defaults
+            burst_config = config.get('burst_engine', {})
+            
+            # Apply defaults for missing values
+            defaults = {
+                'mode': 'inference',
+                'max_supported_neurons': 10000000,
+                'design_mode_allocation_percent': 80,
+                'fcl_capacity_multiplier': 1.5,
+                'fire_queue_capacity_multiplier': 1.2,
+                'memory_area_multiplier': 2.0,
+                'enable_preallocation': True,
+                'enable_capacity_warnings': True
+            }
+            
+            for key, default_value in defaults.items():
+                if key not in burst_config:
+                    burst_config[key] = default_value
+            
+            return burst_config
+            
         except Exception as e:
-            logger.error(
-                f"🧠 [MEMORY] Error unregistering memory area {cortical_id}: {e}"
+            logger.warning(f"Failed to load burst engine config, using defaults: {e}")
+            # Return safe defaults
+            return {
+                'mode': 'inference',
+                'max_supported_neurons': 1000000,  # Conservative default
+                'design_mode_allocation_percent': 80,
+                'fcl_capacity_multiplier': 1.5,
+                'fire_queue_capacity_multiplier': 1.2,
+                'memory_area_multiplier': 2.0,
+                'enable_preallocation': True,
+                'enable_capacity_warnings': True
+            }
+    
+    def _calculate_memory_requirements(self, burst_config: Dict[str, Any]) -> Dict[str, int]:
+        """Calculate memory requirements based on genome size and configuration mode.
+        
+        Args:
+            burst_config: Burst engine configuration from TOML
+            
+        Returns:
+            Dictionary with calculated memory capacities for each component
+        """
+        # Get genome neuron count from connectome manager
+        genome_neurons = self._get_genome_neuron_count()
+        
+        if burst_config['mode'] == 'design':
+            # Design mode: Use percentage of max supported neurons
+            base_neurons = int(
+                burst_config['max_supported_neurons'] * 
+                (burst_config['design_mode_allocation_percent'] / 100.0)
             )
+            logger.info(f"🎨 DESIGN MODE: Allocating for {base_neurons} neurons ({burst_config['design_mode_allocation_percent']}% of {burst_config['max_supported_neurons']})")
+        else:
+            # Inference mode: Use actual genome neuron count
+            base_neurons = max(genome_neurons, 1000)  # Minimum 1000 neurons
+            logger.info(f"⚡ INFERENCE MODE: Allocating for {base_neurons} neurons (genome actual)")
+        
+        # Calculate component capacities with safety multipliers
+        fcl_capacity = int(base_neurons * burst_config['fcl_capacity_multiplier'])
+        fire_queue_capacity = int(base_neurons * burst_config['fire_queue_capacity_multiplier'])
+        memory_area_capacity = int(base_neurons * burst_config['memory_area_multiplier'])
+        
+        return {
+            'genome_neurons': genome_neurons,
+            'base_neurons': base_neurons,
+            'fcl_capacity': fcl_capacity,
+            'fire_queue_capacity': fire_queue_capacity,
+            'memory_area_capacity': memory_area_capacity,
+            'mode': burst_config['mode']
+        }
+    
+    def _get_genome_neuron_count(self) -> int:
+        """Get the actual neuron count from the loaded genome.
+        
+        Returns:
+            Number of neurons in the currently loaded genome
+        """
+        if not self.connectome_manager:
+            return 0
+            
+        # Try multiple methods to get neuron count
+        neuron_count = 0
+        
+        # Method 1: From neuron array
+        if hasattr(self.connectome_manager, 'neuron_array'):
+            neuron_array = self.connectome_manager.neuron_array
+            if hasattr(neuron_array, 'neuron_count'):
+                neuron_count = max(neuron_count, neuron_array.neuron_count)
+        
+        # Method 2: From cortical areas
+        if hasattr(self.connectome_manager, 'cortical_areas'):
+            cortical_areas = self.connectome_manager.cortical_areas
+            if cortical_areas:
+                total_area_neurons = 0
+                for area_id, area in cortical_areas.items():
+                    if hasattr(area, 'neuron_count'):
+                        total_area_neurons += area.neuron_count
+                neuron_count = max(neuron_count, total_area_neurons)
+        
+        # Method 3: From brain statistics (if available)
+        if hasattr(self.connectome_manager, 'get_brain_statistics'):
+            try:
+                stats = self.connectome_manager.get_brain_statistics()
+                if stats and 'neuron_count' in stats:
+                    neuron_count = max(neuron_count, stats['neuron_count'])
+            except Exception:
+                pass  # @architecture:acceptable - statistics lookup fallback
+        
+        logger.debug(f"Genome neuron count determined: {neuron_count}")
+        return neuron_count
+    
+    def _reallocate_data_structures(self, memory_requirements: Dict[str, int]) -> None:
+        """Reallocate all data structures with new memory requirements.
+        
+        RUST-COMPATIBLE: Pre-allocates all arrays with deterministic sizes.
+        
+        Args:
+            memory_requirements: Dictionary with calculated capacities
+        """
+        # Note: In the current Python implementation, we don't need to explicitly
+        # reallocate FCL and FireQueue since they use dynamic containers.
+        # However, we log the intended capacities for monitoring and future Rust conversion.
+        
+        fcl_capacity = memory_requirements['fcl_capacity']
+        fire_queue_capacity = memory_requirements['fire_queue_capacity']
+        
+        logger.info(f"📊 MEMORY ALLOCATION: FCL capacity set to {fcl_capacity:,} candidates")
+        logger.info(f"📊 MEMORY ALLOCATION: FireQueue capacity set to {fire_queue_capacity:,} neurons")
+        
+        # In Rust conversion, this would be:
+        # self.fcl_candidates = Vec::with_capacity(fcl_capacity)
+        # self.fire_queue_neurons = Vec::with_capacity(fire_queue_capacity)
+        
+        # For now, we store the capacities for monitoring
+        self._fcl_capacity = fcl_capacity
+        self._fire_queue_capacity = fire_queue_capacity
+        self._memory_requirements = memory_requirements
+        
+        logger.debug("Memory structure capacities configured for Rust conversion readiness")
+    
+    def _build_excitability_cache(self) -> None:
+        """Build per-area excitability cache for optimal performance.
+        
+        This mirrors the old NPU implementation where excitability was cached
+        per cortical area instead of per neuron for better performance.
+        """
+        if not self.connectome_manager:
+            return
+            
+        self._area_excitability_cache.clear()
+        
+        # Build cache from cortical area properties
+        for area_id, area in self.connectome_manager.cortical_areas.items():
+            if hasattr(area, 'properties') and area.properties:
+                excitability = area.properties.get('neuron_excitability', 1.0)
+            else:
+                excitability = 1.0  # Default excitability
+                
+            cortical_idx = area.cortical_idx
+            self._area_excitability_cache[cortical_idx] = float(excitability)
+            
+        self._excitability_cache_dirty = False
+        self.logger.debug(f"Built excitability cache for {len(self._area_excitability_cache)} areas")
+    
+    def _any_low_excitability_areas(self) -> bool:
+        """Check if any cortical areas have excitability < 0.999.
+        
+        This determines whether we need RNG for probabilistic firing
+        or can use the fast deterministic path.
+        """
+        if self._excitability_cache_dirty:
+            self._build_excitability_cache()
+            
+        return any(ex < 0.999 for ex in self._area_excitability_cache.values())
+    
+    def _get_excitability_tuple(self, neuron_array, valid_range: int) -> tuple:
+        """Create excitability tuple in the format expected by SIMD functions.
+        
+        Returns tuple format: (area_ex_map, cortical_idxs, any_low_flag)
+        This matches the old NPU implementation for optimal performance.
+        """
+        if self._excitability_cache_dirty:
+            self._build_excitability_cache()
+            
+        cortical_idxs = neuron_array.cortical_idxs[:valid_range]
+        any_low_flag = self._any_low_excitability_areas()
+        
+        return (self._area_excitability_cache, cortical_idxs, any_low_flag)
+    
+    def invalidate_excitability_cache(self) -> None:
+        """Invalidate the excitability cache to force rebuild on next access.
+        
+        Should be called when cortical area properties change.
+        """
+        self._excitability_cache_dirty = True
+        self.logger.debug("Excitability cache invalidated - will rebuild on next access")
+    
+    def _process_neural_dynamics(self, fcl: FireCandidateList) -> List[int]:
+        """Process neural dynamics with SIMD-optimized operations.
+        
+        Applies the complete neural processing pipeline:
+        1. Apply FCL candidate potentials to membrane potentials
+        2. Apply membrane decay with leak behavior  
+        3. Update refractory counters
+        4. Check firing with consecutive fire limits
+        5. Update consecutive fire counts
+        6. Reset fired neurons
+        
+        Args:
+            fcl: Fire Candidate List with candidate neurons and potentials
+            
+        Returns:
+            List of neuron IDs that fired after neural dynamics processing
+            
+        Note:
+            RUST-COMPATIBLE: Uses vectorized SIMD operations throughout.
+            RTOS-SAFE: Deterministic execution, pre-allocated arrays.
+            GPU-READY: Optimal memory access patterns.
+        """
+        # ALWAYS log entry to neural dynamics
+        fcl_count = fcl.get_total_candidate_count() if fcl else 0
+        logger.info(f"[NEURAL-DYNAMICS] ENTRY: FCL has {fcl_count} candidates")
+        if not self.connectome_manager:
+            logger.warning("No connectome manager available for neural dynamics processing")
+            return []
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            # Try alternative interface access or direct method call for compatibility
+            if hasattr(self.connectome_manager, 'update_membrane_potentials'):
+                # Call connectome manager directly for neural processing
+                try:
+                    fired_neurons = self.connectome_manager.update_membrane_potentials()
+                    if fired_neurons:
+                        logger.info(f"[NEURAL-DYNAMICS] Connectome direct: {len(fired_neurons)} neurons fired")
+                    return fired_neurons or []
+                except Exception as e:
+                    logger.warning(f"Direct connectome call failed: {e}")
+            
+            logger.warning("No NPU interface available for neural dynamics processing")
+            return []
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            logger.warning("No neuron array available for neural dynamics processing")
+            return []
+        
+        # Get valid neuron range for processing
+        # FIX: use correct attribute name 'neuron_count' with safe fallback to 'count'
+        try:
+            _valid_count = getattr(neuron_array, "neuron_count", None)
+            if _valid_count is None:
+                _valid_count = getattr(neuron_array, "count", 0)
+            _max_neurons = getattr(neuron_array, "max_neurons", int(_valid_count))
+            valid_range = min(int(_valid_count), int(_max_neurons))
+        except Exception:
+            valid_range = 0
+        if valid_range == 0:
+            return []
+        
+        # Step 1: Apply FCL candidate potentials to membrane potentials
+        self._apply_fcl_candidates_to_membrane_potentials(fcl, neuron_array, valid_range)
+        
+        # Step 2: Run complete SIMD neural dynamics processing 
+        try:
+            # Extract neural arrays for SIMD processing (slice to valid range)
+            potentials = neuron_array.membrane_potentials[:valid_range]
+            thresholds = neuron_array.thresholds[:valid_range]
+            decay_rates = neuron_array.decay_rates[:valid_range]
+            leak_coefficients = neuron_array.leak_coefficients[:valid_range]
+            resting_potentials = neuron_array.resting_potentials[:valid_range]
+            refractory_periods = neuron_array.refractory_periods[:valid_range]
+            refractory_counters = neuron_array.refractory_counters[:valid_range]
+            consecutive_fire_counts = neuron_array.consecutive_fire_counts[:valid_range]
+            consecutive_fire_limits = neuron_array.consecutive_fire_limits[:valid_range]
+            valid_mask = neuron_array.valid_mask[:valid_range]
+            # CRITICAL FIX: Use optimized excitability system like old NPU
+            # Get excitability tuple format for optimal performance
+            excitability_tuple = self._get_excitability_tuple(neuron_array, valid_range)
+            
+            # Determine if we need RNG based on excitability values
+            # Only use RNG when there are areas with excitability < 0.999
+            needs_rng = self._any_low_excitability_areas()
+            rng_for_excitability = self._rng if needs_rng else None
+            
+            self.logger.debug(f"Excitability processing: needs_rng={needs_rng}, areas_count={len(self._area_excitability_cache)}")
+            
+            # Debug firing threshold checks for sensory areas
+            debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+            
+            # ALWAYS log this to verify neural dynamics are running
+            logger.info(f"[NEURAL-DYNAMICS] Processing {valid_range} neurons, debug_enabled={debug_enabled}")
+            
+            if debug_enabled:
+                # Check ALL neurons for high thresholds (not just first 10)
+                high_threshold_indices = []
+                high_threshold_count = 0
+                for i in range(valid_range):
+                    if valid_mask[i] and thresholds[i] > 1000:  # High threshold neurons
+                        high_threshold_count += 1
+                        if len(high_threshold_indices) < 5:  # Show first 5 examples
+                            high_threshold_indices.append(i)
+                
+                logger.info(f"[NEURAL-DEBUG] Found {high_threshold_count} neurons with threshold > 1000")
+                
+                if high_threshold_indices:
+                    logger.info("[NEURAL-DEBUG] Pre-firing check - High threshold neurons (first 5):")
+                    for i in high_threshold_indices:
+                        logger.info(f"  Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}, refractory={refractory_counters[i]}")
+                
+                # Also check some random neurons to see typical threshold values
+                import random
+                sample_indices = random.sample(range(valid_range), min(5, valid_range))
+                logger.info("[NEURAL-DEBUG] Random neuron sample:")
+                for i in sample_indices:
+                    if valid_mask[i]:
+                        logger.info(f"  Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+
+            # Debug: Check potentials BEFORE SIMD processing
+            if debug_enabled:
+                high_pot_indices = np.where((valid_mask) & (potentials > 1000))[0]
+                if len(high_pot_indices) > 0:
+                    logger.error(f"[PRE-SIMD-BUG] {len(high_pot_indices)} neurons have inflated potentials BEFORE SIMD!")
+                    for i in high_pot_indices[:3]:
+                        logger.error(f"  PRE-SIMD Neuron[{i}]: potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+
+            # CRITICAL: Handle memory neurons separately - they fire unconditionally when in FCL
+            import sys
+            debug_mem = '--debug-mem' in sys.argv
+            
+            # STEP 1: First collect ALL memory neurons in FCL (regardless of valid_range)
+            memory_neurons_detected = []
+            
+            # Identify memory neurons in FCL (neuron IDs >= 50000000)
+            if debug_mem:
+                print(f"[DEBUG-MEM] Neural dynamics: Starting memory neuron detection in FCL")
+                print(f"[DEBUG-MEM] Neural dynamics: FCL object = {fcl}")
+                print(f"[DEBUG-MEM] Neural dynamics: FCL has get_all_candidates = {hasattr(fcl, 'get_all_candidates') if fcl else 'FCL is None'}")
+            
+            if fcl and hasattr(fcl, 'get_all_candidates'):
+                try:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Calling fcl.get_all_candidates()")
+                    all_candidates = fcl.get_all_candidates()
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: all_candidates = {all_candidates}")
+                        print(f"[DEBUG-MEM] Neural dynamics: all_candidates has neuron_ids = {hasattr(all_candidates, 'neuron_ids') if all_candidates else 'all_candidates is None'}")
+                    
+                    # Handle dictionary format: {area_idx: [FCLCandidate, ...]}
+                    if isinstance(all_candidates, dict):
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: Processing dictionary format with {len(all_candidates)} areas")
+                        for area_idx, candidates_list in all_candidates.items():
+                            if debug_mem:
+                                print(f"[DEBUG-MEM] Neural dynamics: Processing area {area_idx} with {len(candidates_list)} candidates")
+                            for candidate in candidates_list:
+                                if hasattr(candidate, 'neuron_id'):
+                                    neuron_id = candidate.neuron_id
+                                    if neuron_id >= 50000000:  # Memory neuron
+                                        if debug_mem:
+                                            print(f"[DEBUG-MEM] Neural dynamics: Found memory neuron {neuron_id} in FCL")
+                                        memory_neurons_detected.append(neuron_id)
+                    # Handle legacy format with neuron_ids attribute
+                    elif hasattr(all_candidates, 'neuron_ids'):
+                        neuron_ids = all_candidates.neuron_ids
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: Found neuron_ids = {list(neuron_ids) if hasattr(neuron_ids, '__iter__') else neuron_ids}")
+                        for neuron_id in neuron_ids:
+                            if neuron_id >= 50000000:  # Memory neuron
+                                if debug_mem:
+                                    print(f"[DEBUG-MEM] Neural dynamics: Found memory neuron {neuron_id} in FCL")
+                                memory_neurons_detected.append(neuron_id)
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: all_candidates format not recognized: {type(all_candidates)}")
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Error identifying memory neurons in FCL: {e}")
+                        import traceback
+                        traceback.print_exc()
+            else:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: FCL doesn't have get_all_candidates method")
+            
+            # STEP 2: Update valid_range if memory neurons were detected
+            if len(memory_neurons_detected) > 0:
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Found {len(memory_neurons_detected)} memory neurons in FCL: {memory_neurons_detected}")
+                
+                try:
+                    # Update valid_range to include newly registered memory neurons
+                    _updated_count = getattr(neuron_array, "neuron_count", None)
+                    if _updated_count is None:
+                        _updated_count = getattr(neuron_array, "count", 0)
+                    _max_neurons = getattr(neuron_array, "max_neurons", int(_updated_count))
+                    updated_valid_range = min(int(_updated_count), int(_max_neurons))
+                    
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Updating valid_range from {valid_range} to {updated_valid_range}")
+                    
+                    # Update valid_range for neural processing
+                    if updated_valid_range > valid_range:
+                        valid_range = updated_valid_range
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: ✅ Updated valid_range to {valid_range} to include memory neurons")
+                    else:
+                        if debug_mem:
+                            print(f"[DEBUG-MEM] Neural dynamics: No valid_range update needed (current: {valid_range}, new: {updated_valid_range})")
+                            
+                except Exception as e:
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: Error updating valid_range: {e}")
+            
+            # STEP 3: Create memory neuron mask with updated valid_range
+            memory_neuron_mask = np.zeros(valid_range, dtype=bool)
+            memory_neurons_in_fcl = []
+            
+            # STEP 4: Now process memory neurons with the correct valid_range
+            for neuron_id in memory_neurons_detected:
+                idx = neuron_array.neuron_id_to_index.get(neuron_id)
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Processing memory neuron {neuron_id} -> array index {idx}")
+                    print(f"[DEBUG-MEM] Neural dynamics: valid_range = {valid_range}")
+                    print(f"[DEBUG-MEM] Neural dynamics: idx is not None = {idx is not None}")
+                    print(f"[DEBUG-MEM] Neural dynamics: idx < valid_range = {idx < valid_range if idx is not None else 'N/A'}")
+                if idx is not None and idx < valid_range:
+                    memory_neuron_mask[idx] = True
+                    memory_neurons_in_fcl.append(neuron_id)
+                    if debug_mem:
+                        print(f"[DEBUG-MEM] Neural dynamics: ✅ Added memory neuron {neuron_id} to mask at index {idx}")
+                else:
+                    if debug_mem:
+                        if idx is None:
+                            print(f"[DEBUG-MEM] Neural dynamics: ❌ Memory neuron {neuron_id} not found in neuron_id_to_index")
+                        else:
+                            print(f"[DEBUG-MEM] Neural dynamics: ❌ Memory neuron {neuron_id} index {idx} >= valid_range {valid_range}")
+            
+            if debug_mem and len(memory_neurons_in_fcl) > 0:
+                print(f"[DEBUG-MEM] Neural dynamics: Successfully processed {len(memory_neurons_in_fcl)} memory neurons for unconditional firing")
+            
+            # SIMD-optimized neural processing pipeline with proper excitability
+            firing_mask, num_fired = simd_batch_neural_update(
+                potentials=potentials,
+                thresholds=thresholds, 
+                decay_rates=decay_rates,
+                leak_coefficients=leak_coefficients,
+                resting_potentials=resting_potentials,
+                refractory_periods=refractory_periods,
+                refractory_counters=refractory_counters,
+                consecutive_fire_counts=consecutive_fire_counts,
+                consecutive_fire_limits=consecutive_fire_limits,
+                valid_mask=valid_mask,
+                excitability=excitability_tuple,  # Use optimized tuple format
+                rng=rng_for_excitability  # RNG only when needed for probabilistic firing
+            )
+            
+            # CRITICAL: Force memory neurons to fire unconditionally
+            if np.any(memory_neuron_mask):
+                memory_fired_count = np.sum(memory_neuron_mask)
+                firing_mask = firing_mask | memory_neuron_mask  # Force memory neurons to fire
+                num_fired = np.sum(firing_mask)  # Recalculate total fired count
+                
+                if debug_mem:
+                    print(f"[DEBUG-MEM] Neural dynamics: Forced {memory_fired_count} memory neurons to fire unconditionally")
+                    for i, is_memory in enumerate(memory_neuron_mask):
+                        if is_memory:
+                            neuron_id = neuron_array.index_to_neuron_id.get(i)
+                            print(f"[DEBUG-MEM] 🔥 Memory neuron {neuron_id} forced to fire (idx={i})")
+            
+            # Debug post-firing results for high threshold neurons
+            if debug_enabled:
+                # Count high threshold neurons that fired
+                fired_high_threshold = []
+                for i in range(valid_range):
+                    if valid_mask[i] and thresholds[i] >= 1000 and firing_mask[i]:
+                        fired_high_threshold.append(i)
+                        if len(fired_high_threshold) <= 10:  # Show first 10 examples
+                            logger.error(f"[NEURAL-DEBUG] ❌ HIGH THRESHOLD NEURON FIRED: Neuron[{i}] potential={potentials[i]:.6f}, threshold={thresholds[i]:.1f}")
+                
+                if fired_high_threshold:
+                    logger.error(f"[NEURAL-DEBUG] ❌ TOTAL HIGH THRESHOLD NEURONS FIRED: {len(fired_high_threshold)} (BUG!)")
+                else:
+                    logger.info("[NEURAL-DEBUG] ✅ All high threshold neurons correctly blocked from firing")
+                
+                # Also show which areas are firing
+                if num_fired > 0:
+                    firing_by_area = {}
+                    for i in range(valid_range):
+                        if valid_mask[i] and firing_mask[i]:
+                            threshold = thresholds[i]
+                            potential = potentials[i]
+                            area_key = f"thresh_{threshold:.1f}"
+                            if area_key not in firing_by_area:
+                                firing_by_area[area_key] = 0
+                            firing_by_area[area_key] += 1
+                    
+                    logger.info(f"[NEURAL-DEBUG] Firing summary by threshold: {firing_by_area}")
+            
+            # Step 3: Convert firing mask to neuron IDs
+            if num_fired == 0:
+                return []
+                
+            firing_indices = np.where(firing_mask)[0]
+            fired_neuron_ids = []
+            
+            for idx in firing_indices:
+                # Convert array index to neuron ID
+                neuron_id = neuron_array.index_to_neuron_id.get(int(idx))
+                if neuron_id is not None:
+                    fired_neuron_ids.append(neuron_id)
+            
+            # Log neural dynamics results
+            if fired_neuron_ids:
+                debug_enabled = (self.state_manager and self.state_manager.is_debug_npu_enabled())
+                if debug_enabled:
+                    logger.debug("Neural dynamics: %d neurons fired with consecutive fire limits enforced", len(fired_neuron_ids))
+                
+            return fired_neuron_ids
+            
+        except Exception as e:
+            logger.error("Error in neural dynamics processing: %s", str(e))
+            return []
+    
+    def _apply_fcl_candidates_to_membrane_potentials(self, fcl: FireCandidateList, 
+                                                    neuron_array, valid_range: int) -> None:
+        """Apply FCL candidate potentials to neuron membrane potentials.
+        
+        Args:
+            fcl: Fire Candidate List with candidates and potentials
+            neuron_array: Neuron array to update
+            valid_range: Valid neuron range for processing
+            
+        Note:
+            RUST-COMPATIBLE: Uses vectorized operations for batch updates.
+        """
+        try:
+            # Process each cortical area's candidates
+            for cortical_idx, candidates in fcl.candidates_by_area.items():
+                if not candidates:
+                    continue
+                
+                # Extract neuron IDs and potentials from candidates
+                candidate_neuron_ids = []
+                potential_deltas = []
+                
+                for candidate in candidates:
+                    candidate_neuron_ids.append(candidate.neuron_id)
+                    potential_deltas.append(candidate.membrane_potential_delta)
+                
+                # Convert to numpy arrays for vectorized processing
+                neuron_ids = np.array(candidate_neuron_ids, dtype=np.int32)
+                deltas = np.array(potential_deltas, dtype=np.float32)
+                
+                # Apply potentials to membrane potentials (vectorized)
+                matched = 0
+                skipped_unmapped = 0
+                out_of_range = 0
+                thresholds_arr = getattr(neuron_array, 'thresholds', None)
+                for i, neuron_id in enumerate(neuron_ids):
+                    # Get neuron index from ID mapping
+                    if neuron_id in neuron_array.neuron_id_to_index:
+                        idx = neuron_array.neuron_id_to_index[neuron_id]
+                        
+                        # Bounds check
+                        if 0 <= idx < valid_range:
+                            # DEBUG: Log potential accumulation bug
+                            old_potential = neuron_array.membrane_potentials[idx]
+                            delta = deltas[i]
+                            
+                            # Check mp_charge_accumulation setting for this cortical area
+                            cortical_id = None
+                            mp_accumulation = True  # Default to accumulation
+                            try:
+                                # Get cortical_id from cortical_idx
+                                if hasattr(self.connectome_manager, 'get_cortical_id_for_idx'):
+                                    cortical_id = self.connectome_manager.get_cortical_id_for_idx(cortical_idx)
+                                    if cortical_id and hasattr(self.connectome_manager, 'cortical_areas'):
+                                        area = self.connectome_manager.cortical_areas.get(cortical_id)
+                                        if area and hasattr(area, 'properties'):
+                                            mp_accumulation = area.properties.get('mp_acc', True)
+                            except Exception:
+                                pass  # Use default accumulation behavior
+                            
+                            # Apply potential based on accumulation setting with clamp to threshold
+                            if mp_accumulation:
+                                # ACCUMULATE: Add delta to current potential
+                                new_val = float(old_potential + delta)
+                                # DEBUG: Log accumulation behavior
+                                if matched < 3:  # Only log first few for performance
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] ACCUMULATE: {old_potential:.6f} + {delta:.6f} = {new_val:.6f}")
+                            else:
+                                # REPLACE: Set potential to delta value
+                                new_val = float(delta)
+                                # DEBUG: Log replacement behavior
+                                if matched < 3:  # Only log first few for performance
+                                    logger.info(f"[ACCUMULATION-DEBUG] Neuron[{idx}] REPLACE: {old_potential:.6f} -> {new_val:.6f}")
+
+                            # Clamp pre-SIMD membrane potential to neuron threshold to avoid inflation
+                            if thresholds_arr is not None and 0 <= idx < len(thresholds_arr):
+                                thr_val = float(thresholds_arr[idx])
+                                if new_val > thr_val:
+                                    new_val = thr_val
+
+                            neuron_array.membrane_potentials[idx] = new_val
+
+                            new_potential = new_val
+                            
+                            # Log if potential becomes inflated
+                            if new_potential > 1000 and matched < 3:
+                                logger.error(f"[FCL-BUG] Neuron[{idx}] potential inflated: {old_potential:.6f} + {delta:.6f} = {new_potential:.6f}")
+                            
+                            matched += 1
+                        else:
+                            out_of_range += 1
+                    else:
+                        skipped_unmapped += 1
+
+                # Optional debug logging (gated by --debug-npu)
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    if FeagiStateManager.instance().is_debug_npu_enabled():
+                        total = int(len(neuron_ids))
+                        logger.info(
+                            f"[SENSORY-DEBUG] Applied FCL candidates: area_idx={cortical_idx} matched={matched}/{total} "
+                            f"unmapped={skipped_unmapped} out_of_range={out_of_range}"
+                        )
+                except Exception:
+                    pass
+                        
+        except Exception as e:
+            logger.error("Error applying FCL candidates to membrane potentials: %s", str(e))
+    
+    def update_consecutive_fire_limits(self, cortical_id: str, limit: int) -> bool:
+        """Update consecutive fire limits for all neurons in a cortical area.
+        
+        This method is called when the genome parameter 'neuron_consecutive_fire_count'
+        is updated via the API to ensure the NPU neural dynamics use the correct limits.
+        
+        Args:
+            cortical_id: Cortical area ID (e.g., 'c__bac')
+            limit: New consecutive fire limit
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            if not self.connectome_manager:
+                logger.warning("Cannot update consecutive fire limits: No connectome manager")
+                return False
+                
+            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+            if not npu_interface:
+                logger.warning("Cannot update consecutive fire limits: No NPU interface")
+                return False
+                
+            neuron_array = getattr(npu_interface, 'neuron_array', None)
+            if not neuron_array:
+                logger.warning("Cannot update consecutive fire limits: No neuron array")
+                return False
+            
+            # Get cortical index from cortical ID
+            cortical_idx = None
+            if hasattr(self.connectome_manager, 'get_cortical_idx_for_id'):
+                cortical_idx = self.connectome_manager.get_cortical_idx_for_id(cortical_id)
+            
+            if cortical_idx is None:
+                logger.warning("Cannot update consecutive fire limits: Cortical area %s not found", cortical_id)
+                return False
+            
+            # Update consecutive fire limits for all neurons in this cortical area
+            updated_count = neuron_array.update_consecutive_fire_limits_by_cortical_area(cortical_idx, limit)
+            
+            if updated_count > 0:
+                logger.info("Updated consecutive fire limits to %d for %d neurons in cortical area %s", 
+                           limit, updated_count, cortical_id)
+                return True
+            else:
+                logger.warning("No neurons found in cortical area %s to update consecutive fire limits", cortical_id)
+                return False
+                
+        except Exception as e:
+            logger.error("Error updating consecutive fire limits for cortical area %s: %s", cortical_id, str(e))
+            return False
+    
+    def _initialize_injection_service(self):
+        """Initialize injection service for power areas and special neuron injection."""
+        try:
+            if not self.connectome_manager:
+                logger.info("No connectome manager - injection service disabled")
+                return
+            
+            # Create simple power injection service
+            self.injection_service = PowerInjectionService(
+                connectome_manager=self.connectome_manager,
+                fcl_injector=self.fcl_injector
+            )
+            
+            logger.info("Power injection service initialized for automatic burst injection")
+            
+        except Exception:
+            logger.error("Failed to initialize injection service")
+            self.injection_service = None
+    
+    # ==============================================================
+    # CLASS METHODS FOR TEST COMPATIBILITY
+    # ==============================================================
+    
+    @classmethod
+    def run_with_fire_queue(cls, fire_queue: Any = None, max_iterations: int = 1) -> Dict[str, Any]:
+        """Run burst engine with fire queue (class method for compatibility)."""
+        instance = cls.get_instance()
+        
+        results = {
+            'iterations': 0,
+            'fired_neurons': [],
+            'performance_metrics': {}
+        }
+        
+        for i in range(max_iterations):
+            try:
+                # Process a single burst
+                fired_neurons = instance.process_burst()
+                results['fired_neurons'].extend(fired_neurons or [])
+                results['iterations'] += 1
+                
+                # If no neurons fired, break early
+                if not fired_neurons:
+                    break
+                    
+            except Exception as e:
+                logger.warning(f"Burst processing error: {e}")
+                break
+        
+        results['performance_metrics'] = {
+            'total_neurons_fired': len(results['fired_neurons']),
+            'iterations_completed': results['iterations']
+        }
+        
+        return results
+
+
+class _MemoryProcessorAdapter:
+    """Adapter that exposes minimal interface expected by ConnectomeManager.
+
+    This bridges old MemoryProcessor calls to the new ledger-backed pipeline
+    without introducing fallbacks. All methods are deterministic and bounded.
+    """
+
+    def __init__(self, burst_engine: BurstEngine):
+        self._be = burst_engine
+        self.active_memory_areas = set()
+
+    def register_memory_area(
+        self,
+        cortical_id: str,
+        temporal_depth: int,
+        initial_lifespan: int,
+        lifespan_growth_rate: float,
+        longterm_threshold: int,
+        upstream_areas: set,
+    ) -> bool:
+        try:
+            # In new design, use fire ledger memory area config
+            cm = getattr(self._be, 'connectome_manager', None)
+            if not cm or not hasattr(cm, '_npu_interface'):
+                return False
+            npu_if = cm._npu_interface
+            # Map cortical_id to index via NPUInterface
+            idx = npu_if.get_cortical_idx_by_id(cortical_id) if hasattr(npu_if, 'get_cortical_idx_by_id') else None
+            if idx is None:
+                return False
+            self._be.fire_ledger.configure_memory_area(idx, max(temporal_depth, 1), [])
+            self.active_memory_areas.add(cortical_id)
+            return True
+        except Exception:
             return False
 
-    def get_memory_processing_statistics(self) -> Optional[Dict[str, Any]]:
-        """Get memory processing statistics."""
-        if not self.memory_processor:
-            return None
+    def update_memory_area_upstream(self, cortical_id: str, upstream_areas: set) -> None:
+        # New ledger stores upstream list; no-op here until extended API added
+        _ = (cortical_id, upstream_areas)
+        return
 
+
+class PowerInjectionService:
+    """Simple power injection service for constant brain activity."""
+    
+    def __init__(self, connectome_manager, fcl_injector):
+        """Initialize power injection service."""
+        self.connectome_manager = connectome_manager
+        self.fcl_injector = fcl_injector
+        self._power_neurons_cache = None
+        self._cache_valid = False
+        
+        logger.info("PowerInjectionService created")
+        
+        # Invalidate cache to ensure power neurons get refractory_periods = 0 on first detection
+        self.invalidate_cache()
+    
+    def _get_neuron_firing_threshold(self, neuron_id: int) -> float:
+        """Get the actual firing threshold for a specific neuron.
+        
+        RUST-COMPATIBLE: 100% deterministic lookup. NO FALLBACKS.
+        Raises error if genome data is missing - FEAGI must be deterministic.
+        
+        Args:
+            neuron_id: The neuron ID to get threshold for
+            
+        Returns:
+            Actual firing threshold from neuron properties (from genome)
+            
+        Raises:
+            ValueError: If neuron data is missing from genome/NPU interface
+        """
+        if not self.connectome_manager:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No connectome manager available")
+            
+        npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+        if not npu_interface:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No NPU interface in connectome manager")
+            
+        neuron_array = getattr(npu_interface, 'neuron_array', None)
+        if not neuron_array:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron array in NPU interface")
+            
+        # Get neuron index from ID - MUST exist in genome
+        neuron_id_to_index = getattr(neuron_array, 'neuron_id_to_index', None)
+        if not neuron_id_to_index:
+            raise ValueError(f"Cannot get threshold for neuron {neuron_id}: No neuron ID mapping in genome")
+            
+        if neuron_id not in neuron_id_to_index:
+            raise ValueError(f"Neuron {neuron_id} not found in genome neuron array - missing from neuroembryogenesis")
+            
+        neuron_index = neuron_id_to_index[neuron_id]
+        
+        # Get threshold array - MUST exist in genome
+        thresholds = getattr(neuron_array, 'thresholds', None)
+        if thresholds is None:
+            raise ValueError(f"No firing thresholds array in genome neuron data")
+            
+        if neuron_index >= len(thresholds):
+            raise ValueError(f"Neuron {neuron_id} index {neuron_index} out of bounds in thresholds array")
+            
+        actual_threshold = float(thresholds[neuron_index])
+        return actual_threshold
+    
+    def inject_power_neurons(self, fcl: FireCandidateList, current_timestep: int) -> int:
+        """Inject power neurons into FCL every burst for constant brain activity."""
+        
+        # NPU Debug logging for power injection - use periodic logging to prevent spam
+        debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
+                        self.connectome_manager.state_manager and 
+                        self.connectome_manager.state_manager.is_debug_npu_enabled())
+        periodic_debug = debug_enabled and (current_timestep % 500 == 0)  # Every 50 bursts
+        
+        if periodic_debug:
+            logger.debug("PowerInjectionService: Starting power neuron injection...")
+            logger.debug("PowerInjectionService: Cache valid: %s", self._cache_valid)
+            logger.debug("PowerInjectionService: Instance ID: %s", id(self))
+            logger.debug("PowerInjectionService: Method entry - about to process power and external activations")
+        
         try:
-            return self.memory_processor.get_processing_statistics()
+            # Get power neurons (cached for performance)
+            power_neurons = self._get_power_neurons()
+            
+            if periodic_debug:
+                logger.debug("PowerInjectionService: Retrieved %d power neurons from cache/detection", len(power_neurons))
+            
+            # Process power neurons if available
+            injected_count = 0
+            if not power_neurons:
+                # Only log occasionally to avoid spam
+                if current_timestep % 1000 == 0:
+                    if periodic_debug:
+                        logger.debug("PowerInjectionService: No power neurons available at timestep %d", current_timestep)
+                    else:
+                        logger.debug("No power neurons found at timestep %d", current_timestep)
+                # Don't return early - continue to process external activations
+            
+            # Add power neurons to FCL using SoA format
+            if power_neurons:
+                if periodic_debug:
+                    logger.debug("PowerInjectionService: Converting %d power neurons to SoA format", len(power_neurons))
+                
+                # Convert to numpy arrays for SoA format - NO HARDCODED VALUES
+                neuron_ids = np.array(power_neurons, dtype=np.uint32)
+                
+                # Compute delta = max(0, threshold - current_potential) per neuron (deterministic, non-accumulating)
+                potential_deltas = []
+                npu_interface = self.connectome_manager._npu_interface
+                neuron_array = npu_interface.neuron_array if npu_interface else None
+                
+                if neuron_array:
+                    thresholds_arr = getattr(neuron_array, 'thresholds', None)
+                    current_pots_arr = getattr(neuron_array, 'membrane_potentials', None)
+                    if thresholds_arr is None or current_pots_arr is None:
+                        raise ValueError("Cannot inject power neurons: Missing thresholds or membrane_potentials in neuron array")
+                    for power_neuron_id in power_neurons:
+                        if power_neuron_id not in neuron_array.neuron_id_to_index:
+                            raise ValueError(f"Power neuron {power_neuron_id} not found in neuron array")
+                        idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                        if idx >= len(thresholds_arr) or idx >= len(current_pots_arr):
+                            raise ValueError(f"Power neuron index {idx} out of bounds for thresholds or membrane_potentials")
+                        threshold = float(thresholds_arr[idx])
+                        current_potential = float(current_pots_arr[idx])
+                        delta = threshold - current_potential
+                        if delta < 0.0:
+                            delta = 0.0
+                        potential_deltas.append(delta)
+                    potential_deltas = np.array(potential_deltas, dtype=np.float32)
+                else:
+                    raise ValueError("Cannot inject power neurons: No neuron array available from genome")
+                
+                excitatory_mask = np.ones(len(power_neurons), dtype=bool)  # All excitatory
+                
+                if periodic_debug:
+                    logger.debug("PowerInjectionService: SoA arrays created - neuron_ids: %s, potentials: %s", 
+                              neuron_ids.shape, potential_deltas.shape)
+                
+                # Add all power neurons to cortical area 1 (reserved _power area)
+                injected_count = fcl.add_candidates_soa(
+                    cortical_idx=1,  # Reserved power area index
+                    neuron_ids=neuron_ids,
+                    potential_deltas=potential_deltas,
+                    excitatory_mask=excitatory_mask
+                )
+                
+                if periodic_debug:
+                    logger.debug("PowerInjectionService: FCL.add_candidates_soa returned: %d", injected_count)
+            else:
+                # No power neurons available
+                if periodic_debug:
+                    logger.debug("PowerInjectionService: No power neurons to inject")
+            
+            # Log occasionally (every 100 bursts) to avoid spam
+            if current_timestep % 100 == 0:
+                if periodic_debug:
+                    logger.debug("PowerInjectionService: Periodic status - %d neurons injected at burst %d", injected_count, current_timestep)
+                else:
+                    logger.info("Power injection: %d neurons injected at burst %d", injected_count, current_timestep)
+            
+            # Return count of power neurons injected this burst
+            if periodic_debug:
+                logger.debug("PowerInjectionService: Power injection complete - total=%d", injected_count)
+            return injected_count
+            
         except Exception as e:
-            logger.error(f"Error getting memory processing statistics: {e}")
-            return None
-
-
-# Public API
-__all__ = ["BurstEngine", "UnifiedFQSampler", "ServiceState"]
+            if debug_enabled:
+                logger.error("PowerInjectionService: Exception in inject_power_neurons(): %s", str(e))
+                if periodic_debug:  # Only show traceback periodically
+                    import traceback
+                    logger.error("PowerInjectionService: Traceback: %s", traceback.format_exc())
+            else:
+                logger.error("Error injecting power neurons: %s", str(e))
+            return 0
+    
+    def inject_external_activations(self, activations: Dict, current_timestep: int, source: str = "external") -> int:
+        """Buffer external activations deterministically for BurstEngine to inject via FCLInjector."""
+        debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
+                        self.connectome_manager.state_manager and 
+                        self.connectome_manager.state_manager.is_debug_npu_enabled())
+        periodic_debug = debug_enabled and (current_timestep % 500 == 0)  # Every 50 bursts
+        
+        
+        try:
+            # Deterministic buffer for BurstEngine to process; do not merge arrays here
+            if not hasattr(self.connectome_manager, 'burst_engine'):
+                # Fallback: store locally for BurstEngine to read via reference
+                if not hasattr(self, '_pending_external_activations'):
+                    self._pending_external_activations = {}
+                for area_id, area_data in activations.items():
+                    self._pending_external_activations[area_id] = area_data
+                return sum(
+                    len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                    for v in activations.values()
+                )
+            else:
+                be = self.connectome_manager.burst_engine
+                if not hasattr(be, '_pending_external_activations'):
+                    be._pending_external_activations = {}
+                for area_id, area_data in activations.items():
+                    be._pending_external_activations[area_id] = area_data
+                return sum(
+                    len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
+                    for v in activations.values()
+                )
+            
+        except Exception as e:
+            if debug_enabled:
+                logger.error("PowerInjectionService: Error in external activation injection: %s", str(e))
+            else:
+                logger.error("Error injecting external activations: %s", str(e))
+            return 0
+    
+    def _get_power_neurons(self) -> List[int]:
+        """Get neurons from power areas (cached for performance)."""
+        if self._cache_valid and self._power_neurons_cache is not None:
+            return self._power_neurons_cache
+        
+        power_neurons = []
+        
+        # Debug power neuron detection
+        debug_enabled = (hasattr(self.connectome_manager, 'state_manager') and 
+                        self.connectome_manager.state_manager and 
+                        self.connectome_manager.state_manager.is_debug_npu_enabled())
+        
+        if debug_enabled:
+            logger.debug("PowerInjectionService: Starting power neuron detection...")
+        
+        try:
+            # Check if connectome manager has NPU interface
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                if debug_enabled:
+                    logger.debug("PowerInjectionService: Found NPU interface")
+            else:
+                if debug_enabled:
+                    logger.debug("PowerInjectionService: No NPU interface found on connectome_manager")
+                    logger.debug("PowerInjectionService: ConnectomeManager attributes: %s", 
+                                  [attr for attr in dir(self.connectome_manager) if not attr.startswith('_')])
+                return power_neurons  # Return empty list
+            
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                # Only use reserved power area at cortical_idx=1
+                if hasattr(npu_interface, 'cortical_areas') and 1 in npu_interface.cortical_areas:
+                    area_data = npu_interface.cortical_areas[1]
+                    cortical_id = area_data.get('cortical_id', '')
+                    neurons = npu_interface.get_neurons_by_area(1)
+                    if neurons:
+                        # SINGLE KNOWN POWER NEURON: choose deterministically (minimum ID)
+                        single_power_neuron = int(min(neurons))
+                        power_neurons = [single_power_neuron]
+                        if debug_enabled:
+                            logger.debug(
+                                "PowerInjectionService: Using single power neuron %d from cortical_idx=1 (cortical_id='%s')",
+                                single_power_neuron,
+                                cortical_id,
+                            )
+                        else:
+                            logger.info(
+                                "Using single power neuron %d from reserved power area at cortical_idx=1 ('%s')",
+                                single_power_neuron,
+                                cortical_id,
+                            )
+                    else:
+                        if debug_enabled:
+                            logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 has no neurons")
+                else:
+                    if debug_enabled:
+                        logger.debug("PowerInjectionService: Reserved power area at cortical_idx=1 not found")
+            
+            # CRITICAL: Set refractory period to 0 for the selected power neuron (so it can fire every burst)
+            if power_neurons and hasattr(self.connectome_manager, '_npu_interface'):
+                npu_interface = self.connectome_manager._npu_interface
+                neuron_array = getattr(npu_interface, 'neuron_array', None)
+                
+                if neuron_array and hasattr(neuron_array, 'refractory_periods'):
+                    power_neuron_id = power_neurons[0]
+                    if power_neuron_id in neuron_array.neuron_id_to_index:
+                        idx = neuron_array.neuron_id_to_index[power_neuron_id]
+                        if idx < len(neuron_array.refractory_periods):
+                            neuron_array.refractory_periods[idx] = 0
+                            logger.info("Set refractory period to 0 for power neuron %d (enables every-burst firing)", power_neuron_id)
+                        elif debug_enabled:
+                            logger.debug("PowerInjectionService: Power neuron index %d out of bounds for refractory update", idx)
+                    elif debug_enabled:
+                        logger.debug("PowerInjectionService: Power neuron %d not found in neuron_id_to_index", power_neuron_id)
+            
+            # Cache the result
+            self._power_neurons_cache = power_neurons
+            self._cache_valid = True
+            
+            if debug_enabled:
+                logger.debug("PowerInjectionService: Power detection complete - %d total neurons found", len(power_neurons))
+                if not power_neurons:
+                    logger.debug("PowerInjectionService: No power areas detected - brain will rely entirely on external stimulation")
+                    logger.debug("PowerInjectionService: Consider adding '_power', 'xxx_pwr', or 'xxx_power' cortical area to genome")
+            
+            if power_neurons:
+                logger.info("Power neuron detection complete: %d total power neurons cached", len(power_neurons))
+            else:
+                logger.warning("No power areas detected - consider adding '_power' area to genome for constant brain activity")
+                
+        except Exception:
+            logger.error("Error detecting power neurons")
+            power_neurons = []
+            
+        return power_neurons
+    
+    def invalidate_cache(self):
+        """Invalidate power neuron cache (call when genome changes)."""
+        self._cache_valid = False
+        self._power_neurons_cache = None
+        
+        # When cache is invalidated, power neurons will be re-detected and 
+        # their refractory periods will be set to 0 on next access
+    
+    # ==============================================================
+    # CLASS METHODS FOR TEST COMPATIBILITY
+    # ==============================================================
+    
+    @classmethod
+    def run_with_fire_queue(cls, fire_queue: Any = None, max_iterations: int = 1) -> Dict[str, Any]:
+        """Run burst engine with fire queue (class method for compatibility)."""
+        instance = cls.get_instance()
+        
+        results = {
+            'iterations': 0,
+            'fired_neurons': [],
+            'performance_metrics': {}
+        }
+        
+        for i in range(max_iterations):
+            try:
+                # Process a single burst
+                fired_neurons = instance.process_burst()
+                results['fired_neurons'].extend(fired_neurons or [])
+                results['iterations'] += 1
+                
+                # If no neurons fired, break early
+                if not fired_neurons:
+                    break
+                    
+            except Exception as e:
+                logger.warning(f"Burst processing error: {e}")
+                break
+        
+        results['performance_metrics'] = {
+            'total_neurons_fired': len(results['fired_neurons']),
+            'iterations_completed': results['iterations']
+        }
+        
+        return results

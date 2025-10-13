@@ -234,12 +234,21 @@ def test_synaptogenesis(embryo, genome_file):
     # Determine if genome has any cortical mappings using the same method as the actual code
     mappings_start = time.time()
 
-    # Use the EVO genome processor to check for mappings (same as the actual implementation)
-    from feagi.evo.genome_processor import create_genome_processor
-
-    processor = create_genome_processor(embryo.genome)
-    cortical_mappings = processor.extract_cortical_mappings()
-    has_mappings = len(cortical_mappings) > 0
+    # Check for mappings in the genome blueprint directly
+    blueprint = embryo.genome.get("blueprint", {})
+    has_mappings = False
+    
+    # Look for cortical mapping keys: "_____10c-{cortical_id}-cx-dstmap-d"
+    for gene_key, gene_value in blueprint.items():
+        if (
+            isinstance(gene_key, str)
+            and gene_key.startswith("_____10c-")
+            and gene_key.endswith("-cx-dstmap-d")
+            and isinstance(gene_value, dict)
+            and gene_value
+        ):
+            has_mappings = True
+            break
 
     mappings_end = time.time()
     print(f"Mapping check time: {mappings_end - mappings_start:.3f} seconds")

@@ -52,7 +52,7 @@ class ByteStructureEncoder:
 
         # Create the main mapped neuron data container
         generated_mapped_neuron_data = (
-            self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+            self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData()
         )
 
         # Organize data by cortical area for high-performance encoding
@@ -142,15 +142,16 @@ class ByteStructureDecoder:
     def decode_message(self, data: bytes) -> dict:
         """Decode FeagiByteStructure format to dictionary."""
         # Create a FeagiByteStructure from the bytes
-        byte_structure = self.frpl.io_processing.bytes.FeagiByteStructure(data)
-        structure_type = byte_structure.try_get_structure_type()
+        byte_structure = self.frpl.data_serialization.FeagiByteStructure(data)
+        structure_type = byte_structure.structure_type
 
         if structure_type == 11:  # NeuronCategoricalXYZP
             # Create CorticalMappedXYZPNeuronData from the byte structure
             cortical_mapped = (
-                self.frpl.neuron_data.xyzp.CorticalMappedXYZPNeuronData()
+                self.frpl.data_structures.neurons.xyzp.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(
+                    byte_structure
+                )
             )
-            cortical_mapped.from_feagi_byte_structure(byte_structure)
 
             # Extract data (this is a simplified extraction)
             return {"type": "neuron_data", "structure_type": structure_type}
