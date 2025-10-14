@@ -137,6 +137,136 @@ The debug flags provide valuable information during test development:
 - `--debug-npu`: Shows real-time neuron firing data and fire queue contents
 - `--debug-api`: Shows HTTP request/response details and API middleware operations
 
+## Rust Testing
+
+FEAGI includes high-performance Rust implementations for performance-critical components. There are three types of Rust tests:
+
+### 1. Native Rust Tests (cargo test)
+
+These tests run entirely in Rust without Python involvement:
+
+```bash
+# Run all Rust tests
+cd feagi-rust
+cargo test --workspace
+
+# Run tests with output
+cargo test --workspace -- --nocapture
+
+# Run specific crate tests
+cargo test -p feagi-burst-engine
+cargo test -p feagi-types
+
+# Run with optimizations (release mode)
+cargo test --workspace --release
+```
+
+### 2. Python-Rust Binding Tests
+
+These tests verify that Rust implementations can be correctly accessed from Python:
+
+```bash
+# Run all binding tests (tests/rust/binding/)
+pytest tests/rust/binding/ -v
+
+# Run specific binding tests
+pytest tests/rust/binding/bdu/test_connectome_bindings.py -v
+
+# Skip tests if Rust bindings aren't available
+pytest tests/rust/binding/ -v  # automatically skips if import fails
+```
+
+### 3. Rust Integration Tests
+
+These tests verify end-to-end integration between Python and Rust:
+
+```bash
+# Run Rust NPU integration tests
+pytest tests/npu/test_rust_refractory_actual.py -v
+pytest tests/npu/test_rust_fire_ledger_validation.py -v
+
+# Run Rust RTOS compatibility tests
+pytest tests/npu/test_rtos_rust_compatibility.py -v
+
+# Run integration test script
+python test_rust_integration.py
+python test_rust_npu_integration.py
+```
+
+### Building the Rust Extension
+
+Before running Python-Rust tests, build the extension module:
+
+```bash
+# Build in release mode (optimized)
+cd feagi-rust
+cargo build --release -p feagi-python
+
+# The extension will be built as:
+# - macOS: target/release/libfeagi_rust.dylib
+# - Linux: target/release/libfeagi_rust.so
+# - Windows: target/release/feagi_rust.dll
+
+# Create Python-compatible symlink (macOS)
+cd target/release
+ln -sf libfeagi_rust.dylib feagi_rust.so
+
+# Or use the build script (from feagi_core root)
+python scripts/build_rust_extensions.py
+```
+
+### Rust Test Organization
+
+```
+tests/rust/
+├── unit/               # Tests that run native Rust tests via subprocess
+│   └── bdu/
+│       └── test_connectome_rs.py
+└── binding/            # Tests that verify Python-Rust bindings
+    └── bdu/
+        └── test_connectome_bindings.py
+
+tests/npu/
+├── test_rust_refractory_actual.py        # NPU Rust integration
+├── test_rust_fire_ledger_validation.py   # Fire ledger Rust integration
+└── test_rtos_rust_compatibility.py       # RTOS compatibility validation
+```
+
+### Checking Rust Availability
+
+Tests automatically skip if Rust isn't available:
+
+```python
+# Binding tests check for module import
+try:
+    from feagi_rust.bdu import ConnectomeManager
+    RUST_AVAILABLE = True
+except ImportError:
+    RUST_AVAILABLE = False
+
+# Unit tests check for cargo command
+try:
+    subprocess.run(["cargo", "--version"], check=True)
+    RUST_AVAILABLE = True
+except (subprocess.SubprocessError, FileNotFoundError):
+    RUST_AVAILABLE = False
+```
+
+### Troubleshooting Rust Tests
+
+**Problem**: `ImportError: cannot import name 'feagi_rust'`
+- **Solution**: Build the Rust extension first (see "Building the Rust Extension" above)
+
+**Problem**: `cargo: command not found`
+- **Solution**: Install Rust from [rustup.rs](https://rustup.rs/)
+
+**Problem**: Tests are skipped with "Rust bindings not available"
+- **Solution**: Verify the extension is built and in the correct location
+- Check: `ls feagi-rust/target/release/feagi_rust.so` (or `.dylib` on macOS)
+
+**Problem**: Rust tests fail to compile
+- **Solution**: Ensure you have the latest Rust toolchain: `rustup update`
+
 ## Using Test Markers
 
 We use pytest markers to categorize tests:
@@ -160,7 +290,7 @@ def test_wgpu_specific_function():
 
 @pytest.mark.rust
 def test_rust_implementation():
-    # Test for Rust implementation
+    # Test for Rust implementation (runs native Rust tests)
 
 @pytest.mark.binding
 def test_rust_python_binding():
@@ -170,8 +300,17 @@ def test_rust_python_binding():
 To run tests with specific markers:
 
 ```bash
+# Run Rust-related tests
+pytest -m rust -v
+pytest -m binding -v
+
+# Run performance tests
 pytest -m performance
+
+# Exclude slow tests
 pytest -m "not slow"
-pytest -m "wgpu and not slow"
+
+# Combine markers
+pytest -m "rust and not slow"
 pytest -m "binding and not cuda"
 ```
