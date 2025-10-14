@@ -1334,6 +1334,14 @@ class NeuroEmbryogenesis:
             logger.info(
                 f"[FAST-SoA] Neurogenesis completed: {total_neurons} neurons in {duration:.3f}s"
             )
+            
+            # Update state manager counts after neurogenesis completes
+            try:
+                self.connectome_manager._update_brain_statistics()
+                logger.info("✅ Updated state manager after neurogenesis")
+            except Exception as e:
+                logger.warning(f"Failed to update state manager after neurogenesis: {e}")
+            
             return True
 
         except Exception as e:
@@ -1563,6 +1571,14 @@ class NeuroEmbryogenesis:
                 f"Created {total_synapses} synaptic connections",
             )
             self.development_stats["total_synapses"] = total_synapses
+            
+            # Update state manager counts after synaptogenesis completes
+            try:
+                self.connectome_manager._update_brain_statistics()
+                logger.info("✅ Updated state manager after synaptogenesis")
+            except Exception as e:
+                logger.warning(f"Failed to update state manager after synaptogenesis: {e}")
+            
             return True
 
         except Exception as e:
@@ -1759,6 +1775,16 @@ class NeuroEmbryogenesis:
 
         # NOTE: Memory mapping rescan is handled automatically during genome processing
         # The rescan_all_memory_mappings() method is available for manual use if needed
+        
+        # Final comprehensive brain statistics update after all development is complete
+        try:
+            self.connectome_manager._update_brain_statistics()
+            logger.info(
+                f"✅ Final brain stats: {self.connectome_manager.get_neuron_count()} neurons, "
+                f"{self.connectome_manager.get_synapse_count()} synapses"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update final brain statistics: {e}")
 
         return True
 
@@ -2065,6 +2091,16 @@ class NeuroEmbryogenesis:
             f"{self.development_stats['total_neurons']} neurons, and "
             f"{self.development_stats['total_synapses']} synapses.",
         )
+        
+        # Final comprehensive brain statistics update after all development is complete
+        try:
+            self.connectome_manager._update_brain_statistics()
+            logger.info(
+                f"✅ Final brain stats: {self.connectome_manager.get_neuron_count()} neurons, "
+                f"{self.connectome_manager.get_synapse_count()} synapses"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update final brain statistics: {e}")
 
         # CRITICAL DEBUG: Check actual counts at completion of neuroembryogenesis
         logger.info("🧠 [NEUROEMBRYOGENESIS] Brain development completed - checking actual counts:")

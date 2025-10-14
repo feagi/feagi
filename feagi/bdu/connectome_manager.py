@@ -1953,18 +1953,43 @@ class ConnectomeManager(NeuronMappingProvider):
             neuron_count = self.get_neuron_count()  # Use the safe method
             synapse_count = self._npu_interface.synapse_array.synapse_count if self._npu_interface else 0
             
+            # Calculate memory vs regular neuron counts
+            memory_neuron_count = 0
+            regular_neuron_count = 0
+            
+            if self._npu_interface:
+                for area_id, area in self.cortical_areas.items():
+                    try:
+                        neurons = self._npu_interface.get_neurons_by_area(area.cortical_idx)
+                        neuron_count_in_area = len(neurons)
+                        
+                        if area.area_type == "memory":
+                            memory_neuron_count += neuron_count_in_area
+                        else:
+                            regular_neuron_count += neuron_count_in_area
+                    except Exception as e:
+                        self.logger.debug(f"Could not count neurons in area {area_id}: {e}")
+            
             # Update state manager with comprehensive brain stats
             brain_stats = {
                 "cortical_area_count": cortical_area_count,
                 "neuron_count": neuron_count,
                 "synapse_count": synapse_count,
+                "memory_neuron_count": memory_neuron_count,
+                "regular_neuron_count": regular_neuron_count,
             }
+            
+            logger.info(
+                f"📊 Updating state manager: {neuron_count} neurons "
+                f"({regular_neuron_count} regular, {memory_neuron_count} memory), "
+                f"{synapse_count} synapses, {cortical_area_count} areas"
+            )
             
             result = self.state_manager.set_brain_stats(brain_stats)
             if result.is_err:
                 self.logger.warning(f"Failed to set brain stats in state manager: {result.err}")
             else:
-                self.logger.debug(f"Updated brain statistics: {brain_stats}")
+                self.logger.info(f"✅ State manager updated successfully: {brain_stats}")
                 
             # Also update cortical list
             cortical_ids = list(self.cortical_areas.keys())
@@ -1976,6 +2001,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 
         except Exception as e:
             self.logger.warning(f"Failed to update brain statistics in state manager: {e}")
+            import traceback
+            self.logger.warning(f"Traceback: {traceback.format_exc()}")
 
     #  Legacy optimized method removed - NPU SynapseArray is inherently
     #  optimized
@@ -4525,8 +4552,9 @@ class ConnectomeManager(NeuronMappingProvider):
             except Exception:
                 pass
 
-        # Note: Morton spatial hash registration removed for simplicity
-        # NPU provides all position data needed for synaptogenesis
+        # Update state manager with new neuron count
+        if len(neuron_ids) > 0:
+            self._update_neuron_count_only()
         
         return neuron_ids
 
@@ -5860,6 +5888,19 @@ class ConnectomeManager(NeuronMappingProvider):
             f"Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses",
             status="[OK]",
         )
+        
+        # CRITICAL: Reset state manager counts to 0 after clearing brain data
+        try:
+            self.state_manager.set_brain_stats({
+                "neuron_count": 0,
+                "synapse_count": 0,
+                "cortical_area_count": 0,
+                "memory_neuron_count": 0,
+                "non_memory_neuron_count": 0,
+            })
+            logger.info("✅ Reset state manager brain statistics to 0", status="[OK]")
+        except Exception as e:
+            logger.warning(f"Failed to reset state manager counts: {e}")
 
         return {
             "cortical_areas_cleared": cortical_areas_cleared,
@@ -7479,6 +7520,9 @@ class ConnectomeManager(NeuronMappingProvider):
         self.index_to_neuron_id[neuron_id] = neuron_id
         self._neuron_to_position[neuron_id] = (cortical_idx, position[0], position[1], position[2], 0)
         
+        # Update state manager with new neuron count
+        self._update_neuron_count_only()
+        
         return neuron_id
 
     def get_neuron_count(self) -> int:
@@ -7489,9 +7533,9 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         if hasattr(self, "_npu_interface") and self._npu_interface:
             try:
-                regular = int(getattr(self._npu_interface.neuron_array, "count", 0))
-                memory = int(getattr(self._npu_interface.memory_neuron_array, "count", 0))
-                return regular + memory
-            except Exception:
+                # Use NPU interface method directly (authoritative count from Rust NPU)
+                return self._npu_interface.get_neuron_count()
+            except Exception as e:
+                self.logger.warning(f"Failed to get neuron count from NPU: {e}")
                 return 0
         return 0
