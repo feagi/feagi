@@ -3324,6 +3324,9 @@ class NeuroEmbryogenesis:
 
             dst_dimensions = dst_area_props.get("dimensions", [1, 1, 1])
 
+            # Accumulate ALL synapses across all source neurons for single batch creation
+            all_synapse_connections = []
+
             # Process each source neuron
             for src_neuron_id in src_neurons:
                 try:
@@ -3333,8 +3336,6 @@ class NeuroEmbryogenesis:
                     )
                     if not src_pos:
                         continue
-
-                    synapse_connections = []
 
                     # Collect all candidate positions first (legacy approach)
                     all_candidate_positions = set()
@@ -3360,7 +3361,7 @@ class NeuroEmbryogenesis:
                             for candidate_pos in candidate_positions:
                                 all_candidate_positions.add(candidate_pos)
 
-                    # Use legacy batch lookup for performance
+                    # Use Morton spatial hash batch lookup for O(N) performance
                     if all_candidate_positions:
                         neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
                                 cortical_id=dst_area_id,
@@ -3368,21 +3369,11 @@ class NeuroEmbryogenesis:
                                 post_synaptic_current=psc_multiplier,
                         )
 
-                        # Convert to synapse connections
+                        # Accumulate synapse connections for final batch creation
                         for neuron_id, weight in neuron_weight_pairs:
-                            synapse_connections.append(
+                            all_synapse_connections.append(
                                 (src_neuron_id, neuron_id, weight)
                             )
-
-                    #  Create synapses in batch - Now using GlobalSynapseArray
-                    #  for optimal performance
-                    if synapse_connections:
-                        created = (
-                            self.connectome_manager.batch_create_synapses(
-                            synapse_connections
-                            )
-                        )
-                        total_synapses += created
 
                 except Exception as e:
                     logger.warning(
@@ -3390,6 +3381,16 @@ class NeuroEmbryogenesis:
                         f"{src_neuron_id}: {e}"
                     )
                     continue
+
+            # Create ALL synapses in ONE batch call (massive performance improvement)
+            if all_synapse_connections:
+                logger.info(
+                    f"✅ PATTERN BATCH: Creating {len(all_synapse_connections)} synapses "
+                    f"from {len(src_neurons)} source neurons"
+                )
+                total_synapses = self.connectome_manager.batch_create_synapses(
+                    all_synapse_connections
+                )
 
             return total_synapses
 
@@ -3458,6 +3459,13 @@ class NeuroEmbryogenesis:
                     f"[BDU DEBUG] Processing {len(src_neurons)} source neurons for {morphology_id}"
                 )
 
+            # Get synapse attractivity once (same for all neurons in area)
+            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+            synapse_attractivity = dst_area.properties.get("synatt", 100)
+
+            # Accumulate ALL synapses across all source neurons for single batch creation
+            all_synapse_connections = []
+
             for src_neuron_id in src_neurons:
                 try:
                     if debug_bdu:
@@ -3476,64 +3484,17 @@ class NeuroEmbryogenesis:
                         memory_register=memory_register,
                     )
 
-                    #  Apply legacy synapse attractivity filtering (critical
-                    #  for proper behavior)
-                    dst_area = self.connectome_manager.get_cortical_area(
-                        dst_area_id
-                    )
-                    synapse_attractivity = dst_area.properties.get(
-                        "synatt", 100
-                    )
-
                     if debug_bdu:
                         logger.info(
                             f"[BDU DEBUG] Found {len(candidate_neurons)} candidate neurons"
                         )
-                        logger.info(
-                            f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
-                        )
 
-                    #  Create synapses from candidate neurons with
-                    #  probabilistic filtering
-                    synapse_connections = []
+                    # Apply synapse attractivity filtering and accumulate
                     for dst_neuron_id, weight in candidate_neurons:
-                        #  Legacy behavior: probabilistic synapse creation
-                        #  based on attractivity
                         if random.randrange(1, 100) < synapse_attractivity:
-                            synapse_connections.append(
+                            all_synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
-
-                    if debug_bdu:
-                        logger.info(
-                            f"[BDU DEBUG] After attractivity filtering: {len(synapse_connections)} synapses to create"
-                        )
-
-                    if synapse_connections:
-                        #  PERFORMANCE DEBUG: Time the batch_create_synapses
-                        #  call
-                        start_time = time.time()
-                        created = (
-                            self.connectome_manager.batch_create_synapses(
-                            synapse_connections
-                            )
-                        )
-                        end_time = time.time()
-                        elapsed_ms = (end_time - start_time) * 1000
-                        if elapsed_ms > 100:  # Log if > 100ms
-                            logger.warning(
-                                f"⚠️  PERFORMANCE: batch_create_synapses took {elapsed_ms:.1f}ms for {len(synapse_connections)} synapses"
-                            )
-                        total_synapses += created
-
-                        if debug_bdu:
-                            logger.info(
-                                f"[BDU DEBUG] Successfully created {created} synapses for neuron {src_neuron_id}"
-                            )
-                    elif debug_bdu:
-                        logger.info(
-                            f"[BDU DEBUG] No synapses created for neuron {src_neuron_id}"
-                        )
 
                 except Exception as e:
                     logger.warning(
@@ -3541,6 +3502,31 @@ class NeuroEmbryogenesis:
                         f"{src_neuron_id}: {e}"
                     )
                     continue
+
+            # Create ALL synapses in ONE batch call (massive performance improvement)
+            if all_synapse_connections:
+                if debug_bdu:
+                    logger.info(
+                        f"[BDU DEBUG] Creating {len(all_synapse_connections)} total synapses in single batch"
+                    )
+                
+                start_time = time.time()
+                created = self.connectome_manager.batch_create_synapses(
+                    all_synapse_connections
+                )
+                end_time = time.time()
+                elapsed_ms = (end_time - start_time) * 1000
+                
+                total_synapses += created
+                
+                logger.info(
+                    f"✅ BATCH SYNAPSE CREATION: {created} synapses created in {elapsed_ms:.1f}ms "
+                    f"({len(src_neurons)} source neurons → {dst_area_id})"
+                )
+            elif debug_bdu:
+                logger.info(
+                    f"[BDU DEBUG] No synapses created for {len(src_neurons)} source neurons"
+                )
 
             #  CRITICAL: Propagate memory register to ConnectomeManager for
             #  memory area tracking

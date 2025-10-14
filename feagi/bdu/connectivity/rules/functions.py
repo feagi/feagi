@@ -485,24 +485,40 @@ def syn_projector(
         )
 
     if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
-        for x in dst_vox_dict[0]:
-            for y in dst_vox_dict[1]:
-                for z in dst_vox_dict[2]:
-                    # Ensure within bounds
-                    if (
-                        0 <= x < dst_dimensions[0]
-                        and 0 <= y < dst_dimensions[1]
-                        and 0 <= z < dst_dimensions[2]
-                    ):
-                        candidate_list.append((x, y, z))
-                    elif debug_bdu:
-                        logger.warning(
-                            f"[BDU DEBUG] Position ({x}, {y}, {z}) out of bounds for destination {dst_dimensions}"
-                        )
+        # Vectorized coordinate generation using NumPy meshgrid
+        # Convert sets to sorted arrays for consistent ordering
+        import numpy as np
+        
+        x_coords = np.array(sorted(dst_vox_dict[0]), dtype=np.int32)
+        y_coords = np.array(sorted(dst_vox_dict[1]), dtype=np.int32)
+        z_coords = np.array(sorted(dst_vox_dict[2]), dtype=np.int32)
+        
+        # Generate all combinations using meshgrid (vectorized operation)
+        X, Y, Z = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
+        
+        # Flatten to get all coordinate combinations
+        coords = np.stack([X.ravel(), Y.ravel(), Z.ravel()], axis=1)
+        
+        # Vectorized bounds checking
+        valid_mask = (
+            (coords[:, 0] >= 0) & (coords[:, 0] < dst_dimensions[0]) &
+            (coords[:, 1] >= 0) & (coords[:, 1] < dst_dimensions[1]) &
+            (coords[:, 2] >= 0) & (coords[:, 2] < dst_dimensions[2])
+        )
+        
+        # Filter valid coordinates and convert to list of tuples
+        valid_coords = coords[valid_mask]
+        candidate_list = [tuple(coord) for coord in valid_coords]
+        
+        if debug_bdu and not np.all(valid_mask):
+            invalid_count = len(coords) - np.sum(valid_mask)
+            logger.warning(
+                f"[BDU DEBUG] {invalid_count} positions out of bounds for destination {dst_dimensions}"
+            )
 
     if debug_bdu:
         logger.info(
-            f"[BDU DEBUG] syn_projector final candidates: {candidate_list}"
+            f"[BDU DEBUG] syn_projector final candidates: {len(candidate_list)} positions"
         )
 
     return candidate_list

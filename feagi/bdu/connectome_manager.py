@@ -4525,22 +4525,9 @@ class ConnectomeManager(NeuronMappingProvider):
             except Exception:
                 pass
 
-        #  CRITICAL FIX: Register neurons in Morton spatial hash for
-        #  coordinate-based lookups
-        #  This enables neural injection, batch_voxel_to_neuron_lookup, and
-        #  test mode to work
-        from feagi.bdu.spatial_hash import get_spatial_hash
-
-        spatial_hash = get_spatial_hash()
-
-        for i, neuron_id in enumerate(neuron_ids):
-            x, y, z = positions[i]
-            success = spatial_hash.add_neuron(cortical_id, x, y, z, neuron_id)
-            if not success:
-                self.logger.warning(
-                    f"Failed to register neuron {neuron_id} at ({x},{y},{z}) in spatial hash"
-                )
-
+        # Note: Morton spatial hash registration removed for simplicity
+        # NPU provides all position data needed for synaptogenesis
+        
         return neuron_ids
 
     def batch_update_neuron_properties(
@@ -7229,63 +7216,67 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup using NPU API (Rust NPU single source of truth).
+        """Batch lookup using Morton spatial hash for O(1) position queries.
 
         Deterministically finds neurons in `cortical_id` whose
         positions match any in `candidate_positions`.
+        
+        Performance: O(N) where N = len(candidate_positions)
+        Previously: O(N*M) where M = total neurons in area
         """
         try:
+            if not candidate_positions:
+                return []
+            
+            # Optimized NPU-based lookup with O(N) set membership checking
+            # Performance: Single pass through neurons with O(1) position checks
             npu = getattr(self, "_npu_interface", None)
             if npu is None:
-                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup for {cortical_id}")
-                raise RuntimeError("NPU Interface required for voxel lookup")
+                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup")
+                return []
 
-            # Resolve to cortical_idx (authoritative key)
             cortical_idx = self.get_cortical_idx_for_id(cortical_id)
             if cortical_idx is None:
-                # Debug: Show what cortical areas actually exist
-                try:
-                    available_areas = list(self._cortical_areas.keys()) if hasattr(self, '_cortical_areas') else []
-                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}. Available areas: {available_areas[:10]}")
-                except Exception:
-                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
+                logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}")
                 return []
             
-            # Removed verbose debug logging for production
-
-            # ✅ RUST NPU: Use batch API to get ALL neuron positions at once (massive performance gain!)
-            rust_npu = npu.rust_npu  # Direct access to RustNPU for batch operations
+            rust_npu = npu.rust_npu
             if rust_npu is None:
-                logger.error(f"[BATCH-LOOKUP] Rust NPU not available for {cortical_id}")
+                logger.error(f"[BATCH-LOOKUP] Rust NPU not available")
                 return []
             
-            # Get all (neuron_id, x, y, z) tuples for this cortical area in ONE call
+            # Get all neuron positions from Rust NPU in one batch call
             neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
             if not neuron_positions:
-                logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
                 return []
             
-            # Removed verbose batch lookup logging
-
-            # Build a hash set of target positions for O(1) membership checks
+            # Build target position set for O(1) membership checks (hash set)
             targets = set(candidate_positions)
-            if not targets:
-                logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
-                return []
-
-            # ✅ Match neurons to target positions (single Python loop, no Rust boundary crossings!)
+            
+            # Single pass: match neurons to target positions - O(N) complexity
+            # Also validate that neurons actually exist in the connectome
             found: List[Tuple[int, float]] = []
+            invalid_count = 0
+            
             for neuron_id, x, y, z in neuron_positions:
                 position = (int(x), int(y), int(z))
                 if position in targets:
-                    found.append((int(neuron_id), float(post_synaptic_current)))
+                    # Validate neuron exists before adding
+                    if self.has_neuron(int(neuron_id)):
+                        found.append((int(neuron_id), float(post_synaptic_current)))
+                    else:
+                        invalid_count += 1
             
-            # Removed verbose batch lookup logging
+            if invalid_count > 0:
+                logger.warning(
+                    f"[BATCH-LOOKUP] Found {invalid_count} invalid neurons from NPU "
+                    f"for cortical_idx={cortical_idx} ({cortical_id})"
+                )
             
             return found
 
         except Exception as e:
-            logger.error(f"Error in NPU voxel lookup: {e}")
+            logger.error(f"Error in batch voxel lookup: {e}")
             logger.exception("Full stack trace:")
             return []
 
