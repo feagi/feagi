@@ -106,8 +106,9 @@ class ProcessManager:
         self._motor_fq_sampler = None
         self._viz_fq_sampler = None
 
-        # Initialize event system for genome load coordination
-        self._setup_genome_load_event_handling()
+        # Event system for genome load coordination (lazy initialization)
+        self._event_system = None
+        self._event_system_available = None  # None = not checked, True/False = availability status
 
     def load_and_validate_ports(
         self,
@@ -2022,12 +2023,23 @@ class ProcessManager:
         except Exception as e:
             logger.error(f"Error disabling FQ sampler ({mode}): {e}")
 
-    def _setup_genome_load_event_handling(self):
-        """Set up event handling for genome load events.
+    def _setup_genome_load_event_handling(self) -> bool:
+        """Set up event handling for genome load events (lazy initialization).
 
         When a genome is successfully loaded, this will automatically start the burst engine.
         This implements the design requirement: "upon genome load, burst engine transitions to running"
+        
+        This is only available when:
+        - Shared memory mode is enabled
+        - Platform supports named pipes (Unix/Linux/macOS)
+        
+        Returns:
+            True if event system was initialized successfully, False otherwise
         """
+        # Check if already initialized or already determined to be unavailable
+        if self._event_system_available is not None:
+            return self._event_system_available
+            
         try:
             # Import event system here to avoid circular imports
             from feagi.api.shared_memory.events import (
@@ -2035,7 +2047,7 @@ class ProcessManager:
                 EventType,
             )
 
-            # Create event system for this process manager
+            # Try to create event system for this process manager
             self._event_system = EventNotificationSystem("process_manager")
 
             # Register handler for genome loaded events
@@ -2049,7 +2061,21 @@ class ProcessManager:
             logger.info(
                 "📡 Event system initialized - listening for GENOME_LOADED events"
             )
+            
+            self._event_system_available = True
+            return True
 
+        except RuntimeError as e:
+            # Platform doesn't support event system (e.g., Windows)
+            logger.debug(
+                f"Event system not available on this platform: {e}"
+            )
+            logger.debug(
+                "Genome load events will not trigger automatic burst engine start"
+            )
+            self._event_system_available = False
+            return False
+            
         except Exception as e:
             logger.warning(
                 f"Failed to initialize genome load event handling: {e}"
@@ -2057,6 +2083,8 @@ class ProcessManager:
             logger.warning(
                 "Process manager will need to monitor state changes manually"
             )
+            self._event_system_available = False
+            return False
 
     def _handle_genome_loaded_event(self, event):
         """Handle genome loaded event by starting the burst engine.

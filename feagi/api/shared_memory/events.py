@@ -17,22 +17,27 @@ Event Notification System for FEAGI IPC.
 
 This module provides a lightweight event notification system for inter-process
 communication in FEAGI, replacing the ZMQ-based approach for higher performance.
+
+PLATFORM COMPATIBILITY:
+- Unix/Linux/macOS: Uses named pipes (FIFO) for IPC
+- Windows: Event system is disabled (not supported)
+- This module only works when shared memory mode is enabled
 """
 
+import json
 import logging
 import os
+import platform
+import queue
+import tempfile
 import threading
 import time
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-import json
-import queue
-import select
-import tempfile
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
 
 
 class EventPriority(Enum):
@@ -143,6 +148,9 @@ class EventNotificationSystem:
             process_name: Name of this process (used as event source)
             temp_dir: Directory to store event files (default: system temp dir)
             max_queue_size: Maximum number of events to queue
+            
+        Raises:
+            RuntimeError: If the platform doesn't support named pipes (e.g., Windows)
         """
         self.process_name = process_name
         self.temp_dir = temp_dir or tempfile.gettempdir()
@@ -150,25 +158,32 @@ class EventNotificationSystem:
         self.logger = logging.getLogger(
             f"feagi.api.shared_memory.events.{process_name}"
         )
+        
+        # Initialize state variables first (before any potential exceptions)
+        self.event_thread = None
+        self.running = False
+        self.event_queue = queue.Queue(maxsize=max_queue_size)
+        self.handlers: Dict[EventType, List[Callable[[Event], None]]] = {}
+        self.subscriptions: Set[EventType] = set()
+        self.event_file_path = None
+        
+        # Check platform compatibility
+        if not hasattr(os, 'mkfifo'):
+            raise RuntimeError(
+                f"Event notification system not supported on {platform.system()}. "
+                "Named pipes (os.mkfifo) are not available. "
+                "This feature requires Unix/Linux/macOS."
+            )
 
         # Create event directory
         self.event_dir = os.path.join(self.temp_dir, "feagi_events")
         os.makedirs(self.event_dir, exist_ok=True)
-
-        # Event queues and state
-        self.event_queue = queue.Queue(maxsize=max_queue_size)
-        self.running = False
-        self.handlers: Dict[EventType, List[Callable[[Event], None]]] = {}
-        self.subscriptions: Set[EventType] = set()
 
         # Event file path
         self.event_file_path = os.path.join(
             self.event_dir, f"events_{process_name}.fifo"
         )
         self._create_event_pipe()
-
-        # Thread for processing events
-        self.event_thread = None
 
     def _create_event_pipe(self):
         """Create the named pipe for event communication."""
@@ -415,18 +430,31 @@ class EventNotificationSystem:
 
     def cleanup(self):
         """Clean up resources used by the event notification system."""
-        self.stop()
+        # Only stop if we have a valid event_thread attribute
+        if hasattr(self, 'running') and hasattr(self, 'event_thread'):
+            self.stop()
 
-        # Remove the named pipe
+        # Remove the named pipe if it was created
         try:
-            if os.path.exists(self.event_file_path):
+            if hasattr(self, 'event_file_path') and self.event_file_path and os.path.exists(self.event_file_path):
                 os.unlink(self.event_file_path)
-                self.logger.info(
-                    f"Removed event pipe at {self.event_file_path}"
-                )
+                if hasattr(self, 'logger'):
+                    self.logger.info(
+                        f"Removed event pipe at {self.event_file_path}"
+                    )
         except Exception as e:
-            self.logger.error(f"Error removing event pipe: {e}")
+            if hasattr(self, 'logger'):
+                self.logger.error(f"Error removing event pipe: {e}")
 
     def __del__(self):
-        """Ensure resources are cleaned up."""
-        self.cleanup()
+        """Ensure resources are cleaned up.
+        
+        This method is safe to call even if __init__ raised an exception
+        and the object was only partially initialized.
+        """
+        try:
+            self.cleanup()
+        except Exception:
+            # Silently ignore cleanup errors during destruction
+            # to prevent exceptions in __del__ from being logged
+            pass
