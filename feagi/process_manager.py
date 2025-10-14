@@ -908,12 +908,16 @@ class ProcessManager:
 
                     def run_uvicorn():
                         """Run uvicorn server in background thread."""
+                        import sys
                         try:
+                            print("🔵 REST API thread started - creating FastAPI app...", file=sys.stderr, flush=True)
                             logger.info("🔵 REST API thread started - creating FastAPI app...")
                             # Import FastAPI app here to avoid circular imports
                             from feagi.api.rest.app import create_rest_app
 
+                            print("🔵 About to call create_rest_app()...", file=sys.stderr, flush=True)
                             app = create_rest_app()
+                            print("🔵 FastAPI app created successfully - starting uvicorn...", file=sys.stderr, flush=True)
                             logger.info("🔵 FastAPI app created successfully - starting uvicorn...")
 
                             import uvicorn
