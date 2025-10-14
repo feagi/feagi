@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 def _now_iso() -> str:
@@ -110,7 +110,7 @@ def create_brain_snapshot(
     connectome_manager,
     state_manager,
     output_dir: Path,
-    snapshot_id: str | None = None,
+    snapshot_id: Optional[str] = None,
 ) -> Path:
     """Create a minimal brain snapshot under output_dir and return its
     directory path.
