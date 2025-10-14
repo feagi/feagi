@@ -20,6 +20,7 @@ import time
 import random
 
 import cv2
+import numpy as np
 
 try:
     import zmq
@@ -486,6 +487,74 @@ async def stream_segmented_camera(
                             processor.eccentricity,
                             processor.modulation
                         )
+                        
+                        # WORKAROUND: If mosaic is empty or only has background grid (decoder failed), show the input frame segmented
+                        non_zero_before = cv2.countNonZero(cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2GRAY))
+                        # Blank mosaic with just grid has ~10k pixels, real data should have much more
+                        if mosaic_bgr is None or non_zero_before < 15000:
+                            logger.warning(f"[SHM-VIDEO-FEAGI] ⚠️ Mosaic mostly empty ({non_zero_before} pixels, likely decoder bug), using fallback: showing segmented input frame")
+                            # Build proper 3x3 segmented mosaic from input frame
+                            cw, ch = center_dims
+                            pw, ph = per_dims
+                            grid = 5
+                            mosaic_h = ph + grid + ch + grid + ph
+                            mosaic_w = pw + grid + cw + grid + pw
+                            mosaic_bgr = np.zeros((mosaic_h, mosaic_w, 3), dtype=np.uint8)
+                            
+                            # Extract segments from resized frame using eccentricity/modulation
+                            ecc_x, ecc_y = processor.eccentricity
+                            mod_x, mod_y = processor.modulation
+                            frame_h, frame_w = resized.shape[:2]
+                            
+                            # Calculate center region
+                            center_w_pixels = int(frame_w * mod_x)
+                            center_h_pixels = int(frame_h * mod_y)
+                            center_x_start = int(frame_w * ecc_x - center_w_pixels / 2)
+                            center_y_start = int(frame_h * ecc_y - center_h_pixels / 2)
+                            
+                            # Extract and place 9 segments
+                            # Row 1: Top peripherals
+                            top_region = resized[0:center_y_start, :]
+                            left_col = top_region[:, 0:center_x_start]
+                            top_mid = top_region[:, center_x_start:center_x_start+center_w_pixels]
+                            right_col = top_region[:, center_x_start+center_w_pixels:]
+                            
+                            # Row 2: Middle with center
+                            mid_region = resized[center_y_start:center_y_start+center_h_pixels, :]
+                            mid_left = mid_region[:, 0:center_x_start]
+                            center_img = mid_region[:, center_x_start:center_x_start+center_w_pixels]
+                            mid_right = mid_region[:, center_x_start+center_w_pixels:]
+                            
+                            # Row 3: Bottom peripherals
+                            bot_region = resized[center_y_start+center_h_pixels:, :]
+                            bot_left = bot_region[:, 0:center_x_start]
+                            bot_mid = bot_region[:, center_x_start:center_x_start+center_w_pixels]
+                            bot_right = bot_region[:, center_x_start+center_w_pixels:]
+                            
+                            # Place segments in mosaic grid
+                            # iic600 (top-left)
+                            mosaic[0:ph, 0:pw] = cv2.resize(left_col, (pw, ph)) if left_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            # iic700 (top-mid)
+                            mosaic[0:ph, pw+grid:pw+grid+cw] = cv2.resize(top_mid, (cw, ph)) if top_mid.size > 0 else np.zeros((ph, cw, 3), dtype=np.uint8)
+                            # iic800 (top-right)
+                            mosaic[0:ph, pw+grid+cw+grid:] = cv2.resize(right_col, (pw, ph)) if right_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            
+                            # iic300 (mid-left)
+                            mosaic[ph+grid:ph+grid+ch, 0:pw] = cv2.resize(mid_left, (pw, ch)) if mid_left.size > 0 else np.zeros((ch, pw, 3), dtype=np.uint8)
+                            # iic400 (center)
+                            mosaic[ph+grid:ph+grid+ch, pw+grid:pw+grid+cw] = cv2.resize(center_img, (cw, ch)) if center_img.size > 0 else np.zeros((ch, cw, 3), dtype=np.uint8)
+                            # iic500 (mid-right)
+                            mosaic[ph+grid:ph+grid+ch, pw+grid+cw+grid:] = cv2.resize(mid_right, (pw, ch)) if mid_right.size > 0 else np.zeros((ch, pw, 3), dtype=np.uint8)
+                            
+                            # iic000 (bot-left)
+                            mosaic[ph+grid+ch+grid:, 0:pw] = cv2.resize(bot_left, (pw, ph)) if bot_left.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            # iic100 (bot-mid)
+                            mosaic[ph+grid+ch+grid:, pw+grid:pw+grid+cw] = cv2.resize(bot_mid, (cw, ph)) if bot_mid.size > 0 else np.zeros((ph, cw, 3), dtype=np.uint8)
+                            # iic200 (bot-right)
+                            mosaic[ph+grid+ch+grid:, pw+grid+cw+grid:] = cv2.resize(bot_right, (pw, ph)) if bot_right.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            
+                            logger.info(f"[SHM-VIDEO-FEAGI] 🔄 Fallback mosaic created: {mosaic_bgr.shape} with 9 segments")
+                        
                         mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
                         feagi_writer.write_frame(mosaic_rgb)
                         # Check if mosaic has any non-zero pixels

@@ -65,6 +65,22 @@ class SensorCache:
             else:
                 logger.warning(f"[CACHE-ENCODE] Method 'sensors_encode_cached_data_to_bytes' not found on {type(self._rust_cache)}")
 
+    def sensor_get_byte_container(self):
+        """Get the byte container directly (as used in samples).
+        
+        Returns the FeagiByteContainer object from the IOCache.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        if self._rust_cache and hasattr(self._rust_cache, 'sensor_get_byte_container'):
+            try:
+                return self._rust_cache.sensor_get_byte_container()
+            except BaseException as e:
+                logger.warning(f"[CACHE-GET-CONTAINER] Error: {e}")
+                return None
+        logger.warning(f"[CACHE-GET-CONTAINER] Method not available on {type(self._rust_cache)}")
+        return None
+
     def get_most_recent_sensor_bytes(self) -> bytes:
         import logging
         logger = logging.getLogger(__name__)

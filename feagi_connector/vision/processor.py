@@ -236,15 +236,17 @@ class SegmentedVisionProcessor:
         logger.debug(f"[PROCESS] Created ImageFrame: shape={rgb.shape}, color_space={color_space}, memory_order={memory_order}")
         logger.debug(f"[PROCESS] ImageFrame properties: {image_frame.get_image_frame_properties() if hasattr(image_frame, 'get_image_frame_properties') else 'N/A'}")
         
-        # Use image_camera_with_peripheral.store as shown in the sample
-        self._cache.image_camera_with_peripheral.store(self.group_index, 0, image_frame)
-        logger.debug(f"[PROCESS] Store completed for group={self.group_index}")
+        # Use image_camera_with_peripheral.write as shown in the sample
+        self._cache.image_camera_with_peripheral.write(self.group_index, 0, image_frame)
+        logger.debug(f"[PROCESS] Write completed for group={self.group_index}")
         
         self._cache.encode_cached_data_into_bytes()
         logger.debug(f"[PROCESS] Encode completed")
         
-        sensor_bytes = self._cache.get_most_recent_sensor_bytes()
-        logger.debug(f"[PROCESS] Got {len(sensor_bytes)} bytes from cache")
+        # Use sensor_get_byte_container() then extract bytes
+        byte_container = self._cache.sensor_get_byte_container()
+        sensor_bytes = byte_container.copy_out_as_byte_vector()
+        logger.debug(f"[PROCESS] Got {len(sensor_bytes)} bytes from container")
         
         # Optional compact diagnostics when DEBUG is enabled
         try:

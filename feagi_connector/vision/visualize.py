@@ -241,13 +241,23 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             bs = frpl.data_serialization.FeagiByteContainer()
             bs.load_bytes_and_verify(sensor_bytes)
             mapped = bs.try_create_new_struct_from_index(0)
+            
+            # Verify we got data
+            import logging
+            all_areas = list(mapped.iter_full())
+            logging.info(f"[MOSAIC-DECODE] ✅ Decoded {len(sensor_bytes)} bytes → {len(all_areas)} cortical areas")
+            if len(all_areas) == 0:
+                logging.warning(f"[MOSAIC-DECODE] ⚠️ Decoded successfully but got 0 cortical areas!")
+                return mosaic
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
             # Catch all exceptions including Rust panics (pyo3_runtime.PanicException)
             import logging
             import sys
-            logging.debug(f"FeagiByteContainer failed: {sys.exc_info()[1]}")
+            import traceback
+            logging.error(f"[MOSAIC-DECODE] ❌ Failed to decode sensor_bytes ({len(sensor_bytes) if sensor_bytes else 0} bytes): {sys.exc_info()[1]}")
+            logging.debug(f"[MOSAIC-DECODE] Full traceback:\n{traceback.format_exc()}")
             return mosaic
         order = [
             "iic600", "iic700", "iic800",

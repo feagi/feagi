@@ -7,6 +7,7 @@ class SensorDevice:
         self._rust_send_data_func_name = rust_send_data_func_name
         self._sensor_type = sensor_type
 
+        # Define the methods and expose them as instance attributes
         def register(*args, **kwargs):
             if self.parent._rust_cache:
                 try:
@@ -64,6 +65,9 @@ class SensorDevice:
                     logger = logging.getLogger(__name__)
                     logger.error(f"[CACHE] Store failed with error: {e}")
                     raise
+
+        # Alias write() -> send_data() for API compatibility with sample
+        write = send_data
 
         def update_stage(*args, **kwargs):
             """Update stage properties for this sensor device.
