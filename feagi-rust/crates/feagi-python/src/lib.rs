@@ -1070,92 +1070,153 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
             ));
         }
         
-        // Parse header
-        let struct_type = bytes[0];
-        if struct_type != 11 {
+        // Check if this is a FeagiByteContainer (version 2) or raw structure data
+        let actual_bytes = if bytes[0] == 2 {
+            // This is a FeagiByteContainer, parse the wrapper
+            // Format: [version:u8, counter_lo:u8, counter_hi:u8, num_structs:u8, struct_len:u32, struct_data...]
+            if bytes.len() < 8 {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    format!("Invalid FeagiByteContainer: too short (len={})", bytes.len())
+                ));
+            }
+            let num_structs = bytes[3] as usize;
+            if num_structs == 0 {
+                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronVoxels::new() });
+            }
+            
+            // Skip global header (4 bytes) + per-struct header (4 bytes) to get to actual data
+            &bytes[8..]
+        } else {
+            // Raw structure data (old format or direct structure bytes)
+            bytes
+        };
+        
+        if actual_bytes.len() < 4 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unsupported structure type: {}", struct_type)
+                "Invalid byte structure: too short after unwrapping"
             ));
         }
         
-        let num_areas = u16::from_le_bytes([bytes[2], bytes[3]]) as usize;
+        // Parse header
+        let struct_type = actual_bytes[0];
+        
+        if struct_type != 11 {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                format!("Unsupported structure type: {} (expected 11 for NeuronCategoricalXYZP)", struct_type)
+            ));
+        }
+        
+        let num_areas = u16::from_le_bytes([actual_bytes[2], actual_bytes[3]]) as usize;
         
         let mut mapped_data = CorticalMappedXYZPNeuronVoxels::new();
         let mut offset = 4;
         
-        // Parse each cortical area
+        // First pass: collect all cortical area headers
+        struct AreaHeader {
+            cortical_id: CorticalID,
+            data_start: usize,
+            data_size_bytes: usize,  // Total bytes for this area (NOT neuron count!)
+        }
+        let mut area_headers = Vec::new();
+        
         for _ in 0..num_areas {
-            if offset + 14 > bytes.len() {
+            if offset + 14 > actual_bytes.len() {
                 break;
             }
             
             // Parse cortical ID (6 bytes ASCII)
-            let cid_bytes = &bytes[offset..offset + 6];
+            let cid_bytes = &actual_bytes[offset..offset + 6];
             let cid_str = std::str::from_utf8(cid_bytes)
                 .unwrap_or("??????")
                 .trim_end_matches('\0');
-            // Use from_string() to accept both built-in (iic, ooc, etc.) and custom (c*) cortical IDs
             let cortical_id = CorticalID::from_string(cid_str.to_string())
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID: {}", e)))?;
-            
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID '{}': {}", cid_str, e)))?;
             offset += 6;
             
-            // Parse data start and length
+            // Parse data start index (relative to whole structure) - Note: buggy in v0.0.70, recalculated below
             let _data_start = u32::from_le_bytes([
-                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+                actual_bytes[offset], actual_bytes[offset + 1], actual_bytes[offset + 2], actual_bytes[offset + 3]
             ]) as usize;
             offset += 4;
             
-            let data_len = u32::from_le_bytes([
-                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+            // Parse data size in bytes (NOT neuron count!)
+            let data_size_bytes = u32::from_le_bytes([
+                actual_bytes[offset], actual_bytes[offset + 1], actual_bytes[offset + 2], actual_bytes[offset + 3]
             ]) as usize;
             offset += 4;
             
-            // Parse neurons (16 bytes per neuron: x, y, z, p as u32/f32)
-            let num_neurons = data_len / 16;
+            area_headers.push(AreaHeader { cortical_id, data_start: _data_start, data_size_bytes });
+        }
+        
+        // WORKAROUND: The data_start values from feagi-rust-py-libs v0.0.70 are incorrect
+        // Calculate correct offsets: all headers come first, then data sequentially
+        let first_data_offset = 4 + (num_areas * 14); // header + (num_areas * header_size)
+        let mut corrected_offset = first_data_offset;
+        let mut corrected_headers = Vec::new();
+        
+        for header in area_headers {
+            let corrected_header = AreaHeader {
+                cortical_id: header.cortical_id,
+                data_start: corrected_offset,
+                data_size_bytes: header.data_size_bytes,
+            };
+            corrected_headers.push(corrected_header);
+            corrected_offset += header.data_size_bytes;
+        }
+        
+        // Second pass: read neuron data for each area using CORRECTED offsets
+        // Data format: [all X coords][all Y coords][all Z coords][all potentials]
+        for header in corrected_headers {
+            if header.data_size_bytes == 0 {
+                mapped_data.insert(header.cortical_id, NeuronVoxelXYZPArrays::new());
+                continue;
+            }
+            
+            let data_offset = header.data_start;
+            let num_neurons = header.data_size_bytes / 16;  // 16 bytes per neuron (4 coords × 4 bytes each)
+            let x_start = data_offset;
+            let y_start = x_start + (num_neurons * 4);
+            let z_start = y_start + (num_neurons * 4);
+            let p_start = z_start + (num_neurons * 4);
+            let p_end = p_start + (num_neurons * 4);
+            
+            if p_end > actual_bytes.len() {
+                // Not enough bytes - skip this area
+                break;
+            }
+            
             let mut neurons = NeuronVoxelXYZPArrays::new();
-            
             for i in 0..num_neurons {
-                let neuron_offset = offset + (i * 16);
-                if neuron_offset + 16 > bytes.len() {
-                    break;
-                }
-                
                 let x = u32::from_le_bytes([
-                    bytes[neuron_offset],
-                    bytes[neuron_offset + 1],
-                    bytes[neuron_offset + 2],
-                    bytes[neuron_offset + 3],
+                    actual_bytes[x_start + i*4],
+                    actual_bytes[x_start + i*4 + 1],
+                    actual_bytes[x_start + i*4 + 2],
+                    actual_bytes[x_start + i*4 + 3],
                 ]);
-                
                 let y = u32::from_le_bytes([
-                    bytes[neuron_offset + 4],
-                    bytes[neuron_offset + 5],
-                    bytes[neuron_offset + 6],
-                    bytes[neuron_offset + 7],
+                    actual_bytes[y_start + i*4],
+                    actual_bytes[y_start + i*4 + 1],
+                    actual_bytes[y_start + i*4 + 2],
+                    actual_bytes[y_start + i*4 + 3],
                 ]);
-                
                 let z = u32::from_le_bytes([
-                    bytes[neuron_offset + 8],
-                    bytes[neuron_offset + 9],
-                    bytes[neuron_offset + 10],
-                    bytes[neuron_offset + 11],
+                    actual_bytes[z_start + i*4],
+                    actual_bytes[z_start + i*4 + 1],
+                    actual_bytes[z_start + i*4 + 2],
+                    actual_bytes[z_start + i*4 + 3],
                 ]);
-                
-                let p_bytes = [
-                    bytes[neuron_offset + 12],
-                    bytes[neuron_offset + 13],
-                    bytes[neuron_offset + 14],
-                    bytes[neuron_offset + 15],
-                ];
-                let p = f32::from_le_bytes(p_bytes);
+                let p = f32::from_le_bytes([
+                    actual_bytes[p_start + i*4],
+                    actual_bytes[p_start + i*4 + 1],
+                    actual_bytes[p_start + i*4 + 2],
+                    actual_bytes[p_start + i*4 + 3],
+                ]);
                 
                 let neuron = NeuronVoxelXYZP::new(x, y, z, p);
                 neurons.push(&neuron);
             }
             
-            mapped_data.insert(cortical_id, neurons);
-            offset += data_len;
+            mapped_data.insert(header.cortical_id, neurons);
         }
         
         Ok(Self { mapped_data })

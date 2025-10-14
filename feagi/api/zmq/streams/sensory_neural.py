@@ -773,13 +773,13 @@ class SensoryNeuralStream:
                 for cortical_id, data in cortical_areas.items():
                     neural_data[cortical_id] = {
                         "coordinates_x": np.array(
-                            data["coordinates_x"], dtype=np.uint16
+                            data["coordinates_x"], dtype=np.uint32
                         ),
                         "coordinates_y": np.array(
-                            data["coordinates_y"], dtype=np.uint16
+                            data["coordinates_y"], dtype=np.uint32
                         ),
                         "coordinates_z": np.array(
-                            data["coordinates_z"], dtype=np.uint16
+                            data["coordinates_z"], dtype=np.uint32
                         ),
                         "membrane_potentials": np.array(
                             data["membrane_potentials"], dtype=np.float32
