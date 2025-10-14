@@ -29,6 +29,7 @@ import logging
 import os
 import platform
 import queue
+import select
 import tempfile
 import threading
 import time
