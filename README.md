@@ -6,7 +6,22 @@ FEAGI (Framework for Evolutionary Artificial General Intelligence) Core is the m
 
 ### Prerequisites
 - Python 3.9+ 
-- Rust toolchain (for building Rust extensions)
+- Rust toolchain (install from https://rustup.rs/)
+
+### Build Rust NPU (Required)
+FEAGI requires the Rust NPU extension for high-performance neural processing:
+
+```bash
+# Linux/macOS
+cd feagi_core/feagi-rust
+cargo build --release --workspace
+cp target/release/libfeagi_rust.* ../../feagi_rust.so
+
+# Windows
+cd feagi_core\feagi-rust
+cargo build --release --workspace
+copy target\release\feagi_rust.dll ..\..\feagi_rust.pyd
+```
 
 ### Deploy FEAGI in 3 Steps
 
@@ -41,10 +56,12 @@ FEAGI is now ready to accept connections on:
 
 ### Installation
 ```bash
-# Install FEAGI core with dependencies
+# 1. Build Rust NPU (see "Build Rust NPU" section above)
+
+# 2. Install FEAGI core with dependencies
 pip install -e .
 
-# Start FEAGI with default configuration
+# 3. Start FEAGI with default configuration
 python -m feagi.main
 ```
 
