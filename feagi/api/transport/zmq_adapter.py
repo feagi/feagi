@@ -225,6 +225,7 @@ else:
                 "GET:/v1/agent/shared_mem": self._handle_get_agent_shared_mem,
                 "GET:/v1/agent/properties": self._handle_get_agent_properties_query,
                 "GET:/v1/agent/fq_sampler_status": self._handle_get_fq_sampler_status,
+                "POST:/v1/agent/heartbeat": self._handle_agent_heartbeat,
                 # ===== Connectome Endpoints (using v1 API) =====
                 "GET:/v1/connectome/cortical_areas": self._handle_get_connectome_cortical_areas,
                 "GET:/v1/connectome/cortical_areas/list/summary": self._handle_get_cortical_areas_summary,
@@ -785,6 +786,15 @@ else:
                 )
             request = AgentDeregistrationRequest(**body)
             return await self.agent_api.deregister_agent(request)
+
+        async def _handle_agent_heartbeat(self, params, query, body, headers):
+            """Handler for POST /v1/agent/heartbeat."""
+            if not body:
+                raise ValueError(
+                    "Missing agent heartbeat data in request body"
+                )
+            request = AgentDeregistrationRequest(**body)  # Reuse minimal model with agent_id
+            return await self.agent_api.heartbeat(request)
 
         async def _handle_get_agent_properties(
             self, params, query, body, headers

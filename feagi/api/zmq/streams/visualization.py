@@ -484,15 +484,15 @@ class VisualizationStream:
 
                 if not cortical_data:
                     # Real-time: if idle beyond TTL, send empty to clear BV
-                    if self._shm_writer:
-                        now = time.time()
-                        last = getattr(self, "_last_shm_send_time", 0.0)
-                        if (now - last) > self._inactivity_ttl_sec:
-                            try:
-                                self._publish_data(bytes([1, 1]) + b'{"type":11,"areas":{}}')
-                                self._last_shm_send_time = now
-                            except Exception:
-                                pass
+                    # Always publish via _publish_data so it reaches SHM and/or ZMQ
+                    now = time.time()
+                    last = getattr(self, "_last_shm_send_time", 0.0)
+                    if (now - last) > self._inactivity_ttl_sec:
+                        try:
+                            self._publish_data(bytes([1, 1]) + b'{"type":11,"areas":{}}')
+                            self._last_shm_send_time = now
+                        except Exception:
+                            pass
                     time.sleep(0.01)
                     continue
 
@@ -782,8 +782,7 @@ class VisualizationStream:
                 self._last_shm_send_time = time.time()
             except Exception as e:
                 logger.debug(f"𒓉 [SHM] Visualization write failed: {e}")
-            # When SHM is active, skip network compression and ZMQ publish entirely
-            return
+            # Do NOT return here; continue to also publish to ZMQ if socket present
 
         # 🗜️ COMPRESSION: Apply LZ4 compression if enabled
         final_data = data
@@ -823,12 +822,14 @@ class VisualizationStream:
             try:
                 self.socket.send_multipart([b"activity", final_data])
                 if logger.isEnabledFor(10):
+                    # Correct parameter order for debug logging
+                    endpoint = f"tcp://{self.host}:{self.port}"
                     log_outbound(
-                        MessageType.VISUALIZATION,
-                        "activity",
-                        len(final_data),
-                        compression_ratio,
-                        compression_time_ms,
+                        endpoint=endpoint,
+                        data=[b"activity", final_data],
+                        message_type=MessageType.VISUALIZATION,
+                        topic="activity",
+                        context=f"len={len(final_data)} cr={compression_ratio:.3f} t={compression_time_ms:.3f}ms",
                     )
             except Exception as e:
                 logger.error(f"Error publishing visualization data: {e}")

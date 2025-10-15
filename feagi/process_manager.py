@@ -966,12 +966,16 @@ class ProcessManager:
                         target=run_uvicorn, daemon=True, name="REST-API"
                     )
                     api_thread.start()
+                    
+                    import sys
+                    print(f"🔵 Main thread: REST API thread started, continuing...", file=sys.stderr, flush=True)
 
                     # Store the thread reference for shutdown
                     self._processes["rest_api"] = api_thread
                     logger.info(
                         f"REST API server starting on http://{api_host}:{api_port}"
                     )
+                    print(f"🔵 Main thread: Logged REST API message, continuing to WebSocket check...", file=sys.stderr, flush=True)
 
                 except Exception as e:
                     logger.error(f"Failed to initialize REST API server: {e}")

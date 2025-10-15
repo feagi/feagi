@@ -148,6 +148,7 @@ class ZMQRestAPIAdapter:
             "GET:/v1/agent/properties/{agent_id}": self._delegate_to_v1_api,
             "GET:/v1/agent/properties": self._delegate_to_v1_api,
             "GET:/v1/agent/fq_sampler_status": self._delegate_to_v1_api,
+            "POST:/v1/agent/heartbeat": self._delegate_to_v1_api,
             # ===== Visualization endpoints - Custom handlers =====
             "POST:/v1/visualization/register_client": self._handle_visualization_register_client,
             "POST:/v1/visualization/unregister_client": self._handle_visualization_unregister_client,
