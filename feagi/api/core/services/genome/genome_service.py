@@ -1166,13 +1166,16 @@ class GenomeService(BaseService):
                             )
                         else:
                             self.logger.warning(
-                                "Failed to emit GENOME_LOADED event - using direct burst engine update instead"
+                                "Failed to emit GENOME_LOADED event - using direct burst engine start fallback"
                             )
+                            # Windows/platform fallback: directly start burst engine
+                            self._start_burst_engine_fallback()
                     except Exception as event_error:
                         self.logger.warning(
                             f"Failed to emit GENOME_LOADED event: {event_error}"
                         )
-                        # Don't fail genome loading for event emission issues
+                        # Windows/platform fallback: directly start burst engine
+                        self._start_burst_engine_fallback()
 
                 except Exception as dev_error:
                     self.logger.error(
@@ -1589,6 +1592,57 @@ class GenomeService(BaseService):
                     )
 
             return {"success": False, "error": str(e)}
+
+    def _start_burst_engine_fallback(self) -> None:
+        """Windows/platform fallback: directly start burst engine when event system unavailable.
+        
+        This is called when GENOME_LOADED event emission fails (e.g., on Windows where
+        named pipes aren't supported). It directly triggers the burst engine start using
+        the same path as the process manager's event handler would use.
+        """
+        try:
+            from feagi.core.state_manager import (
+                FeagiStateManager,
+                ServiceState,
+            )
+
+            self.logger.info(
+                "🪟 Event system unavailable - using direct burst engine start fallback"
+            )
+
+            state_manager = FeagiStateManager.instance()
+            current_state = state_manager.get_burst_engine_state()
+
+            if current_state == ServiceState.READY:
+                self.logger.info(
+                    "⚡ Burst engine already running - no action needed"
+                )
+                return
+
+            # Get the core API service to start the burst engine
+            if not self._core_api_service:
+                self.logger.error(
+                    "❌ Core API service not available for burst engine start fallback"
+                )
+                return
+
+            self.logger.info("⚡ Starting burst engine after genome load (fallback)...")
+
+            success = self._core_api_service.start_burst_engine()
+
+            if success:
+                self.logger.info(
+                    "✅ Burst engine started successfully via fallback mechanism"
+                )
+            else:
+                self.logger.error(
+                    "❌ Failed to start burst engine via fallback mechanism"
+                )
+
+        except Exception as e:
+            self.logger.error(
+                f"❌ Error in burst engine start fallback: {e}"
+            )
 
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
