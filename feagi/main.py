@@ -131,15 +131,15 @@ def check_dependencies():
         try:
             from feagi.utils.version_checker import verify_dependencies
 
-            # Get the path to requirements.txt
-            requirements_path = (
-                Path(__file__).parent.parent / "requirements.txt"
+            # Get the path to pyproject.toml
+            pyproject_path = (
+                Path(__file__).parent.parent / "pyproject.toml"
             )
 
             #  Verify dependencies, don't raise an exception but return False
             #  if there's a mismatch
             is_compatible = verify_dependencies(
-                requirements_path, raise_exception=False
+                pyproject_path, raise_exception=False
             )
 
             if is_compatible:

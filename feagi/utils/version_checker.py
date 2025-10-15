@@ -15,7 +15,7 @@ limitations under the License.
 """Version checker utility for FEAGI.
 
 This module provides functionality to check if the installed dependencies
-match the required versions specified in requirements.txt.
+match the required versions specified in pyproject.toml.
 """
 import importlib
 import importlib.metadata
@@ -23,6 +23,11 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 
 from packaging import specifiers
 
@@ -38,14 +43,14 @@ class VersionMismatchError(Exception):
     pass
 
 
-def parse_requirements_file(file_path: str) -> Dict[str, str]:
-    """Parse requirements.txt file and extract package names and version
+def parse_pyproject_toml(file_path: str) -> Dict[str, str]:
+    """Parse pyproject.toml file and extract package names and version
     constraints.
 
     Properly handles conditional requirements based on Python version and platform.
 
     Args:
-        file_path: Path to the requirements.txt file
+        file_path: Path to the pyproject.toml file
 
     Returns:
         Dictionary mapping package names to version constraints
@@ -53,19 +58,18 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
     requirements = {}
 
     try:
-        with open(file_path, "r") as f:
-            lines = f.readlines()
+        with open(file_path, "rb") as f:
+            data = tomllib.load(f)
 
-        for line in lines:
-            line = line.strip()
+        # Extract dependencies from [project] section
+        dependencies = data.get("project", {}).get("dependencies", [])
 
-            # Skip empty lines and comments
-            if not line or line.startswith("#"):
-                continue
+        for dep_str in dependencies:
+            dep_str = dep_str.strip()
 
             # Handle conditional requirements (platform-specific)
-            if ";" in line:
-                pkg_part, condition = line.split(";", 1)
+            if ";" in dep_str:
+                pkg_part, condition = dep_str.split(";", 1)
                 pkg_part = pkg_part.strip()
                 condition = condition.strip()
 
@@ -75,7 +79,7 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
                     # Skip this package as the condition is not met
                     continue
             else:
-                pkg_part = line
+                pkg_part = dep_str
 
             # Extract package name and version constraint
             # Handle different formats like:
@@ -85,7 +89,7 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
 
             # Extract the package name (before any version specifier)
             match = re.match(
-                r"^([a-zA-Z0-9_\-]+(?:\[[a-zA-Z0-9_\-]+\])?)(.*?)$", pkg_part
+                r"^([a-zA-Z0-9_\-]+(?:\[[a-zA-Z0-9_\-,]+\])?)(.*?)$", pkg_part
             )
             if match:
                 pkg_name = match.group(1)
@@ -99,7 +103,10 @@ def parse_requirements_file(file_path: str) -> Dict[str, str]:
 
         return requirements
     except (IOError, OSError) as e:
-        logger.error(f"Error reading requirements file: {e}")
+        logger.error(f"Error reading pyproject.toml file: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error parsing pyproject.toml file: {e}")
         return {}
 
 
@@ -313,22 +320,22 @@ def check_zmq_installation() -> Tuple[bool, Optional[str]]:
 
 
 def check_dependencies(
-    requirements_path: Optional[str] = None,
+    pyproject_path: Optional[str] = None,
 ) -> Tuple[bool, List[str]]:
     """Check if installed dependencies match the requirements.
 
     Args:
-        requirements_path: Path to requirements.txt file
+        pyproject_path: Path to pyproject.toml file
 
     Returns:
         Tuple of (is_compatible, error_messages)
     """
-    if requirements_path is None:
-        # Try to find requirements.txt in the project root
+    if pyproject_path is None:
+        # Try to find pyproject.toml in the project root
         feagi_root = Path(__file__).parent.parent.parent
-        requirements_path = str(feagi_root / "requirements.txt")
+        pyproject_path = str(feagi_root / "pyproject.toml")
 
-    requirements = parse_requirements_file(requirements_path)
+    requirements = parse_pyproject_toml(pyproject_path)
     is_compatible = True
     error_messages = []
 
@@ -364,12 +371,12 @@ def check_dependencies(
 
 
 def verify_dependencies(
-    requirements_path: Optional[str] = None, raise_exception: bool = False
+    pyproject_path: Optional[str] = None, raise_exception: bool = False
 ) -> bool:
     """Verify that all dependencies meet version requirements.
 
     Args:
-        requirements_path: Path to requirements.txt file
+        pyproject_path: Path to pyproject.toml file
         raise_exception: Whether to raise an exception if a mismatch is found
 
     Returns:
@@ -378,7 +385,7 @@ def verify_dependencies(
     Raises:
         VersionMismatchError: If raise_exception is True and a mismatch is found
     """
-    is_compatible, error_messages = check_dependencies(requirements_path)
+    is_compatible, error_messages = check_dependencies(pyproject_path)
 
     if not is_compatible:
         # Format error message
@@ -388,7 +395,9 @@ def verify_dependencies(
 
         error_footer = "\n" + "=" * 80 + "\n"
         error_footer += "Please install the correct versions using:\n"
-        error_footer += "pip install -r requirements.txt\n"
+        error_footer += "pip install -e .\n"
+        error_footer += "or\n"
+        error_footer += "pip install -e .[dev]\n"
         error_footer += "=" * 80 + "\n"
 
         error_body = "\n".join(error_messages)
@@ -403,7 +412,7 @@ def verify_dependencies(
     else:
         # Log a summary of the check
         packages_checked = (
-            len(check_dependencies(requirements_path)[1])
+            len(check_dependencies(pyproject_path)[1])
             if not is_compatible
             else 0
         )
@@ -411,12 +420,12 @@ def verify_dependencies(
             packages_checked == 0
         ):  # If we don't have error messages, we need to count packages differently
             try:
-                if requirements_path is None:
-                    # Try to find requirements.txt in the project root
+                if pyproject_path is None:
+                    # Try to find pyproject.toml in the project root
                     feagi_root = Path(__file__).parent.parent.parent
-                    requirements_path = str(feagi_root / "requirements.txt")
+                    pyproject_path = str(feagi_root / "pyproject.toml")
 
-                requirements = parse_requirements_file(requirements_path)
+                requirements = parse_pyproject_toml(pyproject_path)
                 packages_checked = len(requirements)
             except Exception:
                 packages_checked = "all"
@@ -435,11 +444,11 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     if len(sys.argv) > 1:
-        requirements_path = sys.argv[1]
+        pyproject_path = sys.argv[1]
     else:
-        requirements_path = None
+        pyproject_path = None
 
-    is_compatible = verify_dependencies(requirements_path)
+    is_compatible = verify_dependencies(pyproject_path)
 
     if is_compatible:
         logger.info("All dependencies are compatible!")

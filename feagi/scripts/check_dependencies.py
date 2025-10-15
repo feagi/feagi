@@ -40,7 +40,7 @@ def main():
     versions."""
     parser = argparse.ArgumentParser(description="FEAGI Dependency Checker")
     parser.add_argument(
-        "--requirements", type=str, help="Path to requirements.txt file"
+        "--pyproject", type=str, help="Path to pyproject.toml file"
     )
     parser.add_argument(
         "--strict",
@@ -49,13 +49,13 @@ def main():
     )
     args = parser.parse_args()
 
-    # Get the path to requirements.txt
-    if args.requirements:
-        requirements_path = args.requirements
+    # Get the path to pyproject.toml
+    if args.pyproject:
+        pyproject_path = args.pyproject
     else:
-        # Try to find requirements.txt in the project root
+        # Try to find pyproject.toml in the project root
         feagi_root = Path(__file__).parent.parent.parent
-        requirements_path = str(feagi_root / "requirements.txt")
+        pyproject_path = str(feagi_root / "pyproject.toml")
 
     # Import the version checker
     try:
@@ -64,7 +64,7 @@ def main():
 
         # Check dependencies
         is_compatible = verify_dependencies(
-            requirements_path, raise_exception=False
+            pyproject_path, raise_exception=False
         )
 
         if is_compatible:
