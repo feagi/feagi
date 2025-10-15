@@ -513,15 +513,26 @@ class VisualizationStream:
                 # Use BINARY format from Rust library (bridge is passthrough to BV)
                 if self.socket:
                     try:
+                        # Filter out core areas (_death, _power) that BV can't visualize
+                        filtered_data = {
+                            area_id: area_data
+                            for area_id, area_data in cortical_data.items()
+                            if str(area_id) not in ("_death", "_power")
+                        }
+                        
                         # Use binary encoding via feagi_rust_py_libs (bridge passes through to BV)
-                        binary_data = self._prepare_broadcast_data(cortical_data)
+                        binary_data = self._prepare_broadcast_data(filtered_data)
                         if binary_data and len(binary_data) > 0:
-                            logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes (BINARY) to ZMQ visualization stream")
+                            # Verify header before publishing
+                            header_check = f"[{binary_data[0]},{binary_data[1]}]" if len(binary_data) >= 2 else "EMPTY"
+                            area_count = len(filtered_data)
+                            logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes ({area_count} areas, Type 11) to ZMQ:5562 - Header: {header_check}")
                             # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
                             self._publish_zmq_only(binary_data)
-                        # else: No data to publish (encoding returned empty)
+                        else:
+                            logger.debug("[VIZ-PUBLISH] Encoder returned empty data (no visualizable areas), skipping ZMQ publish")
                     except Exception as e:
-                        logger.error(f"Error encoding visualization data for ZMQ: {e}")
+                        logger.error(f"Error encoding visualization data for ZMQ: {e}", exc_info=True)
 
             except Exception as e:
                 logger.error(f"Error processing cortical area data: {e}")
@@ -700,6 +711,8 @@ class VisualizationStream:
         
         Used when SHM already has a different format (e.g., JSON) and we don't
         want to overwrite it with binary data.
+        
+        The data parameter should already be binary Type 11 format with [11, 1] header from encoder.
         """
         if not self.socket:
             logger.debug("Cannot publish to ZMQ: no socket available")
@@ -709,6 +722,14 @@ class VisualizationStream:
             logger.debug("Cannot publish to ZMQ: stream is not running")
             return
         
+        # ✅ CRITICAL: The encoder already includes [11, 1] header - DO NOT prepend again!
+        # Verify header is present for logging (but don't fail if missing)
+        has_header = len(data) >= 2 and data[0] == 11 and data[1] == 1
+        if not has_header:
+            logger.warning(f"[VIZ-ZMQ] Data missing [11,1] header! First 4 bytes: {list(data[:4]) if len(data) >= 4 else list(data)}")
+            # Prepend header as fallback
+            data = bytes([11, 1]) + data
+
         # Apply compression if enabled
         final_data = data
         compression_ratio = 1.0
@@ -730,6 +751,16 @@ class VisualizationStream:
         # Publish to ZMQ socket only (skip SHM)
         try:
             self.socket.send_multipart([b"activity", final_data])
+            # Outbound debug logging (tied to global debug setting)
+            if logger.isEnabledFor(10):  # DEBUG level
+                endpoint = f"tcp://{self.host}:{self.port}"
+                log_outbound(
+                    endpoint=endpoint,
+                    data=[b"activity", final_data],
+                    message_type=MessageType.VISUALIZATION,
+                    topic="activity",
+                    context=f"len={len(final_data)} cr={compression_ratio:.3f} t={compression_time_ms:.3f}ms",
+                )
             self.stats["data_sent"] += 1
             self.stats["bytes_sent"] += len(final_data)
         except Exception as e:
@@ -817,8 +848,20 @@ class VisualizationStream:
                 logger.warning(f"Compression error, sending uncompressed: {e}")
                 final_data = data
 
-        # Publish to ZMQ if socket present
-        if self.socket:
+        # Detect JSON wrapper [1,1] used for SHM-only payloads (Type 1 JSON wrapper)
+        is_json_wrapper = len(data) >= 2 and data[0] == 1 and data[1] == 1
+
+        # Publish to ZMQ if socket present and payload is NOT the SHM JSON wrapper
+        if self.socket and not is_json_wrapper:
+            # Apply global Byte Structure Container header if missing
+            # Spec: first byte = structure_id (11 for NeuronCategoricalXYZP), second byte = version (1)
+            # Ref: feagi-data-processing Byte Structure Container docs
+            if not (len(final_data) >= 2 and final_data[0] == 11 and final_data[1] == 1):
+                try:
+                    final_data = bytes([11, 1]) + final_data
+                except Exception:
+                    # If header application fails, fall back to original data
+                    pass
             try:
                 self.socket.send_multipart([b"activity", final_data])
                 if logger.isEnabledFor(10):
@@ -862,6 +905,9 @@ class VisualizationStream:
             out: Dict[str, Any] = {"type": 11, "areas": {}}
             total = 0
             for area_id, area in cortical_data.items():
+                # Filter out core areas (_death, _power) that BV can't visualize
+                if str(area_id) in ("_death", "_power"):
+                    continue
                 if not area:
                     continue
                 neuron_ids = area.get("neuron_ids", [])
@@ -1294,82 +1340,92 @@ class VisualizationStream:
             #  Convert cortical area data to the format expected by the new
             #  encoder
             for area_id, area_data in for_visualization.items():
-                if area_data and area_data.get("neuron_ids"):
+                if not area_data:
+                    continue
+
+                # Accept multiple input shapes:
+                # 1) New sampler format: coordinates_x/y/z + p_array (preferred)
+                # 2) Legacy 'coordinates' list of tuples
+                # 3) Fallback: fetch coordinates via neuron_ids from core_api
+
+                # Potentials may be under different keys
+                potentials_field = (
+                    area_data.get("membrane_potentials")
+                    or area_data.get("potentials")
+                    or area_data.get("p_array")
+                    or area_data.get("p")
+                    or []
+                )
+
+                x_coords = y_coords = z_coords = None
+
+                # (1) New format: separate coordinate arrays
+                if (
+                    isinstance(area_data.get("coordinates_x"), list)
+                    and isinstance(area_data.get("coordinates_y"), list)
+                    and isinstance(area_data.get("coordinates_z"), list)
+                ):
+                    x_coords = area_data.get("coordinates_x") or []
+                    y_coords = area_data.get("coordinates_y") or []
+                    z_coords = area_data.get("coordinates_z") or []
+
+                # (2) Legacy combined coordinates
+                elif isinstance(area_data.get("coordinates"), list):
+                    combined = area_data.get("coordinates") or []
+                    if combined:
+                        x_coords = [c[0] for c in combined]
+                        y_coords = [c[1] for c in combined]
+                        z_coords = [c[2] for c in combined]
+
+                # (3) Fallback: fetch by neuron_ids
+                else:
                     neuron_ids = area_data.get("neuron_ids", [])
-                    membrane_potentials = area_data.get(
-                        "membrane_potentials", []
-                    )
-
-                    #  MEMORY AREA FIX: Check if coordinates are already
-                    #  provided (for memory areas)
-                    provided_coordinates = area_data.get("coordinates", [])
-
-
-                    if provided_coordinates:
-                        # Use pre-provided coordinates (memory areas)
-                        # Convert from list of tuples to separate x,y,z lists
-                        x_coords = [coord[0] for coord in provided_coordinates]
-                        y_coords = [coord[1] for coord in provided_coordinates]
-                        z_coords = [coord[2] for coord in provided_coordinates]
-
-                    else:
-                        #  Use high-performance coordinate extraction - real
-                        #  data only (regular areas)
-
-                        coords_result = self.core_api.get_neuron_coordinates(
-                            neuron_ids
-                        )
+                    if neuron_ids:
+                        coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
                         if coords_result and "coordinates_x" in coords_result:
-                            x_coords = coords_result["coordinates_x"]
-                            y_coords = coords_result["coordinates_y"]
-                            z_coords = coords_result["coordinates_z"]
+                            x_coords = coords_result.get("coordinates_x", [])
+                            y_coords = coords_result.get("coordinates_y", [])
+                            z_coords = coords_result.get("coordinates_z", [])
+                    # If still missing, skip area
+                if not x_coords or not y_coords or not z_coords:
+                    continue
 
-                        else:
-                            # ❌ NO FALLBACKS - Coordinates must exist
-                            raise ValueError(
-                                f"Failed to get coordinates for {len(neuron_ids)} "
-                                f"neurons in area {area_id}"
-                            )
+                # Determine count by available arrays
+                max_len = min(len(x_coords), len(y_coords), len(z_coords))
+                if max_len <= 0:
+                    continue
 
-                    # Ensure all arrays are the same length
-                    max_len = len(neuron_ids)
-                    if max_len == 0:
-                        continue
+                # Normalize potentials length
+                if len(potentials_field) < max_len:
+                    potentials = list(potentials_field) + [0.0] * (max_len - len(potentials_field))
+                else:
+                    potentials = list(potentials_field)[:max_len]
 
-                    # Pad membrane potentials if needed
-                    if len(membrane_potentials) < max_len:
-                        membrane_potentials.extend(
-                            [0.0] * (max_len - len(membrane_potentials))
+                # Convert to proper types
+                x_coords_u32 = [int(x) for x in x_coords[:max_len]]
+                y_coords_u32 = [int(y) for y in y_coords[:max_len]]
+                z_coords_u32 = [int(z) for z in z_coords[:max_len]]
+                potentials_f32 = [float(p) for p in potentials[:max_len]]
+
+                # Cortical ID conversion if needed
+                if isinstance(area_id, int):
+                    cortical_id_str = self.core_api.get_cortical_id_for_idx(area_id)
+                    if cortical_id_str is None:
+                        logger.debug(
+                            f"Skipping area {area_id}: cannot map cortical_idx to cortical_id"
                         )
-                    elif len(membrane_potentials) > max_len:
-                        membrane_potentials = membrane_potentials[:max_len]
+                        continue
+                    area_str = cortical_id_str
+                else:
+                    area_str = str(area_id)
 
-                    # Convert to proper types (u32 for coords, f32 for potentials)
-                    x_coords_u32 = [int(x) for x in x_coords[:max_len]]
-                    y_coords_u32 = [int(y) for y in y_coords[:max_len]]
-                    z_coords_u32 = [int(z) for z in z_coords[:max_len]]
-                    potentials_f32 = [float(p) for p in membrane_potentials[:max_len]]
-
-                    # PROPER CORTICAL ID CONVERSION: Use CoreAPI to convert cortical_idx to cortical_id
-                    if isinstance(area_id, int):
-                        # Convert integer cortical_idx to proper 6-character cortical_id
-                        cortical_id_str = self.core_api.get_cortical_id_for_idx(area_id)
-                        if cortical_id_str is None:
-                            logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
-                            continue
-                        area_str = cortical_id_str
-                    else:
-                        # Already a string, use as-is
-                        area_str = str(area_id)
-
-                    # Add neurons for this cortical area to the encoder
-                    encoder.add_neurons(
-                        cortical_id=area_str,
-                        x_coords=x_coords_u32,
-                        y_coords=y_coords_u32,
-                        z_coords=z_coords_u32,
-                        potentials=potentials_f32
-                    )
+                encoder.add_neurons(
+                    cortical_id=area_str,
+                    x_coords=x_coords_u32,
+                    y_coords=y_coords_u32,
+                    z_coords=z_coords_u32,
+                    potentials=potentials_f32,
+                )
 
             # Encode to binary
             binary_data = encoder.encode()
@@ -1823,6 +1879,9 @@ class _ShmRingWriter:
             #  Convert cortical area data to the format expected by the new
             #  encoder
             for area_id, area_data in for_visualization.items():
+                # Filter out core areas (_death, _power) that BV can't visualize
+                if str(area_id) in ("_death", "_power"):
+                    continue
                 if area_data and area_data.get("neuron_ids"):
                     neuron_ids = area_data.get("neuron_ids", [])
                     membrane_potentials = area_data.get(
