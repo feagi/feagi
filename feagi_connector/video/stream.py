@@ -541,7 +541,8 @@ async def stream_segmented_camera(
                             grid = 5
                             mosaic_h = ph + grid + ch + grid + ph
                             mosaic_w = pw + grid + cw + grid + pw
-                            mosaic_bgr = np.zeros((mosaic_h, mosaic_w, 3), dtype=np.uint8)
+                            # Gray background (128, 128, 128) instead of black
+                            mosaic_bgr = np.full((mosaic_h, mosaic_w, 3), 128, dtype=np.uint8)
                             
                             # Extract segments from resized frame using eccentricity/modulation
                             ecc_x, ecc_y = processor.eccentricity
@@ -573,27 +574,33 @@ async def stream_segmented_camera(
                             bot_mid = bot_region[:, center_x_start:center_x_start+center_w_pixels]
                             bot_right = bot_region[:, center_x_start+center_w_pixels:]
                             
-                            # Place segments in mosaic grid
+                            # Place segments in mosaic grid (all peripherals use pw x ph to preserve aspect ratio)
                             # iic600 (top-left)
-                            mosaic[0:ph, 0:pw] = cv2.resize(left_col, (pw, ph)) if left_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
-                            # iic700 (top-mid)
-                            mosaic[0:ph, pw+grid:pw+grid+cw] = cv2.resize(top_mid, (cw, ph)) if top_mid.size > 0 else np.zeros((ph, cw, 3), dtype=np.uint8)
+                            mosaic_bgr[0:ph, 0:pw] = cv2.resize(left_col, (pw, ph)) if left_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            # iic700 (top-mid) - centered in allocated space
+                            top_mid_resized = cv2.resize(top_mid, (pw, ph)) if top_mid.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            x_offset = (cw - pw) // 2
+                            mosaic_bgr[0:ph, pw+grid+x_offset:pw+grid+x_offset+pw] = top_mid_resized
                             # iic800 (top-right)
-                            mosaic[0:ph, pw+grid+cw+grid:] = cv2.resize(right_col, (pw, ph)) if right_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            mosaic_bgr[0:ph, pw+grid+cw+grid:pw+grid+cw+grid+pw] = cv2.resize(right_col, (pw, ph)) if right_col.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
                             
-                            # iic300 (mid-left)
-                            mosaic[ph+grid:ph+grid+ch, 0:pw] = cv2.resize(mid_left, (pw, ch)) if mid_left.size > 0 else np.zeros((ch, pw, 3), dtype=np.uint8)
+                            # iic300 (mid-left) - centered in allocated space
+                            mid_left_resized = cv2.resize(mid_left, (pw, ph)) if mid_left.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            y_offset = (ch - ph) // 2
+                            mosaic_bgr[ph+grid+y_offset:ph+grid+y_offset+ph, 0:pw] = mid_left_resized
                             # iic400 (center)
-                            mosaic[ph+grid:ph+grid+ch, pw+grid:pw+grid+cw] = cv2.resize(center_img, (cw, ch)) if center_img.size > 0 else np.zeros((ch, cw, 3), dtype=np.uint8)
-                            # iic500 (mid-right)
-                            mosaic[ph+grid:ph+grid+ch, pw+grid+cw+grid:] = cv2.resize(mid_right, (pw, ch)) if mid_right.size > 0 else np.zeros((ch, pw, 3), dtype=np.uint8)
+                            mosaic_bgr[ph+grid:ph+grid+ch, pw+grid:pw+grid+cw] = cv2.resize(center_img, (cw, ch)) if center_img.size > 0 else np.zeros((ch, cw, 3), dtype=np.uint8)
+                            # iic500 (mid-right) - centered in allocated space
+                            mid_right_resized = cv2.resize(mid_right, (pw, ph)) if mid_right.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            mosaic_bgr[ph+grid+y_offset:ph+grid+y_offset+ph, pw+grid+cw+grid:pw+grid+cw+grid+pw] = mid_right_resized
                             
                             # iic000 (bot-left)
-                            mosaic[ph+grid+ch+grid:, 0:pw] = cv2.resize(bot_left, (pw, ph)) if bot_left.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
-                            # iic100 (bot-mid)
-                            mosaic[ph+grid+ch+grid:, pw+grid:pw+grid+cw] = cv2.resize(bot_mid, (cw, ph)) if bot_mid.size > 0 else np.zeros((ph, cw, 3), dtype=np.uint8)
+                            mosaic_bgr[ph+grid+ch+grid:ph+grid+ch+grid+ph, 0:pw] = cv2.resize(bot_left, (pw, ph)) if bot_left.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            # iic100 (bot-mid) - centered in allocated space
+                            bot_mid_resized = cv2.resize(bot_mid, (pw, ph)) if bot_mid.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            mosaic_bgr[ph+grid+ch+grid:ph+grid+ch+grid+ph, pw+grid+x_offset:pw+grid+x_offset+pw] = bot_mid_resized
                             # iic200 (bot-right)
-                            mosaic[ph+grid+ch+grid:, pw+grid+cw+grid:] = cv2.resize(bot_right, (pw, ph)) if bot_right.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
+                            mosaic_bgr[ph+grid+ch+grid:ph+grid+ch+grid+ph, pw+grid+cw+grid:pw+grid+cw+grid+pw] = cv2.resize(bot_right, (pw, ph)) if bot_right.size > 0 else np.zeros((ph, pw, 3), dtype=np.uint8)
                             
                             logger.info(f"[SHM-VIDEO-FEAGI] 🔄 Fallback mosaic created: {mosaic_bgr.shape} with 9 segments")
                         
