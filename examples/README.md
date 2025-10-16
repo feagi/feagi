@@ -13,7 +13,7 @@ pip install --extra-index-url https://test.pypi.org/simple/ feagi-connector[rust
 
 ## SDK Usage Examples
 
-### New API: Segmented Vision with Gaze Control (v0.0.68+)
+### New API: Segmented Vision with Gaze Control
 
 See `segmented_vision_gaze_example.py` for a complete example using the new Rust data structures.
 

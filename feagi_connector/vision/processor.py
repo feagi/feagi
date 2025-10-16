@@ -125,7 +125,6 @@ class SegmentedVisionProcessor:
     def _setup_gaze_properties(self) -> None:
         """Setup gaze properties using the advanced pattern from feagi_rust_py_libs."""
         try:
-            # Try the new connector_core API path (version 0.0.66+)
             eccentricity = self._frpl.connector_core.data.Percentage2D(
                 self._frpl.connector_core.data.Percentage.new_from_0_1(self._eccentricity_params[0]),
                 self._frpl.connector_core.data.Percentage.new_from_0_1(self._eccentricity_params[1]),
