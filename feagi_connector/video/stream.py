@@ -439,6 +439,36 @@ async def stream_segmented_camera(
             
             # Encode to bytes and publish (reconnect on failure)
             try:
+                # Check if agent is registered before sending data
+                if not client.registered:
+                    if not hasattr(stream_segmented_camera, '_pause_logged') or not stream_segmented_camera._pause_logged:
+                        logger.warning("⏸️  Agent not registered - DATA TRANSMISSION PAUSED until registration completes")
+                        stream_segmented_camera._pause_logged = True
+                    
+                    # Attempt periodic reconnection while paused
+                    current_time = time.time()
+                    if not hasattr(stream_segmented_camera, '_last_reconnect_attempt') or \
+                       (current_time - stream_segmented_camera._last_reconnect_attempt) >= 2.0:
+                        logger.info("🔄 Attempting to reconnect...")
+                        stream_segmented_camera._last_reconnect_attempt = current_time
+                        ok = await _register_and_connect()
+                        if ok:
+                            logger.info("✅ Reconnected successfully - resuming data transmission")
+                            consecutive_failures = 0
+                            backoff = 1.0
+                            # Don't continue, let it process this frame
+                        else:
+                            await asyncio.sleep(0.5)
+                            continue
+                    else:
+                        await asyncio.sleep(0.5)  # Sleep longer since we're paused
+                        continue
+                
+                # Agent is registered - log resume if we were paused
+                if hasattr(stream_segmented_camera, '_pause_logged') and stream_segmented_camera._pause_logged:
+                    logger.info("▶️  Agent registered - DATA TRANSMISSION RESUMED")
+                    stream_segmented_camera._pause_logged = False
+                
                 assert processor is not None
                 sensor_bytes = processor.process_frame(resized)
                 
@@ -461,10 +491,19 @@ async def stream_segmented_camera(
                         logger.info(f"[ZMQ] ✅ Successfully sent {len(sensor_bytes)} bytes")
                     except zmq.Again:
                         logger.warning(f"[ZMQ] ⚠️ Send would block (FEAGI not ready)")
+                        # Mark as disconnected and re-raise to trigger reconnection
+                        client.registered = False
+                        raise
                     except Exception as e:
                         logger.error(f"[ZMQ] ❌ Send failed: {e}")
+                        # Mark as disconnected and re-raise to trigger reconnection
+                        client.registered = False
+                        raise
                 elif client.sensory_client.socket:
                     logger.warning("[ZMQ] ⚠️ ZMQ not available, cannot send")
+                    # Socket exists but ZMQ not available - connection issue
+                    client.registered = False
+                    raise ConnectionError("ZMQ not available")
                 else:
                     logger.debug("[ZMQ] Socket not connected (using SHM only)")
                 if sensory_writer is not None:
@@ -474,6 +513,9 @@ async def stream_segmented_camera(
                         logger.info(f"[SHM-SENSORY] ✅ Successfully wrote {len(sensor_bytes)} bytes")
                     except Exception as e:
                         logger.error(f"[SHM-SENSORY] ❌ Failed to write: {e}")
+                        # Mark as disconnected and re-raise to trigger reconnection
+                        client.registered = False
+                        raise
                 
                 # Write FEAGI processed video (segmented mosaic with overlays) for BV FEAGI view via SHM
                 if feagi_writer is not None:
@@ -584,6 +626,11 @@ async def stream_segmented_camera(
                 consecutive_failures += 1
                 current_time = time.time()
                 
+                # Immediately mark as not registered on ANY failure to pause data transmission
+                if client.registered:
+                    logger.warning(f"⚠️ Send failure detected - marking agent as disconnected")
+                    client.registered = False
+                
                 # Rate-limit and only reconnect after sustained failures
                 if (consecutive_failures < max_consecutive_failures or 
                     (current_time - last_reconnect_time) < min_reconnect_interval):
@@ -591,20 +638,21 @@ async def stream_segmented_camera(
                     await asyncio.sleep(0.1)
                     continue
 
-                logger.warning(f"🔄 Connection issue detected, attempting reconnect... ({consecutive_failures} failures)")
+                logger.warning(f"🔄 Connection issue detected, pausing data transmission and attempting reconnect... ({consecutive_failures} failures)")
                 
                 # Attempt bounded backoff reconnect
                 delay = backoff + random.uniform(0, 0.25)
+                logger.info(f"⏸️  Data transmission PAUSED - waiting {delay:.1f}s before reconnect attempt...")
                 await asyncio.sleep(delay)
                 backoff = min(max_backoff, backoff * 2.0)
                 last_reconnect_time = current_time
                 
                 ok = await _register_and_connect()
                 if not ok:
-                    logger.error("❌ Reconnection failed, retrying...")
+                    logger.error("❌ Reconnection failed, data transmission remains paused - retrying...")
                     continue
                 else:
-                    logger.info("✅ Reconnected successfully")
+                    logger.info("✅ Reconnected and registered successfully - resuming data transmission")
                     consecutive_failures = 0
 
             # Write ORIGINAL raw RGB frame (not resized) for BV preview via SHM
