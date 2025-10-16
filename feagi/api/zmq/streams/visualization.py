@@ -513,19 +513,12 @@ class VisualizationStream:
                 # Use BINARY format from Rust library (bridge is passthrough to BV)
                 if self.socket:
                     try:
-                        # Filter out core areas (_death, _power) that BV can't visualize
-                        filtered_data = {
-                            area_id: area_data
-                            for area_id, area_data in cortical_data.items()
-                            if str(area_id) not in ("_death", "_power")
-                        }
-                        
                         # Use binary encoding via feagi_rust_py_libs (bridge passes through to BV)
-                        binary_data = self._prepare_broadcast_data(filtered_data)
+                        binary_data = self._prepare_broadcast_data(cortical_data)
                         if binary_data and len(binary_data) > 0:
                             # Verify header before publishing
                             header_check = f"[{binary_data[0]},{binary_data[1]}]" if len(binary_data) >= 2 else "EMPTY"
-                            area_count = len(filtered_data)
+                            area_count = len(cortical_data)
                             logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes ({area_count} areas, Type 11) to ZMQ:5562 - Header: {header_check}")
                             # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
                             self._publish_zmq_only(binary_data)
@@ -905,9 +898,6 @@ class VisualizationStream:
             out: Dict[str, Any] = {"type": 11, "areas": {}}
             total = 0
             for area_id, area in cortical_data.items():
-                # Filter out core areas (_death, _power) that BV can't visualize
-                if str(area_id) in ("_death", "_power"):
-                    continue
                 if not area:
                     continue
                 neuron_ids = area.get("neuron_ids", [])
@@ -1879,9 +1869,6 @@ class _ShmRingWriter:
             #  Convert cortical area data to the format expected by the new
             #  encoder
             for area_id, area_data in for_visualization.items():
-                # Filter out core areas (_death, _power) that BV can't visualize
-                if str(area_id) in ("_death", "_power"):
-                    continue
                 if area_data and area_data.get("neuron_ids"):
                     neuron_ids = area_data.get("neuron_ids", [])
                     membrane_potentials = area_data.get(
