@@ -1117,6 +1117,26 @@ class BrainService(BaseService):
                             for v in _pending_activations.values()
                         )
                         
+                        # CRITICAL: Trigger immediate burst to process sensory neurons
+                        if injected_count > 0:
+                            try:
+                                from feagi.core.state_manager import FeagiStateManager
+                                if FeagiStateManager.instance().is_debug_npu_enabled():
+                                    self.logger.info(f"[SENSORY-DEBUG] Triggering burst for {injected_count} sensory neurons")
+                            except Exception:
+                                pass
+                            try:
+                                fired_neurons = burst_engine.process_burst()
+                                fired_count = len(fired_neurons) if fired_neurons else 0
+                                try:
+                                    from feagi.core.state_manager import FeagiStateManager
+                                    if FeagiStateManager.instance().is_debug_npu_enabled():
+                                        self.logger.info(f"[SENSORY-DEBUG] Burst completed: {fired_count} neurons fired")
+                                except Exception:
+                                    pass
+                            except Exception as burst_err:
+                                self.logger.error(f"Error triggering burst for sensory stimulation: {burst_err}")
+                        
                         # Debug: Log injection result
                         try:
                             from feagi.core.state_manager import FeagiStateManager

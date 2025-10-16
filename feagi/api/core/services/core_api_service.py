@@ -460,23 +460,9 @@ class CoreAPIService:
         #  final dimensions
         if result.get("success", False):
             self.logger.info(
-                "Genome loaded successfully - initializing spatial hash cache with final cortical area dimensions..."
+                "Genome loaded successfully - Rust NPU spatial hash is ready"
             )
-            
-            # Initialize spatial hash cache after all cortical areas are loaded
-            spatial_hash_success = self.initialize_spatial_hash_cache()
-            if spatial_hash_success:
-                self.logger.info(
-                    "✅ Spatial hash cache initialization complete"
-                )
-                #  Add spatial hash success info to result without overriding
-                #  existing data
-                result["spatial_hash_initialized"] = True
-            else:
-                self.logger.warning(
-                    "⚠️ Spatial hash cache initialization failed - continuing with default cache"
-                )
-                result["spatial_hash_initialized"] = False
+            result["spatial_hash_initialized"] = True
         
         return result
 
@@ -909,6 +895,56 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(
                 f"Error getting neuron count for {cortical_id}: {str(e)}"
+            )
+            raise e
+
+    def get_neurons_at_voxel(
+        self, cortical_id: str, x: int, y: int, z: int
+    ) -> List[int]:
+        """Get neuron IDs at a specific voxel location in a cortical area.
+        
+        Uses Rust NPU spatial hash for O(1) coordinate lookups.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            x: X coordinate of the voxel
+            y: Y coordinate of the voxel
+            z: Z coordinate of the voxel
+            
+        Returns:
+            List of neuron IDs at the specified voxel location (empty list if none)
+        """
+        try:
+            if not self._connectome_manager:
+                self.logger.warning("Connectome manager not available")
+                return []
+            
+            # Get cortical area and its cortical_idx
+            area = self._connectome_manager.get_cortical_area(cortical_id)
+            cortical_idx = area.cortical_idx
+            
+            # Use Rust NPU spatial hash for lookup
+            npu_interface = self._connectome_manager._npu_interface
+            if not npu_interface or not hasattr(npu_interface, 'rust_npu'):
+                self.logger.warning("Rust NPU not available for voxel lookup")
+                return []
+            
+            rust_npu = npu_interface.rust_npu
+            neuron_id = rust_npu.get_neuron_at_coordinate(cortical_idx, x, y, z)
+            
+            if neuron_id is not None:
+                # Return as list (genome typically has 1 neuron per voxel)
+                return [neuron_id]
+            else:
+                # No neuron at this coordinate
+                return []
+                
+        except KeyError:
+            self.logger.warning(f"Cortical area {cortical_id} not found")
+            return []
+        except Exception as e:
+            self.logger.error(
+                f"Error getting neurons at voxel [{x},{y},{z}] in {cortical_id}: {str(e)}"
             )
             raise e
 
@@ -4159,20 +4195,6 @@ class CoreAPIService:
                 f"Error getting max cortical area dimensions: {str(e)}"
             )
             return (8, 8, 8)  # Safe fallback dimensions
-
-    def initialize_spatial_hash_cache(self) -> bool:
-        """Initialize the spatial hash cache (simplified for Morton system).
-        
-        Returns:
-            True if initialization successful, False otherwise
-        """
-        try:
-            return self._connectome_manager.initialize_spatial_hash_cache()
-        except Exception as e:
-            self.logger.error(
-                f"Error initializing spatial hash cache: {str(e)}"
-            )
-            return False
 
     # =================================================================
     # ROBOT/GAZEBO METHODS

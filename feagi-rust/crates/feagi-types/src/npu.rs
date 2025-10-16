@@ -90,6 +90,11 @@ pub struct NeuronArray {
     
     /// Reverse mapping: array index to neuron ID
     pub index_to_neuron_id: Vec<u32>,
+    
+    /// Spatial hash for coordinate-based neuron lookup
+    /// Key = (cortical_area, x, y, z), Value = neuron_id
+    /// This enables fast sensory injection by coordinates
+    pub spatial_hash: HashMap<(u32, u32, u32, u32), u32>,
 }
 
 impl NeuronArray {
@@ -114,6 +119,7 @@ impl NeuronArray {
             valid_mask: vec![false; capacity],
             neuron_id_to_index: HashMap::new(),
             index_to_neuron_id: vec![0; capacity],
+            spatial_hash: HashMap::new(),
         }
     }
     
@@ -163,6 +169,10 @@ impl NeuronArray {
         self.neuron_id_to_index.insert(neuron_id, id);
         self.index_to_neuron_id[id] = neuron_id;
         
+        // Register in spatial hash for coordinate-based lookups (sensory injection)
+        let coord_key = (cortical_area, x, y, z);
+        self.spatial_hash.insert(coord_key, neuron_id);
+        
         self.count += 1;
         Ok(NeuronId(neuron_id))
     }
@@ -202,6 +212,15 @@ impl NeuronArray {
     pub fn get_coordinates(&self, neuron_id: NeuronId) -> (u32, u32, u32) {
         let idx = neuron_id.0 as usize * 3;
         (self.coordinates[idx], self.coordinates[idx + 1], self.coordinates[idx + 2])
+    }
+    
+    /// Get neuron ID by coordinates (spatial hash lookup for sensory injection)
+    /// 
+    /// Returns None if no neuron exists at the given coordinates
+    #[inline(always)]
+    pub fn get_neuron_at_coordinate(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<NeuronId> {
+        let coord_key = (cortical_area, x, y, z);
+        self.spatial_hash.get(&coord_key).map(|&id| NeuronId(id))
     }
 }
 

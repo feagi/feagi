@@ -364,9 +364,7 @@ class SnapshotAPI:
                 sm = self.core_api_service.state_manager
                 sm.invalidate_cortical_areas_cache()
                 _ = sm.get_cortical_areas_cache(cm)
-                # Initialize spatial hash cache if available
-                if hasattr(cm, "initialize_spatial_hash_cache"):
-                    cm.initialize_spatial_hash_cache()
+                # Rust NPU spatial hash is automatically populated
             except Exception:
                 pass
 

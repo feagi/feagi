@@ -286,19 +286,39 @@ class BurstEngine:
                     coords_y = area_data.get('coordinates_y', [])
                     coords_z = area_data.get('coordinates_z', [])
                     
-                    # Use spatial hash to look up neuron IDs
-                    if hasattr(self.connectome_manager, '_spatial_hash') and self.connectome_manager._spatial_hash:
-                        spatial_hash = self.connectome_manager._spatial_hash
+                    # Use Rust NPU spatial hash to look up neuron IDs
+                    if hasattr(self, 'npu_interface') and self.npu_interface and hasattr(self.npu_interface, 'rust_npu'):
+                        rust_npu = self.npu_interface.rust_npu
+                        
+                        # Get cortical_idx for this area
+                        try:
+                            cortical_idx = self.connectome_manager.get_cortical_area(area_id).cortical_idx
+                        except Exception:
+                            logger.warning("Could not get cortical_idx for %s", area_id)
+                            continue
+                        
+                        found_count = 0
+                        not_found_count = 0
                         for x, y, z in zip(coords_x, coords_y, coords_z):
                             try:
-                                neuron_id = spatial_hash.get_neuron_at_coordinate(area_id, int(x), int(y), int(z))
+                                neuron_id = rust_npu.get_neuron_at_coordinate(cortical_idx, int(x), int(y), int(z))
                                 if neuron_id is not None:
                                     manual_neurons.append(neuron_id)
+                                    found_count += 1
+                                else:
+                                    not_found_count += 1
+                                    # Log first few misses
+                                    if not_found_count <= 3:
+                                        logger.warning("No neuron found at %s[%d,%d,%d]", 
+                                                     area_id, x, y, z)
                             except Exception as e:
+                                not_found_count += 1
                                 logger.warning("Failed to resolve neuron ID for %s[%d,%d,%d]: %s", 
                                              area_id, x, y, z, e)
+                        logger.info("Rust NPU spatial hash lookup for %s: found=%d, not_found=%d, total_coords=%d", 
+                                   area_id, found_count, not_found_count, len(coords_x))
                     else:
-                        logger.warning("Spatial hash not available for coordinate-to-neuron lookup!")
+                        logger.error("Rust NPU not available for coordinate-to-neuron lookup!")
                 # Direct neuron ID list
                 elif isinstance(area_data, (list, np.ndarray)):
                     manual_neurons.extend([int(nid) for nid in area_data])

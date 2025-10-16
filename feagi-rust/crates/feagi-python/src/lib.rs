@@ -537,6 +537,12 @@ impl RustNPU {
         self.npu.get_neuron_positions_in_cortical_area(cortical_area)
     }
     
+    /// Get neuron ID at specific coordinates (spatial hash lookup for sensory injection)
+    /// Returns None if no neuron exists at the given coordinates
+    fn get_neuron_at_coordinate(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<u32> {
+        self.npu.neuron_array.get_neuron_at_coordinate(cortical_area, x, y, z).map(|id| id.0)
+    }
+    
     /// Update excitability for a single neuron (live parameter change)
     /// Returns true if successful, false if neuron doesn't exist
     fn update_neuron_excitability(&mut self, neuron_id: u32, excitability: f32) -> bool {

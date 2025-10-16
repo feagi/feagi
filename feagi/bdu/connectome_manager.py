@@ -274,34 +274,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
 
 
-        #  Initialize global spatial hash system for ultra-fast coordinate
-        #  lookups
-        from feagi.bdu.spatial_hash import get_spatial_hash
-
-        self._spatial_hash = get_spatial_hash()
-        self.logger.info("[CONNECTOME] Morton spatial hash system initialized")
-
         # Initialize state manager for brain size tracking
         self.state_manager = get_state_manager()
-        
-        # Register Morton spatial hash with state manager
-        try:
-            # Use already imported get_state_manager (no need to re-import)
-            state_manager = self.state_manager
-
-            # Register current Morton implementation details
-            morton_coordinate_limit = 1 << 21  # 21-bit Morton encoding limit
-            state_manager.set_morton_class_info(
-                "RoaringSpatialHash", morton_coordinate_limit
-            )
-
-            self.logger.info(
-                f"[CONNECTOME] Registered Morton spatial hash with state manager: limit={morton_coordinate_limit}"
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"[CONNECTOME] Failed to register Morton spatial hash with state manager: {e}"
-            )
 
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
@@ -531,43 +505,6 @@ class ConnectomeManager(NeuronMappingProvider):
                     self._neuron_to_position.clear()
                 else:
                     self._neuron_to_position = {}
-
-                #  CRITICAL FIX: Clear and rebuild Morton spatial hash after
-                #  resizing
-                # This prevents stale neuron references in the spatial hash
-                from feagi.bdu.spatial_hash import get_spatial_hash
-
-                spatial_hash = get_spatial_hash()
-                spatial_hash.clear()
-                logger.info(
-                    "🧹 [DYNAMIC SIZING] Cleared Morton spatial hash after resize"
-                )
-
-                # Re-register all existing neurons in the spatial hash
-                total_reregistered = 0
-                for cortical_id, area in self.cortical_areas.items():
-                    area_neurons = area.get_all_neurons()
-                    for neuron_id in area_neurons:
-                        try:
-                            position = self.get_neuron_position(neuron_id)
-                            x, y, z = position
-                            success = spatial_hash.add_neuron(
-                                cortical_id, x, y, z, neuron_id
-                            )
-                            if success:
-                                total_reregistered += 1
-                            else:
-                                self.logger.warning(
-                                    f"Failed to re-register neuron {neuron_id} at ({x},{y},{z}) in spatial hash"
-                                )
-                        except Exception as e:
-                            self.logger.warning(
-                                f"Error re-registering neuron {neuron_id}: {e}"
-                            )
-
-                logger.info(
-                    f"🔄 [DYNAMIC SIZING] Re-registered {total_reregistered} neurons in Morton spatial hash"
-                )
 
                 logger.info(
                     "✅ [DYNAMIC SIZING] Connectome resized successfully!"
@@ -2373,20 +2310,6 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"[LOCK] Failed to release lock for cortical_idx={cortical_idx}: {unlock_e}"
                 )
 
-        # Expand spatial hash cache if needed for new cortical area
-        if hasattr(self, "_spatial_hash") and self._spatial_hash:
-            try:
-                success = self._spatial_hash.expand_cache_for_new_area(
-                    position, dimensions
-                )
-                if not success:
-                    logger.warning(
-                        f"⚠️  [SPATIAL HASH] Cache expansion failed for new area {area.id} - may need manual rebuild"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"⚠️  [SPATIAL HASH] Error expanding cache for new area {area.id}: {e}"
-                )
 
         logger.debug(
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
@@ -3156,38 +3079,6 @@ class ConnectomeManager(NeuronMappingProvider):
             )
         return tuple(max_dims)
 
-    def initialize_spatial_hash_cache(self) -> bool:
-        """Initialize the spatial hash cache (simplified for Morton system).
-
-        Returns:
-            True if initialization successful, False otherwise
-        """
-        if not hasattr(self, "_spatial_hash") or not self._spatial_hash:
-            logger.warning(
-                "⚠️  [SPATIAL HASH] No spatial hash instance available"
-            )
-            return False
-
-        try:
-            logger.info(
-                "🗺️  [SPATIAL HASH] Initializing Morton spatial hash..."
-            )
-
-            # Get maximum cortical area dimensions for logging only
-            max_dims = self.get_max_cortical_area_dimensions()
-            logger.info(
-                f"🗺️  [SPATIAL HASH] Cortical area dimensions: {max_dims}"
-            )
-
-            # Morton system is always ready - no initialization needed
-            self._spatial_hash.initialize_for_dimensions(max_dims)
-
-            logger.info("✅ [SPATIAL HASH] Morton system ready")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ [SPATIAL HASH] Failed to initialize: {e}")
-            return False
 
     def _convert_hierarchical_to_flat_parameters(self, hierarchical_params: Dict[str, Any]) -> Dict[str, Any]:
         """Convert hierarchical genome property names to API format.
@@ -7369,36 +7260,6 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.error(f"Error validating cortical area dimensions: {e}")
             return False
 
-    def get_morton_spatial_hash_info(self) -> Dict[str, Any]:
-        """Get information about the active Morton spatial hash implementation.
-
-        Returns:
-            Dictionary containing Morton class name, coordinate limits, and other info
-        """
-        try:
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
-
-            max_dims = self.get_max_allowable_cortical_area_dimensions()
-
-            return {
-                "morton_class": state_manager.get_morton_class_name(),
-                "coordinate_limit": state_manager.get_morton_coordinate_limit(),
-                "max_cortical_area_dimensions": max_dims,
-                "coordinate_bits_per_dimension": 21,  # Current implementation
-                "supports_negative_coordinates": False,
-                "memory_efficient": True,
-                "spatial_locality_preserved": True,
-            }
-        except Exception as e:
-            logger.error(f"Error getting Morton spatial hash info: {e}")
-            return {
-                "morton_class": "Unknown",
-                "coordinate_limit": 1024,  # Safe fallback
-                "max_cortical_area_dimensions": (1023, 1023, 1023),
-                "error": str(e),
-            }
 
     # Removed duplicate get_synapse_count/get_neuron_count/get_neurons_by_area at end of file (consolidated above)
 

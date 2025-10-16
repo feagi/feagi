@@ -336,6 +336,42 @@ class NeuronCountResponse(BaseModel):
     neuron_count: int
 
 
+class VoxelNeuronsRequest(BaseModel):
+    """Request model for querying neurons at a voxel location.
+    
+    Fields:
+        cortical_id: Cortical area identifier
+        x: X coordinate of the voxel
+        y: Y coordinate of the voxel
+        z: Z coordinate of the voxel
+    """
+    
+    cortical_id: str
+    x: int
+    y: int
+    z: int
+
+
+class VoxelNeuronsResponse(BaseModel):
+    """Response model for neurons at a voxel location.
+    
+    Fields:
+        cortical_id: Cortical area identifier
+        x: X coordinate of the voxel
+        y: Y coordinate of the voxel
+        z: Z coordinate of the voxel
+        neuron_ids: List of neuron IDs at this voxel location
+        neuron_count: Number of neurons at this location
+    """
+    
+    cortical_id: str
+    x: int
+    y: int
+    z: int
+    neuron_ids: List[int]
+    neuron_count: int
+
+
 class CloneCorticalAreaRequest(BaseModel):
     """Request model for cloning a cortical area.
 
