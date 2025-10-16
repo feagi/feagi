@@ -214,6 +214,11 @@ class SegmentedVisionProcessor:
 
         # Convert to RGB and resize if requested (resize is left to caller if they use cv2 elsewhere)
         rgb = bgr_to_rgb_uint8(frame_bgr)
+        
+        # CRITICAL: Flip image vertically to convert from image coordinates (Y=0 top) 
+        # to FEAGI coordinates (Y=0 bottom). The Rust encoder doesn't do this automatically.
+        rgb = np.flipud(rgb)
+        
         h, w = rgb.shape[:2]
         self._ensure_registered(w, h)
 

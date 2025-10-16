@@ -6,14 +6,14 @@ This directory contains SDK usage documentation and code examples demonstrating 
 
 ## Requirements
 
-Install with Rust support for best performance:
+Install with video support:
 ```bash
-pip install --extra-index-url https://test.pypi.org/simple/ feagi-connector[rust,video]
+pip install --extra-index-url https://test.pypi.org/simple/ feagi-connector[video]
 ```
 
 ## SDK Usage Examples
 
-### New API: Segmented Vision with Gaze Control
+### New API: Segmented Vision with Gaze Control (v0.0.72+)
 
 See `segmented_vision_gaze_example.py` for a complete example using the new Rust data structures.
 

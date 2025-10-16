@@ -11,8 +11,8 @@ temp_sensors_dict = {
     },
     "SegmentedImageFrame": {
         "image_camera_with_peripheral": {
-            "register_name": "sensor_register_segmented_vision_absolute",
-            "write_name": "sensor_write_segmented_vision_absolute"
+            "register_name": "sensor_segmented_vision_absolute_try_register",
+            "write_name": "sensor_segmented_vision_absolute_try_write"
         }
     }
 }
