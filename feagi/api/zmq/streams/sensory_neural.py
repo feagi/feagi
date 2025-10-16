@@ -60,6 +60,25 @@ def _acquire_slot_reader(agent_id: str, max_age_ms: float = 100.0) -> Optional[L
             reader = LatestOnlyReader(slot, max_age_ms)
             _GLOBAL_SLOT_READERS[agent_id] = reader
             logger.info(f"[SLOT] Created reader for agent {agent_id}: {slot_path}")
+            
+            # Auto-register agent in state manager when slot reader is created
+            # This ensures connected_agents registry stays synchronized with active slots
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                connected_agents = sm.get_connected_agents()
+                
+                if agent_id not in connected_agents:
+                    # Register agent with minimal information (SHM-based connection)
+                    sm.register_agent(
+                        agent_id=agent_id,
+                        agent_type="shm_connected",
+                        capabilities={"sensory": {"method": "shared_memory"}}
+                    )
+                    logger.info(f"[SLOT] Auto-registered agent {agent_id} in state manager")
+            except Exception as reg_err:
+                logger.warning(f"[SLOT] Failed to auto-register agent {agent_id}: {reg_err}")
+            
             return reader
         except Exception as e:
             logger.error(f"[SLOT] Failed to create reader for agent {agent_id}: {e}")
@@ -74,6 +93,16 @@ def _release_slot_reader(agent_id: str) -> None:
                 reader.slot.close()
                 cleanup_agent_slots(_SHM_BASE_DIR, agent_id)
                 logger.info(f"[SLOT] Released and cleaned up reader for agent {agent_id}")
+                
+                # Deregister agent from state manager when slot reader is released
+                try:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    sm.deregister_agent(agent_id)
+                    logger.info(f"[SLOT] Deregistered agent {agent_id} from state manager")
+                except Exception as dereg_err:
+                    logger.debug(f"[SLOT] Failed to deregister agent {agent_id}: {dereg_err}")
+                    
             except Exception as e:
                 logger.warning(f"[SLOT] Error cleaning up reader for agent {agent_id}: {e}")
 
@@ -491,13 +520,16 @@ class SensoryNeuralStream:
                     sm = FeagiStateManager.instance()
                     connected_agents = sm.get_connected_agents() if hasattr(sm, 'get_connected_agents') else {}
                     
-                    # DEBUG: Log connected agents to understand the issue (commented out - too spammy)
-                    # logger.info(f"🔍 [DEBUG] Connected agents check: {list(connected_agents.keys())} vs slot readers: {list(self._slot_readers.keys())}")
-                    
                     # CRITICAL FIX: Don't remove agents if connected_agents is suspiciously empty
+                    # This indicates agents are connected but not registered in state manager
                     if not connected_agents and self._slot_readers:
-                        logger.warning(f"🚨 [CRITICAL] Connected agents registry is empty but we have {len(self._slot_readers)} slot readers!")
-                        logger.warning("🚨 [CRITICAL] This suggests connected_agents was cleared unexpectedly - SKIPPING CLEANUP")
+                        # Log this once per minute to avoid spam
+                        current_time = time.time()
+                        if not hasattr(self, '_last_registry_warn_time') or current_time - self._last_registry_warn_time > 60:
+                            logger.warning(f"🚨 [CRITICAL] Connected agents registry is empty but we have {len(self._slot_readers)} slot readers: {list(self._slot_readers.keys())}")
+                            logger.warning("🚨 [CRITICAL] Agents are connected but not registered in state manager - this is a registration bug!")
+                            logger.warning("🚨 [CRITICAL] SKIPPING CLEANUP to preserve active connections")
+                            self._last_registry_warn_time = current_time
                     else:
                         for agent_id in list(self._slot_readers.keys()):
                             if agent_id not in connected_agents:

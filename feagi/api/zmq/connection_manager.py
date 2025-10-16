@@ -150,6 +150,22 @@ class ConnectionManager:
             "message_count": {"sent": 0, "received": 0},
         }
         logger.info(f"Registered client {agent_id} with ZMQ ID {zmq_id.hex()}")
+        
+        # Register agent in state manager to keep connected_agents synchronized
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            sm = FeagiStateManager.instance()
+            connected_agents = sm.get_connected_agents()
+            
+            if agent_id not in connected_agents:
+                sm.register_agent(
+                    agent_id=agent_id,
+                    agent_type="zmq_connected",
+                    capabilities={"protocols": supported_protocols}
+                )
+                logger.info(f"Registered agent {agent_id} in state manager")
+        except Exception as e:
+            logger.warning(f"Failed to register agent {agent_id} in state manager: {e}")
 
     def deregister_client(self, agent_id: str) -> bool:
         """Deregister a client.
@@ -163,6 +179,16 @@ class ConnectionManager:
         if agent_id in self.connections:
             del self.connections[agent_id]
             logger.info(f"Deregistered client {agent_id}")
+            
+            # Deregister agent from state manager
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                sm.deregister_agent(agent_id)
+                logger.info(f"Deregistered agent {agent_id} from state manager")
+            except Exception as e:
+                logger.debug(f"Failed to deregister agent {agent_id} from state manager: {e}")
+            
             return True
         return False
 
