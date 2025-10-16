@@ -27,8 +27,8 @@ pollster = "0.3"  # Async/await executor for GPU operations
 bytemuck = { version = "1.14", features = ["derive"] }  # Type casting for GPU buffers
 
 # Published FEAGI data crates
-feagi_data_structures = "0.0.50-beta.39"
-feagi_data_serialization = "0.0.50-beta.39"
+feagi_data_structures = "0.0.50-beta.41"
+feagi_data_serialization = "0.0.50-beta.41"
 
 # PyO3 for Python bindings
 pyo3 = { version = "0.22", features = ["extension-module"] }

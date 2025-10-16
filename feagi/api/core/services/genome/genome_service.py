@@ -352,14 +352,10 @@ class GenomeService(BaseService):
             # from showing stale data during genome loading
             self._clear_connectome_manager_data()
             
-            # Clear agent/connection data
-            result = self.state_manager.set_connected_agents({})
-            if result.is_err:
-                self.logger.warning("Failed to clear connected agents")
-                
-            result = self.state_manager.set_agent_count(0)
-            if result.is_err:
-                self.logger.warning("Failed to reset agent count")
+            # NOTE: Agent connectivity is preserved across genome reloads
+            # Connected agents should only be cleared when agents actually disconnect,
+            # not when genome state changes. This prevents race conditions with active
+            # slot readers in sensory neural streams.
             
             # Reset development/embryogenesis state
             if hasattr(self.state_manager, 'set_neuroembryogenesis_stage'):

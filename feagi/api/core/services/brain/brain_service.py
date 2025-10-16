@@ -963,76 +963,7 @@ class BrainService(BaseService):
                     # area_stimulated and area_failed already set above from batch lookup
 
                     # activations_for_area already populated above from batch lookup
-
-                    # Process each unique coordinate position
-                    for unique_idx, unique_coord in enumerate(unique_coords):
-                        coord_tuple = tuple(unique_coord)
-
-                        #  Find all original indices that map to this unique
-                        #  coordinate
-                        coord_mask = inverse_indices == unique_idx
-                        coord_potentials = potentials[coord_mask]
-
-                        # Get neurons at this coordinate
-                        neurons_at_coord = position_to_neurons.get(
-                            coord_tuple, []
-                        )
-
-                        if neurons_at_coord and len(coord_potentials) > 0:
-                            # Use the first potential value for this coordinate
-                            #  (all coordinates at same position get same
-                            #  stimulation)
-                            potential_value = float(coord_potentials[0])
-
-                            #  SIMD OPTIMIZATION 5: Batch membrane potential
-                            #  update
-                            try:
-                                if hasattr(
-                                    self._connectome_manager, "neuron_array"
-                                ):
-                                    neuron_array = (
-                                        self._connectome_manager.neuron_array
-                                    )
-                                    if hasattr(
-                                        neuron_array,
-                                        "batch_update_membrane_potentials",
-                                    ):
-                                        # Deterministic id-based batch update
-                                        neuron_array.batch_update_membrane_potentials(
-                                            neurons_at_coord,
-                                            [potential_value]
-                                            * len(neurons_at_coord),
-                                        )
-                                        area_stimulated += len(
-                                            neurons_at_coord
-                                        )
-                                    else:
-                                        # Deterministic id-based individual updates
-                                        for neuron_id in neurons_at_coord:
-                                            try:
-                                                neuron_array.set_neuron_property(
-                                                    neuron_id,
-                                                    "membrane_potential",
-                                                    potential_value,
-                                                )
-                                                area_stimulated += 1
-                                            except Exception as e:
-                                                self.logger.warning(
-                                                    f"Failed to stimulate neuron {neuron_id}: {str(e)}"
-                                                )
-                                                area_failed += 1
-
-                                else:
-                                    area_failed += len(neurons_at_coord)
-                            except Exception as e:
-                                self.logger.warning(
-                                    f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
-                                )
-                                area_failed += len(neurons_at_coord)
-
-                            # Accumulate ids for FCL injection
-                            if neurons_at_coord:
-                                activations_for_area.extend(neurons_at_coord)
+                    # Neuron stimulation now happens via BurstEngine._pending_external_activations
 
                     area_results[cortical_id] = {
                         "success": True,
