@@ -287,8 +287,9 @@ class BurstEngine:
                     coords_z = area_data.get('coordinates_z', [])
                     
                     # Use Rust NPU spatial hash to look up neuron IDs
-                    if hasattr(self, 'npu_interface') and self.npu_interface and hasattr(self.npu_interface, 'rust_npu'):
-                        rust_npu = self.npu_interface.rust_npu
+                    npu_interface = self.connectome_manager._npu_interface
+                    if npu_interface and hasattr(npu_interface, 'rust_npu') and npu_interface.rust_npu:
+                        rust_npu = npu_interface.rust_npu
                         
                         # Get cortical_idx for this area
                         try:
