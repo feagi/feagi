@@ -45,12 +45,16 @@ class PlatformOptimizer:
     ) -> None:
         """Apply optimizations common to all platforms."""
         # Set high water marks to prevent memory bloat
+        # REAL-TIME CRITICAL: Low HWM to prevent buffering delays
         if is_sender:
-            socket.setsockopt(zmq.SNDHWM, 1000)  # 1000 messages max
+            socket.setsockopt(zmq.SNDHWM, 100)  # Keep agent default (3 sec at 30 FPS)
             socket.setsockopt(zmq.SNDBUF, 8388608)  # 8MB send buffer
         else:
-            socket.setsockopt(zmq.RCVHWM, 1000)  # 1000 messages max
-            socket.setsockopt(zmq.RCVBUF, 8388608)  # 8MB receive buffer
+            # CRITICAL FIX: HWM=2 prevents buffering old sensory data
+            # At 30 FPS: HWM=1000 = 33 seconds of stale data (UNACCEPTABLE)
+            # HWM=2 ensures we process latest data only (real-time requirement)
+            socket.setsockopt(zmq.RCVHWM, 2)  # Minimal buffering for real-time
+            socket.setsockopt(zmq.RCVBUF, 2097152)  # 2MB receive buffer (reduced for real-time)
 
         # Set linger to avoid hanging on shutdown
         socket.setsockopt(zmq.LINGER, 1000)  # 1 second linger
@@ -64,6 +68,13 @@ class PlatformOptimizer:
         # Immediate mode for low latency
         if socket_type in [zmq.PUB, zmq.PUSH]:
             socket.setsockopt(zmq.IMMEDIATE, 1)
+        
+        # CONFLATE for PULL sockets to keep only latest message (real-time critical)
+        if socket_type == zmq.PULL and not is_sender:
+            try:
+                socket.setsockopt(zmq.CONFLATE, 1)  # Keep only most recent message
+            except Exception:
+                pass  # CONFLATE not available on all ZMQ versions
 
     def _apply_platform_optimizations(
         self, socket: zmq.Socket, socket_type: int, is_sender: bool
