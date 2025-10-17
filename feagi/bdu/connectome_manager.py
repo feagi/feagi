@@ -7250,7 +7250,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 for neuron_id, x, y, z in neuron_positions:
                     self._rust_morton_hash.add_neuron(cortical_id, int(x), int(y), int(z), int(neuron_id))
             
-            stats = self._rust_morton_hash.get_stats()
+            stats = self._rust_morton_hash.get_statistics()
             logger.info(
                 f"🦀 Rust Morton hash populated: {stats['total_neurons']} neurons "
                 f"across {stats['total_areas']} areas"

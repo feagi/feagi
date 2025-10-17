@@ -24,9 +24,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
-from feagi.bdu.connectivity.cortical_mappings import (
-    get_mapping_restrictions_registry,
-)
+from feagi.bdu.utils.mapping_utils import get_mapping_restrictions_registry
 from feagi.utils.logger import setup_logger
 
 from .agents.agents_service import AgentsService

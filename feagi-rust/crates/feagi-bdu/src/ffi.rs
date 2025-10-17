@@ -247,6 +247,120 @@ fn py_morton_decode_3d(morton_code: u64) -> PyResult<(u32, u32, u32)> {
     Ok(morton_decode_3d(morton_code))
 }
 
+/// Vector offset - apply single vector to position
+#[pyfunction]
+fn py_apply_vector_offset(
+    src_position: (i32, i32, i32),
+    vector: (i32, i32, i32),
+    morphology_scalar: f32,
+    dst_dimensions: (usize, usize, usize),
+) -> PyResult<(i32, i32, i32)> {
+    match crate::connectivity::rules::apply_vector_offset(
+        src_position, vector, morphology_scalar, dst_dimensions
+    ) {
+        Ok(pos) => Ok(pos),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
+/// Vector batch - apply vector to multiple positions
+#[pyfunction]
+fn py_match_vectors_batch(
+    src_positions: Vec<(i32, i32, i32)>,
+    vector: (i32, i32, i32),
+    morphology_scalar: f32,
+    dst_dimensions: (usize, usize, usize),
+) -> PyResult<Vec<(i32, i32, i32)>> {
+    match crate::connectivity::rules::match_vectors_batch(
+        &src_positions, vector, morphology_scalar, dst_dimensions
+    ) {
+        Ok(positions) => Ok(positions),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
+/// Pattern matching - find destinations from pattern rules
+/// patterns: list of (src_pattern, dst_pattern) tuples
+/// Each pattern is (x, y, z) where elements can be:
+///   -1 = wildcard "*"
+///   -2 = skip "?"
+///   -3 = exclude "!"
+///   >= 0 = exact value
+#[pyfunction]
+fn py_match_patterns(
+    src_coordinate: (i32, i32, i32),
+    patterns: Vec<((i32, i32, i32), (i32, i32, i32))>,
+    src_dimensions: (usize, usize, usize),
+    dst_dimensions: (usize, usize, usize),
+) -> PyResult<Vec<(i32, i32, i32)>> {
+    use crate::connectivity::rules::patterns::{PatternElement, match_patterns_batch};
+    
+    // Convert integer patterns to PatternElement
+    let parsed_patterns: Vec<_> = patterns.iter().map(|(src, dst)| {
+        let src_pattern = (
+            PatternElement::from_int(src.0),
+            PatternElement::from_int(src.1),
+            PatternElement::from_int(src.2),
+        );
+        let dst_pattern = (
+            PatternElement::from_int(dst.0),
+            PatternElement::from_int(dst.1),
+            PatternElement::from_int(dst.2),
+        );
+        (src_pattern, dst_pattern)
+    }).collect();
+    
+    let results = match_patterns_batch(
+        src_coordinate,
+        &parsed_patterns,
+        src_dimensions,
+        dst_dimensions,
+    );
+    
+    Ok(results)
+}
+
+/// Find source coordinates that match a pattern
+#[pyfunction]
+fn py_find_source_coordinates(
+    src_pattern: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+) -> PyResult<Vec<(i32, i32, i32)>> {
+    use crate::connectivity::rules::patterns::{PatternElement, find_source_coordinates};
+    
+    let pattern = (
+        PatternElement::from_int(src_pattern.0),
+        PatternElement::from_int(src_pattern.1),
+        PatternElement::from_int(src_pattern.2),
+    );
+    
+    Ok(find_source_coordinates(&pattern, src_dimensions))
+}
+
+/// Randomizer - select random position in destination area
+#[pyfunction]
+fn py_syn_randomizer(dst_dimensions: (usize, usize, usize)) -> PyResult<(i32, i32, i32)> {
+    Ok(crate::connectivity::rules::syn_randomizer(dst_dimensions))
+}
+
+/// Lateral pairs X - connect neurons in pairs along X axis
+#[pyfunction]
+fn py_syn_lateral_pairs_x(
+    neuron_location: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+) -> PyResult<Option<(i32, i32, i32)>> {
+    Ok(crate::connectivity::rules::syn_lateral_pairs_x(neuron_location, src_dimensions))
+}
+
+/// Last to first - connect last neuron to first (feedback connection)
+#[pyfunction]
+fn py_syn_last_to_first(
+    neuron_location: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+) -> PyResult<Option<(i32, i32, i32)>> {
+    Ok(crate::connectivity::rules::syn_last_to_first(neuron_location, src_dimensions))
+}
+
 /// Python module initialization (PyO3 0.22 API with Bound)
 #[pymodule]
 fn feagi_bdu(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -259,6 +373,19 @@ fn feagi_bdu(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_syn_expander, m)?)?;
     m.add_function(wrap_pyfunction!(py_syn_expander_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_syn_reducer_x, m)?)?;
+    
+    // Phase 3C: Vector morphologies  
+    m.add_function(wrap_pyfunction!(py_apply_vector_offset, m)?)?;
+    m.add_function(wrap_pyfunction!(py_match_vectors_batch, m)?)?;
+    
+    // Phase 3D: Pattern morphologies
+    m.add_function(wrap_pyfunction!(py_match_patterns, m)?)?;
+    m.add_function(wrap_pyfunction!(py_find_source_coordinates, m)?)?;
+    
+    // Phase 3E: Trivial morphologies
+    m.add_function(wrap_pyfunction!(py_syn_randomizer, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syn_lateral_pairs_x, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syn_last_to_first, m)?)?;
     
     // Phase 3B: Morton spatial hash
     m.add_class::<PyMortonSpatialHash>()?;

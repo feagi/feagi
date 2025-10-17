@@ -32,6 +32,9 @@ thiserror = { workspace = true }
 # Logging
 log = "0.4"
 
+# Random number generation
+rand = "0.8"
+
 [dev-dependencies]
 criterion = "0.5"       # Benchmarking
 proptest = "1.4"        # Property-based testing

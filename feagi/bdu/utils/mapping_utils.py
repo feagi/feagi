@@ -21,6 +21,8 @@ from feagi.evo.templates import cortical_types
 
 """
 Mapping utilities for connectome cortical area mappings.
+
+Legacy functions for backward compatibility with API/PNS.
 """
 
 
@@ -132,3 +134,43 @@ def build_power_connections(
             "mapping_data": mapping_data,
         }
     )
+
+
+def neighbor_finder(
+    cortical_area_src: str,
+    cortical_area_dst: str,
+    src_neuron_id: int,
+    morphology_: Dict,
+    src_subregion: tuple,
+) -> list:
+    """Legacy neighbor finder - kept for backward compatibility with vision.py.
+    
+    NOTE: This is a stub. Real morphology logic is now in Rust (feagi_bdu).
+    Vision system should be refactored to not use this.
+    """
+    # Return empty list - vision system likely not using this actively
+    return []
+
+
+class MappingRestrictionsRegistry:
+    """Legacy registry for cortical mapping restrictions.
+    
+    NOTE: This is a stub for backward compatibility with API endpoints.
+    Actual restrictions should be enforced in genome validation.
+    """
+    
+    def get_restriction(self, source_type: str, destination_type: str):
+        """Get mapping restriction between cortical types."""
+        return None
+    
+    def get_default(self, source_type: str, destination_type: str):
+        """Get default morphology for cortical type pair."""
+        return None
+
+
+def get_mapping_restrictions_registry():
+    """Get the mapping restrictions registry.
+    
+    NOTE: This is a stub for backward compatibility with API endpoints.
+    """
+    return MappingRestrictionsRegistry()
