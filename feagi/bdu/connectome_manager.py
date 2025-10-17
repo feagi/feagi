@@ -5623,6 +5623,9 @@ class ConnectomeManager(NeuronMappingProvider):
             self.cortical_areas.clear()
         if hasattr(self, "area_neuron_masks"):
             self.area_neuron_masks.clear()
+        
+        # Clear neuron position cache for all areas
+        self.clear_neuron_position_cache()
 
         #  NOTE: No longer managing next_cortical_idx counter since we use
         #  dynamic allocation
@@ -7135,13 +7138,13 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup using Morton spatial hash for O(1) position queries.
+        """Batch lookup using cached neuron positions for extreme performance.
 
         Deterministically finds neurons in `cortical_id` whose
         positions match any in `candidate_positions`.
         
         Performance: O(N) where N = len(candidate_positions)
-        Previously: O(N*M) where M = total neurons in area
+        Uses per-area position cache to avoid repeated Rust NPU calls
         """
         try:
             if not candidate_positions:
@@ -7164,33 +7167,29 @@ class ConnectomeManager(NeuronMappingProvider):
                 logger.error(f"[BATCH-LOOKUP] Rust NPU not available")
                 return []
             
-            # Get all neuron positions from Rust NPU in one batch call
-            neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
-            if not neuron_positions:
-                return []
+            # PERFORMANCE: Cache neuron positions per cortical area
+            # Prevents fetching 16K+ positions 49K+ times during projection mapping
+            cache_key = f"_neuron_positions_cache_{cortical_idx}"
+            if not hasattr(self, cache_key):
+                neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+                if not neuron_positions:
+                    return []
+                setattr(self, cache_key, neuron_positions)
+            else:
+                neuron_positions = getattr(self, cache_key)
             
             # Build target position set for O(1) membership checks (hash set)
             targets = set(candidate_positions)
             
             # Single pass: match neurons to target positions - O(N) complexity
-            # Also validate that neurons actually exist in the connectome
+            # PERFORMANCE: No validation needed - neurons from Rust NPU are authoritative
             found: List[Tuple[int, float]] = []
-            invalid_count = 0
             
             for neuron_id, x, y, z in neuron_positions:
                 position = (int(x), int(y), int(z))
                 if position in targets:
-                    # Validate neuron exists before adding
-                    if self.has_neuron(int(neuron_id)):
-                        found.append((int(neuron_id), float(post_synaptic_current)))
-                    else:
-                        invalid_count += 1
-            
-            if invalid_count > 0:
-                logger.warning(
-                    f"[BATCH-LOOKUP] Found {invalid_count} invalid neurons from NPU "
-                    f"for cortical_idx={cortical_idx} ({cortical_id})"
-                )
+                    # Direct append - Rust NPU is authoritative source
+                    found.append((int(neuron_id), float(post_synaptic_current)))
             
             return found
 
@@ -7199,6 +7198,33 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.exception("Full stack trace:")
             return []
 
+    def clear_neuron_position_cache(self, cortical_id: Optional[str] = None):
+        """Clear cached neuron positions for a cortical area or all areas.
+        
+        Should be called after:
+        - Adding/removing neurons
+        - Modifying cortical areas
+        - Loading a new genome
+        
+        Args:
+            cortical_id: Specific area to clear, or None to clear all caches
+        """
+        if cortical_id:
+            cortical_idx = self.get_cortical_idx_for_id(cortical_id)
+            if cortical_idx is not None:
+                cache_key = f"_neuron_positions_cache_{cortical_idx}"
+                if hasattr(self, cache_key):
+                    delattr(self, cache_key)
+        else:
+            # Clear all position caches
+            attrs_to_delete = [attr for attr in dir(self) if attr.startswith("_neuron_positions_cache_")]
+            for attr in attrs_to_delete:
+                try:
+                    delattr(self, attr)
+                except AttributeError:
+                    pass
+            logger.debug(f"[CACHE] Cleared {len(attrs_to_delete)} neuron position caches")
+    
     # ======================================================================
     # CORTICAL AREA DIMENSION VALIDATION
     # ======================================================================
