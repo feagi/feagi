@@ -2657,6 +2657,20 @@ class GenomeService(BaseService):
                     changes["cortical_type"] = area_type
                 if parameters is not None:
                     changes.update(parameters)
+                
+                # CRITICAL: Convert API array format to individual properties
+                # The API sends neuron_fire_threshold_increment as [x, y, z] array
+                # but we need individual firing_threshold_increment_x/y/z properties
+                if "neuron_fire_threshold_increment" in changes:
+                    increment_array = changes.pop("neuron_fire_threshold_increment")
+                    if isinstance(increment_array, (list, tuple)) and len(increment_array) >= 3:
+                        changes["firing_threshold_increment_x"] = float(increment_array[0])
+                        changes["firing_threshold_increment_y"] = float(increment_array[1])
+                        changes["firing_threshold_increment_z"] = float(increment_array[2])
+                        self.logger.info(
+                            f"[API-CONVERSION] Converted neuron_fire_threshold_increment array to individual properties: "
+                            f"x={increment_array[0]}, y={increment_array[1]}, z={increment_array[2]}"
+                        )
 
                 if not changes:
                     self.logger.warning(
@@ -6144,9 +6158,75 @@ class GenomeService(BaseService):
                         f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized"
                     )
                 else:
-                    self.logger.info(
-                        f"[LOCALIZED-REBUILD] No dimension change needed for {cortical_id}"
-                    )
+                    # Check if neurogenesis-affecting parameters have changed (require rebuild)
+                    neurogenesis_params = {
+                        "firing_threshold_increment_x",
+                        "firing_threshold_increment_y",
+                        "firing_threshold_increment_z",
+                        "leak_variability"
+                    }
+                    neurogenesis_changed = any(param in changes for param in neurogenesis_params)
+                    
+                    if neurogenesis_changed:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Neurogenesis parameter changed for {cortical_id}, rebuilding neurons"
+                        )
+                        
+                        # Remove all existing neurons in this area
+                        existing_neurons = self._connectome_manager.get_neurons_by_cortical_area(cortical_id)
+                        if len(existing_neurons) > 0:
+                            existing_neuron_ids = [int(nid) for nid in existing_neurons]
+                            try:
+                                # Use Rust NPU for neuron deletion
+                                rust_npu = self._connectome_manager._npu_interface.rust_npu
+                                removed = 0
+                                for nid in existing_neuron_ids:
+                                    if rust_npu.delete_neuron(nid):
+                                        removed += 1
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] Removed {removed} existing neurons for neurogenesis parameter change"
+                                )
+                            except Exception as rm_err:
+                                self.logger.warning(
+                                    f"[LOCALIZED-REBUILD] Failed to remove existing neurons: {rm_err}"
+                                )
+                        
+                        # Rebuild neurons with new neurogenesis parameters
+                        self._rebuild_neurons_for_area(cortical_id, properties)
+                        
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Rebuilt neurons for {cortical_id} with new neurogenesis parameters"
+                        )
+                        
+                        # Rebuild synaptic connections since neurons were recreated
+                        try:
+                            from feagi.api.core.services.expansion import SynapticRebuilder
+                            
+                            self.logger.info(
+                                f"🔄 [NEUROGENESIS-CHANGE] Starting synaptic rebuild for {cortical_id}"
+                            )
+                            
+                            rebuilder = SynapticRebuilder(
+                                self._connectome_manager,
+                                self.state_manager,
+                            )
+                            synapses_created = rebuilder.rebuild_all_connectivity(
+                                cortical_id=cortical_id,
+                                old_dimensions=old_dimensions,
+                                new_dimensions=old_dimensions,  # Same dimensions, but new neurons
+                            )
+                            
+                            self.logger.info(
+                                f"🔄 [NEUROGENESIS-CHANGE] Synaptic rebuild completed for {cortical_id}: {synapses_created} synapses"
+                            )
+                        except Exception as e:
+                            self.logger.error(
+                                f"[LOCALIZED-REBUILD] Error during synaptic rebuild after neurogenesis change: {e}"
+                            )
+                    else:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] No dimension or neurogenesis parameter change needed for {cortical_id}"
+                        )
             else:
                 #  Area doesn't exist - create it properly using existing
                 #  methods
