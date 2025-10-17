@@ -3502,6 +3502,76 @@ class NeuroEmbryogenesis:
             # Accumulate ALL synapses across all source neurons for single batch creation
             all_synapse_connections = []
 
+            # RUST OPTIMIZATION: Batch process PROJECTOR morphology
+            logger.info(f"🔍 Checking morphology_id='{morphology_id}' (type={type(morphology_id)})")
+            if morphology_id.lower() == "projector":
+                logger.info(f"🦀 RUST BATCH TRIGGERED for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_projector_batch
+                    import time
+                    start = time.time()
+                    
+                    # Batch get ALL neuron positions from Rust NPU (1 call instead of 49K)
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    
+                    # Build map: neuron_id -> position
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    # Filter to requested neurons
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    logger.info(f"🦀 Got {len(valid_neurons)} valid neurons with positions")
+                    
+                    if valid_neurons:
+                        # Batch call Rust (processes all neurons in parallel)
+                        results = py_syn_projector_batch(
+                            src_area_id, dst_area_id,
+                            valid_neurons, neuron_positions,
+                            src_area.dimensions, dst_area.dimensions,
+                            None, None
+                        )
+                        
+                        logger.info(f"🦀 Rust batch projection complete, getting destination neurons")
+                        
+                        # Batch get ALL destination positions (1 call instead of scanning each)
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        logger.info(f"🦀 Built destination map with {len(dst_pos_to_neurons)} positions")
+                        
+                        # Match source neurons to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            for dst_pos in results[src_idx]:
+                                if dst_pos in dst_pos_to_neurons:
+                                    for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                        if random.randrange(1, 100) < synapse_attractivity:
+                                            all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: {len(valid_neurons)} neurons projected in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    # Skip the loop - already processed
+                    src_neurons = []
+                    
+                except ImportError as e:
+                    logger.warning(f"Rust BDU not available - falling back to Python loop: {e}")
+                except Exception as e:
+                    logger.error(f"❌ RUST BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+
             for src_neuron_id in src_neurons:
                 try:
                     if debug_bdu:

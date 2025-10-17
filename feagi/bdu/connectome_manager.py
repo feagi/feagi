@@ -1810,34 +1810,36 @@ class ConnectomeManager(NeuronMappingProvider):
         if not hasattr(self, "_npu_interface") or self._npu_interface is None:
             raise RuntimeError("NPU Interface is not initialized")
 
-        # Validate that all neurons exist
-        valid_specs = []
-        invalid_specs = []
-        for pre_id, post_id, weight in synapse_specs:
-            pre_exists = self._npu_interface.neuron_exists(pre_id)
-            post_exists = self._npu_interface.neuron_exists(post_id)
-            if pre_exists and post_exists:
-                valid_specs.append((pre_id, post_id, weight))
-            else:
-                invalid_specs.append((pre_id, post_id, weight))
-                logger.warning(f"Invalid synapse: {pre_id} → {post_id} (pre_exists={pre_exists}, post_exists={post_exists})")
-
-        if not valid_specs:
-            logger.warning("No valid synapse specifications found")
+        if not synapse_specs:
+            logger.warning("No synapse specifications provided")
             return 0
 
+        # PERFORMANCE: Skip Python-side validation - let Rust NPU handle it
+        # Previous code validated ~2M neurons for large mappings (2M FFI calls!)
+        # Rust NPU can validate internally during synapse creation (much faster)
+        # Invalid synapses will be reported in result.failed_indices
+        
         # Convert to NPUInterface SynapseCreationRequest format
         from feagi.npu.interface import SynapseCreationRequest
         
         request = SynapseCreationRequest(
-            source_neuron_ids=[spec[0] for spec in valid_specs],
-            target_neuron_ids=[spec[1] for spec in valid_specs],
-            weights=[int(spec[2]) for spec in valid_specs],  # Convert to u8
+            source_neuron_ids=[spec[0] for spec in synapse_specs],
+            target_neuron_ids=[spec[1] for spec in synapse_specs],
+            weights=[int(spec[2]) for spec in synapse_specs],  # Convert to u8
         )
         
         # Call NPUInterface to create synapses in Rust NPU
+        # Rust will validate neurons exist and report failures efficiently
         result = self._npu_interface.create_synapses_batch(request)
         created_count = result.successful_count
+        
+        # Log validation failures if any
+        if result.failed_indices:
+            failure_count = len(result.failed_indices)
+            if failure_count > 10:
+                logger.warning(f"Failed to create {failure_count} synapses (first 10 indices: {result.failed_indices[:10]})")
+            else:
+                logger.warning(f"Failed to create {failure_count} synapses at indices: {result.failed_indices}")
         
         # Update state manager with new synapse count
         if created_count > 0:

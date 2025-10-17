@@ -1,0 +1,45 @@
+[package]
+name = "feagi-bdu"
+version = "0.1.0"
+edition = "2021"
+authors = ["FEAGI Team"]
+description = "Brain Development Utilities - Synaptogenesis and Connectivity"
+
+[lib]
+crate-type = ["cdylib"]
+name = "feagi_bdu"
+
+[dependencies]
+# Core types from existing FEAGI crates
+feagi-types = { path = "../feagi-types" }
+
+# Performance (using workspace versions)
+rayon = { workspace = true }
+ndarray = { workspace = true }
+ahash = { workspace = true }
+
+# FFI / Python bindings (using workspace versions)
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+
+# Serialization (for debugging)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling (using workspace version)
+thiserror = { workspace = true }
+
+# Logging
+log = "0.4"
+
+[dev-dependencies]
+criterion = "0.5"       # Benchmarking
+proptest = "1.4"        # Property-based testing
+
+# Benchmarks will be added in Phase 2
+# [[bench]]
+# name = "synaptogenesis"
+# harness = false
+
+# Profile configuration is inherited from workspace root
+# See feagi-rust/Cargo.toml for release profile settings
+
