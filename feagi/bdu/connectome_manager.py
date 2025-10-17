@@ -230,11 +230,10 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize Rust Morton spatial hash for ultra-fast position lookups
         self._rust_morton_hash = None
         try:
-            from feagi.bdu.rust_morton_hash import RustMortonSpatialHash, RUST_MORTON_AVAILABLE
-            if RUST_MORTON_AVAILABLE:
-                self._rust_morton_hash = RustMortonSpatialHash()
-                logger.info("🦀 Rust Morton spatial hash enabled for ConnectomeManager")
-        except Exception as e:
+            from feagi_bdu import PyMortonSpatialHash
+            self._rust_morton_hash = PyMortonSpatialHash()
+            logger.info("🦀 Rust Morton spatial hash enabled for ConnectomeManager")
+        except ImportError as e:
             logger.debug(f"Rust Morton hash not available: {e}")
 
         # Initialize connectivity rules and cortical connections storage
