@@ -6589,7 +6589,9 @@ class GenomeService(BaseService):
                 "fire_t": ["firing_threshold", "fire_t"],
                 "leak_c": ["leak_coefficient", "leak_c"], 
                 "refrac": ["refractory_period", "refrac"],
-                "fire_increment": ["fire_increment"],
+                "firing_threshold_increment_x": ["firing_threshold_increment_x"],
+                "firing_threshold_increment_y": ["firing_threshold_increment_y"],
+                "firing_threshold_increment_z": ["firing_threshold_increment_z"],
                 "leak_variability": ["leak_variability"],
             }
             
@@ -6658,10 +6660,13 @@ class GenomeService(BaseService):
 
             # Handle position-based variations for thresholds
             thresholds = [base_threshold] * area_neuron_count
-            fire_increment = properties.get("fire_increment", 0.0)
-            if fire_increment != 0.0:
+            fire_increment_x = properties.get("firing_threshold_increment_x", 0.0)
+            fire_increment_y = properties.get("firing_threshold_increment_y", 0.0)
+            fire_increment_z = properties.get("firing_threshold_increment_z", 0.0)
+            
+            if fire_increment_x != 0.0 or fire_increment_y != 0.0 or fire_increment_z != 0.0:
                 for i, (x, y, z) in enumerate(positions):
-                    thresholds[i] = base_threshold + (z * fire_increment)
+                    thresholds[i] = base_threshold + (x * fire_increment_x) + (y * fire_increment_y) + (z * fire_increment_z)
 
             #  Use ConnectomeManager's batch creation method (handles position
             #  mapping automatically - leak_variability is applied inside batch_create_neurons)
