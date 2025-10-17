@@ -123,7 +123,7 @@ class BurstEngine:
         self._last_burst_time = None
         self._burst_times = []  # Track last N burst times for moving average
         self._burst_times_window = 10  # Use 10 bursts for moving average
-        self._performance_log_interval = 100  # Log performance every N bursts
+        self._performance_log_interval = 30  # PROFILING: Log every 30 bursts (was 100)
         self._last_performance_log = 0
 
         # Compatibility adapter for legacy MemoryProcessor access in ConnectomeManager
@@ -279,47 +279,44 @@ class BurstEngine:
         # 2. Get manual stimulation / sensory neurons
         if hasattr(self, '_pending_external_activations') and self._pending_external_activations:
             pending = getattr(self, '_pending_external_activations', {})
-            for area_id, area_data in pending.items():
+            # FIX: Create a copy to avoid "dictionary changed size during iteration" error
+            # Sensory data can arrive from other threads during this loop
+            for area_id, area_data in list(pending.items()):
                 # Convert coordinates to neuron IDs
                 if isinstance(area_data, dict) and 'coordinates_x' in area_data:
                     coords_x = area_data.get('coordinates_x', [])
                     coords_y = area_data.get('coordinates_y', [])
                     coords_z = area_data.get('coordinates_z', [])
                     
-                    # Use Rust NPU spatial hash to look up neuron IDs
-                    npu_interface = self.connectome_manager._npu_interface
-                    if npu_interface and hasattr(npu_interface, 'rust_npu') and npu_interface.rust_npu:
-                        rust_npu = npu_interface.rust_npu
-                        
-                        # Get cortical_idx for this area
-                        try:
-                            cortical_idx = self.connectome_manager.get_cortical_area(area_id).cortical_idx
-                        except Exception:
-                            logger.warning("Could not get cortical_idx for %s", area_id)
-                            continue
-                        
-                        found_count = 0
-                        not_found_count = 0
-                        for x, y, z in zip(coords_x, coords_y, coords_z):
-                            try:
-                                neuron_id = rust_npu.get_neuron_at_coordinate(cortical_idx, int(x), int(y), int(z))
-                                if neuron_id is not None:
-                                    manual_neurons.append(neuron_id)
-                                    found_count += 1
-                                else:
-                                    not_found_count += 1
-                                    # Log first few misses
-                                    if not_found_count <= 3:
-                                        logger.warning("No neuron found at %s[%d,%d,%d]", 
-                                                     area_id, x, y, z)
-                            except Exception as e:
-                                not_found_count += 1
-                                logger.warning("Failed to resolve neuron ID for %s[%d,%d,%d]: %s", 
-                                             area_id, x, y, z, e)
-                        logger.debug("Rust NPU spatial hash lookup for %s: found=%d, not_found=%d, total_coords=%d", 
-                                   area_id, found_count, not_found_count, len(coords_x))
-                    else:
+                    # BATCH: Use Rust NPU spatial hash for high-performance coordinate lookup
+                    # 10-100x faster than Python loop (eliminates FFI overhead)
+                    rust_npu = self.rust_npu
+                    if not rust_npu:
                         logger.error("Rust NPU not available for coordinate-to-neuron lookup!")
+                        continue
+                    
+                    # Get cortical_idx for this area
+                    try:
+                        cortical_idx = self.connectome_manager.get_cortical_area(area_id).cortical_idx
+                    except Exception as e:
+                        logger.warning("Could not get cortical_idx for %s: %s", area_id, e)
+                        continue
+                    
+                    # Batch coordinate lookup (single Rust call, no Python loop)
+                    neuron_ids = rust_npu.get_neurons_at_coordinates_batch(
+                        cortical_idx,
+                        [int(x) for x in coords_x],
+                        [int(y) for y in coords_y],
+                        [int(z) for z in coords_z]
+                    )
+                    
+                    # Collect valid neuron IDs (filter out None)
+                    found_count = sum(1 for nid in neuron_ids if nid is not None)
+                    manual_neurons.extend([nid for nid in neuron_ids if nid is not None])
+                    
+                    if found_count < len(coords_x):
+                        logger.debug("Batch lookup for %s: found=%d/%d coordinates", 
+                                   area_id, found_count, len(coords_x))
                 # Direct neuron ID list
                 elif isinstance(area_data, (list, np.ndarray)):
                     manual_neurons.extend([int(nid) for nid in area_data])

@@ -1792,16 +1792,37 @@ class ProcessManager:
         try:
             # Check if sampler already exists for this mode
             if mode == "visualization" and self._viz_fq_sampler is not None:
-                logger.warning(
-                    f"🔄🔄🔄 Visualization FQ Sampler already exists: {self._viz_fq_sampler.instance_id} - "
-                    f"reusing existing sampler (ProcessManager id={id(self)})"
-                )
-                return True
+                # UPDATE: If frequency changed, update the existing sampler
+                current_freq = self._viz_fq_sampler.sample_frequency_hz
+                if abs(current_freq - frequency) > 0.01:  # Changed by more than 0.01 Hz
+                    logger.warning(
+                        f"🔄 Visualization FQ Sampler exists at {current_freq}Hz - "
+                        f"UPDATING to {frequency}Hz"
+                    )
+                    self._viz_fq_sampler.set_sample_frequency(frequency)
+                    return True
+                else:
+                    logger.warning(
+                        f"🔄 Visualization FQ Sampler already exists at {current_freq}Hz - "
+                        f"reusing (requested: {frequency}Hz)"
+                    )
+                    return True
             elif mode == "opu" and self._motor_fq_sampler is not None:
-                logger.warning(
-                    f"🔥 Motor FQ Sampler already exists: {self._motor_fq_sampler.instance_id}"
-                )
-                return True
+                # UPDATE: If frequency changed, update the existing sampler
+                current_freq = self._motor_fq_sampler.sample_frequency_hz
+                if abs(current_freq - frequency) > 0.01:  # Changed by more than 0.01 Hz
+                    logger.warning(
+                        f"🔥 Motor FQ Sampler exists at {current_freq}Hz - "
+                        f"UPDATING to {frequency}Hz"
+                    )
+                    self._motor_fq_sampler.set_sample_frequency(frequency)
+                    return True
+                else:
+                    logger.warning(
+                        f"🔥 Motor FQ Sampler already exists at {current_freq}Hz - "
+                        f"reusing (requested: {frequency}Hz)"
+                    )
+                    return True
 
             # Import Rust FQ sampler wrapper
             from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper

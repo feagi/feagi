@@ -409,6 +409,18 @@ class VisualizationStream:
         2. Encodes data to binary format using feagi_bytes/feagi_data_processing
         3. Publishes to ZMQ (and writes to SHM if available)
         """
+        # PROFILING: Track timing for bottleneck analysis
+        _profiling_enabled = True
+        _sample_count = 0
+        _last_profile_log = time.time()
+        _profile_stats = {
+            "fq_sample_time": [],
+            "encoding_time": [],
+            "shm_write_time": [],
+            "zmq_write_time": [],
+            "total_loop_time": []
+        }
+        
         while self.running:
             try:
                 if not self.fq_sampler:
@@ -451,8 +463,26 @@ class VisualizationStream:
 
                 self._fq_sampler_unavailable_logged = False
 
+                # PROFILING: Start timing
+                _loop_start = time.perf_counter()
+                
                 # Get latest cortical area data from UnifiedFQSampler
+                _sample_start = time.perf_counter()
                 cortical_data = self.fq_sampler.sample()
+                _sample_time = (time.perf_counter() - _sample_start) * 1000
+                
+                # FQ sampler rate-limited: sleep to avoid busy-wait
+                if cortical_data is None:
+                    time.sleep(0.001)  # 1ms sleep to prevent CPU spinning
+                    continue
+                
+                if _profiling_enabled:
+                    _profile_stats["fq_sample_time"].append(_sample_time)
+                    
+                    # Log FQ sampler frequency on first sample
+                    if _sample_count == 0 and hasattr(self.fq_sampler, 'sample_frequency_hz'):
+                        configured_freq = self.fq_sampler.sample_frequency_hz
+                        logger.warning(f"🔍 [FQ-FREQ-CHECK] FQ Sampler configured frequency: {configured_freq} Hz")
                 
                 # Debug: Check if we're getting sensory data that shouldn't be firing
                 from feagi.core.state_manager import FeagiStateManager
@@ -463,9 +493,6 @@ class VisualizationStream:
                     area_count = len(cortical_data)
                     total_neurons = sum(len(area_data.get("neuron_ids", [])) for area_data in cortical_data.values() if area_data)
                     # Removed verbose FQ sampler logging
-                # else:
-                #     # Spammy when no activity - commented out
-                #     logger.debug("[VIZ-SAMPLER] FQ sampler returned empty data (no neural activity)")
                 
                 if state_manager and state_manager.is_debug_npu_enabled() and cortical_data:
                     sensory_areas_found = []
@@ -498,34 +525,77 @@ class VisualizationStream:
 
                 # Publish to BOTH SHM and ZMQ when both are available
                 # This ensures local (SHM) and remote (ZMQ/bridge) clients both receive data
+                
+                # PROFILING: Encoding time
+                _encode_start = time.perf_counter()
+                binary_data = self._prepare_broadcast_data(cortical_data)
+                _encode_time = (time.perf_counter() - _encode_start) * 1000
+                if _profiling_enabled:
+                    _profile_stats["encoding_time"].append(_encode_time)
+                
+                # EXCLUSIVE: Use SHM if available, otherwise fall back to ZMQ
                 if self._shm_writer:
                     try:
-                        payload = self._build_shm_json_payload(cortical_data)
-                        if payload:
-                            self._publish_data(payload)
+                        # SHM path: Write directly to shared memory (local, no network)
+                        if binary_data and len(binary_data) > 0:
+                            _shm_start = time.perf_counter()
+                            self._shm_writer.write_payload(binary_data)
+                            _shm_time = (time.perf_counter() - _shm_start) * 1000
+                            if _profiling_enabled:
+                                _profile_stats["shm_write_time"].append(_shm_time)
                         else:
                             time.sleep(0.01)
                     except Exception as e:
-                        logger.error(f"[SHM] Error building SHM payload: {e}")
-                
-                # ALWAYS publish to ZMQ for remote clients (bridge, network agents)
-                # Even when SHM is available for local clients
-                # Use BINARY format from Rust library (bridge is passthrough to BV)
-                if self.socket:
+                        logger.error(f"[SHM] Error writing SHM payload: {e}")
+                elif self.socket:
+                    # ZMQ path: Only used when SHM not available (remote clients)
                     try:
-                        # Use binary encoding via feagi_rust_py_libs (bridge passes through to BV)
-                        binary_data = self._prepare_broadcast_data(cortical_data)
                         if binary_data and len(binary_data) > 0:
                             # Verify header before publishing
                             header_check = f"[{binary_data[0]},{binary_data[1]}]" if len(binary_data) >= 2 else "EMPTY"
                             area_count = len(cortical_data)
                             logger.debug(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes ({area_count} areas, Type 11) to ZMQ:5562 - Header: {header_check}")
-                            # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
+                            
+                            _zmq_start = time.perf_counter()
                             self._publish_zmq_only(binary_data)
+                            _zmq_time = (time.perf_counter() - _zmq_start) * 1000
+                            if _profiling_enabled:
+                                _profile_stats["zmq_write_time"].append(_zmq_time)
                         else:
                             logger.debug("[VIZ-PUBLISH] Encoder returned empty data (no visualizable areas), skipping ZMQ publish")
                     except Exception as e:
                         logger.error(f"Error encoding visualization data for ZMQ: {e}", exc_info=True)
+                
+                # PROFILING: Total loop time and periodic logging
+                if _profiling_enabled:
+                    _loop_time = (time.perf_counter() - _loop_start) * 1000
+                    _profile_stats["total_loop_time"].append(_loop_time)
+                    _sample_count += 1
+                    
+                    # Log every 100 samples or every 5 seconds
+                    if _sample_count >= 100 or (time.time() - _last_profile_log) >= 5.0:
+                        if _profile_stats["total_loop_time"]:
+                            import statistics
+                            logger.warning(f"[STATS] [PROFILE] {_sample_count} samples over {time.time() - _last_profile_log:.1f}s:")
+                            logger.warning(f"  FQ Sample:  avg={statistics.mean(_profile_stats['fq_sample_time']):.2f}ms  max={max(_profile_stats['fq_sample_time']):.2f}ms")
+                            logger.warning(f"  Encoding:   avg={statistics.mean(_profile_stats['encoding_time']):.2f}ms  max={max(_profile_stats['encoding_time']):.2f}ms")
+                            if _profile_stats["shm_write_time"]:
+                                logger.warning(f"  SHM Write:  avg={statistics.mean(_profile_stats['shm_write_time']):.2f}ms  max={max(_profile_stats['shm_write_time']):.2f}ms")
+                            if _profile_stats["zmq_write_time"]:
+                                logger.warning(f"  ZMQ Write:  avg={statistics.mean(_profile_stats['zmq_write_time']):.2f}ms  max={max(_profile_stats['zmq_write_time']):.2f}ms")
+                            logger.warning(f"  Total Loop: avg={statistics.mean(_profile_stats['total_loop_time']):.2f}ms  max={max(_profile_stats['total_loop_time']):.2f}ms")
+                            logger.warning(f"  Actual Rate: {_sample_count / (time.time() - _last_profile_log):.1f} Hz")
+                            
+                            # Highlight bottlenecks
+                            avg_total = statistics.mean(_profile_stats['total_loop_time'])
+                            if avg_total > 33.0:
+                                logger.warning(f"  ⚠️  BOTTLENECK: Average loop time {avg_total:.1f}ms exceeds 30Hz budget (33.3ms)")
+                        
+                        # Reset stats
+                        _sample_count = 0
+                        _last_profile_log = time.time()
+                        for key in _profile_stats:
+                            _profile_stats[key].clear()
 
             except Exception as e:
                 logger.error(f"Error processing cortical area data: {e}")

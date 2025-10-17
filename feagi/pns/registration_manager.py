@@ -893,11 +893,20 @@ class RegistrationManager:
 
                         state_manager = FeagiStateManager.instance()
                         burst_frequency = state_manager.get_burst_frequency()
+                        
+                        logger.warning(
+                            f"🔍 [FQ-DEBUG] Agent requested: {original_viz_frequency}Hz, "
+                            f"Burst engine from state manager: {burst_frequency}Hz"
+                        )
 
                         if burst_frequency and burst_frequency > 0:
-                            viz_frequency = min(viz_frequency, burst_frequency)
-                            logger.info(
-                                f"🎨 [FREQ-SYNC] STATE MANAGER: Using min(viz={original_viz_frequency}Hz, burst={burst_frequency}Hz) = {viz_frequency}Hz"
+                            # DON'T CAP: Allow FQ sampler to request higher frequency than burst
+                            # Rust FQ sampler will internally limit itself based on data availability
+                            # viz_frequency = min(viz_frequency, burst_frequency)
+                            viz_frequency = original_viz_frequency  # Use agent-requested frequency
+                            logger.warning(
+                                f"🎨 [FREQ-SYNC] Using agent-requested frequency: {viz_frequency}Hz "
+                                f"(burst engine: {burst_frequency}Hz - FQ sampler will auto-limit based on data availability)"
                             )
                         else:
                             logger.warning(

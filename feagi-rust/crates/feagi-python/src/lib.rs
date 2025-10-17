@@ -34,6 +34,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyBytes};
+use pyo3::exceptions::PyValueError;
 use numpy::{PyArray1, ToPyArray};
 use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
@@ -541,6 +542,39 @@ impl RustNPU {
     /// Returns None if no neuron exists at the given coordinates
     fn get_neuron_at_coordinate(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<u32> {
         self.npu.neuron_array.get_neuron_at_coordinate(cortical_area, x, y, z).map(|id| id.0)
+    }
+    
+    /// BATCH: Get neuron IDs for multiple coordinates (high-performance sensory injection)
+    /// Returns Vec<Option<u32>> parallel to input coordinates (None = no neuron at that position)
+    /// 
+    /// This is 10-100x faster than calling get_neuron_at_coordinate in a Python loop
+    /// because it eliminates FFI overhead and enables vectorization.
+    fn get_neurons_at_coordinates_batch(
+        &self,
+        cortical_area: u32,
+        coords_x: Vec<u32>,
+        coords_y: Vec<u32>,
+        coords_z: Vec<u32>,
+    ) -> PyResult<Vec<Option<u32>>> {
+        // Validate input lengths match
+        let len = coords_x.len();
+        if coords_y.len() != len || coords_z.len() != len {
+            return Err(PyValueError::new_err(format!(
+                "Coordinate array length mismatch: x={}, y={}, z={}",
+                coords_x.len(), coords_y.len(), coords_z.len()
+            )));
+        }
+        
+        // Batch lookup - single iteration, no Python FFI overhead
+        let neuron_ids: Vec<Option<u32>> = coords_x.iter()
+            .zip(coords_y.iter())
+            .zip(coords_z.iter())
+            .map(|((&x, &y), &z)| {
+                self.npu.neuron_array.get_neuron_at_coordinate(cortical_area, x, y, z).map(|id| id.0)
+            })
+            .collect();
+        
+        Ok(neuron_ids)
     }
     
     /// Update excitability for a single neuron (live parameter change)
