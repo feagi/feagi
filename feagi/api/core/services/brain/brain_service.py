@@ -751,9 +751,9 @@ class BrainService(BaseService):
                         min_pot = float(np.min(potentials))
                         max_pot = float(np.max(potentials))
                         mean_pot = float(np.mean(potentials))
-                        self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: {len(potentials)} potentials - min={min_pot:.6f}, max={max_pot:.6f}, mean={mean_pot:.6f}, threshold=10000")
+                        self.logger.debug(f"[POTENTIAL-DEBUG] {cortical_id}: {len(potentials)} potentials - min={min_pot:.6f}, max={max_pot:.6f}, mean={mean_pot:.6f}, threshold=10000")
                         if max_pot >= 10000:
-                            self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: HIGH VALUES DETECTED! Max potential {max_pot:.6f} >= threshold 10000")
+                            self.logger.debug(f"[POTENTIAL-DEBUG] {cortical_id}: HIGH VALUES DETECTED! Max potential {max_pot:.6f} >= threshold 10000")
 
                     # Validate array lengths match
                     if not (

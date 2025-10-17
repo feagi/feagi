@@ -316,7 +316,7 @@ class BurstEngine:
                                 not_found_count += 1
                                 logger.warning("Failed to resolve neuron ID for %s[%d,%d,%d]: %s", 
                                              area_id, x, y, z, e)
-                        logger.info("Rust NPU spatial hash lookup for %s: found=%d, not_found=%d, total_coords=%d", 
+                        logger.debug("Rust NPU spatial hash lookup for %s: found=%d, not_found=%d, total_coords=%d", 
                                    area_id, found_count, not_found_count, len(coords_x))
                     else:
                         logger.error("Rust NPU not available for coordinate-to-neuron lookup!")
@@ -327,7 +327,7 @@ class BurstEngine:
             # Clear pending activations after collection
             self._pending_external_activations.clear()
             
-            logger.info("🦀 [RUST-NPU] Manual stimulation neurons retrieved: %d neurons - %s", 
+            logger.debug("🦀 [RUST-NPU] Manual stimulation neurons retrieved: %d neurons - %s", 
                        len(manual_neurons),
                        manual_neurons[:10] if len(manual_neurons) > 10 else manual_neurons)
         

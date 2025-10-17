@@ -519,7 +519,7 @@ class VisualizationStream:
                             # Verify header before publishing
                             header_check = f"[{binary_data[0]},{binary_data[1]}]" if len(binary_data) >= 2 else "EMPTY"
                             area_count = len(cortical_data)
-                            logger.info(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes ({area_count} areas, Type 11) to ZMQ:5562 - Header: {header_check}")
+                            logger.debug(f"[VIZ-PUBLISH] Publishing {len(binary_data)} bytes ({area_count} areas, Type 11) to ZMQ:5562 - Header: {header_check}")
                             # IMPORTANT: Only publish to ZMQ, not SHM (SHM already has JSON format)
                             self._publish_zmq_only(binary_data)
                         else:

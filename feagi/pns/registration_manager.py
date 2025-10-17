@@ -864,9 +864,18 @@ class RegistrationManager:
             # Handle visualization FQ sampler
             if self._has_visualization_capabilities(capabilities):
                 if not self._fq_sampler_states["visualization_enabled"]:
-                    # Get frequency from config or use default
+                    # Get frequency from agent capabilities, config, or use default
                     viz_frequency = 30.0  # Default visualization frequency
-                    if hasattr(self._process_manager, "_fq_sampler_config"):
+                    
+                    # Priority 1: Use rate_hz from agent capabilities if provided
+                    if isinstance(capabilities.get("visualization"), dict):
+                        requested_rate = capabilities["visualization"].get("rate_hz")
+                        if requested_rate and isinstance(requested_rate, (int, float)) and requested_rate > 0:
+                            viz_frequency = float(requested_rate)
+                            logger.info(f"🎨 [FREQ-AGENT] Using agent-requested visualization frequency: {viz_frequency}Hz")
+                    
+                    # Priority 2: Config override (if no agent request)
+                    elif hasattr(self._process_manager, "_fq_sampler_config"):
                         viz_frequency = (
                             self._process_manager._fq_sampler_config.get(
                                 "visualization_frequency", 30.0
