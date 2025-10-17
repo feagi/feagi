@@ -3502,10 +3502,12 @@ class NeuroEmbryogenesis:
             # Accumulate ALL synapses across all source neurons for single batch creation
             all_synapse_connections = []
 
-            # RUST OPTIMIZATION: Batch process PROJECTOR morphology
+            # RUST OPTIMIZATION: Batch process morphologies
             logger.info(f"🔍 Checking morphology_id='{morphology_id}' (type={type(morphology_id)})")
+            
+            # PROJECTOR batch
             if morphology_id.lower() == "projector":
-                logger.info(f"🦀 RUST BATCH TRIGGERED for {len(src_neurons)} neurons")
+                logger.info(f"🦀 RUST BATCH: PROJECTOR for {len(src_neurons)} neurons")
                 try:
                     from feagi_bdu import py_syn_projector_batch
                     import time
@@ -3569,6 +3571,122 @@ class NeuroEmbryogenesis:
                     logger.warning(f"Rust BDU not available - falling back to Python loop: {e}")
                 except Exception as e:
                     logger.error(f"❌ RUST BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            # EXPANDER_X batch
+            elif morphology_id.lower() == "expander_x":
+                logger.info(f"🦀 RUST BATCH: EXPANDER_X for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_expander_batch
+                    import time
+                    start = time.time()
+                    
+                    # Batch get source positions
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    if valid_neurons:
+                        # Batch expand all neurons at once
+                        expanded_positions = py_syn_expander_batch(
+                            src_area_id, dst_area_id,
+                            neuron_positions,
+                            src_area.dimensions, dst_area.dimensions
+                        )
+                        
+                        # Batch get destination neurons
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        # Match source to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            dst_pos = expanded_positions[src_idx]
+                            if dst_pos in dst_pos_to_neurons:
+                                for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                    if random.randrange(1, 100) < synapse_attractivity:
+                                        all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: EXPANDER_X {len(valid_neurons)} neurons in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    src_neurons = []  # Skip loop
+                except Exception as e:
+                    logger.error(f"❌ EXPANDER BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            # BLOCK_CONNECTION batch
+            elif morphology_id.lower() == "block_connection":
+                logger.info(f"🦀 RUST BATCH: BLOCK_CONNECTION for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_block_connection
+                    import time
+                    start = time.time()
+                    
+                    # Get scaling factor from morphology
+                    scaling_factor = morphology_scalar[0] if morphology_scalar else 10
+                    
+                    # Batch get source positions
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    if valid_neurons:
+                        # Batch process block connections
+                        mapped_positions = []
+                        for pos in neuron_positions:
+                            result = py_syn_block_connection(
+                                src_area_id, dst_area_id, pos,
+                                src_area.dimensions, dst_area.dimensions,
+                                scaling_factor
+                            )
+                            mapped_positions.append(result)
+                        
+                        # Batch get destination neurons
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        # Match source to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            dst_pos = mapped_positions[src_idx]
+                            if dst_pos in dst_pos_to_neurons:
+                                for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                    if random.randrange(1, 100) < synapse_attractivity:
+                                        all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: BLOCK_CONNECTION {len(valid_neurons)} neurons in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    src_neurons = []  # Skip loop
+                except Exception as e:
+                    logger.error(f"❌ BLOCK_CONNECTION BATCH FAILED: {e}")
                     import traceback
                     logger.error(traceback.format_exc())
 
