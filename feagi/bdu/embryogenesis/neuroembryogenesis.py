@@ -2132,6 +2132,13 @@ class NeuroEmbryogenesis:
                 logger.info(f"  - Direct state neuron_count: {direct_neuron_count}")
                 logger.info(f"  - Direct state synapse_count: {direct_synapse_count}")
 
+        # Populate Rust Morton spatial hash from all neurons for ultra-fast lookups
+        if hasattr(self.connectome_manager, 'populate_morton_hash_from_existing_neurons'):
+            try:
+                self.connectome_manager.populate_morton_hash_from_existing_neurons()
+            except Exception as e:
+                logger.warning(f"Failed to populate Morton hash: {e}")
+        
         logger.info("🧠 [NEUROEMBRYOGENESIS] ✅ Returning True - brain development complete")
 
         return True

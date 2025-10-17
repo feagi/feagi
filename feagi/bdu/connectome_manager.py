@@ -226,6 +226,16 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize hierarchical brain region system
         from feagi.bdu.models.brain_region_hierarchy import BrainRegionHierarchy
         self.brain_region_hierarchy = BrainRegionHierarchy()
+        
+        # Initialize Rust Morton spatial hash for ultra-fast position lookups
+        self._rust_morton_hash = None
+        try:
+            from feagi.bdu.rust_morton_hash import RustMortonSpatialHash, RUST_MORTON_AVAILABLE
+            if RUST_MORTON_AVAILABLE:
+                self._rust_morton_hash = RustMortonSpatialHash()
+                logger.info("🦀 Rust Morton spatial hash enabled for ConnectomeManager")
+        except Exception as e:
+            logger.debug(f"Rust Morton hash not available: {e}")
 
         # Initialize connectivity rules and cortical connections storage
         self.connectivity_rules = {}
@@ -4431,6 +4441,11 @@ class ConnectomeManager(NeuronMappingProvider):
         # ConnectomeManager only maintains CorticalArea's neuron registry
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
+            
+            # Populate Rust Morton hash for ultra-fast lookups
+            if self._rust_morton_hash is not None:
+                x, y, z = positions[i]
+                self._rust_morton_hash.add_neuron(cortical_id, x, y, z, neuron_id)
 
         # Update state manager with new neuron count
         if len(neuron_ids) > 0:
@@ -5628,6 +5643,10 @@ class ConnectomeManager(NeuronMappingProvider):
         
         # Clear neuron position cache for all areas
         self.clear_neuron_position_cache()
+        
+        # Clear Rust Morton hash
+        if self._rust_morton_hash is not None:
+            self._rust_morton_hash.clear()
 
         #  NOTE: No longer managing next_cortical_idx counter since we use
         #  dynamic allocation
@@ -7140,20 +7159,28 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup using cached neuron positions for extreme performance.
+        """Batch lookup using Rust Morton spatial hash for O(1) per-position lookup.
 
         Deterministically finds neurons in `cortical_id` whose
         positions match any in `candidate_positions`.
         
-        Performance: O(N) where N = len(candidate_positions)
-        Uses per-area position cache to avoid repeated Rust NPU calls
+        Performance: O(K) where K = len(candidate_positions) with Rust Morton hash
+        Fallback: O(N) where N = neurons in area (cached approach)
         """
         try:
             if not candidate_positions:
                 return []
             
-            # Optimized NPU-based lookup with O(N) set membership checking
-            # Performance: Single pass through neurons with O(1) position checks
+            # Try Rust Morton spatial hash first (O(1) per position)
+            if hasattr(self, '_rust_morton_hash') and self._rust_morton_hash is not None:
+                found: List[Tuple[int, float]] = []
+                for x, y, z in candidate_positions:
+                    neurons = self._rust_morton_hash.get_neurons_at_coordinate(cortical_id, x, y, z)
+                    for neuron_id in neurons:
+                        found.append((neuron_id, float(post_synaptic_current)))
+                return found
+            
+            # Fallback: Optimized NPU-based lookup with O(N) set membership checking
             npu = getattr(self, "_npu_interface", None)
             if npu is None:
                 logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup")
@@ -7170,7 +7197,6 @@ class ConnectomeManager(NeuronMappingProvider):
                 return []
             
             # PERFORMANCE: Cache neuron positions per cortical area
-            # Prevents fetching 16K+ positions 49K+ times during projection mapping
             cache_key = f"_neuron_positions_cache_{cortical_idx}"
             if not hasattr(self, cache_key):
                 neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
@@ -7180,17 +7206,15 @@ class ConnectomeManager(NeuronMappingProvider):
             else:
                 neuron_positions = getattr(self, cache_key)
             
-            # Build target position set for O(1) membership checks (hash set)
+            # Build target position set for O(1) membership checks
             targets = set(candidate_positions)
             
-            # Single pass: match neurons to target positions - O(N) complexity
-            # PERFORMANCE: No validation needed - neurons from Rust NPU are authoritative
+            # Single pass: match neurons to target positions
             found: List[Tuple[int, float]] = []
             
             for neuron_id, x, y, z in neuron_positions:
                 position = (int(x), int(y), int(z))
                 if position in targets:
-                    # Direct append - Rust NPU is authoritative source
                     found.append((int(neuron_id), float(post_synaptic_current)))
             
             return found
@@ -7200,6 +7224,40 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.exception("Full stack trace:")
             return []
 
+    def populate_morton_hash_from_existing_neurons(self):
+        """Populate Rust Morton hash from all existing neurons.
+        
+        Called after genome loading to enable fast spatial lookups.
+        """
+        if self._rust_morton_hash is None:
+            return
+        
+        try:
+            npu = getattr(self, "_npu_interface", None)
+            if npu is None or npu.rust_npu is None:
+                return
+            
+            # Get all neurons from all cortical areas
+            for cortical_id, area in self.cortical_areas.items():
+                cortical_idx = self.get_cortical_idx_for_id(cortical_id)
+                if cortical_idx is None:
+                    continue
+                
+                # Get all neuron positions for this area
+                neuron_positions = npu.rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+                
+                # Add each to Morton hash
+                for neuron_id, x, y, z in neuron_positions:
+                    self._rust_morton_hash.add_neuron(cortical_id, int(x), int(y), int(z), int(neuron_id))
+            
+            stats = self._rust_morton_hash.get_stats()
+            logger.info(
+                f"🦀 Rust Morton hash populated: {stats['total_neurons']} neurons "
+                f"across {stats['total_areas']} areas"
+            )
+        except Exception as e:
+            logger.error(f"Failed to populate Morton hash: {e}")
+    
     def clear_neuron_position_cache(self, cortical_id: Optional[str] = None):
         """Clear cached neuron positions for a cortical area or all areas.
         
