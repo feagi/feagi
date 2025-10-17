@@ -17,6 +17,7 @@ feagi-types = { path = "../feagi-types" }
 rayon = { workspace = true }
 ndarray = { workspace = true }
 ahash = { workspace = true }
+roaring = "0.10"  # Roaring bitmaps for spatial indexing
 
 # FFI / Python bindings (using workspace versions)
 pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }

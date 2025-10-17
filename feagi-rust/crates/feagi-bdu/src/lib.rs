@@ -39,7 +39,7 @@ pub use connectivity::{
     SynaptogenesisResult,
 };
 
-pub use spatial::{MortonHash, SpatialLookup};
+pub use spatial::{MortonSpatialHash, SpatialHashStats, morton_encode_3d, morton_decode_3d};
 
 pub use types::{AreaId, NeuronId, Position, Weight};
 

@@ -173,6 +173,80 @@ fn py_syn_reducer_x(
     }
 }
 
+/// Python wrapper for MortonSpatialHash
+#[pyclass]
+struct PyMortonSpatialHash {
+    inner: std::sync::Arc<crate::spatial::MortonSpatialHash>,
+}
+
+#[pymethods]
+impl PyMortonSpatialHash {
+    #[new]
+    fn new() -> Self {
+        Self {
+            inner: std::sync::Arc::new(crate::spatial::MortonSpatialHash::new()),
+        }
+    }
+    
+    fn add_neuron(&self, cortical_area: String, x: u32, y: u32, z: u32, neuron_id: u64) -> bool {
+        self.inner.add_neuron(cortical_area, x, y, z, neuron_id)
+    }
+    
+    fn get_neuron_at_coordinate(&self, cortical_area: &str, x: u32, y: u32, z: u32) -> Option<u64> {
+        self.inner.get_neuron_at_coordinate(cortical_area, x, y, z)
+    }
+    
+    fn get_neurons_at_coordinate(&self, cortical_area: &str, x: u32, y: u32, z: u32) -> Vec<u64> {
+        self.inner.get_neurons_at_coordinate(cortical_area, x, y, z)
+    }
+    
+    fn get_neurons_in_region(
+        &self,
+        cortical_area: &str,
+        x1: u32, y1: u32, z1: u32,
+        x2: u32, y2: u32, z2: u32,
+    ) -> Vec<u64> {
+        self.inner.get_neurons_in_region(cortical_area, x1, y1, z1, x2, y2, z2)
+    }
+    
+    fn get_neuron_position(&self, neuron_id: u64) -> Option<(String, u32, u32, u32)> {
+        self.inner.get_neuron_position(neuron_id)
+    }
+    
+    fn remove_neuron(&self, neuron_id: u64) -> bool {
+        self.inner.remove_neuron(neuron_id)
+    }
+    
+    fn clear(&self) {
+        self.inner.clear();
+    }
+    
+    fn get_stats(&self) -> PyResult<PyObject> {
+        Python::with_gil(|py| {
+            let stats = self.inner.get_stats();
+            let dict = pyo3::types::PyDict::new_bound(py);
+            dict.set_item("total_areas", stats.total_areas)?;
+            dict.set_item("total_neurons", stats.total_neurons)?;
+            dict.set_item("total_occupied_positions", stats.total_occupied_positions)?;
+            Ok(dict.to_object(py))
+        })
+    }
+}
+
+/// Morton encode 3D coordinates
+#[pyfunction]
+fn py_morton_encode_3d(x: u32, y: u32, z: u32) -> PyResult<u64> {
+    use crate::spatial::morton_encode_3d;
+    Ok(morton_encode_3d(x, y, z))
+}
+
+/// Morton decode to 3D coordinates
+#[pyfunction]
+fn py_morton_decode_3d(morton_code: u64) -> PyResult<(u32, u32, u32)> {
+    use crate::spatial::morton_decode_3d;
+    Ok(morton_decode_3d(morton_code))
+}
+
 /// Python module initialization (PyO3 0.22 API with Bound)
 #[pymodule]
 fn feagi_bdu(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -185,6 +259,11 @@ fn feagi_bdu(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_syn_expander, m)?)?;
     m.add_function(wrap_pyfunction!(py_syn_expander_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_syn_reducer_x, m)?)?;
+    
+    // Phase 3B: Morton spatial hash
+    m.add_class::<PyMortonSpatialHash>()?;
+    m.add_function(wrap_pyfunction!(py_morton_encode_3d, m)?)?;
+    m.add_function(wrap_pyfunction!(py_morton_decode_3d, m)?)?;
 
     // Version info
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
