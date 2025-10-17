@@ -238,11 +238,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize bidirectional cortical mapping
         self.cortical_mapping = BiDirectionalCorticalMap()
 
-        #  Legacy compatibility - delegate to NeuronArray as single source of
-        #  truth
-        self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = (
-            {}
-        )
+        # REMOVED: Legacy _neuron_to_position dictionary (dead code)
+        # NPU interface owns neuron_to_position mapping as single source of truth
 
         #  Initialize neuron ID mappings - ConnectomeManager is single source
         #  of truth
@@ -501,10 +498,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 else:
                     self.index_to_neuron_id = {}
 
-                if hasattr(self, "_neuron_to_position"):
-                    self._neuron_to_position.clear()
-                else:
-                    self._neuron_to_position = {}
+                # REMOVED: Legacy _neuron_to_position clear (dead code)
+                # NPU interface owns neuron_to_position mapping
 
                 logger.info(
                     "✅ [DYNAMIC SIZING] Connectome resized successfully!"
@@ -4355,12 +4350,9 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
 
-        # Create neurons in batch using NPU NeuronArray API (single source of truth)
-        # Generate neuron IDs deterministically via NPU-owned counter
-        npu_neurons = self.neuron_array
+        # ARCHITECTURE COMPLIANCE: Delegate neuron creation to Rust NPU through NPU interface
+        # ConnectomeManager prepares the request, Rust NPU manages IDs and storage
         count = len(positions)
-        start_id = npu_neurons._next_neuron_id
-        neuron_ids = list(range(start_id, start_id + count))
 
         # Normalize per-neuron lists - ALL PARAMETERS FROM GENOME
         thresholds_list = (
@@ -4400,48 +4392,43 @@ class ConnectomeManager(NeuronMappingProvider):
             [snooze_period] * count if isinstance(snooze_period, int) else list(snooze_period)
         )
 
-        # Use add_neurons_batch with ALL required parameters from genome
-        indices = npu_neurons.add_neurons_batch(
-            neuron_ids=neuron_ids,
+        # Delegate to Rust NPU through NPU interface
+        # Rust NPU manages neuron IDs, positions, and all neuron data
+        from feagi.npu.interface import NeuronCreationRequest
+        
+        request = NeuronCreationRequest(
+            cortical_idx=cortical_idx,
             positions=positions,
             neuron_types=[0] * count,
             initial_potentials=mp_list,
             thresholds=thresholds_list,
             leak_coefficients=leak_list,
-            cortical_idx=cortical_idx,
             refractory_periods=refr_list,
             excitabilities=excitability_list,
             resting_potentials=rp_list,
             consecutive_fire_limits=consecutive_fire_limits_list,
-            snooze_periods=snooze_periods_list,
+            snooze_periods=snooze_periods_list
         )
+        
+        result = self._npu_interface.create_neurons_batch(request)
+        
+        from feagi.npu.interface import OperationResult
+        if result.result != OperationResult.SUCCESS:
+            logger.error(f"Failed to create neurons in Rust NPU: {result.error_message}")
+            return []
+        
+        # Get neuron IDs assigned by Rust NPU
+        neuron_ids = result.data.get("neuron_ids", []) if result.data else []
+        
+        if not neuron_ids:
+            logger.error("Rust NPU did not return neuron IDs")
+            return []
 
-        # Refractory periods are now handled by add_neurons_batch - no manual setting needed
-
-        # Use the IDs generated above - authoritative NPU IDs
-        neuron_ids = neuron_ids
-
-        # Update for test compatibility
-        for i, neuron_id in enumerate(neuron_ids):
-            # Get the actual index from ConnectomeManager's mapping
-            actual_idx = self.get_neuron_index(neuron_id)
-
-            # Update for test compatibility - maintain same format as legacy
-            self._neuron_to_position[neuron_id] = (
-                cortical_id,
-                *positions[i],
-                actual_idx,
-            )
-
-        # Store neuron-area relationship for each created neuron
-        # Update NPU interface mapping immediately for downstream operations
+        # Register neurons with cortical area
+        # NOTE: NPU interface already tracks neuron_to_area and neuron_to_position
+        # ConnectomeManager only maintains CorticalArea's neuron registry
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
-            try:
-                if hasattr(self, "_npu_interface") and self._npu_interface:
-                    self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
-            except Exception:
-                pass
 
         # Update state manager with new neuron count
         if len(neuron_ids) > 0:
@@ -7336,7 +7323,10 @@ class ConnectomeManager(NeuronMappingProvider):
         refractory_period: int,
         properties: Optional[Dict[str, Any]],
     ) -> int:
-        """Create a single neuron via NPU-owned arrays.
+        """Create a single neuron via Rust NPU.
+
+        ARCHITECTURE: Delegates to NPU interface which manages all neuron data.
+        ConnectomeManager does not duplicate NPU's internal mappings.
 
         Args:
             cortical_idx: Area index
@@ -7354,7 +7344,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if not self._npu_interface:
             raise RuntimeError("NPU interface not configured - cannot create neurons")
         
-        # Create neuron directly through Rust NPU
+        # Create neuron through Rust NPU
+        # NPU interface handles all ID generation and mapping internally
         neuron_id = self._npu_interface.rust_npu.add_neuron(
             threshold=float(threshold),
             leak_coefficient=float(leak_coefficient),
@@ -7371,15 +7362,11 @@ class ConnectomeManager(NeuronMappingProvider):
         )
         
         # Update NPU Interface mappings
+        # NOTE: These mappings are owned by NPU interface, not Rust NPU itself
         self._npu_interface.neuron_id_to_index[neuron_id] = neuron_id
         self._npu_interface.index_to_neuron_id[neuron_id] = neuron_id
         self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
         self._npu_interface.neuron_to_position[neuron_id] = position
-        
-        # Update ConnectomeManager mappings for backward compatibility
-        self.neuron_id_to_index[neuron_id] = neuron_id
-        self.index_to_neuron_id[neuron_id] = neuron_id
-        self._neuron_to_position[neuron_id] = (cortical_idx, position[0], position[1], position[2], 0)
         
         # Update state manager with new neuron count
         self._update_neuron_count_only()
