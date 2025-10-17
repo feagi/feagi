@@ -173,7 +173,6 @@ class SegmentedVisionProcessor:
                 pass
 
     def _ensure_registered(self, width: int, height: int) -> None:
-        logger.debug(f"[REGISTER] _ensure_registered called, _image_properties is None: {self._image_properties is None}")
         if self._image_properties is None:
             try:
                 # Try new API path
@@ -190,9 +189,6 @@ class SegmentedVisionProcessor:
             
             # Use image_camera_with_peripheral as shown in the sample
             try:
-                logger.debug(f"[REGISTER] Registering: group={self.group_index}, channels={self.number_of_channels}, input=({width}x{height})")
-                logger.debug(f"[REGISTER] Image properties: {self._image_properties}")
-                logger.debug(f"[REGISTER] Seg properties: {self._seg_props}")
                 self._cache.image_camera_with_peripheral.register(
                     self.group_index, self.number_of_channels, self._image_properties, self._seg_props, self._gaze
                 )
@@ -236,21 +232,14 @@ class SegmentedVisionProcessor:
         except AttributeError:
             image_frame = frpl.data_structures.data.ImageFrame.new_from_array(rgb, color_space, memory_order)
         
-        # Log ImageFrame details
-        logger.debug(f"[PROCESS] Created ImageFrame: shape={rgb.shape}, color_space={color_space}, memory_order={memory_order}")
-        logger.debug(f"[PROCESS] ImageFrame properties: {image_frame.get_image_frame_properties() if hasattr(image_frame, 'get_image_frame_properties') else 'N/A'}")
-        
         # Use image_camera_with_peripheral.write as shown in the sample
         self._cache.image_camera_with_peripheral.write(self.group_index, 0, image_frame)
-        logger.debug(f"[PROCESS] Write completed for group={self.group_index}")
         
         self._cache.encode_cached_data_into_bytes()
-        logger.debug(f"[PROCESS] Encode completed")
         
         # Use sensor_get_byte_container() then extract bytes
         byte_container = self._cache.sensor_get_byte_container()
         sensor_bytes = byte_container.copy_out_as_byte_vector()
-        logger.debug(f"[PROCESS] Got {len(sensor_bytes)} bytes from container")
         
         # Optional compact diagnostics when DEBUG is enabled
         try:

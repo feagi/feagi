@@ -51,18 +51,13 @@ class SensorCache:
 
 
     def encode_cached_data_into_bytes(self):
-        import logging
-        logger = logging.getLogger(__name__)
         if self._rust_cache:
-            # Log available methods for debugging
-            available = [m for m in dir(self._rust_cache) if 'sensor' in m.lower() and 'encode' in m.lower()]
-            logger.debug(f"[CACHE-ENCODE] Available encode methods: {available}")
-            
             # IOCache API: sensors_encode_cached_data_to_bytes (plural!)
             if hasattr(self._rust_cache, 'sensors_encode_cached_data_to_bytes'):
-                logger.debug("[CACHE-ENCODE] Calling sensors_encode_cached_data_to_bytes()")
                 self._rust_cache.sensors_encode_cached_data_to_bytes()
             else:
+                import logging
+                logger = logging.getLogger(__name__)
                 logger.warning(f"[CACHE-ENCODE] Method 'sensors_encode_cached_data_to_bytes' not found on {type(self._rust_cache)}")
 
     def sensor_get_byte_container(self):
@@ -82,40 +77,38 @@ class SensorCache:
         return None
 
     def get_most_recent_sensor_bytes(self) -> bytes:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.debug(f"[CACHE-GET-ENTRY] Called, _rust_cache type: {type(self._rust_cache)}")
         if self._rust_cache:
             # Try sensor_get_bytes() first (available in current version)
             if hasattr(self._rust_cache, 'sensor_get_bytes'):
-                logger.debug("[CACHE-GET] Using sensor_get_bytes()")
                 try:
                     result = self._rust_cache.sensor_get_bytes()
                     result_bytes = bytes(result) if result else b""
-                    logger.debug(f"[CACHE-GET] Got {len(result_bytes)} bytes")
                     return result_bytes
                 except BaseException as rust_error:
                     error_msg = str(rust_error)
                     if "index out of bounds" in error_msg or "len is 0" in error_msg:
-                        logger.debug(f"[CACHE-GET] Cache is empty: {rust_error}")
                         return b""
                     else:
+                        import logging
+                        logger = logging.getLogger(__name__)
                         logger.warning(f"[CACHE-GET] Rust error: {rust_error}")
                         return b""
             # Fallback: Try newer API sensor_get_byte_container()
             elif hasattr(self._rust_cache, 'sensor_get_byte_container'):
-                logger.debug("[CACHE-GET] Using sensor_get_byte_container()")
                 try:
                     container = self._rust_cache.sensor_get_byte_container()
                     if container and hasattr(container, 'copy_out_as_byte_vector'):
                         result_list = container.copy_out_as_byte_vector()
                         result_bytes = bytes(result_list)
-                        logger.debug(f"[CACHE-GET] Got {len(result_bytes)} bytes")
                         return result_bytes
                 except BaseException as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
                     logger.warning(f"[CACHE-GET] Error: {e}")
                     return b""
             else:
+                import logging
+                logger = logging.getLogger(__name__)
                 logger.warning(f"[CACHE-GET] No known method found on {type(self._rust_cache)}")
                 return b""
         return b""

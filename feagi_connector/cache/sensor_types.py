@@ -11,9 +11,6 @@ class SensorDevice:
         def register(*args, **kwargs):
             if self.parent._rust_cache:
                 try:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.debug(f"[CACHE] Calling {self._rust_register_func_name}(*{args}, **{kwargs})")
                     # New API (sensor_*_absolute methods) are already sensor-specific, don't pass sensor_type
                     # Old API needs sensor_type as first arg
                     if self._rust_register_func_name.startswith('sensor_'):
@@ -24,7 +21,6 @@ class SensorDevice:
                         result = getattr(self.parent._rust_cache, self._rust_register_func_name)(self._sensor_type, *args, **kwargs)
                     else:
                         result = getattr(self.parent._rust_cache, self._rust_register_func_name)(*args, **kwargs)
-                    logger.debug(f"[CACHE] Registration successful: {self._rust_register_func_name}")
                     return result
                 except AttributeError as e:
                     import logging
@@ -35,14 +31,6 @@ class SensorDevice:
         def send_data(*args, **kwargs):
             if self.parent._rust_cache:
                 try:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.debug(f"[CACHE] Calling {self._rust_send_data_func_name} with {len(args)} args")
-                    
-                    # Debug: log arg types and first arg value (usually cortical_group)
-                    if args:
-                        logger.debug(f"[CACHE] Args: group={args[0] if len(args) > 0 else 'N/A'}, channel={args[1] if len(args) > 1 else 'N/A'}, data_type={type(args[2]).__name__ if len(args) > 2 else 'N/A'}")
-                    
                     # New API (sensor_*_absolute methods) are already sensor-specific, don't pass sensor_type
                     # Old API needs sensor_type as first arg
                     if self._rust_send_data_func_name.startswith('sensor_'):
@@ -53,7 +41,6 @@ class SensorDevice:
                         result = getattr(self.parent._rust_cache, self._rust_send_data_func_name)(self._sensor_type, *args, **kwargs)
                     else:
                         result = getattr(self.parent._rust_cache, self._rust_send_data_func_name)(*args, **kwargs)
-                    logger.debug(f"[CACHE] Store successful: {self._rust_send_data_func_name}, result={result}")
                     return result
                 except AttributeError as e:
                     import logging

@@ -149,11 +149,6 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     mid_left_y0 = center_cy - ph // 2
     mid_right_y0 = center_cy - ph // 2
     
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[MOSAIC-FILL] cw={cw}, ch={ch}, pw={pw}, ph={ph}")
-    logger.info(f"[MOSAIC-FILL] iic700: x=[{top_mid_x0}:{top_mid_x0+pw}] y=[0:{ph}] -> width={pw}, height={ph}")
-    logger.info(f"[MOSAIC-FILL] iic300: x=[0:{pw}] y=[{mid_left_y0}:{mid_left_y0+ph}] -> width={pw}, height={ph}")
     
     # Fill segment areas with black (will be overwritten by neuron data)
     # Use the tiles dictionary positions directly to avoid overlap
@@ -214,13 +209,6 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
     mid_right_w, mid_right_h = pw, ph
     mid_right_y0 = center_cy - mid_right_h // 2
     
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.debug(f"[MOSAIC-LAYOUT] cw={cw}, ch={ch}, pw={pw}, ph={ph}, grid={grid}")
-    logger.debug(f"[MOSAIC-LAYOUT] iic400: pos=({center_x0},{center_y0}), size=({cw},{ch}), center=({center_cx},{center_cy})")
-    logger.debug(f"[MOSAIC-LAYOUT] iic700: pos=({top_mid_x0},0), size=({top_mid_w},{top_mid_h}), center=({top_mid_x0 + top_mid_w//2},{top_mid_h//2})")
-    logger.debug(f"[MOSAIC-LAYOUT] Are centers aligned? {top_mid_x0 + top_mid_w//2} == {center_cx}? {top_mid_x0 + top_mid_w//2 == center_cx}")
-    
     tiles = {
         "iic600": (0, 0, pw, ph),
         "iic700": (top_mid_x0, 0, top_mid_w, top_mid_h),  # Top-middle: centered
@@ -245,9 +233,7 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             # Verify we got data
             import logging
             all_areas = list(mapped.iter_full())
-            logging.info(f"[MOSAIC-DECODE] ✅ Decoded {len(sensor_bytes)} bytes → {len(all_areas)} cortical areas")
             if len(all_areas) == 0:
-                logging.warning(f"[MOSAIC-DECODE] ⚠️ Decoded successfully but got 0 cortical areas!")
                 return mosaic
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -265,8 +251,6 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             "iic000", "iic100", "iic200",
         ]
         neuron_count = 0
-        import logging
-        logging.info(f"[MOSAIC-DEBUG] Available cortical IDs in data: {[str(cid) for (cid, _) in mapped.iter_full()]}")
         for cid_key in order:
             if cid_key not in tiles:
                 continue
@@ -280,25 +264,20 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
             try:
                 cid = frpl.data_structures.genomic.CorticalID.try_new_from_string(cid_key)
                 arrays = mapped.get_neurons_of(cid)
-            except Exception as e:
-                logging.debug(f"[MOSAIC] Failed to get neurons for {cid_key}: {e}")
+            except Exception:
                 continue
             try:
                 x_coords, y_coords, z_coords, potentials = arrays.copy_as_tuple_of_numpy_arrays()
             except Exception:
                 try:
                     x_coords, y_coords, z_coords, potentials = arrays
-                except Exception as e:
-                    import logging
-                    logging.debug(f"[MOSAIC] Failed to extract arrays for {cid_key}: {e}")
+                except Exception:
                     continue
             xs = np.asarray(x_coords, dtype=np.int32)
             ys = np.asarray(y_coords, dtype=np.int32)
             ps = np.asarray(potentials, dtype=np.float32)
             n = min(xs.size, ys.size, ps.size)
             neuron_count += n
-            if n > 0:
-                logging.info(f"[MOSAIC-DEBUG] {cid_key}: {n} neurons, tile@({x0},{y0}) display=({tw}x{th}), neuron_space=({nw}x{nh}), scale=({scale_x:.2f},{scale_y:.2f}), neuron_range x=[{xs.min()},{xs.max()}] y=[{ys.min()},{ys.max()}]")
             for i in range(n):
                 # WORKAROUND: Rust bug in beta.28 swaps X/Y during encoding, so we swap them back here
                 # TODO: Remove this swap once feagi_data_structures fixes the indexed_iter bug
@@ -329,9 +308,6 @@ def _build_mosaic_internal(sensor_bytes: bytes, cw: int, ch: int, pw: int, ph: i
                             mosaic_x = mosaic_x_center + dx
                             if 0 <= mosaic_y < total_h and 0 <= mosaic_x < total_w:
                                 mosaic[mosaic_y, mosaic_x, :] = val
-        if neuron_count > 0:
-            import logging
-            logging.debug(f"[MOSAIC] ✅ Built mosaic: {total_w}x{total_h}, {neuron_count} neurons")
         
         # Draw visible interior grid lines using the full gap area (no overlap with tiles)
         grid_color = 30  # Gray color for grid lines

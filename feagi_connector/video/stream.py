@@ -232,23 +232,17 @@ async def stream_segmented_camera(
         if isinstance(shm_path, str) and len(shm_path) > 0:
             try:
                 shm_writer = SharedFrameWriter(path=shm_path)
-                logger.info(f"[SHM-VIDEO-RAW] ✅ SharedFrameWriter created: {shm_path}")
             except Exception as e:
                 logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to create SharedFrameWriter: {e}")
                 shm_writer = None
-        else:
-            logger.info(f"[SHM-VIDEO-RAW] No video SHM path provided by FEAGI")
         # Canonical: 'feagi' for processed video with segmentation overlays
         feagi_shm_path = shm_paths.get("feagi")
         if isinstance(feagi_shm_path, str) and len(feagi_shm_path) > 0:
             try:
                 feagi_writer = SharedFrameWriter(path=feagi_shm_path)
-                logger.info(f"[SHM-VIDEO-FEAGI] ✅ SharedFrameWriter created: {feagi_shm_path}")
             except Exception as e:
                 logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to create SharedFrameWriter: {e}")
                 feagi_writer = None
-        else:
-            logger.info(f"[SHM-VIDEO-FEAGI] No feagi SHM path provided by FEAGI")
         
         # Track reopen attempts to prevent file descriptor leaks
         shm_writer_last_reopen = 0.0
@@ -472,23 +466,12 @@ async def stream_segmented_camera(
                 assert processor is not None
                 sensor_bytes = processor.process_frame(resized)
                 
-                # Always log byte count at INFO level for visibility
-                logger.info(f"[ENCODE] Generated {len(sensor_bytes)} bytes from frame")
                 if len(sensor_bytes) == 0:
                     logger.warning(f"[ENCODE] WARNING: Encoded 0 bytes! Frame shape: {resized.shape if resized is not None else 'None'}")
-                else:
-                    logger.info(f"[ZMQ-SEND] Sending {len(sensor_bytes)} bytes to FEAGI...")
                 
-                # Debug: log per-area neuron counts before sending
-                try:
-                    log_sensor_area_counts(logger, sensor_bytes)
-                except Exception:
-                    pass
                 if client.sensory_client.socket and zmq:
-                    logger.info(f"[ZMQ] Socket connected, attempting send of {len(sensor_bytes)} bytes...")
                     try:
                         client.sensory_client.socket.send(sensor_bytes, flags=zmq.NOBLOCK)
-                        logger.info(f"[ZMQ] ✅ Successfully sent {len(sensor_bytes)} bytes")
                     except zmq.Again:
                         logger.warning(f"[ZMQ] ⚠️ Send would block (FEAGI not ready)")
                         # Mark as disconnected and re-raise to trigger reconnection
@@ -504,13 +487,9 @@ async def stream_segmented_camera(
                     # Socket exists but ZMQ not available - connection issue
                     client.registered = False
                     raise ConnectionError("ZMQ not available")
-                else:
-                    logger.debug("[ZMQ] Socket not connected (using SHM only)")
                 if sensory_writer is not None:
                     try:
-                        logger.info(f"[SHM-SENSORY] Writing {len(sensor_bytes)} bytes to shared memory...")
                         sensory_writer.write(sensor_bytes)
-                        logger.info(f"[SHM-SENSORY] ✅ Successfully wrote {len(sensor_bytes)} bytes")
                     except Exception as e:
                         logger.error(f"[SHM-SENSORY] ❌ Failed to write: {e}")
                         # Mark as disconnected and re-raise to trigger reconnection
@@ -606,9 +585,6 @@ async def stream_segmented_camera(
                         
                         mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
                         feagi_writer.write_frame(mosaic_rgb)
-                        # Check if mosaic has any non-zero pixels
-                        non_zero = cv2.countNonZero(cv2.cvtColor(mosaic_rgb, cv2.COLOR_RGB2GRAY))
-                        logger.debug(f"[SHM-VIDEO-FEAGI] ✅ Mosaic written: {mosaic_rgb.shape}, non-zero pixels: {non_zero}")
                     except Exception as e:
                         logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to write mosaic: {e}")
                         # Only attempt reopen if cooldown period has passed to prevent FD leaks
@@ -667,7 +643,6 @@ async def stream_segmented_camera(
                 try:
                     rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)  # Use original frame_bgr, not resized!
                     shm_writer.write_frame(rgb)
-                    logger.debug(f"[SHM-VIDEO-RAW] ✅ Frame written: {rgb.shape} (original size)")
                 except Exception as e:
                     logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to write frame: {e}")
                     # Only attempt reopen if cooldown period has passed to prevent FD leaks
