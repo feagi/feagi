@@ -102,12 +102,89 @@ fn py_syn_projector_batch(
     }
 }
 
+/// Block connection - maps blocks with scaling factor
+#[pyfunction]
+fn py_syn_block_connection(
+    src_area_id: &str,
+    dst_area_id: &str,
+    neuron_location: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+    dst_dimensions: (usize, usize, usize),
+    scaling_factor: i32,
+) -> PyResult<(i32, i32, i32)> {
+    match crate::connectivity::rules::syn_block_connection(
+        src_area_id, dst_area_id, neuron_location, src_dimensions, dst_dimensions, scaling_factor
+    ) {
+        Ok(pos) => Ok(pos),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
+/// Expander - scales coordinates from source to destination
+#[pyfunction]
+fn py_syn_expander(
+    src_area_id: &str,
+    dst_area_id: &str,
+    neuron_location: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+    dst_dimensions: (usize, usize, usize),
+) -> PyResult<(i32, i32, i32)> {
+    match crate::connectivity::rules::syn_expander(
+        src_area_id, dst_area_id, neuron_location, src_dimensions, dst_dimensions
+    ) {
+        Ok(pos) => Ok(pos),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
+/// Expander batch - parallel processing
+#[pyfunction]
+fn py_syn_expander_batch(
+    src_area_id: &str,
+    dst_area_id: &str,
+    neuron_locations: Vec<(i32, i32, i32)>,
+    src_dimensions: (usize, usize, usize),
+    dst_dimensions: (usize, usize, usize),
+) -> PyResult<Vec<(i32, i32, i32)>> {
+    match crate::connectivity::rules::syn_expander_batch(
+        src_area_id, dst_area_id, &neuron_locations, src_dimensions, dst_dimensions
+    ) {
+        Ok(positions) => Ok(positions),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
+/// Reducer - binary encoding to multiple positions
+#[pyfunction]
+fn py_syn_reducer_x(
+    src_area_id: &str,
+    dst_area_id: &str,
+    neuron_location: (i32, i32, i32),
+    src_dimensions: (usize, usize, usize),
+    dst_dimensions: (usize, usize, usize),
+    dst_y_index: i32,
+    dst_z_index: i32,
+) -> PyResult<Vec<(i32, i32, i32)>> {
+    match crate::connectivity::rules::syn_reducer_x(
+        src_area_id, dst_area_id, neuron_location, src_dimensions, dst_dimensions, dst_y_index, dst_z_index
+    ) {
+        Ok(positions) => Ok(positions),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e))),
+    }
+}
+
 /// Python module initialization (PyO3 0.22 API with Bound)
 #[pymodule]
 fn feagi_bdu(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    // Core functions
+    // Projector functions
     m.add_function(wrap_pyfunction!(py_syn_projector, m)?)?;
     m.add_function(wrap_pyfunction!(py_syn_projector_batch, m)?)?;
+    
+    // Phase 2 morphologies
+    m.add_function(wrap_pyfunction!(py_syn_block_connection, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syn_expander, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syn_expander_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syn_reducer_x, m)?)?;
 
     // Version info
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

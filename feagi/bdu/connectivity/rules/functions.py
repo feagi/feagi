@@ -31,11 +31,17 @@ logger = setup_logger(__name__)
 
 # Import Rust BDU for high-performance synaptogenesis
 try:
-    from feagi_bdu import py_syn_projector
+    from feagi_bdu import (
+        py_syn_projector,
+        py_syn_block_connection,
+        py_syn_expander,
+        py_syn_reducer_x,
+    )
     RUST_BDU_AVAILABLE = True
+    logger.info("🦀 Rust BDU Phase 2 loaded: projector, block_connection, expander, reducer")
 except ImportError:
     RUST_BDU_AVAILABLE = False
-    logger.error("Rust BDU not available - syn_projector will fail. Run: cd feagi-rust && ./build_bdu.sh")
+    logger.error("Rust BDU not available. Run: cd feagi-rust && ./build_bdu.sh")
 
 # Type aliases for improved code readability and Rust compatibility
 AreaId = int
@@ -68,51 +74,22 @@ def syn_expander_x(
     src_subregion: BoundingBox,
     connectome_manager,
 ) -> Set[Position]:
-    """
-    Expander_X morphology: maps neurons by expanding coordinates from source to destination.
-
-    Args:
-        src_area_id: Source area ID
-        dst_area_id: Destination area ID
-        src_neuron_id: Source neuron ID
-        src_subregion: Source region bounding box
-        connectome_manager: Reference to ConnectomeManager
-
-    Returns:
-        Set of destination positions
-    """
-    # Get source neuron position
-    src_pos = connectome_manager.get_neuron_position(src_neuron_id)
-    if not src_pos:
-        logger.error(f"Cannot find position for source neuron {src_neuron_id}")
+    """Expander_X using Rust (scales coordinates)."""
+    if not RUST_BDU_AVAILABLE:
+        raise RuntimeError("Rust BDU required")
+    
+    src_area = connectome_manager.get_cortical_area(src_area_id)
+    dst_area = connectome_manager.get_cortical_area(dst_area_id)
+    neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
+    
+    if not neuron_pos:
         return set()
-
-    # Get area dimensions
-    if (
-        src_area_id not in connectome_manager.cortical_areas
-        or dst_area_id not in connectome_manager.cortical_areas
-    ):
-        logger.error("Source or destination area not found")
-        return set()
-
-    src_area = connectome_manager.cortical_areas[src_area_id]
-    dst_area = connectome_manager.cortical_areas[dst_area_id]
-
-    src_dims = src_area.dimensions
-    dst_dims = dst_area.dimensions
-
-    # Calculate the expansion ratio in each dimension
-    ratios = [
-        dst_dims[i] / src_dims[i] if src_dims[i] > 0 else 1.0 for i in range(3)
-    ]
-
-    # Compute the destination position by scaling coordinates
-    dst_x = min(int(src_pos[0] * ratios[0]), dst_dims[0] - 1)
-    dst_y = min(int(src_pos[1] * ratios[1]), dst_dims[1] - 1)
-    dst_z = min(int(src_pos[2] * ratios[2]), dst_dims[2] - 1)
-
-    # Return as a set with a single position
-    return {(dst_x, dst_y, dst_z)}
+    
+    result = py_syn_expander(
+        src_area_id, dst_area_id, neuron_pos,
+        src_area.dimensions, dst_area.dimensions
+    )
+    return {result}
 
 
 def syn_reducer_x(
@@ -124,56 +101,22 @@ def syn_reducer_x(
     dst_y_index: int = 0,
     dst_z_index: int = 0,
 ) -> List[Position]:
-    """Implement the reducer rule for x-dimension.
-
-    This rule reverses the expander rule, mapping source neurons to their
-    component representations in the destination area.
-
-    Args:
-        src_area_id: Source area ID
-        dst_area_id: Destination area ID
-        src_neuron_id: Source neuron ID
-        src_subregion: Source subregion bounding box
-        connectome_manager: Reference to the ConnectomeManager
-        dst_y_index: Y-coordinate in destination (default 0)
-        dst_z_index: Z-coordinate in destination (default 0)
-
-    Returns:
-        List of matching destination positions
-    """
-    # Get dimensions
-    src_cortical_dim_x = src_subregion[1][0] - src_subregion[0][0]
+    """Reducer using Rust (binary encoding)."""
+    if not RUST_BDU_AVAILABLE:
+        raise RuntimeError("Rust BDU required")
+    
+    src_area = connectome_manager.get_cortical_area(src_area_id)
     dst_area = connectome_manager.get_cortical_area(dst_area_id)
-    dst_cortical_dim_x = dst_area.dimensions[0]
-
-    # Check for sufficient space in destination area
-    if src_cortical_dim_x > 2**dst_cortical_dim_x:
-        logger.warning(
-            f"Area {dst_area_id} does not have enough blocks on x dim for synaptogenesis"
-        )
-
-    # Get source neuron position
-    src_neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
-    if not src_neuron_pos:
+    neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
+    
+    if not neuron_pos:
         return []
-
-    src_neuron_block_index_x = src_neuron_pos[0]  # x-coordinate
-
-    # Convert source neuron's x position to binary and pad
-    src_neuron_bin_str = bin(src_neuron_block_index_x)[2:]
-    if len(src_neuron_bin_str) < dst_cortical_dim_x:
-        src_neuron_bin_str = src_neuron_bin_str.rjust(dst_cortical_dim_x, "0")
-
-    candidate_list = []
-
-    # For each destination x-position, check if the corresponding bit is set
-    for dst_x_index in range(dst_cortical_dim_x):
-        if dst_x_index < len(src_neuron_bin_str) and int(
-            src_neuron_bin_str[dst_x_index]
-        ):
-            candidate_list.append((dst_x_index, dst_y_index, dst_z_index))
-
-    return candidate_list
+    
+    return py_syn_reducer_x(
+        src_area_id, dst_area_id, neuron_pos,
+        src_area.dimensions, dst_area.dimensions,
+        dst_y_index, dst_z_index
+    )
 
 
 def syn_randomizer(dst_area_id: AreaId, connectome_manager) -> Position:
@@ -258,48 +201,21 @@ def syn_block_connection(
     connectome_manager,
     scaling_factor: int = 10,
 ) -> Position:
-    """Map blocks of neurons from source to destination with scaling.
-
-    Maps blocks such that voxel x to x+s from source connected to voxel x//s
-    from destination on the x-axis.
-
-    Args:
-        src_area_id: Source area ID
-        dst_area_id: Destination area ID
-        src_neuron_id: Source neuron ID
-        src_subregion: Source subregion bounding box
-        connectome_manager: Reference to the ConnectomeManager
-        scaling_factor: Scaling factor for block connection (default 10)
-
-    Returns:
-        Position in the destination area
-    """
-    # Get the cortical dimensions
-    src_cortical_dim_x = src_subregion[1][0] - src_subregion[0][0]
+    """Block connection using Rust (block mapping with scaling)."""
+    if not RUST_BDU_AVAILABLE:
+        raise RuntimeError("Rust BDU required")
+    
+    src_area = connectome_manager.get_cortical_area(src_area_id)
     dst_area = connectome_manager.get_cortical_area(dst_area_id)
-    dst_cortical_dim_x = dst_area.dimensions[0]
-
-    # Check scaling compatibility
-    if src_cortical_dim_x != dst_cortical_dim_x * scaling_factor:
-        logger.warning(
-            f"Areas {src_area_id} and {dst_area_id} don't have matching blocks for synaptogenesis"
-        )
-
-    # Get the neuron's position
     neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
+    
     if not neuron_pos:
-        # Return a default position if neuron position can't be found
         return (0, 0, 0)
-
-    neuron_block_index_x = neuron_pos[0]  # x-coordinate
-    neuron_block_index_y = neuron_pos[1]  # y-coordinate
-    neuron_block_index_z = neuron_pos[2]  # z-coordinate
-
-    # Calculate the destination position by scaling
-    return (
-        neuron_block_index_x // scaling_factor,
-        neuron_block_index_y,
-        neuron_block_index_z,
+    
+    return py_syn_block_connection(
+        src_area_id, dst_area_id, neuron_pos,
+        src_area.dimensions, dst_area.dimensions,
+        scaling_factor
     )
 
 
