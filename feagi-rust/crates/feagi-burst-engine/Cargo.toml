@@ -9,6 +9,8 @@ description = "High-performance burst engine for FEAGI neural processing"
 
 [dependencies]
 feagi-types = { path = "../feagi-types" }
+feagi_data_serialization.workspace = true  # For decoding sensory data
+feagi_data_structures.workspace = true  # For CorticalMappedXYZPNeuronVoxels
 thiserror.workspace = true
 rayon.workspace = true
 ndarray.workspace = true

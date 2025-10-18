@@ -40,7 +40,7 @@ use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
 use ahash::AHashMap;
 use std::sync::{Arc, Mutex};
-use feagi_data_structures::neuron_voxels::xyzp::{NeuronVoxelXYZP, NeuronVoxelXYZPArrays, CorticalMappedXYZPNeuronVoxels};
+use feagi_data_structures::neurons::xyzp::{NeuronXYZP, NeuronXYZPArrays, CorticalMappedXYZPNeuronData};
 use feagi_data_structures::genomic::CorticalID;
 // Note: FeagiSerializable is private in feagi_data_serialization, but we need its methods
 // So we'll implement serialization manually using the internal implementation details
@@ -368,35 +368,36 @@ impl RustNPU {
     ) -> PyResult<()> {
         use std::path::PathBuf;
         
-        // Ensure burst runner exists
-        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                "Burst loop not started - call start_burst_loop() first"
-            )
-        })?;
-        
-        // Create agent config
-        let config = feagi_burst_engine::sensory::AgentConfig {
-            agent_id: agent_id.clone(),
-            shm_path: PathBuf::from(shm_path),
-            rate_hz,
-            area_mapping,
-        };
-        
-        // Register with sensory manager
-        let mut runner = burst_runner.lock().unwrap();
-        let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
-        sensory_mgr.register_agent(config).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to register sensory agent: {}", e)
-            )
-        })?;
-        
-        drop(sensory_mgr);
-        drop(runner);
-        
-        println!("✅ Registered sensory agent: {} at {} Hz", agent_id, rate_hz);
-        Ok(())
+        // Check if burst runner exists
+        if let Some(burst_runner) = &self.burst_runner {
+            // Burst loop is running - register immediately
+            let config = feagi_burst_engine::sensory::AgentConfig {
+                agent_id: agent_id.clone(),
+                shm_path: PathBuf::from(shm_path),
+                rate_hz,
+                area_mapping,
+            };
+            
+            let mut runner = burst_runner.lock().unwrap();
+            let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+            sensory_mgr.register_agent(config).map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                    format!("Failed to register sensory agent: {}", e)
+                )
+            })?;
+            
+            drop(sensory_mgr);
+            drop(runner);
+            
+            println!("✅ Registered sensory agent: {} at {} Hz (burst loop running)", agent_id, rate_hz);
+            Ok(())
+        } else {
+            // Burst loop not started yet - return error instructing to load genome first
+            println!("⚠️ Burst loop not running - agent {} cannot register yet", agent_id);
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Burst loop not running. Load genome to start burst loop, then register agent {}.", agent_id)
+            ))
+        }
     }
     
     /// Deregister a sensory agent (stops its polling thread)
@@ -1116,7 +1117,7 @@ impl RustNPU {
 /// Python wrapper for visualization neuron data encoding
 #[pyclass]
 struct VisualizationEncoder {
-    mapped_data: CorticalMappedXYZPNeuronVoxels,
+    mapped_data: CorticalMappedXYZPNeuronData,
 }
 
 #[pymethods]
@@ -1124,7 +1125,7 @@ impl VisualizationEncoder {
     #[new]
     fn new() -> Self {
         Self {
-            mapped_data: CorticalMappedXYZPNeuronVoxels::new(),
+            mapped_data: CorticalMappedXYZPNeuronData::new(),
         }
     }
 
@@ -1157,7 +1158,7 @@ impl VisualizationEncoder {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{:?}", e)))?;
 
         // Create neuron array
-        let neuron_array = NeuronVoxelXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)
+        let neuron_array = NeuronXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{:?}", e)))?;
 
         // Insert into mapped data
@@ -1243,7 +1244,7 @@ impl VisualizationEncoder {
 
     /// Clear all neuron data
     fn clear(&mut self) {
-        self.mapped_data = CorticalMappedXYZPNeuronVoxels::new();
+        self.mapped_data = CorticalMappedXYZPNeuronData::new();
     }
 }
 
@@ -1282,19 +1283,19 @@ impl FeagiByteStructure {
 /// 
 /// Compatible with feagi_rust_py_libs API for seamless migration.
 #[pyclass]
-struct CorticalMappedXYZPNeuronVoxelsDecoder {
-    mapped_data: CorticalMappedXYZPNeuronVoxels,
+struct CorticalMappedXYZPNeuronDataDecoder {
+    mapped_data: CorticalMappedXYZPNeuronData,
 }
 
 #[pymethods]
-impl CorticalMappedXYZPNeuronVoxelsDecoder {
+impl CorticalMappedXYZPNeuronDataDecoder {
     /// Create decoder from FeagiByteStructure
     /// 
     /// Args:
     ///     byte_structure: FeagiByteStructure containing encoded neural data
     /// 
     /// Returns:
-    ///     CorticalMappedXYZPNeuronVoxelsDecoder: Decoder with parsed data
+    ///     CorticalMappedXYZPNeuronDataDecoder: Decoder with parsed data
     #[staticmethod]
     fn new_from_feagi_byte_structure(byte_structure: &FeagiByteStructure) -> PyResult<Self> {
         // Decode the byte structure manually following the format
@@ -1317,7 +1318,7 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
             }
             let num_structs = bytes[3] as usize;
             if num_structs == 0 {
-                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronVoxels::new() });
+                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronData::new() });
             }
             
             // Skip global header (4 bytes) + per-struct header (4 bytes) to get to actual data
@@ -1344,7 +1345,7 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
         
         let num_areas = u16::from_le_bytes([actual_bytes[2], actual_bytes[3]]) as usize;
         
-        let mut mapped_data = CorticalMappedXYZPNeuronVoxels::new();
+        let mut mapped_data = CorticalMappedXYZPNeuronData::new();
         let mut offset = 4;
         
         // First pass: collect all cortical area headers
@@ -1404,7 +1405,7 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
         // Data format: [all X coords][all Y coords][all Z coords][all potentials]
         for header in corrected_headers {
             if header.data_size_bytes == 0 {
-                mapped_data.insert(header.cortical_id, NeuronVoxelXYZPArrays::new());
+                mapped_data.insert(header.cortical_id, NeuronXYZPArrays::new());
                 continue;
             }
             
@@ -1421,7 +1422,7 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
                 break;
             }
             
-            let mut neurons = NeuronVoxelXYZPArrays::new();
+            let mut neurons = NeuronXYZPArrays::new();
             for i in 0..num_neurons {
                 let x = u32::from_le_bytes([
                     actual_bytes[x_start + i*4],
@@ -1448,7 +1449,7 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
                     actual_bytes[p_start + i*4 + 3],
                 ]);
                 
-                let neuron = NeuronVoxelXYZP::new(x, y, z, p);
+                let neuron = NeuronXYZP::new(x, y, z, p);
                 neurons.push(&neuron);
             }
             
@@ -1509,7 +1510,7 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Add data decoding (NEW! - eliminates feagi_rust_py_libs dependency)
     m.add_class::<FeagiByteStructure>()?;
-    m.add_class::<CorticalMappedXYZPNeuronVoxelsDecoder>()?;
+    m.add_class::<CorticalMappedXYZPNeuronDataDecoder>()?;
     
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead

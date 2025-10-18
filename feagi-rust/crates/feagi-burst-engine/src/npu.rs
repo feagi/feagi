@@ -239,7 +239,31 @@ impl RustNPU {
     /// Inject sensory neurons into FCL (called from Rust sensory threads)
     /// This is the PRIMARY method for Rust-native sensory injection
     pub fn inject_sensory_batch(&mut self, neuron_ids: &[NeuronId], potential: f32) {
+        // 🔍 DEBUG: Log first batch injection
+        static FIRST_BATCH_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !FIRST_BATCH_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neuron_ids.is_empty() {
+            println!("[NPU-INJECT] 🔍 First batch: count={}, potential={}", neuron_ids.len(), potential);
+            println!("[NPU-INJECT]    First 5 NeuronIds: {:?}", &neuron_ids[0..neuron_ids.len().min(5)]);
+            println!("[NPU-INJECT]    FCL size before: {}", self.fire_candidate_list.len());
+            FIRST_BATCH_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        
         for &neuron_id in neuron_ids {
+            self.fire_candidate_list.add_candidate(neuron_id, potential);
+        }
+        
+        // 🔍 DEBUG: Log FCL size after first injection
+        static FIRST_BATCH_AFTER_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !FIRST_BATCH_AFTER_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neuron_ids.is_empty() {
+            println!("[NPU-INJECT]    FCL size after: {}", self.fire_candidate_list.len());
+            FIRST_BATCH_AFTER_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    
+    /// Inject sensory neurons with individual potentials (XYZP data from agents)
+    /// Each neuron gets its own potential value from the agent's sensory data
+    pub fn inject_sensory_with_potentials(&mut self, neurons: &[(NeuronId, f32)]) {
+        for &(neuron_id, potential) in neurons {
             self.fire_candidate_list.add_candidate(neuron_id, potential);
         }
     }

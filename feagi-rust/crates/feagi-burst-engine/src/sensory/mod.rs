@@ -60,12 +60,10 @@
 //! - **Graceful lifecycle**: Clean shutdown on agent deregistration
 
 mod shm_reader;
-mod decoder;
 mod agent_manager;
 mod rate_limiter;
 
 pub use shm_reader::*;
-pub use decoder::*;
 pub use agent_manager::*;
 pub use rate_limiter::*;
 

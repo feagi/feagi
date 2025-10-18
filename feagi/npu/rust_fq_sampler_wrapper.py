@@ -38,10 +38,10 @@ class RustFQSamplerWrapper:
         """
         result = self._rust_npu.sample_fire_queue()
         
-        # 🔍 DEBUG: Log sampling activity
+        # 🔍 DEBUG: Log sampling activity (debug level only to avoid spam)
         if result is not None and result:
             total_neurons = sum(len(area_data["neuron_ids"]) for area_data in result.values())
-            logger.info(f"🦀 [FQ-SAMPLE] Sampled {total_neurons} firing neurons across {len(result)} cortical areas")
+            logger.debug(f"🦀 [FQ-SAMPLE] Sampled {total_neurons} firing neurons across {len(result)} cortical areas")
         elif result is None:
             logger.debug("🦀 [FQ-SAMPLE] Rate limited or no new bursts (returned None)")
         else:

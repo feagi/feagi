@@ -222,6 +222,19 @@ impl NeuronArray {
         let coord_key = (cortical_area, x, y, z);
         self.spatial_hash.get(&coord_key).map(|&id| NeuronId(id))
     }
+    
+    /// Batch coordinate lookup for sensory injection (ZERO-COPY, no allocation)
+    /// 
+    /// Converts (x,y,z) coordinates to neuron IDs using spatial hash.
+    /// Silently skips invalid coordinates (returns only valid neurons).
+    pub fn batch_coordinate_lookup(&self, cortical_area: u32, coordinates: &[(u32, u32, u32)]) -> Vec<NeuronId> {
+        coordinates.iter()
+            .filter_map(|&(x, y, z)| {
+                let coord_key = (cortical_area, x, y, z);
+                self.spatial_hash.get(&coord_key).map(|&id| NeuronId(id))
+            })
+            .collect()
+    }
 }
 
 /// Complete synapse array with dynamic operations

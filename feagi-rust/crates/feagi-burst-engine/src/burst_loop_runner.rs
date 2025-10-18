@@ -47,12 +47,60 @@ impl BurstLoopRunner {
     pub fn new(npu: Arc<Mutex<RustNPU>>, frequency_hz: f64) -> Self {
         // Create FCL injection callback for sensory data
         let npu_for_callback = npu.clone();
-        let injection_callback = Arc::new(move |_cortical_idx: u32, neuron_ids: Vec<u32>| {
-            // Inject neurons into FCL (thread-safe)
-            // Convert u32 to NeuronId and inject with full potential (1.0)
-            let neurons: Vec<NeuronId> = neuron_ids.into_iter().map(NeuronId).collect();
+        let injection_callback = Arc::new(move |cortical_area: u32, xyzp_data: Vec<(u32, u32, u32, f32)>| {
+            // 🔍 DEBUG: Log first injection
+            static FIRST_CALLBACK_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !FIRST_CALLBACK_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !xyzp_data.is_empty() {
+                println!("[FCL-INJECT] 🔍 First callback: cortical_area={}, neuron_count={}", cortical_area, xyzp_data.len());
+                println!("[FCL-INJECT]    First 3 XYZP: {:?}", &xyzp_data[0..xyzp_data.len().min(3)]);
+                FIRST_CALLBACK_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            
+            // Convert (x,y,z) to neuron IDs and inject with actual P values
             if let Ok(mut npu_lock) = npu_for_callback.lock() {
-                npu_lock.inject_sensory_batch(&neurons, 1.0);
+                // Extract coordinates for batch lookup
+                let coords: Vec<(u32, u32, u32)> = xyzp_data.iter()
+                    .map(|(x, y, z, _)| (*x, *y, *z))
+                    .collect();
+                
+                // Batch coordinate lookup
+                let neuron_ids = npu_lock.neuron_array.batch_coordinate_lookup(cortical_area, &coords);
+                
+                // 🔍 DEBUG: Log conversion result
+                static FIRST_CONVERSION_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_CONVERSION_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neuron_ids.is_empty() {
+                    println!("[FCL-INJECT]    Converted {} coords → {} valid neurons", xyzp_data.len(), neuron_ids.len());
+                    println!("[FCL-INJECT]    First 5 neuron IDs: {:?}", &neuron_ids[0..neuron_ids.len().min(5)]);
+                    FIRST_CONVERSION_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                
+                // Build (NeuronId, potential) pairs from XYZP data
+                let mut neuron_potential_pairs: Vec<(NeuronId, f32)> = Vec::with_capacity(xyzp_data.len());
+                for (x, y, z, p) in xyzp_data.iter() {
+                    if let Some(neuron_id) = npu_lock.neuron_array.get_neuron_at_coordinate(cortical_area, *x, *y, *z) {
+                        neuron_potential_pairs.push((neuron_id, *p));
+                    }
+                }
+                
+                // 🔍 DEBUG: Log first few potentials
+                static FIRST_POTENTIALS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_POTENTIALS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neuron_potential_pairs.is_empty() {
+                    println!("[FCL-INJECT]    First 5 potentials from data:");
+                    for (idx, (neuron_id, p)) in neuron_potential_pairs.iter().take(5).enumerate() {
+                        println!("[FCL-INJECT]      [{:?}] p={:.3}", neuron_id, p);
+                    }
+                    FIRST_POTENTIALS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                
+                // Inject with individual potentials
+                npu_lock.inject_sensory_with_potentials(&neuron_potential_pairs);
+                
+                // 🔍 DEBUG: Log injection summary
+                static FIRST_SUMMARY_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_SUMMARY_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("[FCL-INJECT]    ✅ Injected {} neurons with actual P values from data", neuron_potential_pairs.len());
+                    FIRST_SUMMARY_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
             }
         });
         

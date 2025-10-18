@@ -488,10 +488,10 @@ class VisualizationStream:
                 if _profiling_enabled:
                     _profile_stats["fq_sample_time"].append(_sample_time)
                     
-                    # Log FQ sampler frequency on first sample
+                    # Log FQ sampler frequency on first sample (debug only)
                     if _sample_count == 0 and hasattr(self.fq_sampler, 'sample_frequency_hz'):
                         configured_freq = self.fq_sampler.sample_frequency_hz
-                        logger.warning(f"🔍 [FQ-FREQ-CHECK] FQ Sampler configured frequency: {configured_freq} Hz")
+                        logger.debug(f"🔍 [FQ-FREQ-CHECK] FQ Sampler configured frequency: {configured_freq} Hz")
                 
                 # Debug: Check if we're getting sensory data that shouldn't be firing
                 from feagi.core.state_manager import FeagiStateManager
@@ -581,21 +581,21 @@ class VisualizationStream:
                     _profile_stats["total_loop_time"].append(_loop_time)
                     _sample_count += 1
                     
-                    # Log every 100 samples or every 5 seconds
-                    if _sample_count >= 100 or (time.time() - _last_profile_log) >= 5.0:
+                    # Log profiling stats every 5 seconds (reduced frequency to avoid spam)
+                    if (time.time() - _last_profile_log) >= 5.0:
                         if _profile_stats["total_loop_time"]:
                             import statistics
-                            logger.warning(f"[STATS] [PROFILE] {_sample_count} samples over {time.time() - _last_profile_log:.1f}s:")
-                            logger.warning(f"  FQ Sample:  avg={statistics.mean(_profile_stats['fq_sample_time']):.2f}ms  max={max(_profile_stats['fq_sample_time']):.2f}ms")
-                            logger.warning(f"  Encoding:   avg={statistics.mean(_profile_stats['encoding_time']):.2f}ms  max={max(_profile_stats['encoding_time']):.2f}ms")
+                            logger.debug(f"[STATS] [PROFILE] {_sample_count} samples over {time.time() - _last_profile_log:.1f}s:")
+                            logger.debug(f"  FQ Sample:  avg={statistics.mean(_profile_stats['fq_sample_time']):.2f}ms  max={max(_profile_stats['fq_sample_time']):.2f}ms")
+                            logger.debug(f"  Encoding:   avg={statistics.mean(_profile_stats['encoding_time']):.2f}ms  max={max(_profile_stats['encoding_time']):.2f}ms")
                             if _profile_stats["shm_write_time"]:
-                                logger.warning(f"  SHM Write:  avg={statistics.mean(_profile_stats['shm_write_time']):.2f}ms  max={max(_profile_stats['shm_write_time']):.2f}ms")
+                                logger.debug(f"  SHM Write:  avg={statistics.mean(_profile_stats['shm_write_time']):.2f}ms  max={max(_profile_stats['shm_write_time']):.2f}ms")
                             if _profile_stats["zmq_write_time"]:
-                                logger.warning(f"  ZMQ Write:  avg={statistics.mean(_profile_stats['zmq_write_time']):.2f}ms  max={max(_profile_stats['zmq_write_time']):.2f}ms")
-                            logger.warning(f"  Total Loop: avg={statistics.mean(_profile_stats['total_loop_time']):.2f}ms  max={max(_profile_stats['total_loop_time']):.2f}ms")
-                            logger.warning(f"  Actual Rate: {_sample_count / (time.time() - _last_profile_log):.1f} Hz")
+                                logger.debug(f"  ZMQ Write:  avg={statistics.mean(_profile_stats['zmq_write_time']):.2f}ms  max={max(_profile_stats['zmq_write_time']):.2f}ms")
+                            logger.debug(f"  Total Loop: avg={statistics.mean(_profile_stats['total_loop_time']):.2f}ms  max={max(_profile_stats['total_loop_time']):.2f}ms")
+                            logger.debug(f"  Actual Rate: {_sample_count / (time.time() - _last_profile_log):.1f} Hz")
                             
-                            # Highlight bottlenecks
+                            # Highlight bottlenecks (warning level only for actual problems)
                             avg_total = statistics.mean(_profile_stats['total_loop_time'])
                             if avg_total > 33.0:
                                 logger.warning(f"  ⚠️  BOTTLENECK: Average loop time {avg_total:.1f}ms exceeds 30Hz budget (33.3ms)")

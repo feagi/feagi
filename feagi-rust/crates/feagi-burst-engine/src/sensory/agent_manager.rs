@@ -9,11 +9,11 @@
 //!
 //! Spawns and manages per-agent polling threads that:
 //! 1. Read from SHM at agent-requested rate
-//! 2. Decode Type 11 cortical format
-//! 3. Convert coordinates to neuron IDs
+//! 2. Decode using feagi_data_serialization
+//! 3. Extract neuron IDs
 //! 4. Inject directly into FCL
 
-use super::{ShmReader, decode_type11, RateLimiter};
+use super::{ShmReader, RateLimiter};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -31,8 +31,8 @@ pub struct AgentConfig {
 }
 
 /// Callback for injecting decoded sensory data into FCL
-/// Parameters: cortical_idx, neuron_ids
-pub type FclInjectionCallback = Arc<dyn Fn(u32, Vec<u32>) + Send + Sync>;
+/// Parameters: cortical_area, coordinates with potentials (x,y,z,p tuples)
+pub type FclInjectionCallback = Arc<dyn Fn(u32, Vec<(u32, u32, u32, f32)>) + Send + Sync>;
 
 /// Thread handle for an agent's polling thread
 struct AgentThread {
@@ -155,12 +155,41 @@ fn agent_polling_loop(
     stop_flag: Arc<AtomicBool>,
     injection_callback: FclInjectionCallback,
 ) {
-    // Open SHM reader
-    let mut reader = match ShmReader::open(&config.shm_path) {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("[SENSORY-{}] Failed to open SHM: {}", config.agent_id, e);
-            return;
+    println!("[SENSORY-{}] Thread started, attempting to open SHM at {:?}", config.agent_id, config.shm_path);
+    
+    // Open SHM reader with retry logic (agent may not have written data yet)
+    let mut reader = {
+        let max_retries = 50;  // ~5 seconds total wait time (agent needs time to create file after registration)
+        let mut last_error = None;
+        let mut reader_opt = None;
+        
+        for attempt in 1..=max_retries {
+            match ShmReader::open(&config.shm_path) {
+                Ok(r) => {
+                    println!("[SENSORY-{}] Successfully opened SHM on attempt {}", config.agent_id, attempt);
+                    reader_opt = Some(r);
+                    break;
+                }
+                Err(e) => {
+                    last_error = Some(e.to_string());
+                    if attempt == 1 || attempt % 10 == 0 {
+                        println!("[SENSORY-{}] Retry {}/{}: {}", config.agent_id, attempt, max_retries, e);
+                    }
+                    if attempt < max_retries {
+                        // Sleep 100ms before retry
+                        thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                }
+            }
+        }
+        
+        match reader_opt {
+            Some(r) => r,
+            None => {
+                eprintln!("[SENSORY-{}] Failed to open SHM after {} retries: {}", 
+                    config.agent_id, max_retries, last_error.unwrap_or_else(|| "unknown error".to_string()));
+                return;
+            }
         }
     };
     
@@ -171,7 +200,13 @@ fn agent_polling_loop(
              config.agent_id, config.rate_hz, config.shm_path);
     
     // Polling loop
+    let mut poll_count = 0;
     while !stop_flag.load(Ordering::Acquire) {
+        poll_count += 1;
+        if poll_count == 1 || poll_count % 100 == 0 {
+            println!("[SENSORY-{}] Poll #{}: attempting read...", config.agent_id, poll_count);
+        }
+        
         // Rate limiting
         if !rate_limiter.should_poll_now() {
             // Sleep until next poll time
@@ -185,45 +220,142 @@ fn agent_polling_loop(
         
         // Read from SHM
         let slot_data = match reader.read_latest() {
-            Some(data) => data,
+            Some(data) => {
+                // Log first successful read only (reduce spam)
+                static FIRST_READ_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_READ_LOGGED.load(Ordering::Relaxed) {
+                    println!("[SENSORY-{}] ✅ First SHM read: {} bytes", config.agent_id, data.data.len());
+                    FIRST_READ_LOGGED.store(true, Ordering::Relaxed);
+                }
+                data
+            }
             None => {
-                // No new data, brief sleep
+                // No new data
+                static NO_DATA_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                let count = NO_DATA_COUNT.fetch_add(1, Ordering::Relaxed);
+                if count < 5 || count % 1000 == 0 {
+                    println!("[SENSORY-{}] read_latest() returned None (count={})", config.agent_id, count);
+                }
                 thread::sleep(std::time::Duration::from_millis(1));
                 continue;
             }
         };
         
-        // Decode Type 11 format
-        let sensory_data = match decode_type11(&slot_data.data) {
-            Ok(data) => data,
+        // Decode using feagi_data_serialization
+        let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
+        let mut data_vec = slot_data.data.to_vec();
+        
+        // 🔍 DEBUG: Log first 20 bytes to diagnose format mismatch
+        static FIRST_BYTES_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !FIRST_BYTES_LOGGED.load(Ordering::Relaxed) && data_vec.len() >= 20 {
+            eprintln!("[SENSORY-{}] 🔍 First 20 bytes: {:?}", config.agent_id, &data_vec[0..20]);
+            eprintln!("[SENSORY-{}]    byte[0] (version): {}", config.agent_id, data_vec[0]);
+            eprintln!("[SENSORY-{}]    byte[1-2] (increment): {:?}", config.agent_id, &data_vec[1..3]);
+            eprintln!("[SENSORY-{}]    byte[3] (struct_count): {}", config.agent_id, data_vec[3]);
+            FIRST_BYTES_LOGGED.store(true, Ordering::Relaxed);
+        }
+        
+        if let Err(e) = byte_container.try_write_data_to_container_and_verify(&mut |bytes| {
+            std::mem::swap(bytes, &mut data_vec);
+            Ok(())
+        }) {
+            eprintln!("[SENSORY-{}] ❌ Failed to load bytes: {:?}", config.agent_id, e);
+            eprintln!("[SENSORY-{}]    Total bytes loaded: {}", config.agent_id, byte_container.get_number_of_bytes_used());
+            eprintln!("[SENSORY-{}]    Container valid: {}", config.agent_id, byte_container.is_valid());
+            continue;
+        }
+        
+        eprintln!("[SENSORY-{}] ✅ Bytes loaded successfully, container is valid", config.agent_id);
+        eprintln!("[SENSORY-{}] 🔍 Pre-check: is_valid()={}, bytes.len()={}", 
+            config.agent_id, byte_container.is_valid(), byte_container.get_number_of_bytes_used());
+        
+        let num_structures = match byte_container.try_get_number_contained_structures() {
+            Ok(n) => {
+                eprintln!("[SENSORY-{}] ✅ Got struct count: {}", config.agent_id, n);
+                n
+            },
             Err(e) => {
-                eprintln!("[SENSORY-{}] Decode error: {}", config.agent_id, e);
+                eprintln!("[SENSORY-{}] ❌ Failed to get structure count: {:?}", config.agent_id, e);
+                eprintln!("[SENSORY-{}]    Post-error: is_valid()={}, bytes.len()={}", 
+                    config.agent_id, byte_container.is_valid(), byte_container.get_number_of_bytes_used());
                 continue;
             }
         };
         
-        // Process each cortical area
-        for area in sensory_data.areas {
-            // Get cortical_idx for this area
-            let cortical_idx = match config.area_mapping.get(&area.area_id) {
-                Some(&idx) => idx,
-                None => {
-                    eprintln!("[SENSORY-{}] Unknown area '{}'", config.agent_id, area.area_id);
+        // Log first successful decode
+        static FIRST_DECODE_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !FIRST_DECODE_LOGGED.load(Ordering::Relaxed) {
+            println!("[SENSORY-{}] ✅ First decode: {} structures", config.agent_id, num_structures);
+            FIRST_DECODE_LOGGED.store(true, Ordering::Relaxed);
+        }
+        
+        // Extract neuron data from each structure
+        for struct_idx in 0..num_structures {
+            let boxed_struct = match byte_container.try_create_new_struct_from_index(struct_idx) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("[SENSORY-{}] Failed to extract structure {}: {:?}", config.agent_id, struct_idx, e);
                     continue;
                 }
             };
             
-            // For now, we'll inject coordinates as-is
-            // In Phase 2, we'll add coordinate→neuronID lookup via NPU spatial hash
-            // For MVP, assume coords are already neuron IDs (or do batch lookup externally)
+            // Downcast to CorticalMappedXYZPNeuronData
+            use feagi_data_structures::neurons::xyzp::CorticalMappedXYZPNeuronData;
+            let cortical_mapped = match boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronData>() {
+                Some(cm) => cm,
+                None => {
+                    eprintln!("[SENSORY-{}] Structure {} is not CorticalMappedXYZPNeuronData", config.agent_id, struct_idx);
+                    continue;
+                }
+            };
             
-            // Convert coordinates to neuron IDs (placeholder - needs NPU integration)
-            // TODO: Add batch coordinate lookup via NPU.get_neurons_at_coordinates_batch()
-            let neuron_ids: Vec<u32> = area.coords_x.iter().copied().collect();
-            
-            if !neuron_ids.is_empty() {
-                // Inject into FCL via callback
-                injection_callback(cortical_idx, neuron_ids);
+            // Iterate over cortical areas
+            for (cortical_id, neuron_arrays) in &cortical_mapped.mappings {
+                let area_id = cortical_id.as_ascii_string();
+                
+                // Get cortical_idx for this area
+                let cortical_idx = match config.area_mapping.get(&area_id) {
+                    Some(&idx) => idx,
+                    None => {
+                        eprintln!("[SENSORY-{}] Unknown area '{}'", config.agent_id, area_id);
+                        continue;
+                    }
+                };
+                
+                // Extract (x,y,z,p) coordinates with potentials and pass to callback
+                // Callback will use NPU's spatial hash to convert → neuron_id
+                let (x_coords, y_coords, z_coords, potentials) = neuron_arrays.borrow_xyzp_vectors();
+                
+                // Build coordinate+potential tuples (XYZP)
+                let xyzp_data: Vec<(u32, u32, u32, f32)> = x_coords.iter()
+                    .zip(y_coords.iter())
+                    .zip(z_coords.iter())
+                    .zip(potentials.iter())
+                    .map(|(((x, y), z), p)| (*x, *y, *z, *p))
+                    .collect();
+                
+                // 🔍 DEBUG: Log coordinate and potential distribution
+                static FIRST_COORD_DEBUG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_COORD_DEBUG.load(Ordering::Relaxed) && xyzp_data.len() >= 5 {
+                    eprintln!("[SENSORY-{}] 🔍 First 5 XYZP: {:?}", config.agent_id, &xyzp_data[0..5]);
+                    FIRST_COORD_DEBUG.store(true, Ordering::Relaxed);
+                }
+                
+                // Log first injection
+                static FIRST_INJECTION_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_INJECTION_LOGGED.load(Ordering::Relaxed) && !xyzp_data.is_empty() {
+                    println!("[SENSORY-{}] ✅ First injection: area='{}', cortical_area={}, neuron_count={}", 
+                        config.agent_id, area_id, cortical_idx, xyzp_data.len());
+                    println!("[SENSORY-{}]    First 3 XYZP: {:?}",
+                        config.agent_id,
+                        &xyzp_data[0..xyzp_data.len().min(3)]);
+                    FIRST_INJECTION_LOGGED.store(true, Ordering::Relaxed);
+                }
+                
+                if !xyzp_data.is_empty() {
+                    // Inject into FCL via callback (callback will do coordinate → neuron_id conversion)
+                    injection_callback(cortical_idx, xyzp_data);
+                }
             }
         }
     }
@@ -240,7 +372,7 @@ mod tests {
     #[test]
     fn test_agent_manager_lifecycle() {
         // Create a dummy injection callback
-        let callback = Arc::new(|_cortical_idx: u32, _neuron_ids: Vec<u32>| {
+        let callback = Arc::new(|_cortical_area: u32, _xyzp_data: Vec<(u32, u32, u32, f32)>| {
             // No-op for testing
         });
         

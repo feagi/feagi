@@ -425,56 +425,6 @@ class RegistrationManager:
                         if rejections:
                             logger.warning(f"⚠️ [REG-RATE] Some capabilities were rejected: {rejections}")
                         
-                        # 🦀 RUST SENSORY INJECTION: Register agent with Rust NPU for direct SHM polling
-                        sensory_spec = next((s for s in capability_rates_to_register if s.capability_type == CapabilityType.SENSORY), None)
-                        if sensory_spec:
-                            try:
-                                # Get Rust NPU instance
-                                from feagi.process_manager import get_process_manager
-                                pm = get_process_manager()
-                                rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
-                                
-                                if rust_npu_integration and rust_npu_integration._rust_npu:
-                                    # Build SHM path (matches LatestOnlySharedSlot naming)
-                                    shm_path = f"/dev/shm/feagi_sensory_{agent_id}"
-                                    
-                                    # Get cortical area mapping from genome (for coordinate lookup)
-                                    # Maps area_id (string) -> cortical_idx (u32) for Rust decoder
-                                    area_mapping = {}
-                                    try:
-                                        # Get connectome manager from process manager
-                                        if hasattr(pm, '_connectome_manager') and pm._connectome_manager:
-                                            connectome = pm._connectome_manager
-                                            if hasattr(connectome, 'cortical_areas'):
-                                                for area_id, area_obj in connectome.cortical_areas.items():
-                                                    if hasattr(area_obj, 'cortical_idx'):
-                                                        # Ensure types: string -> int (PyO3 converts to u32)
-                                                        area_mapping[str(area_id)] = int(area_obj.cortical_idx)
-                                                logger.info(f"🦀 [RUST-SENSORY] Extracted {len(area_mapping)} cortical area mappings for {agent_id}")
-                                                logger.debug(f"🦀 [RUST-SENSORY] Area mapping sample: {dict(list(area_mapping.items())[:3])}")
-                                            else:
-                                                logger.warning(f"⚠️ ConnectomeManager has no cortical_areas - using empty mapping")
-                                        else:
-                                            logger.warning(f"⚠️ ConnectomeManager not available - using empty mapping")
-                                    except Exception as mapping_err:
-                                        logger.warning(f"⚠️ Failed to extract area mapping: {mapping_err} - using empty mapping")
-                                    
-                                    # Get approved sensory rate
-                                    sensory_config = next((c for c in approved_configs if c.capability_type == CapabilityType.SENSORY), None)
-                                    sensory_rate_hz = sensory_config.approved_rate_hz if sensory_config else sensory_spec.requested_rate_hz
-                                    
-                                    # Register with Rust NPU
-                                    rust_npu_integration._rust_npu.register_sensory_agent(
-                                        agent_id=agent_id,
-                                        shm_path=shm_path,
-                                        rate_hz=sensory_rate_hz,
-                                        area_mapping=area_mapping
-                                    )
-                                    logger.info(f"🦀 [RUST-SENSORY] Registered {agent_id} for Rust SHM polling at {sensory_rate_hz} Hz")
-                                else:
-                                    logger.warning(f"⚠️ Rust NPU not available - sensory agent {agent_id} will use Python polling")
-                            except Exception as rust_err:
-                                logger.error(f"❌ Failed to register Rust sensory agent {agent_id}: {rust_err}", exc_info=True)
                 except Exception as e:
                     logger.error(f"❌ Failed to register capability rates for {agent_id}: {e}", exc_info=True)
 
@@ -504,6 +454,113 @@ class RegistrationManager:
 
                 # Determine available transports and recommend best option
                 transport_info = self._get_transport_info(request, caps_sanitized)
+
+                # 🦀 RUST SENSORY INJECTION: Register agent with Rust NPU for direct SHM polling
+                # ⚠️ IMPORTANT: This must happen AFTER _get_transport_info creates SHM files!
+                sensory_spec = next((s for s in capability_rates_to_register if s.capability_type == CapabilityType.SENSORY), None)
+                if sensory_spec:
+                    try:
+                        # Get Rust NPU instance
+                        from feagi.process_manager import get_process_manager
+                        pm = get_process_manager()
+                        rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
+                        
+                        if rust_npu_integration and rust_npu_integration._rust_npu:
+                            # Get SHM path from transport_info (already created by _get_transport_info)
+                            shm_path = transport_info.get("shm_paths", {}).get("sensory")
+                            
+                            if shm_path:
+                                # Get cortical area mapping from genome (for coordinate lookup)
+                                area_mapping = {}
+                                try:
+                                    if hasattr(pm, '_connectome_manager') and pm._connectome_manager:
+                                        connectome = pm._connectome_manager
+                                        if hasattr(connectome, 'cortical_areas'):
+                                            for area_id, area_obj in connectome.cortical_areas.items():
+                                                if hasattr(area_obj, 'cortical_idx'):
+                                                    area_mapping[str(area_id)] = int(area_obj.cortical_idx)
+                                            logger.debug(f"🦀 [RUST-SENSORY] Extracted {len(area_mapping)} cortical area mappings for {agent_id}")
+                                except Exception as mapping_err:
+                                    logger.warning(f"⚠️ Failed to extract area mapping: {mapping_err}")
+                                
+                                # Get approved sensory rate
+                                sensory_config = next((c for c in approved_configs if c.capability_type == CapabilityType.SENSORY), None)
+                                sensory_rate_hz = sensory_config.approved_rate_hz if sensory_config else sensory_spec.requested_rate_hz
+                                
+                                # 🔧 PRE-CREATE SHM FILE: Rust thread needs the file to exist BEFORE it starts
+                                # The agent will overwrite this later, but we need the skeleton now
+                                try:
+                                    import os
+                                    import mmap
+                                    import struct
+                                    # Create LatestOnly SHM header format
+                                    MAGIC = b"FEAGILAT"
+                                    VERSION = 1
+                                    HEADER_SIZE = 256
+                                    MAX_PAYLOAD = 16 * 1024 * 1024  # 16MB
+                                    total_size = HEADER_SIZE + MAX_PAYLOAD
+                                    
+                                    # Create and initialize file
+                                    fd = os.open(shm_path, os.O_RDWR | os.O_CREAT, 0o600)
+                                    os.ftruncate(fd, total_size)
+                                    mm = mmap.mmap(fd, total_size, access=mmap.ACCESS_WRITE)
+                                    
+                                    # Write header
+                                    header = struct.pack(
+                                        "<8sIIIQQII212s",
+                                        MAGIC, VERSION, MAX_PAYLOAD, os.getpid(),
+                                        0, 0, 0, 0, b'\x00' * 212
+                                    )
+                                    mm[0:HEADER_SIZE] = header
+                                    mm.flush()
+                                    os.fsync(fd)
+                                    mm.close()
+                                    os.close(fd)
+                                    logger.info(f"📝 [FEAGI-SHM] Pre-created sensory SHM file: {shm_path} ({total_size} bytes)")
+                                except Exception as shm_err:
+                                    logger.warning(f"⚠️ Failed to pre-create SHM file (Rust will retry): {shm_err}")
+                                
+                                # Register with Rust NPU (SHM file now exists!)
+                                logger.info(f"🦀 [RUST-SENSORY] Registering {agent_id}: shm={shm_path}, rate={sensory_rate_hz}Hz")
+                                try:
+                                    rust_npu_integration._rust_npu.register_sensory_agent(
+                                        agent_id=agent_id,
+                                        shm_path=shm_path,
+                                        rate_hz=sensory_rate_hz,
+                                        area_mapping=area_mapping
+                                    )
+                                    logger.info(f"🦀 [RUST-SENSORY] ✅ Successfully registered {agent_id} for Rust SHM polling")
+                                except RuntimeError as reg_err:
+                                    if "already registered" in str(reg_err).lower():
+                                        # Agent reconnecting - force cleanup of old thread first
+                                        logger.warning(f"🔄 [RUST-SENSORY] {agent_id} already registered - cleaning up old thread...")
+                                        try:
+                                            rust_npu_integration._rust_npu.deregister_sensory_agent(agent_id)
+                                            logger.info(f"🧹 [RUST-SENSORY] Cleaned up old thread for {agent_id}")
+                                            # Retry registration
+                                            rust_npu_integration._rust_npu.register_sensory_agent(
+                                                agent_id=agent_id,
+                                                shm_path=shm_path,
+                                                rate_hz=sensory_rate_hz,
+                                                area_mapping=area_mapping
+                                            )
+                                            logger.info(f"🦀 [RUST-SENSORY] ✅ Successfully re-registered {agent_id} after cleanup")
+                                        except Exception as cleanup_err:
+                                            logger.error(f"❌ Failed to cleanup and re-register {agent_id}: {cleanup_err}")
+                                            raise
+                                    else:
+                                        raise
+                            else:
+                                logger.warning(f"⚠️ No sensory SHM path found for {agent_id} - skipping Rust registration")
+                        else:
+                            logger.debug(f"⚠️ Rust NPU not available - sensory agent {agent_id} will use Python polling")
+                    except RuntimeError as rust_err:
+                        if "Burst loop not running" in str(rust_err):
+                            logger.warning(f"⏳ Burst loop not running yet - {agent_id} should reconnect after genome is loaded")
+                        else:
+                            logger.error(f"❌ Failed to register Rust sensory agent {agent_id}: {rust_err}", exc_info=True)
+                    except Exception as rust_err:
+                        logger.error(f"❌ Failed to register Rust sensory agent {agent_id}: {rust_err}", exc_info=True)
 
                 return AgentRegistrationResponse(
                     success=True,
