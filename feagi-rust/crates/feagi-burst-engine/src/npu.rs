@@ -67,6 +67,9 @@ pub struct RustNPU {
     fire_ledger: RustFireLedger,
     fq_sampler: FQSampler,
     
+    // Sensory staging (prevents async race with FCL clear)
+    pending_sensory_injections: std::sync::Mutex<Vec<(NeuronId, f32)>>,
+    
     // Engines
     propagation_engine: SynapticPropagationEngine,
     
@@ -92,6 +95,7 @@ impl RustNPU {
             previous_fire_queue: FireQueue::new(),
             fire_ledger: RustFireLedger::new(fire_ledger_window),
             fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
+            pending_sensory_injections: std::sync::Mutex::new(Vec::with_capacity(10000)),
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
             power_amount: 1.0,
@@ -260,11 +264,19 @@ impl RustNPU {
         }
     }
     
-    /// Inject sensory neurons with individual potentials (XYZP data from agents)
-    /// Each neuron gets its own potential value from the agent's sensory data
+    /// Stage sensory neurons for next burst (thread-safe, prevents FCL clear race)
+    /// XYZP data from agents is staged here and injected AFTER fcl.clear() in Phase 1
     pub fn inject_sensory_with_potentials(&mut self, neurons: &[(NeuronId, f32)]) {
-        for &(neuron_id, potential) in neurons {
-            self.fire_candidate_list.add_candidate(neuron_id, potential);
+        if let Ok(mut pending) = self.pending_sensory_injections.lock() {
+            pending.extend_from_slice(neurons);
+            
+            // 🔍 DEBUG: Log first staging
+            static FIRST_STAGING_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !FIRST_STAGING_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neurons.is_empty() {
+                println!("[NPU-STAGE] 🎯 Staged {} sensory neurons for next burst (prevents FCL clear race)", neurons.len());
+                println!("[NPU-STAGE]    Queue now has {} pending injections", pending.len());
+                FIRST_STAGING_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
         }
     }
     
@@ -289,7 +301,7 @@ impl RustNPU {
     pub fn process_burst(&mut self) -> Result<BurstResult> {
         self.burst_count += 1;
         
-        // Phase 1: Injection (power + synaptic propagation)
+        // Phase 1: Injection (power + synaptic propagation + staged sensory)
         // ZERO-COPY: Pass synapse_array by reference (no allocation)
         let injection_result = phase1_injection_with_synapses(
             &mut self.fire_candidate_list,
@@ -298,6 +310,7 @@ impl RustNPU {
             &self.previous_fire_queue,
             self.power_amount,
             &self.synapse_array,
+            &self.pending_sensory_injections,
         )?;
         
         // Phase 2: Neural Dynamics (membrane potential updates, threshold checks, firing)
@@ -810,12 +823,33 @@ fn phase1_injection_with_synapses(
     previous_fire_queue: &FireQueue,
     power_amount: f32,
     synapse_array: &SynapseArray,
+    pending_sensory: &std::sync::Mutex<Vec<(NeuronId, f32)>>,
 ) -> Result<InjectionResult> {
     // Clear FCL from previous burst
     fcl.clear();
     
     let mut power_count = 0;
     let mut synaptic_count = 0;
+    let mut sensory_count = 0;
+    
+    // 0. Drain pending sensory injections (AFTER clear, BEFORE power/synapses)
+    if let Ok(mut pending) = pending_sensory.lock() {
+        if !pending.is_empty() {
+            // 🔍 DEBUG: Log first sensory injection
+            static FIRST_SENSORY_LOG: std::sync::Once = std::sync::Once::new();
+            FIRST_SENSORY_LOG.call_once(|| {
+                println!("╔══════════════════════════════════════════════════════════════");
+                println!("║ [SENSORY-INJECTION] 🎬 DRAINING STAGED SENSORY DATA");
+                println!("║ Injecting {} neurons AFTER FCL clear (prevents race)", pending.len());
+                println!("╚══════════════════════════════════════════════════════════════");
+            });
+            
+            for (neuron_id, potential) in pending.drain(..) {
+                fcl.add_candidate(neuron_id, potential);
+                sensory_count += 1;
+            }
+        }
+    }
     
     // 1. Power Injection - Scan neuron array for cortical_idx = 1
     static FIRST_LOG: std::sync::Once = std::sync::Once::new();
@@ -870,7 +904,7 @@ fn phase1_injection_with_synapses(
     Ok(InjectionResult {
         power_injections: power_count,
         synaptic_injections: synaptic_count,
-        sensory_injections: 0,
+        sensory_injections: sensory_count,
     })
 }
 
