@@ -22,18 +22,34 @@ from feagi.utils.logger import setup_logger
 
 from ..memory import NeuralBufferPool
 from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
-from ..neural.latest_only_slot import (
-    LatestOnlySharedSlot, 
-    LatestOnlyReader, 
-    LatestOnlyWriter,
-    create_agent_slot_path,
-    cleanup_agent_slots
-)
+
+# 🦀 DEPRECATED: Sensory injection is now 100% Rust (SHM read → Rust threads → Rust FCL)
+# This entire file is legacy code - Python no longer handles sensory SHM reading/injection
+# Kept only for backward compatibility with server.py imports
+
+# Type stubs for deleted latest_only_slot module (to prevent import errors)
+class LatestOnlyReader:
+    """Stub - actual implementation deleted (sensory now 100% Rust)"""
+    def __init__(self, *args, **kwargs): pass
+    def read(self): return None
+
+class LatestOnlyWriter:
+    """Stub - actual implementation deleted (sensory now 100% Rust)"""
+    def __init__(self, *args, **kwargs): pass
+    def write(self, *args, **kwargs): pass
+
+class LatestOnlySharedSlot:
+    """Stub - actual implementation deleted (sensory now 100% Rust)"""
+    def __init__(self, *args, **kwargs): pass
+
+def create_agent_slot_path(*args, **kwargs): return "/dev/null"
+def cleanup_agent_slots(*args, **kwargs): pass
+
 from ..platform import optimize_socket_for_neural_data
 
 logger = setup_logger(__name__)
 
-# Global pool for latest-only slot readers per agent
+# Global pool for latest-only slot readers per agent (DEPRECATED - no longer used)
 _GLOBAL_SLOT_READERS: Dict[str, LatestOnlyReader] = {}
 _GLOBAL_SLOT_LOCK = threading.Lock()
 _SHM_BASE_DIR = Path("/tmp/feagi_shm")

@@ -335,6 +335,53 @@ impl RustNPU {
         }
     }
     
+    /// Attach visualization SHM writer (for direct Rust→BV communication)
+    /// 
+    /// Args:
+    ///     shm_path: Path to visualization SHM file (e.g., "/tmp/feagi-shared-mem-visualization_stream.bin")
+    /// 
+    /// This enables 100% Rust visualization pipeline: FQ Sample → Encode → SHM Write → BV
+    fn attach_viz_shm_writer(&mut self, shm_path: String) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let path = std::path::PathBuf::from(shm_path);
+            runner.lock().unwrap()
+                .attach_viz_shm_writer(path)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                    format!("Failed to attach viz SHM writer: {}", e)
+                ))?;
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
+    /// Write binary neuron data to visualization SHM (Python encodes, Rust writes)
+    /// 
+    /// Args:
+    ///     binary_data: Pre-encoded binary data (Type 11 format from feagi_rust_py_libs)
+    /// 
+    /// This is the HOT PATH for visualization - called after every FQ sample
+    fn write_viz_shm(&self, binary_data: &[u8]) -> PyResult<()> {
+        if let Some(runner) = &self.burst_runner {
+            let runner_lock = runner.lock().unwrap();
+            let mut viz_writer = runner_lock.viz_shm_writer.lock().unwrap();
+            if let Some(writer) = viz_writer.as_mut() {
+                writer.write_payload(binary_data)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                        format!("Failed to write viz SHM: {}", e)
+                    ))?;
+                Ok(())
+            } else {
+                // No writer attached - silently skip (Python fallback can handle it)
+                Ok(())
+            }
+        } else {
+            Ok(()) // No burst loop - skip
+        }
+    }
+    
     /// Check if burst loop is running
     fn is_burst_loop_running(&self) -> bool {
         self.burst_runner.as_ref()

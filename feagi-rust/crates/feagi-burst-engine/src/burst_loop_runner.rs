@@ -40,6 +40,8 @@ pub struct BurstLoopRunner {
     thread_handle: Option<thread::JoinHandle<()>>,
     /// Sensory agent manager (per-agent injection threads)
     pub sensory_manager: Arc<Mutex<AgentManager>>,
+    /// Visualization SHM writer (optional, None if not configured)
+    pub viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
 }
 
 impl BurstLoopRunner {
@@ -112,7 +114,16 @@ impl BurstLoopRunner {
             burst_count: Arc::new(AtomicU64::new(0)),
             thread_handle: None,
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
+            viz_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_viz_shm_writer
         }
+    }
+    
+    /// Attach visualization SHM writer (called from Python after registration)
+    pub fn attach_viz_shm_writer(&mut self, shm_path: std::path::PathBuf) -> Result<(), std::io::Error> {
+        let writer = crate::viz_shm_writer::VizSHMWriter::new(shm_path, None, None)?;
+        let mut guard = self.viz_shm_writer.lock().unwrap();
+        *guard = Some(writer);
+        Ok(())
     }
     
     /// Set burst frequency (can be called while running)

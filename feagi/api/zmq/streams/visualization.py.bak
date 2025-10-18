@@ -1802,3 +1802,129 @@ class VisualizationStream:
         """
         return sample_data
 
+    def _prepare_broadcast_data(
+        self, for_visualization: Dict[str, Any]
+    ) -> bytes:
+        """Prepare data for broadcasting to visualization clients.
+
+        Convert to binary format using feagi_data_processing with high-
+        performance NumPy arrays.
+        """
+        try:
+            # Encode using feagi_rust binary format (published crates)
+            import feagi_rust
+
+            # Create the visualization encoder
+            encoder = feagi_rust.VisualizationEncoder()
+
+            #  Convert cortical area data to the format expected by the new
+            #  encoder
+            for area_id, area_data in for_visualization.items():
+                if area_data and area_data.get("neuron_ids"):
+                    neuron_ids = area_data.get("neuron_ids", [])
+                    membrane_potentials = area_data.get(
+                        "membrane_potentials", []
+                    )
+
+                    #  MEMORY AREA FIX: Check if coordinates are already
+                    #  provided (for memory areas)
+                    provided_coordinates = area_data.get("coordinates", [])
+
+
+                    if provided_coordinates:
+                        # Use pre-provided coordinates (memory areas)
+                        # Convert from list of tuples to separate x,y,z lists
+                        x_coords = [coord[0] for coord in provided_coordinates]
+                        y_coords = [coord[1] for coord in provided_coordinates]
+                        z_coords = [coord[2] for coord in provided_coordinates]
+
+                    else:
+                        #  Use high-performance coordinate extraction - real
+                        #  data only (regular areas)
+
+                        coords_result = self.core_api.get_neuron_coordinates(
+                            neuron_ids
+                        )
+                        if coords_result and "coordinates_x" in coords_result:
+                            x_coords = coords_result["coordinates_x"]
+                            y_coords = coords_result["coordinates_y"]
+                            z_coords = coords_result["coordinates_z"]
+
+                        else:
+                            # ❌ NO FALLBACKS - Coordinates must exist
+                            raise ValueError(
+                                f"Failed to get coordinates for {len(neuron_ids)} "
+                                f"neurons in area {area_id}"
+                            )
+
+                    # Ensure all arrays are the same length
+                    max_len = len(neuron_ids)
+                    if max_len == 0:
+                        continue
+
+                    # Pad membrane potentials if needed
+                    if len(membrane_potentials) < max_len:
+                        membrane_potentials.extend(
+                            [0.0] * (max_len - len(membrane_potentials))
+                        )
+                    elif len(membrane_potentials) > max_len:
+                        membrane_potentials = membrane_potentials[:max_len]
+
+                    # Convert to proper types (u32 for coords, f32 for potentials)
+                    x_coords_u32 = [int(x) for x in x_coords[:max_len]]
+                    y_coords_u32 = [int(y) for y in y_coords[:max_len]]
+                    z_coords_u32 = [int(z) for z in z_coords[:max_len]]
+                    potentials_f32 = [float(p) for p in membrane_potentials[:max_len]]
+
+                    # PROPER CORTICAL ID CONVERSION: Use CoreAPI to convert cortical_idx to cortical_id
+                    if isinstance(area_id, int):
+                        # Convert integer cortical_idx to proper 6-character cortical_id
+                        cortical_id_str = self.core_api.get_cortical_id_for_idx(area_id)
+                        if cortical_id_str is None:
+                            logger.warning(f"❌ Failed to convert cortical_idx {area_id} to cortical_id - skipping area")
+                            continue
+                        area_str = cortical_id_str
+                    else:
+                        # Already a string, use as-is
+                        area_str = str(area_id)
+
+                    # Add neurons for this cortical area to the encoder
+                    encoder.add_neurons(
+                        cortical_id=area_str,
+                        x_coords=x_coords_u32,
+                        y_coords=y_coords_u32,
+                        z_coords=z_coords_u32,
+                        potentials=potentials_f32
+                    )
+
+            # Encode to binary
+            binary_data = encoder.encode()
+
+            # Gate encoding logs with debug flag
+            from feagi.core.state_manager import FeagiStateManager
+
+            state_manager = FeagiStateManager.instance()
+            if state_manager.is_debug_zmq_outbound_enabled():
+                logger.info(
+                    f"[ZMQ-OUT-DEBUG] Encoded {len(for_visualization)} areas into {len(binary_data)} "
+                    f"bytes using feagi_rust encoder"
+                )
+            return binary_data
+
+        except ImportError as e:
+            logger.error(
+                f"feagi_rust library not available - "
+                f"cannot encode binary data: {e}"
+            )
+            return b""
+        except Exception as e:
+            # Log encoding errors to diagnose issues
+            logger.error(f"🦀 [VIZ-DEBUG] Encoding failed: {e}", exc_info=True)
+            return b""
+
+    def _broadcast_to_clients(self, broadcast_data: bytes) -> None:
+        """Broadcast data to all connected visualization clients."""
+        if broadcast_data:
+            self._publish_data(broadcast_data)
+        else:
+            logger.debug("No data to broadcast")

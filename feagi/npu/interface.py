@@ -24,6 +24,7 @@ logger = setup_logger(__name__)
 class OperationResult(Enum):
     """Result codes for NPU operations."""
     SUCCESS = "success"
+    PARTIAL_SUCCESS = "partial_success"
     AREA_LOCKED = "area_locked"
     CAPACITY_EXCEEDED = "capacity_exceeded" 
     INVALID_INPUT = "invalid_input"

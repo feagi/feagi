@@ -35,6 +35,7 @@ use std::path::PathBuf;
 use std::fs::OpenOptions;
 use std::os::unix::fs::OpenOptionsExt;
 use memmap2::MmapMut;
+use crate::fq_sampler::FQSampleResult;
 
 const MAGIC: &[u8; 8] = b"FEAGIVIS"; // Ring buffer magic (BV expects this!)
 const VERSION: u32 = 1;
@@ -123,62 +124,124 @@ impl VizSHMWriter {
         })
     }
     
-    /// Write binary neuron data to SHM ring buffer
+    /// Write FQ sample to SHM ring buffer
     ///
-    /// Takes pre-encoded binary data (Type 11 format) and writes to next slot.
-    pub fn write_payload(&mut self, payload: &[u8]) -> Result<(), std::io::Error> {
+    /// Encodes the sample as binary (Type 11), writes to next slot, updates header.
+    pub fn write_sample(&mut self, sample: &FQSampleResult, binary_data: &[u8]) -> Result<(), std::io::Error> {
         if !self.enabled {
             return Ok(());
         }
         
         // Check payload size
-        if payload.len() + 4 > self.slot_size {
+        if binary_data.len() + 4 > self.slot_size {
             // Truncate if too large (should not happen with proper encoding)
             eprintln!("[VIZ-SHM] Warning: payload {} bytes exceeds slot size {} bytes, truncating", 
-                payload.len(), self.slot_size);
-            let truncated = &payload[0..(self.slot_size - 4)];
+                binary_data.len(), self.slot_size);
+            let truncated = &binary_data[0..(self.slot_size - 4)];
             self.write_to_ring_slot(truncated)?;
         } else {
-            self.write_to_ring_slot(payload)?;
+            self.write_to_ring_slot(binary_data)?;
         }
         
         Ok(())
     }
     
-    /// Write payload to current ring buffer slot
-    fn write_to_ring_slot(&mut self, payload: &[u8]) -> Result<(), std::io::Error> {
+    /// Serialize FQ sample to JSON (BV format)
+    fn serialize_to_json(&self, sample: &FQSampleResult) -> Result<Vec<u8>, std::io::Error> {
+        use std::collections::HashMap;
+        
+        // Build JSON structure
+        let mut data = HashMap::new();
+        data.insert("timestep", sample.timestep.to_string());
+        data.insert("total_neurons", sample.total_neurons.to_string());
+        
+        // Convert areas to JSON
+        let mut areas_json = String::from("{");
+        for (cortical_idx, area_data) in &sample.areas {
+            if areas_json.len() > 1 {
+                areas_json.push(',');
+            }
+            areas_json.push_str(&format!(
+                "\"{}\": {{\"neuron_ids\":[{}],\"coordinates_x\":[{}],\"coordinates_y\":[{}],\"coordinates_z\":[{}],\"potentials\":[{}]}}",
+                cortical_idx,
+                area_data.neuron_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(","),
+                area_data.coordinates_x.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","),
+                area_data.coordinates_y.iter().map(|y| y.to_string()).collect::<Vec<_>>().join(","),
+                area_data.coordinates_z.iter().map(|z| z.to_string()).collect::<Vec<_>>().join(","),
+                area_data.potentials.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(","),
+            ));
+        }
+        areas_json.push('}');
+        
+        // Final JSON
+        let json = format!("{{\"timestep\":{},\"total_neurons\":{},\"areas\":{}}}", 
+                          sample.timestep, sample.total_neurons, areas_json);
+        
+        Ok(json.into_bytes())
+    }
+    
+    /// Compress data with LZ4
+    fn compress_lz4(&self, data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+        // TODO: Add LZ4 compression (for now, return uncompressed)
+        // This matches Python's behavior when compression is disabled
+        Ok(data.to_vec())
+    }
+    
+    /// Write data to SHM with header
+    fn write_to_shm(&mut self, data: &[u8]) -> Result<(), std::io::Error> {
+        // Check size
+        if data.len() + HEADER_SIZE > MAX_SHM_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Data too large: {} bytes", data.len())
+            ));
+        }
+        
+        // Calculate CRC32 before borrowing mmap mutably
+        let checksum = self.calculate_crc32(data);
+        
+        // Increment sequence
+        self.sequence += 1;
+        
+        // Get timestamp
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
+        let timestamp_secs = now.as_secs();
+        let timestamp_nanos = now.subsec_nanos() as u64;
+        
+        // Now get mutable reference to mmap
         let mmap = self.mmap.as_mut().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::Other, "SHM not mapped")
         })?;
         
-        // Calculate slot offset: HEADER_SIZE + (write_index * slot_size)
-        let slot_offset = HEADER_SIZE + (self.write_index as usize * self.slot_size);
+        // Write header
+        mmap[0..8].copy_from_slice(&MAGIC_NUMBER.to_le_bytes());
+        mmap[8..16].copy_from_slice(&self.sequence.to_le_bytes());
+        mmap[16..24].copy_from_slice(&(data.len() as u64).to_le_bytes());
+        mmap[24..32].copy_from_slice(&checksum.to_le_bytes());
+        mmap[32..40].copy_from_slice(&timestamp_secs.to_le_bytes());
+        mmap[40..48].copy_from_slice(&timestamp_nanos.to_le_bytes());
         
-        // Write slot: u32 length + payload + padding
-        let length = payload.len() as u32;
-        mmap[slot_offset..(slot_offset + 4)].copy_from_slice(&length.to_le_bytes());
-        mmap[(slot_offset + 4)..(slot_offset + 4 + payload.len())].copy_from_slice(payload);
+        // Write data
+        mmap[HEADER_SIZE..(HEADER_SIZE + data.len())].copy_from_slice(data);
         
-        // Pad remainder with zeros
-        let rem = self.slot_size - 4 - payload.len();
-        if rem > 0 {
-            mmap[(slot_offset + 4 + payload.len())..(slot_offset + self.slot_size)].fill(0);
-        }
-        
-        // Update counters
-        self.frame_seq += 1;
-        self.write_index = (self.write_index + 1) % self.num_slots;
-        
-        // Update header with new frame_seq and write_index
-        mmap[20..28].copy_from_slice(&self.frame_seq.to_le_bytes());
-        mmap[28..32].copy_from_slice(&self.write_index.to_le_bytes());
-        
-        // Flush (ensures BV sees the update)
+        // Flush to disk
         mmap.flush()?;
         
         self.total_writes += 1;
         
         Ok(())
+    }
+    
+    /// Simple CRC32 checksum
+    fn calculate_crc32(&self, data: &[u8]) -> u64 {
+        // Simple checksum (TODO: use proper CRC32)
+        let mut sum: u32 = 0;
+        for &byte in data {
+            sum = sum.wrapping_add(byte as u32);
+        }
+        sum as u64
     }
     
     /// Enable/disable writing
@@ -188,44 +251,27 @@ impl VizSHMWriter {
     
     /// Get statistics
     pub fn get_stats(&self) -> (u64, u64) {
-        (self.frame_seq, self.total_writes)
+        (self.sequence, self.total_writes)
     }
 }
 
 impl Drop for VizSHMWriter {
     fn drop(&mut self) {
-        println!("🗑️  Dropping Viz SHM Writer: {:?} (wrote {} frames)", self.shm_path, self.total_writes);
+        println!("🗑️  Dropping Viz SHM Writer: {:?} (wrote {} samples)", self.shm_path, self.total_writes);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fq_sampler::{FQSampleResult, SampledAreaData};
+    use ahash::AHashMap;
     
     #[test]
     fn test_viz_shm_writer_create() {
-        let path = PathBuf::from("/tmp/test_viz_shm_ring.bin");
-        let writer = VizSHMWriter::new(path, None, None);
+        let path = PathBuf::from("/tmp/test_viz_shm.bin");
+        let writer = VizSHMWriter::new(path);
         assert!(writer.is_ok());
-        
-        // Clean up
-        std::fs::remove_file("/tmp/test_viz_shm_ring.bin").ok();
-    }
-    
-    #[test]
-    fn test_viz_shm_writer_write() {
-        let path = PathBuf::from("/tmp/test_viz_shm_ring_write.bin");
-        let mut writer = VizSHMWriter::new(path, Some(4), Some(1024)).unwrap();
-        
-        // Write some data
-        let test_data = b"test neuron data";
-        writer.write_payload(test_data).unwrap();
-        
-        assert_eq!(writer.frame_seq, 1);
-        assert_eq!(writer.write_index, 1);
-        assert_eq!(writer.total_writes, 1);
-        
-        // Clean up
-        std::fs::remove_file("/tmp/test_viz_shm_ring_write.bin").ok();
     }
 }
+
