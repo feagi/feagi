@@ -31,6 +31,8 @@ pub struct RegistrationResponse {
 pub struct RegistrationHandler {
     agent_registry: Arc<RwLock<AgentRegistry>>,
     shm_base_path: String,
+    /// Optional reference to burst engine's sensory agent manager for SHM I/O
+    sensory_agent_manager: Arc<parking_lot::Mutex<Option<Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>>>>,
 }
 
 impl RegistrationHandler {
@@ -38,7 +40,14 @@ impl RegistrationHandler {
         Self {
             agent_registry,
             shm_base_path: "/tmp".to_string(),
+            sensory_agent_manager: Arc::new(parking_lot::Mutex::new(None)),
         }
+    }
+
+    /// Set the sensory agent manager (for SHM I/O coordination)
+    pub fn set_sensory_agent_manager(&self, manager: Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>) {
+        *self.sensory_agent_manager.lock() = Some(manager);
+        println!("🦀 [REGISTRATION] Sensory agent manager connected");
     }
 
     /// Process a registration request
@@ -102,8 +111,36 @@ impl RegistrationHandler {
         // Register in registry
         self.agent_registry
             .write()
-            .register(agent_info)
+            .register(agent_info.clone())
             .map_err(|e| format!("Failed to register agent: {}", e))?;
+
+        // Register with burst engine's sensory agent manager (if sensory capability exists)
+        if let Some(ref sensory) = agent_info.capabilities.sensory {
+            if let Some(sensory_mgr_lock) = self.sensory_agent_manager.lock().as_ref() {
+                if let Some(shm_path) = &sensory.shm_path {
+                    println!(
+                        "🦀 [REGISTRATION] Registering {} with burst engine: {} @ {}Hz",
+                        request.agent_id, shm_path, sensory.rate_hz
+                    );
+                    
+                    let sensory_mgr = sensory_mgr_lock.lock().unwrap();
+                    let config = feagi_burst_engine::AgentConfig {
+                        agent_id: request.agent_id.clone(),
+                        shm_path: std::path::PathBuf::from(shm_path),
+                        rate_hz: sensory.rate_hz,
+                        area_mapping: sensory.cortical_mappings.clone(),
+                    };
+                    sensory_mgr.register_agent(config)
+                        .map_err(|e| format!("Failed to register with burst engine: {}", e))?;
+                    
+                    println!("🦀 [REGISTRATION] ✅ Agent {} registered with burst engine", request.agent_id);
+                } else {
+                    println!("🦀 [REGISTRATION] ⚠️  Sensory capability exists but no SHM path");
+                }
+            } else {
+                println!("🦀 [REGISTRATION] ⚠️  Sensory agent manager not connected - skipping burst engine registration");
+            }
+        }
 
         // Return success response
         Ok(RegistrationResponse {
@@ -170,6 +207,17 @@ impl RegistrationHandler {
 
     /// Process deregistration request
     pub fn process_deregistration(&self, agent_id: &str) -> Result<String, String> {
+        // Deregister from burst engine first
+        if let Some(sensory_mgr_lock) = self.sensory_agent_manager.lock().as_ref() {
+            let sensory_mgr = sensory_mgr_lock.lock().unwrap();
+            if let Err(e) = sensory_mgr.deregister_agent(agent_id) {
+                println!("🦀 [REGISTRATION] ⚠️  Failed to deregister {} from burst engine: {}", agent_id, e);
+            } else {
+                println!("🦀 [REGISTRATION] ✅ Agent {} deregistered from burst engine", agent_id);
+            }
+        }
+        
+        // Deregister from registry
         self.agent_registry
             .write()
             .deregister(agent_id)

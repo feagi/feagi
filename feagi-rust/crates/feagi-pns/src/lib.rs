@@ -93,7 +93,9 @@ impl PNS {
     /// Set the sensory agent manager (for SHM I/O coordination)
     /// Should be called before starting the PNS
     pub fn set_sensory_agent_manager(&self, manager: Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>) {
-        *self.sensory_agent_manager.lock() = Some(manager);
+        *self.sensory_agent_manager.lock() = Some(manager.clone());
+        // Also propagate to registration handler
+        self.registration_handler.lock().set_sensory_agent_manager(manager);
         println!("🦀 [PNS] Sensory agent manager connected for SHM I/O");
     }
 

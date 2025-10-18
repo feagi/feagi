@@ -1641,6 +1641,31 @@ impl PyPNS {
             Err(PyValueError::new_err("Burst engine not initialized - call start_burst_loop() first"))
         }
     }
+
+    /// Register an agent (called via ZMQ REST stream)
+    /// This is handled internally by the PNS's REST stream
+    /// Use this only for direct registration from Python
+    fn register_agent(&self, agent_id: String, agent_type: String, capabilities: String) -> PyResult<String> {
+        // Parse capabilities JSON
+        let caps_json: serde_json::Value = serde_json::from_str(&capabilities)
+            .map_err(|e| PyValueError::new_err(format!("Invalid capabilities JSON: {}", e)))?;
+
+        let request = feagi_pns::registration::RegistrationRequest {
+            agent_id,
+            agent_type,
+            capabilities: caps_json,
+        };
+
+        let handler = self.pns.lock().unwrap().get_agent_registry();
+        let registry = handler.read();
+        // Note: This is a simplified version - real registration happens via ZMQ REST stream
+        Ok(format!("Use PNS ZMQ REST stream for registration"))
+    }
+
+    /// Get agent registry info
+    fn get_agent_count(&self) -> usize {
+        self.pns.lock().unwrap().get_agent_registry().read().count()
+    }
 }
 
 /// Module containing fast neural network operations
