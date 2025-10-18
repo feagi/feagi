@@ -35,8 +35,8 @@ class BrainService(BaseService):
         The Rust NPU is now managed directly without Python BurstEngine wrapper.
         """
         try:
-            from feagi.process_manager import ProcessManager
-            pm = ProcessManager.instance()
+            from feagi.process_manager import get_process_manager
+            pm = get_process_manager()
             if pm and hasattr(pm, 'rust_npu_integration'):
                 return pm.rust_npu_integration
             
@@ -275,8 +275,13 @@ class BrainService(BaseService):
                 self.logger.debug(
                     "BRAIN SERVICE: Success! Rust burst loop is now running"
                 )
+                
+                # Update state manager to reflect burst engine is READY
+                from feagi.core.state_manager import ServiceState
+                self.state_manager.set_burst_engine_state(ServiceState.READY)
+                
                 self.logger.info(
-                    "Rust burst loop started successfully"
+                    "🦀 Rust burst loop started successfully - state set to READY"
                 )
                 return True
             else:
@@ -284,6 +289,11 @@ class BrainService(BaseService):
                     "BRAIN SERVICE: FAILED! Rust burst loop failed to start"
                 )
                 self.logger.error("Failed to start Rust burst loop")
+                
+                # Update state manager to reflect burst engine failed
+                from feagi.core.state_manager import ServiceState
+                self.state_manager.set_burst_engine_state(ServiceState.ERROR)
+                
                 return False
 
         except Exception as e:

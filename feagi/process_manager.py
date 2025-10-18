@@ -97,6 +97,9 @@ class ProcessManager:
         # Internal references for critical components
         self._fcl_manager = None
         self._memory_manager = None
+        
+        # 🦀 Rust NPU Integration (will be set during init_critical_processes)
+        self.rust_npu_integration = None
 
         # Track which ports are in use
         self._used_ports = set()
@@ -295,27 +298,27 @@ class ProcessManager:
                 )
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
-
-                #  Initialize burst engine in STANDBY mode for early FQ sampler
-                #  registration
-                burst_engine = self._core_api.get_burst_engine()
-                if burst_engine:
-                    #  CORRECT: Set burst engine state to UNAVAILABLE since no
-                    #  genome is loaded
-                    #  It will transition to READY when a genome is loaded and
-                    #  auto-start is triggered
-                    state_manager.set_burst_engine_state(
-                        ServiceState.UNAVAILABLE
-                    )
-
-                    logger.info(
-                        "🔥 BURST ENGINE: UNAVAILABLE state initialized - will start when genome loads"
-                    )
+                
+                # 🦀 RUST: Get Rust NPU integration from ConnectomeManager's NPU Interface
+                if hasattr(self._connectome_manager, '_npu_interface'):
+                    npu_interface = self._connectome_manager._npu_interface
+                    if hasattr(npu_interface, '_rust_npu_integration'):
+                        self.rust_npu_integration = npu_interface._rust_npu_integration
+                        logger.info("🦀 [RUST-NPU] Integration attached to ProcessManager")
+                    else:
+                        logger.warning("🦀 [RUST-NPU] NPU Interface has no _rust_npu_integration")
                 else:
-                    logger.error(
-                        "❌ Failed to get burst engine instance - FQ sampler registration will fail!"
-                    )
-                    return False
+                    logger.warning("🦀 [RUST-NPU] ConnectomeManager has no _npu_interface")
+
+                #  Burst engine is now pure Rust - Python wrapper is deprecated
+                #  Set initial burst engine state
+                state_manager.set_burst_engine_state(
+                    ServiceState.UNAVAILABLE
+                )
+
+                logger.info(
+                    "🦀 BURST ENGINE: Pure Rust burst loop - will start when genome loads"
+                )
 
             logger.info(
                 "[OK] Critical processes initialized successfully",

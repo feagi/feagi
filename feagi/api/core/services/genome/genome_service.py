@@ -1110,28 +1110,12 @@ class GenomeService(BaseService):
                         "🎯 Genome loading complete - process manager will handle service coordination"
                     )
 
-                    #  CRITICAL: Update burst engine with new genome directly
-                    #  since event system is not available
-                    try:
-                        from feagi.npu.burst_engine import BurstEngine
-
-                        burst_engine = BurstEngine.get_instance()
-                        if burst_engine:
-                            # Pass the connectome_manager to ensure proper connection
-                            burst_engine.update_with_genome(self._connectome_manager)
-                            self.logger.info(
-                                "✅ Burst engine updated with new genome successfully"
-                            )
-                        else:
-                            self.logger.warning(
-                                "⚠️ Burst engine instance not available for genome update"
-                            )
-                    except Exception as burst_error:
-                        self.logger.warning(
-                            f"Failed to update burst engine with genome: {burst_error}"
-                        )
-                        #  Don't fail genome loading for burst engine update
-                        #  issues
+                    #  🦀 RUST BURST ENGINE: No direct update needed
+                    #  Rust NPU is already connected to connectome_manager via NPU Interface
+                    #  Genome changes are automatically reflected through shared state
+                    self.logger.info(
+                        "🦀 Genome loaded - Rust burst engine will use updated connectome via NPU Interface"
+                    )
 
                     #  CRITICAL: Emit GENOME_LOADED event to trigger burst
                     #  engine startup (fallback)

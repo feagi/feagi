@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 from feagi.core.state_manager import FeagiStateManager
-from feagi.npu.burst_engine import BurstEngine
+# BurstEngine has been moved to pure Rust - no Python wrapper needed
 # Fire Ledger is now in Rust - accessed via rust_npu.get_fire_ledger_history()
 from feagi.plasticity.service import PlasticityService, PlasticityConfig
 from feagi.plasticity.memory_neuron_array import MemoryNeuronArray, MemoryNeuronLifecycleConfig
@@ -14,7 +14,9 @@ class CoreAPI(CoreAPIService):
         self._connectome_manager = connectome_manager
         self._config = config
         self._state_manager = FeagiStateManager.instance()
-        self._burst_engine = BurstEngine.get_instance(connectome_manager=connectome_manager, state_manager=self._state_manager)
+        # Burst engine is now pure Rust - no Python instance needed
+        # Access via: process_manager.rust_npu_integration
+        self._burst_engine = None  # Deprecated - kept for backward compatibility
         self._fcl_manager = None
         self._memory_manager = None
         self._plasticity_service = None
@@ -50,11 +52,10 @@ class CoreAPI(CoreAPIService):
                     )
                     svc.start()
                     self._plasticity_service = svc
-                    # Link to BurstEngine for per-burst notification
-                    setattr(self._burst_engine, '_plasticity_service', svc)
+                    # Note: Burst engine is now in Rust - plasticity integration needs update
                     
                     if debug_mem:
-                        print(f"[DEBUG-MEM] ✅ PlasticityService initialized and linked to BurstEngine")
+                        print(f"[DEBUG-MEM] ✅ PlasticityService initialized")
                 elif debug_mem:
                     print(f"[DEBUG-MEM] ❌ Failed to initialize PlasticityService - npu_interface: {npu_interface is not None}, queue_capacity: {svc_cfg.queue_capacity}")
 

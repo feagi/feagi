@@ -18,7 +18,7 @@ Architecture Principles:
 """
 
 # Fire Queue is now in Rust - accessed via RustNPUIntegration.sample_fire_queue()
-from .burst_engine import BurstEngine
+# BurstEngine has been moved to pure Rust - no Python wrapper
 # FQSampler is now in Rust - use RustFQSamplerWrapper from rust_fq_sampler_wrapper
 from .rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
@@ -44,7 +44,6 @@ from .interface import (
 
 __all__ = [
     # Core NPU Components
-    'BurstEngine',
     'RustFQSamplerWrapper',  # Rust FQ Sampler wrapper
     
     # Core Data Structures (for FEAGI compatibility)

@@ -354,34 +354,19 @@ class ConnectomeManager(NeuronMappingProvider):
         if self.fcl_manager is not None:
             return self.fcl_manager
             
-        # Try to get FCL manager from BurstEngine
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine._instance
-            if burst_engine and hasattr(burst_engine, 'fcl_manager'):
-                # Cache the reference for performance
-                self.fcl_manager = burst_engine.fcl_manager
-                return self.fcl_manager
-        except Exception as e:
-            logger.warning(f"Could not get FCL manager from NPU: {e}")
-            
+        # 🦀 RUST: FCL is now managed directly by Rust NPU
+        # Python FCL manager is deprecated - FCL operations go through NPU Interface
         return None
     
     def _get_async_fcl_processor(self):
         """Get async FCL processor from NPU BurstEngine.
         
-        Returns:
-            AsyncFCLProcessor instance from NPU, or None if not available
-        """
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine._instance
-            if (burst_engine and 
-                hasattr(burst_engine, 'async_fcl_processor')):
-                return burst_engine.async_fcl_processor
-        except Exception as e:
-            logger.warning(f"Could not get async FCL processor from NPU: {e}")
+        🦀 RUST: Async FCL processing is now handled by Rust NPU.
+        Python async processor is deprecated.
         
+        Returns:
+            None (deprecated - Rust handles FCL processing)
+        """
         return None
 
     # ======================================================================
@@ -2529,10 +2514,9 @@ class ConnectomeManager(NeuronMappingProvider):
             if debug_mem:
                 print(f"[DEBUG-MEM] Attempting to register with PlasticityService...")
             
-            # Get the PlasticityService from BurstEngine
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine.get_instance()
-            plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+            # 🦀 RUST: PlasticityService integration needs update for Rust burst engine
+            # For now, skip PlasticityService registration (will be added in Rust integration)
+            plasticity_service = None
             
             if plasticity_service:
                 # Get cortical area index and upstream areas
@@ -2691,10 +2675,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 if debug_mem:
                     print(f"[DEBUG-MEM] Updating PlasticityService with new upstream mapping: {source_cortical_id} -> {target_cortical_id}")
                 
-                # Get the PlasticityService from BurstEngine
-                from feagi.npu.burst_engine import BurstEngine
-                burst_engine = BurstEngine.get_instance()
-                plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+                # 🦀 RUST: PlasticityService integration needs update for Rust burst engine
+                # For now, skip PlasticityService update
+                plasticity_service = None
                 
                 if plasticity_service:
                     # Get cortical area index for the memory area
@@ -2748,10 +2731,10 @@ class ConnectomeManager(NeuronMappingProvider):
             # CRITICAL FIX: Update MemoryProcessor with new upstream mapping
             try:
                 logger.info("[MEMORY-MAPPING] Updating MemoryProcessor...")
-                from feagi.npu.burst_engine import BurstEngine
-
-                burst_engine = BurstEngine.get_instance()
-                if burst_engine and burst_engine.memory_processor:
+                # 🦀 RUST: MemoryProcessor integration needs update for Rust burst engine
+                # For now, skip MemoryProcessor update
+                burst_engine = None
+                if burst_engine and hasattr(burst_engine, 'memory_processor') and burst_engine.memory_processor:
                     #  CRITICAL: Ensure memory area is registered with
                     #  MemoryProcessor
                     if (

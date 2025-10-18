@@ -17,6 +17,7 @@
 //! - Sensory neurons injected by separate threads directly into FCL
 
 use crate::RustNPU;
+use crate::sensory::AgentManager;
 use feagi_types::NeuronId;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -37,11 +38,25 @@ pub struct BurstLoopRunner {
     burst_count: Arc<AtomicU64>,
     /// Thread handle (for graceful shutdown)
     thread_handle: Option<thread::JoinHandle<()>>,
+    /// Sensory agent manager (per-agent injection threads)
+    pub sensory_manager: Arc<Mutex<AgentManager>>,
 }
 
 impl BurstLoopRunner {
     /// Create a new burst loop runner
     pub fn new(npu: Arc<Mutex<RustNPU>>, frequency_hz: f64) -> Self {
+        // Create FCL injection callback for sensory data
+        let npu_for_callback = npu.clone();
+        let injection_callback = Arc::new(move |_cortical_idx: u32, neuron_ids: Vec<u32>| {
+            // Inject neurons into FCL (thread-safe)
+            // Convert u32 to NeuronId and inject with full potential (1.0)
+            let neurons: Vec<NeuronId> = neuron_ids.into_iter().map(NeuronId).collect();
+            if let Ok(mut npu_lock) = npu_for_callback.lock() {
+                npu_lock.inject_sensory_batch(&neurons, 1.0);
+            }
+        });
+        
+        let sensory_manager = AgentManager::new(injection_callback);
         Self {
             npu,
             power_neurons: Vec::new(),
@@ -49,6 +64,7 @@ impl BurstLoopRunner {
             running: Arc::new(AtomicBool::new(false)),
             burst_count: Arc::new(AtomicU64::new(0)),
             thread_handle: None,
+            sensory_manager: Arc::new(Mutex::new(sensory_manager)),
         }
     }
     

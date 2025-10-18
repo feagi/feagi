@@ -1588,14 +1588,8 @@ class CoreAPIService:
         Instead, FCL is a transient pre-burst collector and FireQueue holds 
         the actual firing neurons. We return a compatibility adapter.
         """
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-            be = BurstEngine.get_instance()
-            if be:
-                # Return a compatibility adapter that provides the expected interface
-                return FCLManagerAdapter(be)
-        except Exception as e:
-            self.logger.error(f"Error getting FCL manager: {str(e)}")
+        # BurstEngine has been moved to pure Rust - FCL is now managed directly by Rust NPU
+        # For now, FCL manager not available (needs Rust integration)
         
         # Fallback to old ConnectomeManager linkage if available (legacy support)
         if hasattr(self._connectome_manager, "fcl_manager"):

@@ -357,6 +357,95 @@ impl RustNPU {
             .unwrap_or(0)
     }
     
+    /// Register a sensory agent for automatic SHM polling and FCL injection
+    ///
+    /// Args:
+    ///     agent_id: Unique agent identifier (e.g., "video-agent-1")
+    ///     shm_path: Path to agent's sensory SHM slot (e.g., "/dev/shm/feagi_sensory_video-agent-1")
+    ///     rate_hz: Polling rate in Hz (e.g., 30.0 for 30 FPS video)
+    ///     area_mapping: Dict mapping cortical area IDs to cortical_idx (e.g., {"vision_center": 0})
+    ///
+    /// The sensory agent will run in a dedicated Rust thread, polling SHM at rate_hz
+    /// and injecting decoded neurons directly into the FCL.
+    fn register_sensory_agent(
+        &mut self,
+        agent_id: String,
+        shm_path: String,
+        rate_hz: f64,
+        area_mapping: std::collections::HashMap<String, u32>,
+    ) -> PyResult<()> {
+        use std::path::PathBuf;
+        
+        // Ensure burst runner exists
+        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not started - call start_burst_loop() first"
+            )
+        })?;
+        
+        // Create agent config
+        let config = feagi_burst_engine::sensory::AgentConfig {
+            agent_id: agent_id.clone(),
+            shm_path: PathBuf::from(shm_path),
+            rate_hz,
+            area_mapping,
+        };
+        
+        // Register with sensory manager
+        let mut runner = burst_runner.lock().unwrap();
+        let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+        sensory_mgr.register_agent(config).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to register sensory agent: {}", e)
+            )
+        })?;
+        
+        drop(sensory_mgr);
+        drop(runner);
+        
+        println!("✅ Registered sensory agent: {} at {} Hz", agent_id, rate_hz);
+        Ok(())
+    }
+    
+    /// Deregister a sensory agent (stops its polling thread)
+    ///
+    /// Args:
+    ///     agent_id: Unique agent identifier to deregister
+    fn deregister_sensory_agent(&mut self, agent_id: String) -> PyResult<()> {
+        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running"
+            )
+        })?;
+        
+        let runner = burst_runner.lock().unwrap();
+        let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+        sensory_mgr.deregister_agent(&agent_id).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to deregister sensory agent: {}", e)
+            )
+        })?;
+        
+        drop(sensory_mgr);
+        drop(runner);
+        
+        println!("✅ Deregistered sensory agent: {}", agent_id);
+        Ok(())
+    }
+    
+    /// List all registered sensory agents
+    fn list_sensory_agents(&self) -> PyResult<Vec<String>> {
+        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running"
+            )
+        })?;
+        
+        let runner = burst_runner.lock().unwrap();
+        let sensory_mgr = runner.sensory_manager.lock().unwrap();
+        Ok(sensory_mgr.list_agents())
+    }
+    
     /// Add a neuron to the NPU
     /// 
     /// Args:

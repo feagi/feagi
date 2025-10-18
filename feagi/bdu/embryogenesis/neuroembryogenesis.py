@@ -2892,21 +2892,22 @@ class NeuroEmbryogenesis:
                 # CRITICAL: Reinitialize Rust NPU after synapse creation
                 # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to reload its synapse index
                 try:
-                    from feagi.npu.burst_engine import BurstEngine
-                    burst_engine = BurstEngine.get_instance()
-                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
-                        if burst_engine._rust_npu_integration is not None:
-                            logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - reloading synapse index...")
-                            try:
-                                burst_engine.reinitialize_rust_npu()
-                                logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after neuroembryogenesis")
-                            except Exception as reinit_error:
-                                logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
-                                logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
-                        else:
-                            logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                    # 🦀 RUST: Access Rust NPU through ProcessManager
+                    from feagi.process_manager import get_process_manager
+                    pm = get_process_manager()
+                    rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
+                    
+                    if rust_npu_integration and rust_npu_integration._rust_npu:
+                        logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - reloading synapse index...")
+                        try:
+                            # Reload synapses in Rust NPU
+                            rust_npu_integration.reinitialize_rust_npu()
+                            logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after neuroembryogenesis")
+                        except Exception as reinit_error:
+                            logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                            logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
                     else:
-                        logger.debug("Burst engine not available or Rust NPU not enabled")
+                        logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
                 except Exception as rust_error:
                     logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
                     logger.exception("Full stack trace:")
