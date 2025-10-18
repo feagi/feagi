@@ -25,6 +25,7 @@ def create_dummy_connector():
 # New modular utilities
 from feagi_connector.agent_logging.diagnostics import log_sensor_area_counts
 from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter, ShmBytesReader
+from feagi_connector.utils.latest_only_writer import LatestOnlyWriter
 from feagi_connector.utils.rest_helpers import (
     get_cortical_dimensions,
     get_segmented_3x3_dimensions,

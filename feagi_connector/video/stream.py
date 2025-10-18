@@ -38,7 +38,8 @@ from feagi_connector import (
     log_sensor_area_counts,
 )
 from pathlib import Path
-from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter
+from feagi_connector.utils.shm import SharedFrameWriter
+from feagi_connector.utils.latest_only_writer import LatestOnlyWriter
 
 logger = logging.getLogger(__name__)
 
@@ -88,105 +89,16 @@ async def stream_segmented_camera(
     gaze_motor: Optional[GazeMotorProcessor] = None
     shm_writer: Optional[SharedFrameWriter] = None
     feagi_writer: Optional[SharedFrameWriter] = None
-    sensory_writer: Optional[ShmBytesWriter] = None
+    sensory_writer: Optional[LatestOnlyWriter] = None
     motor_reader_thread = None
     motor_stop_flag = None
+    info = None  # Media info (FPS, dimensions)
 
-    async def _register_and_connect() -> bool:
-        nonlocal client, shm_paths, center_dims, per_dims, processor, gaze_motor, shm_writer, feagi_writer, sensory_writer, rest_port, host, agent_id, motor_reader_thread, motor_stop_flag
-        # Best-effort disconnect/cleanup
-        try:
-            await client.disconnect()
-        except Exception:
-            pass
-        client = FeagiClient(host=host, agent_id=agent_id or client.agent_id)
-        # Connect in sensory-only mode (skip problematic control stream)
-        if not await client.connect_sensory_only():
-            logger.error("❌ Failed to connect to FEAGI sensory stream")
-            return False
-        # Register to obtain SHM paths - use direct HTTP if ZMQ times out
-        shm_paths = {}
-        try:
-            # Try ZMQ REST stream first
-            reg = await client.rest_client.register_agent(
-                agent_id=client.agent_id,
-                agent_type="external",
-                capabilities={
-                    "video": True,
-                    "feagi": True,  # FEAGI processed video with segmentation overlays
-                    "sensory": True,
-                    "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
-                    "visualization": True,
-                },
-                metadata={"source": "video_agent"},
-            )
-            logger.info(f"🔍 [REG-RESPONSE-ZMQ] Registration response: status={reg.get('status')}")
-            
-            # If ZMQ failed or timed out, use direct HTTP
-            if not isinstance(reg, dict) or reg.get("status") != 200:
-                logger.warning("⚠️ ZMQ registration failed, trying direct HTTP...")
-                import urllib.request
-                import json as json_lib
-                
-                http_data = json_lib.dumps({
-                    "agent_id": client.agent_id,
-                    "agent_type": "external",
-                    "capabilities": {
-                        "video": True,
-                        "feagi": True,
-                        "sensory": True,
-                        "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
-                        "visualization": True,
-                    },
-                    "agent_version": "1.0.0",
-                    "controller_version": "2.0.0",
-                    "agent_data_port": 0,
-                    "agent_ip": "127.0.0.1",
-                    "metadata": {"source": "video_agent"},
-                }).encode('utf-8')
-                
-                http_req = urllib.request.Request(
-                    f"http://{host}:{rest_port}/v1/agent/register",
-                    data=http_data,
-                    headers={'Content-Type': 'application/json'},
-                    method='POST'
-                )
-                
-                try:
-                    with urllib.request.urlopen(http_req, timeout=10) as http_resp:
-                        if http_resp.status == 200:
-                            http_body = json_lib.loads(http_resp.read().decode('utf-8'))
-                            reg = {"status": 200, "body": http_body}
-                            client.registered = True
-                            logger.info("✅ [REG-RESPONSE-HTTP] Registration via HTTP successful")
-                        else:
-                            logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP registration failed: {http_resp.status}")
-                except Exception as http_err:
-                    logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP request failed: {http_err}")
-            
-            logger.info(f"🔍 [REG-RESPONSE] Registration response: status={reg.get('status')}")
-            if isinstance(reg, dict) and reg.get("status") == 200:
-                client.registered = True
-                body = reg.get("body", {})
-                logger.info(f"🔍 [REG-BODY] Body keys: {list(body.keys())}")
-                # Extract SHM paths from transport field (new registration API)
-                transport = body.get("transport", {})
-                logger.info(f"🔍 [TRANSPORT] Transport type: {type(transport)}, keys: {list(transport.keys()) if isinstance(transport, dict) else 'N/A'}")
-                if isinstance(transport, dict):
-                    shm = transport.get("shm_paths", {})
-                    logger.info(f"🔍 [SHM] SHM type: {type(shm)}, content: {shm}")
-                    if isinstance(shm, dict):
-                        shm_paths = {str(k): str(v) for k, v in shm.items()}
-                        logger.info(f"✅ [SHM-PARSE] Extracted SHM paths from transport: {shm_paths}")
-                    else:
-                        logger.warning(f"⚠️ [SHM] shm_paths is not a dict: {type(shm)}")
-                else:
-                    logger.warning(f"⚠️ [TRANSPORT] transport is not a dict: {type(transport)}")
-            logger.info(f"🔍 [SHM-FINAL] Final shm_paths variable: {shm_paths}")
-        except Exception as e:
-            logger.error(f"❌ [REG-EXCEPTION] Exception during registration: {e}")
-            import traceback
-            logger.error(f"❌ [REG-TRACEBACK] {traceback.format_exc()}")
+    async def _initialize_resources():
+        """Initialize processor, SHM writers, and motor reader after registration."""
+        nonlocal center_dims, per_dims, processor, gaze_motor, shm_writer, feagi_writer, sensory_writer, motor_reader_thread, motor_stop_flag, shm_paths
+        import threading  # Import at function level for motor thread
+        
         # Dimensions and processor with gaze parameters
         center_dims, per_dims = get_segmented_3x3_dimensions(host, rest_port)
         processor = SegmentedVisionProcessor(
@@ -244,17 +156,15 @@ async def stream_segmented_camera(
                 logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to create SharedFrameWriter: {e}")
                 feagi_writer = None
         
-        # Track reopen attempts to prevent file descriptor leaks
-        shm_writer_last_reopen = 0.0
-        feagi_writer_last_reopen = 0.0
-        reopen_cooldown = 5.0  # Don't reopen more than once per 5 seconds
-        
         # Setup sensory SHM writer if FEAGI provided a path
         sensory_shm_path = shm_paths.get("sensory")
         if isinstance(sensory_shm_path, str) and len(sensory_shm_path) > 0:
             try:
-                sensory_writer = ShmBytesWriter(Path(sensory_shm_path))
-            except Exception:
+                # Use LatestOnlyWriter (compatible with Rust ShmReader)
+                sensory_writer = LatestOnlyWriter(Path(sensory_shm_path))
+                logger.info(f"✅ [SENSORY-SHM] Created LatestOnlyWriter at {sensory_shm_path}")
+            except Exception as e:
+                logger.error(f"❌ [SENSORY-SHM] Failed to create LatestOnlyWriter: {e}")
                 sensory_writer = None
 
         # Setup motor SHM reader (for gaze) if FEAGI provided a path
@@ -264,104 +174,38 @@ async def stream_segmented_camera(
             if motor_reader_thread is not None and motor_reader_thread.is_alive():
                 if motor_stop_flag is not None:
                     motor_stop_flag.set()
-                motor_reader_thread.join(timeout=0.5)
+                motor_reader_thread.join(timeout=1.0)
         except Exception:
             pass
         motor_reader_thread = None
         motor_stop_flag = None
-
-        if isinstance(motor_shm_path, str) and len(motor_shm_path) > 0 and gaze_motor is not None:
+        
+        if isinstance(motor_shm_path, str) and len(motor_shm_path) > 0:
             try:
-                import threading
-
                 motor_stop_flag = threading.Event()
-
-                def on_motor_payload(payload: bytes) -> None:
-                    # Decode gaze parameters (eccentricity/modulation) from FEAGI motor data and update processor
+                def on_motor_payload(payload_bytes: bytes):
+                    """Callback for motor payloads (gaze updates)."""
                     try:
-                        try:
-                            logger.debug(f"[MOTOR] Received payload: {len(payload)} bytes")
-                        except Exception:
-                            pass
-                        # TEMP: aggressively log all decoded motor data regardless of cortical area
-                        try:
-                            import feagi_rust_py_libs as frpl  # local import to avoid hard dep at module import time
-                            # Try new API first (FeagiByteContainer), skip if not available
-                            if not hasattr(frpl.data_serialization, 'FeagiByteContainer'):
-                                logger.debug("[MOTOR] FeagiByteContainer not available, skipping decode")
-                                return
-                            if not payload or len(payload) == 0:
-                                return
-                            try:
-                                fbs = frpl.data_serialization.FeagiByteContainer()
-                                fbs.load_bytes_and_verify(payload)
-                                mapped = fbs.try_create_new_struct_from_index(0)
-                            except (KeyboardInterrupt, SystemExit):
-                                raise
-                            except:
-                                import sys
-                                logger.debug(f"[MOTOR] Failed to decode: {sys.exc_info()[1]}")
-                                return
-                            for cid_obj, neuron_arrays in mapped.iter_full():
-                                try:
-                                    x_coords, y_coords, z_coords, potentials = neuron_arrays
-                                    count = min(len(x_coords), len(y_coords), len(z_coords), len(potentials))
-                                    cid_str = str(cid_obj)
-                                    if count > 0:
-                                        try:
-                                            xs = [int(v) for v in x_coords]
-                                            ys = [int(v) for v in y_coords]
-                                            zs = [int(v) for v in z_coords]
-                                            ps = [float(v) for v in potentials]
-                                        except Exception:
-                                            # Best-effort conversion
-                                            xs = [int(x_coords[i]) for i in range(count)]
-                                            ys = [int(y_coords[i]) for i in range(count)]
-                                            zs = [int(z_coords[i]) for i in range(count)]
-                                            ps = [float(potentials[i]) for i in range(count)]
-                                        logger.info(
-                                            f"[MOTOR-DECODE] area='{cid_str}' neurons={count} x={xs} y={ys} z={zs} p={ps}"
-                                        )
-                                    else:
-                                        logger.info(f"[MOTOR-DECODE] area={str(cid_obj)} neurons=0")
-                                except Exception:
-                                    # Best-effort logging; continue on errors
-                                    continue
-                        except Exception:
-                            pass
-                        result = gaze_motor.process_motor_bytes(payload)
-                        if result is not None:
-                            # Expecting 4 floats: eccentricity (x,y) and modulation (x,y).
-                            # Sentinel -1.0 means "not provided".
-                            ecc_x = ecc_y = mod_x = mod_y = None
-                            try:
-                                if isinstance(result, (list, tuple)) and len(result) >= 4:
-                                    rx, ry, mx, my = float(result[0]), float(result[1]), float(result[2]), float(result[3])
-                                    ecc_x = None if rx < 0.0 else rx
-                                    ecc_y = None if ry < 0.0 else ry
-                                    mod_x = None if mx < 0.0 else mx
-                                    mod_y = None if my < 0.0 else my
-                            except Exception:
+                        if gaze_motor and processor:
+                            # Decode gaze motor payload
+                            decoded = gaze_motor.decode_gaze_motor(payload_bytes)
+                            if decoded:
+                                ecc_x, ecc_y, mod_x, mod_y = decoded
+                            else:
                                 ecc_x = ecc_y = mod_x = mod_y = None
 
                             # Apply eccentricity/modulation updates when provided
-                            try:
-                                if processor is not None:
-                                    if ecc_x is not None and ecc_y is not None:
-                                        processor.update_eccentricity(ecc_x, ecc_y)
-                                    if mod_x is not None and mod_y is not None and hasattr(processor, 'update_modulation'):
-                                        processor.update_modulation(mod_x, mod_y)
-                                    # Log final eccentricity + modulation for visibility
-                                    ex, ey = processor.eccentricity
-                                    mx, my = processor.modulation
-                                    logger.info(f"[VISION] Applied ecc=({ex:.4f},{ey:.4f}) mod=({mx:.4f},{my:.4f})")
-                            except Exception:
-                                pass
+                            if processor is not None:
+                                if ecc_x is not None and ecc_y is not None:
+                                    processor.update_eccentricity(ecc_x, ecc_y)
+                                if mod_x is not None and mod_y is not None and hasattr(processor, 'update_modulation'):
+                                    processor.update_modulation(mod_x, mod_y)
+                                # Log final eccentricity + modulation for visibility
+                                ex, ey = processor.eccentricity
+                                mx, my = processor.modulation
+                                logger.info(f"[VISION] Applied ecc=({ex:.4f},{ey:.4f}) mod=({mx:.4f},{my:.4f})")
                         else:
-                            try:
-                                logger.debug("[MOTOR] No gaze parameters decoded from payload")
-                            except Exception:
-                                pass
+                            logger.debug("[MOTOR] No gaze parameters decoded from payload")
                     except Exception:
                         # Ignore malformed payloads but keep polling
                         pass
@@ -377,10 +221,121 @@ async def stream_segmented_camera(
                 logger.debug(f"Motor SHM subscription failed: {e}")
         else:
             logger.info("ℹ️ No motor SHM path provided by FEAGI; gaze updates will not be logged. Ensure agent requests motor capability and FEAGI SHM is enabled.")
-        return True
+    
+    async def _register_and_connect(skip_registration: bool = False) -> bool:
+        nonlocal client, shm_paths, center_dims, per_dims, processor, gaze_motor, shm_writer, feagi_writer, sensory_writer, rest_port, host, agent_id, motor_reader_thread, motor_stop_flag, info
+        # Best-effort disconnect/cleanup
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        client = FeagiClient(host=host, agent_id=agent_id or client.agent_id)
+        # Connect in sensory-only mode (skip problematic control stream)
+        if not await client.connect_sensory_only():
+            logger.error("❌ Failed to connect to FEAGI sensory stream")
+            return False
+        
+        # SKIP registration if requested (will register later with correct FPS)
+        if skip_registration:
+            logger.info("⏭️  Skipping initial registration - will register after FPS detection")
+            return True
+        
+        # Register to obtain SHM paths - use direct HTTP if ZMQ times out
+        shm_paths = {}
+        try:
+            # Try ZMQ REST stream first
+            # Calculate sensory rate from video FPS
+            sensory_rate_hz = info.fps if info and info.fps > 0 else 30.0
+            
+            capabilities_to_send = {
+                "video": True,
+                "feagi": True,  # FEAGI processed video with segmentation overlays
+                "sensory": {"rate_hz": sensory_rate_hz},  # Tell FEAGI how fast to poll SHM!
+                "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
+                # Don't register as visualization client - video agent doesn't consume visualization data
+            }
+            
+            logger.warning(f"🎬 [VIDEO-AGENT-REG] Registering with capabilities: {capabilities_to_send}")
+            
+            reg = await client.rest_client.register_agent(
+                agent_id=client.agent_id,
+                agent_type="external",
+                capabilities=capabilities_to_send,
+                metadata={"source": "video_agent"},
+            )
+            logger.warning(f"🎬 [VIDEO-AGENT-REG] Registration response: {reg}")
+            logger.info(f"🔍 [REG-RESPONSE-ZMQ] Registration response: status={reg.get('status')}")
+            
+            # If ZMQ failed or timed out, use direct HTTP
+            if not isinstance(reg, dict) or reg.get("status") != 200:
+                logger.warning("⚠️ ZMQ registration failed, trying direct HTTP...")
+                import urllib.request
+                import json as json_lib
+                
+                http_payload = {
+                    "agent_id": client.agent_id,
+                    "agent_type": "external",
+                    "capabilities": capabilities_to_send,
+                    "agent_version": "1.0.0",
+                    "controller_version": "2.0.0",
+                    "agent_data_port": 0,
+                    "agent_ip": "127.0.0.1",
+                    "metadata": {"source": "video_agent"},
+                }
+                logger.warning(f"🎬 [VIDEO-AGENT-HTTP] HTTP registration payload: {http_payload}")
+                http_data = json_lib.dumps(http_payload).encode('utf-8')
+                
+                http_req = urllib.request.Request(
+                    f"http://{host}:{rest_port}/v1/agent/register",
+                    data=http_data,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                
+                try:
+                    with urllib.request.urlopen(http_req, timeout=10) as http_resp:
+                        if http_resp.status == 200:
+                            http_body = json_lib.loads(http_resp.read().decode('utf-8'))
+                            reg = {"status": 200, "body": http_body}
+                            client.registered = True
+                            logger.info("✅ [REG-RESPONSE-HTTP] Registration via HTTP successful")
+                        else:
+                            logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP registration failed: {http_resp.status}")
+                except Exception as http_err:
+                    logger.error(f"❌ [REG-RESPONSE-HTTP] HTTP request failed: {http_err}")
+            
+            logger.info(f"🔍 [REG-RESPONSE] Registration response: status={reg.get('status')}")
+            if isinstance(reg, dict) and reg.get("status") == 200:
+                client.registered = True
+                body = reg.get("body", {})
+                logger.info(f"🔍 [REG-BODY] Body keys: {list(body.keys())}")
+                # Extract SHM paths from transport field (new registration API)
+                transport = body.get("transport", {})
+                logger.info(f"🔍 [TRANSPORT] Transport type: {type(transport)}, keys: {list(transport.keys()) if isinstance(transport, dict) else 'N/A'}")
+                if isinstance(transport, dict):
+                    shm = transport.get("shm_paths", {})
+                    logger.info(f"🔍 [SHM] SHM type: {type(shm)}, content: {shm}")
+                    if isinstance(shm, dict):
+                        shm_paths = {str(k): str(v) for k, v in shm.items()}
+                        logger.info(f"✅ [SHM-PARSE] Extracted SHM paths from transport: {shm_paths}")
+                    else:
+                        logger.warning(f"⚠️ [SHM] shm_paths is not a dict: {type(shm)}")
+                else:
+                    logger.warning(f"⚠️ [TRANSPORT] transport is not a dict: {type(transport)}")
+            logger.info(f"🔍 [SHM-FINAL] Final shm_paths variable: {shm_paths}")
+            
+            # Initialize resources after successful registration
+            await _initialize_resources()
+        except Exception as e:
+            logger.error(f"❌ [REG-EXCEPTION] Exception during registration: {e}")
+            import traceback
+            logger.error(f"❌ [REG-TRACEBACK] {traceback.format_exc()}")
+            return False
+        
+        return True  # Registration and resource initialization succeeded
 
-    # Initial registration and connection
-    ok = await _register_and_connect()
+    # Initial connection WITHOUT registration (will register after FPS detection)
+    ok = await _register_and_connect(skip_registration=True)
     if not ok:
         return
 
@@ -402,6 +357,93 @@ async def stream_segmented_camera(
     else:
         logger.info(f"🎬 Video file opened: {path} ({info.width}x{info.height} @ {info.fps} FPS, {info.total_frames} frames)")
 
+    # NOW register with correct FPS - this is the ONLY registration!
+    if info and info.fps > 0:
+        logger.warning(f"🎬 [FIRST-REG] Registering with FEAGI using detected FPS: {info.fps} Hz")
+        
+        # Register agent with detected video FPS
+        sensory_rate_hz = info.fps
+        capabilities_to_send = {
+            "video": True,
+            "feagi": True,
+            "sensory": {"rate_hz": sensory_rate_hz},
+            "motor": {"enabled": True, "sampling_frequency_hz": "burst", "prefer_shm": True},
+            # Don't register as visualization client - video agent doesn't consume visualization data
+        }
+        
+        logger.warning(f"🎬 [VIDEO-AGENT-REG] Registering with capabilities: {capabilities_to_send}")
+        
+        try:
+            reg = await client.rest_client.register_agent(
+                agent_id=client.agent_id,
+                agent_type="external",
+                capabilities=capabilities_to_send,
+                metadata={"source": "video_agent"},
+            )
+            logger.warning(f"🎬 [VIDEO-AGENT-REG] Registration response: {reg}")
+            logger.info(f"🔍 [REG-RESPONSE-ZMQ] Registration response: status={reg.get('status')}")
+            
+            if not isinstance(reg, dict) or reg.get("status") != 200:
+                # Try HTTP fallback
+                logger.warning("⚠️ ZMQ registration failed, trying direct HTTP...")
+                import urllib.request
+                import json as json_lib
+                http_payload = {
+                    "agent_id": client.agent_id,
+                    "agent_type": "external",
+                    "capabilities": capabilities_to_send,
+                    "agent_version": "1.0.0",
+                    "controller_version": "2.0.0",
+                    "agent_data_port": 0,
+                    "agent_ip": "127.0.0.1",
+                    "metadata": {"source": "video_agent"},
+                }
+                logger.warning(f"🎬 [VIDEO-AGENT-HTTP] HTTP registration payload: {http_payload}")
+                http_data = json_lib.dumps(http_payload).encode('utf-8')
+                http_req = urllib.request.Request(
+                    f"http://{host}:{rest_port}/v1/agent/register",
+                    data=http_data,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                with urllib.request.urlopen(http_req, timeout=10) as http_resp:
+                    if http_resp.status != 200:
+                        logger.error(f"❌ Failed to register with correct FPS: {http_resp.status}")
+                        return
+                    # Parse HTTP response and update reg
+                    http_body = json_lib.loads(http_resp.read().decode('utf-8'))
+                    reg = {
+                        "status": http_resp.status,
+                        "body": http_body
+                    }
+                    logger.info(f"✅ [REG-RESPONSE-HTTP] Registration via HTTP successful: {http_body.get('success')}")
+            
+            # Mark as registered
+            client.registered = True
+            
+            # Extract SHM paths from registration response
+            if isinstance(reg, dict) and reg.get("status") == 200:
+                body = reg.get("body", {})
+                logger.info(f"🔍 [REG-BODY] Body keys: {list(body.keys())}")
+                transport = body.get("transport", {})
+                if isinstance(transport, dict):
+                    shm = transport.get("shm_paths", {})
+                    if isinstance(shm, dict):
+                        shm_paths = {str(k): str(v) for k, v in shm.items()}
+                        logger.info(f"✅ [SHM-PARSE] Extracted SHM paths: {shm_paths}")
+            
+            logger.info(f"✅ Registered with video FPS: {info.fps} Hz")
+            
+            # Initialize resources (processor, SHM writers, motor reader)
+            logger.info("🔧 Initializing resources...")
+            await _initialize_resources()
+            logger.info(f"✅ Resources initialized successfully (sensory_writer={sensory_writer is not None})")
+        except Exception as e:
+            logger.error(f"❌ Failed to register with FEAGI: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            return
+
     # Match FEAGI timestep to source FPS if available
     if sync_fps and info and info.fps > 0:
         set_simulation_timestep(host, rest_port, 1.0 / float(info.fps))
@@ -414,22 +456,68 @@ async def stream_segmented_camera(
     last_reconnect_time = 0.0
     min_reconnect_interval = 2.0  # Minimum seconds between reconnects
 
+    # Background mosaic processing to avoid blocking main loop
+    import threading
+    import queue
+    mosaic_queue = queue.Queue(maxsize=2)  # Drop old mosaics if we fall behind
+    mosaic_results = queue.Queue(maxsize=2)
+    mosaic_stop = threading.Event()
+    
+    def mosaic_worker():
+        """Background thread for mosaic building"""
+        while not mosaic_stop.is_set():
+            try:
+                item = mosaic_queue.get(timeout=0.1)
+                if item is None:
+                    break
+                sensor_bytes, center_dims, per_dims, ecc, mod = item
+                try:
+                    from feagi_connector.vision.visualize import build_segmented_mosaic_with_gaze
+                    mosaic_bgr = build_segmented_mosaic_with_gaze(
+                        sensor_bytes, center_dims, per_dims, ecc, mod
+                    )
+                    # Try to put result, but don't block if queue is full (drop old frames)
+                    try:
+                        mosaic_results.put_nowait(mosaic_bgr)
+                    except queue.Full:
+                        pass
+                except Exception as e:
+                    logger.debug(f"[MOSAIC-WORKER] Build failed: {e}")
+            except queue.Empty:
+                continue
+    
+    mosaic_thread = threading.Thread(target=mosaic_worker, daemon=True)
+    mosaic_thread.start()
+    
     try:
-        logger.info("🎯 Starting video streaming to FEAGI...")
+        logger.info(f"🎯 Starting video streaming to FEAGI... (sensory_writer={sensory_writer is not None}, client.sensory_client.socket={client.sensory_client.socket is not None if client else None})")
         while True:
+            _frame_start = time.perf_counter()  # Track total frame time for pacing
+            
+            # PROFILING: Frame capture
+            _capture_start = time.perf_counter()
             frame_bgr = media.read()
+            _capture_time = (time.perf_counter() - _capture_start) * 1000
+            
             if frame_bgr is None:
                 await asyncio.sleep(0.01)
                 continue
 
+            # PROFILING: Frame resize
+            _resize_start = time.perf_counter()
             # Ensure input matches center resolution for segmented pipeline
             # TODO: Pass original frame once Rust segmentation is fully implemented
             # Currently using resized frame as workaround
             try:
                 resized = cv2.resize(frame_bgr, center_dims, interpolation=cv2.INTER_LINEAR)
+                _resize_time = (time.perf_counter() - _resize_start) * 1000
             except Exception as e:
                 logger.warning(f"⚠️ Frame resize failed: {e}")
                 resized = frame_bgr
+                _resize_time = (time.perf_counter() - _resize_start) * 1000
+            
+            # PROFILING: Registration check/reconnect time
+            _reg_check_start = time.perf_counter()
             
             # Encode to bytes and publish (reconnect on failure)
             try:
@@ -463,13 +551,33 @@ async def stream_segmented_camera(
                     logger.info("▶️  Agent registered - DATA TRANSMISSION RESUMED")
                     stream_segmented_camera._pause_logged = False
                 
+                # PROFILING: End registration check
+                _reg_check_time = (time.perf_counter() - _reg_check_start) * 1000
+                
                 assert processor is not None
+                _t0 = time.perf_counter()
                 sensor_bytes = processor.process_frame(resized)
+                _encode_time = (time.perf_counter() - _t0) * 1000
                 
                 if len(sensor_bytes) == 0:
                     logger.warning(f"[ENCODE] WARNING: Encoded 0 bytes! Frame shape: {resized.shape if resized is not None else 'None'}")
                 
-                if client.sensory_client.socket and zmq:
+                _sensory_start = time.perf_counter()
+                # Prefer SHM over ZMQ (lower latency, no buffering)
+                if sensory_writer is not None:
+                    try:
+                        # Log first write only
+                        if not hasattr(sensory_writer, '_first_write_logged'):
+                            logger.info(f"✅ [SHM-WRITE] First frame: writing {len(sensor_bytes)} bytes to SHM")
+                            sensory_writer._first_write_logged = True
+                        sensory_writer.write(sensor_bytes)
+                    except Exception as e:
+                        logger.error(f"[SHM-SENSORY] ❌ Failed to write: {e}")
+                        # Mark as disconnected and re-raise to trigger reconnection
+                        client.registered = False
+                        raise
+                elif client.sensory_client.socket and zmq:
+                    # Fall back to ZMQ if SHM not available
                     try:
                         client.sensory_client.socket.send(sensor_bytes, flags=zmq.NOBLOCK)
                     except zmq.Again:
@@ -487,32 +595,37 @@ async def stream_segmented_camera(
                     # Socket exists but ZMQ not available - connection issue
                     client.registered = False
                     raise ConnectionError("ZMQ not available")
-                if sensory_writer is not None:
-                    try:
-                        sensory_writer.write(sensor_bytes)
-                    except Exception as e:
-                        logger.error(f"[SHM-SENSORY] ❌ Failed to write: {e}")
-                        # Mark as disconnected and re-raise to trigger reconnection
-                        client.registered = False
-                        raise
+                _sensory_time = (time.perf_counter() - _sensory_start) * 1000
                 
-                # Write FEAGI processed video (segmented mosaic with overlays) for BV FEAGI view via SHM
+                # Submit mosaic building to background thread (non-blocking)
                 if feagi_writer is not None:
                     try:
-                        from feagi_connector.vision.visualize import build_segmented_mosaic_with_gaze
-                        # Use processor's gaze parameters to show correct segment proportions
-                        mosaic_bgr = build_segmented_mosaic_with_gaze(
-                            sensor_bytes, 
-                            center_dims, 
-                            per_dims,
-                            processor.eccentricity,
-                            processor.modulation
-                        )
+                        # Queue mosaic work (non-blocking, drop if queue full)
+                        try:
+                            mosaic_queue.put_nowait((
+                                sensor_bytes, center_dims, per_dims,
+                                processor.eccentricity, processor.modulation
+                            ))
+                        except queue.Full:
+                            pass  # Drop this frame if worker is behind
                         
-                        # WORKAROUND: If mosaic is empty or only has background grid (decoder failed), show the input frame segmented
-                        non_zero_before = cv2.countNonZero(cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2GRAY))
-                        # Blank mosaic with just grid has ~10k pixels, real data should have much more
-                        if mosaic_bgr is None or non_zero_before < 15000:
+                        # Check if a completed mosaic is ready (non-blocking)
+                        mosaic_bgr = None
+                        try:
+                            mosaic_bgr = mosaic_results.get_nowait()
+                        except queue.Empty:
+                            pass  # No mosaic ready yet
+                        
+                        # Only write if we have a mosaic ready
+                        if mosaic_bgr is not None:
+                            # WORKAROUND: If mosaic is empty or only has background grid (decoder failed), show the input frame segmented
+                            non_zero_before = cv2.countNonZero(cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2GRAY))
+                            # Blank mosaic with just grid has ~10k pixels, real data should have much more
+                            should_fallback = non_zero_before < 15000
+                        else:
+                            should_fallback = False  # Skip fallback if no mosaic yet
+                        
+                        if should_fallback:
                             logger.warning(f"[SHM-VIDEO-FEAGI] ⚠️ Mosaic mostly empty ({non_zero_before} pixels, likely decoder bug), using fallback: showing segmented input frame")
                             # Build proper 3x3 segmented mosaic from input frame
                             cw, ch = center_dims
@@ -583,8 +696,14 @@ async def stream_segmented_camera(
                             
                             logger.info(f"[SHM-VIDEO-FEAGI] 🔄 Fallback mosaic created: {mosaic_bgr.shape} with 9 segments")
                         
-                        mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
-                        feagi_writer.write_frame(mosaic_rgb)
+                        # Write mosaic to SHM if we have one ready
+                        if mosaic_bgr is not None:
+                            _shm_mosaic_start = time.perf_counter()
+                            mosaic_rgb = cv2.cvtColor(mosaic_bgr, cv2.COLOR_BGR2RGB)
+                            feagi_writer.write_frame(mosaic_rgb)
+                            _shm_mosaic_time = (time.perf_counter() - _shm_mosaic_start) * 1000
+                        else:
+                            _shm_mosaic_time = 0.0
                     except Exception as e:
                         logger.error(f"[SHM-VIDEO-FEAGI] ❌ Failed to write mosaic: {e}")
                         # Only attempt reopen if cooldown period has passed to prevent FD leaks
@@ -641,8 +760,10 @@ async def stream_segmented_camera(
             # Write ORIGINAL raw RGB frame (not resized) for BV preview via SHM
             if shm_writer is not None:
                 try:
+                    _shm_raw_start = time.perf_counter()
                     rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)  # Use original frame_bgr, not resized!
                     shm_writer.write_frame(rgb)
+                    _shm_raw_time = (time.perf_counter() - _shm_raw_start) * 1000
                 except Exception as e:
                     logger.error(f"[SHM-VIDEO-RAW] ❌ Failed to write frame: {e}")
                     # Only attempt reopen if cooldown period has passed to prevent FD leaks
@@ -660,12 +781,83 @@ async def stream_segmented_camera(
                             logger.warning(f"[SHM-VIDEO-RAW] Reopen failed: {reopen_err}")
                             shm_writer = None
 
-            # Pace by source FPS if available
+            # PROFILING: Log frame processing times every 5 seconds
+            _frame_elapsed = (time.perf_counter() - _frame_start) * 1000  # Total frame processing time
+            if not hasattr(stream_segmented_camera, '_frame_profile_stats'):
+                stream_segmented_camera._frame_profile_stats = {
+                    'capture': [], 'resize': [], 'reg_check': [], 'encode': [], 
+                    'sensory': [], 'shm_mosaic': [], 'shm_raw': [], 'total': [],
+                    'last_log': time.time(), 'count': 0
+                }
+            stats = stream_segmented_camera._frame_profile_stats
+            stats['count'] += 1
+            if '_capture_time' in locals():
+                stats['capture'].append(_capture_time)
+            if '_resize_time' in locals():
+                stats['resize'].append(_resize_time)
+            if '_reg_check_time' in locals():
+                stats['reg_check'].append(_reg_check_time)
+            if '_encode_time' in locals():
+                stats['encode'].append(_encode_time)
+            if '_sensory_time' in locals():
+                stats['sensory'].append(_sensory_time)
+            if '_shm_mosaic_time' in locals():
+                stats['shm_mosaic'].append(_shm_mosaic_time)
+            if '_shm_raw_time' in locals():
+                stats['shm_raw'].append(_shm_raw_time)
+            stats['total'].append(_frame_elapsed)
+            
+            if time.time() - stats['last_log'] >= 5.0:
+                def avg_max(lst):
+                    return (sum(lst)/len(lst), max(lst)) if lst else (0, 0)
+                cap_avg, cap_max = avg_max(stats['capture'])
+                res_avg, res_max = avg_max(stats['resize'])
+                reg_avg, reg_max = avg_max(stats['reg_check'])
+                enc_avg, enc_max = avg_max(stats['encode'])
+                sen_avg, sen_max = avg_max(stats['sensory'])
+                shm_mos_avg, shm_mos_max = avg_max(stats['shm_mosaic'])
+                shm_raw_avg, shm_raw_max = avg_max(stats['shm_raw'])
+                total_avg, total_max = avg_max(stats['total'])
+                fps = stats['count'] / 5.0
+                
+                # Calculate breakdown percentages
+                processing_time = cap_avg + res_avg + reg_avg + enc_avg + sen_avg + shm_mos_avg + shm_raw_avg
+                sleep_time = total_avg - processing_time if total_avg > processing_time else 0.0
+                
+                logger.warning(
+                    f"⚠️ [VIDEO-AGENT-PROFILE] {stats['count']} frames in 5s ({fps:.1f} Hz):\n"
+                    f"  Capture:     avg={cap_avg:.1f}ms  max={cap_max:.1f}ms (video read)\n"
+                    f"  Resize:      avg={res_avg:.1f}ms  max={res_max:.1f}ms (cv2.resize)\n"
+                    f"  Reg Check:   avg={reg_avg:.1f}ms  max={reg_max:.1f}ms (connection validation)\n"
+                    f"  Encode:      avg={enc_avg:.1f}ms  max={enc_max:.1f}ms (Rust encode)\n"
+                    f"  Sensory:     avg={sen_avg:.1f}ms  max={sen_max:.1f}ms ⚠️ TO FEAGI\n"
+                    f"  SHM Mosaic:  avg={shm_mos_avg:.1f}ms  max={shm_mos_max:.1f}ms (background thread)\n"
+                    f"  SHM Raw:     avg={shm_raw_avg:.1f}ms  max={shm_raw_max:.1f}ms\n"
+                    f"  Sleep/Other: avg={sleep_time:.1f}ms (frame pacing)\n"
+                    f"  Total:       avg={total_avg:.1f}ms  max={total_max:.1f}ms (target: {1000.0/info.fps if info and info.fps > 0 else 0:.1f}ms @ {info.fps if info else 0:.1f} FPS)"
+                )
+                stream_segmented_camera._frame_profile_stats = {
+                    'capture': [], 'resize': [], 'reg_check': [], 'encode': [], 
+                    'sensory': [], 'shm_mosaic': [], 'shm_raw': [], 'total': [],
+                    'last_log': time.time(), 'count': 0
+                }
+
+            # Pace by source FPS, accounting for processing time
             if info and info.fps > 0:
-                await asyncio.sleep(max(0.0, 1.0 / float(info.fps)))
+                target_frame_time = 1.0 / float(info.fps)
+                sleep_time = max(0.0, target_frame_time - (_frame_elapsed / 1000.0))
+                await asyncio.sleep(sleep_time)
             else:
                 await asyncio.sleep(0.01)
     finally:
+        # Stop mosaic worker thread
+        mosaic_stop.set()
+        try:
+            mosaic_queue.put_nowait(None)  # Signal thread to exit
+        except:
+            pass
+        mosaic_thread.join(timeout=1.0)
+        
         media.release()
         # Do not unlink FEAGI-managed shared memory paths; close mapping only
         try:

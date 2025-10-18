@@ -513,8 +513,9 @@ Once both are ready, your agent will automatically connect.
                 logger.error("Failed to connect to FEAGI sensory stream")
                 return False
                 
-            # Step 2: Try to register agent via ZMQ REST stream, but don't fail if it doesn't work
-            if not self.registered:
+            # Step 2: SKIP automatic registration - let caller handle registration with proper capabilities
+            # (Automatic registration used default capabilities, causing issues with rate_hz)
+            if False:  # Disabled - caller should register explicitly with correct capabilities
                 try:
                     registration_result = await self.rest_client.register_agent(self.agent_id, self.agent_type)
                     if isinstance(registration_result, dict) and "error" in registration_result:
