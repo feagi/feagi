@@ -1,0 +1,24 @@
+[package]
+name = "feagi-pns"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "FEAGI Peripheral Nervous System - Agent I/O, registration, ZMQ & SHM"
+
+[dependencies]
+zmq = "0.10"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+crossbeam = "0.8"
+parking_lot = "0.12"
+thiserror = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[lib]
+name = "feagi_pns"
+path = "src/lib.rs"
+

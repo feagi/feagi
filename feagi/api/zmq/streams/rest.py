@@ -128,7 +128,7 @@ class RestStream:
             logger.warning("REST stream is already running")
             return
 
-        logger.info(f"Starting REST Stream on {self.host}:{self.port}")
+        logger.info(f"🌐 [REST-STREAM] Starting REST Stream on {self.host}:{self.port}")
 
         try:
             # Create ROUTER socket (for external clients)
@@ -208,11 +208,13 @@ class RestStream:
                     # Forward messages from router to dealer
                     if self.router_socket in events:
                         message = await self.router_socket.recv_multipart()
+                        logger.info(f"🌐 [REST-PROXY] Received {len(message)} parts from ROUTER, forwarding to DEALER")
                         await self.dealer_socket.send_multipart(message)
 
                     # Forward messages from dealer to router
                     if self.dealer_socket in events:
                         message = await self.dealer_socket.recv_multipart()
+                        logger.info(f"🌐 [REST-PROXY] Received {len(message)} parts from DEALER, forwarding to ROUTER")
                         await self.router_socket.send_multipart(message)
 
                 except asyncio.CancelledError:
@@ -230,17 +232,19 @@ class RestStream:
 
     async def _process_rest_messages(self):
         """Process REST messages from the dealer socket."""
-        logger.debug("Starting REST message processor")
+        logger.info("🌐 [REST-WORKER] Starting REST message processor")
 
         # Create a worker socket to connect to the dealer
         worker_socket = self.context.socket(zmq.DEALER)
         worker_socket.connect("inproc://rest_backend")
+        logger.info("🌐 [REST-WORKER] Worker connected to inproc://rest_backend")
 
         try:
             while self.running:
                 try:
                     # Receive message with timeout
                     message_parts = await worker_socket.recv_multipart()
+                    logger.info(f"🌐 [REST-WORKER] Received {len(message_parts)} parts from worker socket")
 
                     # Only log debug info when ZMQ inbound debugging is enabled
                     from feagi.core.state_manager import get_state_manager
@@ -423,6 +427,7 @@ class RestStream:
                         await worker_socket.send_multipart(
                             [client_id, b"", response_data]
                         )
+                        logger.info(f"🌐 [REST-WORKER] Sent response: {len(response_data)} bytes to client_id")
 
                         # Debug logging for outbound response
                         log_rep_message(

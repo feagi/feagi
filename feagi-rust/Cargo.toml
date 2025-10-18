@@ -6,6 +6,7 @@ members = [
     "crates/feagi-plasticity",
     "crates/feagi-python",
     "crates/feagi-bdu",
+    "crates/feagi-pns",
 ]
 
 [workspace.package]

@@ -1589,6 +1589,53 @@ impl CorticalMappedXYZPNeuronDataDecoder {
     }
 }
 
+// TEMPORARY: PyPNS commented out - investigating crash on module import
+// Likely issue with ZMQ initialization or linking
+
+/*
+/// Python wrapper for Rust PNS (Peripheral Nervous System)
+#[pyclass]
+struct PyPNS {
+    pns: Arc<Mutex<feagi_pns::PNS>>,
+}
+
+#[pymethods]
+impl PyPNS {
+    #[new]
+    fn new() -> PyResult<Self> {
+        let pns = feagi_pns::PNS::new()
+            .map_err(|e| PyValueError::new_err(format!("Failed to create PNS: {}", e)))?;
+        
+        Ok(Self {
+            pns: Arc::new(Mutex::new(pns)),
+        })
+    }
+
+    /// Start all PNS streams (ZMQ + SHM)
+    fn start(&self) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .start()
+            .map_err(|e| PyValueError::new_err(format!("Failed to start PNS: {}", e)))
+    }
+
+    /// Stop all PNS streams
+    fn stop(&self) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .stop()
+            .map_err(|e| PyValueError::new_err(format!("Failed to stop PNS: {}", e)))
+    }
+
+    /// Check if PNS is running
+    fn is_running(&self) -> bool {
+        self.pns.lock().unwrap().is_running()
+    }
+}
+*/
+
 /// Module containing fast neural network operations
 #[pymodule]
 fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -1602,6 +1649,10 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add data decoding (NEW! - eliminates feagi_rust_py_libs dependency)
     m.add_class::<FeagiByteStructure>()?;
     m.add_class::<CorticalMappedXYZPNeuronDataDecoder>()?;
+    
+    // Add PNS (NEW! - Peripheral Nervous System for agent I/O)
+    // TEMPORARY: Disabled due to import crash - investigating
+    // m.add_class::<PyPNS>()?;
     
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead

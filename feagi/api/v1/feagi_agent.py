@@ -232,6 +232,9 @@ class FeagiAgentAPI:
 
         Registration Manager must be initialized during FEAGI startup.
         """
+        import time as _time
+        _reg_start = _time.time()
+        self.logger.warning(f"⏱️ [REG-TIMING] Registration started for {request.agent_id}")
         try:
             # Process capability rates from the capabilities dict
             capability_configs = self._process_agent_capabilities(request)
@@ -334,6 +337,10 @@ class FeagiAgentAPI:
                 f"(type: {request.agent_type}, capabilities: {list(request.capabilities.keys())}, "
                 f"transport: {transport_info.get('recommended', 'unknown')})"
             )
+
+            # Log timing
+            _reg_duration = (_time.time() - _reg_start) * 1000  # ms
+            self.logger.warning(f"⏱️ [REG-TIMING] Registration completed in {_reg_duration:.1f}ms for {request.agent_id}")
 
             # Return success response with transport negotiation info
             return SuccessResponse(

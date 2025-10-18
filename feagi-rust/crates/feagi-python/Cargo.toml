@@ -15,6 +15,8 @@ crate-type = ["cdylib"]
 feagi-types = { path = "../feagi-types" }
 feagi-burst-engine = { path = "../feagi-burst-engine" }
 feagi-plasticity = { path = "../feagi-plasticity" }
+# TEMPORARY: Disabled due to import crash
+# feagi-pns = { path = "../feagi-pns" }
 feagi_data_structures.workspace = true
 feagi_data_serialization.workspace = true
 pyo3.workspace = true
