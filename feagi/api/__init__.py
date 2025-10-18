@@ -28,7 +28,8 @@ from feagi.api.rest import create_rest_app
 
 # ZMQ API exports
 # ZMQ API is always available
-from feagi.api.zmq import ZmqServer, create_zmq_client, create_zmq_server
+# Legacy ZmqServer deprecated - now using Rust PNS (feagi_rust.PyPNS)
+from feagi.api.zmq import create_zmq_client, create_zmq_server
 
 __all__ = [
     "CoreAPIService",
@@ -37,5 +38,5 @@ __all__ = [
     "create_rest_app",
     "create_zmq_server",
     "create_zmq_client",
-    "ZmqServer",
+    # "ZmqServer",  # Deprecated - use feagi_rust.PyPNS
 ]

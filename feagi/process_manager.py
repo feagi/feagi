@@ -80,7 +80,8 @@ class ProcessManager:
         self._motor_fq_thread = None
         self._fq_sampler_config = {}
         self._monitoring_active = False
-        self._zmq_server = None  # Add missing _zmq_server attribute
+        self._zmq_server = None  # Legacy attribute (now points to Rust PNS)
+        self._pns = None  # Rust PNS (Peripheral Nervous System)
         self._sleep_manager = None
 
         # Add startup phase tracking
@@ -554,117 +555,45 @@ class ProcessManager:
                 #  Non-critical error - system can continue without
                 #  Registration Manager
 
-            # --- ZMQ Message Broker Setup ---
+            # --- ZMQ Message Broker Setup (Rust PNS) ---
             try:
-                from feagi.api.zmq.server import ZmqServer
+                import feagi_rust
                 from feagi.core.state_manager import (
                     FeagiStateManager,
                     ServiceState,
                 )
 
                 state_manager = FeagiStateManager.instance()
+                logger.info("🦀 Initializing Rust PNS (Peripheral Nervous System) for ZMQ services")
 
-                # Get port configuration from TOML config
-                port_config = get_port_config(config)
-
-                #  Get host configuration with validation (no hardcoded
-                #  fallbacks)
-                host_config = get_host_config(config)
-                zmq_host = host_config.zmq_host
-
-                # Windows-specific ZMQ binding fix: normalize host for binding
-                # On Windows, binding to 127.0.0.1 can cause permission issues
-                #  Use "*" (all interfaces) for binding when host is loopback
-                #  on Windows
-                import platform
-
-                if platform.system() == "Windows" and zmq_host in [
-                    "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
-                    "localhost",  # @architecture:acceptable - Windows compatibility fix
-                ]:
-                    logger.info(
-                        f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding"
-                    )
-                    zmq_bind_host = "*"
+                # Create Rust PNS
+                pns = feagi_rust.PyPNS()
+                
+                # Connect PNS to burst engine for SHM I/O coordination
+                if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
+                    rust_npu_integration = self._core_api._rust_npu_integration
+                    if rust_npu_integration and rust_npu_integration._rust_npu:
+                        pns.connect_to_burst_engine(rust_npu_integration._rust_npu)
+                        logger.info("🦀 PNS connected to burst engine's sensory agent manager")
+                    else:
+                        logger.warning("🦀 PNS created but burst engine not yet initialized - will connect later")
                 else:
-                    #  On non-Windows platforms, use the configured host
-                    #  directly
-                    # ZMQ will handle 0.0.0.0 appropriately on each platform
-                    zmq_bind_host = zmq_host
+                    logger.warning("🦀 PNS created but core API not yet initialized - will connect later")
 
-                logger.info(
-                    f"ZMQ server will bind to: {zmq_bind_host} (configured host: {zmq_host})"
-                )
-
-                # Use hardcoded ports from configuration
-                zmq_ports = {
-                    "req_rep": port_config.zmq_req_rep_port,
-                    "pub_sub": port_config.zmq_pub_sub_port,
-                    "push_pull": port_config.zmq_push_pull_port,
-                    "sensory": (
-                        port_config.zmq_sensory_port
-                        if sensory_enabled
-                        else None
-                    ),
-                    "motor": (
-                        port_config.zmq_motor_port if motor_enabled else None
-                    ),
-                    "visualization": (
-                        port_config.zmq_visualization_port
-                        if visualization_enabled
-                        else None
-                    ),
-                    "rest": (
-                        port_config.zmq_rest_port if rest_enabled else None
-                    ),
-                }
-
-                logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
-
-                #  Initialize ZMQ server with configuration-based stream
-                #  enablement
-                zmq_server = ZmqServer(
-                    core_api=self._core_api,
-                    host=zmq_bind_host,
-                    req_rep_port=port_config.zmq_req_rep_port,
-                    pub_sub_port=port_config.zmq_pub_sub_port,
-                    push_pull_port=port_config.zmq_push_pull_port,
-                    sensory_port=(
-                        port_config.zmq_sensory_port
-                        if sensory_enabled
-                        else None
-                    ),
-                    motor_port=(
-                        port_config.zmq_motor_port if motor_enabled else None
-                    ),
-                    rest_port=(
-                        port_config.zmq_rest_port if rest_enabled else None
-                    ),
-                    vis_port=(
-                        port_config.zmq_visualization_port
-                        if visualization_enabled
-                        else None
-                    ),
-                    fq_sampler=None,  # No FQ sampler at startup - will be created on-demand
-                    fire_queue_provider=self._core_api,  # Use core_api as fire_queue_provider
-                    stream_config=stream_config,  # Pass stream configuration to ZMQ server
-                    process_manager=self,  # Pass process manager reference for on-demand FQ sampler creation
-                )
-
-                # Start ZMQ server
-                if zmq_server.start():
-                    self._processes["zmq_server"] = zmq_server
-                    self._zmq_server = (
-                        zmq_server  # Store for registration manager access
-                    )
-                    state_manager.set_zmq_state(ServiceState.READY)
-                    logger.info("ZMQ Message Broker initialized successfully")
-                else:
-                    logger.error("Failed to start ZMQ Message Broker")
-                    return False
+                # Start PNS ZMQ streams
+                pns.start()
+                logger.info("🦀 PNS ZMQ streams started successfully")
+                
+                # Store PNS for access by registration manager and other components
+                self._processes["zmq_server"] = pns  # Use same key for compatibility
+                self._zmq_server = pns  # Store for registration manager access
+                self._pns = pns  # Also store as _pns for clarity
+                
+                state_manager.set_zmq_state(ServiceState.READY)
+                logger.info("🦀 Rust PNS initialized successfully - all ZMQ services are now 100% Rust")
 
             except Exception as e:
-                logger.error(f"Failed to initialize ZMQ Message Broker: {e}")
+                logger.error(f"Failed to initialize Rust PNS: {e}")
                 logger.debug(traceback.format_exc())
                 return False
 
@@ -1419,10 +1348,10 @@ class ProcessManager:
                         try:
                             # Handle different service types
                             if name == "zmq_server" and hasattr(
-                                service, "shutdown"
+                                service, "stop"
                             ):
-                                # ZMQ server has a shutdown method
-                                service.shutdown()
+                                # ZMQ server (Rust PNS) has a stop method
+                                service.stop()
                             elif name == "rest_api" and hasattr(
                                 service, "stop"
                             ):

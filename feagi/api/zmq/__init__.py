@@ -30,7 +30,8 @@ from .patterns import (
     RequestReplyServer,
     SubscriberClient,
 )
-from .server import ZmqServer
+# Legacy ZmqServer deprecated - now using Rust PNS (feagi_rust.PyPNS)
+# from .server import ZmqServer
 from .streams import (
     MotorStream,
     RestStream,
@@ -40,8 +41,8 @@ from .streams import (
 
 # Export top-level classes
 __all__ = [
-    # Server
-    "ZmqServer",
+    # Server (deprecated - use feagi_rust.PyPNS)
+    # "ZmqServer",
     "create_zmq_server",
     # Client
     "ZmqClient",
