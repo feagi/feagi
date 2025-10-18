@@ -580,6 +580,12 @@ class ProcessManager:
                 else:
                     logger.warning("🦀 PNS created but core API not yet initialized - will connect later")
 
+                # Register Python callbacks for agent lifecycle events
+                logger.info("🦀 Registering Python callbacks with Rust PNS")
+                pns.set_on_agent_registered(self._on_agent_registered)
+                pns.set_on_agent_deregistered(self._on_agent_deregistered)
+                logger.info("🦀 Callbacks registered successfully")
+
                 # Start PNS ZMQ streams
                 pns.start()
                 logger.info("🦀 PNS ZMQ streams started successfully")
@@ -1275,6 +1281,112 @@ class ProcessManager:
     def get_zmq_server(self):
         """Get the ZMQ server instance."""
         return self._zmq_server
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Rust PNS Agent Lifecycle Callbacks
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _on_agent_registered(self, agent_id: str, agent_type: str, capabilities_json: str):
+        """Callback invoked by Rust PNS when an agent registers.
+        
+        This creates the necessary Python-side resources (FQ samplers, SHM writers).
+        
+        Args:
+            agent_id: Unique agent identifier
+            agent_type: Type of agent (visualizer, external, etc.)
+            capabilities_json: JSON string of agent capabilities
+        """
+        import json
+        
+        try:
+            logger.info(f"🦀 [CALLBACK] Agent registered: {agent_id} (type: {agent_type})")
+            capabilities = json.loads(capabilities_json)
+            
+            # Check for visualization capability
+            if 'visualization' in capabilities:
+                viz_caps = capabilities['visualization']
+                if isinstance(viz_caps, dict) and viz_caps.get('enabled', False):
+                    rate_hz = viz_caps.get('rate_hz', 30.0)
+                    logger.info(f"🦀 [CALLBACK] Creating visualization FQ sampler at {rate_hz}Hz")
+                    
+                    # Create visualization FQ sampler if not already created
+                    if not hasattr(self, '_viz_fq_sampler') or self._viz_fq_sampler is None:
+                        try:
+                            from feagi.npu.fire_queue.unified_fq_sampler import UnifiedFQSampler
+                            
+                            self._viz_fq_sampler = UnifiedFQSampler(
+                                fire_queue_provider=self._processes.get("brain_service"),
+                                mode='visualization',
+                                sample_frequency_hz=rate_hz
+                            )
+                            
+                            # Attach to burst engine
+                            if self._burst_engine:
+                                self._burst_engine.register_fq_sampler(
+                                    self._viz_fq_sampler, 
+                                    name='rust_fq_sampler_wrapper'
+                                )
+                                logger.info(f"🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
+                            else:
+                                logger.warning(f"🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration")
+                                
+                            # Attach Rust NPU visualization SHM writer
+                            if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
+                                rust_npu_integration = self._core_api._rust_npu_integration
+                                if rust_npu_integration and rust_npu_integration._rust_npu:
+                                    from feagi.core.state_manager import FeagiStateManager
+                                    sm = FeagiStateManager.instance()
+                                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                                    
+                                    rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path, 8, 16777216)
+                                    logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                        except Exception as e:
+                            logger.error(f"🦀 [CALLBACK] Failed to create visualization FQ sampler: {e}")
+                    else:
+                        logger.info(f"🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
+            
+            # Check for motor capability
+            if 'motor' in capabilities:
+                motor_caps = capabilities['motor']
+                if isinstance(motor_caps, dict) and motor_caps.get('enabled', False):
+                    rate_hz = motor_caps.get('rate_hz', 20.0)
+                    logger.info(f"🦀 [CALLBACK] Agent {agent_id} has motor capability at {rate_hz}Hz")
+                    # Motor FQ sampler creation happens on-demand via motor stream
+            
+            # Check for sensory capability
+            if 'sensory' in capabilities:
+                sensory_caps = capabilities['sensory']
+                if isinstance(sensory_caps, dict):
+                    rate_hz = sensory_caps.get('rate_hz', 30.0)
+                    logger.info(f"🦀 [CALLBACK] Agent {agent_id} has sensory capability at {rate_hz}Hz")
+                    # Sensory is handled by Rust burst engine directly
+            
+        except Exception as e:
+            logger.error(f"🦀 [CALLBACK] Error handling agent registration for {agent_id}: {e}")
+            logger.debug(traceback.format_exc())
+
+    def _on_agent_deregistered(self, agent_id: str):
+        """Callback invoked by Rust PNS when an agent deregisters.
+        
+        This cleans up Python-side resources.
+        
+        Args:
+            agent_id: Unique agent identifier
+        """
+        try:
+            logger.info(f"🦀 [CALLBACK] Agent deregistered: {agent_id}")
+            
+            # TODO: Implement cleanup logic
+            # - Check if this was the last visualization agent -> stop viz FQ sampler
+            # - Check if this was the last motor agent -> stop motor FQ sampler
+            # - For now, we keep FQ samplers running (they're cheap when no data flows)
+            
+        except Exception as e:
+            logger.error(f"🦀 [CALLBACK] Error handling agent deregistration for {agent_id}: {e}")
+            logger.debug(traceback.format_exc())
+
+    # ═══════════════════════════════════════════════════════════════════════
 
     def shutdown(self) -> None:
         """Gracefully shutdown all FEAGI processes and services.

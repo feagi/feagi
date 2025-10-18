@@ -99,6 +99,22 @@ impl PNS {
         println!("🦀 [PNS] Sensory agent manager connected for SHM I/O");
     }
 
+    /// Set callback for agent registration events (for Python integration)
+    pub fn set_on_agent_registered<F>(&self, callback: F)
+    where
+        F: Fn(String, String, String) + Send + Sync + 'static,
+    {
+        self.registration_handler.lock().set_on_agent_registered(callback);
+    }
+
+    /// Set callback for agent deregistration events (for Python integration)
+    pub fn set_on_agent_deregistered<F>(&self, callback: F)
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.registration_handler.lock().set_on_agent_deregistered(callback);
+    }
+
     /// Start all PNS services
     pub fn start(&self) -> Result<()> {
         if *self.running.read() {

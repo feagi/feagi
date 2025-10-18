@@ -1666,7 +1666,54 @@ impl PyPNS {
     fn get_agent_count(&self) -> usize {
         self.pns.lock().unwrap().get_agent_registry().read().count()
     }
-}
+
+    /// Set callback for agent registration events
+    /// Python callback signature: def on_registered(agent_id: str, agent_type: str, capabilities: str) -> None
+    fn set_on_agent_registered(&self, callback: PyObject) -> PyResult<()> {
+        // Create a closure that captures the Python callback
+        // The callback must be Send + Sync + 'static
+        let callback = Arc::new(callback);
+        
+        self.pns.lock().unwrap().set_on_agent_registered(move |agent_id, agent_type, caps_json| {
+            // Invoke Python callback with GIL
+            Python::with_gil(|py| {
+                if let Err(e) = callback.call1(py, (agent_id, agent_type, caps_json)) {
+                    eprintln!("🦀 [PNS] Error invoking Python registration callback: {}", e);
+                }
+            });
+        });
+        
+        Ok(())
+    }
+
+    /// Set callback for agent deregistration events
+    /// Python callback signature: def on_deregistered(agent_id: str) -> None
+    fn set_on_agent_deregistered(&self, callback: PyObject) -> PyResult<()> {
+        // Create a closure that captures the Python callback
+        let callback = Arc::new(callback);
+        
+        self.pns.lock().unwrap().set_on_agent_deregistered(move |agent_id| {
+            // Invoke Python callback with GIL
+            Python::with_gil(|py| {
+                if let Err(e) = callback.call1(py, (agent_id,)) {
+                    eprintln!("🦀 [PNS] Error invoking Python deregistration callback: {}", e);
+                }
+            });
+        });
+        
+        Ok(())
+    }
+    
+    /// Manually deregister an agent (for testing/cleanup)
+    fn deregister_agent(&self, agent_id: String) -> PyResult<String> {
+        self.pns.lock().unwrap()
+            .get_agent_registry()
+            .write()
+            .deregister(&agent_id)
+            .map(|_| format!("Agent {} deregistered", agent_id))
+            .map_err(|e| PyValueError::new_err(format!("Deregistration failed: {}", e)))
+    }
+}  // END of #[pymethods] impl PyPNS
 
 /// Module containing fast neural network operations
 #[pymodule]

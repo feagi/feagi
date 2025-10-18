@@ -27,12 +27,19 @@ pub struct RegistrationResponse {
     pub zmq_ports: Option<HashMap<String, u16>>,
 }
 
+/// Type alias for registration callbacks
+pub type RegistrationCallback = Arc<parking_lot::Mutex<Option<Box<dyn Fn(String, String, String) + Send + Sync>>>>;
+pub type DeregistrationCallback = Arc<parking_lot::Mutex<Option<Box<dyn Fn(String) + Send + Sync>>>>;
+
 /// Registration Handler
 pub struct RegistrationHandler {
     agent_registry: Arc<RwLock<AgentRegistry>>,
     shm_base_path: String,
     /// Optional reference to burst engine's sensory agent manager for SHM I/O
     sensory_agent_manager: Arc<parking_lot::Mutex<Option<Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>>>>,
+    /// Callbacks for Python integration
+    on_agent_registered: RegistrationCallback,
+    on_agent_deregistered: DeregistrationCallback,
 }
 
 impl RegistrationHandler {
@@ -41,6 +48,8 @@ impl RegistrationHandler {
             agent_registry,
             shm_base_path: "/tmp".to_string(),
             sensory_agent_manager: Arc::new(parking_lot::Mutex::new(None)),
+            on_agent_registered: Arc::new(parking_lot::Mutex::new(None)),
+            on_agent_deregistered: Arc::new(parking_lot::Mutex::new(None)),
         }
     }
 
@@ -48,6 +57,24 @@ impl RegistrationHandler {
     pub fn set_sensory_agent_manager(&self, manager: Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>) {
         *self.sensory_agent_manager.lock() = Some(manager);
         println!("🦀 [REGISTRATION] Sensory agent manager connected");
+    }
+
+    /// Set callback for agent registration events (for Python integration)
+    pub fn set_on_agent_registered<F>(&self, callback: F)
+    where
+        F: Fn(String, String, String) + Send + Sync + 'static,
+    {
+        *self.on_agent_registered.lock() = Some(Box::new(callback));
+        println!("🦀 [REGISTRATION] Agent registration callback set");
+    }
+
+    /// Set callback for agent deregistration events (for Python integration)
+    pub fn set_on_agent_deregistered<F>(&self, callback: F)
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        *self.on_agent_deregistered.lock() = Some(Box::new(callback));
+        println!("🦀 [REGISTRATION] Agent deregistration callback set");
     }
 
     /// Process a registration request
@@ -142,6 +169,16 @@ impl RegistrationHandler {
             }
         }
 
+        // Invoke Python callback if set
+        if let Some(ref callback) = *self.on_agent_registered.lock() {
+            // Serialize capabilities to JSON string for Python
+            let caps_json = serde_json::to_string(&request.capabilities)
+                .unwrap_or_else(|_| "{}".to_string());
+            
+            println!("🦀 [REGISTRATION] Invoking Python callback for agent: {}", request.agent_id);
+            callback(request.agent_id.clone(), request.agent_type.clone(), caps_json);
+        }
+
         // Return success response
         Ok(RegistrationResponse {
             status: "success".to_string(),
@@ -218,10 +255,20 @@ impl RegistrationHandler {
         }
         
         // Deregister from registry
-        self.agent_registry
+        let result = self.agent_registry
             .write()
             .deregister(agent_id)
-            .map(|_| format!("Agent {} deregistered", agent_id))
+            .map(|_| format!("Agent {} deregistered", agent_id));
+        
+        // Invoke Python callback if deregistration was successful
+        if result.is_ok() {
+            if let Some(ref callback) = *self.on_agent_deregistered.lock() {
+                println!("🦀 [REGISTRATION] Invoking Python deregistration callback for agent: {}", agent_id);
+                callback(agent_id.to_string());
+            }
+        }
+        
+        result
     }
 
     /// Process heartbeat
