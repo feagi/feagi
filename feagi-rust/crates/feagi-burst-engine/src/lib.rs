@@ -40,6 +40,7 @@ pub mod fq_sampler;
 pub mod sensory;  // Rust sensory injection system
 pub mod burst_loop_runner;  // Pure Rust burst loop
 pub mod viz_shm_writer;  // Rust visualization SHM writer
+pub mod motor_shm_writer;  // Rust motor SHM writer
 
 pub use backend::*;
 pub use synaptic_propagation::*;

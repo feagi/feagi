@@ -439,7 +439,7 @@ class ZmqServer:
     async def _monitor_and_create_sensory_stream(self) -> None:
         """Monitor FEAGI readiness and create sensory stream when ready."""
         from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
-        from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
+        from .streams import SensoryStream
         
         logger.info("🔍 Starting FEAGI readiness monitor for sensory stream")
         
@@ -498,9 +498,7 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .streams.motor import MotorStream
             from .streams.rest import RestStream
-            from .streams.sensory_neural import (
-                SensoryNeuralStream as SensoryStream,
-            )
+            from .streams import SensoryStream
 
             # VisualizationStream imported conditionally at module level
             # Initialize only enabled streams based on port configuration

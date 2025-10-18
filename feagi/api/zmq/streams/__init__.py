@@ -27,8 +27,31 @@ from .motor import MotorStream
 from .rest import RestStream
 
 # Import actual streams from their files
-from .sensory_neural import SensoryNeuralStream as SensoryStream
 from .visualization import VisualizationStream
+
+# 🦀 STUB: Sensory injection is now 100% Rust (SHM read → Rust threads → Rust FCL)
+# This stub class exists only for backward compatibility with server.py
+class SensoryNeuralStream:
+    """Stub class - sensory injection now handled by Rust burst engine.
+    
+    Kept for backward compatibility with server.py initialization.
+    Actual sensory injection happens in:
+    - Rust: feagi-rust/crates/feagi-burst-engine/src/sensory/
+    - Registration: feagi/pns/registration_manager.py (calls Rust)
+    """
+    def __init__(self, *args, **kwargs):
+        """Stub constructor - does nothing (sensory now 100% Rust)."""
+        pass
+    
+    async def start(self):
+        """Stub start - does nothing (sensory now 100% Rust)."""
+        pass
+    
+    async def stop(self):
+        """Stub stop - does nothing (sensory now 100% Rust)."""
+        pass
+
+SensoryStream = SensoryNeuralStream  # Alias for compatibility
 
 __all__ = [
     # Main stream implementations

@@ -382,6 +382,50 @@ impl RustNPU {
         }
     }
     
+    /// Attach motor SHM writer for zero-copy motor output
+    /// 
+    /// This enables 100% Rust motor pipeline: Motor Data → Encode → SHM Write → Agents
+    fn attach_motor_shm_writer(&mut self, shm_path: String) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let path = std::path::PathBuf::from(shm_path);
+            runner.lock().unwrap()
+                .attach_motor_shm_writer(path)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                    format!("Failed to attach motor SHM writer: {}", e)
+                ))?;
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
+    /// Write binary motor data to motor SHM (Python encodes, Rust writes)
+    /// 
+    /// Args:
+    ///     binary_data: Pre-encoded binary motor data
+    /// 
+    /// This is the HOT PATH for motor output - called after every burst
+    fn write_motor_shm(&self, binary_data: &[u8]) -> PyResult<()> {
+        if let Some(runner) = &self.burst_runner {
+            let runner_lock = runner.lock().unwrap();
+            let mut motor_writer = runner_lock.motor_shm_writer.lock().unwrap();
+            if let Some(writer) = motor_writer.as_mut() {
+                writer.write_payload(binary_data)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                        format!("Failed to write motor SHM: {}", e)
+                    ))?;
+                Ok(())
+            } else {
+                // No writer attached - silently skip (Python fallback can handle it)
+                Ok(())
+            }
+        } else {
+            Ok(()) // No burst loop - skip
+        }
+    }
+    
     /// Check if burst loop is running
     fn is_burst_loop_running(&self) -> bool {
         self.burst_runner.as_ref()

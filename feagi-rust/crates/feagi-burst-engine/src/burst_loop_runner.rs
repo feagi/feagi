@@ -42,6 +42,8 @@ pub struct BurstLoopRunner {
     pub sensory_manager: Arc<Mutex<AgentManager>>,
     /// Visualization SHM writer (optional, None if not configured)
     pub viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
+    /// Motor SHM writer (optional, None if not configured)
+    pub motor_shm_writer: Arc<Mutex<Option<crate::motor_shm_writer::MotorSHMWriter>>>,
 }
 
 impl BurstLoopRunner {
@@ -115,6 +117,7 @@ impl BurstLoopRunner {
             thread_handle: None,
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
             viz_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_viz_shm_writer
+            motor_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_motor_shm_writer
         }
     }
     
@@ -122,6 +125,14 @@ impl BurstLoopRunner {
     pub fn attach_viz_shm_writer(&mut self, shm_path: std::path::PathBuf) -> Result<(), std::io::Error> {
         let writer = crate::viz_shm_writer::VizSHMWriter::new(shm_path, None, None)?;
         let mut guard = self.viz_shm_writer.lock().unwrap();
+        *guard = Some(writer);
+        Ok(())
+    }
+    
+    /// Attach motor SHM writer (called from Python after registration)
+    pub fn attach_motor_shm_writer(&mut self, shm_path: std::path::PathBuf) -> Result<(), std::io::Error> {
+        let writer = crate::motor_shm_writer::MotorSHMWriter::new(shm_path, None, None)?;
+        let mut guard = self.motor_shm_writer.lock().unwrap();
         *guard = Some(writer);
         Ok(())
     }
