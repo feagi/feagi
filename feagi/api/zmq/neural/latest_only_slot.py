@@ -69,7 +69,7 @@ class LatestOnlySharedSlot:
     MAGIC = b"FEAGILAT"  # "FEAGI Latest"
     VERSION = 1
     HEADER_SIZE = 256
-    HEADER_FORMAT = "<8sIIIQQII192s"  # magic, version, max_payload_size, writer_pid, timestamp_ns, sequence, payload_size, reserved, padding
+    HEADER_FORMAT = "<8sIIIQQII212s"  # magic, version, max_payload_size, writer_pid, timestamp_ns, sequence, payload_size, reserved, padding (8+4+4+4+8+8+4+4+212=256)
     
     def __init__(self, path: Path, max_payload_size: int = 2 * 1024 * 1024):
         """Initialize latest-only shared slot.

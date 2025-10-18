@@ -296,13 +296,13 @@ impl RustNPU {
     
     /// Set power injection amount (default: 1.0)
     fn set_power_amount(&mut self, amount: f32) {
-        self.npu.lock().unwrap().set_power_amount(amount);
+        self.npu.lock().unwrap().lock().unwrap().set_power_amount(amount);
     }
     
     /// Set power neurons to inject every burst (for burst loop mode)
     fn set_power_neurons(&mut self, neuron_ids: Vec<u32>) {
         let ids: Vec<NeuronId> = neuron_ids.into_iter().map(NeuronId).collect();
-        self.npu.lock().unwrap().set_power_neurons(ids);
+        self.npu.lock().unwrap().lock().unwrap().set_power_neurons(ids);
     }
     
     /// Start the burst loop runner (runs in background Rust thread)
@@ -319,11 +319,11 @@ impl RustNPU {
             ));
         }
         
-        let mut runner = feagi_burst_engine::BurstLoopRunner::new(self.npu.clone(), frequency_hz);
+        let mut runner = feagi_burst_engine::BurstLoopRunner::new(self.npu.lock().unwrap().clone(), frequency_hz);
         
         // Copy power neurons from NPU to runner
         let power_neurons: Vec<u32> = {
-            let npu = self.npu.lock().unwrap();
+            let npu = self.npu.lock().unwrap().lock().unwrap();
             npu.get_power_neurons().iter().map(|n| n.0).collect()
         };
         runner.set_power_neurons(power_neurons);
@@ -385,7 +385,6 @@ impl RustNPU {
         z: u32,
     ) -> PyResult<u32> {
         self.npu
-            .lock().unwrap()
             .add_neuron(
                 threshold,
                 leak_coefficient,
@@ -424,7 +423,6 @@ impl RustNPU {
         synapse_type: u8,
     ) -> PyResult<usize> {
         self.npu
-            .lock().unwrap()
             .add_synapse(
                 NeuronId(source),
                 NeuronId(target),
@@ -575,7 +573,6 @@ impl RustNPU {
         let power_neuron_ids: Vec<NeuronId> = power_neurons.iter().map(|&id| NeuronId(id)).collect();
         
         self.npu
-            .lock().unwrap()
             .process_burst(&power_neuron_ids)
             .map(BurstResult::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))

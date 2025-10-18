@@ -72,6 +72,7 @@ pub struct RustNPU {
     
     // State
     burst_count: u64,
+    power_neurons: Vec<NeuronId>,  // Power neurons to inject every burst
     
     // Configuration
     power_amount: f32,
@@ -94,6 +95,7 @@ impl RustNPU {
             fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
+            power_neurons: Vec::new(),
             power_amount: 1.0,
         }
     }
@@ -233,6 +235,37 @@ impl RustNPU {
     pub fn set_neuron_mapping(&mut self, mapping: AHashMap<NeuronId, CorticalAreaId>) {
         self.propagation_engine.set_neuron_mapping(mapping);
     }
+    
+    // ===== SENSORY INJECTION API =====
+    
+    /// Inject sensory neurons into FCL (called from Rust sensory threads)
+    /// This is the PRIMARY method for Rust-native sensory injection
+    pub fn inject_sensory_batch(&mut self, neuron_ids: &[NeuronId], potential: f32) {
+        for &neuron_id in neuron_ids {
+            self.fire_candidate_list.add_candidate(neuron_id, potential);
+        }
+    }
+    
+    /// Get immutable reference to FCL for inspection (debugging only)
+    pub fn get_fcl_ref(&self) -> &FireCandidateList {
+        &self.fire_candidate_list
+    }
+    
+    // ===== END SENSORY INJECTION API =====
+    
+    // ===== POWER NEURON API =====
+    
+    /// Set power neurons to be injected every burst
+    pub fn set_power_neurons(&mut self, neuron_ids: Vec<NeuronId>) {
+        self.power_neurons = neuron_ids;
+    }
+    
+    /// Get power neurons
+    pub fn get_power_neurons(&self) -> &[NeuronId] {
+        &self.power_neurons
+    }
+    
+    // ===== END POWER NEURON API =====
     
     /// Process a single burst (MAIN METHOD)
     /// 

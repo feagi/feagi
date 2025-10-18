@@ -13,6 +13,7 @@ thiserror.workspace = true
 rayon.workspace = true
 ndarray.workspace = true
 ahash.workspace = true
+memmap2 = "0.9"  # Memory-mapped file I/O for SHM
 
 # GPU acceleration (optional feature)
 wgpu = { workspace = true, optional = true }

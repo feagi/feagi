@@ -450,13 +450,27 @@ class SensoryNeuralStream:
         from feagi.core.capability_rate_manager import get_capability_rate_manager
         from feagi.api.v1.capability_rates import CapabilityType
         capability_manager = get_capability_rate_manager()
-            
-        logger.info("[RATE] Starting capability-aware SHM polling for sensory data")
         
+        if capability_manager is None:
+            logger.error("❌ [SENSORY-POLL] Failed to get capability rate manager - polling DISABLED!")
+            return
+            
+        logger.warning(f"🚀 [SENSORY-POLL-START] Starting capability-aware SHM polling (capability_manager id={id(capability_manager)})")
+        
+        loop_iteration = 0
         while self.running:
+            loop_iteration += 1
+            if loop_iteration % 100 == 0:
+                logger.warning(f"🔄 [SENSORY-POLL-ALIVE] Loop iteration {loop_iteration}, running={self.running}")
             try:
                 # Get agents whose sensory capability should be polled now based on their registered rates
                 current_time_ns = time.time_ns()
+                
+                # DEBUG: Log the capability_manager state periodically
+                if loop_iteration % 100 == 0:
+                    registry_count = len(capability_manager._agent_registries)
+                    logger.warning(f"🔍 [POLL-STATE] capability_manager id={id(capability_manager)}, _agent_registries count={registry_count}")
+                
                 agents_to_poll = capability_manager.get_agents_for_capability_polling(
                     CapabilityType.SENSORY,
                     current_time_ns
@@ -473,6 +487,32 @@ class SensoryNeuralStream:
                 for agent in legacy_agents_to_poll:
                     if agent.agent_id not in all_agents_to_poll:
                         all_agents_to_poll[agent.agent_id] = agent
+                
+                # DEBUG: Log when agent list is empty
+                if not hasattr(self, '_empty_poll_count'):
+                    self._empty_poll_count = 0
+                    self._empty_poll_last_log = time.time()
+                    
+                if len(all_agents_to_poll) == 0:
+                    self._empty_poll_count += 1
+                    if time.time() - self._empty_poll_last_log >= 5.0:
+                        logger.warning(f"⚠️ [SENSORY-POLL-EMPTY] No agents to poll ({self._empty_poll_count} empty polls in 5sec)")
+                        logger.warning(f"   - Capability manager agent count: {len(capability_manager._agent_registries)}")
+                        self._empty_poll_count = 0
+                        self._empty_poll_last_log = time.time()
+                
+                # DEBUG: Log polling frequency
+                if not hasattr(self, '_poll_debug_time'):
+                    self._poll_debug_time = time.time()
+                    self._poll_debug_count = 0
+                self._poll_debug_count += len(all_agents_to_poll)
+                if time.time() - self._poll_debug_time >= 5.0:
+                    poll_rate = self._poll_debug_count / 5.0
+                    logger.warning(f"🔍 [SENSORY-POLL] Polling {len(all_agents_to_poll)} agents, rate={poll_rate:.1f} polls/sec over 5sec")
+                    for agent_id, rate_config in all_agents_to_poll.items():
+                        logger.warning(f"   - {agent_id}: {rate_config.capability_type.value} @ {rate_config.approved_rate_hz} Hz")
+                    self._poll_debug_time = time.time()
+                    self._poll_debug_count = 0
                 
                 # Process data from agents that should be polled now
                 for agent_id, rate_config in all_agents_to_poll.items():

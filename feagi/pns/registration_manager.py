@@ -150,8 +150,8 @@ class RegistrationManager:
         Canonical keys allowed:
         - video: bool | { enabled: bool } (raw video preview)
         - feagi: bool | { enabled: bool } (FEAGI processed video - segmented mosaic)
-        - sensory: bool | { enabled: bool }
-        - visualization: bool | { enabled: bool }
+        - sensory: bool | { enabled: bool, rate_hz: number }
+        - visualization: bool | { enabled: bool, rate_hz: number }
         - motor: bool | { enabled: bool, sampling_frequency_hz: number|"burst", prefer_shm: bool }
 
         Aliases are deprecated and will be removed. For now we WARN and map:
@@ -195,7 +195,10 @@ class RegistrationManager:
                     break
         if viz_value is not None:
             if isinstance(viz_value, dict):
-                sanitized["visualization"] = {"enabled": bool(viz_value.get("enabled", True))}
+                allowed = {"enabled": bool(viz_value.get("enabled", True))}
+                if "rate_hz" in viz_value:
+                    allowed["rate_hz"] = viz_value.get("rate_hz")
+                sanitized["visualization"] = allowed
             else:
                 sanitized["visualization"] = bool(viz_value)
 
@@ -203,7 +206,10 @@ class RegistrationManager:
         sens_value = capabilities.get("sensory")
         if sens_value is not None:
             if isinstance(sens_value, dict):
-                sanitized["sensory"] = {"enabled": bool(sens_value.get("enabled", True))}
+                allowed = {"enabled": bool(sens_value.get("enabled", True))}
+                if "rate_hz" in sens_value:
+                    allowed["rate_hz"] = sens_value.get("rate_hz")
+                sanitized["sensory"] = allowed
             else:
                 sanitized["sensory"] = bool(sens_value)
 
@@ -313,6 +319,36 @@ class RegistrationManager:
                 else:
                     logger.info(f"✅ New agent '{agent_id}' registering")
 
+                # 4a. Extract capability rates BEFORE sanitization (sanitizer removes rate_hz!)
+                capability_rates_to_register = []
+                try:
+                    from feagi.core.capability_rate_manager import get_capability_rate_manager
+                    from feagi.api.v1.capability_rates import CapabilityType, CapabilityRateSpec
+                    
+                    for cap_name, cap_config in request.capabilities.items():
+                        cap_type = None
+                        requested_rate = 10.0  # Default
+                        
+                        if cap_name.lower() in ["sensory", "sensor", "input", "sensors"]:
+                            cap_type = CapabilityType.SENSORY
+                        elif cap_name.lower() in ["motor", "output", "actuator", "motors"]:
+                            cap_type = CapabilityType.MOTOR
+                        elif cap_name.lower() in ["visualization", "viz"]:
+                            cap_type = CapabilityType.VISUALIZATION
+                        
+                        if cap_type and isinstance(cap_config, dict):
+                            if "rate_hz" in cap_config:
+                                requested_rate = float(cap_config["rate_hz"])
+                                logger.warning(f"🎯 [REG-RATE] Found {cap_name} rate_hz={requested_rate} for {agent_id}")
+                            
+                            capability_rates_to_register.append(CapabilityRateSpec(
+                                capability_type=cap_type,
+                                requested_rate_hz=requested_rate,
+                                required=True
+                            ))
+                except Exception as e:
+                    logger.error(f"❌ Error extracting capability rates for {agent_id}: {e}")
+
                 # 4. Sanitize capabilities (deprecation-aware) and create/update agent entry
                 caps_sanitized = self._sanitize_capabilities(request.capabilities)
                 agent_data = {
@@ -344,7 +380,7 @@ class RegistrationManager:
                     fq_coordination_result,
                 )
 
-                # 8. Update State Manager - call register_agent method
+                # 8. Update State Manager FIRST - agent must be in connected_agents before capability rates can be persisted
                 if self._state_manager:
                     try:
                         # Proactively clear any stale SHM mappings on re-registration
@@ -368,6 +404,28 @@ class RegistrationManager:
                         logger.error(
                             f"❌ Error calling state manager register_agent: {e}"
                         )
+
+                # 8b. NOW register capability rates (agent is in state manager's connected_agents)
+                try:
+                    from feagi.core.capability_rate_manager import get_capability_rate_manager
+                    
+                    logger.warning(f"🔍 [REG-RATE-DEBUG] capability_rates_to_register has {len(capability_rates_to_register)} specs")
+                    for spec in capability_rates_to_register:
+                        logger.warning(f"   - Spec: {spec.capability_type} @ {spec.requested_rate_hz} Hz")
+                    
+                    if capability_rates_to_register:
+                        capability_manager = get_capability_rate_manager()
+                        logger.warning(f"🔍 [REG-INSTANCE] Using capability_manager id={id(capability_manager)} for {agent_id}")
+                        approved_configs, rejections = capability_manager.register_agent_capabilities(
+                            agent_id, capability_rates_to_register
+                        )
+                        logger.warning(f"✅ [REG-RATE] Registered {len(approved_configs)} capability rates for {agent_id}")
+                        for config in approved_configs:
+                            logger.warning(f"   - {config.capability_type}: {config.approved_rate_hz} Hz")
+                        if rejections:
+                            logger.warning(f"⚠️ [REG-RATE] Some capabilities were rejected: {rejections}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to register capability rates for {agent_id}: {e}", exc_info=True)
 
                 # 9. Notify state change listeners
                 self._notify_state_change(

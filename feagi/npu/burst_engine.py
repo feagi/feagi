@@ -6,6 +6,7 @@ FCL (candidates) → Fire Queue (firing) → Fire Ledger (history)
 """
 
 from typing import Dict, List, Optional, Any, Union, Tuple
+import time
 import numpy as np
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -277,7 +278,16 @@ class BurstEngine:
                           self.injection_service, self.enable_injection)
         
         # 2. Get manual stimulation / sensory neurons
+        # PROFILING: Track sensory injection rate (count FRAMES not areas)
+        if not hasattr(self, '_sensory_stats'):
+            self._sensory_stats = {'frames': 0, 'areas': 0, 'neurons': 0, 'last_log': time.time()}
+        
         if hasattr(self, '_pending_external_activations') and self._pending_external_activations:
+            # Count this as ONE frame (multiple areas may be present)
+            try:
+                self._sensory_stats['frames'] += 1
+            except:
+                pass
             pending = getattr(self, '_pending_external_activations', {})
             # FIX: Create a copy to avoid "dictionary changed size during iteration" error
             # Sensory data can arrive from other threads during this loop
@@ -314,12 +324,27 @@ class BurstEngine:
                     found_count = sum(1 for nid in neuron_ids if nid is not None)
                     manual_neurons.extend([nid for nid in neuron_ids if nid is not None])
                     
+                    # PROFILING: Track sensory neurons injected (safe)
+                    try:
+                        self._sensory_stats['areas'] += 1
+                        self._sensory_stats['neurons'] += found_count
+                    except:
+                        pass
+                    
                     if found_count < len(coords_x):
                         logger.debug("Batch lookup for %s: found=%d/%d coordinates", 
                                    area_id, found_count, len(coords_x))
                 # Direct neuron ID list
                 elif isinstance(area_data, (list, np.ndarray)):
+                    neuron_count = len(area_data)
                     manual_neurons.extend([int(nid) for nid in area_data])
+                    
+                    # PROFILING: Track sensory neurons injected (safe)
+                    try:
+                        self._sensory_stats['areas'] += 1
+                        self._sensory_stats['neurons'] += neuron_count
+                    except:
+                        pass
             
             # Clear pending activations after collection
             self._pending_external_activations.clear()
@@ -327,6 +352,20 @@ class BurstEngine:
             logger.debug("🦀 [RUST-NPU] Manual stimulation neurons retrieved: %d neurons - %s", 
                        len(manual_neurons),
                        manual_neurons[:10] if len(manual_neurons) > 10 else manual_neurons)
+        
+        # PROFILING: Log sensory injection rate every 5 seconds (safe - won't break injection)
+        try:
+            if hasattr(self, '_sensory_stats') and time.time() - self._sensory_stats['last_log'] >= 5.0:
+                frames = self._sensory_stats.get('frames', 0)
+                areas = self._sensory_stats.get('areas', 0)
+                neurons = self._sensory_stats.get('neurons', 0)
+                frame_rate = frames / 5.0
+                avg_areas = areas / frames if frames > 0 else 0
+                avg_neurons = neurons / frames if frames > 0 else 0
+                logger.warning(f"⚠️ [VIDEO-INJECT] Last 5 sec: {frames} frames at {frame_rate:.1f} Hz ({areas} areas total, {avg_areas:.1f} areas/frame, {avg_neurons:.0f} neurons/frame)")
+                self._sensory_stats = {'frames': 0, 'areas': 0, 'neurons': 0, 'last_log': time.time()}
+        except Exception as e:
+            logger.debug(f"Profiling error (non-critical): {e}")
         
         # Combine all injection neurons
         all_injection_neurons = power_neurons + manual_neurons
@@ -734,6 +773,22 @@ class BurstEngine:
                             fired_neurons = self.process_burst()
                             burst_process_time = time.perf_counter() - burst_start_time
                             
+                            # DEBUG: Track empty vs non-empty bursts (safe - won't break burst engine)
+                            try:
+                                if not hasattr(self, '_burst_stats'):
+                                    self._burst_stats = {'empty': 0, 'with_neurons': 0, 'last_log': time.time()}
+                                if len(fired_neurons) > 0:
+                                    self._burst_stats['with_neurons'] += 1
+                                else:
+                                    self._burst_stats['empty'] += 1
+                                if time.time() - self._burst_stats['last_log'] >= 5.0:
+                                    total = self._burst_stats['empty'] + self._burst_stats['with_neurons']
+                                    pct_active = (self._burst_stats['with_neurons'] / total * 100) if total > 0 else 0
+                                    logger.warning(f"⚠️ [BURST-ACTIVITY] Last 5 sec: {self._burst_stats['with_neurons']} bursts with neurons, {self._burst_stats['empty']} empty ({pct_active:.1f}% active)")
+                                    self._burst_stats = {'empty': 0, 'with_neurons': 0, 'last_log': time.time()}
+                            except:
+                                pass
+                            
                             # Track actual burst frequency
                             if self._last_burst_time is not None:
                                 actual_burst_interval = burst_start_time - self._last_burst_time
@@ -781,11 +836,59 @@ class BurstEngine:
                             logger.error("Error in burst processing #%d: %s", self.burst_count, str(e), exc_info=True)
                             # Continue processing even if one burst fails
                         
-                        # Timing control: Add sleep to prevent runaway CPU usage
+                        # Timing control: Frequency-adaptive RTOS-friendly timing
+                        # @cursor:rtos - Automatically selects best strategy based on frequency:
+                        #   <5 Hz: Simple sleep (low CPU, ±10ms precision)
+                        #   5-100 Hz: Adaptive hybrid sleep+busy-wait (10-25% CPU, ±0.5ms precision)
+                        #   >100 Hz: Pure busy-wait (100% CPU, ±0.01ms precision)
+                        # Note: 1 kHz (1ms interval) is achievable but uses 100% of one core
                         try:
-                            # FIXED: Calculate interval dynamically instead of using cached variable
+                            # Calculate target interval
                             current_interval = 1.0 / self.desired_frequency if self.desired_frequency > 0 else 0.1
-                            time.sleep(current_interval)
+                            target_time = burst_start_time + current_interval
+                            remaining = target_time - time.perf_counter()
+                            
+                            # Strategy selection based on frequency
+                            if self.desired_frequency < 5:
+                                # Low frequency (<5 Hz): Simple sleep is sufficient
+                                if remaining > 0:
+                                    time.sleep(remaining)
+                                    
+                            elif self.desired_frequency > 100:
+                                # High frequency (>100 Hz): Pure busy-wait for precision
+                                # Sleep would overshoot entire interval, so just busy-wait
+                                # At 1 kHz: 100% of 1 core, but achieves ±10µs precision
+                                while time.perf_counter() < target_time:
+                                    pass
+                                    
+                            else:
+                                # Medium frequency (5-100 Hz): Adaptive hybrid method
+                                # Initialize adaptive sleep correction on first use
+                                if not hasattr(self, '_sleep_correction'):
+                                    self._sleep_correction = 0.010  # Start with 10ms buffer
+                                    self._sleep_samples = []
+                                
+                                # Adaptive sleep: Use learned correction factor
+                                if remaining > self._sleep_correction:
+                                    sleep_start = time.perf_counter()
+                                    sleep_requested = remaining - self._sleep_correction
+                                    time.sleep(sleep_requested)
+                                    sleep_actual = time.perf_counter() - sleep_start
+                                    
+                                    # Learn from overshoot (exponential moving average)
+                                    overshoot = sleep_actual - sleep_requested
+                                    self._sleep_samples.append(overshoot)
+                                    if len(self._sleep_samples) >= 10:
+                                        avg_overshoot = sum(self._sleep_samples[-10:]) / 10
+                                        # Adjust correction: 70% old + 30% new (smooth adaptation)
+                                        self._sleep_correction = 0.7 * self._sleep_correction + 0.3 * (avg_overshoot + 0.002)
+                                        # Clamp between 2ms and 20ms
+                                        self._sleep_correction = max(0.002, min(0.020, self._sleep_correction))
+                                
+                                # Busy-wait for remaining time (adaptive: typically 2-15ms)
+                                while time.perf_counter() < target_time:
+                                    pass
+                                
                         except Exception:
                             # Fallback if config unavailable
                             time.sleep(0.1)  # @architecture:acceptable - emergency fallback

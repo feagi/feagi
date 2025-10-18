@@ -473,6 +473,15 @@ class VisualizationStream:
                 
                 # FQ sampler rate-limited: sleep to avoid busy-wait
                 if cortical_data is None:
+                    # DEBUG: Track how often we get None (rate limiting or no new bursts)
+                    if not hasattr(self, '_none_count'):
+                        self._none_count = 0
+                        self._none_log_time = time.time()
+                    self._none_count += 1
+                    if time.time() - self._none_log_time >= 5.0:
+                        logger.warning(f"⚠️ [FQ-NONE] Got None from FQ sampler {self._none_count} times in 5 sec (either rate-limiting or no new bursts)")
+                        self._none_count = 0
+                        self._none_log_time = time.time()
                     time.sleep(0.001)  # 1ms sleep to prevent CPU spinning
                     continue
                 
