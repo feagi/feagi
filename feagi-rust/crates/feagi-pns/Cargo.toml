@@ -6,6 +6,7 @@ license = "Apache-2.0"
 description = "FEAGI Peripheral Nervous System - Agent I/O, registration, ZMQ & SHM"
 
 [dependencies]
+feagi-burst-engine = { path = "../feagi-burst-engine" }
 zmq = "0.10"
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

@@ -1589,10 +1589,6 @@ impl CorticalMappedXYZPNeuronDataDecoder {
     }
 }
 
-// TEMPORARY: PyPNS commented out - investigating crash on module import
-// Likely issue with ZMQ initialization or linking
-
-/*
 /// Python wrapper for Rust PNS (Peripheral Nervous System)
 #[pyclass]
 struct PyPNS {
@@ -1633,8 +1629,19 @@ impl PyPNS {
     fn is_running(&self) -> bool {
         self.pns.lock().unwrap().is_running()
     }
+
+    /// Connect PNS to the burst engine's sensory agent manager for SHM I/O
+    /// This allows PNS to register agents with the burst engine
+    fn connect_to_burst_engine(&self, rust_npu: &RustNPU) -> PyResult<()> {
+        if let Some(burst_runner) = &rust_npu.burst_runner {
+            let sensory_mgr = Arc::clone(&burst_runner.lock().unwrap().sensory_manager);
+            self.pns.lock().unwrap().set_sensory_agent_manager(sensory_mgr);
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Burst engine not initialized - call start_burst_loop() first"))
+        }
+    }
 }
-*/
 
 /// Module containing fast neural network operations
 #[pymodule]
@@ -1651,8 +1658,7 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CorticalMappedXYZPNeuronDataDecoder>()?;
     
     // Add PNS (NEW! - Peripheral Nervous System for agent I/O)
-    // TEMPORARY: Disabled due to import crash - investigating
-    // m.add_class::<PyPNS>()?;
+    m.add_class::<PyPNS>()?;
     
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead

@@ -61,6 +61,8 @@ pub struct PNS {
     heartbeat_tracker: Arc<Mutex<HeartbeatTracker>>,
     zmq_streams: Arc<Mutex<Option<ZmqStreams>>>,
     running: Arc<RwLock<bool>>,
+    /// Optional reference to burst engine's sensory agent manager for SHM I/O
+    sensory_agent_manager: Arc<Mutex<Option<Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>>>>,
 }
 
 impl PNS {
@@ -84,7 +86,15 @@ impl PNS {
             heartbeat_tracker,
             zmq_streams: Arc::new(Mutex::new(None)),
             running: Arc::new(RwLock::new(false)),
+            sensory_agent_manager: Arc::new(Mutex::new(None)),
         })
+    }
+
+    /// Set the sensory agent manager (for SHM I/O coordination)
+    /// Should be called before starting the PNS
+    pub fn set_sensory_agent_manager(&self, manager: Arc<std::sync::Mutex<feagi_burst_engine::AgentManager>>) {
+        *self.sensory_agent_manager.lock() = Some(manager);
+        println!("🦀 [PNS] Sensory agent manager connected for SHM I/O");
     }
 
     /// Start all PNS services
