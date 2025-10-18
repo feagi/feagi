@@ -299,11 +299,7 @@ impl RustNPU {
         self.npu.lock().unwrap().set_power_amount(amount);
     }
     
-    /// Set power neurons to inject every burst (for burst loop mode)
-    fn set_power_neurons(&mut self, neuron_ids: Vec<u32>) {
-        let ids: Vec<NeuronId> = neuron_ids.into_iter().map(NeuronId).collect();
-        self.npu.lock().unwrap().set_power_neurons(ids);
-    }
+    // 🔋 Power neurons auto-discovered from neuron array - no separate list!
     
     /// Start the burst loop runner (runs in background Rust thread)
     /// 
@@ -321,12 +317,8 @@ impl RustNPU {
         
         let mut runner = feagi_burst_engine::BurstLoopRunner::new(self.npu.clone(), frequency_hz);
         
-        // Copy power neurons from NPU to runner
-        let power_neurons: Vec<u32> = {
-            let npu = self.npu.lock().unwrap();
-            npu.get_power_neurons().iter().map(|n| n.0).collect()
-        };
-        runner.set_power_neurons(power_neurons);
+        // 🦀 Power neurons are already in RustNPU - runner reads them directly!
+        // NO Python involvement in power injection hot path!
         
         runner.start().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Failed to start burst loop: {}", e))
@@ -655,17 +647,16 @@ impl RustNPU {
     /// This is the complete neural processing pipeline:
     /// Phase 1: Injection → Phase 2: Dynamics → Phase 3: Archival → Phase 5: Cleanup
     /// 
-    /// Args:
-    ///     power_neurons: List of neuron IDs to inject power into (e.g., [0, 1, 2])
+    /// Process a single burst
+    /// 
+    /// 🔋 Power neurons are auto-discovered from neuron array (cortical_idx = 1)
     /// 
     /// Returns:
     ///     BurstResult with fired_neurons, burst number, and performance metrics
-    fn process_burst(&mut self, power_neurons: Vec<u32>) -> PyResult<BurstResult> {
-        let power_neuron_ids: Vec<NeuronId> = power_neurons.iter().map(|&id| NeuronId(id)).collect();
-        
+    fn process_burst(&mut self) -> PyResult<BurstResult> {
         self.npu
             .lock().unwrap()
-            .process_burst(&power_neuron_ids)
+            .process_burst()
             .map(BurstResult::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }

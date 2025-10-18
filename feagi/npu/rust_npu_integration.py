@@ -102,11 +102,10 @@ class RustNPUIntegration:
             synapse_capacity=synapse_capacity
         )
     
-    def process_burst(self, power_neurons: List[int]) -> Dict:
+    def process_burst(self) -> Dict:
         """Process a single burst using Rust NPU.
         
-        Args:
-            power_neurons: List of neuron IDs to inject power into
+        🔋 Power neurons auto-discovered from neuron array (cortical_area = 1)
         
         Returns:
             Dict with keys: fired_neurons, burst, neuron_count, etc.
@@ -118,15 +117,11 @@ class RustNPUIntegration:
         if not self._rust_npu_initialized:
             raise RuntimeError("🦀 [RUST-NPU] CRITICAL: Rust NPU not initialized! This should never happen.")
         
-        logger.debug("🦀 process_burst called with %d power neurons: %s", 
-                      len(power_neurons),
-                      power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
-        
         # Call Rust NPU (THIS IS THE FAST PATH - ALL IN RUST!)
         burst_start = time.perf_counter()
         
         try:
-            result = self._rust_npu.process_burst(power_neurons=power_neurons)
+            result = self._rust_npu.process_burst()
             logger.debug("🦀 Rust NPU process_burst returned: power_injections=%d, fired_neurons=%d", 
                           result.power_injections, len(result.fired_neurons))
             burst_time = (time.perf_counter() - burst_start) * 1000
@@ -454,3 +449,21 @@ class RustNPUIntegration:
         return self._rust_npu.get_neurons_at_coordinates_batch(
             cortical_idx, coords_x, coords_y, coords_z
         )
+    
+    # ═══════════════════════════════════════════════════════════
+    # SYNAPSE MANAGEMENT API (For Dynamic Synapse Updates)
+    # ═══════════════════════════════════════════════════════════
+    
+    def rebuild_synapse_index(self):
+        """Rebuild the synapse index after synapses have been added/removed.
+        
+        This MUST be called after synapses are created via neuroembryogenesis or
+        other mechanisms so that the Rust PropagationEngine can use them.
+        
+        Without this, newly created synapses won't participate in burst processing.
+        """
+        if self._rust_npu:
+            self._rust_npu.rebuild_indexes()
+            logger.info("🦀 [RUST-NPU] Synapse index rebuilt successfully")
+        else:
+            logger.warning("🦀 [RUST-NPU] Cannot rebuild synapse index - NPU not initialized")

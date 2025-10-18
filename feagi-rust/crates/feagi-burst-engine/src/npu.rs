@@ -72,7 +72,6 @@ pub struct RustNPU {
     
     // State
     burst_count: u64,
-    power_neurons: Vec<NeuronId>,  // Power neurons to inject every burst
     
     // Configuration
     power_amount: f32,
@@ -95,7 +94,6 @@ impl RustNPU {
             fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
-            power_neurons: Vec::new(),
             power_amount: 1.0,
         }
     }
@@ -253,25 +251,17 @@ impl RustNPU {
     
     // ===== END SENSORY INJECTION API =====
     
-    // ===== POWER NEURON API =====
-    
-    /// Set power neurons to be injected every burst
-    pub fn set_power_neurons(&mut self, neuron_ids: Vec<NeuronId>) {
-        self.power_neurons = neuron_ids;
-    }
-    
-    /// Get power neurons
-    pub fn get_power_neurons(&self) -> &[NeuronId] {
-        &self.power_neurons
-    }
-    
-    // ===== END POWER NEURON API =====
+    // ===== POWER INJECTION =====
+    // Power neurons are identified by cortical_idx = 1 in the neuron array
+    // No separate list needed - single source of truth!
     
     /// Process a single burst (MAIN METHOD)
     /// 
     /// This is the complete neural processing pipeline:
     /// Phase 1: Injection → Phase 2: Dynamics → Phase 3: Archival → Phase 5: Cleanup
-    pub fn process_burst(&mut self, power_neurons: &[NeuronId]) -> Result<BurstResult> {
+    /// 
+    /// 🔋 Power neurons are auto-discovered from neuron_array (cortical_idx = 1)
+    pub fn process_burst(&mut self) -> Result<BurstResult> {
         self.burst_count += 1;
         
         // Phase 1: Injection (power + synaptic propagation)
@@ -281,7 +271,6 @@ impl RustNPU {
             &self.neuron_array,
             &mut self.propagation_engine,
             &self.previous_fire_queue,
-            power_neurons,
             self.power_amount,
             &self.synapse_array,
         )?;
@@ -781,13 +770,15 @@ struct InjectionResult {
     sensory_injections: usize,
 }
 
-/// Modified Phase 1 injection that accepts synapse array
+/// Phase 1 injection with automatic power neuron discovery
+/// 
+/// 🔋 Power neurons are identified by cortical_idx = 1 (_power area)
+/// No separate list - scans neuron array directly!
 fn phase1_injection_with_synapses(
     fcl: &mut FireCandidateList,
     neuron_array: &NeuronArray,
     propagation_engine: &mut SynapticPropagationEngine,
     previous_fire_queue: &FireQueue,
-    power_neurons: &[NeuronId],
     power_amount: f32,
     synapse_array: &SynapseArray,
 ) -> Result<InjectionResult> {
@@ -797,13 +788,44 @@ fn phase1_injection_with_synapses(
     let mut power_count = 0;
     let mut synaptic_count = 0;
     
-    // 1. Power Injection
-    for &neuron_id in power_neurons {
-        // CRITICAL: Use neuron_id_to_index HashMap to convert ID to array index
-        if let Some(&idx) = neuron_array.neuron_id_to_index.get(&neuron_id.0) {
-            if idx < neuron_array.count && neuron_array.valid_mask[idx] {
-            fcl.add_candidate(neuron_id, power_amount);
-            power_count += 1;
+    // 1. Power Injection - Scan neuron array for cortical_idx = 1
+    static FIRST_LOG: std::sync::Once = std::sync::Once::new();
+    FIRST_LOG.call_once(|| {
+        println!("╔══════════════════════════════════════════════════════════════");
+        println!("║ [POWER-INJECTION] 🔋 AUTO-DISCOVERING POWER NEURONS");
+        println!("║ Scanning neuron array for cortical_idx = 1 (_power area)");
+        println!("╚══════════════════════════════════════════════════════════════");
+    });
+    
+    // Scan all neurons for _power cortical area (cortical_idx = 1)
+    for (neuron_id, &array_idx) in &neuron_array.neuron_id_to_index {
+        if array_idx < neuron_array.count && neuron_array.valid_mask[array_idx] {
+            let cortical_area = neuron_array.cortical_areas[array_idx];
+            
+            // Check if this is a power neuron (cortical_area = 1)
+            if cortical_area == 1 {
+                fcl.add_candidate(NeuronId(*neuron_id), power_amount);
+                power_count += 1;
+                
+                // Log first few injections
+                if power_count <= 3 {
+                    println!("[POWER-INJECTION] ✅ Injected power neuron {} (idx={}, cortical_area={}) with potential {}", 
+                             neuron_id, array_idx, cortical_area, power_amount);
+                }
+            }
+        }
+    }
+    
+    // Log summary
+    if power_count > 0 {
+        println!("[POWER-INJECTION] ✅ Successfully injected {} power neurons into FCL", power_count);
+    } else {
+        static mut NO_POWER_LOGGED: bool = false;
+        unsafe {
+            if !NO_POWER_LOGGED {
+                println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
+                println!("[POWER-INJECTION]    This means _power area has no neurons or they're not loaded yet");
+                NO_POWER_LOGGED = true;
             }
         }
     }

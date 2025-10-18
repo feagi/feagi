@@ -2889,8 +2889,8 @@ class NeuroEmbryogenesis:
                     f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
                 )
                 
-                # CRITICAL: Reinitialize Rust NPU after synapse creation
-                # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to reload its synapse index
+                # CRITICAL: Rebuild Rust NPU synapse index after synapse creation
+                # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to rebuild its synapse index
                 try:
                     # 🦀 RUST: Access Rust NPU through ProcessManager
                     from feagi.process_manager import get_process_manager
@@ -2898,16 +2898,16 @@ class NeuroEmbryogenesis:
                     rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
                     
                     if rust_npu_integration and rust_npu_integration._rust_npu:
-                        logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - reloading synapse index...")
+                        logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - rebuilding synapse index...")
                         try:
-                            # Reload synapses in Rust NPU
-                            rust_npu_integration.reinitialize_rust_npu()
-                            logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after neuroembryogenesis")
-                        except Exception as reinit_error:
-                            logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                            # Rebuild synapse index so new synapses are active
+                            rust_npu_integration.rebuild_synapse_index()
+                            logger.info("🦀 [RUST-NPU] ✅ Synapse index rebuilt successfully - new synapses are now active")
+                        except Exception as rebuild_error:
+                            logger.error(f"🦀 [RUST-NPU] Failed to rebuild synapse index: {rebuild_error}")
                             logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
                     else:
-                        logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                        logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be indexed on first burst")
                 except Exception as rust_error:
                     logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
                     logger.exception("Full stack trace:")

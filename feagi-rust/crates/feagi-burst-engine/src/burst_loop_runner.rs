@@ -25,11 +25,11 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 /// Burst loop runner - manages the main neural processing loop
+/// 
+/// 🦀 Power neurons are stored in RustNPU, not here - 100% Rust!
 pub struct BurstLoopRunner {
-    /// Shared NPU instance
+    /// Shared NPU instance (holds power neurons internally)
     npu: Arc<Mutex<RustNPU>>,
-    /// Power neurons to inject every burst
-    power_neurons: Vec<NeuronId>,
     /// Target frequency in Hz
     frequency_hz: f64,
     /// Running flag (atomic for thread-safe stop)
@@ -59,19 +59,12 @@ impl BurstLoopRunner {
         let sensory_manager = AgentManager::new(injection_callback);
         Self {
             npu,
-            power_neurons: Vec::new(),
             frequency_hz,
             running: Arc::new(AtomicBool::new(false)),
             burst_count: Arc::new(AtomicU64::new(0)),
             thread_handle: None,
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
         }
-    }
-    
-    /// Set power neurons to inject every burst
-    pub fn set_power_neurons(&mut self, neuron_ids: Vec<u32>) {
-        self.power_neurons = neuron_ids.into_iter().map(NeuronId).collect();
-        println!("[BURST-RUNNER] Set {} power neurons", self.power_neurons.len());
     }
     
     /// Set burst frequency (can be called while running)
@@ -81,19 +74,20 @@ impl BurstLoopRunner {
     }
     
     /// Start the burst loop in a background thread
+    /// 
+    /// 🦀 Power neurons are read from RustNPU internally - 100% Rust!
     pub fn start(&mut self) -> Result<(), String> {
         if self.running.load(Ordering::Acquire) {
             return Err("Burst loop already running".to_string());
         }
         
-        println!("[BURST-RUNNER] Starting burst loop at {:.2} Hz with {} power neurons", 
-                 self.frequency_hz, self.power_neurons.len());
+        println!("[BURST-RUNNER] Starting burst loop at {:.2} Hz (power neurons auto-discovered from cortical_idx=1)", 
+                 self.frequency_hz);
         
         self.running.store(true, Ordering::Release);
         self.burst_count.store(0, Ordering::Release);
         
         let npu = self.npu.clone();
-        let power_neurons = self.power_neurons.clone();
         let frequency = self.frequency_hz;
         let running = self.running.clone();
         let burst_count = self.burst_count.clone();
@@ -101,7 +95,7 @@ impl BurstLoopRunner {
         self.thread_handle = Some(thread::Builder::new()
             .name("feagi-burst-loop".to_string())
             .spawn(move || {
-                burst_loop(npu, power_neurons, frequency, running, burst_count);
+                burst_loop(npu, frequency, running, burst_count);
             })
             .map_err(|e| format!("Failed to spawn burst loop thread: {}", e))?);
         
@@ -147,9 +141,9 @@ impl Drop for BurstLoopRunner {
 /// Main burst processing loop (runs in dedicated thread)
 /// 
 /// This is the HOT PATH - zero Python involvement!
+/// Power neurons are read directly from RustNPU's internal state.
 fn burst_loop(
     npu: Arc<Mutex<RustNPU>>,
-    power_neurons: Vec<NeuronId>,
     frequency_hz: f64,
     running: Arc<AtomicBool>,
     burst_count: Arc<AtomicU64>,
@@ -176,9 +170,10 @@ fn burst_loop(
         last_burst_time = Some(burst_start);
         
         // Process burst (THE HOT PATH!)
-        let fired_count = {
+        // 🔋 Power neurons auto-discovered from neuron array - 100% Rust!
+        let _fired_count = {
             let mut npu_lock = npu.lock().unwrap();
-            match npu_lock.process_burst(&power_neurons) {
+            match npu_lock.process_burst() {
                 Ok(result) => {
                     total_neurons_fired += result.neuron_count;
                     result.neuron_count
