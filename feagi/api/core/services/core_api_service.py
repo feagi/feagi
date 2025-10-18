@@ -1412,133 +1412,13 @@ class CoreAPIService:
         return self.get_burst_engine()
 
     def get_burst_engine(self):
-        """Get the burst engine instance - always returns the singleton instance."""
-        # Import here to avoid circular imports
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-
-            # Always use the singleton instance - never create a new one
-            singleton_instance = BurstEngine.get_instance()
-
-            if singleton_instance is None:
-                # Create singleton instance only if none exists
-                self.logger.info(
-                    "[DEBUG] CORE API: Creating singleton BurstEngine instance"
-                )
-
-                # Check for debug NPU flag and pass through config
-                debug_npu = self.state_manager.is_debug_npu_enabled()
-                engine_config: Dict[str, Any] = {"debug_npu": debug_npu}
-                #  Forward memory_processing config if present (authoritative
-                #  over legacy keys)
-                if "memory_processing" in self._config:
-                    engine_config["memory_processing"] = self._config.get(
-                        "memory_processing", {}
-                    )
-                else:
-                    #  Backward compatibility with legacy placement under
-                    #  [connectome]
-                    mp_batch = self._config.get("connectome", {}).get(
-                        "memory_processing_batch_size"
-                    )
-                    mp_cache = self._config.get("connectome", {}).get(
-                        "memory_pattern_cache_size"
-                    )
-                    if mp_batch is not None or mp_cache is not None:
-                        engine_config["memory_processing"] = {
-                            "batch_size": (
-                                mp_batch if mp_batch is not None else 100
-                            ),
-                            "pattern_cache_size": (
-                                mp_cache if mp_cache is not None else 10000
-                            ),
-                        }
-
-                singleton_instance = BurstEngine(
-                    connectome_manager=self._connectome_manager,
-                    config=engine_config,
-                )
-                
-                # ✅ CONFIGURE NPU AS PRIMARY OWNER OF SYNAPTIC UPDATES
-                # @ruff-skip: critical hotfix to enforce single NPUInterface instance - cleanup task: NPU-UNIFY-001
-                self.logger.info("🧠 Configuring NPU as primary owner of synaptic updates (unified instance)...")
-
-                # Use the existing NPU interface from ConnectomeManager to avoid duplication
-                npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
-                if npu_interface is None:
-                    # If ConnectomeManager has not initialized NPU yet, initialize via its API
-                    try:
-                        # Read desired backend from config and initialize through ConnectomeManager
-                        npu_config = self._config.get("npu", {})
-                        backend_str = npu_config.get("backend", "cpu")
-                        from feagi.npu.data_structures import BackendType
-                        backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
-                        backend = backend_map.get(backend_str, BackendType.CPU)
-                        # Create directly and set on CM to ensure single source
-                        from feagi.npu.interface import NPUInterface
-                        npu_interface = NPUInterface(backend=backend)
-                        # Ensure CM adopts this instance and exposes arrays
-                        if hasattr(self._connectome_manager, "_npu_interface"):
-                            self._connectome_manager._npu_interface = npu_interface
-                            if hasattr(self._connectome_manager, "neuron_array"):
-                                self._connectome_manager.neuron_array = npu_interface.neuron_array
-                            if hasattr(self._connectome_manager, "synapse_array"):
-                                self._connectome_manager.synapse_array = npu_interface.synapse_array
-                            if hasattr(self._connectome_manager, "memory_neuron_array"):
-                                self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
-                    except Exception as init_err:
-                        self.logger.error(f"Failed to initialize NPU interface via ConnectomeManager: {init_err}")
-                        raise
-
-                # Inject the SAME instance into the BurstEngine
-                singleton_instance.npu_interface = npu_interface
-
-                self.logger.info("✅ NPU unified: BurstEngine and ConnectomeManager share the same NPUInterface instance")
-                self.logger.info(f"   NPU id: {id(npu_interface)}")
-                self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
-                self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
-                # NPU configured
-            else:
-                # Existing singleton - ensure NPU is configured
-                if not hasattr(singleton_instance, 'npu_interface') or singleton_instance.npu_interface is None:
-                    self.logger.info("🔧 Configuring NPU for existing BurstEngine singleton (unified instance)...")
-
-                    # Reuse the ConnectomeManager's NPU interface
-                    npu_interface = getattr(self._connectome_manager, "_npu_interface", None)
-                    if npu_interface is None:
-                        # Initialize if missing
-                        try:
-                            npu_config = self._config.get("npu", {})
-                            backend_str = npu_config.get("backend", "cpu")
-                            from feagi.npu.data_structures import BackendType
-                            backend_map = {"cpu": BackendType.CPU, "cuda": BackendType.CUDA, "wgpu": BackendType.WGPU}
-                            backend = backend_map.get(backend_str, BackendType.CPU)
-                            from feagi.npu.interface import NPUInterface
-                            npu_interface = NPUInterface(backend=backend)
-                            # Attach to CM
-                            self._connectome_manager._npu_interface = npu_interface
-                            self._connectome_manager.neuron_array = npu_interface.neuron_array
-                            self._connectome_manager.synapse_array = npu_interface.synapse_array
-                            self._connectome_manager.memory_neuron_array = npu_interface.memory_neuron_array
-                        except Exception as init_err:
-                            self.logger.error(f"Failed to initialize NPU interface for existing singleton: {init_err}")
-                            raise
-
-                    singleton_instance.npu_interface = npu_interface
-
-                    self.logger.info("✅ NPU unified for existing singleton")
-                    self.logger.info(f"   NPU id: {id(npu_interface)}")
-                    self.logger.info(f"   Max neurons: {npu_interface.max_neurons:,}")
-                    self.logger.info(f"   Max synapses: {npu_interface.synapse_array.max_synapses:,}")
-                    # NPU is configured at this point
-                else:
-                    self.logger.debug("NPU already configured for existing singleton")
-
-            return singleton_instance
-
-        except Exception as e:
-            self.logger.error(f"Error getting burst engine: {str(e)}")
-            return None
+        """Get the burst engine instance.
+        
+        🦀 RUST: Always returns None - burst engine has been moved to Rust.
+        All burst processing is now handled by the Rust NPU via ProcessManager.
+        """
+        # 🦀 RUST: Burst engine no longer exists - always return None
+        return None
 
     def get_connectome_manager(self):
         """Get the connectome manager instance."""
@@ -1611,21 +1491,18 @@ class CoreAPIService:
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
         """Get the global fire queue data from Rust Fire Queue."""
         try:
-            # Get burst engine
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine.get_instance()
+            # 🦀 RUST: Get Rust NPU directly from ProcessManager
+            from feagi.process_manager import get_process_manager
+            process_manager = get_process_manager()
             
-            if not burst_engine:
-                self.logger.debug("🔥 [CORE API] No burst engine available")
-                return self._empty_fire_queue_response()
-            
-            # Get Rust NPU
-            if not hasattr(burst_engine, 'rust_npu') or not burst_engine.rust_npu:
+            if not process_manager or not process_manager.rust_npu_integration:
                 self.logger.debug("🔥 [CORE API] Rust NPU not available")
                 return self._empty_fire_queue_response()
             
+            rust_npu_integration = process_manager.rust_npu_integration
+            
             # Sample from Rust Fire Queue
-            sample = burst_engine.rust_npu.sample_fire_queue()
+            sample = rust_npu_integration.sample_fire_queue()
             if not sample:
                 self.logger.debug("🔥 [CORE API] Fire queue is empty - no neurons fired globally")
                 return self._empty_fire_queue_response()
@@ -1649,7 +1526,7 @@ class CoreAPIService:
                     coordinates.append((coords_x[i], coords_y[i], coords_z[i]))
                 
                 # Get neuron states from Rust NPU
-                rust_npu = burst_engine.rust_npu._rust_npu
+                rust_npu = rust_npu_integration._rust_npu
                 for nid in area_data.get('neuron_ids', []):
                     try:
                         state = rust_npu.get_neuron_state(nid)
@@ -4133,28 +4010,27 @@ class CoreAPIService:
                 self.logger.info(f"Successfully created {created_count} synapses")
                 
                 # CRITICAL: Reinitialize Rust NPU after synapse changes
-                # The old Python NPU accessed synapse_array LIVE during each burst
-                # The Rust NPU loads synapses once at init, so we need to reload after changes
+                # 🦀 RUST: Rebuild synapse index after adding new synapses
+                # The Rust NPU PropagationEngine uses a synapse index for fast lookups
                 try:
-                    from feagi.npu.burst_engine import BurstEngine
-                    burst_engine = BurstEngine.get_instance()
-                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
-                        # Only reinitialize if Rust NPU is already initialized
-                        if burst_engine._rust_npu_integration is not None:
-                            self.logger.info("🦀 [RUST-NPU] Synapse(s) added - reloading synapse index from synapse_array...")
+                    from feagi.process_manager import get_process_manager
+                    process_manager = get_process_manager()
+                    if process_manager and process_manager.rust_npu_integration:
+                        rust_npu_integration = process_manager.rust_npu_integration
+                        if rust_npu_integration._rust_npu_initialized:
+                            self.logger.info("🦀 [RUST-NPU] Synapse(s) added - rebuilding synapse index...")
                             try:
-                                burst_engine.reinitialize_rust_npu()
-                                self.logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully")
-                            except Exception as reinit_error:
-                                # If reinitialization fails, the old state is restored (see reinitialize_rust_npu)
-                                self.logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                rust_npu_integration.rebuild_synapse_index()
+                                self.logger.info("🦀 [RUST-NPU] ✅ Synapse index rebuilt successfully")
+                            except Exception as rebuild_error:
+                                self.logger.error(f"🦀 [RUST-NPU] Failed to rebuild synapse index: {rebuild_error}")
                                 self.logger.warning("🦀 [RUST-NPU] ⚠️ New synapse(s) will not be active until FEAGI restart")
                         else:
                             self.logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
                     else:
-                        self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                        self.logger.debug("🦀 [RUST-NPU] Not available")
                 except Exception as rust_error:
-                    self.logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                    self.logger.error(f"🦀 [RUST-NPU] Error during synapse index rebuild: {rust_error}")
                     self.logger.exception("Full stack trace:")
                     # Don't fail the synapse creation for Rust NPU issues
                 

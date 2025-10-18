@@ -258,7 +258,8 @@ impl RustNPU {
     /// Process a single burst (MAIN METHOD)
     /// 
     /// This is the complete neural processing pipeline:
-    /// Phase 1: Injection → Phase 2: Dynamics → Phase 3: Archival → Phase 5: Cleanup
+    /// Phase 1: Injection → Phase 2: Dynamics → Phase 3: Archival → 
+    /// Phase 4: Queue Swap → Phase 5: FQ Sampling → Phase 6: Cleanup
     /// 
     /// 🔋 Power neurons are auto-discovered from neuron_array (cortical_idx = 1)
     pub fn process_burst(&mut self) -> Result<BurstResult> {
@@ -289,7 +290,11 @@ impl RustNPU {
         self.previous_fire_queue = self.current_fire_queue.clone();
         self.current_fire_queue = dynamics_result.fire_queue.clone();
         
-        // Phase 5: Cleanup (clear FCL for next burst)
+        // Phase 5: Sample fire queue for visualization (FQ Sampler)
+        // This makes the fire queue available to BV and motor agents
+        self.fq_sampler.sample(&self.current_fire_queue);
+        
+        // Phase 6: Cleanup (clear FCL for next burst)
         self.fire_candidate_list.clear();
         
         // Build result
@@ -806,27 +811,19 @@ fn phase1_injection_with_synapses(
             if cortical_area == 1 {
                 fcl.add_candidate(NeuronId(*neuron_id), power_amount);
                 power_count += 1;
-                
-                // Log first few injections
-                if power_count <= 3 {
-                    println!("[POWER-INJECTION] ✅ Injected power neuron {} (idx={}, cortical_area={}) with potential {}", 
-                             neuron_id, array_idx, cortical_area, power_amount);
-                }
             }
         }
     }
     
-    // Log summary
-    if power_count > 0 {
-        println!("[POWER-INJECTION] ✅ Successfully injected {} power neurons into FCL", power_count);
-    } else {
-        static mut NO_POWER_LOGGED: bool = false;
-        unsafe {
-            if !NO_POWER_LOGGED {
-                println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
-                println!("[POWER-INJECTION]    This means _power area has no neurons or they're not loaded yet");
-                NO_POWER_LOGGED = true;
-            }
+    // Log only first time or if no power neurons found
+    static mut FIRST_INJECTION: bool = false;
+    unsafe {
+        if !FIRST_INJECTION && power_count > 0 {
+            println!("[POWER-INJECTION] ✅ Injected {} power neurons into FCL", power_count);
+            FIRST_INJECTION = true;
+        } else if power_count == 0 && !FIRST_INJECTION {
+            println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
+            FIRST_INJECTION = true;
         }
     }
     
@@ -891,6 +888,9 @@ impl RustNPU {
     /// - Burst already sampled (deduplication)
     /// 
     /// Returns HashMap of cortical_idx -> area data
+    /// 
+    /// ⚠️ DEPRECATED: This method triggers deduplication and may return None if burst already sampled.
+    /// Use `get_latest_fire_queue_sample()` instead for non-consuming reads.
     pub fn sample_fire_queue(&mut self) -> Option<AHashMap<u32, (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<f32>)>> {
         let sample_result = self.fq_sampler.sample(&self.current_fire_queue)?;
         
@@ -905,6 +905,33 @@ impl RustNPU {
                     area_data.coordinates_y,
                     area_data.coordinates_z,
                     area_data.potentials,
+                )
+            );
+        }
+        
+        Some(result)
+    }
+    
+    /// Get the latest cached Fire Queue sample (non-consuming read)
+    /// 
+    /// This returns the most recent sample WITHOUT triggering rate limiting or deduplication.
+    /// Perfect for Python wrappers and SHM writers that need to read the same burst multiple times.
+    /// 
+    /// Returns None if no sample has been taken yet (no bursts processed).
+    pub fn get_latest_fire_queue_sample(&self) -> Option<AHashMap<u32, (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<f32>)>> {
+        let sample_result = self.fq_sampler.get_latest_sample()?;
+        
+        // Convert to Python-friendly format
+        let mut result = AHashMap::new();
+        for (cortical_idx, area_data) in &sample_result.areas {
+            result.insert(
+                *cortical_idx,
+                (
+                    area_data.neuron_ids.clone(),
+                    area_data.coordinates_x.clone(),
+                    area_data.coordinates_y.clone(),
+                    area_data.coordinates_z.clone(),
+                    area_data.potentials.clone(),
                 )
             );
         }

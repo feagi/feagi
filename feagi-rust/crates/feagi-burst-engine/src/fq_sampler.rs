@@ -96,6 +96,9 @@ pub struct FQSampler {
     
     /// Has motor subscribers
     has_motor_subscribers: bool,
+    
+    /// Latest sample (cached for non-consuming reads)
+    latest_sample: Option<FQSampleResult>,
 }
 
 impl FQSampler {
@@ -116,6 +119,7 @@ impl FQSampler {
             samples_taken: 0,
             has_visualization_subscribers: false,
             has_motor_subscribers: false,
+            latest_sample: None,
         }
     }
     
@@ -188,11 +192,16 @@ impl FQSampler {
         self.last_sampled_burst_id = Some(current_burst_id);
         self.samples_taken += 1;
         
-        Some(FQSampleResult {
+        let result = FQSampleResult {
             timestep: current_burst_id,
             areas,
             total_neurons,
-        })
+        };
+        
+        // Cache the result for non-consuming reads (Python, SHM writer, etc.)
+        self.latest_sample = Some(result.clone());
+        
+        Some(result)
     }
     
     /// Set sample frequency (Hz)
@@ -236,6 +245,19 @@ impl FQSampler {
     /// Get sampling mode
     pub fn get_mode(&self) -> SamplingMode {
         self.mode
+    }
+    
+    /// Get the latest cached sample (non-consuming read)
+    /// 
+    /// This returns a reference to the last successful sample without
+    /// triggering rate limiting or deduplication. Perfect for:
+    /// - Python wrappers
+    /// - SHM writers
+    /// - Multiple consumers reading the same sample
+    /// 
+    /// Returns None if no sample has been taken yet.
+    pub fn get_latest_sample(&self) -> Option<&FQSampleResult> {
+        self.latest_sample.as_ref()
     }
 }
 

@@ -994,8 +994,45 @@ impl RustNPU {
     ///         for cortical_idx, (ids, x, y, z, potentials) in sample.items():
     ///             # Process firing neurons for this area
     ///             pass
+    /// 
+    /// ⚠️ DEPRECATED: Use get_latest_fire_queue_sample() instead to avoid deduplication issues.
     fn sample_fire_queue(&mut self, py: Python) -> PyResult<Option<PyObject>> {
         match self.npu.lock().unwrap().sample_fire_queue() {
+            Some(areas) => {
+                // Convert HashMap to Python dict
+                let py_dict = PyDict::new_bound(py);
+                
+                for (cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials)) in areas {
+                    // Create a tuple of arrays for this area
+                    let area_tuple = (
+                        neuron_ids.to_object(py),
+                        coords_x.to_object(py),
+                        coords_y.to_object(py),
+                        coords_z.to_object(py),
+                        potentials.to_object(py),
+                    );
+                    
+                    py_dict.set_item(cortical_idx, area_tuple)?;
+                }
+                
+                Ok(Some(py_dict.into()))
+            }
+            None => Ok(None),
+        }
+    }
+    
+    /// Get the latest cached Fire Queue sample (non-consuming read)
+    /// 
+    /// This returns the most recent sample WITHOUT triggering rate limiting or deduplication.
+    /// Unlike sample_fire_queue(), this can be called multiple times for the same burst.
+    /// 
+    /// Returns:
+    ///     Dict[cortical_idx: int, tuple] where tuple is:
+    ///     (neuron_ids, coords_x, coords_y, coords_z, potentials)
+    ///     
+    ///     Returns None if no bursts have been processed yet.
+    fn get_latest_fire_queue_sample(&self, py: Python) -> PyResult<Option<PyObject>> {
+        match self.npu.lock().unwrap().get_latest_fire_queue_sample() {
             Some(areas) => {
                 // Convert HashMap to Python dict
                 let py_dict = PyDict::new_bound(py);

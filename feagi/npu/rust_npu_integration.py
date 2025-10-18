@@ -249,6 +249,8 @@ class RustNPUIntegration:
     def sample_fire_queue(self) -> Optional[Dict[int, Dict[str, List]]]:
         """Sample the current Fire Queue for visualization/motor output.
         
+        ⚠️ CHANGED: Now uses get_latest_fire_queue_sample() internally to avoid deduplication issues.
+        
         This is Entry Point #2: The thin Python API for external systems.
         All sampling logic is in Rust for maximum performance.
         
@@ -264,10 +266,7 @@ class RustNPUIntegration:
                 }
             }
             
-            Returns None if:
-            - Rate limit not met
-            - Fire Queue is empty
-            - Burst already sampled (deduplication)
+            Returns None if no bursts have been processed yet.
         
         Example:
             sample = rust_npu_integration.sample_fire_queue()
@@ -280,8 +279,9 @@ class RustNPUIntegration:
         if not self._rust_npu:
             return None
         
-        # Call Rust FQ Sampler
-        rust_sample = self._rust_npu.sample_fire_queue()
+        # 🦀 RUST: Use get_latest_fire_queue_sample() to avoid deduplication
+        # The burst loop already calls sample() in Phase 5, so we just read the cached result
+        rust_sample = self._rust_npu.get_latest_fire_queue_sample()
         if rust_sample is None:
             return None
         

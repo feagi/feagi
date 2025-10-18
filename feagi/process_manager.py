@@ -1830,33 +1830,23 @@ class ProcessManager:
             # Import Rust FQ sampler wrapper
             from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper
 
-            # Create the Rust-backed sampler
-            # RustFQSamplerWrapper handles the Rust NPU integration internally
-            burst_engine = self._core_api.get_burst_engine() if self._core_api else None
+            # 🦀 RUST: Get Rust NPU Integration directly from ProcessManager
+            # (no more Python burst engine middleman!)
+            rust_npu = self.rust_npu_integration
             
-            if not burst_engine:
-                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Burst engine not available (core_api={self._core_api is not None})")
+            if not rust_npu:
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust NPU Integration not available")
+                logger.error(f"[DEBUG] ProcessManager.rust_npu_integration is None - init_critical_processes may not have run")
                 return False
             
-            # Check if burst engine is running
+            # Check if Rust burst loop is running
             from feagi.core.state_manager import ServiceState, FeagiStateManager
             state_manager = FeagiStateManager.instance()
             burst_state = state_manager.get_burst_engine_state()
             
             if burst_state != ServiceState.READY:
-                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Burst engine not running (state={burst_state})")
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust burst loop not running (state={burst_state})")
                 logger.error(f"[DEBUG] Please start the burst engine before registering agents")
-                return False
-                
-            if not hasattr(burst_engine, 'rust_npu'):
-                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Burst engine has no rust_npu attribute (type={type(burst_engine).__name__})")
-                return False
-                
-            rust_npu = burst_engine.rust_npu
-            
-            if not rust_npu:
-                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Burst engine rust_npu is None (burst engine may not be fully initialized)")
-                logger.error(f"[DEBUG] Burst engine state: {burst_state}, Please ensure burst engine is started")
                 return False
             
             fq_sampler = RustFQSamplerWrapper(rust_npu_integration=rust_npu)
@@ -1902,71 +1892,13 @@ class ProcessManager:
             #  coordination
             #  The burst engine should always be available in STANDBY mode for
             #  registration
-            logger.debug(
-                f"🔥 [DEBUG] Attempting to register FQ sampler [{fq_sampler.instance_id}] with burst engine"
+            # 🦀 RUST: No registration needed!
+            # The Rust burst engine automatically updates its internal FQ sampler during process_burst() (Phase 5)
+            # The RustFQSamplerWrapper directly queries rust_npu.sample_fire_queue() to read that data
+            logger.info(
+                f"🦀 [RUST-FQ] FQ sampler [{fq_sampler.instance_id}] created for {mode} - "
+                "no registration needed (Rust NPU auto-updates)"
             )
-            logger.debug(
-                f"🔥 [DEBUG] Burst engine available: {self._burst_engine is not None}"
-            )
-            if self._burst_engine:
-                logger.debug(
-                    f"🔥 [DEBUG] Burst engine type: {type(self._burst_engine)}"
-                )
-                logger.debug(
-                    f"🔥 [DEBUG] Burst engine has register method: {hasattr(self._burst_engine, 'register_fq_sampler')}"
-                )
-                try:
-                    self._burst_engine.register_fq_sampler(fq_sampler)
-                    logger.info(
-                        f"🔥 FQ sampler [{fq_sampler.instance_id}] registered with burst engine successfully"
-                    )
-                    logger.debug(
-                        "🔥 [DEBUG] Registration completed - checking burst engine FQ sampler count"
-                    )
-                    if hasattr(self._burst_engine, "_fq_samplers"):
-                        sampler_count = len(self._burst_engine._fq_samplers)
-                        logger.debug(
-                            f"🔥 [DEBUG] Burst engine now has {sampler_count} registered FQ samplers"
-                        )
-                    else:
-                        logger.warning(
-                            "🔥 [DEBUG] Burst engine has no _fq_samplers attribute - registration may have failed"
-                        )
-                except Exception as reg_error:
-                    logger.error(
-                        f"🔥 Failed to register FQ sampler [{fq_sampler.instance_id}] with burst engine: {reg_error}"
-                    )
-                    import traceback
-
-                    logger.error(
-                        f"🔥 Registration error traceback: {traceback.format_exc()}"
-                    )
-                    #  Continue anyway - FQ sampler can still function without
-                    #  registration
-            else:
-                logger.error(
-                    f"🔥 Could not register FQ sampler [{fq_sampler.instance_id}] - burst engine not available"
-                )
-                logger.error(
-                    "🔥 This should not happen if burst engine is properly initialized in STANDBY mode"
-                )
-                logger.error(
-                    f"🔥 [DEBUG] Process manager state: _burst_engine={self._burst_engine}"
-                )
-                logger.error(
-                    f"🔥 [DEBUG] Core API state: {self._core_api is not None}"
-                )
-                if self._core_api:
-                    try:
-                        be_from_api = self._core_api.get_burst_engine()
-                        logger.error(
-                            f"🔥 [DEBUG] Burst engine from core API: {be_from_api is not None}"
-                        )
-                    except Exception as api_error:
-                        logger.error(
-                            f"🔥 [DEBUG] Error getting burst engine from core API: {api_error}"
-                        )
-                # Continue anyway - the system should still function
 
             #  CRITICAL FIX: DO NOT start internal run() thread for
             #  stream-based samplers
@@ -2027,15 +1959,8 @@ class ProcessManager:
         try:
             if mode == "visualization":
                 if self._viz_fq_sampler is not None:
-                    # Unregister from burst engine first
-                    if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(
-                            self._viz_fq_sampler
-                        )
-                        logger.info(
-                            f"🔥 Visualization FQ sampler [{getattr(self._viz_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
-                        )
-
+                    # 🦀 RUST: No unregister needed - Rust FQ sampler is self-contained
+                    
                     if hasattr(self._viz_fq_sampler, "stop"):
                         self._viz_fq_sampler.stop()
 
@@ -2050,15 +1975,8 @@ class ProcessManager:
 
             elif mode == "opu" or mode == "motor":
                 if self._motor_fq_sampler is not None:
-                    # Unregister from burst engine first
-                    if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(
-                            self._motor_fq_sampler
-                        )
-                        logger.info(
-                            f"🔥 Motor FQ sampler [{getattr(self._motor_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
-                        )
-
+                    # 🦀 RUST: No unregister needed - Rust FQ sampler is self-contained
+                    
                     if hasattr(self._motor_fq_sampler, "stop"):
                         self._motor_fq_sampler.stop()
 
