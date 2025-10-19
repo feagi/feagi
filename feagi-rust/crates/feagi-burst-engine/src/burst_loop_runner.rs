@@ -283,78 +283,93 @@ fn burst_loop(
                     // Debug: Log first successful viz write
                     static FIRST_VIZ_WRITE_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                     
-                    // Encode as Type 11 ByteContainer using feagi_data_serialization
-                    use feagi_data_structures::neurons::xyzp::{CorticalMappedXYZPNeuronData, NeuronXYZPArrays, NeuronXYZP};
-                    use feagi_data_structures::genomic::CorticalID;
-                    use feagi_data_serialization::FeagiByteContainer;
-                    
-                    // Convert FQ data to CorticalMappedXYZPNeuronData
-                    let mut cortical_mapped = CorticalMappedXYZPNeuronData::new();
-                    let mut total_neurons = 0;
-                    
-                    for (area_id, (x_vec, y_vec, z_vec, _id_vec, p_vec)) in fire_data.iter() {
-                        total_neurons += x_vec.len();
+            // Encode as raw Type 11 structure (no container wrapper, like rust-py-libs pattern)
+            use feagi_data_structures::neurons::xyzp::{CorticalMappedXYZPNeuronData, NeuronXYZPArrays};
+            use feagi_data_structures::genomic::CorticalID;
+            use feagi_data_serialization::FeagiSerializable;
+            
+            // Convert FQ data to CorticalMappedXYZPNeuronData
+            let mut cortical_mapped = CorticalMappedXYZPNeuronData::new();
+            let mut total_neurons = 0;
+            
+            for (area_id, (x_vec, y_vec, z_vec, _id_vec, p_vec)) in fire_data.iter() {
+                total_neurons += x_vec.len();
+                
+                // Get cortical area name from NPU mapping
+                let cortical_name_opt = npu.lock().unwrap().get_cortical_area_name(*area_id).map(|s| s.to_string());
+                let cortical_id = match cortical_name_opt {
+                    Some(name) => {
+                        let mut bytes = [b' '; 6];
+                        let name_bytes = name.as_bytes();
+                        let copy_len = name_bytes.len().min(6);
+                        bytes[..copy_len].copy_from_slice(&name_bytes[..copy_len]);
                         
-                        // Get cortical area name from NPU mapping (clone to avoid lifetime issues)
-                        let cortical_name_opt = npu.lock().unwrap().get_cortical_area_name(*area_id).map(|s| s.to_string());
-                        let cortical_id = match cortical_name_opt {
-                            Some(name) => {
-                                match CorticalID::new_custom_cortical_area_id(name.clone()) {
-                                    Ok(id) => id,
-                                    Err(e) => {
-                                        eprintln!("[BURST-LOOP] ❌ Failed to create CorticalID for '{}': {:?}", name, e);
-                                        continue;
-                                    }
-                                }
-                            },
-                            None => {
-                                eprintln!("[BURST-LOOP] ❌ No cortical area name registered for area_id {}", area_id);
+                        match CorticalID::from_bytes(&bytes) {
+                            Ok(id) => id,
+                            Err(e) => {
+                                eprintln!("[BURST-LOOP] ❌ Failed to create CorticalID for '{}': {:?}", name, e);
                                 continue;
                             }
-                        };
-                        
-                        let mut neuron_arrays = NeuronXYZPArrays::with_capacity(x_vec.len());
-                        
-                        for i in 0..x_vec.len() {
-                            let neuron = NeuronXYZP::new(x_vec[i], y_vec[i], z_vec[i], p_vec[i]);
-                            neuron_arrays.push(&neuron);
                         }
-                        
+                    },
+                    None => {
+                        eprintln!("[BURST-LOOP] ❌ No cortical area name registered for area_id {}", area_id);
+                        continue;
+                    }
+                };
+                
+                match NeuronXYZPArrays::new_from_vectors(
+                    x_vec.clone(),
+                    y_vec.clone(),
+                    z_vec.clone(),
+                    p_vec.clone()
+                ) {
+                    Ok(neuron_arrays) => {
                         cortical_mapped.insert(cortical_id, neuron_arrays);
+                    },
+                    Err(e) => {
+                        eprintln!("[BURST-LOOP] ❌ Failed to create neuron arrays: {:?}", e);
+                        continue;
                     }
-                    
-                    // Skip encoding if no valid cortical areas
-                    if cortical_mapped.len() == 0 {
-                        static SKIP_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-                        if !SKIP_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
-                            eprintln!("[BURST-LOOP] ⚠️ Skipping viz encoding - no cortical areas with registered names (neuroembryogenesis may not be complete yet)");
-                            SKIP_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
-                        }
-                        return;
+                }
+            }
+            
+            if cortical_mapped.len() == 0 {
+                static SKIP_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !SKIP_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                    eprintln!("[BURST-LOOP] ⚠️ Skipping viz - no cortical areas yet");
+                    SKIP_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                return;
+            }
+            
+            // Use raw FeagiSerializable API (like rust-py-libs pattern)
+            let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
+            let mut buffer = vec![0u8; bytes_needed];
+            
+            if let Err(e) = cortical_mapped.try_write_to_byte_slice(&mut buffer) {
+                eprintln!("[BURST-LOOP] ❌ Failed to serialize: {:?}", e);
+                return;
+            }
+            
+            // Debug: Log first few bytes
+            if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                eprintln!("[BURST-LOOP] 🔍 First 32 bytes: {:?}", &buffer[..buffer.len().min(32)]);
+            }
+            
+            // Write raw structure bytes to SHM
+            match writer.write_payload(&buffer) {
+                Ok(_) => {
+                    if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                        println!("[BURST-LOOP] 🎨 ✅ First viz SHM write (raw Type 11): {} bytes ({} neurons across {} areas)", 
+                            buffer.len(), total_neurons, cortical_mapped.len());
+                        FIRST_VIZ_WRITE_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
                     }
-                    
-                    // Use official feagi_data_serialization API to encode
-                    let mut byte_container = FeagiByteContainer::new_empty();
-                    if let Err(e) = byte_container.overwrite_byte_data_with_single_struct_data(&cortical_mapped, 0) {
-                        eprintln!("[BURST-LOOP] ❌ Failed to encode viz data: {:?}", e);
-                        return;
-                    }
-                    
-                    let encoded = byte_container.get_byte_ref();
-                    
-                    // Write to SHM
-                    match writer.write_payload(encoded) {
-                        Ok(_) => {
-                            if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
-                                println!("[BURST-LOOP] 🎨 ✅ First viz SHM write (Type 11): {} bytes ({} neurons across {} areas)", 
-                                    encoded.len(), total_neurons, fire_data.len());
-                                FIRST_VIZ_WRITE_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("[BURST-LOOP] ❌ Failed to write viz SHM: {}", e);
-                        }
-                    }
+                }
+                Err(e) => {
+                    eprintln!("[BURST-LOOP] ❌ Failed to write viz SHM: {}", e);
+                }
+            }
                 }
             }
         }
