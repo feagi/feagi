@@ -292,8 +292,18 @@ fn burst_loop(
             let mut cortical_mapped = CorticalMappedXYZPNeuronData::new();
             let mut total_neurons = 0;
             
-            for (area_id, (x_vec, y_vec, z_vec, _id_vec, p_vec)) in fire_data.iter() {
-                total_neurons += x_vec.len();
+            for (area_id, (_id_vec, x_vec, y_vec, z_vec, p_vec)) in fire_data.iter() {
+                total_neurons += _id_vec.len();
+                
+                // Debug: Log what areas we're encoding
+                static FIRST_AREAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !FIRST_AREAS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                    let area_name = npu.lock().unwrap().get_cortical_area_name(*area_id).map(|s| s.to_string());
+                    eprintln!("[BURST-LOOP] 🔍 Area {} ({}): {} neurons", area_id, area_name.as_deref().unwrap_or("unknown"), _id_vec.len());
+                    if fire_data.len() == 1 {
+                        FIRST_AREAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
                 
                 // Get cortical area name from NPU mapping
                 let cortical_name_opt = npu.lock().unwrap().get_cortical_area_name(*area_id).map(|s| s.to_string());
@@ -352,18 +362,18 @@ fn burst_loop(
                 return;
             }
             
-            // Debug: Log first few bytes
-            if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
-                eprintln!("[BURST-LOOP] 🔍 First 32 bytes: {:?}", &buffer[..buffer.len().min(32)]);
-            }
-            
             // Write raw structure bytes to SHM
             match writer.write_payload(&buffer) {
                 Ok(_) => {
-                    if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
-                        println!("[BURST-LOOP] 🎨 ✅ First viz SHM write (raw Type 11): {} bytes ({} neurons across {} areas)", 
-                            buffer.len(), total_neurons, cortical_mapped.len());
-                        FIRST_VIZ_WRITE_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                    static VIZ_WRITE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                    let count = VIZ_WRITE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    
+                    if count == 0 || count % 150 == 0 {
+                        println!("[BURST-LOOP] 🎨 Viz #{}: {} bytes, {} neurons, {} areas", 
+                            count, buffer.len(), total_neurons, cortical_mapped.len());
+                        for (cortical_id, _) in &cortical_mapped.mappings {
+                            println!("[BURST-LOOP]   - {}", cortical_id.as_ascii_string());
+                        }
                     }
                 }
                 Err(e) => {
