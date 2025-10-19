@@ -671,6 +671,7 @@ Once both are ready, your agent will automatically connect.
     async def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats to keep the connection alive."""
         interval_sec = 10.0
+        heartbeat_count = 0
         try:
             while self.connected:
                 try:
@@ -687,12 +688,17 @@ Once both are ready, your agent will automatically connect.
                         if self._http_session is None:
                             self._http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3))
                         await self._http_session.post(url, json={"agent_id": self.agent_id})
-                    except Exception:
+                        heartbeat_count += 1
+                        if heartbeat_count == 1 or heartbeat_count % 6 == 0:
+                            logger.info(f"💓 Heartbeat #{heartbeat_count} sent to FEAGI")
+                    except Exception as e:
                         # Best-effort HTTP heartbeat; continue even if unavailable
-                        pass
-                except Exception as _:
+                        if heartbeat_count == 0:
+                            logger.warning(f"⚠️ HTTP heartbeat failed: {e}")
+                except Exception as e:
                     # Non-fatal; keep connection state and retry later
-                    pass
+                    if heartbeat_count == 0:
+                        logger.warning(f"⚠️ ZMQ heartbeat failed: {e}")
                 await asyncio.sleep(interval_sec)
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully

@@ -27,6 +27,7 @@ dependencies = [
     "numpy>=1.20.0",
     "pyzmq>=24.0.0",
     "feagi-rust-py-libs>=0.0.73",
+    "aiohttp>=3.9.0",
 ]
 
 [project.optional-dependencies]
