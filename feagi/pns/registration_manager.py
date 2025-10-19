@@ -1042,24 +1042,17 @@ class RegistrationManager:
         try:
             # Handle visualization FQ sampler
             if self._has_visualization_capabilities(capabilities):
+                # ALWAYS extract frequency from agent (first registration OR re-registration)
+                viz_frequency = 30.0  # Default visualization frequency
+                
+                # Priority 1: Use rate_hz from agent capabilities if provided
+                if isinstance(capabilities.get("visualization"), dict):
+                    requested_rate = capabilities["visualization"].get("rate_hz")
+                    if requested_rate and isinstance(requested_rate, (int, float)) and requested_rate > 0:
+                        viz_frequency = float(requested_rate)
+                        logger.info(f"🎨 [FREQ-AGENT] Using agent-requested visualization frequency: {viz_frequency}Hz")
+                
                 if not self._fq_sampler_states["visualization_enabled"]:
-                    # Get frequency from agent capabilities, config, or use default
-                    viz_frequency = 30.0  # Default visualization frequency
-                    
-                    # Priority 1: Use rate_hz from agent capabilities if provided
-                    if isinstance(capabilities.get("visualization"), dict):
-                        requested_rate = capabilities["visualization"].get("rate_hz")
-                        if requested_rate and isinstance(requested_rate, (int, float)) and requested_rate > 0:
-                            viz_frequency = float(requested_rate)
-                            logger.info(f"🎨 [FREQ-AGENT] Using agent-requested visualization frequency: {viz_frequency}Hz")
-                    
-                    # Priority 2: Config override (if no agent request)
-                    elif hasattr(self._process_manager, "_fq_sampler_config"):
-                        viz_frequency = (
-                            self._process_manager._fq_sampler_config.get(
-                                "visualization_frequency", 30.0
-                            )
-                        )
 
                     # Use minimum of viz_frequency and FEAGI burst frequency
                     #  STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst
@@ -1108,7 +1101,7 @@ class RegistrationManager:
                         logger.error(
                             "🎨 [ERROR] Failed to create visualization FQ sampler"
                         )
-
+                
                 #  CRITICAL: Notify ALL existing FQ samplers that visualization
                 #  client connected
                 self._notify_existing_fq_samplers_visualization(True)

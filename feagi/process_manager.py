@@ -1297,28 +1297,28 @@ class ProcessManager:
         
         Args:
             mode: Either 'visualization' or 'motor'
-            frequency_hz: Sampling frequency in Hz (currently unused - Rust burst loop controls rate)
+            frequency_hz: Sampling frequency in Hz - sets the FQ sampler rate in Rust NPU
             
         Returns:
             True if SHM writer was attached successfully (or will be attached later)
         """
         try:
             if mode == 'visualization':
-                logger.info(f"🎨 [FQ-CREATE] Setting up visualization (Rust burst loop handles FQ sampling + SHM write)")
+                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz (Rust burst loop handles FQ sampling + SHM write)")
                 
                 # Try to attach Rust NPU visualization SHM writer
-                # The Rust burst loop already samples FQ and writes to SHM every burst
-                if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
-                    rust_npu_integration = self._core_api._rust_npu_integration
-                    if rust_npu_integration and rust_npu_integration._rust_npu:
-                        from feagi.core.state_manager import FeagiStateManager
-                        sm = FeagiStateManager.instance()
-                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
-                        
-                        rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                        logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                        return True
+                # The Rust burst loop samples FQ every burst and writes to SHM
+                # Per-agent rate limiting happens in capability rate manager
+                if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                    
+                    self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                    logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                    logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                    return True
                 
                 # If Rust NPU not ready yet (early startup), that's OK
                 # The burst loop will start writing to SHM automatically once initialized
@@ -1387,7 +1387,7 @@ class ProcessManager:
                             else:
                                 logger.warning(f"🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration")
                                 
-                            # Attach Rust NPU visualization SHM writer
+                            # Attach Rust NPU visualization SHM writer AND set frequency
                             if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
                                 rust_npu_integration = self._core_api._rust_npu_integration
                                 if rust_npu_integration and rust_npu_integration._rust_npu:
@@ -1395,6 +1395,10 @@ class ProcessManager:
                                     sm = FeagiStateManager.instance()
                                     shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
                                     viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                                    
+                                    # CRITICAL FIX: Set FQ sampler frequency to agent's requested rate
+                                    rust_npu_integration.set_fq_sampler_frequency(rate_hz)
+                                    logger.info(f"🦀 [CALLBACK] ✅ FQ Sampler frequency set to {rate_hz}Hz")
                                     
                                     rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
                                     logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")

@@ -182,6 +182,7 @@ class SuccessResponse(BaseModel):
     status: str = "success"
     message: Optional[str] = None
     transport: Optional[Dict[str, Any]] = None  # Transport negotiation info for agent registration
+    rates: Optional[Dict[str, Dict[str, float]]] = None  # Capability rate negotiation results
     
     class Config:
         extra = "allow"  # Allow additional fields for flexibility

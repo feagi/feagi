@@ -34,6 +34,7 @@ use crate::fire_structures::{FireQueue, FiringNeuron};
 use crate::fire_ledger::RustFireLedger;
 use crate::fq_sampler::{FQSampler, SamplingMode};
 use ahash::AHashMap;
+use std::time::Duration;
 
 /// Burst processing result
 #[derive(Debug, Clone)]
@@ -97,7 +98,7 @@ impl RustNPU {
             current_fire_queue: FireQueue::new(),
             previous_fire_queue: FireQueue::new(),
             fire_ledger: RustFireLedger::new(fire_ledger_window),
-            fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
+            fq_sampler: FQSampler::new(1000.0, SamplingMode::Unified), // High rate - actual limiting by burst frequency
             pending_sensory_injections: std::sync::Mutex::new(Vec::with_capacity(10000)),
             area_id_to_name: AHashMap::new(),
             propagation_engine: SynapticPropagationEngine::new(),
@@ -1028,6 +1029,15 @@ impl RustNPU {
         }
         
         Some(result)
+    }
+    
+    /// Force sample the Fire Queue (for burst loop, bypasses rate limiting)
+    /// 
+    /// This is used by the burst loop to sample on every burst, regardless of the FQ sampler's
+    /// configured rate limit. The rate limiting is meant for external consumers, not the burst loop itself.
+    pub fn force_sample_fire_queue(&mut self) -> Option<AHashMap<u32, (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<f32>)>> {
+        // FIXED: Use get_current_fire_queue() instead of accessing private fields
+        Some(self.get_current_fire_queue())
     }
     
     /// Get current Fire Queue directly (bypasses FQ Sampler rate limiting)

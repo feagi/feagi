@@ -266,8 +266,8 @@ fn burst_loop(
             
             let mut viz_writer_lock = viz_shm_writer.lock().unwrap();
             if let Some(writer) = viz_writer_lock.as_mut() {
-                // Get latest FQ sample from NPU (non-consuming read)
-                let fire_data_opt = npu.lock().unwrap().get_latest_fire_queue_sample();
+                // Force sample FQ on every burst (bypasses rate limiting)
+                let fire_data_opt = npu.lock().unwrap().force_sample_fire_queue();
                 
                 if !FIRST_CHECK_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
                     println!("[BURST-LOOP] 🔍 Viz SHM writer is attached, checking FQ sample...");

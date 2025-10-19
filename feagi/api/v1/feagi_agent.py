@@ -349,11 +349,17 @@ class FeagiAgentAPI:
             _reg_duration = (_time.time() - _reg_start) * 1000  # ms
             self.logger.warning(f"⏱️ [REG-TIMING] Registration completed in {_reg_duration:.1f}ms for {request.agent_id}")
 
-            # Return success response with transport negotiation info
+            # Build rate negotiation results for response
+            rates_info = self._build_rate_negotiation_results(request)
+            if rates_info:
+                self.logger.warning(f"📊 [RATE-NEGO] Returning rate negotiation for {request.agent_id}: {rates_info}")
+            
+            # Return success response with transport negotiation info and rates
             return SuccessResponse(
                 status="success",
                 message=f"Agent {request.agent_id} registered successfully",
-                transport=transport_info if transport_info else None
+                transport=transport_info if transport_info else None,
+                rates=rates_info if rates_info else None
             )
 
         except HTTPException:
@@ -364,6 +370,60 @@ class FeagiAgentAPI:
                 status_code=500,
                 detail=f"Registration failed: {str(e)}"
             )
+    
+    def _build_rate_negotiation_results(self, request: AgentRegistrationRequest) -> Optional[Dict[str, Dict[str, float]]]:
+        """Build rate negotiation results for response.
+        
+        Returns dict like:
+        {
+            "visualization": {
+                "requested_hz": 30.0,
+                "feagi_hz": 15.0,
+                "negotiated_hz": 15.0
+            },
+            "sensory": {
+                "requested_hz": 60.0,
+                "feagi_hz": 15.0,
+                "negotiated_hz": 15.0
+            }
+        }
+        """
+        try:
+            # Get FEAGI's current burst frequency
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            feagi_hz = state_manager.get_burst_frequency() or 1.0
+            
+            rates_info = {}
+            
+            # Extract requested rates from capabilities
+            for cap_name, cap_value in request.capabilities.items():
+                requested_hz = None
+                
+                # Try to extract rate_hz from capability
+                if isinstance(cap_value, dict):
+                    requested_hz = cap_value.get("rate_hz")
+                    if not requested_hz and cap_name == "motor":
+                        # Motor might use sampling_frequency_hz
+                        requested_hz = cap_value.get("sampling_frequency_hz")
+                        if requested_hz == "burst":
+                            requested_hz = feagi_hz
+                
+                # If we found a requested rate, calculate negotiated rate
+                if requested_hz and isinstance(requested_hz, (int, float)):
+                    negotiated_hz = min(float(requested_hz), float(feagi_hz))
+                    
+                    rates_info[cap_name] = {
+                        "requested_hz": float(requested_hz),
+                        "feagi_hz": float(feagi_hz),
+                        "negotiated_hz": negotiated_hz
+                    }
+            
+            return rates_info if rates_info else None
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to build rate negotiation results: {e}")
+            return None
 
     def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Optional[List[Any]]:
         """Process agent capabilities and convert to rate specifications."""
