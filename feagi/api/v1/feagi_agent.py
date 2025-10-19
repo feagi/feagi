@@ -78,6 +78,12 @@ class FeagiAgentAPI:
 
         Updates both the Registration Manager's last_seen and the Heartbeat Coordinator.
         """
+        # Temporary: Track heartbeat count for debugging
+        if not hasattr(self, '_heartbeat_count'):
+            self._heartbeat_count = {}
+        self._heartbeat_count[request.agent_id] = self._heartbeat_count.get(request.agent_id, 0) + 1
+        count = self._heartbeat_count[request.agent_id]
+        
         try:
             from feagi.pns.registration_manager import get_registration_manager
             from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
@@ -95,8 +101,9 @@ class FeagiAgentAPI:
             
             if reg_ok or coordinator_ok:
                 # Success if either system acknowledges the heartbeat
-                self.logger.debug(f"💗 Heartbeat recorded for agent '{request.agent_id}' "
-                                f"(reg_mgr={reg_ok}, coordinator={coordinator_ok})")
+                if count == 1 or count % 6 == 0:
+                    self.logger.info(f"💗 Heartbeat #{count} recorded for agent '{request.agent_id}' "
+                                    f"(reg_mgr={reg_ok}, coordinator={coordinator_ok})")
                 return SuccessResponse(message="heartbeat_ok", success=True)
             else:
                 raise HTTPException(status_code=404, detail=f"Agent {request.agent_id} not found")

@@ -549,6 +549,7 @@ impl RustNPU {
     ///     leak_rate: Membrane potential decay rate (0.0-1.0, e.g., 0.1)
     ///     refractory_period: Bursts to wait after firing (e.g., 5)
     ///     excitability: Probabilistic firing factor (0.0-1.0, e.g., 1.0)
+    ///     mp_charge_accumulation: Whether to accumulate potential across bursts (e.g., True)
     ///     cortical_area: Cortical area ID (e.g., 1)
     ///     x, y, z: 3D coordinates in cortical area
     /// 
@@ -564,6 +565,7 @@ impl RustNPU {
         excitability: f32,
         consecutive_fire_limit: u16,
         snooze_period: u16,
+        mp_charge_accumulation: bool,
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -580,6 +582,7 @@ impl RustNPU {
                 excitability,
                 consecutive_fire_limit,
                 snooze_period,
+                mp_charge_accumulation,
                 cortical_area,
                 x,
                 y,

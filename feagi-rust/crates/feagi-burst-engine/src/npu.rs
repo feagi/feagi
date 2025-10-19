@@ -122,6 +122,7 @@ impl RustNPU {
         excitability: f32,
         consecutive_fire_limit: u16,
         snooze_period: u16,
+        mp_charge_accumulation: bool,
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -136,6 +137,7 @@ impl RustNPU {
             excitability,
             consecutive_fire_limit,
             snooze_period,
+            mp_charge_accumulation,
             cortical_area,
             x,
             y,
@@ -309,7 +311,7 @@ impl RustNPU {
         // ZERO-COPY: Pass synapse_array by reference (no allocation)
         let injection_result = phase1_injection_with_synapses(
             &mut self.fire_candidate_list,
-            &self.neuron_array,
+            &mut self.neuron_array,
             &mut self.propagation_engine,
             &self.previous_fire_queue,
             self.power_amount,
@@ -834,7 +836,7 @@ struct InjectionResult {
 /// No separate list - scans neuron array directly!
 fn phase1_injection_with_synapses(
     fcl: &mut FireCandidateList,
-    neuron_array: &NeuronArray,
+    neuron_array: &mut NeuronArray,
     propagation_engine: &mut SynapticPropagationEngine,
     previous_fire_queue: &FireQueue,
     power_amount: f32,
@@ -843,6 +845,21 @@ fn phase1_injection_with_synapses(
 ) -> Result<InjectionResult> {
     // Clear FCL from previous burst
     fcl.clear();
+    
+    // CRITICAL FIX: Reset membrane potentials for neurons with mp_charge_accumulation=false
+    // This prevents ghost potential accumulation and self-stimulation bugs
+    //
+    // Behavior:
+    // - mp_acc=true: Neuron keeps its potential across bursts (integrator behavior)
+    // - mp_acc=false: Neuron resets to 0.0 at start of each burst (coincidence detector)
+    //
+    // This ensures neurons only fire from CURRENT BURST stimulation, not accumulated history
+    for idx in 0..neuron_array.count {
+        if neuron_array.valid_mask[idx] && !neuron_array.mp_charge_accumulation[idx] {
+            // Reset membrane potential for non-accumulating neurons
+            neuron_array.membrane_potentials[idx] = 0.0;
+        }
+    }
     
     let mut power_count = 0;
     let mut synaptic_count = 0;
@@ -1092,9 +1109,9 @@ mod tests {
     fn test_add_neurons() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        // (threshold, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, cortical_area, x, y, z, snooze_period)
-        let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
-        let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
+        // (threshold, leak_coeff, resting_pot, neuron_type, refrac_period, excitability, consec_fire_limit, snooze_period, mp_acc, cortical_area, x, y, z)
+        let id1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let id2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 1, 0, 0).unwrap();
         
         assert_eq!(id1.0, 0);
         assert_eq!(id2.0, 1);
@@ -1105,8 +1122,8 @@ mod tests {
     fn test_add_synapses() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 1, 0, 0).unwrap();
         
         npu.add_synapse(
             n1,
@@ -1124,7 +1141,7 @@ mod tests {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
         // Add a power neuron
-        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
+        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // Process burst with power injection
         let result = npu.process_burst(&[power_neuron]).unwrap();
@@ -1138,8 +1155,8 @@ mod tests {
     fn test_synapse_removal() {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
-        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 0, 0, 0, 0).unwrap();
-        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 1, 1, 0, 0, 0).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 1, 0, 0).unwrap();
         
         npu.add_synapse(n1, n2, SynapticWeight(128), SynapticConductance(255), SynapseType::Excitatory).unwrap();
         assert_eq!(npu.get_synapse_count(), 1);

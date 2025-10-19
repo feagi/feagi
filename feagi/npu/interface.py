@@ -76,6 +76,7 @@ class NeuronCreationRequest:
     resting_potentials: Optional[List[float]] = None
     consecutive_fire_limits: Optional[List[int]] = None
     snooze_periods: Optional[List[int]] = None
+    mp_charge_accumulation: Optional[List[bool]] = None  # nx-mp_acc-b gene
 
 
 @dataclass
@@ -464,6 +465,7 @@ class NPUInterface:
                         excitability=float(request.excitabilities[i]) if request.excitabilities else 1.0,
                         consecutive_fire_limit=int(request.consecutive_fire_limits[i]) if request.consecutive_fire_limits else 0,
                         snooze_period=int(request.snooze_periods[i]) if request.snooze_periods else 0,
+                        mp_charge_accumulation=bool(request.mp_charge_accumulation[i]) if request.mp_charge_accumulation else True,
                         cortical_area=int(request.cortical_idx),
                         x=int(x),
                         y=int(y),

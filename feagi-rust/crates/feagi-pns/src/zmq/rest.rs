@@ -253,12 +253,19 @@ impl RestStream {
         handler: &Arc<Mutex<RegistrationHandler>>,
         body: Option<serde_json::Value>,
     ) -> serde_json::Value {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static HEARTBEAT_COUNT: AtomicU32 = AtomicU32::new(0);
+        
         let agent_id = body
             .and_then(|b| b.get("agent_id").and_then(|v| v.as_str()).map(String::from))
             .unwrap_or_default();
 
         match handler.lock().process_heartbeat(&agent_id) {
             Ok(_) => {
+                let count = HEARTBEAT_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                if count == 1 || count % 30 == 0 {
+                    println!("🦀 [PNS] 💓 Heartbeat #{} received from {}", count, agent_id);
+                }
                 serde_json::json!({
                     "status": 200,
                     "body": {"message": "ok"}

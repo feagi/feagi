@@ -66,6 +66,12 @@ pub struct NeuronArray {
     /// Note: Previously used separate snooze_countdowns, now unified with refractory_countdowns
     pub snooze_periods: Vec<u16>,
     
+    /// Membrane potential accumulation flags (true = accumulate, false = reset to 0 each burst)
+    /// Gene name: nx-mp_acc-b (mp_charge_accumulation in genome processor)
+    /// - true: Neuron accumulates potential across bursts (integrator behavior)
+    /// - false: Neuron resets to 0.0 at start of each burst (coincidence detector)
+    pub mp_charge_accumulation: Vec<bool>,
+    
     /// Cortical area ID for each neuron
     pub cortical_areas: Vec<u32>,
     
@@ -114,6 +120,7 @@ impl NeuronArray {
             consecutive_fire_counts: vec![0; capacity],
             consecutive_fire_limits: vec![0; capacity],  // 0 = unlimited
             snooze_periods: vec![0; capacity],  // 0 = no extended refractory
+            mp_charge_accumulation: vec![true; capacity],  // Default: true (accumulate, backward compatible)
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
             valid_mask: vec![false; capacity],
@@ -136,6 +143,7 @@ impl NeuronArray {
         excitability: f32,
         consecutive_fire_limit: u16,
         snooze_period: u16,  // Genome: nx-snooze-f (rest period after consecutive fires)
+        mp_charge_accumulation: bool,  // Genome: nx-mp_acc-b (membrane potential accumulation)
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -157,6 +165,7 @@ impl NeuronArray {
         self.consecutive_fire_counts[id] = 0;
         self.consecutive_fire_limits[id] = consecutive_fire_limit;
         self.snooze_periods[id] = snooze_period;  // From genome (nx-snooze-f), used as extended refractory
+        self.mp_charge_accumulation[id] = mp_charge_accumulation;  // From genome (nx-mp_acc-b)
         self.cortical_areas[id] = cortical_area;
         self.coordinates[id * 3] = x;
         self.coordinates[id * 3 + 1] = y;

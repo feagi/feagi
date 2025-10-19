@@ -1218,6 +1218,10 @@ class NeuroEmbryogenesis:
                     # Extract snooze period from genome (nx-snooze-f gene)
                     snooze_period = int(max(0, round(properties.get("snooze_length", 0))))
                     
+                    # Extract membrane potential accumulation from genome (nx-mp_acc-b gene)
+                    # Default to True for backward compatibility (integrator behavior)
+                    mp_charge_accumulation = bool(properties.get("mp_charge_accumulation", True))
+                    
                     # Create batch neuron creation request with ALL parameters from genome
                     request = NeuronCreationRequest(
                         cortical_idx=area.cortical_idx,
@@ -1230,6 +1234,7 @@ class NeuroEmbryogenesis:
                         resting_potentials=[0.0] * area_neuron_count,
                         consecutive_fire_limits=[consecutive_fire_limit] * area_neuron_count,
                         snooze_periods=[snooze_period] * area_neuron_count,
+                        mp_charge_accumulation=[mp_charge_accumulation] * area_neuron_count,
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)
