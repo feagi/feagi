@@ -1287,27 +1287,36 @@ class ProcessManager:
     # ═══════════════════════════════════════════════════════════════════════
 
     def create_fq_sampler(self, mode: str, frequency_hz: float) -> bool:
-        """Attach SHM writer for the given mode.
+        """Create and attach an FQ sampler for the given mode.
         
         This is called by RegistrationManager when agents register via HTTP.
-        For visualization, it attaches the Rust NPU's SHM writer (no Python FQ sampler needed).
-        
-        NOTE: If called before Rust NPU is initialized (early startup), returns True anyway.
-        The Rust burst loop will automatically write to SHM once it starts.
+        It sets up the necessary FQ sampler and SHM writers for the Rust burst engine.
         
         Args:
             mode: Either 'visualization' or 'motor'
-            frequency_hz: Sampling frequency in Hz (currently unused - Rust burst loop controls rate)
+            frequency_hz: Sampling frequency in Hz
             
         Returns:
-            True if SHM writer was attached successfully (or will be attached later)
+            True if sampler was created/configured successfully
         """
         try:
             if mode == 'visualization':
-                logger.info(f"🎨 [FQ-CREATE] Setting up visualization (Rust burst loop handles FQ sampling + SHM write)")
+                logger.info(f"🎨 [FQ-CREATE] Creating visualization FQ sampler at {frequency_hz}Hz")
                 
-                # Try to attach Rust NPU visualization SHM writer
-                # The Rust burst loop already samples FQ and writes to SHM every burst
+                # Create visualization FQ sampler if not already created
+                if not hasattr(self, '_viz_fq_sampler') or self._viz_fq_sampler is None:
+                    from feagi.npu.fire_queue.unified_fq_sampler import UnifiedFQSampler
+                    
+                    self._viz_fq_sampler = UnifiedFQSampler(
+                        fire_queue_provider=self._processes.get("brain_service"),
+                        mode='visualization',
+                        sample_frequency_hz=frequency_hz
+                    )
+                    logger.info(f"🎨 [FQ-CREATE] ✅ Visualization FQ sampler created")
+                else:
+                    logger.info(f"🎨 [FQ-CREATE] Visualization FQ sampler already exists, reusing")
+                
+                # Attach Rust NPU visualization SHM writer
                 if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
                     rust_npu_integration = self._core_api._rust_npu_integration
                     if rust_npu_integration and rust_npu_integration._rust_npu:
@@ -1316,26 +1325,22 @@ class ProcessManager:
                         shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
                         viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
                         
-                        rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                        rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path, 8, 16777216)
                         logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                        return True
                 
-                # If Rust NPU not ready yet (early startup), that's OK
-                # The burst loop will start writing to SHM automatically once initialized
-                logger.info(f"🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts")
                 return True
             
             elif mode == 'motor':
-                logger.info(f"🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
+                logger.info(f"🚗 [FQ-CREATE] Motor FQ sampler requested at {frequency_hz}Hz (handled by Rust burst engine)")
                 # Motor is handled by Rust burst engine directly
                 return True
             
             else:
-                logger.warning(f"⚠️ [FQ-CREATE] Unknown mode: {mode}")
+                logger.warning(f"⚠️ [FQ-CREATE] Unknown FQ sampler mode: {mode}")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ [FQ-CREATE] Failed to attach {mode} SHM writer: {e}")
+            logger.error(f"❌ [FQ-CREATE] Failed to create {mode} FQ sampler: {e}")
             logger.debug(traceback.format_exc())
             return False
 
@@ -1396,7 +1401,7 @@ class ProcessManager:
                                     shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
                                     viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
                                     
-                                    rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                                    rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path, 8, 16777216)
                                     logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
                         except Exception as e:
                             logger.error(f"🦀 [CALLBACK] Failed to create visualization FQ sampler: {e}")
@@ -1820,6 +1825,218 @@ class ProcessManager:
 
         return updated_count
 
+    def create_fq_sampler(self, mode: str, frequency: float) -> bool:
+        """Create and register FQ sampler of the specified mode.
+
+        Args:
+            mode: Sampling mode ('visualization', 'opu')
+            frequency: Sampling frequency in Hz
+
+        Returns:
+            True if sampler was created and registered successfully, False otherwise
+        """
+        logger.info(
+            f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz"
+        )
+
+        # ===== EVENT-DRIVEN CRITICAL SERVICE READINESS =====
+        # FEAGI operates on EVENTS and CONDITIONS, not timeouts!
+        #  Check current state conditions and proceed based on actual system
+        #  state
+        if self._startup_phase:
+            logger.debug(
+                "🔄 Startup phase: Checking critical service state conditions for FQ sampler creation"
+            )
+            try:
+                from feagi.core.state_manager import get_state_manager
+
+                state_manager = get_state_manager()
+
+                #  EVENT-DRIVEN: Check actual service states, don't wait with
+                #  timeouts
+                critical_status = state_manager.get_critical_services_status()
+
+                #  Check for actual ERROR states that would prevent FQ sampler
+                #  creation
+                error_states = []
+                for service, state in critical_status.items():
+                    if state.value == "ERROR":
+                        error_states.append(f"{service}: {state.value}")
+
+                if error_states:
+                    logger.error(
+                        f"🚨 BLOCKED: Cannot create FQ sampler for mode '{mode}' - critical services in ERROR state"
+                    )
+                    for error in error_states:
+                        logger.error(f"🚨   {error}")
+                    return False
+                else:
+                    #  STATE-BASED: Services are in valid states (READY,
+                    #  UNAVAILABLE, MISSING are all valid)
+                    #  UNAVAILABLE burst engine and MISSING genome are CORRECT
+                    #  for fresh startup
+                    logger.debug(
+                        f"✅ Critical services in valid states - proceeding with FQ sampler creation for mode '{mode}'"
+                    )
+                    for service, state in critical_status.items():
+                        logger.debug(f"✅   {service}: {state.value}")
+
+            except Exception as gate_error:
+                logger.error(
+                    f"🚨 Error checking critical service states: {gate_error}"
+                )
+                logger.warning(
+                    "🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility"
+                )
+        else:
+            logger.debug(
+                "🔄 Runtime phase: Critical services already verified during startup"
+            )
+
+        # ===== END CRITICAL SERVICE READINESS GATE =====
+
+        try:
+            # Check if sampler already exists for this mode
+            if mode == "visualization" and self._viz_fq_sampler is not None:
+                # UPDATE: If frequency changed, update the existing sampler
+                current_freq = self._viz_fq_sampler.sample_frequency_hz
+                if abs(current_freq - frequency) > 0.01:  # Changed by more than 0.01 Hz
+                    logger.warning(
+                        f"🔄 Visualization FQ Sampler exists at {current_freq}Hz - "
+                        f"UPDATING to {frequency}Hz"
+                    )
+                    self._viz_fq_sampler.set_sample_frequency(frequency)
+                    return True
+                else:
+                    logger.warning(
+                        f"🔄 Visualization FQ Sampler already exists at {current_freq}Hz - "
+                        f"reusing (requested: {frequency}Hz)"
+                    )
+                    return True
+            elif mode == "opu" and self._motor_fq_sampler is not None:
+                # UPDATE: If frequency changed, update the existing sampler
+                current_freq = self._motor_fq_sampler.sample_frequency_hz
+                if abs(current_freq - frequency) > 0.01:  # Changed by more than 0.01 Hz
+                    logger.warning(
+                        f"🔥 Motor FQ Sampler exists at {current_freq}Hz - "
+                        f"UPDATING to {frequency}Hz"
+                    )
+                    self._motor_fq_sampler.set_sample_frequency(frequency)
+                    return True
+                else:
+                    logger.warning(
+                        f"🔥 Motor FQ Sampler already exists at {current_freq}Hz - "
+                        f"reusing (requested: {frequency}Hz)"
+                    )
+                    return True
+
+            # Import Rust FQ sampler wrapper
+            from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper
+
+            # 🦀 RUST: Get Rust NPU Integration directly from ProcessManager
+            # (no more Python burst engine middleman!)
+            rust_npu = self.rust_npu_integration
+            
+            if not rust_npu:
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust NPU Integration not available")
+                logger.error(f"[DEBUG] ProcessManager.rust_npu_integration is None - init_critical_processes may not have run")
+                return False
+            
+            # Check if Rust burst loop is running
+            from feagi.core.state_manager import ServiceState, FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            burst_state = state_manager.get_burst_engine_state()
+            
+            if burst_state != ServiceState.READY:
+                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust burst loop not running (state={burst_state})")
+                logger.error(f"[DEBUG] Please start the burst engine before registering agents")
+                return False
+            
+            fq_sampler = RustFQSamplerWrapper(rust_npu_integration=rust_npu)
+            
+            # Configure the sampler after creation
+            fq_sampler.set_sample_frequency(frequency)
+
+            # Store the sampler based on mode
+            if mode == "visualization":
+                self._viz_fq_sampler = fq_sampler
+                # CRITICAL DIAGNOSTIC: This should ALWAYS show if sampler is created
+                logger.warning(
+                    f"🎨🎨🎨 Visualization FQ Sampler created: {fq_sampler.instance_id} at {frequency}Hz"
+                )
+                logger.warning(f"🎨🎨🎨 [DIAGNOSTIC] Stored in ProcessManager instance id={id(self)}, _viz_fq_sampler={id(fq_sampler)}")
+            elif mode == "opu":
+                self._motor_fq_sampler = fq_sampler
+                logger.info(
+                    f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}"
+                )
+                # Attach sampler to running ZMQ motor stream if available
+                try:
+                    if hasattr(self, "_zmq_server") and self._zmq_server:
+                        zmq_server = self._zmq_server
+                        if hasattr(zmq_server, "_motor") and zmq_server._motor:
+                            motor_stream = zmq_server._motor
+                            if hasattr(motor_stream, "set_fq_sampler"):
+                                motor_stream.set_fq_sampler(self._motor_fq_sampler)
+                                logger.info("🚗 [ON-DEMAND] Motor FQ sampler attached to motor stream at runtime")
+                            else:
+                                logger.debug("🚗 Motor stream does not support runtime sampler attach")
+                        else:
+                            logger.debug("🚗 ZMQ server has no motor stream instance to attach sampler")
+                    else:
+                        logger.debug("🚗 No ZMQ server reference; sampler will be picked up on next server start")
+                except Exception as e:
+                    logger.warning(f"🚗 Failed to attach motor sampler to motor stream at runtime: {e}")
+            else:
+                logger.warning(f"Unknown FQ sampler mode: {mode}")
+                return False
+
+            #  [ARCHITECTURE FIX] Register with burst engine for data flow
+            #  coordination
+            #  The burst engine should always be available in STANDBY mode for
+            #  registration
+            # 🦀 RUST: No registration needed!
+            # The Rust burst engine automatically updates its internal FQ sampler during process_burst() (Phase 5)
+            # The RustFQSamplerWrapper directly queries rust_npu.sample_fire_queue() to read that data
+            logger.info(
+                f"🦀 [RUST-FQ] FQ sampler [{fq_sampler.instance_id}] created for {mode} - "
+                "no registration needed (Rust NPU auto-updates)"
+            )
+
+            #  CRITICAL FIX: DO NOT start internal run() thread for
+            #  stream-based samplers
+            #  Streams (visualization/motor) call sample() directly, so running
+            #  internal thread
+            # causes double execution and double logging
+            logger.info(
+                f"🔥 FQ Sampler [{fq_sampler.instance_id}] created for {mode} mode"
+            )
+            logger.info(
+                f"🔥 Internal run() thread NOT started - {mode} stream will call sample() directly"
+            )
+            logger.info(
+                "🔥 This prevents double logging from both thread and stream calling sample()"
+            )
+
+            # Store reference without thread for streams to use
+            if mode == "visualization":
+                self._viz_fq_thread = None  # No thread needed
+                logger.info(
+                    "[RENDER] Visualization FQ Sampler ready for stream usage"
+                )
+            elif mode == "opu":
+                self._motor_fq_thread = None  # No thread needed
+                logger.info("[MOTOR] Motor FQ Sampler ready for stream usage")
+
+            logger.info(
+                f"[DEBUG] FQ Sampler created successfully: mode={mode} (stream-based, no internal thread)"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"🔥 Failed to create FQ sampler (mode={mode}): {e}")
+            return False
 
     def disable_fq_sampler(self, mode: str):
         """Disable and destroy FQ sampler of the specified mode.

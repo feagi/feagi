@@ -18,7 +18,7 @@ impl HeartbeatTracker {
         Self {
             running: Arc::new(RwLock::new(false)),
             thread_handle: None,
-            timeout: Duration::from_secs(45), // Default 45s timeout
+            timeout: Duration::from_secs(68), // Increased by 50% from 45s (was timing out prematurely)
         }
     }
 

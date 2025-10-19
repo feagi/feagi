@@ -299,6 +299,18 @@ impl RustNPU {
         self.npu.lock().unwrap().set_power_amount(amount);
     }
     
+    /// Register a cortical area name for visualization encoding
+    /// 
+    /// Args:
+    ///     area_id: Numeric cortical area ID (e.g., 1, 2, 3...)
+    ///     cortical_name: Cortical area name string (e.g., "_power", "c_vision")
+    /// 
+    /// This mapping is populated during neuroembryogenesis and used by the burst loop
+    /// to convert numeric area_ids to proper CorticalID strings for Type 11 encoding.
+    fn register_cortical_area(&mut self, area_id: u32, cortical_name: String) {
+        self.npu.lock().unwrap().register_cortical_area(area_id, cortical_name);
+    }
+    
     // 🔋 Power neurons auto-discovered from neuron array - no separate list!
     
     /// Start the burst loop runner (runs in background Rust thread)

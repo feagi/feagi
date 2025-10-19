@@ -159,6 +159,18 @@ class BrainService(BaseService):
                         "🦀 [RUST-BURST] ✅ Rust burst loop started successfully!"
                     )
                     
+                    # Attach visualization SHM writer now that burst loop is running
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        sm = FeagiStateManager.instance()
+                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                        
+                        rust_npu.attach_viz_shm_writer(viz_shm_path)
+                        self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
+                    except Exception as e:
+                        self.logger.warning(f"🎨 [RUST-BURST] Could not attach viz SHM writer: {e}")
+                    
                     # Keep this thread alive to monitor (but burst loop runs in Rust)
                     import time
                     while self._burst_loop_running and rust_npu.is_burst_loop_running():

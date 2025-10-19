@@ -287,16 +287,16 @@ class FeagiAgentAPI:
                 
                 # Determine heartbeat parameters based on agent type
                 # Timeout = 3x heartbeat interval (3 missed heartbeats = disconnected)
-                # Increased by 50% to handle slow heartbeat responses under load
+                # Increased by 50% to handle slow heartbeat responses under load (matches Rust PNS timeout)
                 if request.agent_type == "brain_visualizer":
                     heartbeat_interval = 15.0  # Send every 15 seconds
-                    timeout_threshold = 45.0   # Disconnect after 3 missed (45s)
+                    timeout_threshold = 68.0   # Disconnect after ~4.5 missed (68s) - increased from 45s
                 elif request.agent_type == "video_agent":
                     heartbeat_interval = 10.0  # Send every 10 seconds  
-                    timeout_threshold = 30.0   # Disconnect after 3 missed (30s)
+                    timeout_threshold = 45.0   # Disconnect after ~4.5 missed (45s) - increased from 30s
                 else:
                     heartbeat_interval = 15.0  # Default 15 seconds
-                    timeout_threshold = 45.0   # Disconnect after 3 missed (45s)
+                    timeout_threshold = 68.0   # Disconnect after ~4.5 missed (68s) - increased from 45s
                 
                 # Cleanup callback to deregister from both systems
                 def cleanup_callback(agent_id: str):

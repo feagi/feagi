@@ -70,6 +70,9 @@ pub struct RustNPU {
     // Sensory staging (prevents async race with FCL clear)
     pending_sensory_injections: std::sync::Mutex<Vec<(NeuronId, f32)>>,
     
+    // Cortical area mapping (area_id -> cortical_name string for encoding)
+    area_id_to_name: AHashMap<u32, String>,
+    
     // Engines
     propagation_engine: SynapticPropagationEngine,
     
@@ -96,6 +99,7 @@ impl RustNPU {
             fire_ledger: RustFireLedger::new(fire_ledger_window),
             fq_sampler: FQSampler::new(10.0, SamplingMode::Unified), // Default: 10Hz, unified mode
             pending_sensory_injections: std::sync::Mutex::new(Vec::with_capacity(10000)),
+            area_id_to_name: AHashMap::new(),
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
             power_amount: 1.0,
@@ -351,6 +355,18 @@ impl RustNPU {
     /// Get current burst count
     pub fn get_burst_count(&self) -> u64 {
         self.burst_count
+    }
+    
+    /// Register a cortical area name for visualization encoding
+    /// This mapping is populated during neuroembryogenesis
+    pub fn register_cortical_area(&mut self, area_id: u32, cortical_name: String) {
+        self.area_id_to_name.insert(area_id, cortical_name);
+    }
+    
+    /// Get the cortical area name for a given area_id
+    /// Returns None if the area_id is not registered
+    pub fn get_cortical_area_name(&self, area_id: u32) -> Option<&str> {
+        self.area_id_to_name.get(&area_id).map(|s| s.as_str())
     }
     
     /// Get all neuron positions for a cortical area (for fast batch lookups)

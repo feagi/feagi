@@ -712,6 +712,16 @@ class NeuroEmbryogenesis:
                 # Store mappings for tracking
                 self.cortical_id_map[cortical_idx] = cortical_id
                 self.reverse_cortical_id_map[cortical_id] = cortical_idx
+                
+                # Register cortical area name in Rust NPU (for visualization encoding)
+                # Get rust_npu_integration from connectome_manager's NPU interface
+                if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                    npu_interface = self.connectome_manager._npu_interface
+                    if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                        rust_npu = npu_interface._rust_npu_integration._rust_npu
+                        if rust_npu:
+                            rust_npu.register_cortical_area(cortical_idx, cortical_id)
+                            logger.debug(f"Registered cortical area {cortical_id} (idx={cortical_idx}) in Rust NPU for visualization")
 
                 logger.debug(
                     f"Created cortical area {name} (cortical_idx {cortical_idx}, cortical_id {cortical_id})"
@@ -868,6 +878,15 @@ class NeuroEmbryogenesis:
             # Update mappings for death area (whether new or existing)
             self.cortical_id_map[death_area.cortical_idx] = "_death"
             self.reverse_cortical_id_map["_death"] = death_area.cortical_idx
+            
+            # Register in Rust NPU for visualization
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                    rust_npu = npu_interface._rust_npu_integration._rust_npu
+                    if rust_npu:
+                        rust_npu.register_cortical_area(death_area.cortical_idx, "_death")
+                        logger.debug(f"Registered core area _death (idx={death_area.cortical_idx}) in Rust NPU")
 
             # Create _power area (cortical_idx=1) only if it doesn't exist
             if existing_power is None:
@@ -911,6 +930,15 @@ class NeuroEmbryogenesis:
             # Update mappings for power area (whether new or existing)
             self.cortical_id_map[pwr_area.cortical_idx] = "_power"
             self.reverse_cortical_id_map["_power"] = pwr_area.cortical_idx
+            
+            # Register in Rust NPU for visualization
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                    rust_npu = npu_interface._rust_npu_integration._rust_npu
+                    if rust_npu:
+                        rust_npu.register_cortical_area(pwr_area.cortical_idx, "_power")
+                        logger.debug(f"Registered core area _power (idx={pwr_area.cortical_idx}) in Rust NPU")
 
             # Verify correct cortical_idx assignment
             if death_area.cortical_idx != 0:

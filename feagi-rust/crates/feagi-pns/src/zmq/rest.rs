@@ -258,14 +258,19 @@ impl RestStream {
             .unwrap_or_default();
 
         match handler.lock().process_heartbeat(&agent_id) {
-            Ok(_) => serde_json::json!({
-                "status": 200,
-                "body": {"message": "ok"}
-            }),
-            Err(e) => serde_json::json!({
-                "status": 404,
-                "body": {"error": e}
-            }),
+            Ok(_) => {
+                serde_json::json!({
+                    "status": 200,
+                    "body": {"message": "ok"}
+                })
+            },
+            Err(e) => {
+                eprintln!("🦀 [PNS] Heartbeat failed for {}: {}", agent_id, e);
+                serde_json::json!({
+                    "status": 404,
+                    "body": {"error": e}
+                })
+            },
         }
     }
 

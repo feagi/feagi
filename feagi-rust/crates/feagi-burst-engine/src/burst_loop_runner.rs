@@ -161,11 +161,12 @@ impl BurstLoopRunner {
         let frequency = self.frequency_hz;
         let running = self.running.clone();
         let burst_count = self.burst_count.clone();
+        let viz_writer = self.viz_shm_writer.clone();
         
         self.thread_handle = Some(thread::Builder::new()
             .name("feagi-burst-loop".to_string())
             .spawn(move || {
-                burst_loop(npu, frequency, running, burst_count);
+                burst_loop(npu, frequency, running, burst_count, viz_writer);
             })
             .map_err(|e| format!("Failed to spawn burst loop thread: {}", e))?);
         
@@ -217,6 +218,7 @@ fn burst_loop(
     frequency_hz: f64,
     running: Arc<AtomicBool>,
     burst_count: Arc<AtomicU64>,
+    viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
 ) {
     println!("[BURST-LOOP] 🚀 Starting main loop at {:.2} Hz", frequency_hz);
     
@@ -257,6 +259,105 @@ fn burst_loop(
         
         burst_num += 1;
         burst_count.store(burst_num, Ordering::Release);
+        
+        // Write visualization data to SHM (if attached)
+        {
+            static FIRST_CHECK_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            
+            let mut viz_writer_lock = viz_shm_writer.lock().unwrap();
+            if let Some(writer) = viz_writer_lock.as_mut() {
+                // Get latest FQ sample from NPU (non-consuming read)
+                let fire_data_opt = npu.lock().unwrap().get_latest_fire_queue_sample();
+                
+                if !FIRST_CHECK_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("[BURST-LOOP] 🔍 Viz SHM writer is attached, checking FQ sample...");
+                    if fire_data_opt.is_some() {
+                        println!("[BURST-LOOP] 🔍 FQ sample available!");
+                    } else {
+                        println!("[BURST-LOOP] ⚠️ FQ sample is None (no neurons have fired yet)");
+                    }
+                    FIRST_CHECK_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                
+                if let Some(fire_data) = fire_data_opt {
+                    // Debug: Log first successful viz write
+                    static FIRST_VIZ_WRITE_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                    
+                    // Encode as Type 11 ByteContainer using feagi_data_serialization
+                    use feagi_data_structures::neurons::xyzp::{CorticalMappedXYZPNeuronData, NeuronXYZPArrays, NeuronXYZP};
+                    use feagi_data_structures::genomic::CorticalID;
+                    use feagi_data_serialization::FeagiByteContainer;
+                    
+                    // Convert FQ data to CorticalMappedXYZPNeuronData
+                    let mut cortical_mapped = CorticalMappedXYZPNeuronData::new();
+                    let mut total_neurons = 0;
+                    
+                    for (area_id, (x_vec, y_vec, z_vec, _id_vec, p_vec)) in fire_data.iter() {
+                        total_neurons += x_vec.len();
+                        
+                        // Get cortical area name from NPU mapping (clone to avoid lifetime issues)
+                        let cortical_name_opt = npu.lock().unwrap().get_cortical_area_name(*area_id).map(|s| s.to_string());
+                        let cortical_id = match cortical_name_opt {
+                            Some(name) => {
+                                match CorticalID::new_custom_cortical_area_id(name.clone()) {
+                                    Ok(id) => id,
+                                    Err(e) => {
+                                        eprintln!("[BURST-LOOP] ❌ Failed to create CorticalID for '{}': {:?}", name, e);
+                                        continue;
+                                    }
+                                }
+                            },
+                            None => {
+                                eprintln!("[BURST-LOOP] ❌ No cortical area name registered for area_id {}", area_id);
+                                continue;
+                            }
+                        };
+                        
+                        let mut neuron_arrays = NeuronXYZPArrays::with_capacity(x_vec.len());
+                        
+                        for i in 0..x_vec.len() {
+                            let neuron = NeuronXYZP::new(x_vec[i], y_vec[i], z_vec[i], p_vec[i]);
+                            neuron_arrays.push(&neuron);
+                        }
+                        
+                        cortical_mapped.insert(cortical_id, neuron_arrays);
+                    }
+                    
+                    // Skip encoding if no valid cortical areas
+                    if cortical_mapped.len() == 0 {
+                        static SKIP_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                        if !SKIP_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                            eprintln!("[BURST-LOOP] ⚠️ Skipping viz encoding - no cortical areas with registered names (neuroembryogenesis may not be complete yet)");
+                            SKIP_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                        }
+                        return;
+                    }
+                    
+                    // Use official feagi_data_serialization API to encode
+                    let mut byte_container = FeagiByteContainer::new_empty();
+                    if let Err(e) = byte_container.overwrite_byte_data_with_single_struct_data(&cortical_mapped, 0) {
+                        eprintln!("[BURST-LOOP] ❌ Failed to encode viz data: {:?}", e);
+                        return;
+                    }
+                    
+                    let encoded = byte_container.get_byte_ref();
+                    
+                    // Write to SHM
+                    match writer.write_payload(encoded) {
+                        Ok(_) => {
+                            if !FIRST_VIZ_WRITE_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                                println!("[BURST-LOOP] 🎨 ✅ First viz SHM write (Type 11): {} bytes ({} neurons across {} areas)", 
+                                    encoded.len(), total_neurons, fire_data.len());
+                                FIRST_VIZ_WRITE_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[BURST-LOOP] ❌ Failed to write viz SHM: {}", e);
+                        }
+                    }
+                }
+            }
+        }
         
         // Performance logging every 5 seconds
         let now = Instant::now();

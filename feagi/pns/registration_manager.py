@@ -1242,9 +1242,10 @@ class RegistrationManager:
             f"Notifying all FQ samplers: Visualization clients connected = {has_clients}"
         )
 
-        # Notify Process Manager's FQ samplers
+        # Notify Process Manager's FQ samplers (if using legacy Python FQ sampler)
+        # NOTE: With Rust burst loop, this is no longer needed - Rust writes to SHM automatically
         if self._process_manager:
-            if hasattr(self._process_manager, "_viz_fq_sampler"):
+            if hasattr(self._process_manager, "_viz_fq_sampler") and self._process_manager._viz_fq_sampler is not None:
                 try:
                     self._process_manager._viz_fq_sampler.set_visualization_subscribers(
                         has_clients
@@ -1253,9 +1254,11 @@ class RegistrationManager:
                         f"🎨 Notified Process Manager visualization FQ sampler: {has_clients}"
                     )
                 except Exception as e:
-                    logger.error(
-                        f"Error notifying Process Manager viz FQ sampler: {e}"
+                    logger.debug(
+                        f"Could not notify Process Manager viz FQ sampler: {e}"
                     )
+            else:
+                logger.debug("🦀 Using Rust burst loop - no Python FQ sampler notification needed")
 
         # Notify ZMQ Server's FQ samplers
         zmq_server = None
