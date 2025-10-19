@@ -76,6 +76,31 @@ class FeagiSensoryClient:
                 logger.error("feagi_data_processing library not available")
                 return False
             
+            # 🔍 DEBUG: Track what's being sent (for debugging self-stimulation)
+            num_neurons = len(neuron_data)
+            potentials = list(neuron_data.values())
+            avg_potential = sum(potentials) / len(potentials) if potentials else 0.0
+            unique_coords = len(set(neuron_data.keys()))
+            
+            # Log summary every 30 frames to avoid spam
+            if not hasattr(self, '_frame_count'):
+                self._frame_count = 0
+                self._last_neuron_data = {}
+            
+            self._frame_count += 1
+            
+            # Check if we're re-sending the same data
+            data_changed = neuron_data != self._last_neuron_data
+            
+            if self._frame_count % 30 == 0 or not data_changed:
+                logger.info(f"🎥 [{cortical_area}] Frame {self._frame_count}: {num_neurons} neurons, "
+                           f"avg_potential={avg_potential:.3f}, unique_coords={unique_coords}, "
+                           f"data_changed={data_changed}")
+                if not data_changed:
+                    logger.warning(f"⚠️  [{cortical_area}] Sending IDENTICAL data as previous frame!")
+            
+            self._last_neuron_data = neuron_data.copy()
+            
             # Encode using feagi_data_processing
             binary_data = self._encode_with_feagi_data_processing(cortical_area, neuron_data)
             if binary_data:

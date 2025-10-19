@@ -383,6 +383,13 @@ async def stream_segmented_camera(
             logger.warning(f"🎬 [VIDEO-AGENT-REG] Registration response: {reg}")
             logger.info(f"🔍 [REG-RESPONSE-ZMQ] Registration response: status={reg.get('status')}")
             
+            # Extract negotiated sensory rate
+            if reg.get("rates") and "sensory" in reg["rates"]:
+                negotiated_rate = reg["rates"]["sensory"].get("negotiated_hz", sensory_rate_hz)
+                logger.warning(f"🎬 [RATE-ADAPT] Using negotiated sensory rate: {negotiated_rate}Hz (requested: {sensory_rate_hz}Hz)")
+                # Update effective rate for frame timing
+                sensory_rate_hz = negotiated_rate
+            
             if not isinstance(reg, dict) or reg.get("status") != 200:
                 # Try HTTP fallback
                 logger.warning("⚠️ ZMQ registration failed, trying direct HTTP...")

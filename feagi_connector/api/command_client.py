@@ -114,7 +114,10 @@ class FeagiControlClient:
             agent_ip: Agent IP address
             
         Returns:
-            Registration response data
+            Registration response data with:
+            - status: Success/error status
+            - transport: Transport negotiation (SHM paths, etc.)
+            - rates: Rate negotiation results per capability
         """
         # Use REST Stream format as documented in FEAGI
         rest_message = {
@@ -141,7 +144,18 @@ class FeagiControlClient:
         if full_capabilities:
             rest_message["body"]["full_capabilities"] = full_capabilities
         
-        return await self.make_rest_request(rest_message)
+        response = await self.make_rest_request(rest_message)
+        
+        # Log rate negotiation if present
+        if isinstance(response, dict) and "rates" in response and response["rates"]:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"📊 [RATE-NEGO] FEAGI negotiated rates for {agent_id}:")
+            for cap_name, rates in response["rates"].items():
+                logger.warning(f"  {cap_name}: requested={rates.get('requested_hz')}Hz, "
+                             f"feagi={rates.get('feagi_hz')}Hz, negotiated={rates.get('negotiated_hz')}Hz")
+        
+        return response
 
     async def make_rest_request(self, rest_message: Dict) -> Dict:
         """
