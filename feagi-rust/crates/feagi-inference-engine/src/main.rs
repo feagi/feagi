@@ -1,16 +1,10 @@
-mod video_reader;
-mod sensory_injection;
-mod motor_extraction;
-
 use clap::Parser;
 use log::{info, warn, error, debug};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use video_reader::VideoReader;
-use sensory_injection::SensoryInjector;
-use motor_extraction::MotorExtractor;
+use feagi_inference_engine::{VideoReader, SensoryInjector, MotorExtractor};
 
 /// FEAGI Inference Engine - Standalone neural processing engine with online learning
 #[derive(Parser, Debug)]

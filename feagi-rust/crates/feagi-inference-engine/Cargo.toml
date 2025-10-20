@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 description = "Standalone FEAGI neural inference engine with online learning"
 
+[lib]
+name = "feagi_inference_engine"
+path = "src/lib.rs"
+
 [[bin]]
 name = "feagi-inference-engine"
 path = "src/main.rs"
@@ -40,6 +44,10 @@ signal-hook = "0.3"
 # Logging
 env_logger = "0.11"
 log = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
+ahash.workspace = true
 
 [profile.release]
 opt-level = 3
