@@ -29,9 +29,9 @@ wgpu = "0.19"
 pollster = "0.3"  # Async/await executor for GPU operations
 bytemuck = { version = "1.14", features = ["derive"] }  # Type casting for GPU buffers
 
-# Published FEAGI data crates (using local path to fix validation bug)
-feagi_data_structures = { path = "../../archive_del/feagi-data-processing/feagi_data_structures" }
-feagi_data_serialization = { path = "../../archive_del/feagi-data-processing/feagi_data_serialization" }
+# Published FEAGI data crates (v0.0.50-beta.49 with callback feature)
+feagi_data_structures = "0.0.50-beta.49"
+feagi_data_serialization = "0.0.50-beta.49"
 
 # PyO3 for Python bindings
 pyo3 = { version = "0.22", features = ["extension-module"] }

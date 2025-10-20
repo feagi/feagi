@@ -40,7 +40,7 @@ use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
 use ahash::AHashMap;
 use std::sync::{Arc, Mutex};
-use feagi_data_structures::neurons::xyzp::{NeuronXYZP, NeuronXYZPArrays, CorticalMappedXYZPNeuronData};
+use feagi_data_structures::neuron_voxels::xyzp::{NeuronVoxelXYZP, NeuronVoxelXYZPArrays, CorticalMappedXYZPNeuronVoxels};
 use feagi_data_structures::genomic::CorticalID;
 // Note: FeagiSerializable is private in feagi_data_serialization, but we need its methods
 // So we'll implement serialization manually using the internal implementation details

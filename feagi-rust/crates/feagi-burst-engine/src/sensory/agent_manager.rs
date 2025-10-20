@@ -291,7 +291,7 @@ fn agent_polling_loop(
         
         // Extract neuron data from each structure
         for struct_idx in 0..num_structures {
-            let boxed_struct = match byte_container.try_create_new_struct_from_index(struct_idx) {
+            let boxed_struct = match byte_container.try_create_new_struct_from_index(struct_idx as u8) {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("[SENSORY-{}] Failed to extract structure {}: {:?}", config.agent_id, struct_idx, e);
@@ -300,8 +300,8 @@ fn agent_polling_loop(
             };
             
             // Downcast to CorticalMappedXYZPNeuronData
-            use feagi_data_structures::neurons::xyzp::CorticalMappedXYZPNeuronData;
-            let cortical_mapped = match boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronData>() {
+            use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
+            let cortical_mapped = match boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronVoxels>() {
                 Some(cm) => cm,
                 None => {
                     eprintln!("[SENSORY-{}] Structure {} is not CorticalMappedXYZPNeuronData", config.agent_id, struct_idx);

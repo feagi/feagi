@@ -340,12 +340,12 @@ fn burst_loop(
                     static FIRST_VIZ_WRITE_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                     
             // Encode as raw Type 11 structure (no container wrapper, like rust-py-libs pattern)
-            use feagi_data_structures::neurons::xyzp::{CorticalMappedXYZPNeuronData, NeuronXYZPArrays};
+            use feagi_data_structures::neuron_voxels::xyzp::{CorticalMappedXYZPNeuronVoxels, NeuronVoxelXYZPArrays};
             use feagi_data_structures::genomic::CorticalID;
             use feagi_data_serialization::FeagiSerializable;
             
-            // Convert FQ data to CorticalMappedXYZPNeuronData
-            let mut cortical_mapped = CorticalMappedXYZPNeuronData::new();
+            // Convert FQ data to CorticalMappedXYZPNeuronVoxels
+            let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
             let mut total_neurons = 0;
             
             for (area_id, (_id_vec, x_vec, y_vec, z_vec, p_vec)) in fire_data.iter() {
@@ -384,7 +384,7 @@ fn burst_loop(
                     }
                 };
                 
-                match NeuronXYZPArrays::new_from_vectors(
+                match NeuronVoxelXYZPArrays::new_from_vectors(
                     x_vec.clone(),
                     y_vec.clone(),
                     z_vec.clone(),
@@ -405,7 +405,7 @@ fn burst_loop(
                 let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
                 let mut buffer = vec![0u8; bytes_needed];
                 
-                if let Ok(_) = cortical_mapped.try_write_to_byte_slice(&mut buffer) {
+                if let Ok(_) = cortical_mapped.try_serialize_struct_to_byte_slice(&mut buffer) {
                     // Write raw structure bytes to SHM
                     match writer.write_payload(&buffer) {
                         Ok(_) => {
