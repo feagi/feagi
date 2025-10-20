@@ -907,12 +907,18 @@ fn phase1_injection_with_synapses(
         }
     }
     
-    // Log only first time or if no power neurons found
+    // Log first injection and EVERY time power neurons disappear
     static mut FIRST_INJECTION: bool = false;
+    static mut LAST_POWER_COUNT: usize = 0;
     unsafe {
         if !FIRST_INJECTION && power_count > 0 {
             println!("[POWER-INJECTION] ✅ Injected {} power neurons into FCL", power_count);
             FIRST_INJECTION = true;
+            LAST_POWER_COUNT = power_count;
+        } else if power_count == 0 && FIRST_INJECTION {
+            // Power neurons disappeared after working!
+            println!("[POWER-INJECTION] ❌ ERROR: Power neurons DISAPPEARED! (was {}, now 0)", LAST_POWER_COUNT);
+            LAST_POWER_COUNT = 0;
         } else if power_count == 0 && !FIRST_INJECTION {
             println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
             FIRST_INJECTION = true;

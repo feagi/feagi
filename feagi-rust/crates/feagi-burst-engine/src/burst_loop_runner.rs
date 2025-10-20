@@ -209,6 +209,17 @@ impl Drop for BurstLoopRunner {
     }
 }
 
+/// Helper to get timestamp string with millisecond precision
+fn get_timestamp() -> String {
+    let now = std::time::SystemTime::now();
+    let since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+    let secs = since_epoch.as_secs();
+    let millis = since_epoch.subsec_millis();
+    use chrono::{DateTime, Utc, TimeZone};
+    let dt: DateTime<Utc> = Utc.timestamp_opt(secs as i64, millis * 1_000_000).unwrap();
+    dt.format("%Y-%m-%dT%H:%M:%S%.3f").to_string()
+}
+
 /// Main burst processing loop (runs in dedicated thread)
 /// 
 /// This is the HOT PATH - zero Python involvement!
@@ -220,7 +231,8 @@ fn burst_loop(
     burst_count: Arc<AtomicU64>,
     viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
 ) {
-    println!("[BURST-LOOP] 🚀 Starting main loop at {:.2} Hz", frequency_hz);
+    let timestamp = get_timestamp();
+    println!("[{}] [BURST-LOOP] 🚀 Starting main loop at {:.2} Hz", timestamp, frequency_hz);
     
     let mut burst_num = 0u64;
     let mut last_stats_time = Instant::now();
@@ -247,11 +259,18 @@ fn burst_loop(
             let mut npu_lock = npu.lock().unwrap();
             match npu_lock.process_burst() {
                 Ok(result) => {
+                    // Log if no neurons fired (debugging power neuron issue)
+                    if result.neuron_count == 0 {
+                        let timestamp = get_timestamp();
+                        eprintln!("[{}] [BURST-#{}] ⚠️ process_burst() returned 0 neurons!", 
+                            timestamp, burst_num + 1);
+                    }
                     total_neurons_fired += result.neuron_count;
                     result.neuron_count
                 }
                 Err(e) => {
-                    eprintln!("[BURST-LOOP] ❌ Burst processing error: {}", e);
+                    let timestamp = get_timestamp();
+                    eprintln!("[{}] [BURST-LOOP] ❌ Burst processing error: {}", timestamp, e);
                     0
                 }
             }
@@ -259,6 +278,47 @@ fn burst_loop(
         
         burst_num += 1;
         burst_count.store(burst_num, Ordering::Release);
+        
+        // 🔥 LOG ACTUAL NEURON FIRING AT NPU LEVEL (every burst)
+        {
+            let timestamp = get_timestamp();
+            let mut npu_lock = npu.lock().unwrap();
+            let fire_data_opt = npu_lock.force_sample_fire_queue();
+            
+            if let Some(fire_data) = fire_data_opt {
+                if fire_data.is_empty() {
+                    eprintln!("[{}] [BURST-#{}] ⚠️ Fire Queue EMPTY (no areas)", timestamp, burst_num);
+                } else {
+                    let mut found_origin = false;
+                    // Check each area in the fire queue for (0,0,0) firing
+                    for (area_id, (_id_vec, x_vec, y_vec, z_vec, _p_vec)) in fire_data.iter() {
+                        let area_name_opt = npu_lock.get_cortical_area_name(*area_id).map(|s| s.to_string());
+                        if let Some(area_name) = area_name_opt {
+                            let neuron_count = _id_vec.len();
+                            
+                            // Check if (0,0,0) is firing in this area
+                            let has_origin = (0..neuron_count).any(|i| {
+                                x_vec[i] == 0 && y_vec[i] == 0 && z_vec[i] == 0
+                            });
+                            
+                            if has_origin {
+                                eprintln!("[{}] [BURST-#{}] 🔥 [{}] (0,0,0) FIRING - {} total neurons", 
+                                    timestamp, burst_num, area_name, neuron_count);
+                                found_origin = true;
+                            }
+                        }
+                    }
+                    
+                    // If Fire Queue has data but no (0,0,0) firing, log it
+                    if !found_origin {
+                        eprintln!("[{}] [BURST-#{}] ⚫ {} areas firing, but no (0,0,0)", 
+                            timestamp, burst_num, fire_data.len());
+                    }
+                }
+            } else {
+                eprintln!("[{}] [BURST-#{}] ❌ Fire Queue is None!", timestamp, burst_num);
+            }
+        }
         
         // Write visualization data to SHM (if attached)
         {
@@ -365,19 +425,11 @@ fn burst_loop(
             // Write raw structure bytes to SHM
             match writer.write_payload(&buffer) {
                 Ok(_) => {
-                    static VIZ_WRITE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-                    let count = VIZ_WRITE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    
-                    if count == 0 || count % 150 == 0 {
-                        println!("[BURST-LOOP] 🎨 Viz #{}: {} bytes, {} neurons, {} areas", 
-                            count, buffer.len(), total_neurons, cortical_mapped.len());
-                        for (cortical_id, _) in &cortical_mapped.mappings {
-                            println!("[BURST-LOOP]   - {}", cortical_id.as_ascii_string());
-                        }
-                    }
+                    // Visualization data written successfully
                 }
                 Err(e) => {
-                    eprintln!("[BURST-LOOP] ❌ Failed to write viz SHM: {}", e);
+                    let timestamp = get_timestamp();
+                    eprintln!("[{}] [BURST-LOOP] ❌ Failed to write viz SHM: {}", timestamp, e);
                 }
             }
                 }
@@ -391,9 +443,11 @@ fn burst_loop(
                 let avg_interval: Duration = burst_times.iter().sum::<Duration>() / burst_times.len() as u32;
                 let actual_hz = 1.0 / avg_interval.as_secs_f64();
                 let avg_neurons = total_neurons_fired / burst_times.len();
+                let timestamp = get_timestamp();
                 
                 println!(
-                    "[BURST-LOOP] 📊 Stats: Burst #{} | Desired: {:.2} Hz | Actual: {:.2} Hz ({:.1}%) | Avg neurons: {}",
+                    "[{}] [BURST-LOOP] 📊 Stats: Burst #{} | Desired: {:.2} Hz | Actual: {:.2} Hz ({:.1}%) | Avg neurons: {}",
+                    timestamp,
                     burst_num,
                     frequency_hz,
                     actual_hz,
@@ -432,7 +486,8 @@ fn burst_loop(
         }
     }
     
-    println!("[BURST-LOOP] 🛑 Main loop stopped after {} bursts", burst_num);
+    let timestamp = get_timestamp();
+    println!("[{}] [BURST-LOOP] 🛑 Main loop stopped after {} bursts", timestamp, burst_num);
 }
 
 #[cfg(test)]
