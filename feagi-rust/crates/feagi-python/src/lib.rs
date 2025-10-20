@@ -38,6 +38,7 @@ use pyo3::exceptions::{PyValueError, PyIOError};
 use numpy::{PyArray1, ToPyArray};
 use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
+use feagi_connectome_serialization;
 use ahash::AHashMap;
 use std::sync::{Arc, Mutex};
 use feagi_data_structures::neuron_voxels::xyzp::{NeuronVoxelXYZP, NeuronVoxelXYZPArrays, CorticalMappedXYZPNeuronVoxels};
@@ -1260,29 +1261,26 @@ impl RustNPU {
     /// cortical area mappings, and runtime state. The bytes can be written to a file
     /// or transmitted over the network.
     /// 
-    /// Requires the 'connectome-serialization' feature to be enabled.
-    /// 
     /// Returns:
     ///     Binary data (bytes) containing the serialized connectome
     ///
     /// Note: For saving to file, use save_connectome_to_file() instead as it includes
     /// proper format headers and error handling.
-    #[cfg(feature = "connectome-serialization")]
-    fn export_connectome_bytes(&self) -> PyResult<Vec<u8>> {
+    fn export_connectome_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
         let npu = self.npu.lock().unwrap();
         let snapshot = npu.export_connectome();
         
         // Use bincode to serialize
-        bincode::serialize(&snapshot)
-            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))
+        let bytes = bincode::serialize(&snapshot)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))?;
+        
+        Ok(pyo3::types::PyBytes::new_bound(py, &bytes))
     }
     
     /// Import connectome from bytes
     /// 
     /// Replaces the entire NPU state with a previously exported connectome.
     /// This completely overwrites neurons, synapses, cortical areas, and runtime state.
-    /// 
-    /// Requires the 'connectome-serialization' feature to be enabled.
     /// 
     /// Args:
     ///     binary_data: Binary data (bytes) from export_connectome_bytes()
@@ -1292,7 +1290,6 @@ impl RustNPU {
     ///
     /// Note: For loading from file, use load_connectome_from_file() instead as it includes
     /// proper format validation and error handling.
-    #[cfg(feature = "connectome-serialization")]
     fn import_connectome_bytes(&mut self, binary_data: &[u8]) -> PyResult<bool> {
         // Deserialize using bincode
         let snapshot: feagi_connectome_serialization::ConnectomeSnapshot = bincode::deserialize(binary_data)
@@ -1310,14 +1307,11 @@ impl RustNPU {
     /// Exports the connectome and saves it to a .connectome file.
     /// This file can be loaded by the standalone Rust inference engine or re-imported later.
     /// 
-    /// Requires the 'connectome-serialization' feature to be enabled.
-    /// 
     /// Args:
     ///     file_path: Path to save the connectome file (e.g., "brain.connectome")
     /// 
     /// Returns:
     ///     True if save was successful
-    #[cfg(feature = "connectome-serialization")]
     fn save_connectome_to_file(&self, file_path: String) -> PyResult<bool> {
         let npu = self.npu.lock().unwrap();
         let snapshot = npu.export_connectome();
@@ -1332,14 +1326,11 @@ impl RustNPU {
     /// 
     /// Imports a connectome from a .connectome file and replaces the entire NPU state.
     /// 
-    /// Requires the 'connectome-serialization' feature to be enabled.
-    /// 
     /// Args:
     ///     file_path: Path to load the connectome file from (e.g., "brain.connectome")
     /// 
     /// Returns:
     ///     True if load was successful
-    #[cfg(feature = "connectome-serialization")]
     fn load_connectome_from_file(&mut self, file_path: String) -> PyResult<bool> {
         let snapshot = feagi_connectome_serialization::load_connectome(file_path)
             .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to load connectome: {}", e)))?;
@@ -1862,6 +1853,52 @@ impl PyPNS {
     }
 }  // END of #[pymethods] impl PyPNS
 
+// Standalone connectome serialization functions (bypass #[pymethods] macro issue)
+
+#[pyfunction]
+fn test_simple_function() -> String {
+    "Hello from simple test function!".to_string()
+}
+
+#[pyfunction]
+fn export_connectome_bytes(py: Python, npu: Py<RustNPU>) -> PyResult<Vec<u8>> {
+    let npu_ref = npu.borrow(py);
+    let npu_lock = npu_ref.npu.lock().unwrap();
+    let snapshot = npu_lock.export_connectome();
+    bincode::serialize(&snapshot)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))
+}
+
+#[pyfunction]
+fn import_connectome_bytes(py: Python, npu: Py<RustNPU>, binary_data: &[u8]) -> PyResult<bool> {
+    let snapshot: feagi_connectome_serialization::ConnectomeSnapshot = bincode::deserialize(binary_data)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to deserialize connectome: {}", e)))?;
+    let new_npu_core = RustNPUCore::import_connectome(snapshot);
+    let npu_ref = npu.borrow_mut(py);
+    *npu_ref.npu.lock().unwrap() = new_npu_core;
+    Ok(true)
+}
+
+#[pyfunction]
+fn save_connectome_to_file(py: Python, npu: Py<RustNPU>, file_path: String) -> PyResult<bool> {
+    let npu_ref = npu.borrow(py);
+    let npu_lock = npu_ref.npu.lock().unwrap();
+    let snapshot = npu_lock.export_connectome();
+    feagi_connectome_serialization::save_connectome(&snapshot, file_path)
+        .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to save connectome: {}", e)))?;
+    Ok(true)
+}
+
+#[pyfunction]
+fn load_connectome_from_file(py: Python, npu: Py<RustNPU>, file_path: String) -> PyResult<bool> {
+    let snapshot = feagi_connectome_serialization::load_connectome(file_path)
+        .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to load connectome: {}", e)))?;
+    let new_npu_core = RustNPUCore::import_connectome(snapshot);
+    let npu_ref = npu.borrow_mut(py);
+    *npu_ref.npu.lock().unwrap() = new_npu_core;
+    Ok(true)
+}
+
 /// Module containing fast neural network operations
 #[pymodule]
 fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -1878,6 +1915,30 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Add PNS (NEW! - Peripheral Nervous System for agent I/O)
     m.add_class::<PyPNS>()?;
+    
+    // Add test function first
+    match wrap_pyfunction!(test_simple_function, m) {
+        Ok(func) => {
+            m.add_function(func)?;
+        }
+        Err(e) => {
+            eprintln!("Failed to wrap test_simple_function: {:?}", e);
+        }
+    }
+    
+    // Add connectome serialization functions (standalone, bypassing #[pymethods] macro)
+    if let Ok(func) = wrap_pyfunction!(export_connectome_bytes, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(import_connectome_bytes, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(save_connectome_to_file, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(load_connectome_from_file, m) {
+        m.add_function(func)?;
+    }
     
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead
