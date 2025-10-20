@@ -17,6 +17,7 @@ feagi-burst-engine = { path = "../feagi-burst-engine", features = ["connectome-s
 feagi-plasticity = { path = "../feagi-plasticity" }
 feagi-pns = { path = "../feagi-pns" }
 feagi-connectome-serialization = { path = "../feagi-connectome-serialization" }
+feagi-agent-registry = { path = "../feagi-agent-registry" }
 feagi_data_structures.workspace = true
 feagi_data_serialization.workspace = true
 pyo3.workspace = true

@@ -1899,12 +1899,62 @@ fn load_connectome_from_file(py: Python, npu: Py<RustNPU>, file_path: String) ->
     Ok(true)
 }
 
+/// Python wrapper for AgentRegistry
+#[pyclass]
+struct PyAgentRegistry {
+    registry: std::sync::Arc<feagi_agent_registry::AgentRegistry>,
+}
+
+#[pymethods]
+impl PyAgentRegistry {
+    #[new]
+    fn new(max_agents: usize, timeout_ms: u64) -> Self {
+        Self {
+            registry: std::sync::Arc::new(feagi_agent_registry::AgentRegistry::new(max_agents, timeout_ms)),
+        }
+    }
+    
+    /// Get count of registered agents
+    fn agent_count(&self) -> usize {
+        self.registry.agent_count()
+    }
+    
+    /// Get all registered agents as JSON string
+    fn get_all_agents_json(&self) -> PyResult<String> {
+        let agents = self.registry.get_all_agents();
+        serde_json::to_string(&agents)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agents: {}", e)))
+    }
+    
+    /// Get specific agent as JSON string
+    fn get_agent_json(&self, agent_id: &str) -> PyResult<String> {
+        let agent = self.registry.get_agent(agent_id)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to get agent: {}", e)))?;
+        serde_json::to_string(&agent)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agent: {}", e)))
+    }
+    
+    /// Update agent activity timestamp
+    fn update_agent_activity(&self, agent_id: &str) -> PyResult<()> {
+        self.registry.update_agent_activity(agent_id)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to update activity: {}", e)))
+    }
+    
+    /// Prune inactive agents (returns count of pruned agents)
+    fn prune_inactive_agents(&self) -> usize {
+        self.registry.prune_inactive_agents(None)
+    }
+}
+
 /// Module containing fast neural network operations
 #[pymodule]
 fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add the complete Rust NPU (NEW!)
     m.add_class::<RustNPU>()?;
     m.add_class::<BurstResult>()?;
+    
+    // Add Agent Registry (NEW! - transport-agnostic agent management)
+    m.add_class::<PyAgentRegistry>()?;
     
     // Add visualization encoding (uses published feagi_data_structures)
     m.add_class::<VisualizationEncoder>()?;
