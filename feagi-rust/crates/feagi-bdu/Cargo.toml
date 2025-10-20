@@ -6,7 +6,7 @@ authors = ["FEAGI Team"]
 description = "Brain Development Utilities - Synaptogenesis and Connectivity"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["rlib"]
 name = "feagi_bdu"
 
 [dependencies]
@@ -20,7 +20,7 @@ ahash = { workspace = true }
 roaring = "0.10"  # Roaring bitmaps for spatial indexing
 
 # FFI / Python bindings (using workspace versions)
-pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+pyo3 = { workspace = true, features = ["abi3-py38"] }
 
 # Serialization (for debugging)
 serde = { version = "1.0", features = ["derive"] }
