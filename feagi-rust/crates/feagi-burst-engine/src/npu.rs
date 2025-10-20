@@ -383,6 +383,107 @@ impl RustNPU {
         self.area_id_to_name.get(&area_id).map(|s| s.as_str())
     }
     
+    /// Export connectome snapshot (for saving to file)
+    /// 
+    /// This captures the complete NPU state including all neurons, synapses,
+    /// and runtime state for serialization.
+    #[cfg(feature = "connectome-io")]
+    pub fn export_connectome(&self) -> feagi_connectome_io::ConnectomeSnapshot {
+        use feagi_connectome_io::{
+            ConnectomeSnapshot, SerializableNeuronArray, SerializableSynapseArray,
+            ConnectomeMetadata,
+        };
+        
+        // Convert neuron array
+        let neurons = SerializableNeuronArray {
+            count: self.neuron_array.count,
+            capacity: self.neuron_array.capacity,
+            membrane_potentials: self.neuron_array.membrane_potentials.clone(),
+            thresholds: self.neuron_array.thresholds.clone(),
+            leak_coefficients: self.neuron_array.leak_coefficients.clone(),
+            resting_potentials: self.neuron_array.resting_potentials.clone(),
+            neuron_types: self.neuron_array.neuron_types.clone(),
+            refractory_periods: self.neuron_array.refractory_periods.clone(),
+            refractory_countdowns: self.neuron_array.refractory_countdowns.clone(),
+            excitabilities: self.neuron_array.excitabilities.clone(),
+            cortical_areas: self.neuron_array.cortical_areas.clone(),
+            coordinates: self.neuron_array.coordinates.clone(),
+            valid_mask: self.neuron_array.valid_mask.clone(),
+        };
+        
+        // Convert synapse array
+        let synapses = SerializableSynapseArray {
+            count: self.synapse_array.count,
+            capacity: self.synapse_array.capacity,
+            source_neurons: self.synapse_array.source_neurons.clone(),
+            target_neurons: self.synapse_array.target_neurons.clone(),
+            weights: self.synapse_array.weights.clone(),
+            conductances: self.synapse_array.conductances.clone(),
+            types: self.synapse_array.types.clone(),
+            valid_mask: self.synapse_array.valid_mask.clone(),
+            source_index: self.synapse_array.source_index.clone(),
+        };
+        
+        ConnectomeSnapshot {
+            version: 1,
+            neurons,
+            synapses,
+            cortical_area_names: self.area_id_to_name.clone(),
+            burst_count: self.burst_count,
+            power_amount: self.power_amount,
+            fire_ledger_window: 20, // Default value (fire_ledger doesn't expose window)
+            metadata: ConnectomeMetadata::default(),
+        }
+    }
+    
+    /// Import connectome snapshot (for loading from file)
+    /// 
+    /// This replaces the entire NPU state with data from a saved connectome.
+    #[cfg(feature = "connectome-io")]
+    pub fn import_connectome(snapshot: feagi_connectome_io::ConnectomeSnapshot) -> Self {
+        // Convert neuron array
+        let mut neuron_array = NeuronArray::new(snapshot.neurons.capacity);
+        neuron_array.count = snapshot.neurons.count;
+        neuron_array.membrane_potentials = snapshot.neurons.membrane_potentials;
+        neuron_array.thresholds = snapshot.neurons.thresholds;
+        neuron_array.leak_coefficients = snapshot.neurons.leak_coefficients;
+        neuron_array.resting_potentials = snapshot.neurons.resting_potentials;
+        neuron_array.neuron_types = snapshot.neurons.neuron_types;
+        neuron_array.refractory_periods = snapshot.neurons.refractory_periods;
+        neuron_array.refractory_countdowns = snapshot.neurons.refractory_countdowns;
+        neuron_array.excitabilities = snapshot.neurons.excitabilities;
+        neuron_array.cortical_areas = snapshot.neurons.cortical_areas;
+        neuron_array.coordinates = snapshot.neurons.coordinates;
+        neuron_array.valid_mask = snapshot.neurons.valid_mask;
+        
+        // Convert synapse array
+        let mut synapse_array = SynapseArray::new(snapshot.synapses.capacity);
+        synapse_array.count = snapshot.synapses.count;
+        synapse_array.source_neurons = snapshot.synapses.source_neurons;
+        synapse_array.target_neurons = snapshot.synapses.target_neurons;
+        synapse_array.weights = snapshot.synapses.weights;
+        synapse_array.conductances = snapshot.synapses.conductances;
+        synapse_array.types = snapshot.synapses.types;
+        synapse_array.valid_mask = snapshot.synapses.valid_mask;
+        synapse_array.source_index = snapshot.synapses.source_index;
+        
+        Self {
+            neuron_array,
+            synapse_array,
+            fire_candidate_list: FireCandidateList::new(),
+            current_fire_queue: FireQueue::new(),
+            previous_fire_queue: FireQueue::new(),
+            fire_ledger: RustFireLedger::new(snapshot.fire_ledger_window),
+            fq_sampler: FQSampler::new(1000.0, SamplingMode::Unified),
+            pending_sensory_injections: std::sync::Mutex::new(Vec::with_capacity(10000)),
+            last_fcl_snapshot: Vec::new(),
+            area_id_to_name: snapshot.cortical_area_names,
+            propagation_engine: SynapticPropagationEngine::new(),
+            burst_count: snapshot.burst_count,
+            power_amount: snapshot.power_amount,
+        }
+    }
+    
     /// Get all neuron positions for a cortical area (for fast batch lookups)
     /// Returns Vec<(neuron_id, x, y, z)>
     pub fn get_neuron_positions_in_cortical_area(&self, cortical_area: u32) -> Vec<(u32, u32, u32, u32)> {

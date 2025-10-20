@@ -7,6 +7,7 @@ members = [
     "crates/feagi-python",
     "crates/feagi-bdu",
     "crates/feagi-pns",
+    "crates/feagi-connectome-io",
 ]
 
 [workspace.package]
@@ -21,7 +22,7 @@ repository = "https://github.com/feagi/feagi"
 thiserror = "1.0.50"
 rayon = "1.10"
 ndarray = "0.16"
-ahash = "0.8"  # Fast non-cryptographic hashing
+ahash = { version = "0.8", features = ["serde"] }  # Fast non-cryptographic hashing
 
 # GPU acceleration (WGPU - cross-platform native GPU library)
 wgpu = "0.19"
