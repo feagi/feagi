@@ -1,14 +1,16 @@
 mod video_reader;
 mod sensory_injection;
+mod motor_extraction;
 
 use clap::Parser;
-use log::{info, warn, error};
+use log::{info, warn, error, debug};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use video_reader::VideoReader;
 use sensory_injection::SensoryInjector;
+use motor_extraction::MotorExtractor;
 
 /// FEAGI Inference Engine - Standalone neural processing engine with online learning
 #[derive(Parser, Debug)]
@@ -29,6 +31,10 @@ struct Args {
     /// Vision cortical area ID (default: "ipu_vision")
     #[arg(long, default_value = "ipu_vision")]
     vision_cortical_area: String,
+
+    /// Motor cortical area IDs (comma-separated, e.g., "opu_motor_left,opu_motor_right")
+    #[arg(long, default_value = "opu_motor")]
+    motor_cortical_areas: String,
 
     /// Resize video frames to WxH (e.g., "64x64")
     #[arg(long)]
@@ -131,6 +137,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SensoryInjector::new(args.vision_cortical_area.clone(), dims)
     });
 
+    // Initialize motor extractor
+    let motor_areas: Vec<String> = args
+        .motor_cortical_areas
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    let mut motor_extractor = MotorExtractor::new(motor_areas.clone());
+    info!(
+        "✓ Motor extractor initialized for {} areas: {}",
+        motor_areas.len(),
+        motor_areas.join(", ")
+    );
+
     // Setup signal handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -158,6 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         running,
         video_reader.as_mut(),
         sensory_injector.as_mut(),
+        &mut motor_extractor,
         resize_dims,
     )?;
 
@@ -172,6 +194,7 @@ fn run_engine(
     running: Arc<AtomicBool>,
     mut video_reader: Option<&mut VideoReader>,
     mut sensory_injector: Option<&mut SensoryInjector>,
+    motor_extractor: &mut MotorExtractor,
     resize_dims: Option<(u32, u32)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let burst_interval = std::time::Duration::from_millis(1000 / args.burst_hz);
@@ -231,12 +254,23 @@ fn run_engine(
         }
 
         // 2. Execute neural burst
-        // npu.burst();  // TODO: Implement burst execution
+        match npu.process_burst() {
+            Ok(result) => {
+                if result.neuron_count > 0 && burst_count % (args.burst_hz * 10) == 0 {
+                    debug!("Burst #{}: {} neurons fired", burst_count, result.neuron_count);
+                }
+            }
+            Err(e) => {
+                warn!("Burst processing error: {}", e);
+            }
+        }
 
         burst_count += 1;
 
         // 3. Extract motor output
-        // TODO: Implement motor output extraction
+        if let Err(e) = motor_extractor.extract_motor_output(npu) {
+            warn!("Motor extraction error: {}", e);
+        }
 
         // Periodic status
         if burst_count % (args.burst_hz * 10) == 0 {
