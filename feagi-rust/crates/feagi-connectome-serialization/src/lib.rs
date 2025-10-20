@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-//! # FEAGI Connectome I/O
+//! # FEAGI Connectome Serialization
 //!
 //! Serialization and deserialization of complete brain connectomes for the FEAGI inference engine.
 //!
@@ -17,7 +17,7 @@
 //!
 //! ## Usage
 //! ```ignore
-//! use feagi_connectome_io::{save_connectome, load_connectome};
+//! use feagi_connectome_serialization::{save_connectome, load_connectome};
 //! use feagi_burst_engine::RustNPU;
 //!
 //! // Save connectome

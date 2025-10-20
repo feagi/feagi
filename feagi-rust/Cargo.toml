@@ -7,7 +7,7 @@ members = [
     "crates/feagi-python",
     "crates/feagi-bdu",
     "crates/feagi-pns",
-    "crates/feagi-connectome-io",
+    "crates/feagi-connectome-serialization",
 ]
 
 [workspace.package]

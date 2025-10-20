@@ -387,9 +387,9 @@ impl RustNPU {
     /// 
     /// This captures the complete NPU state including all neurons, synapses,
     /// and runtime state for serialization.
-    #[cfg(feature = "connectome-io")]
-    pub fn export_connectome(&self) -> feagi_connectome_io::ConnectomeSnapshot {
-        use feagi_connectome_io::{
+    #[cfg(feature = "connectome-serialization")]
+    pub fn export_connectome(&self) -> feagi_connectome_serialization::ConnectomeSnapshot {
+        use feagi_connectome_serialization::{
             ConnectomeSnapshot, SerializableNeuronArray, SerializableSynapseArray,
             ConnectomeMetadata,
         };
@@ -439,8 +439,8 @@ impl RustNPU {
     /// Import connectome snapshot (for loading from file)
     /// 
     /// This replaces the entire NPU state with data from a saved connectome.
-    #[cfg(feature = "connectome-io")]
-    pub fn import_connectome(snapshot: feagi_connectome_io::ConnectomeSnapshot) -> Self {
+    #[cfg(feature = "connectome-serialization")]
+    pub fn import_connectome(snapshot: feagi_connectome_serialization::ConnectomeSnapshot) -> Self {
         // Convert neuron array
         let mut neuron_array = NeuronArray::new(snapshot.neurons.capacity);
         neuron_array.count = snapshot.neurons.count;
