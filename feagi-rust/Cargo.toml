@@ -8,6 +8,7 @@ members = [
     "crates/feagi-bdu",
     "crates/feagi-pns",
     "crates/feagi-connectome-serialization",
+    "crates/feagi-agent-registry",
     "crates/feagi-inference-engine",
 ]
 
