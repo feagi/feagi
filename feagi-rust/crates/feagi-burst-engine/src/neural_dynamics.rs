@@ -360,6 +360,7 @@ mod tests {
             1.0,   // excitability
             0,     // consecutive_fire_limit
             0,     // snooze_period
+            true,  // mp_charge_accumulation
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -372,7 +373,7 @@ mod tests {
         let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 1);
-        assert_eq!(result.fire_queue.len(), 1);
+        assert_eq!(result.fire_queue.total_neurons(), 1);
         assert_eq!(neurons.get_potential(id), 0.0);  // Reset after firing
         assert_eq!(neurons.refractory_countdowns[0], 5);  // Refractory set
     }
@@ -381,7 +382,7 @@ mod tests {
     fn test_neuron_does_not_fire_below_threshold() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.5);  // Below threshold
@@ -389,7 +390,7 @@ mod tests {
         let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 0);
-        assert_eq!(result.fire_queue.len(), 0);
+        assert_eq!(result.fire_queue.total_neurons(), 0);
         assert!(neurons.get_potential(id) > 0.0);  // Potential accumulated
     }
 
@@ -397,7 +398,7 @@ mod tests {
     fn test_refractory_period_blocks_firing() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // Set refractory countdown
         neurons.refractory_countdowns[0] = 3;
@@ -424,6 +425,7 @@ mod tests {
             1.0,   // excitability
             0,     // consecutive_fire_limit
             0,     // snooze_period
+            true,  // mp_charge_accumulation
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -448,7 +450,7 @@ mod tests {
         // Add 10 neurons
         let mut ids = Vec::new();
         for i in 0..10 {
-            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, i, 0, 0).unwrap();
+            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, i, 0, 0).unwrap();
             ids.push(id);
         }
         

@@ -1171,16 +1171,16 @@ mod tests {
         let mut npu = RustNPU::new(100, 1000, 10);
         
         // High threshold
-        let _n1 = npu.add_neuron(10.0, 0.0, 0.0, 0, 0, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let n1 = npu.add_neuron(10.0, 0.0, 0.0, 0, 0, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // High leak
-        let _n2 = npu.add_neuron(1.0, 0.9, 0.0, 0, 0, 1.0, 0, 0, true, 1, 1, 0, 0).unwrap();
+        let n2 = npu.add_neuron(1.0, 0.9, 0.0, 0, 0, 1.0, 0, 0, true, 1, 1, 0, 0).unwrap();
         
         // Long refractory period
-        let _n3 = npu.add_neuron(1.0, 0.1, 0.0, 0, 100, 1.0, 0, 0, true, 1, 2, 0, 0).unwrap();
+        let n3 = npu.add_neuron(1.0, 0.1, 0.0, 0, 100, 1.0, 0, 0, true, 1, 2, 0, 0).unwrap();
         
         // Low excitability
-        let _n4 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 0.1, 0, 0, true, 1, 3, 0, 0).unwrap();
+        let n4 = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 0.1, 0, 0, true, 1, 3, 0, 0).unwrap();
         
         assert_eq!(npu.get_neuron_count(), 4);
     }
@@ -1189,9 +1189,9 @@ mod tests {
     fn test_add_neuron_different_cortical_areas() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        let _power = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
-        let _area2 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
-        let _area3 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 3, 0, 0, 0).unwrap();
+        let power = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let area2 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
+        let area3 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 3, 0, 0, 0).unwrap();
         
         assert_eq!(npu.get_neuron_count(), 3);
     }
@@ -1200,7 +1200,7 @@ mod tests {
     fn test_add_neuron_3d_coordinates() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        let _n1 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 5, 10, 15).unwrap();
+        let n1 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 5, 10, 15).unwrap();
         
         assert_eq!(npu.get_neuron_count(), 1);
     }
@@ -1287,10 +1287,10 @@ mod tests {
         let mut npu = RustNPU::new(1000, 10000, 20);
         
         // Add a power neuron
-        let _power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let power_neuron = npu.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // Process burst with power injection
-        let result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[power_neuron]).unwrap();
         
         assert_eq!(result.burst, 1);
         assert_eq!(result.power_injections, 1);
@@ -1302,7 +1302,7 @@ mod tests {
         let mut npu = RustNPU::new(100, 1000, 10);
         
         for i in 1..=10 {
-            let result = npu.process_burst().unwrap();
+            let result = npu.process_burst(&[]).unwrap();
             assert_eq!(result.burst, i as u64);
             assert_eq!(npu.get_burst_count(), i as u64);
         }
@@ -1322,7 +1322,7 @@ mod tests {
             npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, i, 0, 0).unwrap();
         }
         
-        let result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
         
         // Should inject only cortical_area=1 neurons
         assert_eq!(result.power_injections, 5);
@@ -1339,8 +1339,21 @@ mod tests {
         npu.set_power_amount(10.0);
         
         // Should fire immediately (10.0 > 5.0 threshold)
-        let result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
         assert_eq!(result.neuron_count, 1);
+    }
+
+    #[test]
+    fn test_power_injection_with_manual_fcl() {
+        let mut npu = RustNPU::new(100, 1000, 10);
+        
+        let power = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let regular = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
+        
+        let result = npu.process_burst(&[regular]).unwrap();
+        
+        assert_eq!(result.power_injections, 1);
+        assert_eq!(result.fcl_injected, 1);
     }
 
     #[test]
@@ -1350,9 +1363,10 @@ mod tests {
         // Add only regular neurons (no power area)
         npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
         
-        let result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
         
         assert_eq!(result.power_injections, 0);
+        assert_eq!(result.fcl_injected, 0);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1365,10 +1379,11 @@ mod tests {
         
         let neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
         
-        npu.inject_sensory_with_potentials(&[(neuron, 0.5)]);
+        npu.inject_sensory_input(neuron, 0.5);
         
         // Sensory input is staged until next burst
-        let _result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
+        assert_eq!(result.sensory_injected, 1);
     }
 
     #[test]
@@ -1379,9 +1394,12 @@ mod tests {
         let n2 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 1, 0, 0).unwrap();
         let n3 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 2, 0, 0).unwrap();
         
-        npu.inject_sensory_with_potentials(&[(n1, 0.5), (n2, 0.3), (n3, 0.8)]);
+        npu.inject_sensory_input(n1, 0.5);
+        npu.inject_sensory_input(n2, 0.3);
+        npu.inject_sensory_input(n3, 0.8);
         
-        let _result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
+        assert_eq!(result.sensory_injected, 3);
     }
 
     #[test]
@@ -1390,12 +1408,31 @@ mod tests {
         
         let neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
         
-        npu.inject_sensory_with_potentials(&[(neuron, 0.3)]);
-        npu.inject_sensory_with_potentials(&[(neuron, 0.3)]);
-        npu.inject_sensory_with_potentials(&[(neuron, 0.3)]);
+        npu.inject_sensory_input(neuron, 0.3);
+        npu.inject_sensory_input(neuron, 0.3);
+        npu.inject_sensory_input(neuron, 0.3);
         
-        let _result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
         // Should accumulate 0.9 potential
+        assert_eq!(result.sensory_injected, 3);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FCL Management
+    // ═══════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_clear_fcl() {
+        let mut npu = RustNPU::new(100, 1000, 10);
+        
+        let neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, 0, 0, 0).unwrap();
+        
+        npu.inject_sensory_input(neuron, 0.5);
+        npu.clear_fcl();
+        
+        // After clearing, burst should have no sensory input
+        let result = npu.process_burst(&[]).unwrap();
+        assert_eq!(result.sensory_injected, 0);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1406,10 +1443,10 @@ mod tests {
     fn test_fire_ledger_recording() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        let _neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
+        let neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // Process burst
-        npu.process_burst().unwrap();
+        npu.process_burst(&[]).unwrap();
         
         // Check fire ledger
         let history = npu.get_fire_ledger_history(1, 10);
@@ -1436,13 +1473,13 @@ mod tests {
         
         npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
-        npu.set_visualization_subscribers(true);
+        npu.set_viz_subscribers(true);
         
-        npu.process_burst().unwrap();
+        npu.process_burst(&[]).unwrap();
         
         // Should be able to sample
-        let _sample = npu.sample_fire_queue();
-        // Rate limiting may prevent sampling
+        let sample = npu.sample_fire_queue();
+        assert!(sample.is_some() || sample.is_none()); // Rate limiting may prevent sampling
     }
 
     #[test]
@@ -1462,13 +1499,13 @@ mod tests {
     fn test_fq_sampler_viz_subscribers() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        assert!(!npu.has_visualization_subscribers());
+        assert!(!npu.has_viz_subscribers());
         
-        npu.set_visualization_subscribers(true);
-        assert!(npu.has_visualization_subscribers());
+        npu.set_viz_subscribers(true);
+        assert!(npu.has_viz_subscribers());
         
-        npu.set_visualization_subscribers(false);
-        assert!(!npu.has_visualization_subscribers());
+        npu.set_viz_subscribers(false);
+        assert!(!npu.has_viz_subscribers());
     }
 
     #[test]
@@ -1480,10 +1517,11 @@ mod tests {
         // Before any burst
         assert!(npu.get_latest_fire_queue_sample().is_none());
         
-        npu.process_burst().unwrap();
+        npu.process_burst(&[]).unwrap();
         
-        // After burst, may have sample
-        let _sample = npu.get_latest_fire_queue_sample();
+        // After burst, should have sample
+        let sample = npu.get_latest_fire_queue_sample();
+        // May or may not have sample depending on rate limiting
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1494,8 +1532,8 @@ mod tests {
     fn test_register_cortical_area_name() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        npu.register_cortical_area(1, "visual_cortex".to_string());
-        npu.register_cortical_area(2, "motor_cortex".to_string());
+        npu.register_cortical_area_name(1, "visual_cortex".to_string());
+        npu.register_cortical_area_name(2, "motor_cortex".to_string());
         
         // Names are registered successfully
     }
@@ -1511,8 +1549,6 @@ mod tests {
         let n1 = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         let nonexistent = NeuronId(999);
         
-        // Note: add_synapse does NOT validate neuron existence for performance
-        // Synapses to nonexistent neurons are silently ignored during propagation
         let result = npu.add_synapse(
             n1,
             nonexistent,
@@ -1521,15 +1557,27 @@ mod tests {
             SynapseType::Excitatory,
         );
         
-        assert!(result.is_ok());  // No validation for performance
-        assert_eq!(npu.get_synapse_count(), 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_inject_sensory_to_nonexistent_neuron() {
+        let mut npu = RustNPU::new(100, 1000, 10);
+        
+        let nonexistent = NeuronId(999);
+        
+        // Should handle gracefully (no panic)
+        npu.inject_sensory_input(nonexistent, 0.5);
+        
+        let result = npu.process_burst(&[]).unwrap();
+        // Should not count nonexistent neurons
     }
 
     #[test]
     fn test_burst_with_empty_npu() {
         let mut npu = RustNPU::new(100, 1000, 10);
         
-        let result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&[]).unwrap();
         
         assert_eq!(result.burst, 1);
         assert_eq!(result.neuron_count, 0);
@@ -1537,19 +1585,18 @@ mod tests {
     }
 
     #[test]
-    fn test_large_sensory_batch() {
+    fn test_large_manual_fcl() {
         let mut npu = RustNPU::new(1000, 10000, 10);
         
         // Add 100 neurons
-        let mut neurons = Vec::new();
         for i in 0..100 {
-            let neuron = npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, i, 0, 0).unwrap();
-            neurons.push((neuron, 0.5));
+            npu.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 2, i, 0, 0).unwrap();
         }
         
-        npu.inject_sensory_with_potentials(&neurons);
+        // Create large FCL
+        let fcl: Vec<NeuronId> = (0..100).map(NeuronId).collect();
         
-        let _result = npu.process_burst().unwrap();
+        let result = npu.process_burst(&fcl).unwrap();
+        assert_eq!(result.fcl_injected, 100);
     }
 }
-

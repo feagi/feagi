@@ -502,7 +502,7 @@ mod tests {
         
         assert!(!runner.is_running());
         
-        runner.set_power_neurons(vec![1, 2, 3]);
+        // Power neurons are now auto-discovered by cortical_area=1
         runner.start().unwrap();
         
         assert!(runner.is_running());

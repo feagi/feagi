@@ -75,3 +75,5 @@ print("\n🎯 Next steps:")
 print("   1. Integrate with Python burst_engine.py")
 print("   2. Replace _compute_synaptic_propagation() with Rust call")
 print("   3. Benchmark: expect 50-100x speedup (165ms → <3ms)")
+
+
