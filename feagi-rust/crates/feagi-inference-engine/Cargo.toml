@@ -1,0 +1,47 @@
+[package]
+name = "feagi-inference-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Standalone FEAGI neural inference engine with online learning"
+
+[[bin]]
+name = "feagi-inference-engine"
+path = "src/main.rs"
+
+[dependencies]
+# FEAGI Components
+feagi-types = { path = "../feagi-types" }
+feagi-burst-engine = { path = "../feagi-burst-engine", features = ["connectome-serialization"] }
+feagi-connectome-serialization = { path = "../feagi-connectome-serialization" }
+
+# CLI and Config
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+ctrlc = "3.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async runtime and signals
+tokio = { version = "1.40", features = ["full"] }
+signal-hook = "0.3"
+
+# Logging
+env_logger = "0.11"
+log = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
