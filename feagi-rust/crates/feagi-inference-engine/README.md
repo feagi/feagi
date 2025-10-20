@@ -1,19 +1,19 @@
 # FEAGI Inference Engine
 
-A standalone Rust-based neural processing engine for FEAGI (Framework for Evolutionary Artificial General Intelligence). The inference engine provides real-time neural inference with online learning capabilities, enabling FEAGI to run independently without Python dependencies.
+A standalone Rust-based neural processing engine for FEAGI (Framework for Evolutionary Artificial General Intelligence). The inference engine provides real-time neural inference with online learning capabilities, completely decoupled from I/O and agent implementations.
 
 ## Overview
 
 The FEAGI Inference Engine is a high-performance, standalone application that:
 
 - **Loads pre-trained connectomes** from serialized brain files
-- **Processes sensory input** from video files and converts them to neural activations
 - **Executes neural bursts** with synaptic propagation and neural dynamics
-- **Extracts motor output** from active neurons in motor cortical areas
+- **Communicates via ZMQ** with external agents for sensory input and motor output
 - **Supports online learning** with dynamic synapse and neuron modification
 - **Runs at configurable frequencies** (default: 50Hz burst rate)
+- **Agent-agnostic** - works with any agent that implements the ZMQ protocol
 
-This enables FEAGI to operate in resource-constrained environments, embedded systems, and applications where Python overhead is undesirable.
+This enables FEAGI to operate in resource-constrained environments, embedded systems, and applications where Python overhead is undesirable, while maintaining complete separation between neural processing and I/O handling.
 
 ## Key Features
 
@@ -21,34 +21,34 @@ This enables FEAGI to operate in resource-constrained environments, embedded sys
 - **Real-time burst execution** with configurable frequency (1-1000Hz)
 - **Online learning** - synapses and neurons can be modified during runtime
 - **Connectome persistence** - save/load complete brain state
-- **Multi-cortical area support** - vision, motor, and custom cortical regions
+- **Multi-cortical area support** - unlimited custom cortical regions
 
-### Video Input Processing
-- **Multiple video formats** supported via FFmpeg (MP4, AVI, MOV, etc.)
-- **Automatic frame resizing** for performance optimization
-- **Configurable frame sampling** to control processing load
-- **Video looping** for continuous operation
-- **XYZP coordinate encoding** - pixels mapped to 3D voxel space with intensity
+### Agent Communication (ZMQ)
+- **Agent registration** - dynamic discovery and capability negotiation
+- **Sensory input** - receive data from external agents (vision, audio, sensors, etc.)
+- **Motor output** - publish commands to external agents (motors, actuators, etc.)
+- **Multi-agent support** - multiple agents can connect simultaneously
+- **Language-agnostic** - agents can be written in any language with ZMQ support
 
-### Motor Output
-- **Standard FEAGI data format** using feagi-data-processing structures
-- **Real-time extraction** from fire queue
-- **Multi-area motor control** support
-- **Verbose output** with neuron coordinates and activation levels
+### Architecture
+- **Decoupled design** - inference engine has zero knowledge of agent implementations
+- **Pure NPU core** - no I/O coupling, no hardware dependencies
+- **Scalable** - distribute agents across processes, machines, or networks
+- **Testable** - easy to mock and test with simple ZMQ clients
 
 ### Platform Support
 - **Cross-platform** - Linux, macOS, Windows
 - **Embedded-ready** - designed for migration to RTOS
-- **Docker-compatible** - can run in containers
+- **Docker/Kubernetes** - container-native with service discovery
 - **No Python required** - pure Rust implementation
 
 ## Prerequisites
 
 - **Rust toolchain** 1.70+ (install from https://rustup.rs/)
-- **FFmpeg libraries** (for video processing)
-  - Ubuntu/Debian: `sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev`
-  - macOS: `brew install ffmpeg`
-  - Windows: Download from https://ffmpeg.org/download.html
+- **ZMQ library** (for agent communication)
+  - Ubuntu/Debian: `sudo apt-get install libzmq3-dev`
+  - macOS: `brew install zeromq`
+  - Windows: Download from https://zeromq.org/download/
 
 ## Building
 
@@ -74,15 +74,26 @@ Run the inference engine with a pre-trained connectome:
 ./feagi-inference-engine --connectome path/to/brain.connectome
 ```
 
-### With Video Input
+The engine will start and wait for agents to connect via ZMQ.
 
-Process video input and inject as sensory data:
+### With External Agents
 
+Start the inference engine, then connect agents:
+
+**Terminal 1 - Inference Engine:**
 ```bash
-./feagi-inference-engine \
-  --connectome brain.connectome \
-  --video input.mp4 \
-  --vision-cortical-area ipu_vision
+./feagi-inference-engine --connectome brain.connectome --burst-hz 50
+```
+
+**Terminal 2 - Video Agent:**
+```bash
+cd video_agent_rust
+python video_agent.py --video input.mp4 --inference-host localhost:5000
+```
+
+**Terminal 3 - Motor Agent (example):**
+```bash
+python motor_agent.py --inference-host localhost:5000
 ```
 
 ### Full Configuration
@@ -90,14 +101,10 @@ Process video input and inject as sensory data:
 ```bash
 ./feagi-inference-engine \
   --connectome brain.connectome \
-  --video input.mp4 \
-  --vision-cortical-area ipu_vision \
-  --motor-cortical-areas "opu_motor_left,opu_motor_right" \
   --burst-hz 50 \
-  --resize 64x64 \
-  --frame-skip 1 \
-  --loop-video \
-  --auto-save
+  --checkpoint-interval 300 \
+  --auto-save \
+  --verbose
 ```
 
 ## Command-Line Options
@@ -105,16 +112,8 @@ Process video input and inject as sensory data:
 ### Required Parameters
 - `--connectome <PATH>` - Path to serialized connectome file to load
 
-### Video Input
-- `--video <PATH>` - Path to video file for visual input (optional)
-- `--vision-cortical-area <NAME>` - Cortical area ID for vision (default: "ipu_vision")
-- `--resize <WxH>` - Resize video frames (e.g., "64x64", "128x128")
-- `--frame-skip <N>` - Process every Nth frame (default: 1)
-- `--loop-video` - Loop video playback indefinitely (default: true)
-
 ### Neural Processing
 - `--burst-hz <N>` - Burst frequency in Hz (default: 50)
-- `--motor-cortical-areas <NAMES>` - Comma-separated motor area IDs (default: "opu_motor")
 
 ### Persistence
 - `--auto-save` - Auto-save connectome on shutdown (default: true)
@@ -124,49 +123,42 @@ Process video input and inject as sensory data:
 - `--verbose` - Enable verbose logging
 - `--help` - Display all options
 
+### ZMQ Endpoints (TODO - Not Yet Implemented)
+- `--registration-port <PORT>` - Agent registration endpoint (default: 5000)
+- `--sensory-port <PORT>` - Sensory input endpoint (default: 5555)
+- `--motor-port <PORT>` - Motor output endpoint (default: 5556)
+
 ## Architecture
 
 ### Data Flow
 
 ```
-┌─────────────┐
-│ Video Input │
-└──────┬──────┘
-       │ Frame-by-frame
-       ▼
-┌─────────────────────┐
-│ Sensory Injection   │
-│ (XYZP Coordinates)  │
-└──────┬──────────────┘
-       │ Inject into FCL
-       ▼
-┌─────────────────────┐
-│  Neural Processing  │
-│  - Neural Dynamics  │
-│  - Synaptic Prop.   │
-│  - Online Learning  │
-└──────┬──────────────┘
-       │ Fire Queue
-       ▼
-┌─────────────────────┐
-│  Motor Extraction   │
-│ (XYZP from FQ)      │
-└──────┬──────────────┘
-       │ Encode & Output
-       ▼
-┌─────────────────────┐
-│   Motor Output      │
-│ (Console/SHM/File)  │
-└─────────────────────┘
+┌──────────────────┐         ZMQ REQ/REP         ┌────────────────────┐
+│  External Agents │◄──────► (Registration)      │  FEAGI Inference   │
+│                  │                               │  Engine (Rust)     │
+│  - Video Agent   │         ZMQ PUSH             │                    │
+│  - Audio Agent   │────────► (Sensory Input)    │  ┌──────────────┐  │
+│  - Sensor Agent  │                               │  │   RustNPU    │  │
+│  - Motor Agent   │         ZMQ SUB              │  │              │  │
+│  - etc...        │◄──────── (Motor Output)      │  │ - Burst Loop │  │
+│                  │                               │  │ - Learning   │  │
+└──────────────────┘                               │  │ - Synapses   │  │
+                                                   │  └──────────────┘  │
+                                                   │                    │
+                                                   │  ┌──────────────┐  │
+                                                   │  │  Connectome  │  │
+                                                   │  │   Storage    │  │
+                                                   │  └──────────────┘  │
+                                                   └────────────────────┘
 ```
 
 ### Components
 
-- **Video Reader** - FFmpeg-based video decoder with frame extraction
-- **Sensory Injector** - Converts pixels to XYZP voxel coordinates
+- **Agent Registry** (TODO) - Manages agent registration and capabilities
+- **ZMQ Communication** (TODO) - Handles multi-agent messaging
 - **RustNPU** - Core neural processing unit with burst execution
-- **Motor Extractor** - Extracts and encodes motor neuron activations
 - **Connectome Serializer** - Saves/loads complete brain state
+- **External Agents** - Separate processes handling I/O (see `video_agent_rust/`)
 
 ## Connectome Files
 
@@ -199,66 +191,74 @@ Files use binary serialization (bincode) for fast loading and compact storage.
 
 ## Performance Optimization
 
-### Video Processing
-- Use `--resize` to reduce frame resolution (e.g., 64x64 for faster processing)
-- Set `--frame-skip 2` or higher to sample every Nth frame
-- The inference engine automatically skips dim pixels below activation threshold
-
 ### Burst Frequency
 - Default 50Hz is suitable for most applications
 - Increase to 100Hz+ for faster reaction times
-- Decrease to 20-30Hz for lower CPU usage
+- Decrease to 20-30Hz for lower CPU usage on embedded systems
+
+### Agent Configuration
+- Preprocess sensory data in agents before sending to reduce bandwidth
+- Agents handle all I/O blocking - inference engine never blocks
+- Multiple agents can run on separate machines for distributed processing
 
 ### Memory Usage
 - Connectome size depends on neuron/synapse count
 - Typical brain: 10K neurons, 100K synapses = ~10MB connectome file
 - Runtime memory: 2-3x connectome size
+- ZMQ messaging uses minimal memory overhead
 
 ## Use Cases
 
 ### Robotics
-Run FEAGI inference engine on embedded controllers (Raspberry Pi, NVIDIA Jetson) for real-time robot control with vision processing.
+Run FEAGI inference engine on embedded controllers (Raspberry Pi, NVIDIA Jetson) with agents handling sensors, cameras, and actuators over ZMQ.
 
 ### Edge Computing
-Deploy neural processing at the edge without Python/GPU requirements, enabling AI in resource-constrained environments.
+Deploy pure neural processing at the edge, with agents running on higher-powered machines or cloud for I/O-intensive tasks.
+
+### Distributed Systems
+Run inference engine in Docker/Kubernetes with agents as separate microservices, enabling horizontal scaling and fault tolerance.
 
 ### Research & Development
-Rapid iteration on neural architectures with fast Rust execution and Python-free deployment for production systems.
+Rapid iteration on neural architectures - modify agents without touching neural core, or vice versa.
 
-### Autonomous Systems
-Integrate with ROS, RTOS, or custom control systems for autonomous vehicles, drones, and industrial automation.
-
-### Simulation & Testing
-Run headless simulations at high speed for training and validation without visualization overhead.
+### Multi-Modal Processing
+Connect multiple agents (vision, audio, tactile, proprioception) simultaneously, each handling their own I/O and preprocessing.
 
 ## Limitations & Future Work
 
 ### Current Limitations
-- Motor output is printed to console (no hardware integration yet)
-- Cortical area IDs are simplified (need proper genome mapping)
-- No runtime genome modification (connectome must be pre-built)
-- Single video input (no multi-modal sensory fusion)
+- **ZMQ agent registration not yet implemented** (agents cannot register dynamically)
+- **No sensory input processing** - agents can't yet send data
+- **No motor output publishing** - agents can't receive commands
+- Connectome must be pre-built (no runtime genome modification)
 
-### Planned Features
-- Motor output to hardware interfaces (GPIO, I2C, serial)
+### Planned Features (High Priority)
+- **Agent registry** - REQ/REP socket for dynamic agent registration
+- **Sensory input** - PULL socket for receiving agent data
+- **Motor output** - PUB socket for publishing motor commands
+- **Agent health monitoring** - detect and handle agent disconnections
+
+### Future Enhancements
 - Real-time genome modification and cortical area creation
-- Multi-modal input (audio, tactile, proprioception)
 - Distributed processing across multiple inference engines
 - WebAssembly compilation for browser-based inference
+- Performance metrics and monitoring endpoints
 
 ## Troubleshooting
 
 ### "Failed to load connectome"
 Ensure the connectome file exists and was created with compatible FEAGI version. Connectome format versioning ensures backward compatibility.
 
-### "No valid neurons found for XYZP coordinates"
-The vision cortical area in the connectome may not match the CLI parameter. Verify cortical area names match between genome and CLI arguments.
+### "Agent registration not implemented" (Current State)
+The ZMQ agent registration system is not yet implemented. The inference engine currently only runs the NPU burst loop. See the "Planned Features" section above.
+
+### Agents Can't Connect
+1. Verify ZMQ library is installed (`libzmq3-dev` on Ubuntu, `zeromq` on macOS)
+2. Check firewall rules if running agents on different machines
+3. Ensure port numbers match between engine and agents (defaults: 5000/5555/5556)
 
 ### Low Performance / High CPU
-Reduce video resolution with `--resize`, increase `--frame-skip`, or lower `--burst-hz`. Monitor neuron count - very large brains require more processing power.
-
-### FFmpeg Errors
-Ensure FFmpeg libraries are properly installed. On Linux, verify `libavcodec`, `libavformat`, `libavutil`, and `libswscale` are available.
+Lower `--burst-hz` or optimize the connectome size. Monitor neuron/synapse counts - very large brains require more processing power. Agent I/O does not impact inference engine performance (decoupled design).
 
 ## Contributing
 
@@ -274,7 +274,12 @@ Licensed under the Apache License, Version 2.0
 ## Related Documentation
 
 - [FEAGI Core README](../../README.md) - Main FEAGI documentation
+- [Video Agent](../../../../video_agent_rust/) - Example Python video agent implementation
 - [Connectome Serialization](../feagi-connectome-serialization/) - Connectome file format
 - [Burst Engine](../feagi-burst-engine/) - Neural processing engine
 - [Architecture Guide](/feagi_core/docs/) - FEAGI 2.0 architecture overview
+
+## Example Agents
+
+See the `video_agent_rust/` directory for a complete example of a ZMQ-based agent that reads video files and communicates with the inference engine. This serves as a template for creating additional agents (audio, sensors, motor controllers, etc.).
 
