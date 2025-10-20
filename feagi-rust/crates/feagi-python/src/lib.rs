@@ -34,7 +34,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyBytes};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyValueError, PyIOError};
 use numpy::{PyArray1, ToPyArray};
 use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
@@ -42,8 +42,6 @@ use ahash::AHashMap;
 use std::sync::{Arc, Mutex};
 use feagi_data_structures::neuron_voxels::xyzp::{NeuronVoxelXYZP, NeuronVoxelXYZPArrays, CorticalMappedXYZPNeuronVoxels};
 use feagi_data_structures::genomic::CorticalID;
-// Note: FeagiSerializable is private in feagi_data_serialization, but we need its methods
-// So we'll implement serialization manually using the internal implementation details
 
 /*  LEGACY: Not used - full RustNPU is used instead
 /// Python wrapper for the Rust synaptic propagation engine
@@ -1255,12 +1253,109 @@ impl RustNPU {
     fn get_fq_sampler_samples_taken(&self) -> u64 {
         self.npu.lock().unwrap().get_fq_sampler_samples_taken()
     }
+    
+    /// Export connectome to bytes
+    /// 
+    /// Creates a complete snapshot of the NPU state including neurons, synapses,
+    /// cortical area mappings, and runtime state. The bytes can be written to a file
+    /// or transmitted over the network.
+    /// 
+    /// Requires the 'connectome-serialization' feature to be enabled.
+    /// 
+    /// Returns:
+    ///     Binary data (bytes) containing the serialized connectome
+    ///
+    /// Note: For saving to file, use save_connectome_to_file() instead as it includes
+    /// proper format headers and error handling.
+    #[cfg(feature = "connectome-serialization")]
+    fn export_connectome_bytes(&self) -> PyResult<Vec<u8>> {
+        let npu = self.npu.lock().unwrap();
+        let snapshot = npu.export_connectome();
+        
+        // Use bincode to serialize
+        bincode::serialize(&snapshot)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))
+    }
+    
+    /// Import connectome from bytes
+    /// 
+    /// Replaces the entire NPU state with a previously exported connectome.
+    /// This completely overwrites neurons, synapses, cortical areas, and runtime state.
+    /// 
+    /// Requires the 'connectome-serialization' feature to be enabled.
+    /// 
+    /// Args:
+    ///     binary_data: Binary data (bytes) from export_connectome_bytes()
+    /// 
+    /// Returns:
+    ///     True if import was successful
+    ///
+    /// Note: For loading from file, use load_connectome_from_file() instead as it includes
+    /// proper format validation and error handling.
+    #[cfg(feature = "connectome-serialization")]
+    fn import_connectome_bytes(&mut self, binary_data: &[u8]) -> PyResult<bool> {
+        // Deserialize using bincode
+        let snapshot: feagi_connectome_serialization::ConnectomeSnapshot = bincode::deserialize(binary_data)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to deserialize connectome: {}", e)))?;
+        
+        // Replace NPU with imported connectome
+        let new_npu = RustNPUCore::import_connectome(snapshot);
+        *self.npu.lock().unwrap() = new_npu;
+        
+        Ok(true)
+    }
+    
+    /// Save connectome to file
+    /// 
+    /// Exports the connectome and saves it to a .connectome file.
+    /// This file can be loaded by the standalone Rust inference engine or re-imported later.
+    /// 
+    /// Requires the 'connectome-serialization' feature to be enabled.
+    /// 
+    /// Args:
+    ///     file_path: Path to save the connectome file (e.g., "brain.connectome")
+    /// 
+    /// Returns:
+    ///     True if save was successful
+    #[cfg(feature = "connectome-serialization")]
+    fn save_connectome_to_file(&self, file_path: String) -> PyResult<bool> {
+        let npu = self.npu.lock().unwrap();
+        let snapshot = npu.export_connectome();
+        
+        feagi_connectome_serialization::save_connectome(&snapshot, file_path)
+            .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to save connectome: {}", e)))?;
+        
+        Ok(true)
+    }
+    
+    /// Load connectome from file
+    /// 
+    /// Imports a connectome from a .connectome file and replaces the entire NPU state.
+    /// 
+    /// Requires the 'connectome-serialization' feature to be enabled.
+    /// 
+    /// Args:
+    ///     file_path: Path to load the connectome file from (e.g., "brain.connectome")
+    /// 
+    /// Returns:
+    ///     True if load was successful
+    #[cfg(feature = "connectome-serialization")]
+    fn load_connectome_from_file(&mut self, file_path: String) -> PyResult<bool> {
+        let snapshot = feagi_connectome_serialization::load_connectome(file_path)
+            .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to load connectome: {}", e)))?;
+        
+        // Replace NPU with loaded connectome
+        let new_npu = RustNPUCore::import_connectome(snapshot);
+        *self.npu.lock().unwrap() = new_npu;
+        
+        Ok(true)
+    }
 }
 
 /// Python wrapper for visualization neuron data encoding
 #[pyclass]
 struct VisualizationEncoder {
-    mapped_data: CorticalMappedXYZPNeuronData,
+    mapped_data: CorticalMappedXYZPNeuronVoxels,
 }
 
 #[pymethods]
@@ -1268,7 +1363,7 @@ impl VisualizationEncoder {
     #[new]
     fn new() -> Self {
         Self {
-            mapped_data: CorticalMappedXYZPNeuronData::new(),
+            mapped_data: CorticalMappedXYZPNeuronVoxels::new(),
         }
     }
 
@@ -1301,7 +1396,7 @@ impl VisualizationEncoder {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{:?}", e)))?;
 
         // Create neuron array
-        let neuron_array = NeuronXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)
+        let neuron_array = NeuronVoxelXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{:?}", e)))?;
 
         // Insert into mapped data
@@ -1387,7 +1482,7 @@ impl VisualizationEncoder {
 
     /// Clear all neuron data
     fn clear(&mut self) {
-        self.mapped_data = CorticalMappedXYZPNeuronData::new();
+        self.mapped_data = CorticalMappedXYZPNeuronVoxels::new();
     }
 }
 
@@ -1427,7 +1522,7 @@ impl FeagiByteStructure {
 /// Compatible with feagi_rust_py_libs API for seamless migration.
 #[pyclass]
 struct CorticalMappedXYZPNeuronDataDecoder {
-    mapped_data: CorticalMappedXYZPNeuronData,
+    mapped_data: CorticalMappedXYZPNeuronVoxels,
 }
 
 #[pymethods]
@@ -1461,7 +1556,7 @@ impl CorticalMappedXYZPNeuronDataDecoder {
             }
             let num_structs = bytes[3] as usize;
             if num_structs == 0 {
-                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronData::new() });
+                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronVoxels::new() });
             }
             
             // Skip global header (4 bytes) + per-struct header (4 bytes) to get to actual data
@@ -1488,7 +1583,7 @@ impl CorticalMappedXYZPNeuronDataDecoder {
         
         let num_areas = u16::from_le_bytes([actual_bytes[2], actual_bytes[3]]) as usize;
         
-        let mut mapped_data = CorticalMappedXYZPNeuronData::new();
+        let mut mapped_data = CorticalMappedXYZPNeuronVoxels::new();
         let mut offset = 4;
         
         // First pass: collect all cortical area headers
@@ -1548,7 +1643,7 @@ impl CorticalMappedXYZPNeuronDataDecoder {
         // Data format: [all X coords][all Y coords][all Z coords][all potentials]
         for header in corrected_headers {
             if header.data_size_bytes == 0 {
-                mapped_data.insert(header.cortical_id, NeuronXYZPArrays::new());
+                mapped_data.insert(header.cortical_id, NeuronVoxelXYZPArrays::new());
                 continue;
             }
             
@@ -1565,7 +1660,7 @@ impl CorticalMappedXYZPNeuronDataDecoder {
                 break;
             }
             
-            let mut neurons = NeuronXYZPArrays::new();
+            let mut neurons = NeuronVoxelXYZPArrays::new();
             for i in 0..num_neurons {
                 let x = u32::from_le_bytes([
                     actual_bytes[x_start + i*4],
@@ -1592,7 +1687,7 @@ impl CorticalMappedXYZPNeuronDataDecoder {
                     actual_bytes[p_start + i*4 + 3],
                 ]);
                 
-                let neuron = NeuronXYZP::new(x, y, z, p);
+                let neuron = NeuronVoxelXYZP::new(x, y, z, p);
                 neurons.push(&neuron);
             }
             

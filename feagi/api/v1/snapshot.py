@@ -505,6 +505,160 @@ class SnapshotAPI:
         except Exception as e:
             logger.error(f"Failed to delete snapshot '{snapshot_id}': {e}")
             raise ValueError(str(e)) from e
+    
+    @snapshot_endpoint(
+        "POST",
+        "/connectome",
+        description=(
+            "Create a Rust connectome snapshot (.connectome file).\n\n"
+            "This endpoint exports the current Rust NPU state to a binary .connectome file "
+            "that can be loaded by the standalone Rust inference engine or restored later.\n\n"
+            "The .connectome format is:\n"
+            "- High performance (~100x faster than JSON)\n"
+            "- Compact binary format\n"
+            "- Complete brain state (neurons, synapses, cortical areas, runtime state)\n"
+            "- Portable across Python FEAGI and standalone Rust engine\n\n"
+            "Requires the Rust NPU to be active with connectome-serialization feature enabled."
+        ),
+    )
+    async def create_rust_connectome_snapshot(
+        self,
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a Rust connectome snapshot.
+        
+        Body (JSON):
+        {
+            "description": "Optional description of this snapshot"
+        }
+        """
+        try:
+            # Get configuration
+            config = load_feagi_config()
+            snapshot_cfg = config.get("snapshot", {})
+            output_dir = snapshot_cfg.get("output_dir")
+            if not output_dir:
+                raise ValueError(
+                    "Snapshot configuration missing required key: output_dir. "
+                    "Add a [snapshot] section to feagi_configuration.toml"
+                )
+            
+            # Get Rust NPU from burst engine manager
+            burst_mgr = self.core_api_service.get_burst_engine_manager()
+            if not burst_mgr or not hasattr(burst_mgr, 'npu'):
+                raise RuntimeError(
+                    "Rust NPU not available. Ensure burst engine is initialized with Rust NPU."
+                )
+            
+            npu = burst_mgr.npu
+            
+            # Check if NPU supports connectome serialization
+            if not hasattr(npu, 'save_connectome_to_file'):
+                raise RuntimeError(
+                    "Rust NPU does not support connectome serialization. "
+                    "Rebuild feagi_rust with 'connectome-serialization' feature enabled."
+                )
+            
+            # Generate snapshot ID
+            import time
+            snapshot_id = f"rust_connectome_{int(time.time())}"
+            
+            # Create snapshot using Rust serializer
+            from feagi.core.snapshot.rust_connectome import RustConnectomeSerializer
+            
+            result = RustConnectomeSerializer.create_snapshot(
+                npu=npu,
+                snapshot_dir=Path(output_dir),
+                snapshot_id=snapshot_id,
+                description=description or "Rust connectome snapshot"
+            )
+            
+            logger.info(f"✓ Created Rust connectome snapshot: {snapshot_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to create Rust connectome snapshot: {e}")
+            raise ValueError(str(e)) from e
+    
+    @snapshot_endpoint(
+        "POST",
+        "/connectome/{snapshot_id}/restore",
+        description=(
+            "Restore a Rust connectome snapshot.\n\n"
+            "Loads a previously saved .connectome file and replaces the entire Rust NPU state.\n\n"
+            "WARNING: This completely overwrites the current brain state including:\n"
+            "- All neurons and their properties\n"
+            "- All synapses and their weights\n"
+            "- Cortical area mappings\n"
+            "- Runtime state (burst count, etc.)\n\n"
+            "Requires the Rust NPU to be active."
+        ),
+    )
+    async def restore_rust_connectome_snapshot(
+        self,
+        snapshot_id: str
+    ) -> Dict[str, Any]:
+        """Restore a Rust connectome snapshot by ID."""
+        try:
+            # Get configuration
+            config = load_feagi_config()
+            snapshot_root = config.get("snapshot", {}).get("output_dir")
+            if not snapshot_root:
+                raise ValueError(
+                    "Snapshot configuration missing required key: output_dir."
+                )
+            
+            # Get Rust NPU
+            burst_mgr = self.core_api_service.get_burst_engine_manager()
+            if not burst_mgr or not hasattr(burst_mgr, 'npu'):
+                raise RuntimeError(
+                    "Rust NPU not available. Ensure burst engine is initialized with Rust NPU."
+                )
+            
+            npu = burst_mgr.npu
+            
+            # Check if NPU supports connectome serialization
+            if not hasattr(npu, 'load_connectome_from_file'):
+                raise RuntimeError(
+                    "Rust NPU does not support connectome serialization. "
+                    "Rebuild feagi_rust with 'connectome-serialization' feature enabled."
+                )
+            
+            # Restore snapshot
+            from feagi.core.snapshot.rust_connectome import RustConnectomeSerializer
+            
+            success = RustConnectomeSerializer.restore_snapshot(
+                npu=npu,
+                snapshot_dir=Path(snapshot_root),
+                snapshot_id=snapshot_id
+            )
+            
+            if not success:
+                raise RuntimeError(f"Failed to restore connectome snapshot: {snapshot_id}")
+            
+            # Post-restore: rebuild caches and cortical list in state
+            try:
+                cm = self.core_api_service.get_connectome_manager()
+                # Rebuild cortical list from mapping
+                ids = cm.get_all_cortical_ids()
+                self.core_api_service.state_manager.set_cortical_list(ids)
+                # Invalidate and refresh cortical areas cache
+                sm = self.core_api_service.state_manager
+                sm.invalidate_cortical_areas_cache()
+                _ = sm.get_cortical_areas_cache(cm)
+            except Exception as post_err:
+                logger.warning(f"Post-restore cache update failed: {post_err}")
+            
+            logger.info(f"✓ Successfully restored Rust connectome snapshot: {snapshot_id}")
+            return {
+                "success": True,
+                "snapshot_id": snapshot_id,
+                "format": "rust_connectome"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to restore Rust connectome snapshot '{snapshot_id}': {e}")
+            raise ValueError(str(e)) from e
 
 
 def create_snapshot_api(core_api_service: CoreAPIService) -> SnapshotAPI:
