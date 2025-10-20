@@ -71,6 +71,9 @@ pub struct RustNPU {
     // Sensory staging (prevents async race with FCL clear)
     pending_sensory_injections: std::sync::Mutex<Vec<(NeuronId, f32)>>,
     
+    // Last FCL snapshot (before clearing) - for debugging/monitoring
+    last_fcl_snapshot: Vec<(NeuronId, f32)>,
+    
     // Cortical area mapping (area_id -> cortical_name string for encoding)
     area_id_to_name: AHashMap<u32, String>,
     
@@ -100,6 +103,7 @@ impl RustNPU {
             fire_ledger: RustFireLedger::new(fire_ledger_window),
             fq_sampler: FQSampler::new(1000.0, SamplingMode::Unified), // High rate - actual limiting by burst frequency
             pending_sensory_injections: std::sync::Mutex::new(Vec::with_capacity(10000)),
+            last_fcl_snapshot: Vec::new(),
             area_id_to_name: AHashMap::new(),
             propagation_engine: SynapticPropagationEngine::new(),
             burst_count: 0,
@@ -292,6 +296,12 @@ impl RustNPU {
         &self.fire_candidate_list
     }
     
+    /// Get last FCL snapshot (captured before clear in previous burst)
+    /// Returns Vec of (NeuronId, potential) pairs
+    pub fn get_last_fcl_snapshot(&self) -> &[(NeuronId, f32)] {
+        &self.last_fcl_snapshot
+    }
+    
     // ===== END SENSORY INJECTION API =====
     
     // ===== POWER INJECTION =====
@@ -338,7 +348,8 @@ impl RustNPU {
         // This makes the fire queue available to BV and motor agents
         self.fq_sampler.sample(&self.current_fire_queue);
         
-        // Phase 6: Cleanup (clear FCL for next burst)
+        // Phase 6: Cleanup (snapshot FCL before clearing for API access)
+        self.last_fcl_snapshot = self.fire_candidate_list.get_all_candidates();
         self.fire_candidate_list.clear();
         
         // Build result

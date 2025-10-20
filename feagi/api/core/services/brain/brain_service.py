@@ -995,9 +995,11 @@ class BrainService(BaseService):
                                 else:
                                     continue
                                 
-                                # Inject neuron IDs into FCL
+                                # Inject neuron IDs into FCL with sensory potential
                                 if neuron_ids:
-                                    rust_npu_integration._rust_npu.inject_sensory_batch(neuron_ids)
+                                    # Use intensity as membrane potential (typically 1.0 for full activation)
+                                    sensory_potential = 1.0  # Default sensory activation strength
+                                    rust_npu_integration._rust_npu.inject_sensory_batch(neuron_ids, sensory_potential)
                                     injected_count += len(neuron_ids)
                             except Exception as e:
                                 self.logger.error(f"Error injecting neurons for area {area_id}: {e}")

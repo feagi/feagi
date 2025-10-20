@@ -445,11 +445,10 @@ impl RustNPU {
             .unwrap_or(false)
     }
     
-    /// Get current burst count from the burst loop
+    /// Get current burst count from the burst loop (reads from NPU - single source of truth)
     fn get_burst_loop_count(&self) -> u64 {
-        self.burst_runner.as_ref()
-            .map(|r| r.lock().unwrap().get_burst_count())
-            .unwrap_or(0)
+        // Consolidated: always read from NPU, whether burst loop is running or not
+        self.npu.lock().unwrap().get_burst_count()
     }
     
     /// Register a sensory agent for automatic SHM polling and FCL injection
@@ -1060,6 +1059,44 @@ impl RustNPU {
     // ═══════════════════════════════════════════════════════════
     // FQ SAMPLER API (Entry Point #2: Motor/Visualization Output)
     // ═══════════════════════════════════════════════════════════
+    
+    /// Get current FCL (Fire Candidate List) - neurons that are candidates to fire
+    /// Returns neurons with accumulated potential organized by cortical area
+    fn get_current_fcl(&self, py: Python) -> PyResult<PyObject> {
+        let npu = self.npu.lock().unwrap();
+        let neuron_array = &npu.neuron_array;
+        
+        // Organize FCL by cortical area
+        let mut areas: AHashMap<u32, Vec<(u32, f32)>> = AHashMap::new();
+        
+        // Get all FCL candidates (from last burst snapshot - before FCL was cleared)
+        for (neuron_id, potential) in npu.get_last_fcl_snapshot() {
+            // Get cortical area for this neuron
+            if let Some(&array_idx) = neuron_array.neuron_id_to_index.get(&neuron_id.0) {
+                if array_idx < neuron_array.count && neuron_array.valid_mask[array_idx] {
+                    let cortical_area = neuron_array.cortical_areas[array_idx];
+                    areas.entry(cortical_area)
+                        .or_insert_with(Vec::new)
+                        .push((neuron_id.0, *potential));
+                }
+            }
+        }
+        
+        // Convert to Python dict
+        let result = PyDict::new_bound(py);
+        for (cortical_idx, neurons) in areas {
+            let area_dict = PyDict::new_bound(py);
+            let neuron_ids: Vec<u32> = neurons.iter().map(|(id, _)| *id).collect();
+            let potentials: Vec<f32> = neurons.iter().map(|(_, pot)| *pot).collect();
+            
+            area_dict.set_item("neuron_ids", neuron_ids)?;
+            area_dict.set_item("potentials", potentials)?;
+            
+            result.set_item(cortical_idx, area_dict)?;
+        }
+        
+        Ok(result.into())
+    }
     
     /// Get current Fire Queue directly (bypasses FQ Sampler - for FCL endpoint)
     /// Returns the current Fire Queue without rate limiting or deduplication

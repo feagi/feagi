@@ -20,22 +20,21 @@ use crate::RustNPU;
 use crate::sensory::AgentManager;
 use feagi_types::NeuronId;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use std::thread;
 
 /// Burst loop runner - manages the main neural processing loop
 /// 
 /// 🦀 Power neurons are stored in RustNPU, not here - 100% Rust!
+/// 🦀 Burst count is stored in NPU - single source of truth!
 pub struct BurstLoopRunner {
-    /// Shared NPU instance (holds power neurons internally)
+    /// Shared NPU instance (holds power neurons internally + burst count)
     npu: Arc<Mutex<RustNPU>>,
     /// Target frequency in Hz
     frequency_hz: f64,
     /// Running flag (atomic for thread-safe stop)
     running: Arc<AtomicBool>,
-    /// Burst counter (atomic for thread-safe read)
-    burst_count: Arc<AtomicU64>,
     /// Thread handle (for graceful shutdown)
     thread_handle: Option<thread::JoinHandle<()>>,
     /// Sensory agent manager (per-agent injection threads)
@@ -113,7 +112,6 @@ impl BurstLoopRunner {
             npu,
             frequency_hz,
             running: Arc::new(AtomicBool::new(false)),
-            burst_count: Arc::new(AtomicU64::new(0)),
             thread_handle: None,
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
             viz_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_viz_shm_writer
@@ -155,18 +153,16 @@ impl BurstLoopRunner {
                  self.frequency_hz);
         
         self.running.store(true, Ordering::Release);
-        self.burst_count.store(0, Ordering::Release);
         
         let npu = self.npu.clone();
         let frequency = self.frequency_hz;
         let running = self.running.clone();
-        let burst_count = self.burst_count.clone();
         let viz_writer = self.viz_shm_writer.clone();
         
         self.thread_handle = Some(thread::Builder::new()
             .name("feagi-burst-loop".to_string())
             .spawn(move || {
-                burst_loop(npu, frequency, running, burst_count, viz_writer);
+                burst_loop(npu, frequency, running, viz_writer);
             })
             .map_err(|e| format!("Failed to spawn burst loop thread: {}", e))?);
         
@@ -197,9 +193,9 @@ impl BurstLoopRunner {
         self.running.load(Ordering::Acquire)
     }
     
-    /// Get current burst count
+    /// Get current burst count (from NPU - single source of truth)
     pub fn get_burst_count(&self) -> u64 {
-        self.burst_count.load(Ordering::Acquire)
+        self.npu.lock().unwrap().get_burst_count()
     }
 }
 
@@ -224,11 +220,11 @@ fn get_timestamp() -> String {
 /// 
 /// This is the HOT PATH - zero Python involvement!
 /// Power neurons are read directly from RustNPU's internal state.
+/// Burst count is tracked by NPU - single source of truth!
 fn burst_loop(
     npu: Arc<Mutex<RustNPU>>,
     frequency_hz: f64,
     running: Arc<AtomicBool>,
-    burst_count: Arc<AtomicU64>,
     viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
 ) {
     let timestamp = get_timestamp();
@@ -277,7 +273,7 @@ fn burst_loop(
         }; // Drop lock immediately
         
         burst_num += 1;
-        burst_count.store(burst_num, Ordering::Release);
+        // Note: NPU.process_burst() already incremented its internal burst_count
         
         // 🔥 LOG ACTUAL NEURON FIRING AT NPU LEVEL (every burst)
         {
@@ -404,37 +400,40 @@ fn burst_loop(
                 }
             }
             
-            if cortical_mapped.len() == 0 {
+            if cortical_mapped.len() > 0 {
+                // Use raw FeagiSerializable API (like rust-py-libs pattern)
+                let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
+                let mut buffer = vec![0u8; bytes_needed];
+                
+                if let Ok(_) = cortical_mapped.try_write_to_byte_slice(&mut buffer) {
+                    // Write raw structure bytes to SHM
+                    match writer.write_payload(&buffer) {
+                        Ok(_) => {
+                            // Visualization data written successfully
+                        }
+                        Err(e) => {
+                            let timestamp = get_timestamp();
+                            eprintln!("[{}] [BURST-LOOP] ❌ Failed to write viz SHM: {}", timestamp, e);
+                        }
+                    }
+                } else {
+                    static SERIALIZE_ERROR_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                    if !SERIALIZE_ERROR_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
+                        let timestamp = get_timestamp();
+                        eprintln!("[{}] [BURST-LOOP] ❌ Failed to serialize - skipping viz writes", timestamp);
+                        SERIALIZE_ERROR_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            } else {
                 static SKIP_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                 if !SKIP_LOGGED.load(std::sync::atomic::Ordering::Relaxed) {
                     eprintln!("[BURST-LOOP] ⚠️ Skipping viz - no cortical areas yet");
                     SKIP_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                return;
             }
-            
-            // Use raw FeagiSerializable API (like rust-py-libs pattern)
-            let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
-            let mut buffer = vec![0u8; bytes_needed];
-            
-            if let Err(e) = cortical_mapped.try_write_to_byte_slice(&mut buffer) {
-                eprintln!("[BURST-LOOP] ❌ Failed to serialize: {:?}", e);
-                return;
-            }
-            
-            // Write raw structure bytes to SHM
-            match writer.write_payload(&buffer) {
-                Ok(_) => {
-                    // Visualization data written successfully
-                }
-                Err(e) => {
-                    let timestamp = get_timestamp();
-                    eprintln!("[{}] [BURST-LOOP] ❌ Failed to write viz SHM: {}", timestamp, e);
-                }
-            }
-                }
-            }
-        }
+                }  // Close if let Some(fire_data)
+            }  // Close if let Some(writer)
+        }  // Close outer viz SHM block
         
         // Performance logging every 5 seconds
         let now = Instant::now();

@@ -736,6 +736,9 @@ class BurstEngineStatusResponse(BaseModel):
 
     status: str
     is_running: bool
+    current_burst: Optional[int] = 0
+    brain_ready: Optional[bool] = False
+    genome_loaded: Optional[bool] = False
     config: Optional[Dict[str, Any]] = None
 
 

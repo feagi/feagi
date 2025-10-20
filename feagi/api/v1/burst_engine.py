@@ -230,15 +230,15 @@ class BurstEngineAPI:
 
     @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
     async def get_fcl_content(self) -> FCLContentResponse:
-        """Get the complete Fire Queue content at the current timestep.
+        """Get the complete Fire Candidate List (FCL) content at the current timestep.
         
-        🦀 RUST: Uses Rust NPU's Fire Queue (FCL is now internal to burst processing).
+        🦀 RUST: Uses Rust NPU's FCL (neurons that are candidates to fire, not yet fired).
         
-        Returns all currently firing neurons organized by cortical areas,
-        providing a comprehensive snapshot of neural activity.
+        Returns all neurons with accumulated potential organized by cortical areas.
+        These are neurons that MAY fire in the next burst depending on their threshold and dynamics.
         """
         try:
-            # 🦀 RUST: Get Fire Queue from Rust NPU (no Python FCL manager)
+            # 🦀 RUST: Get FCL from Rust NPU (not Fire Queue!)
             from feagi.process_manager import get_process_manager
             pm = get_process_manager()
             rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
@@ -249,15 +249,15 @@ class BurstEngineAPI:
             # Get current burst count (timestep)
             current_timestep = rust_npu_integration.get_burst_count()
             
-            # Get Fire Queue from Rust NPU (organized by cortical_idx)
-            fire_queue_dict = rust_npu_integration.get_current_fire_queue()
+            # Get FCL from Rust NPU (organized by cortical_idx) - shows CANDIDATES, not fired neurons
+            fcl_dict = rust_npu_integration._rust_npu.get_current_fcl()
             
-            if not fire_queue_dict:
-                fire_queue_dict = {}
+            if not fcl_dict:
+                fcl_dict = {}
             
-            # Build global FCL (all firing neurons across all areas)
+            # Build global FCL (all candidate neurons across all areas)
             global_fcl_list = []
-            for area_data in fire_queue_dict.values():
+            for area_data in fcl_dict.values():
                 global_fcl_list.extend(area_data["neuron_ids"])
             
             # Map cortical_idx -> cortical_id using NPU interface
@@ -269,18 +269,18 @@ class BurstEngineAPI:
                     npu = cm._npu_interface
 
                 if npu is not None and hasattr(npu, "cortical_areas"):
-                    for cortical_idx, area_data in fire_queue_dict.items():
+                    for cortical_idx, area_data in fcl_dict.items():
                         area_info = npu.cortical_areas.get(cortical_idx, {})
                         cortical_id = area_info.get("cortical_id", str(cortical_idx))
                         cortical_areas[cortical_id] = area_data["neuron_ids"]
                 else:
                     # Fallback: use cortical_idx as strings
-                    for cortical_idx, area_data in fire_queue_dict.items():
+                    for cortical_idx, area_data in fcl_dict.items():
                         cortical_areas[str(cortical_idx)] = area_data["neuron_ids"]
             except Exception as map_err:
                 logger.warning(f"Error mapping cortical_idx to cortical_id: {map_err}")
                 # Safe fallback to indices as strings
-                for cortical_idx, area_data in fire_queue_dict.items():
+                for cortical_idx, area_data in fcl_dict.items():
                     cortical_areas[str(cortical_idx)] = area_data["neuron_ids"]
             
             # Fire Ledger default window size (from Rust NPU config)
