@@ -78,6 +78,12 @@ class FeagiAgentAPI:
 
         Updates both the Registration Manager's last_seen and the Heartbeat Coordinator.
         """
+        # Temporary: Track heartbeat count for debugging
+        if not hasattr(self, '_heartbeat_count'):
+            self._heartbeat_count = {}
+        self._heartbeat_count[request.agent_id] = self._heartbeat_count.get(request.agent_id, 0) + 1
+        count = self._heartbeat_count[request.agent_id]
+        
         try:
             from feagi.pns.registration_manager import get_registration_manager
             from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
@@ -95,8 +101,9 @@ class FeagiAgentAPI:
             
             if reg_ok or coordinator_ok:
                 # Success if either system acknowledges the heartbeat
-                self.logger.debug(f"💗 Heartbeat recorded for agent '{request.agent_id}' "
-                                f"(reg_mgr={reg_ok}, coordinator={coordinator_ok})")
+                if count == 1 or count % 6 == 0:
+                    self.logger.info(f"💗 Heartbeat #{count} recorded for agent '{request.agent_id}' "
+                                    f"(reg_mgr={reg_ok}, coordinator={coordinator_ok})")
                 return SuccessResponse(message="heartbeat_ok", success=True)
             else:
                 raise HTTPException(status_code=404, detail=f"Agent {request.agent_id} not found")
@@ -232,6 +239,9 @@ class FeagiAgentAPI:
 
         Registration Manager must be initialized during FEAGI startup.
         """
+        import time as _time
+        _reg_start = _time.time()
+        self.logger.warning(f"⏱️ [REG-TIMING] Registration started for {request.agent_id}")
         try:
             # Process capability rates from the capabilities dict
             capability_configs = self._process_agent_capabilities(request)
@@ -283,16 +293,17 @@ class FeagiAgentAPI:
                 heartbeat_coordinator = get_heartbeat_coordinator()
                 
                 # Determine heartbeat parameters based on agent type
-                # AGGRESSIVE: timeout = 2x heartbeat interval (2 missed heartbeats = disconnected)
+                # Timeout = 3x heartbeat interval (3 missed heartbeats = disconnected)
+                # Increased by 50% to handle slow heartbeat responses under load (matches Rust PNS timeout)
                 if request.agent_type == "brain_visualizer":
                     heartbeat_interval = 15.0  # Send every 15 seconds
-                    timeout_threshold = 30.0   # Disconnect after 2 missed (30s)
+                    timeout_threshold = 68.0   # Disconnect after ~4.5 missed (68s) - increased from 45s
                 elif request.agent_type == "video_agent":
                     heartbeat_interval = 10.0  # Send every 10 seconds  
-                    timeout_threshold = 20.0   # Disconnect after 2 missed (20s)
+                    timeout_threshold = 45.0   # Disconnect after ~4.5 missed (45s) - increased from 30s
                 else:
                     heartbeat_interval = 15.0  # Default 15 seconds
-                    timeout_threshold = 30.0   # Disconnect after 2 missed (30s)
+                    timeout_threshold = 68.0   # Disconnect after ~4.5 missed (68s) - increased from 45s
                 
                 # Cleanup callback to deregister from both systems
                 def cleanup_callback(agent_id: str):
@@ -334,11 +345,21 @@ class FeagiAgentAPI:
                 f"transport: {transport_info.get('recommended', 'unknown')})"
             )
 
-            # Return success response with transport negotiation info
+            # Log timing
+            _reg_duration = (_time.time() - _reg_start) * 1000  # ms
+            self.logger.warning(f"⏱️ [REG-TIMING] Registration completed in {_reg_duration:.1f}ms for {request.agent_id}")
+
+            # Build rate negotiation results for response
+            rates_info = self._build_rate_negotiation_results(request)
+            if rates_info:
+                self.logger.warning(f"📊 [RATE-NEGO] Returning rate negotiation for {request.agent_id}: {rates_info}")
+            
+            # Return success response with transport negotiation info and rates
             return SuccessResponse(
                 status="success",
                 message=f"Agent {request.agent_id} registered successfully",
-                transport=transport_info if transport_info else None
+                transport=transport_info if transport_info else None,
+                rates=rates_info if rates_info else None
             )
 
         except HTTPException:
@@ -349,6 +370,60 @@ class FeagiAgentAPI:
                 status_code=500,
                 detail=f"Registration failed: {str(e)}"
             )
+    
+    def _build_rate_negotiation_results(self, request: AgentRegistrationRequest) -> Optional[Dict[str, Dict[str, float]]]:
+        """Build rate negotiation results for response.
+        
+        Returns dict like:
+        {
+            "visualization": {
+                "requested_hz": 30.0,
+                "feagi_hz": 15.0,
+                "negotiated_hz": 15.0
+            },
+            "sensory": {
+                "requested_hz": 60.0,
+                "feagi_hz": 15.0,
+                "negotiated_hz": 15.0
+            }
+        }
+        """
+        try:
+            # Get FEAGI's current burst frequency
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            feagi_hz = state_manager.get_burst_frequency() or 1.0
+            
+            rates_info = {}
+            
+            # Extract requested rates from capabilities
+            for cap_name, cap_value in request.capabilities.items():
+                requested_hz = None
+                
+                # Try to extract rate_hz from capability
+                if isinstance(cap_value, dict):
+                    requested_hz = cap_value.get("rate_hz")
+                    if not requested_hz and cap_name == "motor":
+                        # Motor might use sampling_frequency_hz
+                        requested_hz = cap_value.get("sampling_frequency_hz")
+                        if requested_hz == "burst":
+                            requested_hz = feagi_hz
+                
+                # If we found a requested rate, calculate negotiated rate
+                if requested_hz and isinstance(requested_hz, (int, float)):
+                    negotiated_hz = min(float(requested_hz), float(feagi_hz))
+                    
+                    rates_info[cap_name] = {
+                        "requested_hz": float(requested_hz),
+                        "feagi_hz": float(feagi_hz),
+                        "negotiated_hz": negotiated_hz
+                    }
+            
+            return rates_info if rates_info else None
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to build rate negotiation results: {e}")
+            return None
 
     def _process_agent_capabilities(self, request: AgentRegistrationRequest) -> Optional[List[Any]]:
         """Process agent capabilities and convert to rate specifications."""
@@ -370,7 +445,10 @@ class FeagiAgentAPI:
                 "control": 1.0
             }
             
+            logger.warning(f"🔍 [FEAGI-REG] Processing capabilities from agent {request.agent_id}: {request.capabilities}")
+            
             for cap_name, cap_config in request.capabilities.items():
+                logger.warning(f"🔍 [FEAGI-REG] Processing capability '{cap_name}': {cap_config} (type: {type(cap_config)})")
                 # Handle sensorimotor as combined capability
                 if cap_name.lower() == "sensorimotor":
                     sensory_rate = default_rates["sensory"]
@@ -421,14 +499,18 @@ class FeagiAgentAPI:
                     cap_type = CapabilityType.CONTROL
                     default_rate = default_rates["control"]
                 else:
-                    cap_type = CapabilityType.SENSORY
-                    default_rate = default_rates["sensory"]
+                    # Unknown capability - skip it (don't default to SENSORY!)
+                    logger.debug(f"[FEAGI-REG] Skipping unknown capability '{cap_name}' (not a rate-managed type)")
+                    continue
                 
                 # Add capability if not already present
-                if cap_type not in seen_capability_types:
+                if cap_type and cap_type not in seen_capability_types:
                     final_rate = default_rate
                     if isinstance(cap_config, dict) and "rate_hz" in cap_config:
                         final_rate = float(cap_config["rate_hz"])
+                        logger.warning(f"🎯 [FEAGI-REG] Found rate_hz={final_rate} for {cap_type}")
+                    else:
+                        logger.warning(f"🎯 [FEAGI-REG] No rate_hz found for {cap_type}, using default={default_rate}")
                     
                     capability_specs.append(CapabilityRateSpec(
                         capability_type=cap_type,
@@ -436,6 +518,7 @@ class FeagiAgentAPI:
                         required=True
                     ))
                     seen_capability_types.add(cap_type)
+                    logger.warning(f"✅ [FEAGI-REG] Added capability {cap_type} with final_rate={final_rate}Hz")
             
             return capability_specs
             
@@ -589,20 +672,30 @@ class FeagiAgentAPI:
 
                 return SuccessResponse(message=response.message, success=True)
             else:
+                # IDEMPOTENT: If agent not found, treat as success (already deregistered)
+                if response.error_code == "AGENT_NOT_FOUND":
+                    self.logger.info(
+                        f"ℹ️ Agent '{request.agent_id}' not found during deregistration - already cleaned up"
+                    )
+                    # Clean up capability rates anyway (in case they exist)
+                    try:
+                        from feagi.core.capability_rate_manager import get_capability_rate_manager
+                        cap_mgr = get_capability_rate_manager()
+                        if cap_mgr:
+                            cap_mgr.deregister_agent(request.agent_id)
+                    except Exception:
+                        pass
+                    return SuccessResponse(
+                        message=f"Agent '{request.agent_id}' deregistered (was already gone)", 
+                        success=True
+                    )
+                
+                # For other errors, still fail
                 self.logger.error(
                     f"❌ Registration Manager deregistration failed: {response.message}"
                 )
-
-                # Map Registration Manager error codes to HTTP status codes
-                status_map = {
-                    "AGENT_NOT_FOUND": 404,  # Not Found
-                    "DEREGISTRATION_ERROR": 500,  # Internal Server Error
-                }
-
-                status_code = status_map.get(response.error_code, 500)
-
                 raise HTTPException(
-                    status_code=status_code, detail=response.message
+                    status_code=500, detail=response.message
                 )
 
         except HTTPException:

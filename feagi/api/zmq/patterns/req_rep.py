@@ -76,6 +76,8 @@ class RequestReplyServer:
             "ping": self._handle_ping,
             "get_status": self._handle_get_status,
             "get_performance": self._handle_get_performance,
+            "goodbye": self._handle_goodbye,
+            "heartbeat": self._handle_heartbeat,
         }
 
     async def start(self) -> None:
@@ -230,6 +232,53 @@ class RequestReplyServer:
         """Handle get_performance command."""
         performance = await self.core_api.get_performance_stats()
         return {"performance": performance, "timestamp": time.time()}
+    
+    async def _handle_goodbye(self, request: Dict) -> Dict:
+        """Handle goodbye command - agent is disconnecting."""
+        agent_id = request.get("params", {}).get("agent_id")
+        if agent_id:
+            logger.info(f"👋 Agent '{agent_id}' sent goodbye - attempting graceful deregistration")
+            try:
+                # Attempt to deregister the agent
+                from feagi.pns.registration_manager import get_registration_manager
+                reg_mgr = get_registration_manager()
+                if reg_mgr:
+                    response = reg_mgr.deregister_agent(agent_id)
+                    if response.success:
+                        logger.info(f"✅ Agent '{agent_id}' deregistered successfully via goodbye")
+                    else:
+                        logger.warning(f"⚠️ Agent '{agent_id}' goodbye: deregistration returned {response.message}")
+                else:
+                    logger.warning(f"⚠️ Registration manager not available for goodbye from '{agent_id}'")
+            except Exception as e:
+                logger.warning(f"⚠️ Error during goodbye deregistration for '{agent_id}': {e}")
+            
+            return {"goodbye": "acknowledged", "agent_id": agent_id, "timestamp": time.time()}
+        else:
+            logger.warning("⚠️ Received goodbye command without agent_id")
+            return {"goodbye": "acknowledged", "warning": "no agent_id provided", "timestamp": time.time()}
+    
+    async def _handle_heartbeat(self, request: Dict) -> Dict:
+        """Handle heartbeat command - agent is still alive."""
+        agent_id = request.get("params", {}).get("agent_id")
+        if agent_id:
+            logger.debug(f"💓 Heartbeat received from agent '{agent_id}'")
+            try:
+                # Update heartbeat coordinator to record agent activity
+                from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
+                coordinator = get_heartbeat_coordinator()
+                if coordinator:
+                    coordinator.heartbeat_agent(agent_id)  # Correct method name
+                    logger.debug(f"✅ Heartbeat recorded for agent '{agent_id}'")
+                else:
+                    logger.debug(f"⚠️ Heartbeat coordinator not available for agent '{agent_id}'")
+            except Exception as e:
+                logger.warning(f"⚠️ Error recording heartbeat for '{agent_id}': {e}")
+            
+            return {"heartbeat": "acknowledged", "agent_id": agent_id, "timestamp": time.time()}
+        else:
+            logger.debug("⚠️ Received heartbeat command without agent_id")
+            return {"heartbeat": "acknowledged", "warning": "no agent_id provided", "timestamp": time.time()}
 
 
 class RequestReplyClient:

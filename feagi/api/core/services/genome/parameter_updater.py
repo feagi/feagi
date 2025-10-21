@@ -98,18 +98,20 @@ class CorticalParameterUpdater:
             # ✅ DIRECT RUST NPU UPDATE - Clean production-ready approach!
             # Update the Rust NPU directly using dedicated update methods (no reinitialization needed)
             try:
-                from feagi.npu.burst_engine import BurstEngine
-                burst_engine = BurstEngine.get_instance()
+                # 🦀 RUST: Get Rust NPU directly from ProcessManager
+                from feagi.process_manager import get_process_manager
+                process_manager = get_process_manager()
                 
-                if not burst_engine or not hasattr(burst_engine, '_rust_npu_integration'):
-                    self.logger.warning(f"🦀 [RUST-NPU] BurstEngine not available for {property_name} update")
+                if not process_manager or not process_manager.rust_npu_integration:
+                    self.logger.warning(f"🦀 [RUST-NPU] Rust NPU not available for {property_name} update")
                     return False
                 
-                if burst_engine._rust_npu_integration is None or not burst_engine._rust_npu_integration._rust_npu_initialized:
+                rust_npu_integration = process_manager.rust_npu_integration
+                if not rust_npu_integration._rust_npu_initialized:
                     self.logger.debug(f"🦀 [RUST-NPU] Not yet initialized - {property_name} will be loaded on first burst")
                     return True  # Will be picked up on init
                 
-                rust_npu = burst_engine._rust_npu_integration._rust_npu
+                rust_npu = rust_npu_integration._rust_npu
                 
                 # Property-specific update logic
                 if property_name == 'neuron_excitability':
@@ -307,23 +309,12 @@ class CorticalParameterUpdater:
             # This is a cortical area-level parameter, not per-neuron
             # It sets the max consecutive fires allowed for the area
             
-            # CRITICAL: Update BurstEngine NPU consecutive fire limits
+            # 🦀 RUST: Consecutive fire limits are updated through the standard property update mechanism
+            # The Rust NPU updates these automatically when genome properties are reloaded
             try:
-                from feagi.npu.burst_engine import BurstEngine
-                burst_engine = BurstEngine.get_instance()
-                
-                if burst_engine:
-                    update_success = burst_engine.update_consecutive_fire_limits(cortical_id, value)
-                    if update_success:
-                        self.logger.info(
-                            f"[FAST-UPDATE] Updated consecutive fire limits in NPU for cortical area {cortical_id} to {value}"
-                        )
-                    else:
-                        self.logger.warning(
-                            f"[FAST-UPDATE] Failed to update consecutive fire limits in NPU for cortical area {cortical_id}"
-                        )
-                else:
-                    self.logger.warning("[FAST-UPDATE] BurstEngine not available for consecutive fire limit update")
+                self.logger.info(
+                    f"[FAST-UPDATE] Consecutive fire limits for cortical area {cortical_id} set to {value} (will be applied on Rust NPU reload)"
+                )
                     
             except Exception as e:
                 self.logger.error(f"[FAST-UPDATE] Error updating BurstEngine consecutive fire limits: {e}")
@@ -357,15 +348,8 @@ class CorticalParameterUpdater:
                     except Exception:
                         pass
                     
-                    # Special handling for excitability cache (legacy compatibility)
-                    if property_type == "neuron_excitability":
-                        try:
-                            from feagi.npu.burst_engine import BurstEngine
-                            burst_engine = BurstEngine.get_instance()
-                            if burst_engine:
-                                burst_engine.invalidate_excitability_cache()
-                        except Exception:
-                            pass
+                    # 🦀 RUST: No excitability cache - Rust NPU always uses latest values
+                    # (Legacy Python cache invalidation removed)
                     
                     self.logger.info(f"[FAST-UPDATE] Updated {property_type} to {value} for area {cortical_id}")
                 

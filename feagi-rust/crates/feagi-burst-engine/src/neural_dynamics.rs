@@ -152,17 +152,17 @@ fn process_single_neuron(
         return None;
     }
     
-    // CRITICAL DEBUG: Log entry for neuron 16438
-    if neuron_id.0 == 16438 {
-        println!("[RUST-16438] Burst {}: START - countdown={}, count={}/{}, potential={:.6}, threshold={:.6}, candidate={:.6}", 
-                 burst_count,
-                 neuron_array.refractory_countdowns[idx],
-                 neuron_array.consecutive_fire_counts[idx],
-                 neuron_array.consecutive_fire_limits[idx],
-                 neuron_array.membrane_potentials[idx],
-                 neuron_array.thresholds[idx],
-                 candidate_potential);
-    }
+    // CRITICAL DEBUG: Log entry for neuron 16438 (disabled to reduce spam)
+    // if neuron_id.0 == 16438 {
+    //     println!("[RUST-16438] Burst {}: START - countdown={}, count={}/{}, potential={:.6}, threshold={:.6}, candidate={:.6}", 
+    //              burst_count,
+    //              neuron_array.refractory_countdowns[idx],
+    //              neuron_array.consecutive_fire_counts[idx],
+    //              neuron_array.consecutive_fire_limits[idx],
+    //              neuron_array.membrane_potentials[idx],
+    //              neuron_array.thresholds[idx],
+    //              candidate_potential);
+    // }
     
     // 1. Handle unified refractory period (normal + extended)
     // CRITICAL: Decrement countdown, but BLOCK THIS ENTIRE BURST
@@ -184,13 +184,13 @@ fn process_single_neuron(
             // Reset happens when countdown expires (Option A logic)
             let old_count = neuron_array.consecutive_fire_counts[idx];
             neuron_array.consecutive_fire_counts[idx] = 0;
-            if neuron_id.0 == 16438 {
-                println!("[RUST-16438] → BLOCKED by refrac (countdown {} → {}), count reset {} → 0", 
-                         old_countdown, new_countdown, old_count);
-            }
-        } else if neuron_id.0 == 16438 {
-            println!("[RUST-16438] → BLOCKED by refrac (countdown {} → {})", old_countdown, new_countdown);
-        }
+            // if neuron_id.0 == 16438 {
+            //     println!("[RUST-16438] → BLOCKED by refrac (countdown {} → {}), count reset {} → 0", 
+            //              old_countdown, new_countdown, old_count);
+            // }
+        } // else if neuron_id.0 == 16438 {
+            // println!("[RUST-16438] → BLOCKED by refrac (countdown {} → {})", old_countdown, new_countdown);
+        // }
         
         // BLOCK THIS BURST - neuron cannot fire
         return None;
@@ -267,20 +267,20 @@ fn process_single_neuron(
                 let snooze_period = neuron_array.snooze_periods[idx];
                 let countdown = refractory_period + snooze_period;
                 neuron_array.refractory_countdowns[idx] = countdown;
-                if neuron_id.0 == 16438 {
-                    println!("[RUST-16438] → FIRED! count {} → {} (HIT LIMIT), extended refrac={}+{}={}", 
-                             new_count-1, new_count, refractory_period, snooze_period, countdown);
-                }
+                // if neuron_id.0 == 16438 {
+                //     println!("[RUST-16438] → FIRED! count {} → {} (HIT LIMIT), extended refrac={}+{}={}", 
+                //              new_count-1, new_count, refractory_period, snooze_period, countdown);
+                // }
                 // Note: consecutive_fire_count will be reset when countdown expires
             } else {
                 // Normal fire → normal refractory only
                 // countdown = refrac (bursts to skip)
                 // e.g., refrac=1 → countdown=1 → fire, 1 blocked, fire
                 neuron_array.refractory_countdowns[idx] = refractory_period;
-                if neuron_id.0 == 16438 {
-                    println!("[RUST-16438] → FIRED! count {} → {}, refrac={}", 
-                             new_count-1, new_count, refractory_period);
-                }
+                // if neuron_id.0 == 16438 {
+                //     println!("[RUST-16438] → FIRED! count {} → {}, refrac={}", 
+                //              new_count-1, new_count, refractory_period);
+                // }
             }
             
             // Get neuron coordinates
@@ -360,6 +360,7 @@ mod tests {
             1.0,   // excitability
             0,     // consecutive_fire_limit
             0,     // snooze_period
+            true,  // mp_charge_accumulation
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -372,7 +373,7 @@ mod tests {
         let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 1);
-        assert_eq!(result.fire_queue.len(), 1);
+        assert_eq!(result.fire_queue.total_neurons(), 1);
         assert_eq!(neurons.get_potential(id), 0.0);  // Reset after firing
         assert_eq!(neurons.refractory_countdowns[0], 5);  // Refractory set
     }
@@ -381,7 +382,7 @@ mod tests {
     fn test_neuron_does_not_fire_below_threshold() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         let mut fcl = FireCandidateList::new();
         fcl.add_candidate(id, 0.5);  // Below threshold
@@ -389,7 +390,7 @@ mod tests {
         let result = process_neural_dynamics(&fcl, &mut neurons, 0).unwrap();
         
         assert_eq!(result.neurons_fired, 0);
-        assert_eq!(result.fire_queue.len(), 0);
+        assert_eq!(result.fire_queue.total_neurons(), 0);
         assert!(neurons.get_potential(id) > 0.0);  // Potential accumulated
     }
 
@@ -397,7 +398,7 @@ mod tests {
     fn test_refractory_period_blocks_firing() {
         let mut neurons = NeuronArray::new(10);
         
-        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, 1, 0, 0, 0).unwrap();
+        let id = neurons.add_neuron(1.0, 0.0, 0.0, 0, 5, 1.0, 0, 0, true, 1, 0, 0, 0).unwrap();
         
         // Set refractory countdown
         neurons.refractory_countdowns[0] = 3;
@@ -424,6 +425,7 @@ mod tests {
             1.0,   // excitability
             0,     // consecutive_fire_limit
             0,     // snooze_period
+            true,  // mp_charge_accumulation
             1,     // cortical_area
             0, 0, 0
         ).unwrap();
@@ -448,7 +450,7 @@ mod tests {
         // Add 10 neurons
         let mut ids = Vec::new();
         for i in 0..10 {
-            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, 1, i, 0, 0).unwrap();
+            let id = neurons.add_neuron(1.0, 0.1, 0.0, 0, 5, 1.0, 0, 0, true, 1, i, 0, 0).unwrap();
             ids.push(id);
         }
         

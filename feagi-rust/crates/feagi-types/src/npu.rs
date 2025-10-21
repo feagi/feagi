@@ -66,6 +66,12 @@ pub struct NeuronArray {
     /// Note: Previously used separate snooze_countdowns, now unified with refractory_countdowns
     pub snooze_periods: Vec<u16>,
     
+    /// Membrane potential accumulation flags (true = accumulate, false = reset to 0 each burst)
+    /// Gene name: nx-mp_acc-b (mp_charge_accumulation in genome processor)
+    /// - true: Neuron accumulates potential across bursts (integrator behavior)
+    /// - false: Neuron resets to 0.0 at start of each burst (coincidence detector)
+    pub mp_charge_accumulation: Vec<bool>,
+    
     /// Cortical area ID for each neuron
     pub cortical_areas: Vec<u32>,
     
@@ -90,6 +96,11 @@ pub struct NeuronArray {
     
     /// Reverse mapping: array index to neuron ID
     pub index_to_neuron_id: Vec<u32>,
+    
+    /// Spatial hash for coordinate-based neuron lookup
+    /// Key = (cortical_area, x, y, z), Value = neuron_id
+    /// This enables fast sensory injection by coordinates
+    pub spatial_hash: HashMap<(u32, u32, u32, u32), u32>,
 }
 
 impl NeuronArray {
@@ -109,11 +120,13 @@ impl NeuronArray {
             consecutive_fire_counts: vec![0; capacity],
             consecutive_fire_limits: vec![0; capacity],  // 0 = unlimited
             snooze_periods: vec![0; capacity],  // 0 = no extended refractory
+            mp_charge_accumulation: vec![true; capacity],  // Default: true (accumulate, backward compatible)
             cortical_areas: vec![0; capacity],
             coordinates: vec![0; capacity * 3],
             valid_mask: vec![false; capacity],
             neuron_id_to_index: HashMap::new(),
             index_to_neuron_id: vec![0; capacity],
+            spatial_hash: HashMap::new(),
         }
     }
     
@@ -130,6 +143,7 @@ impl NeuronArray {
         excitability: f32,
         consecutive_fire_limit: u16,
         snooze_period: u16,  // Genome: nx-snooze-f (rest period after consecutive fires)
+        mp_charge_accumulation: bool,  // Genome: nx-mp_acc-b (membrane potential accumulation)
         cortical_area: u32,
         x: u32,
         y: u32,
@@ -151,6 +165,7 @@ impl NeuronArray {
         self.consecutive_fire_counts[id] = 0;
         self.consecutive_fire_limits[id] = consecutive_fire_limit;
         self.snooze_periods[id] = snooze_period;  // From genome (nx-snooze-f), used as extended refractory
+        self.mp_charge_accumulation[id] = mp_charge_accumulation;  // From genome (nx-mp_acc-b)
         self.cortical_areas[id] = cortical_area;
         self.coordinates[id * 3] = x;
         self.coordinates[id * 3 + 1] = y;
@@ -162,6 +177,10 @@ impl NeuronArray {
         let neuron_id = id as u32;
         self.neuron_id_to_index.insert(neuron_id, id);
         self.index_to_neuron_id[id] = neuron_id;
+        
+        // Register in spatial hash for coordinate-based lookups (sensory injection)
+        let coord_key = (cortical_area, x, y, z);
+        self.spatial_hash.insert(coord_key, neuron_id);
         
         self.count += 1;
         Ok(NeuronId(neuron_id))
@@ -202,6 +221,28 @@ impl NeuronArray {
     pub fn get_coordinates(&self, neuron_id: NeuronId) -> (u32, u32, u32) {
         let idx = neuron_id.0 as usize * 3;
         (self.coordinates[idx], self.coordinates[idx + 1], self.coordinates[idx + 2])
+    }
+    
+    /// Get neuron ID by coordinates (spatial hash lookup for sensory injection)
+    /// 
+    /// Returns None if no neuron exists at the given coordinates
+    #[inline(always)]
+    pub fn get_neuron_at_coordinate(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<NeuronId> {
+        let coord_key = (cortical_area, x, y, z);
+        self.spatial_hash.get(&coord_key).map(|&id| NeuronId(id))
+    }
+    
+    /// Batch coordinate lookup for sensory injection (ZERO-COPY, no allocation)
+    /// 
+    /// Converts (x,y,z) coordinates to neuron IDs using spatial hash.
+    /// Silently skips invalid coordinates (returns only valid neurons).
+    pub fn batch_coordinate_lookup(&self, cortical_area: u32, coordinates: &[(u32, u32, u32)]) -> Vec<NeuronId> {
+        coordinates.iter()
+            .filter_map(|&(x, y, z)| {
+                let coord_key = (cortical_area, x, y, z);
+                self.spatial_hash.get(&coord_key).map(|&id| NeuronId(id))
+            })
+            .collect()
     }
 }
 

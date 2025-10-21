@@ -80,7 +80,8 @@ class ProcessManager:
         self._motor_fq_thread = None
         self._fq_sampler_config = {}
         self._monitoring_active = False
-        self._zmq_server = None  # Add missing _zmq_server attribute
+        self._zmq_server = None  # Legacy attribute (now points to Rust PNS)
+        self._pns = None  # Rust PNS (Peripheral Nervous System)
         self._sleep_manager = None
 
         # Add startup phase tracking
@@ -97,6 +98,9 @@ class ProcessManager:
         # Internal references for critical components
         self._fcl_manager = None
         self._memory_manager = None
+        
+        # 🦀 Rust NPU Integration (will be set during init_critical_processes)
+        self.rust_npu_integration = None
 
         # Track which ports are in use
         self._used_ports = set()
@@ -106,8 +110,9 @@ class ProcessManager:
         self._motor_fq_sampler = None
         self._viz_fq_sampler = None
 
-        # Initialize event system for genome load coordination
-        self._setup_genome_load_event_handling()
+        # Event system for genome load coordination (lazy initialization)
+        self._event_system = None
+        self._event_system_available = None  # None = not checked, True/False = availability status
 
     def load_and_validate_ports(
         self,
@@ -294,27 +299,27 @@ class ProcessManager:
                 )
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
-
-                #  Initialize burst engine in STANDBY mode for early FQ sampler
-                #  registration
-                burst_engine = self._core_api.get_burst_engine()
-                if burst_engine:
-                    #  CORRECT: Set burst engine state to UNAVAILABLE since no
-                    #  genome is loaded
-                    #  It will transition to READY when a genome is loaded and
-                    #  auto-start is triggered
-                    state_manager.set_burst_engine_state(
-                        ServiceState.UNAVAILABLE
-                    )
-
-                    logger.info(
-                        "🔥 BURST ENGINE: UNAVAILABLE state initialized - will start when genome loads"
-                    )
+                
+                # 🦀 RUST: Get Rust NPU integration from ConnectomeManager's NPU Interface
+                if hasattr(self._connectome_manager, '_npu_interface'):
+                    npu_interface = self._connectome_manager._npu_interface
+                    if hasattr(npu_interface, '_rust_npu_integration'):
+                        self.rust_npu_integration = npu_interface._rust_npu_integration
+                        logger.info("🦀 [RUST-NPU] Integration attached to ProcessManager")
+                    else:
+                        logger.warning("🦀 [RUST-NPU] NPU Interface has no _rust_npu_integration")
                 else:
-                    logger.error(
-                        "❌ Failed to get burst engine instance - FQ sampler registration will fail!"
-                    )
-                    return False
+                    logger.warning("🦀 [RUST-NPU] ConnectomeManager has no _npu_interface")
+
+                #  Burst engine is now pure Rust - Python wrapper is deprecated
+                #  Set initial burst engine state
+                state_manager.set_burst_engine_state(
+                    ServiceState.UNAVAILABLE
+                )
+
+                logger.info(
+                    "🦀 BURST ENGINE: Pure Rust burst loop - will start when genome loads"
+                )
 
             logger.info(
                 "[OK] Critical processes initialized successfully",
@@ -550,117 +555,51 @@ class ProcessManager:
                 #  Non-critical error - system can continue without
                 #  Registration Manager
 
-            # --- ZMQ Message Broker Setup ---
+            # --- ZMQ Message Broker Setup (Rust PNS) ---
             try:
-                from feagi.api.zmq.server import ZmqServer
+                import feagi_rust
                 from feagi.core.state_manager import (
                     FeagiStateManager,
                     ServiceState,
                 )
 
                 state_manager = FeagiStateManager.instance()
+                logger.info("🦀 Initializing Rust PNS (Peripheral Nervous System) for ZMQ services")
 
-                # Get port configuration from TOML config
-                port_config = get_port_config(config)
-
-                #  Get host configuration with validation (no hardcoded
-                #  fallbacks)
-                host_config = get_host_config(config)
-                zmq_host = host_config.zmq_host
-
-                # Windows-specific ZMQ binding fix: normalize host for binding
-                # On Windows, binding to 127.0.0.1 can cause permission issues
-                #  Use "*" (all interfaces) for binding when host is loopback
-                #  on Windows
-                import platform
-
-                if platform.system() == "Windows" and zmq_host in [
-                    "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
-                    "localhost",  # @architecture:acceptable - Windows compatibility fix
-                ]:
-                    logger.info(
-                        f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding"
-                    )
-                    zmq_bind_host = "*"
+                # Create Rust PNS
+                pns = feagi_rust.PyPNS()
+                
+                # Connect PNS to burst engine for SHM I/O coordination
+                if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
+                    rust_npu_integration = self._core_api._rust_npu_integration
+                    if rust_npu_integration and rust_npu_integration._rust_npu:
+                        pns.connect_to_burst_engine(rust_npu_integration._rust_npu)
+                        logger.info("🦀 PNS connected to burst engine's sensory agent manager")
+                    else:
+                        logger.warning("🦀 PNS created but burst engine not yet initialized - will connect later")
                 else:
-                    #  On non-Windows platforms, use the configured host
-                    #  directly
-                    # ZMQ will handle 0.0.0.0 appropriately on each platform
-                    zmq_bind_host = zmq_host
+                    logger.warning("🦀 PNS created but core API not yet initialized - will connect later")
 
-                logger.info(
-                    f"ZMQ server will bind to: {zmq_bind_host} (configured host: {zmq_host})"
-                )
+                # Register Python callbacks for agent lifecycle events
+                logger.info("🦀 Registering Python callbacks with Rust PNS")
+                pns.set_on_agent_registered(self._on_agent_registered)
+                pns.set_on_agent_deregistered(self._on_agent_deregistered)
+                logger.info("🦀 Callbacks registered successfully")
 
-                # Use hardcoded ports from configuration
-                zmq_ports = {
-                    "req_rep": port_config.zmq_req_rep_port,
-                    "pub_sub": port_config.zmq_pub_sub_port,
-                    "push_pull": port_config.zmq_push_pull_port,
-                    "sensory": (
-                        port_config.zmq_sensory_port
-                        if sensory_enabled
-                        else None
-                    ),
-                    "motor": (
-                        port_config.zmq_motor_port if motor_enabled else None
-                    ),
-                    "visualization": (
-                        port_config.zmq_visualization_port
-                        if visualization_enabled
-                        else None
-                    ),
-                    "rest": (
-                        port_config.zmq_rest_port if rest_enabled else None
-                    ),
-                }
-
-                logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
-
-                #  Initialize ZMQ server with configuration-based stream
-                #  enablement
-                zmq_server = ZmqServer(
-                    core_api=self._core_api,
-                    host=zmq_bind_host,
-                    req_rep_port=port_config.zmq_req_rep_port,
-                    pub_sub_port=port_config.zmq_pub_sub_port,
-                    push_pull_port=port_config.zmq_push_pull_port,
-                    sensory_port=(
-                        port_config.zmq_sensory_port
-                        if sensory_enabled
-                        else None
-                    ),
-                    motor_port=(
-                        port_config.zmq_motor_port if motor_enabled else None
-                    ),
-                    rest_port=(
-                        port_config.zmq_rest_port if rest_enabled else None
-                    ),
-                    vis_port=(
-                        port_config.zmq_visualization_port
-                        if visualization_enabled
-                        else None
-                    ),
-                    fq_sampler=None,  # No FQ sampler at startup - will be created on-demand
-                    fire_queue_provider=self._core_api,  # Use core_api as fire_queue_provider
-                    stream_config=stream_config,  # Pass stream configuration to ZMQ server
-                    process_manager=self,  # Pass process manager reference for on-demand FQ sampler creation
-                )
-
-                # Start ZMQ server
-                if zmq_server.start():
-                    self._processes["zmq_server"] = zmq_server
-                    self._zmq_server = (
-                        zmq_server  # Store for registration manager access
-                    )
-                    state_manager.set_zmq_state(ServiceState.READY)
-                    logger.info("ZMQ Message Broker initialized successfully")
-                else:
-                    logger.error("Failed to start ZMQ Message Broker")
-                    return False
+                # Start PNS ZMQ streams
+                pns.start()
+                logger.info("🦀 PNS ZMQ streams started successfully")
+                
+                # Store PNS for access by registration manager and other components
+                self._processes["zmq_server"] = pns  # Use same key for compatibility
+                self._zmq_server = pns  # Store for registration manager access
+                self._pns = pns  # Also store as _pns for clarity
+                
+                state_manager.set_zmq_state(ServiceState.READY)
+                logger.info("🦀 Rust PNS initialized successfully - all ZMQ services are now 100% Rust")
 
             except Exception as e:
-                logger.error(f"Failed to initialize ZMQ Message Broker: {e}")
+                logger.error(f"Failed to initialize Rust PNS: {e}")
                 logger.debug(traceback.format_exc())
                 return False
 
@@ -905,20 +844,19 @@ class ProcessManager:
                         ),
                     }
 
-                    # Create event loop if not already running
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-
                     def run_uvicorn():
                         """Run uvicorn server in background thread."""
+                        import sys
                         try:
+                            print("🔵 REST API thread started - creating FastAPI app...", file=sys.stderr, flush=True)
+                            logger.info("🔵 REST API thread started - creating FastAPI app...")
                             # Import FastAPI app here to avoid circular imports
                             from feagi.api.rest.app import create_rest_app
 
+                            print("🔵 About to call create_rest_app()...", file=sys.stderr, flush=True)
                             app = create_rest_app()
+                            print("🔵 FastAPI app created successfully - starting uvicorn...", file=sys.stderr, flush=True)
+                            logger.info("🔵 FastAPI app created successfully - starting uvicorn...")
 
                             import uvicorn
 
@@ -963,15 +901,19 @@ class ProcessManager:
 
                     # Start uvicorn in background thread
                     api_thread = threading.Thread(
-                        target=run_uvicorn, daemon=True
+                        target=run_uvicorn, daemon=True, name="REST-API"
                     )
                     api_thread.start()
+                    
+                    import sys
+                    print(f"🔵 Main thread: REST API thread started, continuing...", file=sys.stderr, flush=True)
 
                     # Store the thread reference for shutdown
                     self._processes["rest_api"] = api_thread
                     logger.info(
-                        f"REST API server started on http://{api_host}:{api_port}"
+                        f"REST API server starting on http://{api_host}:{api_port}"
                     )
+                    print(f"🔵 Main thread: Logged REST API message, continuing to WebSocket check...", file=sys.stderr, flush=True)
 
                 except Exception as e:
                     logger.error(f"Failed to initialize REST API server: {e}")
@@ -1176,6 +1118,13 @@ class ProcessManager:
         # Start monitoring thread
         self._start_monitoring()
 
+        # Initialize event system for genome load coordination
+        # This is safe on all platforms - will fail gracefully on Windows
+        try:
+            self._setup_genome_load_event_handling()
+        except Exception as e:
+            logger.debug(f"Event system not available (this is OK on Windows): {e}")
+
         # Initialize and start the heartbeat coordinator
         try:
             from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
@@ -1333,6 +1282,173 @@ class ProcessManager:
         """Get the ZMQ server instance."""
         return self._zmq_server
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # FQ Sampler Management (for HTTP registration path)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def create_fq_sampler(self, mode: str, frequency_hz: float) -> bool:
+        """Attach SHM writer for the given mode.
+        
+        This is called by RegistrationManager when agents register via HTTP.
+        For visualization, it attaches the Rust NPU's SHM writer (no Python FQ sampler needed).
+        
+        NOTE: If called before Rust NPU is initialized (early startup), returns True anyway.
+        The Rust burst loop will automatically write to SHM once it starts.
+        
+        Args:
+            mode: Either 'visualization' or 'motor'
+            frequency_hz: Sampling frequency in Hz - sets the FQ sampler rate in Rust NPU
+            
+        Returns:
+            True if SHM writer was attached successfully (or will be attached later)
+        """
+        try:
+            if mode == 'visualization':
+                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz (Rust burst loop handles FQ sampling + SHM write)")
+                
+                # Try to attach Rust NPU visualization SHM writer
+                # The Rust burst loop samples FQ every burst and writes to SHM
+                # Per-agent rate limiting happens in capability rate manager
+                if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    from feagi.core.state_manager import FeagiStateManager
+                    sm = FeagiStateManager.instance()
+                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                    
+                    self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                    logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                    logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                    return True
+                
+                # If Rust NPU not ready yet (early startup), that's OK
+                # The burst loop will start writing to SHM automatically once initialized
+                logger.info(f"🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts")
+                return True
+            
+            elif mode == 'motor':
+                logger.info(f"🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
+                # Motor is handled by Rust burst engine directly
+                return True
+            
+            else:
+                logger.warning(f"⚠️ [FQ-CREATE] Unknown mode: {mode}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ [FQ-CREATE] Failed to attach {mode} SHM writer: {e}")
+            logger.debug(traceback.format_exc())
+            return False
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Rust PNS Agent Lifecycle Callbacks
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _on_agent_registered(self, agent_id: str, agent_type: str, capabilities_json: str):
+        """Callback invoked by Rust PNS when an agent registers.
+        
+        This creates the necessary Python-side resources (FQ samplers, SHM writers).
+        
+        Args:
+            agent_id: Unique agent identifier
+            agent_type: Type of agent (visualizer, external, etc.)
+            capabilities_json: JSON string of agent capabilities
+        """
+        import json
+        
+        try:
+            logger.info(f"🦀 [CALLBACK] Agent registered: {agent_id} (type: {agent_type})")
+            capabilities = json.loads(capabilities_json)
+            
+            # Check for visualization capability
+            if 'visualization' in capabilities:
+                viz_caps = capabilities['visualization']
+                if isinstance(viz_caps, dict) and viz_caps.get('enabled', False):
+                    rate_hz = viz_caps.get('rate_hz', 30.0)
+                    logger.info(f"🦀 [CALLBACK] Creating visualization FQ sampler at {rate_hz}Hz")
+                    
+                    # Create visualization FQ sampler if not already created
+                    if not hasattr(self, '_viz_fq_sampler') or self._viz_fq_sampler is None:
+                        try:
+                            from feagi.npu.fire_queue.unified_fq_sampler import UnifiedFQSampler
+                            
+                            self._viz_fq_sampler = UnifiedFQSampler(
+                                fire_queue_provider=self._processes.get("brain_service"),
+                                mode='visualization',
+                                sample_frequency_hz=rate_hz
+                            )
+                            
+                            # Attach to burst engine
+                            if self._burst_engine:
+                                self._burst_engine.register_fq_sampler(
+                                    self._viz_fq_sampler, 
+                                    name='rust_fq_sampler_wrapper'
+                                )
+                                logger.info(f"🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
+                            else:
+                                logger.warning(f"🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration")
+                                
+                            # Attach Rust NPU visualization SHM writer AND set frequency
+                            if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
+                                rust_npu_integration = self._core_api._rust_npu_integration
+                                if rust_npu_integration and rust_npu_integration._rust_npu:
+                                    from feagi.core.state_manager import FeagiStateManager
+                                    sm = FeagiStateManager.instance()
+                                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                                    
+                                    # CRITICAL FIX: Set FQ sampler frequency to agent's requested rate
+                                    rust_npu_integration.set_fq_sampler_frequency(rate_hz)
+                                    logger.info(f"🦀 [CALLBACK] ✅ FQ Sampler frequency set to {rate_hz}Hz")
+                                    
+                                    rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                                    logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                        except Exception as e:
+                            logger.error(f"🦀 [CALLBACK] Failed to create visualization FQ sampler: {e}")
+                    else:
+                        logger.info(f"🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
+            
+            # Check for motor capability
+            if 'motor' in capabilities:
+                motor_caps = capabilities['motor']
+                if isinstance(motor_caps, dict) and motor_caps.get('enabled', False):
+                    rate_hz = motor_caps.get('rate_hz', 20.0)
+                    logger.info(f"🦀 [CALLBACK] Agent {agent_id} has motor capability at {rate_hz}Hz")
+                    # Motor FQ sampler creation happens on-demand via motor stream
+            
+            # Check for sensory capability
+            if 'sensory' in capabilities:
+                sensory_caps = capabilities['sensory']
+                if isinstance(sensory_caps, dict):
+                    rate_hz = sensory_caps.get('rate_hz', 30.0)
+                    logger.info(f"🦀 [CALLBACK] Agent {agent_id} has sensory capability at {rate_hz}Hz")
+                    # Sensory is handled by Rust burst engine directly
+            
+        except Exception as e:
+            logger.error(f"🦀 [CALLBACK] Error handling agent registration for {agent_id}: {e}")
+            logger.debug(traceback.format_exc())
+
+    def _on_agent_deregistered(self, agent_id: str):
+        """Callback invoked by Rust PNS when an agent deregisters.
+        
+        This cleans up Python-side resources.
+        
+        Args:
+            agent_id: Unique agent identifier
+        """
+        try:
+            logger.info(f"🦀 [CALLBACK] Agent deregistered: {agent_id}")
+            
+            # TODO: Implement cleanup logic
+            # - Check if this was the last visualization agent -> stop viz FQ sampler
+            # - Check if this was the last motor agent -> stop motor FQ sampler
+            # - For now, we keep FQ samplers running (they're cheap when no data flows)
+            
+        except Exception as e:
+            logger.error(f"🦀 [CALLBACK] Error handling agent deregistration for {agent_id}: {e}")
+            logger.debug(traceback.format_exc())
+
+    # ═══════════════════════════════════════════════════════════════════════
+
     def shutdown(self) -> None:
         """Gracefully shutdown all FEAGI processes and services.
 
@@ -1405,10 +1521,10 @@ class ProcessManager:
                         try:
                             # Handle different service types
                             if name == "zmq_server" and hasattr(
-                                service, "shutdown"
+                                service, "stop"
                             ):
-                                # ZMQ server has a shutdown method
-                                service.shutdown()
+                                # ZMQ server (Rust PNS) has a stop method
+                                service.stop()
                             elif name == "rest_api" and hasattr(
                                 service, "stop"
                             ):
@@ -1708,245 +1824,6 @@ class ProcessManager:
 
         return updated_count
 
-    def create_fq_sampler(self, mode: str, frequency: float) -> bool:
-        """Create and register FQ sampler of the specified mode.
-
-        Args:
-            mode: Sampling mode ('visualization', 'opu')
-            frequency: Sampling frequency in Hz
-
-        Returns:
-            True if sampler was created and registered successfully, False otherwise
-        """
-        logger.info(
-            f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz"
-        )
-
-        # ===== EVENT-DRIVEN CRITICAL SERVICE READINESS =====
-        # FEAGI operates on EVENTS and CONDITIONS, not timeouts!
-        #  Check current state conditions and proceed based on actual system
-        #  state
-        if self._startup_phase:
-            logger.debug(
-                "🔄 Startup phase: Checking critical service state conditions for FQ sampler creation"
-            )
-            try:
-                from feagi.core.state_manager import get_state_manager
-
-                state_manager = get_state_manager()
-
-                #  EVENT-DRIVEN: Check actual service states, don't wait with
-                #  timeouts
-                critical_status = state_manager.get_critical_services_status()
-
-                #  Check for actual ERROR states that would prevent FQ sampler
-                #  creation
-                error_states = []
-                for service, state in critical_status.items():
-                    if state.value == "ERROR":
-                        error_states.append(f"{service}: {state.value}")
-
-                if error_states:
-                    logger.error(
-                        f"🚨 BLOCKED: Cannot create FQ sampler for mode '{mode}' - critical services in ERROR state"
-                    )
-                    for error in error_states:
-                        logger.error(f"🚨   {error}")
-                    return False
-                else:
-                    #  STATE-BASED: Services are in valid states (READY,
-                    #  UNAVAILABLE, MISSING are all valid)
-                    #  UNAVAILABLE burst engine and MISSING genome are CORRECT
-                    #  for fresh startup
-                    logger.debug(
-                        f"✅ Critical services in valid states - proceeding with FQ sampler creation for mode '{mode}'"
-                    )
-                    for service, state in critical_status.items():
-                        logger.debug(f"✅   {service}: {state.value}")
-
-            except Exception as gate_error:
-                logger.error(
-                    f"🚨 Error checking critical service states: {gate_error}"
-                )
-                logger.warning(
-                    "🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility"
-                )
-        else:
-            logger.debug(
-                "🔄 Runtime phase: Critical services already verified during startup"
-            )
-
-        # ===== END CRITICAL SERVICE READINESS GATE =====
-
-        try:
-            # Check if sampler already exists for this mode
-            if mode == "visualization" and self._viz_fq_sampler is not None:
-                logger.warning(
-                    f"🔄🔄🔄 Visualization FQ Sampler already exists: {self._viz_fq_sampler.instance_id} - "
-                    f"reusing existing sampler (ProcessManager id={id(self)})"
-                )
-                return True
-            elif mode == "opu" and self._motor_fq_sampler is not None:
-                logger.warning(
-                    f"🔥 Motor FQ Sampler already exists: {self._motor_fq_sampler.instance_id}"
-                )
-                return True
-
-            # Import Rust FQ sampler wrapper
-            from feagi.npu.rust_fq_sampler_wrapper import RustFQSamplerWrapper
-
-            # Create the Rust-backed sampler
-            # RustFQSamplerWrapper handles the Rust NPU integration internally
-            burst_engine = self._core_api.get_burst_engine() if self._core_api else None
-            rust_npu = burst_engine.rust_npu if burst_engine and hasattr(burst_engine, 'rust_npu') else None
-            
-            if not rust_npu:
-                logger.error(f"[DEBUG] Cannot create FQ sampler (mode={mode}): Rust NPU not available")
-                return False
-            
-            fq_sampler = RustFQSamplerWrapper(rust_npu_integration=rust_npu)
-            
-            # Configure the sampler after creation
-            fq_sampler.set_sample_frequency(frequency)
-
-            # Store the sampler based on mode
-            if mode == "visualization":
-                self._viz_fq_sampler = fq_sampler
-                # CRITICAL DIAGNOSTIC: This should ALWAYS show if sampler is created
-                logger.warning(
-                    f"🎨🎨🎨 Visualization FQ Sampler created: {fq_sampler.instance_id} at {frequency}Hz"
-                )
-                logger.warning(f"🎨🎨🎨 [DIAGNOSTIC] Stored in ProcessManager instance id={id(self)}, _viz_fq_sampler={id(fq_sampler)}")
-            elif mode == "opu":
-                self._motor_fq_sampler = fq_sampler
-                logger.info(
-                    f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}"
-                )
-                # Attach sampler to running ZMQ motor stream if available
-                try:
-                    if hasattr(self, "_zmq_server") and self._zmq_server:
-                        zmq_server = self._zmq_server
-                        if hasattr(zmq_server, "_motor") and zmq_server._motor:
-                            motor_stream = zmq_server._motor
-                            if hasattr(motor_stream, "set_fq_sampler"):
-                                motor_stream.set_fq_sampler(self._motor_fq_sampler)
-                                logger.info("🚗 [ON-DEMAND] Motor FQ sampler attached to motor stream at runtime")
-                            else:
-                                logger.debug("🚗 Motor stream does not support runtime sampler attach")
-                        else:
-                            logger.debug("🚗 ZMQ server has no motor stream instance to attach sampler")
-                    else:
-                        logger.debug("🚗 No ZMQ server reference; sampler will be picked up on next server start")
-                except Exception as e:
-                    logger.warning(f"🚗 Failed to attach motor sampler to motor stream at runtime: {e}")
-            else:
-                logger.warning(f"Unknown FQ sampler mode: {mode}")
-                return False
-
-            #  [ARCHITECTURE FIX] Register with burst engine for data flow
-            #  coordination
-            #  The burst engine should always be available in STANDBY mode for
-            #  registration
-            logger.debug(
-                f"🔥 [DEBUG] Attempting to register FQ sampler [{fq_sampler.instance_id}] with burst engine"
-            )
-            logger.debug(
-                f"🔥 [DEBUG] Burst engine available: {self._burst_engine is not None}"
-            )
-            if self._burst_engine:
-                logger.debug(
-                    f"🔥 [DEBUG] Burst engine type: {type(self._burst_engine)}"
-                )
-                logger.debug(
-                    f"🔥 [DEBUG] Burst engine has register method: {hasattr(self._burst_engine, 'register_fq_sampler')}"
-                )
-                try:
-                    self._burst_engine.register_fq_sampler(fq_sampler)
-                    logger.info(
-                        f"🔥 FQ sampler [{fq_sampler.instance_id}] registered with burst engine successfully"
-                    )
-                    logger.debug(
-                        "🔥 [DEBUG] Registration completed - checking burst engine FQ sampler count"
-                    )
-                    if hasattr(self._burst_engine, "_fq_samplers"):
-                        sampler_count = len(self._burst_engine._fq_samplers)
-                        logger.debug(
-                            f"🔥 [DEBUG] Burst engine now has {sampler_count} registered FQ samplers"
-                        )
-                    else:
-                        logger.warning(
-                            "🔥 [DEBUG] Burst engine has no _fq_samplers attribute - registration may have failed"
-                        )
-                except Exception as reg_error:
-                    logger.error(
-                        f"🔥 Failed to register FQ sampler [{fq_sampler.instance_id}] with burst engine: {reg_error}"
-                    )
-                    import traceback
-
-                    logger.error(
-                        f"🔥 Registration error traceback: {traceback.format_exc()}"
-                    )
-                    #  Continue anyway - FQ sampler can still function without
-                    #  registration
-            else:
-                logger.error(
-                    f"🔥 Could not register FQ sampler [{fq_sampler.instance_id}] - burst engine not available"
-                )
-                logger.error(
-                    "🔥 This should not happen if burst engine is properly initialized in STANDBY mode"
-                )
-                logger.error(
-                    f"🔥 [DEBUG] Process manager state: _burst_engine={self._burst_engine}"
-                )
-                logger.error(
-                    f"🔥 [DEBUG] Core API state: {self._core_api is not None}"
-                )
-                if self._core_api:
-                    try:
-                        be_from_api = self._core_api.get_burst_engine()
-                        logger.error(
-                            f"🔥 [DEBUG] Burst engine from core API: {be_from_api is not None}"
-                        )
-                    except Exception as api_error:
-                        logger.error(
-                            f"🔥 [DEBUG] Error getting burst engine from core API: {api_error}"
-                        )
-                # Continue anyway - the system should still function
-
-            #  CRITICAL FIX: DO NOT start internal run() thread for
-            #  stream-based samplers
-            #  Streams (visualization/motor) call sample() directly, so running
-            #  internal thread
-            # causes double execution and double logging
-            logger.info(
-                f"🔥 FQ Sampler [{fq_sampler.instance_id}] created for {mode} mode"
-            )
-            logger.info(
-                f"🔥 Internal run() thread NOT started - {mode} stream will call sample() directly"
-            )
-            logger.info(
-                "🔥 This prevents double logging from both thread and stream calling sample()"
-            )
-
-            # Store reference without thread for streams to use
-            if mode == "visualization":
-                self._viz_fq_thread = None  # No thread needed
-                logger.info(
-                    "[RENDER] Visualization FQ Sampler ready for stream usage"
-                )
-            elif mode == "opu":
-                self._motor_fq_thread = None  # No thread needed
-                logger.info("[MOTOR] Motor FQ Sampler ready for stream usage")
-
-            logger.info(
-                f"[DEBUG] FQ Sampler created successfully: mode={mode} (stream-based, no internal thread)"
-            )
-
-            return True
-
-        except Exception as e:
-            logger.error(f"🔥 Failed to create FQ sampler (mode={mode}): {e}")
-            return False
 
     def disable_fq_sampler(self, mode: str):
         """Disable and destroy FQ sampler of the specified mode.
@@ -1972,15 +1849,8 @@ class ProcessManager:
         try:
             if mode == "visualization":
                 if self._viz_fq_sampler is not None:
-                    # Unregister from burst engine first
-                    if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(
-                            self._viz_fq_sampler
-                        )
-                        logger.info(
-                            f"🔥 Visualization FQ sampler [{getattr(self._viz_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
-                        )
-
+                    # 🦀 RUST: No unregister needed - Rust FQ sampler is self-contained
+                    
                     if hasattr(self._viz_fq_sampler, "stop"):
                         self._viz_fq_sampler.stop()
 
@@ -1995,15 +1865,8 @@ class ProcessManager:
 
             elif mode == "opu" or mode == "motor":
                 if self._motor_fq_sampler is not None:
-                    # Unregister from burst engine first
-                    if self._burst_engine:
-                        self._burst_engine.unregister_fq_sampler(
-                            self._motor_fq_sampler
-                        )
-                        logger.info(
-                            f"🔥 Motor FQ sampler [{getattr(self._motor_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine"
-                        )
-
+                    # 🦀 RUST: No unregister needed - Rust FQ sampler is self-contained
+                    
                     if hasattr(self._motor_fq_sampler, "stop"):
                         self._motor_fq_sampler.stop()
 
@@ -2022,12 +1885,23 @@ class ProcessManager:
         except Exception as e:
             logger.error(f"Error disabling FQ sampler ({mode}): {e}")
 
-    def _setup_genome_load_event_handling(self):
-        """Set up event handling for genome load events.
+    def _setup_genome_load_event_handling(self) -> bool:
+        """Set up event handling for genome load events (lazy initialization).
 
         When a genome is successfully loaded, this will automatically start the burst engine.
         This implements the design requirement: "upon genome load, burst engine transitions to running"
+        
+        This is only available when:
+        - Shared memory mode is enabled
+        - Platform supports named pipes (Unix/Linux/macOS)
+        
+        Returns:
+            True if event system was initialized successfully, False otherwise
         """
+        # Check if already initialized or already determined to be unavailable
+        if self._event_system_available is not None:
+            return self._event_system_available
+            
         try:
             # Import event system here to avoid circular imports
             from feagi.api.shared_memory.events import (
@@ -2035,7 +1909,7 @@ class ProcessManager:
                 EventType,
             )
 
-            # Create event system for this process manager
+            # Try to create event system for this process manager
             self._event_system = EventNotificationSystem("process_manager")
 
             # Register handler for genome loaded events
@@ -2049,7 +1923,21 @@ class ProcessManager:
             logger.info(
                 "📡 Event system initialized - listening for GENOME_LOADED events"
             )
+            
+            self._event_system_available = True
+            return True
 
+        except RuntimeError as e:
+            # Platform doesn't support event system (e.g., Windows)
+            logger.debug(
+                f"Event system not available on this platform: {e}"
+            )
+            logger.debug(
+                "Genome load events will not trigger automatic burst engine start"
+            )
+            self._event_system_available = False
+            return False
+            
         except Exception as e:
             logger.warning(
                 f"Failed to initialize genome load event handling: {e}"
@@ -2057,6 +1945,8 @@ class ProcessManager:
             logger.warning(
                 "Process manager will need to monitor state changes manually"
             )
+            self._event_system_available = False
+            return False
 
     def _handle_genome_loaded_event(self, event):
         """Handle genome loaded event by starting the burst engine.

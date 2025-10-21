@@ -352,14 +352,10 @@ class GenomeService(BaseService):
             # from showing stale data during genome loading
             self._clear_connectome_manager_data()
             
-            # Clear agent/connection data
-            result = self.state_manager.set_connected_agents({})
-            if result.is_err:
-                self.logger.warning("Failed to clear connected agents")
-                
-            result = self.state_manager.set_agent_count(0)
-            if result.is_err:
-                self.logger.warning("Failed to reset agent count")
+            # NOTE: Agent connectivity is preserved across genome reloads
+            # Connected agents should only be cleared when agents actually disconnect,
+            # not when genome state changes. This prevents race conditions with active
+            # slot readers in sensory neural streams.
             
             # Reset development/embryogenesis state
             if hasattr(self.state_manager, 'set_neuroembryogenesis_stage'):
@@ -1114,28 +1110,12 @@ class GenomeService(BaseService):
                         "🎯 Genome loading complete - process manager will handle service coordination"
                     )
 
-                    #  CRITICAL: Update burst engine with new genome directly
-                    #  since event system is not available
-                    try:
-                        from feagi.npu.burst_engine import BurstEngine
-
-                        burst_engine = BurstEngine.get_instance()
-                        if burst_engine:
-                            # Pass the connectome_manager to ensure proper connection
-                            burst_engine.update_with_genome(self._connectome_manager)
-                            self.logger.info(
-                                "✅ Burst engine updated with new genome successfully"
-                            )
-                        else:
-                            self.logger.warning(
-                                "⚠️ Burst engine instance not available for genome update"
-                            )
-                    except Exception as burst_error:
-                        self.logger.warning(
-                            f"Failed to update burst engine with genome: {burst_error}"
-                        )
-                        #  Don't fail genome loading for burst engine update
-                        #  issues
+                    #  🦀 RUST BURST ENGINE: No direct update needed
+                    #  Rust NPU is already connected to connectome_manager via NPU Interface
+                    #  Genome changes are automatically reflected through shared state
+                    self.logger.info(
+                        "🦀 Genome loaded - Rust burst engine will use updated connectome via NPU Interface"
+                    )
 
                     #  CRITICAL: Emit GENOME_LOADED event to trigger burst
                     #  engine startup (fallback)
@@ -1166,13 +1146,16 @@ class GenomeService(BaseService):
                             )
                         else:
                             self.logger.warning(
-                                "Failed to emit GENOME_LOADED event - using direct burst engine update instead"
+                                "Failed to emit GENOME_LOADED event - using direct burst engine start fallback"
                             )
+                            # Windows/platform fallback: directly start burst engine
+                            self._start_burst_engine_fallback()
                     except Exception as event_error:
                         self.logger.warning(
                             f"Failed to emit GENOME_LOADED event: {event_error}"
                         )
-                        # Don't fail genome loading for event emission issues
+                        # Windows/platform fallback: directly start burst engine
+                        self._start_burst_engine_fallback()
 
                 except Exception as dev_error:
                     self.logger.error(
@@ -1589,6 +1572,57 @@ class GenomeService(BaseService):
                     )
 
             return {"success": False, "error": str(e)}
+
+    def _start_burst_engine_fallback(self) -> None:
+        """Windows/platform fallback: directly start burst engine when event system unavailable.
+        
+        This is called when GENOME_LOADED event emission fails (e.g., on Windows where
+        named pipes aren't supported). It directly triggers the burst engine start using
+        the same path as the process manager's event handler would use.
+        """
+        try:
+            from feagi.core.state_manager import (
+                FeagiStateManager,
+                ServiceState,
+            )
+
+            self.logger.info(
+                "🪟 Event system unavailable - using direct burst engine start fallback"
+            )
+
+            state_manager = FeagiStateManager.instance()
+            current_state = state_manager.get_burst_engine_state()
+
+            if current_state == ServiceState.READY:
+                self.logger.info(
+                    "⚡ Burst engine already running - no action needed"
+                )
+                return
+
+            # Get the core API service to start the burst engine
+            if not self._core_api_service:
+                self.logger.error(
+                    "❌ Core API service not available for burst engine start fallback"
+                )
+                return
+
+            self.logger.info("⚡ Starting burst engine after genome load (fallback)...")
+
+            success = self._core_api_service.start_burst_engine()
+
+            if success:
+                self.logger.info(
+                    "✅ Burst engine started successfully via fallback mechanism"
+                )
+            else:
+                self.logger.error(
+                    "❌ Failed to start burst engine via fallback mechanism"
+                )
+
+        except Exception as e:
+            self.logger.error(
+                f"❌ Error in burst engine start fallback: {e}"
+            )
 
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
@@ -2607,6 +2641,20 @@ class GenomeService(BaseService):
                     changes["cortical_type"] = area_type
                 if parameters is not None:
                     changes.update(parameters)
+                
+                # CRITICAL: Convert API array format to individual properties
+                # The API sends neuron_fire_threshold_increment as [x, y, z] array
+                # but we need individual firing_threshold_increment_x/y/z properties
+                if "neuron_fire_threshold_increment" in changes:
+                    increment_array = changes.pop("neuron_fire_threshold_increment")
+                    if isinstance(increment_array, (list, tuple)) and len(increment_array) >= 3:
+                        changes["firing_threshold_increment_x"] = float(increment_array[0])
+                        changes["firing_threshold_increment_y"] = float(increment_array[1])
+                        changes["firing_threshold_increment_z"] = float(increment_array[2])
+                        self.logger.info(
+                            f"[API-CONVERSION] Converted neuron_fire_threshold_increment array to individual properties: "
+                            f"x={increment_array[0]}, y={increment_array[1]}, z={increment_array[2]}"
+                        )
 
                 if not changes:
                     self.logger.warning(
@@ -3645,26 +3693,27 @@ class GenomeService(BaseService):
                     except Exception as hierarchy_sync_error:
                         self.logger.warning(f"Failed to sync brain region hierarchy for API response: {hierarchy_sync_error}")
                     
-                    # CRITICAL: Reinitialize Rust NPU after morphology mapping changes
-                    # Morphology mappings create/delete synapses, so Rust NPU needs to reload its synapse index
+                    # 🦀 RUST: Rebuild synapse index after morphology mapping changes
+                    # Morphology mappings create/delete synapses, so Rust NPU needs to rebuild its synapse index
                     try:
-                        from feagi.npu.burst_engine import BurstEngine
-                        burst_engine = BurstEngine.get_instance()
-                        if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
-                            if burst_engine._rust_npu_integration is not None:
-                                self.logger.info("🦀 [RUST-NPU] Morphology mapping changed - reloading synapse index from synapse_array...")
+                        from feagi.process_manager import get_process_manager
+                        process_manager = get_process_manager()
+                        if process_manager and process_manager.rust_npu_integration:
+                            rust_npu_integration = process_manager.rust_npu_integration
+                            if rust_npu_integration._rust_npu_initialized:
+                                self.logger.info("🦀 [RUST-NPU] Morphology mapping changed - rebuilding synapse index...")
                                 try:
-                                    burst_engine.reinitialize_rust_npu()
-                                    self.logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after mapping change")
-                                except Exception as reinit_error:
-                                    self.logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
+                                    rust_npu_integration.rebuild_synapse_index()
+                                    self.logger.info("🦀 [RUST-NPU] ✅ Synapse index rebuilt successfully after mapping change")
+                                except Exception as rebuild_error:
+                                    self.logger.error(f"🦀 [RUST-NPU] Failed to rebuild synapse index: {rebuild_error}")
                                     self.logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
                             else:
                                 self.logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
                         else:
-                            self.logger.debug("Burst engine not available or Rust NPU not enabled")
+                            self.logger.debug("🦀 [RUST-NPU] Not available")
                     except Exception as rust_error:
-                        self.logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
+                        self.logger.error(f"🦀 [RUST-NPU] Error during synapse index rebuild: {rust_error}")
                         self.logger.exception("Full stack trace:")
                         
                 else:
@@ -6094,9 +6143,75 @@ class GenomeService(BaseService):
                         f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized"
                     )
                 else:
-                    self.logger.info(
-                        f"[LOCALIZED-REBUILD] No dimension change needed for {cortical_id}"
-                    )
+                    # Check if neurogenesis-affecting parameters have changed (require rebuild)
+                    neurogenesis_params = {
+                        "firing_threshold_increment_x",
+                        "firing_threshold_increment_y",
+                        "firing_threshold_increment_z",
+                        "leak_variability"
+                    }
+                    neurogenesis_changed = any(param in changes for param in neurogenesis_params)
+                    
+                    if neurogenesis_changed:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Neurogenesis parameter changed for {cortical_id}, rebuilding neurons"
+                        )
+                        
+                        # Remove all existing neurons in this area
+                        existing_neurons = self._connectome_manager.get_neurons_by_cortical_area(cortical_id)
+                        if len(existing_neurons) > 0:
+                            existing_neuron_ids = [int(nid) for nid in existing_neurons]
+                            try:
+                                # Use Rust NPU for neuron deletion
+                                rust_npu = self._connectome_manager._npu_interface.rust_npu
+                                removed = 0
+                                for nid in existing_neuron_ids:
+                                    if rust_npu.delete_neuron(nid):
+                                        removed += 1
+                                self.logger.info(
+                                    f"[LOCALIZED-REBUILD] Removed {removed} existing neurons for neurogenesis parameter change"
+                                )
+                            except Exception as rm_err:
+                                self.logger.warning(
+                                    f"[LOCALIZED-REBUILD] Failed to remove existing neurons: {rm_err}"
+                                )
+                        
+                        # Rebuild neurons with new neurogenesis parameters
+                        self._rebuild_neurons_for_area(cortical_id, properties)
+                        
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] Rebuilt neurons for {cortical_id} with new neurogenesis parameters"
+                        )
+                        
+                        # Rebuild synaptic connections since neurons were recreated
+                        try:
+                            from feagi.api.core.services.expansion import SynapticRebuilder
+                            
+                            self.logger.info(
+                                f"🔄 [NEUROGENESIS-CHANGE] Starting synaptic rebuild for {cortical_id}"
+                            )
+                            
+                            rebuilder = SynapticRebuilder(
+                                self._connectome_manager,
+                                self.state_manager,
+                            )
+                            synapses_created = rebuilder.rebuild_all_connectivity(
+                                cortical_id=cortical_id,
+                                old_dimensions=old_dimensions,
+                                new_dimensions=old_dimensions,  # Same dimensions, but new neurons
+                            )
+                            
+                            self.logger.info(
+                                f"🔄 [NEUROGENESIS-CHANGE] Synaptic rebuild completed for {cortical_id}: {synapses_created} synapses"
+                            )
+                        except Exception as e:
+                            self.logger.error(
+                                f"[LOCALIZED-REBUILD] Error during synaptic rebuild after neurogenesis change: {e}"
+                            )
+                    else:
+                        self.logger.info(
+                            f"[LOCALIZED-REBUILD] No dimension or neurogenesis parameter change needed for {cortical_id}"
+                        )
             else:
                 #  Area doesn't exist - create it properly using existing
                 #  methods
@@ -6539,7 +6654,9 @@ class GenomeService(BaseService):
                 "fire_t": ["firing_threshold", "fire_t"],
                 "leak_c": ["leak_coefficient", "leak_c"], 
                 "refrac": ["refractory_period", "refrac"],
-                "fire_increment": ["fire_increment"],
+                "firing_threshold_increment_x": ["firing_threshold_increment_x"],
+                "firing_threshold_increment_y": ["firing_threshold_increment_y"],
+                "firing_threshold_increment_z": ["firing_threshold_increment_z"],
                 "leak_variability": ["leak_variability"],
             }
             
@@ -6608,10 +6725,13 @@ class GenomeService(BaseService):
 
             # Handle position-based variations for thresholds
             thresholds = [base_threshold] * area_neuron_count
-            fire_increment = properties.get("fire_increment", 0.0)
-            if fire_increment != 0.0:
+            fire_increment_x = properties.get("firing_threshold_increment_x", 0.0)
+            fire_increment_y = properties.get("firing_threshold_increment_y", 0.0)
+            fire_increment_z = properties.get("firing_threshold_increment_z", 0.0)
+            
+            if fire_increment_x != 0.0 or fire_increment_y != 0.0 or fire_increment_z != 0.0:
                 for i, (x, y, z) in enumerate(positions):
-                    thresholds[i] = base_threshold + (z * fire_increment)
+                    thresholds[i] = base_threshold + (x * fire_increment_x) + (y * fire_increment_y) + (z * fire_increment_z)
 
             #  Use ConnectomeManager's batch creation method (handles position
             #  mapping automatically - leak_variability is applied inside batch_create_neurons)

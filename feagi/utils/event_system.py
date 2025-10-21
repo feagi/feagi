@@ -37,9 +37,12 @@ _global_event_system: Optional[EventNotificationSystem] = None
 
 def get_event_system() -> Optional[EventNotificationSystem]:
     """Get the global event system instance.
+    
+    This will return None on platforms that don't support the event system
+    (e.g., Windows) or if initialization fails for other reasons.
 
     Returns:
-        EventNotificationSystem instance or None if not initialized
+        EventNotificationSystem instance or None if not available
     """
     global _global_event_system
 
@@ -49,7 +52,12 @@ def get_event_system() -> Optional[EventNotificationSystem]:
             _global_event_system = EventNotificationSystem("feagi_core")
             _global_event_system.start()
             logger.info("Global event system initialized successfully")
+        except RuntimeError as e:
+            # Platform doesn't support event system (e.g., Windows) - expected on some platforms
+            logger.debug(f"Event system not available on this platform: {e}")
+            return None
         except Exception as e:
+            # Unexpected error during initialization
             logger.warning(f"Failed to initialize global event system: {e}")
             return None
 
@@ -85,6 +93,9 @@ def emit_event(
 
 def initialize_event_system(process_name: str = "feagi_core") -> bool:
     """Initialize the global event system with a specific process name.
+    
+    This will return False on platforms that don't support the event system
+    (e.g., Windows) or if initialization fails for other reasons.
 
     Args:
         process_name: Name for this process in the event system
@@ -102,7 +113,12 @@ def initialize_event_system(process_name: str = "feagi_core") -> bool:
         _global_event_system.start()
         logger.info(f"Event system initialized for process: {process_name}")
         return True
+    except RuntimeError as e:
+        # Platform doesn't support event system (e.g., Windows) - expected on some platforms
+        logger.debug(f"Event system not available on this platform: {e}")
+        return False
     except Exception as e:
+        # Unexpected error during initialization
         logger.error(f"Failed to initialize event system: {e}")
         return False
 

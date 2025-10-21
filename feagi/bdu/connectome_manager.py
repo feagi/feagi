@@ -226,6 +226,15 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize hierarchical brain region system
         from feagi.bdu.models.brain_region_hierarchy import BrainRegionHierarchy
         self.brain_region_hierarchy = BrainRegionHierarchy()
+        
+        # Initialize Rust Morton spatial hash for ultra-fast position lookups
+        self._rust_morton_hash = None
+        try:
+            from feagi_bdu import PyMortonSpatialHash
+            self._rust_morton_hash = PyMortonSpatialHash()
+            logger.info("🦀 Rust Morton spatial hash enabled for ConnectomeManager")
+        except ImportError as e:
+            logger.debug(f"Rust Morton hash not available: {e}")
 
         # Initialize connectivity rules and cortical connections storage
         self.connectivity_rules = {}
@@ -238,11 +247,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Initialize bidirectional cortical mapping
         self.cortical_mapping = BiDirectionalCorticalMap()
 
-        #  Legacy compatibility - delegate to NeuronArray as single source of
-        #  truth
-        self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = (
-            {}
-        )
+        # REMOVED: Legacy _neuron_to_position dictionary (dead code)
+        # NPU interface owns neuron_to_position mapping as single source of truth
 
         #  Initialize neuron ID mappings - ConnectomeManager is single source
         #  of truth
@@ -274,34 +280,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
 
 
-        #  Initialize global spatial hash system for ultra-fast coordinate
-        #  lookups
-        from feagi.bdu.spatial_hash import get_spatial_hash
-
-        self._spatial_hash = get_spatial_hash()
-        self.logger.info("[CONNECTOME] Morton spatial hash system initialized")
-
         # Initialize state manager for brain size tracking
         self.state_manager = get_state_manager()
-        
-        # Register Morton spatial hash with state manager
-        try:
-            # Use already imported get_state_manager (no need to re-import)
-            state_manager = self.state_manager
-
-            # Register current Morton implementation details
-            morton_coordinate_limit = 1 << 21  # 21-bit Morton encoding limit
-            state_manager.set_morton_class_info(
-                "RoaringSpatialHash", morton_coordinate_limit
-            )
-
-            self.logger.info(
-                f"[CONNECTOME] Registered Morton spatial hash with state manager: limit={morton_coordinate_limit}"
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"[CONNECTOME] Failed to register Morton spatial hash with state manager: {e}"
-            )
 
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
@@ -374,34 +354,19 @@ class ConnectomeManager(NeuronMappingProvider):
         if self.fcl_manager is not None:
             return self.fcl_manager
             
-        # Try to get FCL manager from BurstEngine
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine._instance
-            if burst_engine and hasattr(burst_engine, 'fcl_manager'):
-                # Cache the reference for performance
-                self.fcl_manager = burst_engine.fcl_manager
-                return self.fcl_manager
-        except Exception as e:
-            logger.warning(f"Could not get FCL manager from NPU: {e}")
-            
+        # 🦀 RUST: FCL is now managed directly by Rust NPU
+        # Python FCL manager is deprecated - FCL operations go through NPU Interface
         return None
     
     def _get_async_fcl_processor(self):
         """Get async FCL processor from NPU BurstEngine.
         
-        Returns:
-            AsyncFCLProcessor instance from NPU, or None if not available
-        """
-        try:
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine._instance
-            if (burst_engine and 
-                hasattr(burst_engine, 'async_fcl_processor')):
-                return burst_engine.async_fcl_processor
-        except Exception as e:
-            logger.warning(f"Could not get async FCL processor from NPU: {e}")
+        🦀 RUST: Async FCL processing is now handled by Rust NPU.
+        Python async processor is deprecated.
         
+        Returns:
+            None (deprecated - Rust handles FCL processing)
+        """
         return None
 
     # ======================================================================
@@ -527,47 +492,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 else:
                     self.index_to_neuron_id = {}
 
-                if hasattr(self, "_neuron_to_position"):
-                    self._neuron_to_position.clear()
-                else:
-                    self._neuron_to_position = {}
-
-                #  CRITICAL FIX: Clear and rebuild Morton spatial hash after
-                #  resizing
-                # This prevents stale neuron references in the spatial hash
-                from feagi.bdu.spatial_hash import get_spatial_hash
-
-                spatial_hash = get_spatial_hash()
-                spatial_hash.clear()
-                logger.info(
-                    "🧹 [DYNAMIC SIZING] Cleared Morton spatial hash after resize"
-                )
-
-                # Re-register all existing neurons in the spatial hash
-                total_reregistered = 0
-                for cortical_id, area in self.cortical_areas.items():
-                    area_neurons = area.get_all_neurons()
-                    for neuron_id in area_neurons:
-                        try:
-                            position = self.get_neuron_position(neuron_id)
-                            x, y, z = position
-                            success = spatial_hash.add_neuron(
-                                cortical_id, x, y, z, neuron_id
-                            )
-                            if success:
-                                total_reregistered += 1
-                            else:
-                                self.logger.warning(
-                                    f"Failed to re-register neuron {neuron_id} at ({x},{y},{z}) in spatial hash"
-                                )
-                        except Exception as e:
-                            self.logger.warning(
-                                f"Error re-registering neuron {neuron_id}: {e}"
-                            )
-
-                logger.info(
-                    f"🔄 [DYNAMIC SIZING] Re-registered {total_reregistered} neurons in Morton spatial hash"
-                )
+                # REMOVED: Legacy _neuron_to_position clear (dead code)
+                # NPU interface owns neuron_to_position mapping
 
                 logger.info(
                     "✅ [DYNAMIC SIZING] Connectome resized successfully!"
@@ -1878,34 +1804,36 @@ class ConnectomeManager(NeuronMappingProvider):
         if not hasattr(self, "_npu_interface") or self._npu_interface is None:
             raise RuntimeError("NPU Interface is not initialized")
 
-        # Validate that all neurons exist
-        valid_specs = []
-        invalid_specs = []
-        for pre_id, post_id, weight in synapse_specs:
-            pre_exists = self._npu_interface.neuron_exists(pre_id)
-            post_exists = self._npu_interface.neuron_exists(post_id)
-            if pre_exists and post_exists:
-                valid_specs.append((pre_id, post_id, weight))
-            else:
-                invalid_specs.append((pre_id, post_id, weight))
-                logger.warning(f"Invalid synapse: {pre_id} → {post_id} (pre_exists={pre_exists}, post_exists={post_exists})")
-
-        if not valid_specs:
-            logger.warning("No valid synapse specifications found")
+        if not synapse_specs:
+            logger.warning("No synapse specifications provided")
             return 0
 
+        # PERFORMANCE: Skip Python-side validation - let Rust NPU handle it
+        # Previous code validated ~2M neurons for large mappings (2M FFI calls!)
+        # Rust NPU can validate internally during synapse creation (much faster)
+        # Invalid synapses will be reported in result.failed_indices
+        
         # Convert to NPUInterface SynapseCreationRequest format
         from feagi.npu.interface import SynapseCreationRequest
         
         request = SynapseCreationRequest(
-            source_neuron_ids=[spec[0] for spec in valid_specs],
-            target_neuron_ids=[spec[1] for spec in valid_specs],
-            weights=[int(spec[2]) for spec in valid_specs],  # Convert to u8
+            source_neuron_ids=[spec[0] for spec in synapse_specs],
+            target_neuron_ids=[spec[1] for spec in synapse_specs],
+            weights=[int(spec[2]) for spec in synapse_specs],  # Convert to u8
         )
         
         # Call NPUInterface to create synapses in Rust NPU
+        # Rust will validate neurons exist and report failures efficiently
         result = self._npu_interface.create_synapses_batch(request)
         created_count = result.successful_count
+        
+        # Log validation failures if any
+        if result.failed_indices:
+            failure_count = len(result.failed_indices)
+            if failure_count > 10:
+                logger.warning(f"Failed to create {failure_count} synapses (first 10 indices: {result.failed_indices[:10]})")
+            else:
+                logger.warning(f"Failed to create {failure_count} synapses at indices: {result.failed_indices}")
         
         # Update state manager with new synapse count
         if created_count > 0:
@@ -1953,18 +1881,43 @@ class ConnectomeManager(NeuronMappingProvider):
             neuron_count = self.get_neuron_count()  # Use the safe method
             synapse_count = self._npu_interface.synapse_array.synapse_count if self._npu_interface else 0
             
+            # Calculate memory vs regular neuron counts
+            memory_neuron_count = 0
+            regular_neuron_count = 0
+            
+            if self._npu_interface:
+                for area_id, area in self.cortical_areas.items():
+                    try:
+                        neurons = self._npu_interface.get_neurons_by_area(area.cortical_idx)
+                        neuron_count_in_area = len(neurons)
+                        
+                        if area.area_type == "memory":
+                            memory_neuron_count += neuron_count_in_area
+                        else:
+                            regular_neuron_count += neuron_count_in_area
+                    except Exception as e:
+                        self.logger.debug(f"Could not count neurons in area {area_id}: {e}")
+            
             # Update state manager with comprehensive brain stats
             brain_stats = {
                 "cortical_area_count": cortical_area_count,
                 "neuron_count": neuron_count,
                 "synapse_count": synapse_count,
+                "memory_neuron_count": memory_neuron_count,
+                "regular_neuron_count": regular_neuron_count,
             }
+            
+            logger.info(
+                f"📊 Updating state manager: {neuron_count} neurons "
+                f"({regular_neuron_count} regular, {memory_neuron_count} memory), "
+                f"{synapse_count} synapses, {cortical_area_count} areas"
+            )
             
             result = self.state_manager.set_brain_stats(brain_stats)
             if result.is_err:
                 self.logger.warning(f"Failed to set brain stats in state manager: {result.err}")
             else:
-                self.logger.debug(f"Updated brain statistics: {brain_stats}")
+                self.logger.info(f"✅ State manager updated successfully: {brain_stats}")
                 
             # Also update cortical list
             cortical_ids = list(self.cortical_areas.keys())
@@ -1976,6 +1929,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 
         except Exception as e:
             self.logger.warning(f"Failed to update brain statistics in state manager: {e}")
+            import traceback
+            self.logger.warning(f"Traceback: {traceback.format_exc()}")
 
     #  Legacy optimized method removed - NPU SynapseArray is inherently
     #  optimized
@@ -2346,20 +2301,6 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"[LOCK] Failed to release lock for cortical_idx={cortical_idx}: {unlock_e}"
                 )
 
-        # Expand spatial hash cache if needed for new cortical area
-        if hasattr(self, "_spatial_hash") and self._spatial_hash:
-            try:
-                success = self._spatial_hash.expand_cache_for_new_area(
-                    position, dimensions
-                )
-                if not success:
-                    logger.warning(
-                        f"⚠️  [SPATIAL HASH] Cache expansion failed for new area {area.id} - may need manual rebuild"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"⚠️  [SPATIAL HASH] Error expanding cache for new area {area.id}: {e}"
-                )
 
         logger.debug(
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
@@ -2573,10 +2514,9 @@ class ConnectomeManager(NeuronMappingProvider):
             if debug_mem:
                 print(f"[DEBUG-MEM] Attempting to register with PlasticityService...")
             
-            # Get the PlasticityService from BurstEngine
-            from feagi.npu.burst_engine import BurstEngine
-            burst_engine = BurstEngine.get_instance()
-            plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+            # 🦀 RUST: PlasticityService integration needs update for Rust burst engine
+            # For now, skip PlasticityService registration (will be added in Rust integration)
+            plasticity_service = None
             
             if plasticity_service:
                 # Get cortical area index and upstream areas
@@ -2735,10 +2675,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 if debug_mem:
                     print(f"[DEBUG-MEM] Updating PlasticityService with new upstream mapping: {source_cortical_id} -> {target_cortical_id}")
                 
-                # Get the PlasticityService from BurstEngine
-                from feagi.npu.burst_engine import BurstEngine
-                burst_engine = BurstEngine.get_instance()
-                plasticity_service = getattr(burst_engine, '_plasticity_service', None)
+                # 🦀 RUST: PlasticityService integration needs update for Rust burst engine
+                # For now, skip PlasticityService update
+                plasticity_service = None
                 
                 if plasticity_service:
                     # Get cortical area index for the memory area
@@ -2792,10 +2731,10 @@ class ConnectomeManager(NeuronMappingProvider):
             # CRITICAL FIX: Update MemoryProcessor with new upstream mapping
             try:
                 logger.info("[MEMORY-MAPPING] Updating MemoryProcessor...")
-                from feagi.npu.burst_engine import BurstEngine
-
-                burst_engine = BurstEngine.get_instance()
-                if burst_engine and burst_engine.memory_processor:
+                # 🦀 RUST: MemoryProcessor integration needs update for Rust burst engine
+                # For now, skip MemoryProcessor update
+                burst_engine = None
+                if burst_engine and hasattr(burst_engine, 'memory_processor') and burst_engine.memory_processor:
                     #  CRITICAL: Ensure memory area is registered with
                     #  MemoryProcessor
                     if (
@@ -3129,38 +3068,6 @@ class ConnectomeManager(NeuronMappingProvider):
             )
         return tuple(max_dims)
 
-    def initialize_spatial_hash_cache(self) -> bool:
-        """Initialize the spatial hash cache (simplified for Morton system).
-
-        Returns:
-            True if initialization successful, False otherwise
-        """
-        if not hasattr(self, "_spatial_hash") or not self._spatial_hash:
-            logger.warning(
-                "⚠️  [SPATIAL HASH] No spatial hash instance available"
-            )
-            return False
-
-        try:
-            logger.info(
-                "🗺️  [SPATIAL HASH] Initializing Morton spatial hash..."
-            )
-
-            # Get maximum cortical area dimensions for logging only
-            max_dims = self.get_max_cortical_area_dimensions()
-            logger.info(
-                f"🗺️  [SPATIAL HASH] Cortical area dimensions: {max_dims}"
-            )
-
-            # Morton system is always ready - no initialization needed
-            self._spatial_hash.initialize_for_dimensions(max_dims)
-
-            logger.info("✅ [SPATIAL HASH] Morton system ready")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ [SPATIAL HASH] Failed to initialize: {e}")
-            return False
 
     def _convert_hierarchical_to_flat_parameters(self, hierarchical_params: Dict[str, Any]) -> Dict[str, Any]:
         """Convert hierarchical genome property names to API format.
@@ -4437,12 +4344,9 @@ class ConnectomeManager(NeuronMappingProvider):
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
 
-        # Create neurons in batch using NPU NeuronArray API (single source of truth)
-        # Generate neuron IDs deterministically via NPU-owned counter
-        npu_neurons = self.neuron_array
+        # ARCHITECTURE COMPLIANCE: Delegate neuron creation to Rust NPU through NPU interface
+        # ConnectomeManager prepares the request, Rust NPU manages IDs and storage
         count = len(positions)
-        start_id = npu_neurons._next_neuron_id
-        neuron_ids = list(range(start_id, start_id + count))
 
         # Normalize per-neuron lists - ALL PARAMETERS FROM GENOME
         thresholds_list = (
@@ -4482,65 +4386,53 @@ class ConnectomeManager(NeuronMappingProvider):
             [snooze_period] * count if isinstance(snooze_period, int) else list(snooze_period)
         )
 
-        # Use add_neurons_batch with ALL required parameters from genome
-        indices = npu_neurons.add_neurons_batch(
-            neuron_ids=neuron_ids,
+        # Delegate to Rust NPU through NPU interface
+        # Rust NPU manages neuron IDs, positions, and all neuron data
+        from feagi.npu.interface import NeuronCreationRequest
+        
+        request = NeuronCreationRequest(
+            cortical_idx=cortical_idx,
             positions=positions,
             neuron_types=[0] * count,
             initial_potentials=mp_list,
             thresholds=thresholds_list,
             leak_coefficients=leak_list,
-            cortical_idx=cortical_idx,
             refractory_periods=refr_list,
             excitabilities=excitability_list,
             resting_potentials=rp_list,
             consecutive_fire_limits=consecutive_fire_limits_list,
-            snooze_periods=snooze_periods_list,
+            snooze_periods=snooze_periods_list
         )
+        
+        result = self._npu_interface.create_neurons_batch(request)
+        
+        from feagi.npu.interface import OperationResult
+        if result.result != OperationResult.SUCCESS:
+            logger.error(f"Failed to create neurons in Rust NPU: {result.error_message}")
+            return []
+        
+        # Get neuron IDs assigned by Rust NPU
+        neuron_ids = result.data.get("neuron_ids", []) if result.data else []
+        
+        if not neuron_ids:
+            logger.error("Rust NPU did not return neuron IDs")
+            return []
 
-        # Refractory periods are now handled by add_neurons_batch - no manual setting needed
-
-        # Use the IDs generated above - authoritative NPU IDs
-        neuron_ids = neuron_ids
-
-        # Update for test compatibility
-        for i, neuron_id in enumerate(neuron_ids):
-            # Get the actual index from ConnectomeManager's mapping
-            actual_idx = self.get_neuron_index(neuron_id)
-
-            # Update for test compatibility - maintain same format as legacy
-            self._neuron_to_position[neuron_id] = (
-                cortical_id,
-                *positions[i],
-                actual_idx,
-            )
-
-        # Store neuron-area relationship for each created neuron
-        # Update NPU interface mapping immediately for downstream operations
+        # Register neurons with cortical area
+        # NOTE: NPU interface already tracks neuron_to_area and neuron_to_position
+        # ConnectomeManager only maintains CorticalArea's neuron registry
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
-            try:
-                if hasattr(self, "_npu_interface") and self._npu_interface:
-                    self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
-            except Exception:
-                pass
+            
+            # Populate Rust Morton hash for ultra-fast lookups
+            if self._rust_morton_hash is not None:
+                x, y, z = positions[i]
+                self._rust_morton_hash.add_neuron(cortical_id, x, y, z, neuron_id)
 
-        #  CRITICAL FIX: Register neurons in Morton spatial hash for
-        #  coordinate-based lookups
-        #  This enables neural injection, batch_voxel_to_neuron_lookup, and
-        #  test mode to work
-        from feagi.bdu.spatial_hash import get_spatial_hash
-
-        spatial_hash = get_spatial_hash()
-
-        for i, neuron_id in enumerate(neuron_ids):
-            x, y, z = positions[i]
-            success = spatial_hash.add_neuron(cortical_id, x, y, z, neuron_id)
-            if not success:
-                self.logger.warning(
-                    f"Failed to register neuron {neuron_id} at ({x},{y},{z}) in spatial hash"
-                )
-
+        # Update state manager with new neuron count
+        if len(neuron_ids) > 0:
+            self._update_neuron_count_only()
+        
         return neuron_ids
 
     def batch_update_neuron_properties(
@@ -5730,6 +5622,13 @@ class ConnectomeManager(NeuronMappingProvider):
             self.cortical_areas.clear()
         if hasattr(self, "area_neuron_masks"):
             self.area_neuron_masks.clear()
+        
+        # Clear neuron position cache for all areas
+        self.clear_neuron_position_cache()
+        
+        # Clear Rust Morton hash
+        if self._rust_morton_hash is not None:
+            self._rust_morton_hash.clear()
 
         #  NOTE: No longer managing next_cortical_idx counter since we use
         #  dynamic allocation
@@ -5873,6 +5772,19 @@ class ConnectomeManager(NeuronMappingProvider):
             f"Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses",
             status="[OK]",
         )
+        
+        # CRITICAL: Reset state manager counts to 0 after clearing brain data
+        try:
+            self.state_manager.set_brain_stats({
+                "neuron_count": 0,
+                "synapse_count": 0,
+                "cortical_area_count": 0,
+                "memory_neuron_count": 0,
+                "non_memory_neuron_count": 0,
+            })
+            logger.info("✅ Reset state manager brain statistics to 0", status="[OK]")
+        except Exception as e:
+            logger.warning(f"Failed to reset state manager counts: {e}")
 
         return {
             "cortical_areas_cleared": cortical_areas_cleared,
@@ -7229,66 +7141,130 @@ class ConnectomeManager(NeuronMappingProvider):
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """Batch lookup using NPU API (Rust NPU single source of truth).
+        """Batch lookup using Rust Morton spatial hash for O(1) per-position lookup.
 
         Deterministically finds neurons in `cortical_id` whose
         positions match any in `candidate_positions`.
+        
+        Performance: O(K) where K = len(candidate_positions) with Rust Morton hash
+        Fallback: O(N) where N = neurons in area (cached approach)
         """
         try:
+            if not candidate_positions:
+                return []
+            
+            # Try Rust Morton spatial hash first (O(1) per position)
+            if hasattr(self, '_rust_morton_hash') and self._rust_morton_hash is not None:
+                found: List[Tuple[int, float]] = []
+                for x, y, z in candidate_positions:
+                    neurons = self._rust_morton_hash.get_neurons_at_coordinate(cortical_id, x, y, z)
+                    for neuron_id in neurons:
+                        found.append((neuron_id, float(post_synaptic_current)))
+                return found
+            
+            # Fallback: Optimized NPU-based lookup with O(N) set membership checking
             npu = getattr(self, "_npu_interface", None)
             if npu is None:
-                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup for {cortical_id}")
-                raise RuntimeError("NPU Interface required for voxel lookup")
+                logger.error(f"[BATCH-LOOKUP] NPU Interface required for voxel lookup")
+                return []
 
-            # Resolve to cortical_idx (authoritative key)
             cortical_idx = self.get_cortical_idx_for_id(cortical_id)
             if cortical_idx is None:
-                # Debug: Show what cortical areas actually exist
-                try:
-                    available_areas = list(self._cortical_areas.keys()) if hasattr(self, '_cortical_areas') else []
-                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}. Available areas: {available_areas[:10]}")
-                except Exception:
-                    logger.error(f"[BATCH-LOOKUP] No cortical_idx found for '{cortical_id}' and cannot list available areas")
+                logger.error(f"[BATCH-LOOKUP] No cortical_idx found for {cortical_id}")
                 return []
             
-            # Removed verbose debug logging for production
-
-            # ✅ RUST NPU: Use batch API to get ALL neuron positions at once (massive performance gain!)
-            rust_npu = npu.rust_npu  # Direct access to RustNPU for batch operations
+            rust_npu = npu.rust_npu
             if rust_npu is None:
-                logger.error(f"[BATCH-LOOKUP] Rust NPU not available for {cortical_id}")
+                logger.error(f"[BATCH-LOOKUP] Rust NPU not available")
                 return []
             
-            # Get all (neuron_id, x, y, z) tuples for this cortical area in ONE call
-            neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
-            if not neuron_positions:
-                logger.error(f"[BATCH-LOOKUP] No neurons found in cortical_idx={cortical_idx} for {cortical_id}")
-                return []
+            # PERFORMANCE: Cache neuron positions per cortical area
+            cache_key = f"_neuron_positions_cache_{cortical_idx}"
+            if not hasattr(self, cache_key):
+                neuron_positions = rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+                if not neuron_positions:
+                    return []
+                setattr(self, cache_key, neuron_positions)
+            else:
+                neuron_positions = getattr(self, cache_key)
             
-            # Removed verbose batch lookup logging
-
-            # Build a hash set of target positions for O(1) membership checks
+            # Build target position set for O(1) membership checks
             targets = set(candidate_positions)
-            if not targets:
-                logger.error(f"[BATCH-LOOKUP] No target positions for {cortical_id}")
-                return []
-
-            # ✅ Match neurons to target positions (single Python loop, no Rust boundary crossings!)
+            
+            # Single pass: match neurons to target positions
             found: List[Tuple[int, float]] = []
+            
             for neuron_id, x, y, z in neuron_positions:
                 position = (int(x), int(y), int(z))
                 if position in targets:
                     found.append((int(neuron_id), float(post_synaptic_current)))
             
-            # Removed verbose batch lookup logging
-            
             return found
 
         except Exception as e:
-            logger.error(f"Error in NPU voxel lookup: {e}")
+            logger.error(f"Error in batch voxel lookup: {e}")
             logger.exception("Full stack trace:")
             return []
 
+    def populate_morton_hash_from_existing_neurons(self):
+        """Populate Rust Morton hash from all existing neurons.
+        
+        Called after genome loading to enable fast spatial lookups.
+        """
+        if self._rust_morton_hash is None:
+            return
+        
+        try:
+            npu = getattr(self, "_npu_interface", None)
+            if npu is None or npu.rust_npu is None:
+                return
+            
+            # Get all neurons from all cortical areas
+            for cortical_id, area in self.cortical_areas.items():
+                cortical_idx = self.get_cortical_idx_for_id(cortical_id)
+                if cortical_idx is None:
+                    continue
+                
+                # Get all neuron positions for this area
+                neuron_positions = npu.rust_npu.get_neuron_positions_in_cortical_area(cortical_idx)
+                
+                # Add each to Morton hash
+                for neuron_id, x, y, z in neuron_positions:
+                    self._rust_morton_hash.add_neuron(cortical_id, int(x), int(y), int(z), int(neuron_id))
+            
+            logger.info(
+                f"🦀 Rust Morton hash populated successfully for {len(self.cortical_areas)} cortical areas"
+            )
+        except Exception as e:
+            logger.error(f"Failed to populate Morton hash: {e}")
+    
+    def clear_neuron_position_cache(self, cortical_id: Optional[str] = None):
+        """Clear cached neuron positions for a cortical area or all areas.
+        
+        Should be called after:
+        - Adding/removing neurons
+        - Modifying cortical areas
+        - Loading a new genome
+        
+        Args:
+            cortical_id: Specific area to clear, or None to clear all caches
+        """
+        if cortical_id:
+            cortical_idx = self.get_cortical_idx_for_id(cortical_id)
+            if cortical_idx is not None:
+                cache_key = f"_neuron_positions_cache_{cortical_idx}"
+                if hasattr(self, cache_key):
+                    delattr(self, cache_key)
+        else:
+            # Clear all position caches
+            attrs_to_delete = [attr for attr in dir(self) if attr.startswith("_neuron_positions_cache_")]
+            for attr in attrs_to_delete:
+                try:
+                    delattr(self, attr)
+                except AttributeError:
+                    pass
+            logger.debug(f"[CACHE] Cleared {len(attrs_to_delete)} neuron position caches")
+    
     # ======================================================================
     # CORTICAL AREA DIMENSION VALIDATION
     # ======================================================================
@@ -7337,36 +7313,6 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.error(f"Error validating cortical area dimensions: {e}")
             return False
 
-    def get_morton_spatial_hash_info(self) -> Dict[str, Any]:
-        """Get information about the active Morton spatial hash implementation.
-
-        Returns:
-            Dictionary containing Morton class name, coordinate limits, and other info
-        """
-        try:
-            from feagi.core.state_manager import get_state_manager
-
-            state_manager = get_state_manager()
-
-            max_dims = self.get_max_allowable_cortical_area_dimensions()
-
-            return {
-                "morton_class": state_manager.get_morton_class_name(),
-                "coordinate_limit": state_manager.get_morton_coordinate_limit(),
-                "max_cortical_area_dimensions": max_dims,
-                "coordinate_bits_per_dimension": 21,  # Current implementation
-                "supports_negative_coordinates": False,
-                "memory_efficient": True,
-                "spatial_locality_preserved": True,
-            }
-        except Exception as e:
-            logger.error(f"Error getting Morton spatial hash info: {e}")
-            return {
-                "morton_class": "Unknown",
-                "coordinate_limit": 1024,  # Safe fallback
-                "max_cortical_area_dimensions": (1023, 1023, 1023),
-                "error": str(e),
-            }
 
     # Removed duplicate get_synapse_count/get_neuron_count/get_neurons_by_area at end of file (consolidated above)
 
@@ -7443,7 +7389,10 @@ class ConnectomeManager(NeuronMappingProvider):
         refractory_period: int,
         properties: Optional[Dict[str, Any]],
     ) -> int:
-        """Create a single neuron via NPU-owned arrays.
+        """Create a single neuron via Rust NPU.
+
+        ARCHITECTURE: Delegates to NPU interface which manages all neuron data.
+        ConnectomeManager does not duplicate NPU's internal mappings.
 
         Args:
             cortical_idx: Area index
@@ -7461,7 +7410,8 @@ class ConnectomeManager(NeuronMappingProvider):
         if not self._npu_interface:
             raise RuntimeError("NPU interface not configured - cannot create neurons")
         
-        # Create neuron directly through Rust NPU
+        # Create neuron through Rust NPU
+        # NPU interface handles all ID generation and mapping internally
         neuron_id = self._npu_interface.rust_npu.add_neuron(
             threshold=float(threshold),
             leak_coefficient=float(leak_coefficient),
@@ -7478,15 +7428,14 @@ class ConnectomeManager(NeuronMappingProvider):
         )
         
         # Update NPU Interface mappings
+        # NOTE: These mappings are owned by NPU interface, not Rust NPU itself
         self._npu_interface.neuron_id_to_index[neuron_id] = neuron_id
         self._npu_interface.index_to_neuron_id[neuron_id] = neuron_id
         self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
         self._npu_interface.neuron_to_position[neuron_id] = position
         
-        # Update ConnectomeManager mappings for backward compatibility
-        self.neuron_id_to_index[neuron_id] = neuron_id
-        self.index_to_neuron_id[neuron_id] = neuron_id
-        self._neuron_to_position[neuron_id] = (cortical_idx, position[0], position[1], position[2], 0)
+        # Update state manager with new neuron count
+        self._update_neuron_count_only()
         
         return neuron_id
 
@@ -7498,9 +7447,9 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         if hasattr(self, "_npu_interface") and self._npu_interface:
             try:
-                regular = int(getattr(self._npu_interface.neuron_array, "count", 0))
-                memory = int(getattr(self._npu_interface.memory_neuron_array, "count", 0))
-                return regular + memory
-            except Exception:
+                # Use NPU interface method directly (authoritative count from Rust NPU)
+                return self._npu_interface.get_neuron_count()
+            except Exception as e:
+                self.logger.warning(f"Failed to get neuron count from NPU: {e}")
                 return 0
         return 0

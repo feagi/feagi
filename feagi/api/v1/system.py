@@ -571,16 +571,20 @@ class SystemAPI:
         response_model=SuccessResponse,
     )
     def enable_visualization_fq_sampler(self) -> SuccessResponse:
-        """Enable the visualization FQ sampler for brain visualizer
-        connectivity."""
+        """Enable the visualization FQ sampler for brain visualizer connectivity.
+        
+        🦀 RUST: FQ sampler is now built-in to Rust burst engine and always enabled.
+        This endpoint exists for backward compatibility but is essentially a no-op.
+        """
         try:
-            success = self.core_api_service.enable_visualization_fq_sampler()
-            if success:
-                return SuccessResponse(
-                    message="Visualization FQ sampler enabled successfully"
-                )
-            else:
-                raise ValueError("Failed to enable visualization FQ sampler")
+            # 🦀 RUST: FQ sampler is now part of RustNPU and always enabled during burst processing
+            # Phase 5 of process_burst() calls fq_sampler.sample() every burst
+            # No need for separate enable/disable - it's always running
+            logger.info("🦀 [RUST-FQ] FQ sampler is built-in to Rust burst engine and always enabled")
+            
+            return SuccessResponse(
+                message="Visualization FQ sampler enabled (built-in to Rust burst engine)"
+            )
         except Exception as e:
             logger.error(f"Error enabling visualization FQ sampler: {e}")
             raise ValueError(
@@ -593,15 +597,19 @@ class SystemAPI:
         response_model=SuccessResponse,
     )
     def disable_visualization_fq_sampler(self) -> SuccessResponse:
-        """Disable the visualization FQ sampler."""
+        """Disable the visualization FQ sampler.
+        
+        🦀 RUST: FQ sampler is now built-in to Rust burst engine and cannot be disabled.
+        This endpoint exists for backward compatibility but is essentially a no-op.
+        """
         try:
-            success = self.core_api_service.disable_visualization_fq_sampler()
-            if success:
-                return SuccessResponse(
-                    message="Visualization FQ sampler disabled successfully"
-                )
-            else:
-                raise ValueError("Failed to disable visualization FQ sampler")
+            # 🦀 RUST: FQ sampler is built-in and cannot be disabled
+            # It's part of the burst processing pipeline (Phase 5)
+            logger.warning("🦀 [RUST-FQ] Cannot disable FQ sampler - it's built-in to Rust burst engine")
+            
+            return SuccessResponse(
+                message="FQ sampler is built-in to Rust burst engine and cannot be disabled"
+            )
         except Exception as e:
             logger.error(f"Error disabling visualization FQ sampler: {e}")
             raise ValueError(

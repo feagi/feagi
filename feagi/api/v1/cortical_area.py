@@ -47,6 +47,8 @@ from feagi.api.v1.schemas import (
     NeuronCountResponse,
     SuccessResponse,
     AddCoreCorticalAreaRequest,
+    VoxelNeuronsRequest,
+    VoxelNeuronsResponse,
 )
 from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.utils.logger import setup_logger
@@ -1506,6 +1508,53 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(
                 f"Error getting neuron count for area {cortical_id}: {str(e)}"
+            ) from e
+
+    @cortical_area_endpoint(
+        "POST",
+        "/voxel_neurons",
+        request_model=VoxelNeuronsRequest,
+        response_model=VoxelNeuronsResponse,
+    )
+    def get_voxel_neurons(
+        self, request: VoxelNeuronsRequest
+    ) -> VoxelNeuronsResponse:
+        """Get neuron IDs at a specific voxel location in a cortical area.
+        
+        Args:
+            request: VoxelNeuronsRequest containing cortical_id and x,y,z coordinates
+            
+        Returns:
+            VoxelNeuronsResponse with list of neuron IDs at the specified location
+            
+        Example:
+            POST /v1/cortical_area/voxel_neurons
+            {
+                "cortical_id": "iic100",
+                "x": 0,
+                "y": 1,
+                "z": 0
+            }
+        """
+        try:
+            neuron_ids = self.core_api_service.get_neurons_at_voxel(
+                cortical_id=request.cortical_id,
+                x=request.x,
+                y=request.y,
+                z=request.z
+            )
+            return VoxelNeuronsResponse(
+                cortical_id=request.cortical_id,
+                x=request.x,
+                y=request.y,
+                z=request.z,
+                neuron_ids=neuron_ids,
+                neuron_count=len(neuron_ids)
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Error getting neurons at voxel [{request.x},{request.y},{request.z}] "
+                f"in area {request.cortical_id}: {str(e)}"
             ) from e
 
     @cortical_area_endpoint(

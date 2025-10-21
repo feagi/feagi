@@ -236,3 +236,4 @@ The system integrates with:
 4. **Implement graceful shutdown** with deregistration
 
 This robust system ensures that only truly disconnected agents are removed, while maintaining the responsiveness needed for real-time neural processing.
+

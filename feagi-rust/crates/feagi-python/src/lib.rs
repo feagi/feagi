@@ -34,14 +34,15 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyBytes};
+use pyo3::exceptions::{PyValueError, PyIOError};
 use numpy::{PyArray1, ToPyArray};
 use feagi_types::*;
 use feagi_burst_engine::{RustNPU as RustNPUCore, BurstResult as RustBurstResult};
+use feagi_connectome_serialization;
 use ahash::AHashMap;
+use std::sync::{Arc, Mutex};
 use feagi_data_structures::neuron_voxels::xyzp::{NeuronVoxelXYZP, NeuronVoxelXYZPArrays, CorticalMappedXYZPNeuronVoxels};
 use feagi_data_structures::genomic::CorticalID;
-// Note: FeagiSerializable is private in feagi_data_serialization, but we need its methods
-// So we'll implement serialization manually using the internal implementation details
 
 /*  LEGACY: Not used - full RustNPU is used instead
 /// Python wrapper for the Rust synaptic propagation engine
@@ -272,7 +273,8 @@ impl From<RustBurstResult> for BurstResult {
 /// ```
 #[pyclass]
 struct RustNPU {
-    npu: RustNPUCore,
+    npu: Arc<Mutex<RustNPUCore>>,  // Always use Arc<Mutex> for thread-safety
+    burst_runner: Option<Arc<Mutex<feagi_burst_engine::BurstLoopRunner>>>,
 }
 
 #[pymethods]
@@ -286,13 +288,256 @@ impl RustNPU {
     #[new]
     fn new(neuron_capacity: usize, synapse_capacity: usize, fire_ledger_window: usize) -> Self {
         Self {
-            npu: RustNPUCore::new(neuron_capacity, synapse_capacity, fire_ledger_window),
+            npu: Arc::new(Mutex::new(RustNPUCore::new(neuron_capacity, synapse_capacity, fire_ledger_window))),
+            burst_runner: None,
         }
     }
     
     /// Set power injection amount (default: 1.0)
     fn set_power_amount(&mut self, amount: f32) {
-        self.npu.set_power_amount(amount);
+        self.npu.lock().unwrap().set_power_amount(amount);
+    }
+    
+    /// Register a cortical area name for visualization encoding
+    /// 
+    /// Args:
+    ///     area_id: Numeric cortical area ID (e.g., 1, 2, 3...)
+    ///     cortical_name: Cortical area name string (e.g., "_power", "c_vision")
+    /// 
+    /// This mapping is populated during neuroembryogenesis and used by the burst loop
+    /// to convert numeric area_ids to proper CorticalID strings for Type 11 encoding.
+    fn register_cortical_area(&mut self, area_id: u32, cortical_name: String) {
+        self.npu.lock().unwrap().register_cortical_area(area_id, cortical_name);
+    }
+    
+    // 🔋 Power neurons auto-discovered from neuron array - no separate list!
+    
+    /// Start the burst loop runner (runs in background Rust thread)
+    /// 
+    /// Args:
+    ///     frequency_hz: Burst frequency in Hz (e.g., 30.0)
+    /// 
+    /// Once started, the burst loop runs autonomously in Rust with ZERO Python overhead!
+    /// Python is free to handle REST API, visualization, etc. while bursts process.
+    fn start_burst_loop(&mut self, frequency_hz: f64) -> PyResult<()> {
+        if self.burst_runner.is_some() {
+            return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop already running"
+            ));
+        }
+        
+        let mut runner = feagi_burst_engine::BurstLoopRunner::new(self.npu.clone(), frequency_hz);
+        
+        // 🦀 Power neurons are already in RustNPU - runner reads them directly!
+        // NO Python involvement in power injection hot path!
+        
+        runner.start().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Failed to start burst loop: {}", e))
+        })?;
+        
+        self.burst_runner = Some(Arc::new(Mutex::new(runner)));
+        Ok(())
+    }
+    
+    /// Stop the burst loop runner
+    fn stop_burst_loop(&mut self) {
+        if let Some(runner) = self.burst_runner.take() {
+            runner.lock().unwrap().stop();
+        }
+    }
+    
+    /// Attach visualization SHM writer (for direct Rust→BV communication)
+    /// 
+    /// Args:
+    ///     shm_path: Path to visualization SHM file (e.g., "/tmp/feagi-shared-mem-visualization_stream.bin")
+    /// 
+    /// This enables 100% Rust visualization pipeline: FQ Sample → Encode → SHM Write → BV
+    fn attach_viz_shm_writer(&mut self, shm_path: String) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let path = std::path::PathBuf::from(shm_path);
+            runner.lock().unwrap()
+                .attach_viz_shm_writer(path)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                    format!("Failed to attach viz SHM writer: {}", e)
+                ))?;
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
+    /// Write binary neuron data to visualization SHM (Python encodes, Rust writes)
+    /// 
+    /// Args:
+    ///     binary_data: Pre-encoded binary data (Type 11 format from feagi_rust_py_libs)
+    /// 
+    /// This is the HOT PATH for visualization - called after every FQ sample
+    fn write_viz_shm(&self, binary_data: &[u8]) -> PyResult<()> {
+        if let Some(runner) = &self.burst_runner {
+            let runner_lock = runner.lock().unwrap();
+            let mut viz_writer = runner_lock.viz_shm_writer.lock().unwrap();
+            if let Some(writer) = viz_writer.as_mut() {
+                writer.write_payload(binary_data)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                        format!("Failed to write viz SHM: {}", e)
+                    ))?;
+                Ok(())
+            } else {
+                // No writer attached - silently skip (Python fallback can handle it)
+                Ok(())
+            }
+        } else {
+            Ok(()) // No burst loop - skip
+        }
+    }
+    
+    /// Attach motor SHM writer for zero-copy motor output
+    /// 
+    /// This enables 100% Rust motor pipeline: Motor Data → Encode → SHM Write → Agents
+    fn attach_motor_shm_writer(&mut self, shm_path: String) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let path = std::path::PathBuf::from(shm_path);
+            runner.lock().unwrap()
+                .attach_motor_shm_writer(path)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                    format!("Failed to attach motor SHM writer: {}", e)
+                ))?;
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
+    /// Write binary motor data to motor SHM (Python encodes, Rust writes)
+    /// 
+    /// Args:
+    ///     binary_data: Pre-encoded binary motor data
+    /// 
+    /// This is the HOT PATH for motor output - called after every burst
+    fn write_motor_shm(&self, binary_data: &[u8]) -> PyResult<()> {
+        if let Some(runner) = &self.burst_runner {
+            let runner_lock = runner.lock().unwrap();
+            let mut motor_writer = runner_lock.motor_shm_writer.lock().unwrap();
+            if let Some(writer) = motor_writer.as_mut() {
+                writer.write_payload(binary_data)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                        format!("Failed to write motor SHM: {}", e)
+                    ))?;
+                Ok(())
+            } else {
+                // No writer attached - silently skip (Python fallback can handle it)
+                Ok(())
+            }
+        } else {
+            Ok(()) // No burst loop - skip
+        }
+    }
+    
+    /// Check if burst loop is running
+    fn is_burst_loop_running(&self) -> bool {
+        self.burst_runner.as_ref()
+            .map(|r| r.lock().unwrap().is_running())
+            .unwrap_or(false)
+    }
+    
+    /// Get current burst count from the burst loop (reads from NPU - single source of truth)
+    fn get_burst_loop_count(&self) -> u64 {
+        // Consolidated: always read from NPU, whether burst loop is running or not
+        self.npu.lock().unwrap().get_burst_count()
+    }
+    
+    /// Register a sensory agent for automatic SHM polling and FCL injection
+    ///
+    /// Args:
+    ///     agent_id: Unique agent identifier (e.g., "video-agent-1")
+    ///     shm_path: Path to agent's sensory SHM slot (e.g., "/dev/shm/feagi_sensory_video-agent-1")
+    ///     rate_hz: Polling rate in Hz (e.g., 30.0 for 30 FPS video)
+    ///     area_mapping: Dict mapping cortical area IDs to cortical_idx (e.g., {"vision_center": 0})
+    ///
+    /// The sensory agent will run in a dedicated Rust thread, polling SHM at rate_hz
+    /// and injecting decoded neurons directly into the FCL.
+    fn register_sensory_agent(
+        &mut self,
+        agent_id: String,
+        shm_path: String,
+        rate_hz: f64,
+        area_mapping: std::collections::HashMap<String, u32>,
+    ) -> PyResult<()> {
+        use std::path::PathBuf;
+        
+        // Check if burst runner exists
+        if let Some(burst_runner) = &self.burst_runner {
+            // Burst loop is running - register immediately
+            let config = feagi_burst_engine::sensory::AgentConfig {
+                agent_id: agent_id.clone(),
+                shm_path: PathBuf::from(shm_path),
+                rate_hz,
+                area_mapping,
+            };
+            
+            let mut runner = burst_runner.lock().unwrap();
+            let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+            sensory_mgr.register_agent(config).map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                    format!("Failed to register sensory agent: {}", e)
+                )
+            })?;
+            
+            drop(sensory_mgr);
+            drop(runner);
+            
+            println!("✅ Registered sensory agent: {} at {} Hz (burst loop running)", agent_id, rate_hz);
+            Ok(())
+        } else {
+            // Burst loop not started yet - return error instructing to load genome first
+            println!("⚠️ Burst loop not running - agent {} cannot register yet", agent_id);
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Burst loop not running. Load genome to start burst loop, then register agent {}.", agent_id)
+            ))
+        }
+    }
+    
+    /// Deregister a sensory agent (stops its polling thread)
+    ///
+    /// Args:
+    ///     agent_id: Unique agent identifier to deregister
+    fn deregister_sensory_agent(&mut self, agent_id: String) -> PyResult<()> {
+        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running"
+            )
+        })?;
+        
+        let runner = burst_runner.lock().unwrap();
+        let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+        sensory_mgr.deregister_agent(&agent_id).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to deregister sensory agent: {}", e)
+            )
+        })?;
+        
+        drop(sensory_mgr);
+        drop(runner);
+        
+        println!("✅ Deregistered sensory agent: {}", agent_id);
+        Ok(())
+    }
+    
+    /// List all registered sensory agents
+    fn list_sensory_agents(&self) -> PyResult<Vec<String>> {
+        let burst_runner = self.burst_runner.as_ref().ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running"
+            )
+        })?;
+        
+        let runner = burst_runner.lock().unwrap();
+        let sensory_mgr = runner.sensory_manager.lock().unwrap();
+        Ok(sensory_mgr.list_agents())
     }
     
     /// Add a neuron to the NPU
@@ -302,6 +547,7 @@ impl RustNPU {
     ///     leak_rate: Membrane potential decay rate (0.0-1.0, e.g., 0.1)
     ///     refractory_period: Bursts to wait after firing (e.g., 5)
     ///     excitability: Probabilistic firing factor (0.0-1.0, e.g., 1.0)
+    ///     mp_charge_accumulation: Whether to accumulate potential across bursts (e.g., True)
     ///     cortical_area: Cortical area ID (e.g., 1)
     ///     x, y, z: 3D coordinates in cortical area
     /// 
@@ -317,12 +563,14 @@ impl RustNPU {
         excitability: f32,
         consecutive_fire_limit: u16,
         snooze_period: u16,
+        mp_charge_accumulation: bool,
         cortical_area: u32,
         x: u32,
         y: u32,
         z: u32,
     ) -> PyResult<u32> {
         self.npu
+            .lock().unwrap()
             .add_neuron(
                 threshold,
                 leak_coefficient,
@@ -332,6 +580,7 @@ impl RustNPU {
                 excitability,
                 consecutive_fire_limit,
                 snooze_period,
+                mp_charge_accumulation,
                 cortical_area,
                 x,
                 y,
@@ -361,6 +610,7 @@ impl RustNPU {
         synapse_type: u8,
     ) -> PyResult<usize> {
         self.npu
+            .lock().unwrap()
             .add_synapse(
                 NeuronId(source),
                 NeuronId(target),
@@ -410,7 +660,7 @@ impl RustNPU {
             }
         }).collect();
         
-        self.npu.add_synapses_batch(source_ids, target_ids, weight_vals, conductance_vals, type_vals)
+        self.npu.lock().unwrap().add_synapses_batch(source_ids, target_ids, weight_vals, conductance_vals, type_vals)
     }
     
     /// Remove a synapse
@@ -422,7 +672,7 @@ impl RustNPU {
     /// Returns:
     ///     True if removed, False if not found
     fn remove_synapse(&mut self, source: u32, target: u32) -> bool {
-        self.npu.remove_synapse(NeuronId(source), NeuronId(target))
+        self.npu.lock().unwrap().remove_synapse(NeuronId(source), NeuronId(target))
     }
     
     /// Batch remove all synapses from specified source neurons (SIMD-optimized)
@@ -438,7 +688,7 @@ impl RustNPU {
     ///     Number of synapses deleted
     fn remove_synapses_from_sources(&mut self, sources: Vec<u32>) -> usize {
         let source_ids: Vec<NeuronId> = sources.into_iter().map(NeuronId).collect();
-        self.npu.remove_synapses_from_sources(source_ids)
+        self.npu.lock().unwrap().remove_synapses_from_sources(source_ids)
     }
     
     /// Batch remove synapses between source and target neuron sets (SIMD-optimized)
@@ -457,7 +707,7 @@ impl RustNPU {
     fn remove_synapses_between(&mut self, sources: Vec<u32>, targets: Vec<u32>) -> usize {
         let source_ids: Vec<NeuronId> = sources.into_iter().map(NeuronId).collect();
         let target_ids: Vec<NeuronId> = targets.into_iter().map(NeuronId).collect();
-        self.npu.remove_synapses_between(source_ids, target_ids)
+        self.npu.lock().unwrap().remove_synapses_between(source_ids, target_ids)
     }
     
     /// Update synapse weight
@@ -470,14 +720,14 @@ impl RustNPU {
     /// Returns:
     ///     True if updated, False if not found
     fn update_synapse_weight(&mut self, source: u32, target: u32, new_weight: u8) -> bool {
-        self.npu.update_synapse_weight(NeuronId(source), NeuronId(target), SynapticWeight(new_weight))
+        self.npu.lock().unwrap().update_synapse_weight(NeuronId(source), NeuronId(target), SynapticWeight(new_weight))
     }
     
     /// Rebuild indexes after bulk modifications
     /// 
     /// Call this after adding/removing many synapses for optimal performance
     fn rebuild_indexes(&mut self) {
-        self.npu.rebuild_indexes();
+        self.npu.lock().unwrap().rebuild_indexes();
     }
     
     /// Set neuron to cortical area mapping
@@ -493,7 +743,7 @@ impl RustNPU {
             rust_mapping.insert(NeuronId(neuron_id), CorticalAreaId(area_id));
         }
         
-        self.npu.set_neuron_mapping(rust_mapping);
+        self.npu.lock().unwrap().set_neuron_mapping(rust_mapping);
         Ok(())
     }
     
@@ -502,147 +752,201 @@ impl RustNPU {
     /// This is the complete neural processing pipeline:
     /// Phase 1: Injection → Phase 2: Dynamics → Phase 3: Archival → Phase 5: Cleanup
     /// 
-    /// Args:
-    ///     power_neurons: List of neuron IDs to inject power into (e.g., [0, 1, 2])
+    /// Process a single burst
+    /// 
+    /// 🔋 Power neurons are auto-discovered from neuron array (cortical_idx = 1)
     /// 
     /// Returns:
     ///     BurstResult with fired_neurons, burst number, and performance metrics
-    fn process_burst(&mut self, power_neurons: Vec<u32>) -> PyResult<BurstResult> {
-        let power_neuron_ids: Vec<NeuronId> = power_neurons.iter().map(|&id| NeuronId(id)).collect();
-        
+    fn process_burst(&mut self) -> PyResult<BurstResult> {
         self.npu
-            .process_burst(&power_neuron_ids)
+            .lock().unwrap()
+            .process_burst()
             .map(BurstResult::from)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
     
     /// Get current burst count
     fn get_burst_count(&self) -> u64 {
-        self.npu.get_burst_count()
+        self.npu.lock().unwrap().get_burst_count()
     }
     
     /// Get neuron count
     fn get_neuron_count(&self) -> usize {
-        self.npu.get_neuron_count()
+        self.npu.lock().unwrap().get_neuron_count()
     }
     
     /// Get synapse count (valid only)
     fn get_synapse_count(&self) -> usize {
-        self.npu.get_synapse_count()
+        self.npu.lock().unwrap().get_synapse_count()
     }
     
     /// Get all neuron positions in a cortical area (for fast batch lookups)
     /// Returns list of tuples (neuron_id, x, y, z)
     fn get_neuron_positions_in_cortical_area(&self, cortical_area: u32) -> Vec<(u32, u32, u32, u32)> {
-        self.npu.get_neuron_positions_in_cortical_area(cortical_area)
+        self.npu.lock().unwrap().get_neuron_positions_in_cortical_area(cortical_area)
+    }
+    
+    /// Get neuron ID at specific coordinates (spatial hash lookup for sensory injection)
+    /// Returns None if no neuron exists at the given coordinates
+    fn get_neuron_at_coordinate(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<u32> {
+        self.npu.lock().unwrap().neuron_array.get_neuron_at_coordinate(cortical_area, x, y, z).map(|id| id.0)
+    }
+    
+    /// BATCH: Get neuron IDs for multiple coordinates (high-performance sensory injection)
+    /// Returns Vec<Option<u32>> parallel to input coordinates (None = no neuron at that position)
+    /// 
+    /// This is 10-100x faster than calling get_neuron_at_coordinate in a Python loop
+    /// because it eliminates FFI overhead and enables vectorization.
+    fn get_neurons_at_coordinates_batch(
+        &self,
+        cortical_area: u32,
+        coords_x: Vec<u32>,
+        coords_y: Vec<u32>,
+        coords_z: Vec<u32>,
+    ) -> PyResult<Vec<Option<u32>>> {
+        // Validate input lengths match
+        let len = coords_x.len();
+        if coords_y.len() != len || coords_z.len() != len {
+            return Err(PyValueError::new_err(format!(
+                "Coordinate array length mismatch: x={}, y={}, z={}",
+                coords_x.len(), coords_y.len(), coords_z.len()
+            )));
+        }
+        
+        // Batch lookup - single iteration, no Python FFI overhead
+        let neuron_ids: Vec<Option<u32>> = coords_x.iter()
+            .zip(coords_y.iter())
+            .zip(coords_z.iter())
+            .map(|((&x, &y), &z)| {
+                self.npu.lock().unwrap().neuron_array.get_neuron_at_coordinate(cortical_area, x, y, z).map(|id| id.0)
+            })
+            .collect();
+        
+        Ok(neuron_ids)
+    }
+    
+    // ===== RUST-NATIVE SENSORY INJECTION API =====
+    
+    /// Inject sensory neurons directly into FCL (Rust-native sensory injection)
+    /// 
+    /// This is called by Rust sensory threads to inject neurons with ZERO Python overhead.
+    /// For Python-side injection, use the REST API or existing _pending_external_activations.
+    /// 
+    /// Args:
+    ///     neuron_ids: List of neuron IDs to inject
+    ///     potential: Membrane potential to add (default: 1.0)
+    fn inject_sensory_batch(&mut self, neuron_ids: Vec<u32>, potential: f32) {
+        let ids: Vec<NeuronId> = neuron_ids.into_iter().map(NeuronId).collect();
+        self.npu.lock().unwrap().inject_sensory_batch(&ids, potential);
     }
     
     /// Update excitability for a single neuron (live parameter change)
     /// Returns true if successful, false if neuron doesn't exist
     fn update_neuron_excitability(&mut self, neuron_id: u32, excitability: f32) -> bool {
-        self.npu.update_neuron_excitability(neuron_id, excitability)
+        self.npu.lock().unwrap().update_neuron_excitability(neuron_id, excitability)
     }
     
     /// Update excitability for all neurons in a cortical area (bulk parameter change)
     /// Returns number of neurons updated
     fn update_cortical_area_excitability(&mut self, cortical_area: u32, excitability: f32) -> usize {
-        self.npu.update_cortical_area_excitability(cortical_area, excitability)
+        self.npu.lock().unwrap().update_cortical_area_excitability(cortical_area, excitability)
     }
     
     /// Update refractory period for all neurons in a cortical area
     /// Returns number of neurons updated
     fn update_cortical_area_refractory_period(&mut self, cortical_area: u32, refractory_period: u16) -> usize {
-        self.npu.update_cortical_area_refractory_period(cortical_area, refractory_period)
+        self.npu.lock().unwrap().update_cortical_area_refractory_period(cortical_area, refractory_period)
     }
     
     /// Update threshold for all neurons in a cortical area
     /// Returns number of neurons updated
     fn update_cortical_area_threshold(&mut self, cortical_area: u32, threshold: f32) -> usize {
-        self.npu.update_cortical_area_threshold(cortical_area, threshold)
+        self.npu.lock().unwrap().update_cortical_area_threshold(cortical_area, threshold)
     }
     
     /// Update leak coefficient for all neurons in a cortical area
     /// Returns number of neurons updated
     fn update_cortical_area_leak(&mut self, cortical_area: u32, leak: f32) -> usize {
-        self.npu.update_cortical_area_leak(cortical_area, leak)
+        self.npu.lock().unwrap().update_cortical_area_leak(cortical_area, leak)
     }
     
     /// Update consecutive fire limit for all neurons in a cortical area
     /// Returns number of neurons updated
     fn update_cortical_area_consecutive_fire_limit(&mut self, cortical_area: u32, limit: u16) -> usize {
-        self.npu.update_cortical_area_consecutive_fire_limit(cortical_area, limit)
+        self.npu.lock().unwrap().update_cortical_area_consecutive_fire_limit(cortical_area, limit)
     }
     
     /// Update snooze period (extended refractory) for all neurons in a cortical area
     /// Returns number of neurons updated
     fn update_cortical_area_snooze_period(&mut self, cortical_area: u32, snooze_period: u16) -> usize {
-        self.npu.update_cortical_area_snooze_period(cortical_area, snooze_period)
+        self.npu.lock().unwrap().update_cortical_area_snooze_period(cortical_area, snooze_period)
     }
     
     /// Batch update refractory period for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_refractory_period(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
-        self.npu.batch_update_refractory_period(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_refractory_period(&neuron_ids, &values)
     }
     
     /// Batch update threshold for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_threshold(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
-        self.npu.batch_update_threshold(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_threshold(&neuron_ids, &values)
     }
     
     /// Batch update leak coefficient for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_leak_coefficient(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
-        self.npu.batch_update_leak_coefficient(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_leak_coefficient(&neuron_ids, &values)
     }
     
     /// Batch update consecutive fire limit for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_consecutive_fire_limit(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
-        self.npu.batch_update_consecutive_fire_limit(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_consecutive_fire_limit(&neuron_ids, &values)
     }
     
     /// Batch update snooze period (extended refractory) for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_snooze_period(&mut self, neuron_ids: Vec<u32>, values: Vec<u16>) -> usize {
-        self.npu.batch_update_snooze_period(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_snooze_period(&neuron_ids, &values)
     }
     
     /// Batch update membrane potential for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_membrane_potential(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
-        self.npu.batch_update_membrane_potential(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_membrane_potential(&neuron_ids, &values)
     }
     
     /// Batch update resting potential for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_resting_potential(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
-        self.npu.batch_update_resting_potential(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_resting_potential(&neuron_ids, &values)
     }
     
     /// Batch update excitability for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_excitability(&mut self, neuron_ids: Vec<u32>, values: Vec<f32>) -> usize {
-        self.npu.batch_update_excitability(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_excitability(&neuron_ids, &values)
     }
     
     /// Batch update neuron type for multiple neurons
     /// Returns number of neurons updated
     fn batch_update_neuron_type(&mut self, neuron_ids: Vec<u32>, values: Vec<i32>) -> usize {
-        self.npu.batch_update_neuron_type(&neuron_ids, &values)
+        self.npu.lock().unwrap().batch_update_neuron_type(&neuron_ids, &values)
     }
     
     /// Delete a neuron (mark as invalid)
     /// Returns true if successful, false if neuron out of bounds
     fn delete_neuron(&mut self, neuron_id: u32) -> bool {
-        self.npu.delete_neuron(neuron_id)
+        self.npu.lock().unwrap().delete_neuron(neuron_id)
     }
     
     /// Get neuron state for diagnostics
     /// Returns (cfc, cfc_limit, snooze_countdown, snooze_period, potential, threshold, refrac_countdown) or None
     fn get_neuron_state(&self, neuron_id: u32) -> Option<(u16, u16, u16, f32, f32, u16)> {
-        self.npu.get_neuron_state(NeuronId(neuron_id))
+        self.npu.lock().unwrap().get_neuron_state(NeuronId(neuron_id))
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -651,56 +955,56 @@ impl RustNPU {
     
     /// Get neuron refractory period
     fn get_neuron_refractory_period(&self, neuron_id: u32) -> Option<u16> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.refractory_periods.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.refractory_periods.get(idx).copied()
     }
     
     /// Get neuron firing threshold
     fn get_neuron_threshold(&self, neuron_id: u32) -> Option<f32> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.thresholds.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.thresholds.get(idx).copied()
     }
     
     /// Get neuron leak coefficient (decay rate)
     fn get_neuron_leak_coefficient(&self, neuron_id: u32) -> Option<f32> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.leak_coefficients.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.leak_coefficients.get(idx).copied()
     }
     
     /// Get neuron membrane potential
     fn get_neuron_membrane_potential(&self, neuron_id: u32) -> Option<f32> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.membrane_potentials.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.membrane_potentials.get(idx).copied()
     }
     
     /// Get neuron resting potential
     fn get_neuron_resting_potential(&self, neuron_id: u32) -> Option<f32> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.resting_potentials.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.resting_potentials.get(idx).copied()
     }
     
     /// Get neuron excitability
     fn get_neuron_excitability(&self, neuron_id: u32) -> Option<f32> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.excitabilities.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.excitabilities.get(idx).copied()
     }
     
     /// Get neuron consecutive fire limit
     fn get_neuron_consecutive_fire_limit(&self, neuron_id: u32) -> Option<u16> {
-        let idx = *self.npu.neuron_array.neuron_id_to_index.get(&neuron_id)?;
-        self.npu.neuron_array.consecutive_fire_limits.get(idx).copied()
+        let idx = *self.npu.lock().unwrap().neuron_array.neuron_id_to_index.get(&neuron_id)?;
+        self.npu.lock().unwrap().neuron_array.consecutive_fire_limits.get(idx).copied()
     }
     
     /// Get outgoing synapses for a neuron
     /// Returns list of (target_neuron_id, weight, conductance, synapse_type)
     fn get_outgoing_synapses(&self, neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
-        self.npu.get_outgoing_synapses(neuron_id)
+        self.npu.lock().unwrap().get_outgoing_synapses(neuron_id)
     }
     
     /// Get incoming synapses for a neuron
     /// Returns list of (source_neuron_id, weight, conductance, synapse_type)
     fn get_incoming_synapses(&self, neuron_id: u32) -> Vec<(u32, u8, u8, u8)> {
-        self.npu.get_incoming_synapses(neuron_id)
+        self.npu.lock().unwrap().get_incoming_synapses(neuron_id)
     }
     
     // ═══════════════════════════════════════════════════════════
@@ -720,7 +1024,7 @@ impl RustNPU {
     ///     history = npu.get_fire_ledger_history(9, 50)
     ///     # Returns: [(2275, [16438, ...]), (2274, [16438, ...]), ...]
     fn get_fire_ledger_history(&self, cortical_idx: u32, lookback_steps: usize) -> Vec<(u64, Vec<u32>)> {
-        self.npu.get_fire_ledger_history(cortical_idx, lookback_steps)
+        self.npu.lock().unwrap().get_fire_ledger_history(cortical_idx, lookback_steps)
     }
     
     /// Get Fire Ledger window size for a cortical area
@@ -731,7 +1035,7 @@ impl RustNPU {
     /// Returns:
     ///     Window size (number of timesteps retained)
     fn get_fire_ledger_window_size(&self, cortical_idx: u32) -> usize {
-        self.npu.get_fire_ledger_window_size(cortical_idx)
+        self.npu.lock().unwrap().get_fire_ledger_window_size(cortical_idx)
     }
     
     /// Configure Fire Ledger window size for a specific cortical area
@@ -740,7 +1044,7 @@ impl RustNPU {
     ///     cortical_idx: Cortical area index (u32)
     ///     window_size: Number of timesteps to retain
     fn configure_fire_ledger_window(&mut self, cortical_idx: u32, window_size: usize) {
-        self.npu.configure_fire_ledger_window(cortical_idx, window_size);
+        self.npu.lock().unwrap().configure_fire_ledger_window(cortical_idx, window_size);
     }
     
     /// Get all configured Fire Ledger window sizes
@@ -748,17 +1052,55 @@ impl RustNPU {
     /// Returns:
     ///     List of (cortical_idx, window_size) tuples
     fn get_all_fire_ledger_configs(&self) -> Vec<(u32, usize)> {
-        self.npu.get_all_fire_ledger_configs()
+        self.npu.lock().unwrap().get_all_fire_ledger_configs()
     }
     
     // ═══════════════════════════════════════════════════════════
     // FQ SAMPLER API (Entry Point #2: Motor/Visualization Output)
     // ═══════════════════════════════════════════════════════════
     
+    /// Get current FCL (Fire Candidate List) - neurons that are candidates to fire
+    /// Returns neurons with accumulated potential organized by cortical area
+    fn get_current_fcl(&self, py: Python) -> PyResult<PyObject> {
+        let npu = self.npu.lock().unwrap();
+        let neuron_array = &npu.neuron_array;
+        
+        // Organize FCL by cortical area
+        let mut areas: AHashMap<u32, Vec<(u32, f32)>> = AHashMap::new();
+        
+        // Get all FCL candidates (from last burst snapshot - before FCL was cleared)
+        for (neuron_id, potential) in npu.get_last_fcl_snapshot() {
+            // Get cortical area for this neuron
+            if let Some(&array_idx) = neuron_array.neuron_id_to_index.get(&neuron_id.0) {
+                if array_idx < neuron_array.count && neuron_array.valid_mask[array_idx] {
+                    let cortical_area = neuron_array.cortical_areas[array_idx];
+                    areas.entry(cortical_area)
+                        .or_insert_with(Vec::new)
+                        .push((neuron_id.0, *potential));
+                }
+            }
+        }
+        
+        // Convert to Python dict
+        let result = PyDict::new_bound(py);
+        for (cortical_idx, neurons) in areas {
+            let area_dict = PyDict::new_bound(py);
+            let neuron_ids: Vec<u32> = neurons.iter().map(|(id, _)| *id).collect();
+            let potentials: Vec<f32> = neurons.iter().map(|(_, pot)| *pot).collect();
+            
+            area_dict.set_item("neuron_ids", neuron_ids)?;
+            area_dict.set_item("potentials", potentials)?;
+            
+            result.set_item(cortical_idx, area_dict)?;
+        }
+        
+        Ok(result.into())
+    }
+    
     /// Get current Fire Queue directly (bypasses FQ Sampler - for FCL endpoint)
     /// Returns the current Fire Queue without rate limiting or deduplication
     fn get_current_fire_queue(&self, py: Python) -> PyResult<PyObject> {
-        let areas = self.npu.get_current_fire_queue();
+        let areas = self.npu.lock().unwrap().get_current_fire_queue();
         
         // Convert to Python dict
         let py_dict = PyDict::new_bound(py);
@@ -795,8 +1137,45 @@ impl RustNPU {
     ///         for cortical_idx, (ids, x, y, z, potentials) in sample.items():
     ///             # Process firing neurons for this area
     ///             pass
+    /// 
+    /// ⚠️ DEPRECATED: Use get_latest_fire_queue_sample() instead to avoid deduplication issues.
     fn sample_fire_queue(&mut self, py: Python) -> PyResult<Option<PyObject>> {
-        match self.npu.sample_fire_queue() {
+        match self.npu.lock().unwrap().sample_fire_queue() {
+            Some(areas) => {
+                // Convert HashMap to Python dict
+                let py_dict = PyDict::new_bound(py);
+                
+                for (cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials)) in areas {
+                    // Create a tuple of arrays for this area
+                    let area_tuple = (
+                        neuron_ids.to_object(py),
+                        coords_x.to_object(py),
+                        coords_y.to_object(py),
+                        coords_z.to_object(py),
+                        potentials.to_object(py),
+                    );
+                    
+                    py_dict.set_item(cortical_idx, area_tuple)?;
+                }
+                
+                Ok(Some(py_dict.into()))
+            }
+            None => Ok(None),
+        }
+    }
+    
+    /// Get the latest cached Fire Queue sample (non-consuming read)
+    /// 
+    /// This returns the most recent sample WITHOUT triggering rate limiting or deduplication.
+    /// Unlike sample_fire_queue(), this can be called multiple times for the same burst.
+    /// 
+    /// Returns:
+    ///     Dict[cortical_idx: int, tuple] where tuple is:
+    ///     (neuron_ids, coords_x, coords_y, coords_z, potentials)
+    ///     
+    ///     Returns None if no bursts have been processed yet.
+    fn get_latest_fire_queue_sample(&self, py: Python) -> PyResult<Option<PyObject>> {
+        match self.npu.lock().unwrap().get_latest_fire_queue_sample() {
             Some(areas) => {
                 // Convert HashMap to Python dict
                 let py_dict = PyDict::new_bound(py);
@@ -825,7 +1204,7 @@ impl RustNPU {
     /// Args:
     ///     frequency_hz: Sampling frequency in Hz (e.g., 10.0 for 10Hz)
     fn set_fq_sampler_frequency(&mut self, frequency_hz: f64) {
-        self.npu.set_fq_sampler_frequency(frequency_hz);
+        self.npu.lock().unwrap().set_fq_sampler_frequency(frequency_hz);
     }
     
     /// Get FQ Sampler frequency (Hz)
@@ -833,7 +1212,7 @@ impl RustNPU {
     /// Returns:
     ///     Current sampling frequency in Hz
     fn get_fq_sampler_frequency(&self) -> f64 {
-        self.npu.get_fq_sampler_frequency()
+        self.npu.lock().unwrap().get_fq_sampler_frequency()
     }
     
     /// Set visualization subscriber state
@@ -841,7 +1220,7 @@ impl RustNPU {
     /// Args:
     ///     has_subscribers: True if Brain Visualizer is connected
     fn set_visualization_subscribers(&mut self, has_subscribers: bool) {
-        self.npu.set_visualization_subscribers(has_subscribers);
+        self.npu.lock().unwrap().set_visualization_subscribers(has_subscribers);
     }
     
     /// Check if visualization subscribers are connected
@@ -849,7 +1228,7 @@ impl RustNPU {
     /// Returns:
     ///     True if Brain Visualizer is connected
     fn has_visualization_subscribers(&self) -> bool {
-        self.npu.has_visualization_subscribers()
+        self.npu.lock().unwrap().has_visualization_subscribers()
     }
     
     /// Set motor subscriber state
@@ -857,7 +1236,7 @@ impl RustNPU {
     /// Args:
     ///     has_subscribers: True if motor agents are connected
     fn set_motor_subscribers(&mut self, has_subscribers: bool) {
-        self.npu.set_motor_subscribers(has_subscribers);
+        self.npu.lock().unwrap().set_motor_subscribers(has_subscribers);
     }
     
     /// Check if motor subscribers are connected
@@ -865,7 +1244,7 @@ impl RustNPU {
     /// Returns:
     ///     True if motor agents are connected
     fn has_motor_subscribers(&self) -> bool {
-        self.npu.has_motor_subscribers()
+        self.npu.lock().unwrap().has_motor_subscribers()
     }
     
     /// Get total FQ Sampler samples taken
@@ -873,7 +1252,94 @@ impl RustNPU {
     /// Returns:
     ///     Total number of samples taken since initialization
     fn get_fq_sampler_samples_taken(&self) -> u64 {
-        self.npu.get_fq_sampler_samples_taken()
+        self.npu.lock().unwrap().get_fq_sampler_samples_taken()
+    }
+    
+    /// Export connectome to bytes
+    /// 
+    /// Creates a complete snapshot of the NPU state including neurons, synapses,
+    /// cortical area mappings, and runtime state. The bytes can be written to a file
+    /// or transmitted over the network.
+    /// 
+    /// Returns:
+    ///     Binary data (bytes) containing the serialized connectome
+    ///
+    /// Note: For saving to file, use save_connectome_to_file() instead as it includes
+    /// proper format headers and error handling.
+    fn export_connectome_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let npu = self.npu.lock().unwrap();
+        let snapshot = npu.export_connectome();
+        
+        // Use bincode to serialize
+        let bytes = bincode::serialize(&snapshot)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))?;
+        
+        Ok(pyo3::types::PyBytes::new_bound(py, &bytes))
+    }
+    
+    /// Import connectome from bytes
+    /// 
+    /// Replaces the entire NPU state with a previously exported connectome.
+    /// This completely overwrites neurons, synapses, cortical areas, and runtime state.
+    /// 
+    /// Args:
+    ///     binary_data: Binary data (bytes) from export_connectome_bytes()
+    /// 
+    /// Returns:
+    ///     True if import was successful
+    ///
+    /// Note: For loading from file, use load_connectome_from_file() instead as it includes
+    /// proper format validation and error handling.
+    fn import_connectome_bytes(&mut self, binary_data: &[u8]) -> PyResult<bool> {
+        // Deserialize using bincode
+        let snapshot: feagi_connectome_serialization::ConnectomeSnapshot = bincode::deserialize(binary_data)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to deserialize connectome: {}", e)))?;
+        
+        // Replace NPU with imported connectome
+        let new_npu = RustNPUCore::import_connectome(snapshot);
+        *self.npu.lock().unwrap() = new_npu;
+        
+        Ok(true)
+    }
+    
+    /// Save connectome to file
+    /// 
+    /// Exports the connectome and saves it to a .connectome file.
+    /// This file can be loaded by the standalone Rust inference engine or re-imported later.
+    /// 
+    /// Args:
+    ///     file_path: Path to save the connectome file (e.g., "brain.connectome")
+    /// 
+    /// Returns:
+    ///     True if save was successful
+    fn save_connectome_to_file(&self, file_path: String) -> PyResult<bool> {
+        let npu = self.npu.lock().unwrap();
+        let snapshot = npu.export_connectome();
+        
+        feagi_connectome_serialization::save_connectome(&snapshot, file_path)
+            .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to save connectome: {}", e)))?;
+        
+        Ok(true)
+    }
+    
+    /// Load connectome from file
+    /// 
+    /// Imports a connectome from a .connectome file and replaces the entire NPU state.
+    /// 
+    /// Args:
+    ///     file_path: Path to load the connectome file from (e.g., "brain.connectome")
+    /// 
+    /// Returns:
+    ///     True if load was successful
+    fn load_connectome_from_file(&mut self, file_path: String) -> PyResult<bool> {
+        let snapshot = feagi_connectome_serialization::load_connectome(file_path)
+            .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to load connectome: {}", e)))?;
+        
+        // Replace NPU with loaded connectome
+        let new_npu = RustNPUCore::import_connectome(snapshot);
+        *self.npu.lock().unwrap() = new_npu;
+        
+        Ok(true)
     }
 }
 
@@ -1046,19 +1512,19 @@ impl FeagiByteStructure {
 /// 
 /// Compatible with feagi_rust_py_libs API for seamless migration.
 #[pyclass]
-struct CorticalMappedXYZPNeuronVoxelsDecoder {
+struct CorticalMappedXYZPNeuronDataDecoder {
     mapped_data: CorticalMappedXYZPNeuronVoxels,
 }
 
 #[pymethods]
-impl CorticalMappedXYZPNeuronVoxelsDecoder {
+impl CorticalMappedXYZPNeuronDataDecoder {
     /// Create decoder from FeagiByteStructure
     /// 
     /// Args:
     ///     byte_structure: FeagiByteStructure containing encoded neural data
     /// 
     /// Returns:
-    ///     CorticalMappedXYZPNeuronVoxelsDecoder: Decoder with parsed data
+    ///     CorticalMappedXYZPNeuronDataDecoder: Decoder with parsed data
     #[staticmethod]
     fn new_from_feagi_byte_structure(byte_structure: &FeagiByteStructure) -> PyResult<Self> {
         // Decode the byte structure manually following the format
@@ -1070,92 +1536,153 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
             ));
         }
         
-        // Parse header
-        let struct_type = bytes[0];
-        if struct_type != 11 {
+        // Check if this is a FeagiByteContainer (version 2) or raw structure data
+        let actual_bytes = if bytes[0] == 2 {
+            // This is a FeagiByteContainer, parse the wrapper
+            // Format: [version:u8, counter_lo:u8, counter_hi:u8, num_structs:u8, struct_len:u32, struct_data...]
+            if bytes.len() < 8 {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    format!("Invalid FeagiByteContainer: too short (len={})", bytes.len())
+                ));
+            }
+            let num_structs = bytes[3] as usize;
+            if num_structs == 0 {
+                return Ok(Self { mapped_data: CorticalMappedXYZPNeuronVoxels::new() });
+            }
+            
+            // Skip global header (4 bytes) + per-struct header (4 bytes) to get to actual data
+            &bytes[8..]
+        } else {
+            // Raw structure data (old format or direct structure bytes)
+            bytes
+        };
+        
+        if actual_bytes.len() < 4 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unsupported structure type: {}", struct_type)
+                "Invalid byte structure: too short after unwrapping"
             ));
         }
         
-        let num_areas = u16::from_le_bytes([bytes[2], bytes[3]]) as usize;
+        // Parse header
+        let struct_type = actual_bytes[0];
+        
+        if struct_type != 11 {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                format!("Unsupported structure type: {} (expected 11 for NeuronCategoricalXYZP)", struct_type)
+            ));
+        }
+        
+        let num_areas = u16::from_le_bytes([actual_bytes[2], actual_bytes[3]]) as usize;
         
         let mut mapped_data = CorticalMappedXYZPNeuronVoxels::new();
         let mut offset = 4;
         
-        // Parse each cortical area
+        // First pass: collect all cortical area headers
+        struct AreaHeader {
+            cortical_id: CorticalID,
+            data_start: usize,
+            data_size_bytes: usize,  // Total bytes for this area (NOT neuron count!)
+        }
+        let mut area_headers = Vec::new();
+        
         for _ in 0..num_areas {
-            if offset + 14 > bytes.len() {
+            if offset + 14 > actual_bytes.len() {
                 break;
             }
             
             // Parse cortical ID (6 bytes ASCII)
-            let cid_bytes = &bytes[offset..offset + 6];
+            let cid_bytes = &actual_bytes[offset..offset + 6];
             let cid_str = std::str::from_utf8(cid_bytes)
                 .unwrap_or("??????")
                 .trim_end_matches('\0');
-            // Use from_string() to accept both built-in (iic, ooc, etc.) and custom (c*) cortical IDs
             let cortical_id = CorticalID::from_string(cid_str.to_string())
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID: {}", e)))?;
-            
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid cortical ID '{}': {}", cid_str, e)))?;
             offset += 6;
             
-            // Parse data start and length
+            // Parse data start index (relative to whole structure) - Note: buggy in v0.0.70, recalculated below
             let _data_start = u32::from_le_bytes([
-                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+                actual_bytes[offset], actual_bytes[offset + 1], actual_bytes[offset + 2], actual_bytes[offset + 3]
             ]) as usize;
             offset += 4;
             
-            let data_len = u32::from_le_bytes([
-                bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]
+            // Parse data size in bytes (NOT neuron count!)
+            let data_size_bytes = u32::from_le_bytes([
+                actual_bytes[offset], actual_bytes[offset + 1], actual_bytes[offset + 2], actual_bytes[offset + 3]
             ]) as usize;
             offset += 4;
             
-            // Parse neurons (16 bytes per neuron: x, y, z, p as u32/f32)
-            let num_neurons = data_len / 16;
+            area_headers.push(AreaHeader { cortical_id, data_start: _data_start, data_size_bytes });
+        }
+        
+        // WORKAROUND: The data_start values from feagi-rust-py-libs v0.0.70 are incorrect
+        // Calculate correct offsets: all headers come first, then data sequentially
+        let first_data_offset = 4 + (num_areas * 14); // header + (num_areas * header_size)
+        let mut corrected_offset = first_data_offset;
+        let mut corrected_headers = Vec::new();
+        
+        for header in area_headers {
+            let corrected_header = AreaHeader {
+                cortical_id: header.cortical_id,
+                data_start: corrected_offset,
+                data_size_bytes: header.data_size_bytes,
+            };
+            corrected_headers.push(corrected_header);
+            corrected_offset += header.data_size_bytes;
+        }
+        
+        // Second pass: read neuron data for each area using CORRECTED offsets
+        // Data format: [all X coords][all Y coords][all Z coords][all potentials]
+        for header in corrected_headers {
+            if header.data_size_bytes == 0 {
+                mapped_data.insert(header.cortical_id, NeuronVoxelXYZPArrays::new());
+                continue;
+            }
+            
+            let data_offset = header.data_start;
+            let num_neurons = header.data_size_bytes / 16;  // 16 bytes per neuron (4 coords × 4 bytes each)
+            let x_start = data_offset;
+            let y_start = x_start + (num_neurons * 4);
+            let z_start = y_start + (num_neurons * 4);
+            let p_start = z_start + (num_neurons * 4);
+            let p_end = p_start + (num_neurons * 4);
+            
+            if p_end > actual_bytes.len() {
+                // Not enough bytes - skip this area
+                break;
+            }
+            
             let mut neurons = NeuronVoxelXYZPArrays::new();
-            
             for i in 0..num_neurons {
-                let neuron_offset = offset + (i * 16);
-                if neuron_offset + 16 > bytes.len() {
-                    break;
-                }
-                
                 let x = u32::from_le_bytes([
-                    bytes[neuron_offset],
-                    bytes[neuron_offset + 1],
-                    bytes[neuron_offset + 2],
-                    bytes[neuron_offset + 3],
+                    actual_bytes[x_start + i*4],
+                    actual_bytes[x_start + i*4 + 1],
+                    actual_bytes[x_start + i*4 + 2],
+                    actual_bytes[x_start + i*4 + 3],
                 ]);
-                
                 let y = u32::from_le_bytes([
-                    bytes[neuron_offset + 4],
-                    bytes[neuron_offset + 5],
-                    bytes[neuron_offset + 6],
-                    bytes[neuron_offset + 7],
+                    actual_bytes[y_start + i*4],
+                    actual_bytes[y_start + i*4 + 1],
+                    actual_bytes[y_start + i*4 + 2],
+                    actual_bytes[y_start + i*4 + 3],
                 ]);
-                
                 let z = u32::from_le_bytes([
-                    bytes[neuron_offset + 8],
-                    bytes[neuron_offset + 9],
-                    bytes[neuron_offset + 10],
-                    bytes[neuron_offset + 11],
+                    actual_bytes[z_start + i*4],
+                    actual_bytes[z_start + i*4 + 1],
+                    actual_bytes[z_start + i*4 + 2],
+                    actual_bytes[z_start + i*4 + 3],
                 ]);
-                
-                let p_bytes = [
-                    bytes[neuron_offset + 12],
-                    bytes[neuron_offset + 13],
-                    bytes[neuron_offset + 14],
-                    bytes[neuron_offset + 15],
-                ];
-                let p = f32::from_le_bytes(p_bytes);
+                let p = f32::from_le_bytes([
+                    actual_bytes[p_start + i*4],
+                    actual_bytes[p_start + i*4 + 1],
+                    actual_bytes[p_start + i*4 + 2],
+                    actual_bytes[p_start + i*4 + 3],
+                ]);
                 
                 let neuron = NeuronVoxelXYZP::new(x, y, z, p);
                 neurons.push(&neuron);
             }
             
-            mapped_data.insert(cortical_id, neurons);
-            offset += data_len;
+            mapped_data.insert(header.cortical_id, neurons);
         }
         
         Ok(Self { mapped_data })
@@ -1200,6 +1727,225 @@ impl CorticalMappedXYZPNeuronVoxelsDecoder {
     }
 }
 
+/// Python wrapper for Rust PNS (Peripheral Nervous System)
+#[pyclass]
+struct PyPNS {
+    pns: Arc<Mutex<feagi_pns::PNS>>,
+}
+
+#[pymethods]
+impl PyPNS {
+    #[new]
+    fn new() -> PyResult<Self> {
+        let pns = feagi_pns::PNS::new()
+            .map_err(|e| PyValueError::new_err(format!("Failed to create PNS: {}", e)))?;
+        
+        Ok(Self {
+            pns: Arc::new(Mutex::new(pns)),
+        })
+    }
+
+    /// Start all PNS streams (ZMQ + SHM)
+    fn start(&self) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .start()
+            .map_err(|e| PyValueError::new_err(format!("Failed to start PNS: {}", e)))
+    }
+
+    /// Stop all PNS streams
+    fn stop(&self) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .stop()
+            .map_err(|e| PyValueError::new_err(format!("Failed to stop PNS: {}", e)))
+    }
+
+    /// Check if PNS is running
+    fn is_running(&self) -> bool {
+        self.pns.lock().unwrap().is_running()
+    }
+
+    /// Connect PNS to the burst engine's sensory agent manager for SHM I/O
+    /// This allows PNS to register agents with the burst engine
+    fn connect_to_burst_engine(&self, rust_npu: &RustNPU) -> PyResult<()> {
+        if let Some(burst_runner) = &rust_npu.burst_runner {
+            let sensory_mgr = Arc::clone(&burst_runner.lock().unwrap().sensory_manager);
+            self.pns.lock().unwrap().set_sensory_agent_manager(sensory_mgr);
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Burst engine not initialized - call start_burst_loop() first"))
+        }
+    }
+
+    /// Register an agent (called via ZMQ REST stream)
+    /// This is handled internally by the PNS's REST stream
+    /// Use this only for direct registration from Python
+    fn register_agent(&self, agent_id: String, agent_type: String, capabilities: String) -> PyResult<String> {
+        // Parse capabilities JSON
+        let caps_json: serde_json::Value = serde_json::from_str(&capabilities)
+            .map_err(|e| PyValueError::new_err(format!("Invalid capabilities JSON: {}", e)))?;
+
+        let request = feagi_pns::registration::RegistrationRequest {
+            agent_id,
+            agent_type,
+            capabilities: caps_json,
+        };
+
+        let handler = self.pns.lock().unwrap().get_agent_registry();
+        let registry = handler.read();
+        // Note: This is a simplified version - real registration happens via ZMQ REST stream
+        Ok(format!("Use PNS ZMQ REST stream for registration"))
+    }
+
+    /// Get agent registry info
+    fn get_agent_count(&self) -> usize {
+        self.pns.lock().unwrap().get_agent_registry().read().count()
+    }
+
+    /// Set callback for agent registration events
+    /// Python callback signature: def on_registered(agent_id: str, agent_type: str, capabilities: str) -> None
+    fn set_on_agent_registered(&self, callback: PyObject) -> PyResult<()> {
+        // Create a closure that captures the Python callback
+        // The callback must be Send + Sync + 'static
+        let callback = Arc::new(callback);
+        
+        self.pns.lock().unwrap().set_on_agent_registered(move |agent_id, agent_type, caps_json| {
+            // Invoke Python callback with GIL
+            Python::with_gil(|py| {
+                if let Err(e) = callback.call1(py, (agent_id, agent_type, caps_json)) {
+                    eprintln!("🦀 [PNS] Error invoking Python registration callback: {}", e);
+                }
+            });
+        });
+        
+        Ok(())
+    }
+
+    /// Set callback for agent deregistration events
+    /// Python callback signature: def on_deregistered(agent_id: str) -> None
+    fn set_on_agent_deregistered(&self, callback: PyObject) -> PyResult<()> {
+        // Create a closure that captures the Python callback
+        let callback = Arc::new(callback);
+        
+        self.pns.lock().unwrap().set_on_agent_deregistered(move |agent_id| {
+            // Invoke Python callback with GIL
+            Python::with_gil(|py| {
+                if let Err(e) = callback.call1(py, (agent_id,)) {
+                    eprintln!("🦀 [PNS] Error invoking Python deregistration callback: {}", e);
+                }
+            });
+        });
+        
+        Ok(())
+    }
+    
+    /// Manually deregister an agent (for testing/cleanup)
+    fn deregister_agent(&self, agent_id: String) -> PyResult<String> {
+        self.pns.lock().unwrap()
+            .get_agent_registry()
+            .write()
+            .deregister(&agent_id)
+            .map(|_| format!("Agent {} deregistered", agent_id))
+            .map_err(|e| PyValueError::new_err(format!("Deregistration failed: {}", e)))
+    }
+}  // END of #[pymethods] impl PyPNS
+
+// Standalone connectome serialization functions (bypass #[pymethods] macro issue)
+
+#[pyfunction]
+fn test_simple_function() -> String {
+    "Hello from simple test function!".to_string()
+}
+
+#[pyfunction]
+fn export_connectome_bytes(py: Python, npu: Py<RustNPU>) -> PyResult<Vec<u8>> {
+    let npu_ref = npu.borrow(py);
+    let npu_lock = npu_ref.npu.lock().unwrap();
+    let snapshot = npu_lock.export_connectome();
+    bincode::serialize(&snapshot)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize connectome: {}", e)))
+}
+
+#[pyfunction]
+fn import_connectome_bytes(py: Python, npu: Py<RustNPU>, binary_data: &[u8]) -> PyResult<bool> {
+    let snapshot: feagi_connectome_serialization::ConnectomeSnapshot = bincode::deserialize(binary_data)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to deserialize connectome: {}", e)))?;
+    let new_npu_core = RustNPUCore::import_connectome(snapshot);
+    let npu_ref = npu.borrow_mut(py);
+    *npu_ref.npu.lock().unwrap() = new_npu_core;
+    Ok(true)
+}
+
+#[pyfunction]
+fn save_connectome_to_file(py: Python, npu: Py<RustNPU>, file_path: String) -> PyResult<bool> {
+    let npu_ref = npu.borrow(py);
+    let npu_lock = npu_ref.npu.lock().unwrap();
+    let snapshot = npu_lock.export_connectome();
+    feagi_connectome_serialization::save_connectome(&snapshot, file_path)
+        .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to save connectome: {}", e)))?;
+    Ok(true)
+}
+
+#[pyfunction]
+fn load_connectome_from_file(py: Python, npu: Py<RustNPU>, file_path: String) -> PyResult<bool> {
+    let snapshot = feagi_connectome_serialization::load_connectome(file_path)
+        .map_err(|e| PyErr::new::<PyIOError, _>(format!("Failed to load connectome: {}", e)))?;
+    let new_npu_core = RustNPUCore::import_connectome(snapshot);
+    let npu_ref = npu.borrow_mut(py);
+    *npu_ref.npu.lock().unwrap() = new_npu_core;
+    Ok(true)
+}
+
+/// Python wrapper for AgentRegistry
+#[pyclass]
+struct PyAgentRegistry {
+    registry: std::sync::Arc<feagi_agent_registry::AgentRegistry>,
+}
+
+#[pymethods]
+impl PyAgentRegistry {
+    #[new]
+    fn new(max_agents: usize, timeout_ms: u64) -> Self {
+        Self {
+            registry: std::sync::Arc::new(feagi_agent_registry::AgentRegistry::new(max_agents, timeout_ms)),
+        }
+    }
+    
+    /// Get count of registered agents
+    fn agent_count(&self) -> usize {
+        self.registry.agent_count()
+    }
+    
+    /// Get all registered agents as JSON string
+    fn get_all_agents_json(&self) -> PyResult<String> {
+        let agents = self.registry.get_all_agents();
+        serde_json::to_string(&agents)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agents: {}", e)))
+    }
+    
+    /// Get specific agent as JSON string
+    fn get_agent_json(&self, agent_id: &str) -> PyResult<String> {
+        let agent = self.registry.get_agent(agent_id)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to get agent: {}", e)))?;
+        serde_json::to_string(&agent)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agent: {}", e)))
+    }
+    
+    /// Update agent activity timestamp
+    fn update_agent_activity(&self, agent_id: &str) -> PyResult<()> {
+        self.registry.update_agent_activity(agent_id)
+            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to update activity: {}", e)))
+    }
+    
+    /// Prune inactive agents (returns count of pruned agents)
+    fn prune_inactive_agents(&self) -> usize {
+        self.registry.prune_inactive_agents(None)
+    }
+}
+
 /// Module containing fast neural network operations
 #[pymodule]
 fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -1207,12 +1953,42 @@ fn feagi_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RustNPU>()?;
     m.add_class::<BurstResult>()?;
     
+    // Add Agent Registry (NEW! - transport-agnostic agent management)
+    m.add_class::<PyAgentRegistry>()?;
+    
     // Add visualization encoding (uses published feagi_data_structures)
     m.add_class::<VisualizationEncoder>()?;
     
     // Add data decoding (NEW! - eliminates feagi_rust_py_libs dependency)
     m.add_class::<FeagiByteStructure>()?;
-    m.add_class::<CorticalMappedXYZPNeuronVoxelsDecoder>()?;
+    m.add_class::<CorticalMappedXYZPNeuronDataDecoder>()?;
+    
+    // Add PNS (NEW! - Peripheral Nervous System for agent I/O)
+    m.add_class::<PyPNS>()?;
+    
+    // Add test function first
+    match wrap_pyfunction!(test_simple_function, m) {
+        Ok(func) => {
+            m.add_function(func)?;
+        }
+        Err(e) => {
+            eprintln!("Failed to wrap test_simple_function: {:?}", e);
+        }
+    }
+    
+    // Add connectome serialization functions (standalone, bypassing #[pymethods] macro)
+    if let Ok(func) = wrap_pyfunction!(export_connectome_bytes, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(import_connectome_bytes, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(save_connectome_to_file, m) {
+        m.add_function(func)?;
+    }
+    if let Ok(func) = wrap_pyfunction!(load_connectome_from_file, m) {
+        m.add_function(func)?;
+    }
     
     // Add the synaptic propagation engine (legacy, for compatibility)
     // m.add_class::<SynapticPropagationEngine>()?;  // LEGACY: Not used - full RustNPU is used instead

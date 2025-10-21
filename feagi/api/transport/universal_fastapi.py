@@ -1605,7 +1605,7 @@ else:
         )
         async def restore_snapshot(
             snapshot_id: str,
-            request: SnapshotRestoreRequest | None = None,
+            request: Optional[SnapshotRestoreRequest] = None,
             core_api_service=Depends(get_core_api_service),
         ):
             try:

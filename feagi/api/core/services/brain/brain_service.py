@@ -29,23 +29,31 @@ class BrainService(BaseService):
     It always uses the singleton instance from the BurstEngine class.
     """
 
-    def _get_burst_engine(self):
-        """Get the singleton burst engine instance.
-
-        Never creates a new one.
+    def _get_rust_npu_integration(self):
+        """Get the Rust NPU integration instance.
+        
+        The Rust NPU is now managed directly without Python BurstEngine wrapper.
         """
         try:
-            from feagi.npu.burst_engine import BurstEngine
-
-            return BurstEngine.get_instance()
+            from feagi.process_manager import get_process_manager
+            pm = get_process_manager()
+            if pm and hasattr(pm, 'rust_npu_integration'):
+                return pm.rust_npu_integration
+            
+            # Fallback: try to get from connectome manager
+            if hasattr(self, 'connectome_manager') and self.connectome_manager:
+                npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
+                if npu_interface and hasattr(npu_interface, '_rust_npu_integration'):
+                    return npu_interface._rust_npu_integration
+            
+            self.logger.error("Could not find Rust NPU instance")
+            return None
         except Exception as e:
-            self.logger.error(
-                f"Error getting burst engine singleton: {str(e)}"
-            )
+            self.logger.error(f"Error getting Rust NPU: {e}")
             return None
 
     def get_burst_engine_status(self) -> Dict[str, Any]:
-        """Get current burst engine status."""
+        """Get current Rust burst loop status."""
         try:
             if not self.state_manager:
                 return {
@@ -54,15 +62,14 @@ class BrainService(BaseService):
                     "is_running": False,
                 }
 
-            # Get the actual burst engine instance to check its _running flag
-            burst_engine = self._get_burst_engine()
-            if burst_engine:
-                #  Check the actual burst engine's _running flag (the correct
-                #  source of truth)
-                is_running = burst_engine._running
-                current_burst = getattr(burst_engine, "burst_count", 0)
+            # Get the Rust NPU integration instance to check burst loop status
+            rust_npu_integration = self._get_rust_npu_integration()
+            if rust_npu_integration and rust_npu_integration._rust_npu:
+                rust_npu = rust_npu_integration._rust_npu
+                is_running = rust_npu.is_burst_loop_running()
+                current_burst = rust_npu.get_burst_loop_count()
             else:
-                # Fallback to state manager if burst engine not available
+                # Fallback to state manager if Rust NPU not available
                 is_running = not getattr(
                     self.state_manager, "exit_condition", False
                 )
@@ -72,13 +79,13 @@ class BrainService(BaseService):
 
             return {
                 "status": "running" if is_running else "stopped",
-                "is_running": is_running,  # ✅ FIXED: Include the is_running field
+                "is_running": is_running,
                 "current_burst": current_burst,
                 "brain_ready": self.state_manager.get_brain_readiness(),
                 "genome_loaded": self.state_manager.is_genome_loaded(),
             }
         except Exception as e:
-            self.logger.error(f"Error getting burst engine status: {str(e)}")
+            self.logger.error(f"Error getting burst loop status: {str(e)}")
             return {"status": "error", "error": str(e), "is_running": False}
 
     def start_burst_engine(self) -> bool:
@@ -106,34 +113,18 @@ class BrainService(BaseService):
                 print("[DEBUG] BRAIN SERVICE: No state manager available")
                 return False
 
-            # Get the singleton burst engine instance
-            burst_engine = self._get_burst_engine()
-            if not burst_engine:
-                if self.state_manager.is_debug_npu_enabled():
-                    print(
-                        "[DEBUG] BRAIN SERVICE: No burst engine instance available"
-                    )
-                self.logger.error("No burst engine instance available")
+            # Get the Rust NPU integration instance
+            rust_npu_integration = self._get_rust_npu_integration()
+            if not rust_npu_integration or not rust_npu_integration._rust_npu:
+                self.logger.error("🦀 [RUST-BURST] No Rust NPU available!")
                 return False
 
-            self.logger.debug(
-                f"BRAIN SERVICE: Got burst engine instance {burst_engine._instance_id}"
-            )
-            self.logger.debug(
-                f"BRAIN SERVICE: Current _running state: {burst_engine._running}"
-            )
+            rust_npu = rust_npu_integration._rust_npu
 
-            # Check if it's already running
-            if burst_engine._running:
-                self.logger.debug(
-                    "BRAIN SERVICE: Burst engine reports _running=True, skipping start"
-                )
-                self.logger.info("Burst engine is already running")
+            # Check if burst loop is already running
+            if rust_npu.is_burst_loop_running():
+                self.logger.info("Burst loop is already running")
                 return True
-
-            self.logger.debug(
-                "BRAIN SERVICE: Burst engine _running=False, proceeding to start"
-            )
 
             # Clear exit condition to start the burst engine
             result = self.state_manager.set_exit_condition(False)
@@ -141,23 +132,52 @@ class BrainService(BaseService):
                 self.logger.warning("Failed to clear exit condition")
                 # Continue anyway - this is not critical for startup
 
-            #  CRITICAL: Actually start the burst engine main loop in a
-            #  background thread
+            #  ===== RUST BURST LOOP =====
+            #  Pure Rust burst loop (NO Python overhead in hot path!)
             import threading
-
+            
+            # 🔋 Power neurons are auto-discovered by Rust from neuron array (cortical_area = 1)
+            # NO Python involvement - 100% Rust!
+            # Get burst frequency from state manager
+            frequency_hz = self.state_manager.get_burst_frequency() or 10.0
+            self.logger.info(f"🦀 [RUST-BURST] Starting Rust burst loop at {frequency_hz} Hz")
+            
+            # Track burst loop running state
+            self._burst_loop_running = True
+            
             def run_burst_engine():
-                """Background thread function to run the burst engine main
-                loop."""
+                """Background thread function to start Rust burst loop."""
                 try:
-                    self.logger.debug(
-                        "BRAIN SERVICE: Background thread starting, about to call burst_engine.run()"
-                    )
                     self.logger.info(
-                        "BRAIN SERVICE: Starting burst engine main loop in background thread"
+                        "🦀 [RUST-BURST] Starting PURE RUST burst loop - ZERO Python overhead!"
                     )
-                    burst_engine.run()
-                    self.logger.debug(
-                        "BRAIN SERVICE: burst_engine.run() returned"
+                    
+                    # Start Rust burst loop (runs in native Rust thread)
+                    rust_npu.start_burst_loop(frequency_hz)
+                    
+                    self.logger.info(
+                        "🦀 [RUST-BURST] ✅ Rust burst loop started successfully!"
+                    )
+                    
+                    # Attach visualization SHM writer now that burst loop is running
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        sm = FeagiStateManager.instance()
+                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                        
+                        rust_npu.attach_viz_shm_writer(viz_shm_path)
+                        self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
+                    except Exception as e:
+                        self.logger.warning(f"🎨 [RUST-BURST] Could not attach viz SHM writer: {e}")
+                    
+                    # Keep this thread alive to monitor (but burst loop runs in Rust)
+                    import time
+                    while self._burst_loop_running and rust_npu.is_burst_loop_running():
+                        time.sleep(1.0)
+                        
+                    self.logger.info(
+                        "🦀 [RUST-BURST] Burst loop monitoring thread exiting"
                     )
                 except Exception as e:
                     import traceback
@@ -197,7 +217,7 @@ class BrainService(BaseService):
             startup_success = False
 
             def monitor_startup():
-                """Monitor burst engine startup and signal completion."""
+                """Monitor Rust burst loop startup and signal completion."""
                 nonlocal startup_success
                 # Fixed iteration count for deterministic behavior
                 max_iterations = 200  # ~2 seconds at 100Hz check rate
@@ -209,8 +229,8 @@ class BrainService(BaseService):
                     for _ in range(1000):  # Busy-wait inner loop
                         pass
 
-                    # Check if burst engine is running
-                    if burst_engine._running:
+                    # Check if Rust burst loop is running
+                    if rust_npu.is_burst_loop_running():
                         startup_success = True
                         startup_event.set()
                         return
@@ -248,92 +268,29 @@ class BrainService(BaseService):
             )
 
             # Verify startup success
-            if startup_success and burst_engine._running:
+            if startup_success and rust_npu.is_burst_loop_running():
                 self.logger.debug(
-                    "BRAIN SERVICE: Success! Burst engine is now running"
+                    "BRAIN SERVICE: Success! Rust burst loop is now running"
                 )
+                
+                # Update state manager to reflect burst engine is READY
+                from feagi.core.state_manager import ServiceState
+                self.state_manager.set_burst_engine_state(ServiceState.READY)
+                
                 self.logger.info(
-                    "Burst engine started successfully in background thread"
+                    "🦀 Rust burst loop started successfully - state set to READY"
                 )
-
-                #  CRITICAL: If there's already a genome loaded, update the
-                #  burst engine with it
-                #  This ensures injection service gets initialized for existing
-                #  genomes
-                genome_loaded = (
-                    self.state_manager
-                    and self.state_manager.is_genome_loaded()
-                )
-                self.logger.debug(
-                    f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}"
-                )
-                # Debug-only file write
-                try:
-                    if self.state_manager.is_debug_npu_enabled():
-                        import datetime
-                        import os
-                        import tempfile
-
-                        log_path = os.path.join(
-                            tempfile.gettempdir(),
-                            "feagi_injection_debug--temp.log",
-                        )
-                        with open(log_path, "a") as f:
-                            f.write(
-                                f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
-                            )
-                except Exception:
-                    pass
-
-                if genome_loaded:
-                    self.logger.debug(
-                        "BRAIN SERVICE: Genome already loaded, calling update_with_genome()"
-                    )
-                    try:
-                        if self.state_manager.is_debug_npu_enabled():
-                            import datetime
-                            import os
-                            import tempfile
-
-                            log_path = os.path.join(
-                                tempfile.gettempdir(),
-                                "feagi_injection_debug--temp.log",
-                            )
-                            with open(log_path, "a") as f:
-                                f.write(
-                                    f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
-                                )
-                        burst_engine.update_with_genome()
-                        self.logger.info(
-                            "Updated burst engine with existing genome - injection service initialized"
-                        )
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Failed to update burst engine with existing genome: {str(e)}"
-                        )
-                        try:
-                            if self.state_manager.is_debug_npu_enabled():
-                                import datetime
-                                import os
-                                import tempfile
-
-                                log_path = os.path.join(
-                                    tempfile.gettempdir(),
-                                    "feagi_injection_debug--temp.log",
-                                )
-                                with open(log_path, "a") as f:
-                                    f.write(
-                                        f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
-                                    )
-                        except Exception:
-                            pass
-
                 return True
             else:
                 self.logger.debug(
-                    "BRAIN SERVICE: FAILED! Burst engine _running is still False"
+                    "BRAIN SERVICE: FAILED! Rust burst loop failed to start"
                 )
-                self.logger.error("Failed to start burst engine main loop")
+                self.logger.error("Failed to start Rust burst loop")
+                
+                # Update state manager to reflect burst engine failed
+                from feagi.core.state_manager import ServiceState
+                self.state_manager.set_burst_engine_state(ServiceState.ERROR)
+                
                 return False
 
         except Exception as e:
@@ -344,27 +301,31 @@ class BrainService(BaseService):
             return False
 
     def stop_burst_engine(self) -> bool:
-        """Stop the burst engine."""
+        """Stop the Rust burst loop."""
         try:
             if not self.state_manager:
                 return False
 
-            # Get the singleton burst engine instance
-            burst_engine = self._get_burst_engine()
-            if not burst_engine:
-                self.logger.error("No burst engine instance available")
+            # Get the Rust NPU integration instance
+            rust_npu_integration = self._get_rust_npu_integration()
+            if not rust_npu_integration or not rust_npu_integration._rust_npu:
+                self.logger.error("No Rust NPU instance available")
                 return False
 
+            rust_npu = rust_npu_integration._rust_npu
+
             # Check if it's already stopped
-            if not burst_engine._running:
-                self.logger.info("Burst engine is already stopped")
+            if not rust_npu.is_burst_loop_running():
+                self.logger.info("Burst loop is already stopped")
                 return True
 
-            # Stop the burst engine main loop
-            self.logger.info(
-                "[DEBUG] BRAIN SERVICE: Stopping burst engine main loop"
-            )
-            burst_engine.stop()
+            # Stop the Rust burst loop
+            self.logger.info("🦀 [RUST-BURST] Stopping Rust burst loop")
+            rust_npu.stop_burst_loop()
+            self.logger.info("🦀 [RUST-BURST] ✅ Rust burst loop stopped")
+            
+            # Mark as stopped
+            self._burst_loop_running = False
 
             # Set exit condition to stop the burst engine
             result = self.state_manager.set_exit_condition(True)
@@ -389,7 +350,7 @@ class BrainService(BaseService):
             time.sleep(delay)  # Allow thread to stop
 
             # Verify it's stopped
-            if not burst_engine._running:
+            if not rust_npu.is_burst_loop_running():
                 # Set burst engine state to UNAVAILABLE
                 from feagi.core.state_manager import ServiceState
 
@@ -751,9 +712,9 @@ class BrainService(BaseService):
                         min_pot = float(np.min(potentials))
                         max_pot = float(np.max(potentials))
                         mean_pot = float(np.mean(potentials))
-                        self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: {len(potentials)} potentials - min={min_pot:.6f}, max={max_pot:.6f}, mean={mean_pot:.6f}, threshold=10000")
+                        self.logger.debug(f"[POTENTIAL-DEBUG] {cortical_id}: {len(potentials)} potentials - min={min_pot:.6f}, max={max_pot:.6f}, mean={mean_pot:.6f}, threshold=10000")
                         if max_pot >= 10000:
-                            self.logger.info(f"[POTENTIAL-DEBUG] {cortical_id}: HIGH VALUES DETECTED! Max potential {max_pot:.6f} >= threshold 10000")
+                            self.logger.debug(f"[POTENTIAL-DEBUG] {cortical_id}: HIGH VALUES DETECTED! Max potential {max_pot:.6f} >= threshold 10000")
 
                     # Validate array lengths match
                     if not (
@@ -963,76 +924,7 @@ class BrainService(BaseService):
                     # area_stimulated and area_failed already set above from batch lookup
 
                     # activations_for_area already populated above from batch lookup
-
-                    # Process each unique coordinate position
-                    for unique_idx, unique_coord in enumerate(unique_coords):
-                        coord_tuple = tuple(unique_coord)
-
-                        #  Find all original indices that map to this unique
-                        #  coordinate
-                        coord_mask = inverse_indices == unique_idx
-                        coord_potentials = potentials[coord_mask]
-
-                        # Get neurons at this coordinate
-                        neurons_at_coord = position_to_neurons.get(
-                            coord_tuple, []
-                        )
-
-                        if neurons_at_coord and len(coord_potentials) > 0:
-                            # Use the first potential value for this coordinate
-                            #  (all coordinates at same position get same
-                            #  stimulation)
-                            potential_value = float(coord_potentials[0])
-
-                            #  SIMD OPTIMIZATION 5: Batch membrane potential
-                            #  update
-                            try:
-                                if hasattr(
-                                    self._connectome_manager, "neuron_array"
-                                ):
-                                    neuron_array = (
-                                        self._connectome_manager.neuron_array
-                                    )
-                                    if hasattr(
-                                        neuron_array,
-                                        "batch_update_membrane_potentials",
-                                    ):
-                                        # Deterministic id-based batch update
-                                        neuron_array.batch_update_membrane_potentials(
-                                            neurons_at_coord,
-                                            [potential_value]
-                                            * len(neurons_at_coord),
-                                        )
-                                        area_stimulated += len(
-                                            neurons_at_coord
-                                        )
-                                    else:
-                                        # Deterministic id-based individual updates
-                                        for neuron_id in neurons_at_coord:
-                                            try:
-                                                neuron_array.set_neuron_property(
-                                                    neuron_id,
-                                                    "membrane_potential",
-                                                    potential_value,
-                                                )
-                                                area_stimulated += 1
-                                            except Exception as e:
-                                                self.logger.warning(
-                                                    f"Failed to stimulate neuron {neuron_id}: {str(e)}"
-                                                )
-                                                area_failed += 1
-
-                                else:
-                                    area_failed += len(neurons_at_coord)
-                            except Exception as e:
-                                self.logger.warning(
-                                    f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
-                                )
-                                area_failed += len(neurons_at_coord)
-
-                            # Accumulate ids for FCL injection
-                            if neurons_at_coord:
-                                activations_for_area.extend(neurons_at_coord)
+                    # Neuron stimulation now happens via BurstEngine._pending_external_activations
 
                     area_results[cortical_id] = {
                         "success": True,
@@ -1068,12 +960,12 @@ class BrainService(BaseService):
                     }
                     continue
 
-            # After all areas processed, inject into FCL via injection service
+            # After all areas processed, inject into FCL directly via Rust NPU
             injected_count = 0
             try:
                 if "_pending_activations" in locals() and _pending_activations:
-                    burst_engine = self._get_burst_engine()
-                    if burst_engine and hasattr(burst_engine, "injection_service") and burst_engine.injection_service:
+                    rust_npu_integration = self._get_rust_npu_integration()
+                    if rust_npu_integration and rust_npu_integration._rust_npu:
                         current_timestep = getattr(
                             self._connectome_manager, "current_timestep", 0
                         )
@@ -1088,34 +980,29 @@ class BrainService(BaseService):
                         except Exception:
                             pass
 
-                        # Debug: Log what we're about to inject (first 10 per area)
-                        try:
-                            from feagi.core.state_manager import FeagiStateManager
-                            if FeagiStateManager.instance().is_debug_npu_enabled():
-                                debug_summary = {}
-                                for area_id, neuron_list in _pending_activations.items():
-                                    if isinstance(neuron_list, list) and len(neuron_list) > 0:
-                                        first_10 = neuron_list[:10]
-                                        total_count = len(neuron_list)
-                                        if total_count > 10:
-                                            debug_summary[area_id] = f"{first_10}... (+{total_count-10} more)"
-                                        else:
-                                            debug_summary[area_id] = first_10
-                                    else:
-                                        debug_summary[area_id] = neuron_list
-                                self.logger.info(f"[SENSORY-DEBUG] About to inject: {debug_summary}")
-                        except Exception:
-                            pass
-                        
-                        # Route to BurstEngine buffer; processed via FCLInjector during the burst
-                        if hasattr(burst_engine, '_pending_external_activations'):
-                            burst_engine._pending_external_activations.update(_pending_activations)
-                        else:
-                            burst_engine._pending_external_activations = dict(_pending_activations)
-                        injected_count = sum(
-                            len(v.get('coordinates_x', [])) if isinstance(v, dict) else (len(v) if hasattr(v, '__len__') else 0)
-                            for v in _pending_activations.values()
-                        )
+                        # Inject directly into Rust NPU's FCL
+                        # The Rust burst loop will process these in the next cycle
+                        for area_id, neuron_data in _pending_activations.items():
+                            try:
+                                if isinstance(neuron_data, list):
+                                    neuron_ids = neuron_data
+                                elif isinstance(neuron_data, dict) and 'coordinates_x' in neuron_data:
+                                    # Convert coordinates to neuron IDs
+                                    # This would need batch coordinate lookup
+                                    # For now, skip coordinate-based injection
+                                    self.logger.warning(f"Coordinate-based injection not yet supported in Rust NPU")
+                                    continue
+                                else:
+                                    continue
+                                
+                                # Inject neuron IDs into FCL with sensory potential
+                                if neuron_ids:
+                                    # Use intensity as membrane potential (typically 1.0 for full activation)
+                                    sensory_potential = 1.0  # Default sensory activation strength
+                                    rust_npu_integration._rust_npu.inject_sensory_batch(neuron_ids, sensory_potential)
+                                    injected_count += len(neuron_ids)
+                            except Exception as e:
+                                self.logger.error(f"Error injecting neurons for area {area_id}: {e}")
                         
                         # Debug: Log injection result
                         try:

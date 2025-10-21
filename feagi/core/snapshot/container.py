@@ -32,7 +32,7 @@ import struct
 import zlib
 from hashlib import blake2b, sha256
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from io import BytesIO
 
@@ -95,7 +95,7 @@ def write_fc(
     encoding: str = "store",
     magic: bytes = MAGIC_FGC,
     extension: str = ".fgc",
-    extra_chunks: List[Tuple[str, bytes]] | None = None,
+    extra_chunks: Optional[List[Tuple[str, bytes]]] = None,
 ) -> Path:
     """Write a FEAGI Container file with connectome and state chunks.
 
@@ -307,7 +307,7 @@ def create_fc_snapshot_from_folder(
     compression: str = "store",
     magic: bytes = MAGIC_FGC,
     extension: str = ".fgc",
-    destination_dir: Path | None = None,
+    destination_dir: Optional[Path] = None,
 ) -> Path:
     if not isinstance(snapshot_dir, Path):
         snapshot_dir = Path(snapshot_dir)
@@ -603,7 +603,7 @@ def restore_fgc_snapshot(
             chunks = header.get("chunks", [])
 
             # Helper to pull chunk bytes by name
-            def _read_chunk_bytes(name: str) -> bytes | None:
+            def _read_chunk_bytes(name: str) -> Optional[bytes]:
                 meta = next((c for c in chunks if c.get("name") == name), None)
                 if not meta:
                     return None
@@ -1039,7 +1039,7 @@ def restore_fgs_snapshot(
     header = read_fc_header(fcs_path)
     chunks = header.get("chunks", [])
 
-    def _read_chunk_bytes(name: str) -> bytes | None:
+    def _read_chunk_bytes(name: str) -> Optional[bytes]:
         meta = next((c for c in chunks if c.get("name") == name), None)
         if not meta:
             return None

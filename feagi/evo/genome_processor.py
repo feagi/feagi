@@ -386,14 +386,26 @@ def genome_2_1_convertor(flat_genome):
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
                                     ][0] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create cortical_dimensions dict format
+                                    if "cortical_dimensions" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["cortical_dimensions"] = {}
+                                    genome["blueprint"][cortical_area]["cortical_dimensions"]["width"] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
                                     ][1] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create cortical_dimensions dict format
+                                    if "cortical_dimensions" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["cortical_dimensions"] = {}
+                                    genome["blueprint"][cortical_area]["cortical_dimensions"]["height"] = genes_to_check[gene]
                                 elif gene[24] == "z":
                                     genome["blueprint"][cortical_area][
                                         "block_boundaries"
                                     ][2] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create cortical_dimensions dict format
+                                    if "cortical_dimensions" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["cortical_dimensions"] = {}
+                                    genome["blueprint"][cortical_area]["cortical_dimensions"]["depth"] = genes_to_check[gene]
                                 else:
                                     pass
 
@@ -402,14 +414,26 @@ def genome_2_1_convertor(flat_genome):
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
                                     ][0] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create coordinates_3d dict format
+                                    if "coordinates_3d" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["coordinates_3d"] = {}
+                                    genome["blueprint"][cortical_area]["coordinates_3d"]["x"] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
                                     ][1] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create coordinates_3d dict format
+                                    if "coordinates_3d" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["coordinates_3d"] = {}
+                                    genome["blueprint"][cortical_area]["coordinates_3d"]["y"] = genes_to_check[gene]
                                 elif gene[24] == "z":
                                     genome["blueprint"][cortical_area][
                                         "relative_coordinate"
                                     ][2] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create coordinates_3d dict format
+                                    if "coordinates_3d" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["coordinates_3d"] = {}
+                                    genome["blueprint"][cortical_area]["coordinates_3d"]["z"] = genes_to_check[gene]
                                 else:
                                     pass
                             elif genome_2_to_1[lookup_exon] == "2d_coordinate":
@@ -417,10 +441,18 @@ def genome_2_1_convertor(flat_genome):
                                     genome["blueprint"][cortical_area][
                                         "2d_coordinate"
                                     ][0] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create coordinates_2d array format
+                                    if "coordinates_2d" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["coordinates_2d"] = [0, 0]
+                                    genome["blueprint"][cortical_area]["coordinates_2d"][0] = genes_to_check[gene]
                                 elif gene[24] == "y":
                                     genome["blueprint"][cortical_area][
                                         "2d_coordinate"
                                     ][1] = genes_to_check[gene]
+                                    # CRITICAL FIX: Also create coordinates_2d array format
+                                    if "coordinates_2d" not in genome["blueprint"][cortical_area]:
+                                        genome["blueprint"][cortical_area]["coordinates_2d"] = [0, 0]
+                                    genome["blueprint"][cortical_area]["coordinates_2d"][1] = genes_to_check[gene]
                                 else:
                                     pass
 
@@ -467,85 +499,103 @@ def genome_v1_v2_converter(genome_v1):
     genome_v2["blueprint"] = {}
 
     for cortical_area in genome_v1["blueprint"]:
-        for key in genome_v1["blueprint"][cortical_area]:
+        area_data = genome_v1["blueprint"][cortical_area]
+        
+        # CRITICAL FIX: Handle 3D coordinates - support multiple naming conventions
+        # Check for coordinates_3d (dict format), relative_coordinate (array format), or position
+        coordinates_3d = None
+        if "coordinates_3d" in area_data:
+            # Dict format: {"x": 1, "y": 2, "z": 3}
+            coords = area_data["coordinates_3d"]
+            if isinstance(coords, dict):
+                coordinates_3d = [coords.get("x", 0), coords.get("y", 0), coords.get("z", 0)]
+            elif isinstance(coords, (list, tuple)) and len(coords) >= 3:
+                coordinates_3d = list(coords[:3])
+        elif "relative_coordinate" in area_data:
+            # Array format: [x, y, z]
+            coords = area_data["relative_coordinate"]
+            if isinstance(coords, (list, tuple)) and len(coords) >= 3:
+                coordinates_3d = list(coords[:3])
+        elif "position" in area_data:
+            # Alternative array format
+            coords = area_data["position"]
+            if isinstance(coords, (list, tuple)) and len(coords) >= 3:
+                coordinates_3d = list(coords[:3])
+        
+        # Export 3D coordinates to flat format if found
+        if coordinates_3d:
+            genex = "_____10c-" + cortical_area + "-" + "cx-rcordx-i"
+            geney = "_____10c-" + cortical_area + "-" + "cx-rcordy-i"
+            genez = "_____10c-" + cortical_area + "-" + "cx-rcordz-i"
+            genome_v2["blueprint"][genex] = coordinates_3d[0]
+            genome_v2["blueprint"][geney] = coordinates_3d[1]
+            genome_v2["blueprint"][genez] = coordinates_3d[2]
+        
+        # CRITICAL FIX: Handle dimensions - support multiple naming conventions
+        # Check for cortical_dimensions (dict format) or block_boundaries (array format)
+        dimensions = None
+        if "cortical_dimensions" in area_data:
+            # Dict format: {"width": 10, "height": 10, "depth": 10}
+            dims = area_data["cortical_dimensions"]
+            if isinstance(dims, dict):
+                dimensions = [dims.get("width", 1), dims.get("height", 1), dims.get("depth", 1)]
+            elif isinstance(dims, (list, tuple)) and len(dims) >= 3:
+                dimensions = list(dims[:3])
+        elif "block_boundaries" in area_data:
+            # Array format: [width, height, depth]
+            dims = area_data["block_boundaries"]
+            if isinstance(dims, (list, tuple)) and len(dims) >= 3:
+                dimensions = list(dims[:3])
+        elif "dimensions" in area_data:
+            # Alternative array format
+            dims = area_data["dimensions"]
+            if isinstance(dims, (list, tuple)) and len(dims) >= 3:
+                dimensions = list(dims[:3])
+        
+        # Export dimensions to flat format if found
+        if dimensions:
+            genex = "_____10c-" + cortical_area + "-" + "cx-___bbx-i"
+            geney = "_____10c-" + cortical_area + "-" + "cx-___bby-i"
+            genez = "_____10c-" + cortical_area + "-" + "cx-___bbz-i"
+            genome_v2["blueprint"][genex] = dimensions[0]
+            genome_v2["blueprint"][geney] = dimensions[1]
+            genome_v2["blueprint"][genez] = dimensions[2]
+        
+        # CRITICAL FIX: Handle 2D coordinates - support multiple naming conventions
+        # Check for coordinates_2d or 2d_coordinate
+        coordinates_2d = None
+        if "coordinates_2d" in area_data:
+            coords = area_data["coordinates_2d"]
+            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                coordinates_2d = list(coords[:2])
+        elif "2d_coordinate" in area_data:
+            coords = area_data["2d_coordinate"]
+            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                coordinates_2d = list(coords[:2])
+        
+        # Export 2D coordinates to flat format if found
+        if coordinates_2d:
+            genex = "_____10c-" + cortical_area + "-" + "cx-2dcorx-i"
+            geney = "_____10c-" + cortical_area + "-" + "cx-2dcory-i"
+            genome_v2["blueprint"][genex] = coordinates_2d[0]
+            genome_v2["blueprint"][geney] = coordinates_2d[1]
+        
+        # Handle all other properties
+        for key in area_data:
             if type(key) is not dict and key not in ["cortical_mapping_dst"]:
+                # Skip coordinate/dimension properties we already handled
+                if key in [
+                    "coordinates_3d", "relative_coordinate", "position",
+                    "cortical_dimensions", "block_boundaries", "dimensions",
+                    "coordinates_2d", "2d_coordinate"
+                ]:
+                    continue
+                    
                 if key in genome_1_to_2:
                     gene = (
                         "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                     )
-                    genome_v2["blueprint"][gene] = genome_v1["blueprint"][
-                        cortical_area
-                    ][key]
-                else:
-                    if key not in [
-                        "block_boundaries",
-                        "relative_coordinate",
-                        "2d_coordinate",
-                    ]:
-                        if key in genome_1_to_2:
-                            gene = (
-                                "_____10c-"
-                                + cortical_area
-                                + "-"
-                                + genome_1_to_2[key]
-                            )
-                            genome_v2["blueprint"][gene] = genome_v1[
-                                "blueprint"
-                            ][cortical_area][key]
-                    if key == "block_boundaries":
-                        genex = (
-                            "_____10c-" + cortical_area + "-" + "cx-___bbx-i"
-                        )
-                        geney = (
-                            "_____10c-" + cortical_area + "-" + "cx-___bby-i"
-                        )
-                        genez = (
-                            "_____10c-" + cortical_area + "-" + "cx-___bbz-i"
-                        )
-
-                        genome_v2["blueprint"][genex] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["block_boundaries"][0]
-                        genome_v2["blueprint"][geney] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["block_boundaries"][1]
-                        genome_v2["blueprint"][genez] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["block_boundaries"][2]
-                    if key == "relative_coordinate":
-                        genex = (
-                            "_____10c-" + cortical_area + "-" + "cx-rcordx-i"
-                        )
-                        geney = (
-                            "_____10c-" + cortical_area + "-" + "cx-rcordy-i"
-                        )
-                        genez = (
-                            "_____10c-" + cortical_area + "-" + "cx-rcordz-i"
-                        )
-
-                        genome_v2["blueprint"][genex] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["relative_coordinate"][0]
-                        genome_v2["blueprint"][geney] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["relative_coordinate"][1]
-                        genome_v2["blueprint"][genez] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["relative_coordinate"][2]
-                    if key == "2d_coordinate":
-                        genex = (
-                            "_____10c-" + cortical_area + "-" + "cx-2dcorx-i"
-                        )
-                        geney = (
-                            "_____10c-" + cortical_area + "-" + "cx-2dcory-i"
-                        )
-
-                        genome_v2["blueprint"][genex] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["2d_coordinate"][0]
-                        genome_v2["blueprint"][geney] = genome_v1["blueprint"][
-                            cortical_area
-                        ]["2d_coordinate"][1]
+                    genome_v2["blueprint"][gene] = area_data[key]
 
             elif key == "cortical_mapping_dst":
                 gene = "_____10c-" + cortical_area + "-cx-dstmap-d"

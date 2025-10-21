@@ -182,7 +182,11 @@ class CapabilityRateValidator:
         """Validate a single capability rate specification."""
         
         # Rule 1: Capability rate cannot exceed FEAGI global rate
-        if spec.requested_rate_hz > self.feagi_global_rate_hz:
+        # EXCEPTIONS:
+        #   - SENSORY: Agent writes at any rate, FEAGI polls at min(agent_rate, burst_rate)
+        #   - VISUALIZATION: FEAGI samples FQ at requested rate, FQ sampler handles rate limiting
+        if (spec.capability_type not in [CapabilityType.SENSORY, CapabilityType.VISUALIZATION] 
+            and spec.requested_rate_hz > self.feagi_global_rate_hz):
             return f"Capability rate {spec.requested_rate_hz}Hz exceeds FEAGI global rate {self.feagi_global_rate_hz}Hz"
         
         # Rule 2: Capability rate should be a reasonable divisor of FEAGI rate for efficiency
@@ -207,7 +211,13 @@ class CapabilityRateValidator:
     ) -> float:
         """Suggest an optimal rate that's a divisor of FEAGI rate."""
         
-        if requested_rate_hz > self.feagi_global_rate_hz:
+        # SENSORY and VISUALIZATION can exceed burst engine rate
+        # - SENSORY: Agent writes at requested rate, FEAGI polls at min(requested, burst_rate)
+        # - VISUALIZATION: FEAGI samples FQ at requested rate, FQ sampler handles rate limiting
+        if capability_type in [CapabilityType.SENSORY, CapabilityType.VISUALIZATION]:
+            # Return the requested rate as-is (internal rate limiting will handle availability)
+            return requested_rate_hz
+        elif requested_rate_hz > self.feagi_global_rate_hz:
             return self.feagi_global_rate_hz
             
         # Find the largest divisor of FEAGI rate that's <= requested rate

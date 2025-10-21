@@ -102,11 +102,10 @@ class RustNPUIntegration:
             synapse_capacity=synapse_capacity
         )
     
-    def process_burst(self, power_neurons: List[int]) -> Dict:
+    def process_burst(self) -> Dict:
         """Process a single burst using Rust NPU.
         
-        Args:
-            power_neurons: List of neuron IDs to inject power into
+        🔋 Power neurons auto-discovered from neuron array (cortical_area = 1)
         
         Returns:
             Dict with keys: fired_neurons, burst, neuron_count, etc.
@@ -118,15 +117,11 @@ class RustNPUIntegration:
         if not self._rust_npu_initialized:
             raise RuntimeError("🦀 [RUST-NPU] CRITICAL: Rust NPU not initialized! This should never happen.")
         
-        logger.debug("🦀 process_burst called with %d power neurons: %s", 
-                      len(power_neurons),
-                      power_neurons[:10] if len(power_neurons) > 10 else power_neurons)
-        
         # Call Rust NPU (THIS IS THE FAST PATH - ALL IN RUST!)
         burst_start = time.perf_counter()
         
         try:
-            result = self._rust_npu.process_burst(power_neurons=power_neurons)
+            result = self._rust_npu.process_burst()
             logger.debug("🦀 Rust NPU process_burst returned: power_injections=%d, fired_neurons=%d", 
                           result.power_injections, len(result.fired_neurons))
             burst_time = (time.perf_counter() - burst_start) * 1000
@@ -254,6 +249,8 @@ class RustNPUIntegration:
     def sample_fire_queue(self) -> Optional[Dict[int, Dict[str, List]]]:
         """Sample the current Fire Queue for visualization/motor output.
         
+        ⚠️ CHANGED: Now uses get_latest_fire_queue_sample() internally to avoid deduplication issues.
+        
         This is Entry Point #2: The thin Python API for external systems.
         All sampling logic is in Rust for maximum performance.
         
@@ -269,10 +266,7 @@ class RustNPUIntegration:
                 }
             }
             
-            Returns None if:
-            - Rate limit not met
-            - Fire Queue is empty
-            - Burst already sampled (deduplication)
+            Returns None if no bursts have been processed yet.
         
         Example:
             sample = rust_npu_integration.sample_fire_queue()
@@ -285,22 +279,24 @@ class RustNPUIntegration:
         if not self._rust_npu:
             return None
         
-        # Call Rust FQ Sampler
-        rust_sample = self._rust_npu.sample_fire_queue()
+        # 🦀 RUST: Use get_latest_fire_queue_sample() to avoid deduplication
+        # The burst loop already calls sample() in Phase 5, so we just read the cached result
+        rust_sample = self._rust_npu.get_latest_fire_queue_sample()
         if rust_sample is None:
             return None
         
         # Convert from Rust tuple format to Python dict format
         # Rust returns: Dict[int, Tuple[neuron_ids, coords_x, coords_y, coords_z, potentials]]
         # Python expects: Dict[int, Dict[str, List]]
+        # PERFORMANCE: Rust tuples are already list-like, avoid list() copy for large neuron counts
         result = {}
         for cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials) in rust_sample.items():
             result[cortical_idx] = {
-                "neuron_ids": list(neuron_ids),
-                "coordinates_x": list(coords_x),
-                "coordinates_y": list(coords_y),
-                "coordinates_z": list(coords_z),
-                "membrane_potentials": list(potentials)
+                "neuron_ids": neuron_ids,  # No list() copy - Rust Vec is already Python list-like
+                "coordinates_x": coords_x,
+                "coordinates_y": coords_y,
+                "coordinates_z": coords_z,
+                "membrane_potentials": potentials
             }
         
         return result
@@ -353,14 +349,15 @@ class RustNPUIntegration:
             return {}
         
         # Convert from Rust tuple format to Python dict format
+        # PERFORMANCE: Avoid list() copy for large neuron counts
         result = {}
         for cortical_idx, (neuron_ids, coords_x, coords_y, coords_z, potentials) in rust_data.items():
             result[cortical_idx] = {
-                "neuron_ids": list(neuron_ids),
-                "coordinates_x": list(coords_x),
-                "coordinates_y": list(coords_y),
-                "coordinates_z": list(coords_z),
-                "membrane_potentials": list(potentials)
+                "neuron_ids": neuron_ids,
+                "coordinates_x": coords_x,
+                "coordinates_y": coords_y,
+                "coordinates_z": coords_z,
+                "membrane_potentials": potentials
             }
         
         return result
@@ -414,3 +411,59 @@ class RustNPUIntegration:
             return {}
         
         return self._rust_npu.get_all_fire_ledger_configs()
+    
+    def get_neurons_at_coordinates_batch(
+        self, 
+        cortical_idx: int,
+        coords_x: List[int],
+        coords_y: List[int],
+        coords_z: List[int]
+    ) -> List[Optional[int]]:
+        """BATCH: Get neuron IDs for multiple coordinates (high-performance sensory injection).
+        
+        This is 10-100x faster than calling individual lookups in a Python loop because
+        it eliminates FFI overhead and enables Rust-side vectorization.
+        
+        Args:
+            cortical_idx: Cortical area index
+            coords_x: List of X coordinates
+            coords_y: List of Y coordinates  
+            coords_z: List of Z coordinates
+            
+        Returns:
+            List of neuron IDs (None if no neuron at that coordinate)
+            Length matches input coordinate lists
+            
+        Example:
+            >>> neuron_ids = rust_npu.get_neurons_at_coordinates_batch(
+            ...     cortical_idx=5,
+            ...     coords_x=[0, 1, 2],
+            ...     coords_y=[0, 0, 0],
+            ...     coords_z=[0, 0, 0]
+            ... )
+            >>> # neuron_ids = [1001, None, 1003]  # None = no neuron at (1,0,0)
+        """
+        if not self._rust_npu:
+            return [None] * len(coords_x)
+        
+        return self._rust_npu.get_neurons_at_coordinates_batch(
+            cortical_idx, coords_x, coords_y, coords_z
+        )
+    
+    # ═══════════════════════════════════════════════════════════
+    # SYNAPSE MANAGEMENT API (For Dynamic Synapse Updates)
+    # ═══════════════════════════════════════════════════════════
+    
+    def rebuild_synapse_index(self):
+        """Rebuild the synapse index after synapses have been added/removed.
+        
+        This MUST be called after synapses are created via neuroembryogenesis or
+        other mechanisms so that the Rust PropagationEngine can use them.
+        
+        Without this, newly created synapses won't participate in burst processing.
+        """
+        if self._rust_npu:
+            self._rust_npu.rebuild_indexes()
+            logger.info("🦀 [RUST-NPU] Synapse index rebuilt successfully")
+        else:
+            logger.warning("🦀 [RUST-NPU] Cannot rebuild synapse index - NPU not initialized")

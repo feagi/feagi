@@ -26,10 +26,6 @@ import numpy as np  # noqa: F401
 
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager
-from feagi.bdu.connectivity.synaptogenesis import (
-    find_candidate_neurons,
-    find_destination_coordinates,
-)
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.evo.genome_processor import (
     genome_morphology_updator,
@@ -716,6 +712,16 @@ class NeuroEmbryogenesis:
                 # Store mappings for tracking
                 self.cortical_id_map[cortical_idx] = cortical_id
                 self.reverse_cortical_id_map[cortical_id] = cortical_idx
+                
+                # Register cortical area name in Rust NPU (for visualization encoding)
+                # Get rust_npu_integration from connectome_manager's NPU interface
+                if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                    npu_interface = self.connectome_manager._npu_interface
+                    if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                        rust_npu = npu_interface._rust_npu_integration._rust_npu
+                        if rust_npu:
+                            rust_npu.register_cortical_area(cortical_idx, cortical_id)
+                            logger.debug(f"Registered cortical area {cortical_id} (idx={cortical_idx}) in Rust NPU for visualization")
 
                 logger.debug(
                     f"Created cortical area {name} (cortical_idx {cortical_idx}, cortical_id {cortical_id})"
@@ -872,6 +878,15 @@ class NeuroEmbryogenesis:
             # Update mappings for death area (whether new or existing)
             self.cortical_id_map[death_area.cortical_idx] = "_death"
             self.reverse_cortical_id_map["_death"] = death_area.cortical_idx
+            
+            # Register in Rust NPU for visualization
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                    rust_npu = npu_interface._rust_npu_integration._rust_npu
+                    if rust_npu:
+                        rust_npu.register_cortical_area(death_area.cortical_idx, "_death")
+                        logger.debug(f"Registered core area _death (idx={death_area.cortical_idx}) in Rust NPU")
 
             # Create _power area (cortical_idx=1) only if it doesn't exist
             if existing_power is None:
@@ -915,6 +930,15 @@ class NeuroEmbryogenesis:
             # Update mappings for power area (whether new or existing)
             self.cortical_id_map[pwr_area.cortical_idx] = "_power"
             self.reverse_cortical_id_map["_power"] = pwr_area.cortical_idx
+            
+            # Register in Rust NPU for visualization
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                npu_interface = self.connectome_manager._npu_interface
+                if hasattr(npu_interface, '_rust_npu_integration') and npu_interface._rust_npu_integration:
+                    rust_npu = npu_interface._rust_npu_integration._rust_npu
+                    if rust_npu:
+                        rust_npu.register_cortical_area(pwr_area.cortical_idx, "_power")
+                        logger.debug(f"Registered core area _power (idx={pwr_area.cortical_idx}) in Rust NPU")
 
             # Verify correct cortical_idx assignment
             if death_area.cortical_idx != 0:
@@ -1194,6 +1218,10 @@ class NeuroEmbryogenesis:
                     # Extract snooze period from genome (nx-snooze-f gene)
                     snooze_period = int(max(0, round(properties.get("snooze_length", 0))))
                     
+                    # Extract membrane potential accumulation from genome (nx-mp_acc-b gene)
+                    # Default to True for backward compatibility (integrator behavior)
+                    mp_charge_accumulation = bool(properties.get("mp_charge_accumulation", True))
+                    
                     # Create batch neuron creation request with ALL parameters from genome
                     request = NeuronCreationRequest(
                         cortical_idx=area.cortical_idx,
@@ -1206,6 +1234,7 @@ class NeuroEmbryogenesis:
                         resting_potentials=[0.0] * area_neuron_count,
                         consecutive_fire_limits=[consecutive_fire_limit] * area_neuron_count,
                         snooze_periods=[snooze_period] * area_neuron_count,
+                        mp_charge_accumulation=[mp_charge_accumulation] * area_neuron_count,
                     )
                     
                     # Use NPU Interface CRUD method for batch creation (gated debug)
@@ -1334,6 +1363,14 @@ class NeuroEmbryogenesis:
             logger.info(
                 f"[FAST-SoA] Neurogenesis completed: {total_neurons} neurons in {duration:.3f}s"
             )
+            
+            # Update state manager counts after neurogenesis completes
+            try:
+                self.connectome_manager._update_brain_statistics()
+                logger.info("✅ Updated state manager after neurogenesis")
+            except Exception as e:
+                logger.warning(f"Failed to update state manager after neurogenesis: {e}")
+            
             return True
 
         except Exception as e:
@@ -1563,6 +1600,14 @@ class NeuroEmbryogenesis:
                 f"Created {total_synapses} synaptic connections",
             )
             self.development_stats["total_synapses"] = total_synapses
+            
+            # Update state manager counts after synaptogenesis completes
+            try:
+                self.connectome_manager._update_brain_statistics()
+                logger.info("✅ Updated state manager after synaptogenesis")
+            except Exception as e:
+                logger.warning(f"Failed to update state manager after synaptogenesis: {e}")
+            
             return True
 
         except Exception as e:
@@ -1759,6 +1804,16 @@ class NeuroEmbryogenesis:
 
         # NOTE: Memory mapping rescan is handled automatically during genome processing
         # The rescan_all_memory_mappings() method is available for manual use if needed
+        
+        # Final comprehensive brain statistics update after all development is complete
+        try:
+            self.connectome_manager._update_brain_statistics()
+            logger.info(
+                f"✅ Final brain stats: {self.connectome_manager.get_neuron_count()} neurons, "
+                f"{self.connectome_manager.get_synapse_count()} synapses"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update final brain statistics: {e}")
 
         return True
 
@@ -2065,6 +2120,16 @@ class NeuroEmbryogenesis:
             f"{self.development_stats['total_neurons']} neurons, and "
             f"{self.development_stats['total_synapses']} synapses.",
         )
+        
+        # Final comprehensive brain statistics update after all development is complete
+        try:
+            self.connectome_manager._update_brain_statistics()
+            logger.info(
+                f"✅ Final brain stats: {self.connectome_manager.get_neuron_count()} neurons, "
+                f"{self.connectome_manager.get_synapse_count()} synapses"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update final brain statistics: {e}")
 
         # CRITICAL DEBUG: Check actual counts at completion of neuroembryogenesis
         logger.info("🧠 [NEUROEMBRYOGENESIS] Brain development completed - checking actual counts:")
@@ -2096,6 +2161,13 @@ class NeuroEmbryogenesis:
                 logger.info(f"  - Direct state neuron_count: {direct_neuron_count}")
                 logger.info(f"  - Direct state synapse_count: {direct_synapse_count}")
 
+        # Populate Rust Morton spatial hash from all neurons for ultra-fast lookups
+        if hasattr(self.connectome_manager, 'populate_morton_hash_from_existing_neurons'):
+            try:
+                self.connectome_manager.populate_morton_hash_from_existing_neurons()
+            except Exception as e:
+                logger.warning(f"Failed to populate Morton hash: {e}")
+        
         logger.info("🧠 [NEUROEMBRYOGENESIS] ✅ Returning True - brain development complete")
 
         return True
@@ -2850,24 +2922,25 @@ class NeuroEmbryogenesis:
                     f"Successfully created {total_synapses_created} synapses from cortical mapping updates"
                 )
                 
-                # CRITICAL: Reinitialize Rust NPU after synapse creation
-                # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to reload its synapse index
+                # CRITICAL: Rebuild Rust NPU synapse index after synapse creation
+                # Neuroembryogenesis creates synapses via morphology, so Rust NPU needs to rebuild its synapse index
                 try:
-                    from feagi.npu.burst_engine import BurstEngine
-                    burst_engine = BurstEngine.get_instance()
-                    if burst_engine and hasattr(burst_engine, '_rust_npu_integration'):
-                        if burst_engine._rust_npu_integration is not None:
-                            logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - reloading synapse index...")
-                            try:
-                                burst_engine.reinitialize_rust_npu()
-                                logger.info("🦀 [RUST-NPU] ✅ Synapse index reloaded successfully after neuroembryogenesis")
-                            except Exception as reinit_error:
-                                logger.error(f"🦀 [RUST-NPU] Failed to reload synapse index: {reinit_error}")
-                                logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
-                        else:
-                            logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be loaded on first burst")
+                    # 🦀 RUST: Access Rust NPU through ProcessManager
+                    from feagi.process_manager import get_process_manager
+                    pm = get_process_manager()
+                    rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
+                    
+                    if rust_npu_integration and rust_npu_integration._rust_npu:
+                        logger.info(f"🦀 [RUST-NPU] Neuroembryogenesis created {total_synapses_created} synapses - rebuilding synapse index...")
+                        try:
+                            # Rebuild synapse index so new synapses are active
+                            rust_npu_integration.rebuild_synapse_index()
+                            logger.info("🦀 [RUST-NPU] ✅ Synapse index rebuilt successfully - new synapses are now active")
+                        except Exception as rebuild_error:
+                            logger.error(f"🦀 [RUST-NPU] Failed to rebuild synapse index: {rebuild_error}")
+                            logger.warning("🦀 [RUST-NPU] ⚠️ New synapses will not be active until FEAGI restart")
                     else:
-                        logger.debug("Burst engine not available or Rust NPU not enabled")
+                        logger.debug("🦀 [RUST-NPU] Not yet initialized - new synapses will be indexed on first burst")
                 except Exception as rust_error:
                     logger.error(f"🦀 [RUST-NPU] Error during synapse index reload: {rust_error}")
                     logger.exception("Full stack trace:")
@@ -3297,12 +3370,14 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """Process pattern-based morphology using legacy pattern logic.
+        """Process pattern-based morphology using Rust batch processing.
 
-        ARCHITECTURE: Implements legacy find_destination_coordinates in FEAGI 2.0.
+        ARCHITECTURE: Uses Rust pattern matching for 100x+ performance.
         PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
+            from feagi_bdu import py_match_patterns
+            
             total_synapses = 0
             patterns = morphology_def.get("parameters", {}).get("patterns", [])
 
@@ -3312,89 +3387,106 @@ class NeuroEmbryogenesis:
                 )
                 return 0
 
-            # Get destination area dimensions
-            dst_area_props = (
-                self.connectome_manager.get_cortical_area_properties(
-                dst_area_id
-                )
-            )
-            if not dst_area_props:
-                logger.error(f"Cannot get properties for area {dst_area_id}")
+            # Get source and destination dimensions
+            src_area = self.connectome_manager.get_cortical_area(src_area_id)
+            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+            if not src_area or not dst_area:
+                logger.error(f"Cannot get areas: {src_area_id} or {dst_area_id}")
                 return 0
 
-            dst_dimensions = dst_area_props.get("dimensions", [1, 1, 1])
+            src_dimensions = src_area.dimensions
+            dst_dimensions = dst_area.dimensions
+            
+            # Convert Python patterns to Rust integer patterns
+            # -1 = wildcard "*", -2 = skip "?", -3 = exclude "!", >= 0 = exact value
+            def convert_pattern_element(elem):
+                if elem == "*":
+                    return -1
+                elif elem == "?":
+                    return -2
+                elif elem == "!":
+                    return -3
+                else:
+                    return int(elem)
+            
+            rust_patterns = []
+            for pattern in patterns:
+                if len(pattern) >= 2:
+                    src_pattern = tuple(convert_pattern_element(e) for e in pattern[0])
+                    dst_pattern = tuple(convert_pattern_element(e) for e in pattern[1])
+                    rust_patterns.append((src_pattern, dst_pattern))
+            
+            if not rust_patterns:
+                logger.warning("No valid patterns after conversion")
+                return 0
 
-            # Process each source neuron
-            for src_neuron_id in src_neurons:
-                try:
-                    # Get source neuron position
-                    src_pos = self._get_neuron_position(
-                        src_neuron_id, src_area_id
-                    )
-                    if not src_pos:
-                        continue
+            # Batch get all source positions
+            src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+            all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+            src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+            
+            # Filter to requested neurons
+            valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
+            
+            if not valid_neurons:
+                logger.warning("No valid source neurons with positions")
+                return 0
 
-                    synapse_connections = []
+            logger.info(f"🦀 RUST PATTERNS: Processing {len(valid_neurons)} neurons with {len(rust_patterns)} patterns")
+            
+            # Batch get ALL destination neurons ONCE
+            dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+            all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+            dst_pos_to_neurons = {}
+            for nid, x, y, z in all_dst_positions_data:
+                pos = (int(x), int(y), int(z))
+                if pos not in dst_pos_to_neurons:
+                    dst_pos_to_neurons[pos] = []
+                dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+            
+            # Process each source neuron with Rust pattern matching
+            all_synapse_connections = []
+            import time
+            start = time.time()
+            
+            for src_neuron_id in valid_neurons:
+                src_pos = src_pos_map[src_neuron_id]
+                
+                # Call Rust pattern matcher (FAST!)
+                matched_positions = py_match_patterns(
+                    src_pos,
+                    rust_patterns,
+                    src_dimensions,
+                    dst_dimensions
+                )
+                
+                # Match to actual neurons
+                for dst_pos in matched_positions:
+                    if dst_pos in dst_pos_to_neurons:
+                        for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                            all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+            
+            elapsed = (time.time() - start) * 1000
+            logger.info(f"🦀 RUST PATTERNS: {len(valid_neurons)} neurons → {len(all_synapse_connections)} synapses in {elapsed:.1f}ms")
 
-                    # Collect all candidate positions first (legacy approach)
-                    all_candidate_positions = set()
-
-                    # Process each pattern (legacy pattern logic)
-                    for pattern in patterns:
-                        if len(pattern) >= 2:
-                            source_pattern = pattern[0]
-                            destination_pattern = pattern[1]
-
-                            candidate_positions = list(
-                                find_destination_coordinates(
-                                    dst_cortical_boundary=tuple(
-                                        dst_dimensions
-                                    ),
-                                    src_coordinate=src_pos,
-                                    src_pattern=source_pattern,
-                                    dst_pattern=destination_pattern,
-                                )
-                            )
-
-                            # Collect positions for batch lookup
-                            for candidate_pos in candidate_positions:
-                                all_candidate_positions.add(candidate_pos)
-
-                    # Use legacy batch lookup for performance
-                    if all_candidate_positions:
-                        neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
-                                cortical_id=dst_area_id,
-                                candidate_positions=all_candidate_positions,
-                                post_synaptic_current=psc_multiplier,
-                        )
-
-                        # Convert to synapse connections
-                        for neuron_id, weight in neuron_weight_pairs:
-                            synapse_connections.append(
-                                (src_neuron_id, neuron_id, weight)
-                            )
-
-                    #  Create synapses in batch - Now using GlobalSynapseArray
-                    #  for optimal performance
-                    if synapse_connections:
-                        created = (
-                            self.connectome_manager.batch_create_synapses(
-                            synapse_connections
-                            )
-                        )
-                        total_synapses += created
-
-                except Exception as e:
-                    logger.warning(
-                        f"Error processing pattern morphology for neuron "
-                        f"{src_neuron_id}: {e}"
-                    )
-                    continue
+            # Create ALL synapses in ONE batch call
+            if all_synapse_connections:
+                total_synapses = self.connectome_manager.batch_create_synapses(
+                    all_synapse_connections
+                )
+                logger.info(
+                    f"✅ PATTERN BATCH: Created {total_synapses} synapses from {len(src_neurons)} source neurons"
+                )
 
             return total_synapses
 
+        except ImportError:
+            logger.error("Rust BDU not available for pattern processing. Run: cd feagi-rust && ./build_bdu.sh")
+            return 0
         except Exception as e:
             logger.error(f"Error in pattern morphology processing: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return 0
 
     def _process_function_morphology(
@@ -3458,6 +3550,201 @@ class NeuroEmbryogenesis:
                     f"[BDU DEBUG] Processing {len(src_neurons)} source neurons for {morphology_id}"
                 )
 
+            # Get synapse attractivity once (same for all neurons in area)
+            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+            synapse_attractivity = dst_area.properties.get("synatt", 100)
+
+            # Accumulate ALL synapses across all source neurons for single batch creation
+            all_synapse_connections = []
+
+            # RUST OPTIMIZATION: Batch process morphologies
+            logger.info(f"🔍 Checking morphology_id='{morphology_id}' (type={type(morphology_id)})")
+            
+            # PROJECTOR batch
+            if morphology_id.lower() == "projector":
+                logger.info(f"🦀 RUST BATCH: PROJECTOR for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_projector_batch
+                    import time
+                    start = time.time()
+                    
+                    # Batch get ALL neuron positions from Rust NPU (1 call instead of 49K)
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    
+                    # Build map: neuron_id -> position
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    # Filter to requested neurons
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    logger.info(f"🦀 Got {len(valid_neurons)} valid neurons with positions")
+                    
+                    if valid_neurons:
+                        # Batch call Rust (processes all neurons in parallel)
+                        results = py_syn_projector_batch(
+                            src_area_id, dst_area_id,
+                            valid_neurons, neuron_positions,
+                            src_area.dimensions, dst_area.dimensions,
+                            None, None
+                        )
+                        
+                        logger.info(f"🦀 Rust batch projection complete, getting destination neurons")
+                        
+                        # Batch get ALL destination positions (1 call instead of scanning each)
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        logger.info(f"🦀 Built destination map with {len(dst_pos_to_neurons)} positions")
+                        
+                        # Match source neurons to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            for dst_pos in results[src_idx]:
+                                if dst_pos in dst_pos_to_neurons:
+                                    for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                        if random.randrange(1, 100) < synapse_attractivity:
+                                            all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: {len(valid_neurons)} neurons projected in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    # Skip the loop - already processed
+                    src_neurons = []
+                    
+                except ImportError as e:
+                    logger.warning(f"Rust BDU not available - falling back to Python loop: {e}")
+                except Exception as e:
+                    logger.error(f"❌ RUST BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            # EXPANDER_X batch
+            elif morphology_id.lower() == "expander_x":
+                logger.info(f"🦀 RUST BATCH: EXPANDER_X for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_expander_batch
+                    import time
+                    start = time.time()
+                    
+                    # Batch get source positions
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    if valid_neurons:
+                        # Batch expand all neurons at once
+                        expanded_positions = py_syn_expander_batch(
+                            src_area_id, dst_area_id,
+                            neuron_positions,
+                            src_area.dimensions, dst_area.dimensions
+                        )
+                        
+                        # Batch get destination neurons
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        # Match source to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            dst_pos = expanded_positions[src_idx]
+                            if dst_pos in dst_pos_to_neurons:
+                                for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                    if random.randrange(1, 100) < synapse_attractivity:
+                                        all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: EXPANDER_X {len(valid_neurons)} neurons in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    src_neurons = []  # Skip loop
+                except Exception as e:
+                    logger.error(f"❌ EXPANDER BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            # BLOCK_CONNECTION batch
+            elif morphology_id.lower() == "block_connection":
+                logger.info(f"🦀 RUST BATCH: BLOCK_CONNECTION for {len(src_neurons)} neurons")
+                try:
+                    from feagi_bdu import py_syn_block_connection
+                    import time
+                    start = time.time()
+                    
+                    # Get scaling factor from morphology
+                    scaling_factor = morphology_scalar[0] if morphology_scalar else 10
+                    
+                    # Batch get source positions
+                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+                    
+                    valid_neurons = []
+                    neuron_positions = []
+                    for nid in src_neurons:
+                        if nid in src_pos_map:
+                            valid_neurons.append(nid)
+                            neuron_positions.append(src_pos_map[nid])
+                    
+                    if valid_neurons:
+                        # Batch process block connections
+                        mapped_positions = []
+                        for pos in neuron_positions:
+                            result = py_syn_block_connection(
+                                src_area_id, dst_area_id, pos,
+                                src_area.dimensions, dst_area.dimensions,
+                                scaling_factor
+                            )
+                            mapped_positions.append(result)
+                        
+                        # Batch get destination neurons
+                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+                        dst_pos_to_neurons = {}
+                        for nid, x, y, z in all_dst_positions_data:
+                            pos = (int(x), int(y), int(z))
+                            if pos not in dst_pos_to_neurons:
+                                dst_pos_to_neurons[pos] = []
+                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        
+                        # Match source to targets
+                        for src_idx, src_neuron_id in enumerate(valid_neurons):
+                            dst_pos = mapped_positions[src_idx]
+                            if dst_pos in dst_pos_to_neurons:
+                                for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
+                                    if random.randrange(1, 100) < synapse_attractivity:
+                                        all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                        
+                        elapsed = (time.time() - start) * 1000
+                        logger.info(f"🦀 RUST BATCH: BLOCK_CONNECTION {len(valid_neurons)} neurons in {elapsed:.1f}ms ({len(all_synapse_connections)} synapses)")
+                    
+                    src_neurons = []  # Skip loop
+                except Exception as e:
+                    logger.error(f"❌ BLOCK_CONNECTION BATCH FAILED: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+
             for src_neuron_id in src_neurons:
                 try:
                     if debug_bdu:
@@ -3476,64 +3763,17 @@ class NeuroEmbryogenesis:
                         memory_register=memory_register,
                     )
 
-                    #  Apply legacy synapse attractivity filtering (critical
-                    #  for proper behavior)
-                    dst_area = self.connectome_manager.get_cortical_area(
-                        dst_area_id
-                    )
-                    synapse_attractivity = dst_area.properties.get(
-                        "synatt", 100
-                    )
-
                     if debug_bdu:
                         logger.info(
                             f"[BDU DEBUG] Found {len(candidate_neurons)} candidate neurons"
                         )
-                        logger.info(
-                            f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
-                        )
 
-                    #  Create synapses from candidate neurons with
-                    #  probabilistic filtering
-                    synapse_connections = []
+                    # Apply synapse attractivity filtering and accumulate
                     for dst_neuron_id, weight in candidate_neurons:
-                        #  Legacy behavior: probabilistic synapse creation
-                        #  based on attractivity
                         if random.randrange(1, 100) < synapse_attractivity:
-                            synapse_connections.append(
+                            all_synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
-
-                    if debug_bdu:
-                        logger.info(
-                            f"[BDU DEBUG] After attractivity filtering: {len(synapse_connections)} synapses to create"
-                        )
-
-                    if synapse_connections:
-                        #  PERFORMANCE DEBUG: Time the batch_create_synapses
-                        #  call
-                        start_time = time.time()
-                        created = (
-                            self.connectome_manager.batch_create_synapses(
-                            synapse_connections
-                            )
-                        )
-                        end_time = time.time()
-                        elapsed_ms = (end_time - start_time) * 1000
-                        if elapsed_ms > 100:  # Log if > 100ms
-                            logger.warning(
-                                f"⚠️  PERFORMANCE: batch_create_synapses took {elapsed_ms:.1f}ms for {len(synapse_connections)} synapses"
-                            )
-                        total_synapses += created
-
-                        if debug_bdu:
-                            logger.info(
-                                f"[BDU DEBUG] Successfully created {created} synapses for neuron {src_neuron_id}"
-                            )
-                    elif debug_bdu:
-                        logger.info(
-                            f"[BDU DEBUG] No synapses created for neuron {src_neuron_id}"
-                        )
 
                 except Exception as e:
                     logger.warning(
@@ -3541,6 +3781,31 @@ class NeuroEmbryogenesis:
                         f"{src_neuron_id}: {e}"
                     )
                     continue
+
+            # Create ALL synapses in ONE batch call (massive performance improvement)
+            if all_synapse_connections:
+                if debug_bdu:
+                    logger.info(
+                        f"[BDU DEBUG] Creating {len(all_synapse_connections)} total synapses in single batch"
+                    )
+                
+                start_time = time.time()
+                created = self.connectome_manager.batch_create_synapses(
+                    all_synapse_connections
+                )
+                end_time = time.time()
+                elapsed_ms = (end_time - start_time) * 1000
+                
+                total_synapses += created
+                
+                logger.info(
+                    f"✅ BATCH SYNAPSE CREATION: {created} synapses created in {elapsed_ms:.1f}ms "
+                    f"({len(src_neurons)} source neurons → {dst_area_id})"
+                )
+            elif debug_bdu:
+                logger.info(
+                    f"[BDU DEBUG] No synapses created for {len(src_neurons)} source neurons"
+                )
 
             #  CRITICAL: Propagate memory register to ConnectomeManager for
             #  memory area tracking

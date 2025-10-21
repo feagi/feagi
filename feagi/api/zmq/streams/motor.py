@@ -140,27 +140,24 @@ class MotorStream:
         self._motor_data_task: Optional[asyncio.Task] = None
         self._subscriber_monitor_task: Optional[asyncio.Task] = None
 
-        # Optional SHM writer for core motor data and per-agent motor writers
-        self._shm_writer = None
-        self._agent_shm_writers: Dict[str, _ShmRingWriter] = {}
-        self._shm_lock = threading.Lock()
-        # Cache for area-type lookups to avoid hot-path metadata calls
-        self._area_is_opu_cache: Dict[str, bool] = {}
+        # 🦀 Rust SHM writer for motor output (100% Rust hot path!)
+        # NOTE: Attached lazily when first motor client registers (after burst loop starts)
+        self._rust_motor_shm_enabled = False
+        self._motor_shm_path = None
+        
+        # Store SHM path for later attachment (when burst loop is running)
         try:
             from feagi.core.state_manager import FeagiStateManager
-
             sm = FeagiStateManager.instance()
             shm = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-            motor_path = shm.get("motor_stream", "")
-            if motor_path:
-                with self._shm_lock:
-                    if self._shm_writer is None:
-                        self._shm_writer = _ShmRingWriter(Path(motor_path))
-                        logger.info(f"[SHM] Motor stream writing to: {motor_path}")
-            else:
-                logger.info("[SHM] Motor shared memory not configured; using ZMQ PUB only")
+            self._motor_shm_path = shm.get("motor_stream", "")
+            if self._motor_shm_path:
+                logger.info(f"𒓉 [SHM] Motor SHM path configured: {self._motor_shm_path} (will attach when burst loop starts)")
         except Exception as e:
-            logger.info(f"[SHM] Motor SHM registry unavailable; using ZMQ PUB only ({e})")
+            logger.debug(f"𒓉 [SHM] Failed to get motor SHM path: {e}")
+        
+        # Cache for area-type lookups to avoid hot-path metadata calls
+        self._area_is_opu_cache: Dict[str, bool] = {}
 
         # Register for genome state change notifications
         if hasattr(core_api, "register_genome_change_listener"):
@@ -255,12 +252,9 @@ class MotorStream:
         per-agent motor SHM mapping registered in the state manager.
         """
         try:
-            if self._shm_writer is not None:
+            # 🦀 Check for Rust motor SHM writer (enabled or configured)
+            if self._rust_motor_shm_enabled or self._motor_shm_path:
                 return True
-            # Check cached per-agent writers first
-            if getattr(self, "_agent_shm_writers", None):
-                if len(self._agent_shm_writers) > 0:
-                    return True
             # Check registry for any agent with a motor SHM path
             from feagi.core.state_manager import FeagiStateManager
             sm = FeagiStateManager.instance()
@@ -396,10 +390,7 @@ class MotorStream:
             self.socket.close()
             self.socket = None
 
-        # RTOS-friendly: Simple SHM cleanup
-        if self._shm_writer:
-            self._shm_writer.close()
-            self._shm_writer = None
+        # 🦀 Note: Rust motor SHM writer cleanup handled by BurstLoopRunner
 
         logger.info("Motor Stream server stopped")
 
@@ -739,6 +730,18 @@ class MotorStream:
                     "Motor stream in STANDBY mode, skipping data send"
                 )
                 return
+            
+            # 🦀 Attach Rust motor SHM writer (lazy, after burst loop starts)
+            if not self._rust_motor_shm_enabled and self._motor_shm_path and self.process_manager:
+                if hasattr(self.process_manager, 'rust_npu_integration'):
+                    rust_npu = self.process_manager.rust_npu_integration
+                    if rust_npu and hasattr(rust_npu, '_rust_npu'):
+                        try:
+                            rust_npu._rust_npu.attach_motor_shm_writer(str(self._motor_shm_path))
+                            self._rust_motor_shm_enabled = True
+                            logger.info(f"🦀 [SHM] Rust motor SHM writer attached: {self._motor_shm_path}")
+                        except Exception as e:
+                            logger.warning(f"🦀 [SHM] Failed to attach Rust motor writer: {e} (will retry)")
 
             #  Debug logging for outbound motor data (gated)
             try:
@@ -755,18 +758,14 @@ class MotorStream:
             except Exception:
                 pass
 
-            # Write to SHM if configured
-            if self._shm_writer:
+            # 🦀 Write to Rust SHM if enabled
+            if self._rust_motor_shm_enabled and self.process_manager and hasattr(self.process_manager, 'rust_npu_integration'):
                 try:
-                    self._shm_writer.write_payload(binary_data)
-                    try:
-                        from feagi.core.state_manager import FeagiStateManager
-                        if FeagiStateManager.instance().is_debug_zmq_outbound_enabled():
-                            logger.info(f"[MOTOR-DEBUG] Wrote {len(binary_data)} bytes to core motor SHM")
-                    except Exception:
-                        pass
+                    rust_npu = self.process_manager.rust_npu_integration
+                    if rust_npu and hasattr(rust_npu, '_rust_npu'):
+                        rust_npu._rust_npu.write_motor_shm(binary_data)
                 except Exception as e:
-                    logger.debug(f"[SHM] Motor write failed: {e}")
+                    logger.error(f"[SHM] Error writing Rust motor SHM: {e}")
             # Also fan-out to per-agent motor SHM files if available
             try:
                 from feagi.core.state_manager import FeagiStateManager

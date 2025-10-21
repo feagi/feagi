@@ -45,7 +45,9 @@ class HeartbeatCoordinator:
         self._agent_statuses: Dict[str, AgentHeartbeatStatus] = {}
         self._cleanup_callbacks: Dict[str, Callable[[str], None]] = {}
         self._monitor_task: Optional[asyncio.Task] = None
+        self._monitor_thread: Optional[threading.Thread] = None
         self._running = False
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         
         logger.info("💗 Agent Heartbeat Coordinator initialized")
     
@@ -148,27 +150,46 @@ class HeartbeatCoordinator:
             return self._agent_statuses.copy()
     
     def start_monitoring(self) -> None:
-        """Start the heartbeat monitoring task."""
+        """Start the heartbeat monitoring task in a separate thread."""
         if self._running:
             logger.warning("Heartbeat monitoring already running")
             return
             
         self._running = True
-        self._monitor_task = asyncio.create_task(self._monitor_heartbeats())
-        logger.info("💗 Started heartbeat monitoring task")
+        
+        # Run monitoring in a dedicated thread with its own event loop
+        def run_monitoring():
+            """Run the monitoring loop in a separate thread."""
+            try:
+                # Create a new event loop for this thread
+                self._loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self._loop)
+                
+                # Run the monitoring coroutine
+                self._loop.run_until_complete(self._monitor_heartbeats())
+            except Exception as e:
+                logger.error(f"Error in heartbeat monitoring thread: {e}")
+            finally:
+                if self._loop:
+                    self._loop.close()
+        
+        self._monitor_thread = threading.Thread(
+            target=run_monitoring,
+            daemon=True,
+            name="HeartbeatMonitor"
+        )
+        self._monitor_thread.start()
+        logger.info("💗 Started heartbeat monitoring thread")
     
-    async def stop_monitoring(self) -> None:
+    def stop_monitoring(self) -> None:
         """Stop the heartbeat monitoring task."""
         self._running = False
         
-        if self._monitor_task:
-            try:
-                self._monitor_task.cancel()
-                await self._monitor_task
-            except asyncio.CancelledError:
-                pass
+        # Wait for the monitoring thread to finish
+        if self._monitor_thread and self._monitor_thread.is_alive():
+            self._monitor_thread.join(timeout=2.0)
             
-        logger.info("💔 Stopped heartbeat monitoring task")
+        logger.info("💔 Stopped heartbeat monitoring")
     
     async def _monitor_heartbeats(self) -> None:
         """Monitor agent heartbeats and handle timeouts."""

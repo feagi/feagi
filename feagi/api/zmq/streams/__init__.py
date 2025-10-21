@@ -23,12 +23,56 @@ from .base_stream import (
     StreamMode,
     UnidirectionalStream,
 )
-from .motor import MotorStream
-from .rest import RestStream
 
-# Import actual streams from their files
-from .sensory_neural import SensoryNeuralStream as SensoryStream
-from .visualization import VisualizationStream
+# 🦀 ALL ZMQ STREAMS NOW 100% RUST (feagi-pns crate)
+# These stub classes exist only for backward compatibility
+# Actual ZMQ streams are in: feagi-rust/crates/feagi-pns/src/zmq/
+
+class SensoryNeuralStream:
+    """Stub class - sensory injection now handled by Rust burst engine.
+    Actual implementation: feagi-burst-engine/src/sensory/
+    """
+    def __init__(self, *args, **kwargs):
+        pass
+    async def start(self):
+        pass
+    async def stop(self):
+        pass
+
+class MotorStream:
+    """Stub class - motor output now handled by Rust PNS.
+    Actual implementation: feagi-pns/src/zmq/motor.rs
+    """
+    def __init__(self, *args, **kwargs):
+        pass
+    async def start(self):
+        pass
+    async def stop(self):
+        pass
+
+class VisualizationStream:
+    """Stub class - visualization output now handled by Rust PNS.
+    Actual implementation: feagi-pns/src/zmq/visualization.rs
+    """
+    def __init__(self, *args, **kwargs):
+        pass
+    async def start(self):
+        pass
+    async def stop(self):
+        pass
+
+class RestStream:
+    """Stub class - REST/registration now handled by Rust PNS.
+    Actual implementation: feagi-pns/src/zmq/rest.rs
+    """
+    def __init__(self, *args, **kwargs):
+        pass
+    async def start(self):
+        pass
+    async def stop(self):
+        pass
+
+SensoryStream = SensoryNeuralStream  # Alias for compatibility
 
 __all__ = [
     # Main stream implementations

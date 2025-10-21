@@ -37,6 +37,10 @@ pub mod npu;
 pub mod fire_structures;
 pub mod fire_ledger;
 pub mod fq_sampler;
+pub mod sensory;  // Rust sensory injection system
+pub mod burst_loop_runner;  // Pure Rust burst loop
+pub mod viz_shm_writer;  // Rust visualization SHM writer
+pub mod motor_shm_writer;  // Rust motor SHM writer
 
 pub use backend::*;
 pub use synaptic_propagation::*;
@@ -45,6 +49,9 @@ pub use npu::*;
 pub use fire_structures::*;
 pub use fire_ledger::*;
 pub use fq_sampler::*;
+pub use sensory::*;
+pub use viz_shm_writer::*;
+pub use burst_loop_runner::*;
 
 /// Burst engine performance statistics
 #[derive(Debug, Clone, Default)]

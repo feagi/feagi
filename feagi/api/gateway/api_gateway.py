@@ -23,7 +23,11 @@ import os
 import threading
 import time
 from queue import Queue
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Import for type hints only, avoid circular import at runtime
+    from feagi.api import ZmqClient
 
 from feagi.utils.logger import setup_logger
 
@@ -32,7 +36,6 @@ logger = setup_logger(__name__)
 from feagi.api.core.services import CoreAPIService
 from feagi.api.protocols.constants import ProtocolID
 from feagi.api.protocols.translator import ByteStructureTranslator
-from feagi.api.zmq.client import ZmqClient
 
 
 class RateLimiter:
@@ -231,6 +234,8 @@ class APIGateway:
                 zmq_stream_port = port_config.zmq_sensory_port
 
                 logger.info(f"Initializing ZMQ client to {zmq_host}")
+                # Lazy import to avoid circular dependency
+                from feagi.api import ZmqClient  # Deprecated stub
                 self._zmq_client = ZmqClient(
                     host=zmq_host,
                     req_port=zmq_req_port,
@@ -417,7 +422,7 @@ class APIGateway:
         return self._core_api
 
     @property
-    def zmq_client(self) -> Optional[ZmqClient]:
+    def zmq_client(self) -> Optional["ZmqClient"]:
         """Get the ZMQ client if available."""
         return self._zmq_client
 

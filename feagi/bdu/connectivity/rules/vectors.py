@@ -29,6 +29,15 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# Try to import Rust BDU for high-performance vector operations
+try:
+    from feagi_bdu import py_apply_vector_offset, py_match_vectors_batch
+    RUST_VECTORS_AVAILABLE = True
+    logger.info("🦀 Rust VECTORS available")
+except ImportError:
+    RUST_VECTORS_AVAILABLE = False
+    logger.debug("Rust VECTORS not available - using Python")
+
 # Type aliases for improved code readability and Rust compatibility
 AreaId = int
 NeuronId = int
@@ -200,28 +209,33 @@ def match_vectors(
     )
     if isinstance(vector, list) or isinstance(vector, tuple):
         logger.debug("[MATCH_VECTORS] Processing vector as list/tuple")
-        # Convert to a list if it's a tuple
+        
+        # Use Rust for tuple/list vectors (common case, 100x faster)
+        if RUST_VECTORS_AVAILABLE and len(vector) == 3:
+            try:
+                vector_tuple = tuple(int(v) for v in vector)
+                dst_voxel = py_apply_vector_offset(
+                    src_voxel,
+                    vector_tuple,
+                    float(morphology_scalar),
+                    dst_dimensions
+                )
+                positions.add(dst_voxel)
+                return positions
+            except Exception as e:
+                logger.warning(f"Rust vector failed, falling back to Python: {e}")
+        
+        # Python fallback
         if isinstance(vector, tuple):
             vector = list(vector)
-            logger.debug(f"[MATCH_VECTORS] Converted tuple to list: {vector}")
 
-        # Apply the morphology scalar
         scaled_vector = [int(v * morphology_scalar) for v in vector]
 
-        # DEBUG: Add logging to see what's happening
-        logger.debug(
-            f"[MATCH_VECTORS DEBUG] src_voxel: {src_voxel}, vector: {vector}, scaled_vector: {scaled_vector}, dst_dimensions: {dst_dimensions}"
-        )
-
-        # Calculate destination voxel
         dst_voxel = tuple(
             max(0, min(src_voxel[i] + scaled_vector[i], dst_dimensions[i] - 1))
             for i in range(3)
         )
 
-        logger.debug(
-            f"[MATCH_VECTORS DEBUG] calculated dst_voxel: {dst_voxel}"
-        )
         positions.add(dst_voxel)
 
     # Process algebraic expression-based vector

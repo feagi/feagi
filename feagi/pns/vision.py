@@ -15,20 +15,19 @@
 #  ==============================================================================
 
 
-from feagi.bdu.connectivity.mapping_utils import build_power_connections
-from feagi.bdu.connectivity.synaptogenesis import neighbor_finder
+from feagi.bdu.utils.mapping_utils import build_power_connections, neighbor_finder
 from feagi.core.state_manager import FeagiStateManager
 
 central_vision_cortical_area = "iic400"
 peripheral_vision_cortical_areas = [
-    "iv00TR",
-    "iv00TL",
-    "iv00TM",
-    "iv00MR",
-    "iv00ML",
-    "iic200",
     "iic000",
     "iic100",
+    "iic200",
+    "iic300",
+    "iic500",
+    "iic600",
+    "iic700",
+    "iic800",
 ]
 
 

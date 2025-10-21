@@ -23,12 +23,12 @@ from feagi.utils import check_dependencies, verify_dependencies
 
 def test_check_dependencies():
     """Test that check_dependencies returns a tuple with expected types."""
-    # Get the path to requirements.txt
-    feagi_root = Path(__file__).parent.parent.parent
-    requirements_path = str(feagi_root / "requirements.txt")
+    # Get the path to pyproject.toml
+    feagi_root = Path(__file__).parent.parent.parent.parent
+    pyproject_path = str(feagi_root / "pyproject.toml")
 
     # Run the check
-    is_compatible, error_messages = check_dependencies(requirements_path)
+    is_compatible, error_messages = check_dependencies(pyproject_path)
 
     # Verify return types
     assert isinstance(is_compatible, bool)
@@ -41,12 +41,12 @@ def test_check_dependencies():
 
 def test_verify_dependencies():
     """Test that verify_dependencies returns a boolean."""
-    # Get the path to requirements.txt
-    feagi_root = Path(__file__).parent.parent.parent
-    requirements_path = str(feagi_root / "requirements.txt")
+    # Get the path to pyproject.toml
+    feagi_root = Path(__file__).parent.parent.parent.parent
+    pyproject_path = str(feagi_root / "pyproject.toml")
 
     # Run the verification
-    result = verify_dependencies(requirements_path, raise_exception=False)
+    result = verify_dependencies(pyproject_path, raise_exception=False)
 
     # Verify return type
     assert isinstance(result, bool)

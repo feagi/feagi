@@ -150,8 +150,8 @@ class RegistrationManager:
         Canonical keys allowed:
         - video: bool | { enabled: bool } (raw video preview)
         - feagi: bool | { enabled: bool } (FEAGI processed video - segmented mosaic)
-        - sensory: bool | { enabled: bool }
-        - visualization: bool | { enabled: bool }
+        - sensory: bool | { enabled: bool, rate_hz: number }
+        - visualization: bool | { enabled: bool, rate_hz: number }
         - motor: bool | { enabled: bool, sampling_frequency_hz: number|"burst", prefer_shm: bool }
 
         Aliases are deprecated and will be removed. For now we WARN and map:
@@ -195,7 +195,10 @@ class RegistrationManager:
                     break
         if viz_value is not None:
             if isinstance(viz_value, dict):
-                sanitized["visualization"] = {"enabled": bool(viz_value.get("enabled", True))}
+                allowed = {"enabled": bool(viz_value.get("enabled", True))}
+                if "rate_hz" in viz_value:
+                    allowed["rate_hz"] = viz_value.get("rate_hz")
+                sanitized["visualization"] = allowed
             else:
                 sanitized["visualization"] = bool(viz_value)
 
@@ -203,7 +206,10 @@ class RegistrationManager:
         sens_value = capabilities.get("sensory")
         if sens_value is not None:
             if isinstance(sens_value, dict):
-                sanitized["sensory"] = {"enabled": bool(sens_value.get("enabled", True))}
+                allowed = {"enabled": bool(sens_value.get("enabled", True))}
+                if "rate_hz" in sens_value:
+                    allowed["rate_hz"] = sens_value.get("rate_hz")
+                sanitized["sensory"] = allowed
             else:
                 sanitized["sensory"] = bool(sens_value)
 
@@ -313,6 +319,36 @@ class RegistrationManager:
                 else:
                     logger.info(f"✅ New agent '{agent_id}' registering")
 
+                # 4a. Extract capability rates BEFORE sanitization (sanitizer removes rate_hz!)
+                capability_rates_to_register = []
+                try:
+                    from feagi.core.capability_rate_manager import get_capability_rate_manager
+                    from feagi.api.v1.capability_rates import CapabilityType, CapabilityRateSpec
+                    
+                    for cap_name, cap_config in request.capabilities.items():
+                        cap_type = None
+                        requested_rate = 10.0  # Default
+                        
+                        if cap_name.lower() in ["sensory", "sensor", "input", "sensors"]:
+                            cap_type = CapabilityType.SENSORY
+                        elif cap_name.lower() in ["motor", "output", "actuator", "motors"]:
+                            cap_type = CapabilityType.MOTOR
+                        elif cap_name.lower() in ["visualization", "viz"]:
+                            cap_type = CapabilityType.VISUALIZATION
+                        
+                        if cap_type and isinstance(cap_config, dict):
+                            if "rate_hz" in cap_config:
+                                requested_rate = float(cap_config["rate_hz"])
+                                logger.warning(f"🎯 [REG-RATE] Found {cap_name} rate_hz={requested_rate} for {agent_id}")
+                            
+                            capability_rates_to_register.append(CapabilityRateSpec(
+                                capability_type=cap_type,
+                                requested_rate_hz=requested_rate,
+                                required=True
+                            ))
+                except Exception as e:
+                    logger.error(f"❌ Error extracting capability rates for {agent_id}: {e}")
+
                 # 4. Sanitize capabilities (deprecation-aware) and create/update agent entry
                 caps_sanitized = self._sanitize_capabilities(request.capabilities)
                 agent_data = {
@@ -344,7 +380,7 @@ class RegistrationManager:
                     fq_coordination_result,
                 )
 
-                # 8. Update State Manager - call register_agent method
+                # 8. Update State Manager FIRST - agent must be in connected_agents before capability rates can be persisted
                 if self._state_manager:
                     try:
                         # Proactively clear any stale SHM mappings on re-registration
@@ -368,6 +404,29 @@ class RegistrationManager:
                         logger.error(
                             f"❌ Error calling state manager register_agent: {e}"
                         )
+
+                # 8b. NOW register capability rates (agent is in state manager's connected_agents)
+                try:
+                    from feagi.core.capability_rate_manager import get_capability_rate_manager
+                    
+                    logger.warning(f"🔍 [REG-RATE-DEBUG] capability_rates_to_register has {len(capability_rates_to_register)} specs")
+                    for spec in capability_rates_to_register:
+                        logger.warning(f"   - Spec: {spec.capability_type} @ {spec.requested_rate_hz} Hz")
+                    
+                    if capability_rates_to_register:
+                        capability_manager = get_capability_rate_manager()
+                        logger.warning(f"🔍 [REG-INSTANCE] Using capability_manager id={id(capability_manager)} for {agent_id}")
+                        approved_configs, rejections = capability_manager.register_agent_capabilities(
+                            agent_id, capability_rates_to_register
+                        )
+                        logger.warning(f"✅ [REG-RATE] Registered {len(approved_configs)} capability rates for {agent_id}")
+                        for config in approved_configs:
+                            logger.warning(f"   - {config.capability_type}: {config.approved_rate_hz} Hz")
+                        if rejections:
+                            logger.warning(f"⚠️ [REG-RATE] Some capabilities were rejected: {rejections}")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Failed to register capability rates for {agent_id}: {e}", exc_info=True)
 
                 # 9. Notify state change listeners
                 self._notify_state_change(
@@ -395,6 +454,113 @@ class RegistrationManager:
 
                 # Determine available transports and recommend best option
                 transport_info = self._get_transport_info(request, caps_sanitized)
+
+                # 🦀 RUST SENSORY INJECTION: Register agent with Rust NPU for direct SHM polling
+                # ⚠️ IMPORTANT: This must happen AFTER _get_transport_info creates SHM files!
+                sensory_spec = next((s for s in capability_rates_to_register if s.capability_type == CapabilityType.SENSORY), None)
+                if sensory_spec:
+                    try:
+                        # Get Rust NPU instance
+                        from feagi.process_manager import get_process_manager
+                        pm = get_process_manager()
+                        rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
+                        
+                        if rust_npu_integration and rust_npu_integration._rust_npu:
+                            # Get SHM path from transport_info (already created by _get_transport_info)
+                            shm_path = transport_info.get("shm_paths", {}).get("sensory")
+                            
+                            if shm_path:
+                                # Get cortical area mapping from genome (for coordinate lookup)
+                                area_mapping = {}
+                                try:
+                                    if hasattr(pm, '_connectome_manager') and pm._connectome_manager:
+                                        connectome = pm._connectome_manager
+                                        if hasattr(connectome, 'cortical_areas'):
+                                            for area_id, area_obj in connectome.cortical_areas.items():
+                                                if hasattr(area_obj, 'cortical_idx'):
+                                                    area_mapping[str(area_id)] = int(area_obj.cortical_idx)
+                                            logger.debug(f"🦀 [RUST-SENSORY] Extracted {len(area_mapping)} cortical area mappings for {agent_id}")
+                                except Exception as mapping_err:
+                                    logger.warning(f"⚠️ Failed to extract area mapping: {mapping_err}")
+                                
+                                # Get approved sensory rate
+                                sensory_config = next((c for c in approved_configs if c.capability_type == CapabilityType.SENSORY), None)
+                                sensory_rate_hz = sensory_config.approved_rate_hz if sensory_config else sensory_spec.requested_rate_hz
+                                
+                                # 🔧 PRE-CREATE SHM FILE: Rust thread needs the file to exist BEFORE it starts
+                                # The agent will overwrite this later, but we need the skeleton now
+                                try:
+                                    import os
+                                    import mmap
+                                    import struct
+                                    # Create LatestOnly SHM header format
+                                    MAGIC = b"FEAGILAT"
+                                    VERSION = 1
+                                    HEADER_SIZE = 256
+                                    MAX_PAYLOAD = 16 * 1024 * 1024  # 16MB
+                                    total_size = HEADER_SIZE + MAX_PAYLOAD
+                                    
+                                    # Create and initialize file
+                                    fd = os.open(shm_path, os.O_RDWR | os.O_CREAT, 0o600)
+                                    os.ftruncate(fd, total_size)
+                                    mm = mmap.mmap(fd, total_size, access=mmap.ACCESS_WRITE)
+                                    
+                                    # Write header
+                                    header = struct.pack(
+                                        "<8sIIIQQII212s",
+                                        MAGIC, VERSION, MAX_PAYLOAD, os.getpid(),
+                                        0, 0, 0, 0, b'\x00' * 212
+                                    )
+                                    mm[0:HEADER_SIZE] = header
+                                    mm.flush()
+                                    os.fsync(fd)
+                                    mm.close()
+                                    os.close(fd)
+                                    logger.info(f"📝 [FEAGI-SHM] Pre-created sensory SHM file: {shm_path} ({total_size} bytes)")
+                                except Exception as shm_err:
+                                    logger.warning(f"⚠️ Failed to pre-create SHM file (Rust will retry): {shm_err}")
+                                
+                                # Register with Rust NPU (SHM file now exists!)
+                                logger.info(f"🦀 [RUST-SENSORY] Registering {agent_id}: shm={shm_path}, rate={sensory_rate_hz}Hz")
+                                try:
+                                    rust_npu_integration._rust_npu.register_sensory_agent(
+                                        agent_id=agent_id,
+                                        shm_path=shm_path,
+                                        rate_hz=sensory_rate_hz,
+                                        area_mapping=area_mapping
+                                    )
+                                    logger.info(f"🦀 [RUST-SENSORY] ✅ Successfully registered {agent_id} for Rust SHM polling")
+                                except RuntimeError as reg_err:
+                                    if "already registered" in str(reg_err).lower():
+                                        # Agent reconnecting - force cleanup of old thread first
+                                        logger.warning(f"🔄 [RUST-SENSORY] {agent_id} already registered - cleaning up old thread...")
+                                        try:
+                                            rust_npu_integration._rust_npu.deregister_sensory_agent(agent_id)
+                                            logger.info(f"🧹 [RUST-SENSORY] Cleaned up old thread for {agent_id}")
+                                            # Retry registration
+                                            rust_npu_integration._rust_npu.register_sensory_agent(
+                                                agent_id=agent_id,
+                                                shm_path=shm_path,
+                                                rate_hz=sensory_rate_hz,
+                                                area_mapping=area_mapping
+                                            )
+                                            logger.info(f"🦀 [RUST-SENSORY] ✅ Successfully re-registered {agent_id} after cleanup")
+                                        except Exception as cleanup_err:
+                                            logger.error(f"❌ Failed to cleanup and re-register {agent_id}: {cleanup_err}")
+                                            raise
+                                    else:
+                                        raise
+                            else:
+                                logger.warning(f"⚠️ No sensory SHM path found for {agent_id} - skipping Rust registration")
+                        else:
+                            logger.debug(f"⚠️ Rust NPU not available - sensory agent {agent_id} will use Python polling")
+                    except RuntimeError as rust_err:
+                        if "Burst loop not running" in str(rust_err):
+                            logger.warning(f"⏳ Burst loop not running yet - {agent_id} should reconnect after genome is loaded")
+                        else:
+                            logger.error(f"❌ Failed to register Rust sensory agent {agent_id}: {rust_err}", exc_info=True)
+                    except Exception as rust_err:
+                        logger.error(f"❌ Failed to register Rust sensory agent {agent_id}: {rust_err}", exc_info=True)
 
                 return AgentRegistrationResponse(
                     success=True,
@@ -457,6 +623,19 @@ class RegistrationManager:
                         logger.error(
                             f"❌ Error calling state manager deregister_agent: {e}"
                         )
+                
+                # 5b. 🦀 RUST SENSORY INJECTION: Deregister from Rust NPU
+                if agent_capabilities.get("sensory") or agent_capabilities.get("sensor"):
+                    try:
+                        from feagi.process_manager import get_process_manager
+                        pm = get_process_manager()
+                        rust_npu_integration = getattr(pm, 'rust_npu_integration', None)
+                        
+                        if rust_npu_integration and rust_npu_integration._rust_npu:
+                            rust_npu_integration._rust_npu.deregister_sensory_agent(agent_id)
+                            logger.info(f"🦀 [RUST-SENSORY] Deregistered {agent_id} from Rust SHM polling")
+                    except Exception as rust_err:
+                        logger.warning(f"⚠️ Failed to deregister Rust sensory agent {agent_id}: {rust_err}")
 
                 # 6. Coordinate FQ samplers based on remaining agents
                 fq_coordination_result = (
@@ -863,15 +1042,17 @@ class RegistrationManager:
         try:
             # Handle visualization FQ sampler
             if self._has_visualization_capabilities(capabilities):
+                # ALWAYS extract frequency from agent (first registration OR re-registration)
+                viz_frequency = 30.0  # Default visualization frequency
+                
+                # Priority 1: Use rate_hz from agent capabilities if provided
+                if isinstance(capabilities.get("visualization"), dict):
+                    requested_rate = capabilities["visualization"].get("rate_hz")
+                    if requested_rate and isinstance(requested_rate, (int, float)) and requested_rate > 0:
+                        viz_frequency = float(requested_rate)
+                        logger.info(f"🎨 [FREQ-AGENT] Using agent-requested visualization frequency: {viz_frequency}Hz")
+                
                 if not self._fq_sampler_states["visualization_enabled"]:
-                    # Get frequency from config or use default
-                    viz_frequency = 30.0  # Default visualization frequency
-                    if hasattr(self._process_manager, "_fq_sampler_config"):
-                        viz_frequency = (
-                            self._process_manager._fq_sampler_config.get(
-                                "visualization_frequency", 30.0
-                            )
-                        )
 
                     # Use minimum of viz_frequency and FEAGI burst frequency
                     #  STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst
@@ -884,11 +1065,20 @@ class RegistrationManager:
 
                         state_manager = FeagiStateManager.instance()
                         burst_frequency = state_manager.get_burst_frequency()
+                        
+                        logger.warning(
+                            f"🔍 [FQ-DEBUG] Agent requested: {original_viz_frequency}Hz, "
+                            f"Burst engine from state manager: {burst_frequency}Hz"
+                        )
 
                         if burst_frequency and burst_frequency > 0:
-                            viz_frequency = min(viz_frequency, burst_frequency)
-                            logger.info(
-                                f"🎨 [FREQ-SYNC] STATE MANAGER: Using min(viz={original_viz_frequency}Hz, burst={burst_frequency}Hz) = {viz_frequency}Hz"
+                            # DON'T CAP: Allow FQ sampler to request higher frequency than burst
+                            # Rust FQ sampler will internally limit itself based on data availability
+                            # viz_frequency = min(viz_frequency, burst_frequency)
+                            viz_frequency = original_viz_frequency  # Use agent-requested frequency
+                            logger.warning(
+                                f"🎨 [FREQ-SYNC] Using agent-requested frequency: {viz_frequency}Hz "
+                                f"(burst engine: {burst_frequency}Hz - FQ sampler will auto-limit based on data availability)"
                             )
                         else:
                             logger.warning(
@@ -911,7 +1101,7 @@ class RegistrationManager:
                         logger.error(
                             "🎨 [ERROR] Failed to create visualization FQ sampler"
                         )
-
+                
                 #  CRITICAL: Notify ALL existing FQ samplers that visualization
                 #  client connected
                 self._notify_existing_fq_samplers_visualization(True)
@@ -1045,9 +1235,10 @@ class RegistrationManager:
             f"Notifying all FQ samplers: Visualization clients connected = {has_clients}"
         )
 
-        # Notify Process Manager's FQ samplers
+        # Notify Process Manager's FQ samplers (if using legacy Python FQ sampler)
+        # NOTE: With Rust burst loop, this is no longer needed - Rust writes to SHM automatically
         if self._process_manager:
-            if hasattr(self._process_manager, "_viz_fq_sampler"):
+            if hasattr(self._process_manager, "_viz_fq_sampler") and self._process_manager._viz_fq_sampler is not None:
                 try:
                     self._process_manager._viz_fq_sampler.set_visualization_subscribers(
                         has_clients
@@ -1056,9 +1247,11 @@ class RegistrationManager:
                         f"🎨 Notified Process Manager visualization FQ sampler: {has_clients}"
                     )
                 except Exception as e:
-                    logger.error(
-                        f"Error notifying Process Manager viz FQ sampler: {e}"
+                    logger.debug(
+                        f"Could not notify Process Manager viz FQ sampler: {e}"
                     )
+            else:
+                logger.debug("🦀 Using Rust burst loop - no Python FQ sampler notification needed")
 
         # Notify ZMQ Server's FQ samplers
         zmq_server = None

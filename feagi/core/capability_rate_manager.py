@@ -164,6 +164,8 @@ class CapabilityRateManager:
             
             # Store registry
             self._agent_registries[agent_id] = registry
+            logger.warning(f"🔍 [CAP-MGR-STORE] Stored {agent_id} in _agent_registries (total now: {len(self._agent_registries)})")
+            logger.warning(f"   - Registry has {len(registry.capabilities)} capabilities: {list(registry.capabilities.keys())}")
             
             # Persist to state manager
             self._persist_agent_capabilities(agent_id, registry)
@@ -176,8 +178,10 @@ class CapabilityRateManager:
             registry = self._agent_registries.pop(agent_id, None)
             if registry:
                 self._remove_agent_capabilities_from_state(agent_id)
-                logger.info(f"Deregistered all capabilities for agent {agent_id}")
+                logger.warning(f"🔥 [CAP-MGR-REMOVE] Deregistered {agent_id} from _agent_registries (total now: {len(self._agent_registries)})")
                 return True
+            else:
+                logger.warning(f"⚠️ [CAP-MGR-REMOVE] Tried to deregister {agent_id} but it wasn't in _agent_registries!")
             return False
     
     def get_agents_for_capability_polling(
@@ -201,6 +205,24 @@ class CapabilityRateManager:
         agents_to_poll = []
         
         with self._lock:
+            # DEBUG: Log what we have
+            if not hasattr(self, '_debug_log_time'):
+                self._debug_log_time = time.time()
+            if time.time() - self._debug_log_time >= 5.0:
+                logger.warning(f"🔍 [CAP-MGR-DEBUG] Checking {capability_type.value} polling:")
+                logger.warning(f"   - Total agent registries: {len(self._agent_registries)}")
+                for agent_id, registry in self._agent_registries.items():
+                    rate_config = registry.get_capability_rate(capability_type)
+                    if rate_config:
+                        should_poll = rate_config.should_poll_now(current_time_ns)
+                        elapsed_ns = current_time_ns - rate_config.last_poll_time_ns if rate_config.last_poll_time_ns > 0 else 0
+                        elapsed_ms = elapsed_ns / 1_000_000
+                        logger.warning(f"   - {agent_id}: {rate_config.approved_rate_hz}Hz, should_poll={should_poll}, "
+                                     f"last_poll={elapsed_ms:.1f}ms ago, interval={rate_config.poll_interval_ns/1_000_000:.1f}ms")
+                    else:
+                        logger.warning(f"   - {agent_id}: NO {capability_type.value} capability")
+                self._debug_log_time = time.time()
+            
             for registry in self._agent_registries.values():
                 rate_config = registry.get_capability_rate(capability_type)
                 if rate_config and rate_config.should_poll_now(current_time_ns):
