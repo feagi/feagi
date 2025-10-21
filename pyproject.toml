@@ -26,8 +26,10 @@ classifiers = [
 dependencies = [
     "numpy>=1.20.0",
     "pyzmq>=24.0.0",
-    "feagi-rust-py-libs>=0.0.73",
     "aiohttp>=3.9.0",
+    # Note: feagi-agent-sdk-py must be installed separately for new client:
+    #   cd feagi_core/feagi-rust/crates/feagi-agent-sdk-py
+    #   maturin develop --release
 ]
 
 [project.optional-dependencies]

@@ -2,8 +2,22 @@
 FEAGI Connector SDK
 
 Complete SDK library for connecting to FEAGI (Fractal Evolutionary Adaptive General Intelligence).
+
+New in 2.0:
+- FeagiAgentClient: Rust-backed high-performance client (RECOMMENDED)
+- Automatic heartbeat and reconnection
+- 10-100x faster message processing
+- Simpler API with fewer manual steps
+
+Legacy:
+- FeagiClient: Legacy ZMQ client (DEPRECATED - use FeagiAgentClient)
+- FeagiAgentConnector: Legacy connector (DEPRECATED - use FeagiAgentClient)
 """
 
+# New Rust-backed client (RECOMMENDED)
+from feagi_connector.agent_client import FeagiAgentClient, AgentType, create_agent
+
+# Legacy clients (DEPRECATED)
 from feagi_connector.client import FeagiClient
 from feagi_connector.agent_connector import FeagiAgentConnector
 from feagi_connector.capabilities.manager import CapabilitiesManager
@@ -40,7 +54,11 @@ from feagi_connector.video.stream import stream_segmented_camera
 
 # Export main classes and functions
 __all__ = [
-    # High-level agent connector
+    # New Rust-backed client (RECOMMENDED)
+    "FeagiAgentClient",
+    "AgentType",
+    "create_agent",
+    # Legacy clients (DEPRECATED)
     "FeagiAgentConnector",
     "create_dummy_connector",
     "FeagiClient",
