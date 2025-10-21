@@ -545,6 +545,33 @@ class ProcessManager:
                     logger.info(
                         "🏛️ Registration Manager initialized - central agent coordination ready"
                     )
+                    
+                    # Start ZMQ registration listener
+                    try:
+                        from feagi.pns.zmq_registration_listener import ZmqRegistrationListener
+                        
+                        # Get registration port from config (default 5000)
+                        registration_port = 5000
+                        try:
+                            config = load_feagi_config()
+                            registration_port = config.get("agent", {}).get("registration_port", 5000)
+                        except Exception:
+                            pass
+                        
+                        zmq_reg_listener = ZmqRegistrationListener(
+                            registration_manager=registration_manager,
+                            host="*",
+                            port=registration_port
+                        )
+                        zmq_reg_listener.start()
+                        
+                        # Store for later access
+                        self._zmq_registration_listener = zmq_reg_listener
+                        logger.info(f"🦀 ZMQ registration listener started on port {registration_port}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to start ZMQ registration listener: {e}")
+                        # Non-fatal - REST API registration still works
                 else:
                     logger.error(
                         "❌ Failed to initialize Registration Manager"
@@ -1177,6 +1204,7 @@ class ProcessManager:
                 logger.info(
                     "🏛️ Registration Manager initialized - central agent coordination ready"
                 )
+                # Note: ZMQ registration listener is started in init_important_processes()
                 return True
             else:
                 logger.error(
@@ -1472,6 +1500,14 @@ class ProcessManager:
                 print("💔 Heartbeat coordinator shutdown initiated", file=sys.stderr, flush=True)
             except Exception as e:
                 print(f"Error stopping heartbeat coordinator: {e}", file=sys.stderr, flush=True)
+
+            # Shutdown ZMQ registration listener
+            try:
+                if hasattr(self, '_zmq_registration_listener') and self._zmq_registration_listener:
+                    self._zmq_registration_listener.stop()
+                    print("🦀 ZMQ registration listener stopped", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"Error stopping ZMQ registration listener: {e}", file=sys.stderr, flush=True)
 
             # Import required modules for timeout handling
             import threading
