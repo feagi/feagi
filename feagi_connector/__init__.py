@@ -38,6 +38,12 @@ def create_dummy_connector():
 
 # New modular utilities
 from feagi_connector.agent_logging.diagnostics import log_sensor_area_counts
+from feagi_connector.utils.config_loader import (
+    load_agent_config,
+    validate_feagi_config,
+    get_config_template,
+    merge_cli_args,
+)
 from feagi_connector.utils.shm import SharedFrameWriter, ShmBytesWriter, ShmBytesReader
 from feagi_connector.utils.latest_only_writer import LatestOnlyWriter
 from feagi_connector.utils.rest_helpers import (
@@ -68,6 +74,11 @@ __all__ = [
     "setup_agent_logging",
     # Diagnostics
     "log_sensor_area_counts",
+    # Configuration (FEAGI 2.0 standard)
+    "load_agent_config",
+    "validate_feagi_config",
+    "get_config_template",
+    "merge_cli_args",
     # SHM
     "SharedFrameWriter",
     "ShmBytesWriter",

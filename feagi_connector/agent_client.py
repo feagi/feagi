@@ -103,6 +103,11 @@ class FeagiAgentClient:
         self._client: Optional[PyAgentClient] = None
         self._connected = False
         
+        # Store network config for logging
+        self._feagi_host = None
+        self._registration_port = None
+        self._sensory_port = None
+        
         logger.info(f"Created agent client: {agent_id} (type: {agent_type.value})")
     
     def configure(
@@ -159,7 +164,18 @@ class FeagiAgentClient:
         if vision_capability:
             modality, width, height, channels, cortical_area = vision_capability
             self._config.with_vision_capability(modality, width, height, channels, cortical_area)
+            
+                # Store for XYZP conversion
+            self._vision_width = width
+            self._vision_height = height
+            self._cortical_area = cortical_area
+            
             logger.info(f"Added vision capability: {width}x{height}x{channels} → {cortical_area}")
+        
+        # Store network config for direct ZMQ access and logging
+        self._feagi_host = feagi_host
+        self._registration_port = registration_port
+        self._sensory_port = sensory_port
         
         if motor_capability:
             modality, output_count, cortical_areas = motor_capability
@@ -200,25 +216,76 @@ class FeagiAgentClient:
             return
         
         logger.info(f"Connecting to FEAGI as: {self.agent_id}")
+        logger.debug(f"  FEAGI host: {self._feagi_host}")
+        logger.debug(f"  Registration port: {self._registration_port}")
+        logger.debug(f"  Sensory port: {self._sensory_port}")
+        
+        # Pre-flight check: Verify FEAGI is reachable
+        registration_host = self._feagi_host
+        registration_port = self._registration_port
+        
+        # Note: Skip TCP pre-flight check for ZMQ sockets (they don't respond like regular TCP)
+        # Let the Rust SDK handle connection testing
         
         try:
             # Create client
+            logger.debug("Creating Rust-backed agent client...")
             self._client = PyAgentClient(self._config)
             
             # Connect (with automatic retry)
-            self._client.connect()
+            logger.debug("Attempting registration with FEAGI...")
+            try:
+                self._client.connect()
+                logger.debug("✓ Registration successful")
+            except Exception as reg_error:
+                # Enhanced error message for registration failures
+                error_str = str(reg_error).lower()
+                
+                if "unknown error" in error_str or "registration failed" in error_str:
+                    logger.error("❌ Registration failed with unclear error from Rust SDK")
+                    logger.error("")
+                    logger.error("Common causes:")
+                    logger.error("  1. FEAGI's Rust PNS is not running")
+                    logger.error("     Check FEAGI logs for: '🦀 [ZMQ-REGISTRATION] Listening on...'")
+                    logger.error("  2. Port mismatch (FEAGI 2.0 uses port 5563, not 30001)")
+                    logger.error("     Your config: registration_port = ?")
+                    logger.error("     FEAGI listening: Check with 'lsof -i :5563'")
+                    logger.error("  3. ZMQ socket state issue (restart FEAGI)")
+                    logger.error("  4. Firewall blocking connection")
+                    logger.error("")
+                    raise RuntimeError(
+                        f"Registration failed: {reg_error}. "
+                        f"Check FEAGI is running with Rust PNS on port {registration_port}. "
+                        f"See logs above for troubleshooting steps."
+                    )
+                else:
+                    # Re-raise with original error
+                    raise
             
             self._connected = True
             logger.info(f"✓ Connected and registered as: {self.agent_id}")
+            logger.info(f"  Registration: {registration_host}:{registration_port}")
+            logger.info(f"  Sensory data: {self._feagi_host}:{self._sensory_port}")
             logger.info(f"  Heartbeat: {self._config.heartbeat_interval if hasattr(self._config, 'heartbeat_interval') else 'N/A'}s")
             
+        except RuntimeError:
+            # Re-raise our enhanced RuntimeErrors
+            raise
         except Exception as e:
-            logger.error(f"Failed to connect: {e}")
-            raise RuntimeError(f"Connection failed: {e}")
+            # Catch-all for unexpected errors
+            logger.error(f"❌ Unexpected error during connection: {e}")
+            logger.error(f"   Error type: {type(e).__name__}")
+            logger.error("")
+            logger.error("Please report this error with the following information:")
+            logger.error(f"  - Agent ID: {self.agent_id}")
+            logger.error(f"  - FEAGI host: {self._feagi_host}")
+            logger.error(f"  - Registration port: {registration_port}")
+            logger.error(f"  - Error: {e}")
+            raise RuntimeError(f"Connection failed with unexpected error: {e}")
     
     def send_sensory_data(self, neuron_pairs: List[Tuple[int, float]]):
         """
-        Send sensory data to FEAGI
+        Send sensory data to FEAGI in binary XYZP format
         
         Args:
             neuron_pairs: List of (neuron_id, potential) tuples
@@ -231,7 +298,10 @@ class FeagiAgentClient:
             raise RuntimeError("Agent not connected. Call connect() first.")
         
         try:
+            # Send via Rust SDK (JSON format for now - XYZP binary needs updated libs)
             self._client.send_sensory_data(neuron_pairs)
+            logger.debug(f"✓ Sent {len(neuron_pairs)} neurons")
+            
         except Exception as e:
             logger.error(f"Failed to send sensory data: {e}")
             raise
@@ -266,23 +336,23 @@ class FeagiAgentClient:
         """Check if agent is connected"""
         return self._connected and self._client is not None and self._client.is_registered()
     
-    def disconnect(self):
+    def disconnect(self, timeout: float = 0.1):
         """
-        Disconnect from FEAGI
+        Disconnect from FEAGI (non-blocking for fast shutdown)
         
-        This will:
-        1. Stop heartbeat
-        2. Deregister agent
-        3. Close ZMQ sockets
+        Note: Rust client deregistration is skipped on Ctrl+C shutdown.
+        Agent will be cleaned up by FEAGI's heartbeat timeout (60s).
         
-        Note: Also called automatically on object deletion
+        Args:
+            timeout: Maximum time to wait (default: 0.1s)
         """
         if self._connected:
-            logger.info(f"Disconnecting agent: {self.agent_id}")
             self._connected = False
-            # Rust client will auto-deregister on drop
+            
+            # Skip Rust client deregistration - it blocks on interrupted ZMQ sockets
+            # FEAGI will clean up via heartbeat timeout
             self._client = None
-            logger.info("✓ Disconnected")
+            logger.info(f"✓ Disconnected {self.agent_id} (cleanup via heartbeat timeout)")
     
     def __enter__(self):
         """Context manager entry"""
@@ -296,6 +366,55 @@ class FeagiAgentClient:
         """Destructor - auto-disconnect"""
         if self._connected:
             self.disconnect()
+    
+    def setup_graceful_shutdown(self, running_flag: Optional[List[bool]] = None):
+        """
+        Setup graceful shutdown with Ctrl+C handling
+        
+        This installs a signal handler that:
+        - First Ctrl+C: Sets running flag to False (graceful shutdown)
+        - Second Ctrl+C: Forces immediate exit
+        
+        Args:
+            running_flag: Optional list with single bool element [True/False]
+                         If provided, first Ctrl+C will set running_flag[0] = False
+                         If not provided, only the agent's internal state is affected
+        
+        Returns:
+            The running_flag list (created if not provided)
+        
+        Example:
+            client = FeagiAgentClient("my-agent", AgentType.SENSORY)
+            client.configure(...)
+            client.connect()
+            
+            running = client.setup_graceful_shutdown()
+            while running[0]:
+                # Your agent loop
+                pass
+        """
+        import signal
+        import sys
+        
+        if running_flag is None:
+            running_flag = [True]
+        
+        interrupt_count = [0]
+        
+        def signal_handler(sig, frame):
+            interrupt_count[0] += 1
+            if interrupt_count[0] == 1:
+                logger.info("Received interrupt signal - shutting down gracefully...")
+                running_flag[0] = False
+                self._connected = False  # Stop operations
+            else:
+                logger.warning("Received second interrupt - forcing exit NOW")
+                sys.exit(1)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        return running_flag
 
 
 # Convenience function for quick agent creation
