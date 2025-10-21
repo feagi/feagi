@@ -83,24 +83,13 @@ class RegistrationManager:
         self._state_manager = state_manager
         self._process_manager = process_manager
 
-        # 🦀 Rust agent registry - THE ONLY agent storage
-        # Get shared registry from PNS (single source of truth)
-        try:
-            if process_manager and hasattr(process_manager, '_pns') and process_manager._pns:
-                # Use shared registry from PNS (production path)
-                self._rust_registry = process_manager._pns.get_shared_registry()
-                logger.info("🦀 Using shared agent registry from Rust PNS (single source of truth)")
-            else:
-                # Fallback for testing/development
-                logger.warning("⚠️  PNS not available, creating standalone registry (testing mode)")
-                self._rust_registry = PyAgentRegistry(
-                    max_agents=1000,
-                    timeout_ms=60000
-                )
-                logger.info("🦀 Rust agent registry initialized in standalone mode")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Rust registry: {e}")
-            raise
+        # 🦀 Rust agent registry - Lazy loaded to handle startup order
+        # PNS might not be initialized yet when this runs, so we load on first access
+        self._rust_registry = None
+        self._registry_initialized = False
+        self._shutting_down = False  # Flag to prevent lazy-load during shutdown
+        
+        logger.info("🦀 Registration Manager initialized (registry will lazy-load from PNS)")
 
         # Capability tracking for FQ sampler decisions (NOT agent storage!)
         self._capability_counts = {
@@ -123,7 +112,69 @@ class RegistrationManager:
         # FEAGI readiness
         self._feagi_ready = True
 
-        logger.info("🦀 Rust-backed Registration Manager initialized")
+        logger.info("🦀 Rust-backed Registration Manager fully initialized")
+
+    def shutdown(self):
+        """Signal shutdown to prevent lazy-load deadlocks."""
+        self._shutting_down = True
+
+    def _flatten_rust_capabilities(self, rust_caps: Dict[str, Any]) -> Dict[str, Any]:
+        """Flatten Rust AgentCapabilities struct to legacy dict format.
+        
+        Extracts visualization, motor, sensory, vision from struct fields
+        and merges with custom capabilities.
+        """
+        flattened = {}
+        
+        if "visualization" in rust_caps and rust_caps["visualization"]:
+            flattened["visualization"] = rust_caps["visualization"]
+        if "motor" in rust_caps and rust_caps["motor"]:
+            flattened["motor"] = rust_caps["motor"]
+        if "sensory" in rust_caps and rust_caps["sensory"]:
+            flattened["sensory"] = rust_caps["sensory"]
+        if "vision" in rust_caps and rust_caps["vision"]:
+            flattened["vision"] = rust_caps["vision"]
+        
+        # Merge custom capabilities
+        if "custom" in rust_caps and rust_caps["custom"]:
+            flattened.update(rust_caps["custom"])
+        
+        return flattened
+    
+    def _get_registry(self):
+        """Lazy load registry from PNS (handles startup order issues)"""
+        # Don't attempt lazy-load during shutdown to avoid deadlocks
+        if self._shutting_down and not self._registry_initialized:
+            return None
+            
+        if not self._registry_initialized:
+            import time
+            start = time.time()
+            logger.debug("⏱️  [TIMING] Registry lazy-load started")
+            with self._lock:
+                if not self._registry_initialized:  # Double-check locking
+                    try:
+                        if self._process_manager and hasattr(self._process_manager, '_pns') and self._process_manager._pns:
+                            # Use shared registry from PNS (production path)
+                            t1 = time.time()
+                            self._rust_registry = self._process_manager._pns.get_shared_registry()
+                            t2 = time.time()
+                            logger.info(f"🦀 ✓ Using shared agent registry from Rust PNS (single source of truth) - took {(t2-t1)*1000:.1f}ms")
+                        else:
+                            # Fallback for testing/development
+                            logger.warning("⚠️  PNS not available, creating standalone registry (testing mode)")
+                            self._rust_registry = PyAgentRegistry(
+                                max_agents=1000,
+                                timeout_ms=60000
+                            )
+                            logger.info("🦀 Rust agent registry initialized in standalone mode")
+                        self._registry_initialized = True
+                    except Exception as e:
+                        logger.error(f"❌ Failed to initialize Rust registry: {e}")
+                        raise
+            elapsed = time.time() - start
+            logger.debug(f"⏱️  [TIMING] Registry lazy-load completed in {elapsed*1000:.1f}ms")
+        return self._rust_registry
 
     def register_agent(
         self, request: AgentRegistrationRequest
@@ -157,13 +208,14 @@ class RegistrationManager:
                 # 3. Check if re-registration
                 is_re_registration = False
                 try:
-                    existing_agent_json = self._rust_registry.get_agent_json(request.agent_id)
+                    existing_agent_json = self._get_registry().get_agent_json(request.agent_id)
                     is_re_registration = True
                     existing_agent = json.loads(existing_agent_json)
                     logger.warning(f"⚠️ Agent '{request.agent_id}' re-registering")
                     
-                    # Subtract old capability counts
-                    old_caps = existing_agent.get("capabilities", {}).get("custom", {})
+                    # Subtract old capability counts (flatten Rust struct to get all caps)
+                    old_rust_caps = existing_agent.get("capabilities", {})
+                    old_caps = self._flatten_rust_capabilities(old_rust_caps)
                     self._update_capability_counts(old_caps, increment=False)
                 except Exception:
                     logger.info(f"✅ New agent '{request.agent_id}' registering")
@@ -199,9 +251,30 @@ class RegistrationManager:
                 sanitized_caps = self._sanitize_capabilities(request.capabilities)
 
                 # 6. Convert to Rust format and register
+                # CRITICAL: Populate actual Rust AgentCapabilities fields, not just "custom"
                 rust_capabilities = {
-                    "custom": sanitized_caps  # Store Python caps in custom field
+                    "custom": {}  # Will hold any non-standard capabilities
                 }
+                
+                # Map Python capabilities to Rust struct fields
+                for cap_name, cap_config in sanitized_caps.items():
+                    cap_lower = cap_name.lower()
+                    
+                    if cap_lower in ["visualization", "viz"]:
+                        # Map to Rust VisualizationCapability
+                        rust_capabilities["visualization"] = cap_config
+                    elif cap_lower in ["motor", "output", "actuator", "motors"]:
+                        # Map to Rust MotorCapability
+                        rust_capabilities["motor"] = cap_config
+                    elif cap_lower in ["sensory", "sensor", "input", "sensors"]:
+                        # Map to Rust SensoryCapability
+                        rust_capabilities["sensory"] = cap_config
+                    elif cap_lower in ["vision"]:
+                        # Map to Rust VisionCapability
+                        rust_capabilities["vision"] = cap_config
+                    else:
+                        # Store non-standard capabilities in custom
+                        rust_capabilities["custom"][cap_name] = cap_config
                 
                 rust_capabilities_json = json.dumps(rust_capabilities)
                 
@@ -221,7 +294,7 @@ class RegistrationManager:
                 metadata_json = json.dumps(metadata) if metadata else None
                 
                 # 🦀 Register in Rust registry with metadata
-                result_json = self._rust_registry.register_agent_direct(
+                result_json = self._get_registry().register_agent_direct(
                     request.agent_id,
                     self._map_agent_type_to_rust(request.agent_type),
                     rust_capabilities_json,
@@ -268,7 +341,7 @@ class RegistrationManager:
 
                 logger.info(
                     f"✅ Agent registered: {request.agent_id} "
-                    f"(total: {self._rust_registry.agent_count()})"
+                    f"(total: {self._get_registry().agent_count()})"
                 )
 
                 return AgentRegistrationResponse(
@@ -294,16 +367,28 @@ class RegistrationManager:
             logger.info(f"🔌 DEREGISTRATION REQUEST: {agent_id}")
 
             try:
+                # Check if shutting down and skip registry access
+                registry = self._get_registry()
+                if registry is None:
+                    # System is shutting down, skip deregistration
+                    return AgentRegistrationResponse(
+                        success=True,
+                        message="Deregistration skipped (system shutting down)",
+                        agent_id=agent_id,
+                        fq_samplers_enabled=False,
+                    )
+                
                 # Get agent info before deletion
-                agent_json = self._rust_registry.get_agent_json(agent_id)
+                agent_json = registry.get_agent_json(agent_id)
                 agent_info = json.loads(agent_json)
-                caps = agent_info.get("capabilities", {}).get("custom", {})
+                rust_caps = agent_info.get("capabilities", {})
+                caps = self._flatten_rust_capabilities(rust_caps)
 
                 # Update capability counts
                 self._update_capability_counts(caps, increment=False)
 
                 # 🦀 Remove from Rust registry
-                result_json = self._rust_registry.deregister_agent_direct(agent_id)
+                result_json = registry.deregister_agent_direct(agent_id)
                 result = json.loads(result_json)
                 
                 if not result.get("success"):
@@ -344,7 +429,7 @@ class RegistrationManager:
     def heartbeat_agent(self, agent_id: str) -> bool:
         """Update agent activity timestamp"""
         try:
-            self._rust_registry.update_agent_activity(agent_id)
+            self._get_registry().update_agent_activity(agent_id)
             return True
         except Exception as e:
             logger.warning(f"Heartbeat failed for {agent_id}: {e}")
@@ -353,7 +438,7 @@ class RegistrationManager:
     def get_agent_properties(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Get agent properties from Rust registry"""
         try:
-            agent_json = self._rust_registry.get_agent_json(agent_id)
+            agent_json = self._get_registry().get_agent_json(agent_id)
             agent = json.loads(agent_json)
             
             # Extract custom capabilities for backward compatibility
@@ -379,15 +464,31 @@ class RegistrationManager:
 
     def list_agents(self) -> Dict[str, Any]:
         """List all registered agents"""
+        import time
+        start = time.time()
         try:
-            agents_json = self._rust_registry.get_all_agents_json()
-            agents_list = json.loads(agents_json)
+            t1 = time.time()
+            registry = self._get_registry()
+            t2 = time.time()
+            logger.debug(f"⏱️  [TIMING] _get_registry() took {(t2-t1)*1000:.1f}ms")
             
-            # Extract custom capabilities and metadata for each agent
+            # Handle shutdown gracefully
+            if registry is None:
+                return {"agents": [], "count": 0, "capability_summary": {}, "fq_sampler_states": {}}
+            
+            agents_json = registry.get_all_agents_json()
+            t3 = time.time()
+            logger.debug(f"⏱️  [TIMING] get_all_agents_json() took {(t3-t2)*1000:.1f}ms")
+            
+            agents_list = json.loads(agents_json)
+            t4 = time.time()
+            logger.debug(f"⏱️  [TIMING] json.loads() took {(t4-t3)*1000:.1f}ms")
+            
+            # Extract and flatten capabilities for backward compatibility
             for agent in agents_list:
-                # Extract custom capabilities for backward compatibility
-                if "capabilities" in agent and "custom" in agent["capabilities"]:
-                    agent["capabilities"] = agent["capabilities"]["custom"]
+                # Flatten Rust AgentCapabilities struct to legacy dict format
+                if "capabilities" in agent:
+                    agent["capabilities"] = self._flatten_rust_capabilities(agent["capabilities"])
                 
                 # Extract common metadata fields to top level for convenience
                 if "metadata" in agent and agent["metadata"]:
@@ -401,12 +502,15 @@ class RegistrationManager:
                     if "agent_ip" in metadata:
                         agent["agent_ip"] = metadata["agent_ip"]
             
-            return {
+            result = {
                 "agents": agents_list,
                 "count": len(agents_list),
                 "capability_summary": self._capability_counts.copy(),
                 "fq_sampler_states": self._fq_sampler_states.copy(),
             }
+            elapsed = time.time() - start
+            logger.debug(f"⏱️  [TIMING] list_agents() TOTAL: {elapsed*1000:.1f}ms")
+            return result
         except Exception as e:
             logger.error(f"Failed to list agents: {e}")
             return {"agents": [], "count": 0}
@@ -416,7 +520,7 @@ class RegistrationManager:
         return {
             "fq_samplers": self._fq_sampler_states.copy(),
             "capability_counts": self._capability_counts.copy(),
-            "agent_count": self._rust_registry.agent_count(),
+            "agent_count": self._get_registry().agent_count(),
         }
 
     def register_state_change_listener(self, listener: Callable) -> None:
@@ -582,7 +686,7 @@ class RegistrationManager:
         """Update State Manager with current registry state"""
         if self._state_manager:
             try:
-                agents_json = self._rust_registry.get_all_agents_json()
+                agents_json = self._get_registry().get_all_agents_json()
                 agents_list = json.loads(agents_json)
                 
                 # Convert list to dict (keyed by agent_id) for state manager

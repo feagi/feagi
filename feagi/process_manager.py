@@ -1487,7 +1487,17 @@ class ProcessManager:
             # Stop running flag to signal all services to stop
             self._running = False
 
-            # Shutdown heartbeat coordinator first
+            # Shutdown registration manager FIRST to prevent lazy-load deadlocks
+            try:
+                from feagi.pns.registration_manager import get_registration_manager
+                registration_manager = get_registration_manager()
+                if registration_manager:
+                    registration_manager.shutdown()
+                    print("🦀 Registration manager shutdown signaled", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"Error signaling registration manager shutdown: {e}", file=sys.stderr, flush=True)
+
+            # Shutdown heartbeat coordinator
             try:
                 from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
                 heartbeat_coordinator = get_heartbeat_coordinator()

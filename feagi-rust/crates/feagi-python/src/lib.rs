@@ -2064,7 +2064,12 @@ impl PyAgentRegistry {
         }
         
         // Register directly (bypasses transport)
-        match self.registry.write().register(agent_info) {
+        let register_result = {
+            let mut registry_guard = self.registry.write();
+            registry_guard.register(agent_info)
+        }; // Explicitly drop write lock before acquiring read lock
+        
+        match register_result {
             Ok(_) => {
                 let agent_count = self.registry.read().count();
                 let response = serde_json::json!({
