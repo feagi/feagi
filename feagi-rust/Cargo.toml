@@ -10,6 +10,7 @@ members = [
     "crates/feagi-connectome-serialization",
     "crates/feagi-agent-registry",
     "crates/feagi-agent-sdk",
+    "crates/feagi-agent-sdk-py",
     "crates/feagi-inference-engine",
 ]
 
