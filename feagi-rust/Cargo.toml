@@ -9,6 +9,7 @@ members = [
     "crates/feagi-pns",
     "crates/feagi-connectome-serialization",
     "crates/feagi-agent-registry",
+    "crates/feagi-agent-sdk",
     "crates/feagi-inference-engine",
 ]
 
