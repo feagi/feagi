@@ -254,22 +254,32 @@ impl PyAgentClient {
     /// Receive motor data from FEAGI (non-blocking)
     ///
     /// Returns None if no data is available.
+    /// Motor data is returned as binary bytes (XYZP format).
     ///
     /// # Example
     /// ```python
-    /// motor_data = client.receive_motor_data()
-    /// if motor_data is not None:
-    ///     print(f"Motor data: {motor_data}")
+    /// motor_data_bytes = client.receive_motor_data()
+    /// if motor_data_bytes is not None:
+    ///     # Use feagi_rust_py_libs to deserialize
+    ///     print(f"Received {len(motor_data_bytes)} bytes of motor data")
     /// ```
-    fn receive_motor_data(&self) -> PyResult<Option<String>> {
+    fn receive_motor_data(&self) -> PyResult<Option<Vec<u8>>> {
         let client = self.client.lock()
             .map_err(|e| PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
         
         match client.receive_motor_data() {
-            Ok(Some(data)) => {
-                let json_str = serde_json::to_string(&data)
-                    .map_err(|e| PyException::new_err(format!("Failed to serialize motor data: {}", e)))?;
-                Ok(Some(json_str))
+            Ok(Some(cortical_mapped)) => {
+                // ARCHITECTURE COMPLIANCE: Return binary XYZP data, NOT JSON
+                // Serialize CorticalMappedXYZPNeuronVoxels to binary using FeagiSerializable trait
+                use feagi_data_serialization::FeagiSerializable;
+                
+                let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
+                let mut buffer = vec![0u8; bytes_needed];
+                
+                cortical_mapped.try_serialize_struct_to_byte_slice(&mut buffer)
+                    .map_err(|e| PyException::new_err(format!("Failed to serialize motor data: {:?}", e)))?;
+                
+                Ok(Some(buffer))
             }
             Ok(None) => Ok(None),
             Err(e) => Err(PyException::new_err(format!("Failed to receive motor data: {}", e))),

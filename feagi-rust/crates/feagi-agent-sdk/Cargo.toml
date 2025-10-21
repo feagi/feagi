@@ -11,7 +11,7 @@ readme = "README.md"
 # Core dependencies
 zmq = "0.10"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = "1.0"  # Still needed for registration/heartbeat messages
 log = "0.4"
 thiserror = "1.0"
 
@@ -20,6 +20,10 @@ tokio = { version = "1.0", features = ["full"], optional = true }
 
 # FEAGI internal crates
 feagi-agent-registry = { path = "../feagi-agent-registry" }
+
+# FEAGI data structures and serialization (for binary XYZP format)
+feagi_data_structures.workspace = true
+feagi_data_serialization.workspace = true
 
 [dev-dependencies]
 env_logger = "0.11"

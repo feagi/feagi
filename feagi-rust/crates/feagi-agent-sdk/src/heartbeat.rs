@@ -101,12 +101,15 @@ impl HeartbeatService {
     /// Send a single heartbeat message
     fn send_heartbeat(agent_id: &str, socket: &Arc<Mutex<zmq::Socket>>) -> Result<()> {
         let message = serde_json::json!({
-            "type": "heartbeat",
-            "agent_id": agent_id,
-            "timestamp": std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
+            "method": "POST",
+            "path": "/v1/agent/heartbeat",
+            "body": {
+                "agent_id": agent_id,
+                "timestamp": std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            }
         });
         
         let socket = socket.lock().map_err(|e| {

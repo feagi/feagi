@@ -190,16 +190,19 @@ impl AgentClient {
     /// Register with FEAGI
     fn register(&mut self) -> Result<()> {
         let registration_msg = serde_json::json!({
-            "type": "register",
-            "agent_id": self.config.agent_id,
-            "agent_type": match self.config.agent_type {
-                feagi_agent_registry::AgentType::Sensory => "sensory",
-                feagi_agent_registry::AgentType::Motor => "motor",
-                feagi_agent_registry::AgentType::Both => "both",
-                feagi_agent_registry::AgentType::Visualization => "visualization",
-                feagi_agent_registry::AgentType::Infrastructure => "infrastructure",
-            },
-            "capabilities": self.config.capabilities,
+            "method": "POST",
+            "path": "/v1/agent/register",
+            "body": {
+                "agent_id": self.config.agent_id,
+                "agent_type": match self.config.agent_type {
+                    feagi_agent_registry::AgentType::Sensory => "sensory",
+                    feagi_agent_registry::AgentType::Motor => "motor",
+                    feagi_agent_registry::AgentType::Both => "both",
+                    feagi_agent_registry::AgentType::Visualization => "visualization",
+                    feagi_agent_registry::AgentType::Infrastructure => "infrastructure",
+                },
+                "capabilities": self.config.capabilities,
+            }
         });
         
         let socket = self.registration_socket.as_ref()
@@ -219,13 +222,16 @@ impl AgentClient {
             serde_json::from_slice::<serde_json::Value>(&response_bytes)?
         }; // Lock is dropped here
         
-        // Check response status
-        if response.get("status").and_then(|s| s.as_str()) == Some("success") {
+        // Check response status (REST format: {"status": 200, "body": {...}})
+        let status_code = response.get("status").and_then(|s| s.as_u64()).unwrap_or(500);
+        if status_code == 200 {
             self.registered = true;
             info!("[CLIENT] ✓ Registration successful: {:?}", response);
             Ok(())
         } else {
-            let message = response.get("message")
+            let empty_body = serde_json::json!({});
+            let body = response.get("body").unwrap_or(&empty_body);
+            let message = body.get("error")
                 .and_then(|m| m.as_str())
                 .unwrap_or("Unknown error");
             
@@ -250,8 +256,11 @@ impl AgentClient {
         info!("[CLIENT] Deregistering agent: {}", self.config.agent_id);
         
         let deregistration_msg = serde_json::json!({
-            "type": "deregister",
-            "agent_id": self.config.agent_id,
+            "method": "DELETE",
+            "path": "/v1/agent/deregister",
+            "body": {
+                "agent_id": self.config.agent_id,
+            }
         });
         
         if let Some(socket) = &self.registration_socket {
@@ -328,29 +337,83 @@ impl AgentClient {
         let socket = self.sensory_socket.as_ref()
             .ok_or_else(|| SdkError::Other("Sensory socket not initialized".to_string()))?;
         
-        let message = serde_json::json!({
-            "neuron_id_potential_pairs": neuron_pairs,
-            "agent_id": self.config.agent_id,
-        });
+        // ARCHITECTURE COMPLIANCE: Use binary XYZP format, NOT JSON
+        // This serializes data using feagi_data_structures for cross-platform compatibility
+        use feagi_data_structures::neuron_voxels::xyzp::{CorticalMappedXYZPNeuronVoxels, NeuronVoxelXYZPArrays};
+        use feagi_data_structures::genomic::CorticalID;
+        use feagi_data_serialization::FeagiSerializable;
         
-        socket.send(message.to_string().as_bytes(), 0)?;
+        // Get cortical area and dimensions from vision capability
+        let vision_cap = self.config.capabilities.vision.as_ref()
+            .ok_or_else(|| SdkError::Other("No vision capability configured".to_string()))?;
         
-        debug!("[CLIENT] ✓ Sent {} neuron pairs", neuron_pairs.len());
+        let (width, _height) = vision_cap.dimensions;
+        let cortical_area = &vision_cap.target_cortical_area;
+        
+        // Create CorticalID from area name
+        let mut bytes = [b' '; 6];
+        let name_bytes = cortical_area.as_bytes();
+        let copy_len = name_bytes.len().min(6);
+        bytes[..copy_len].copy_from_slice(&name_bytes[..copy_len]);
+        let cortical_id = CorticalID::from_bytes(&bytes)
+            .map_err(|e| SdkError::Other(format!("Invalid cortical ID '{}': {:?}", cortical_area, e)))?;
+        
+        // Convert flat neuron IDs to XYZP format
+        let mut x_coords = Vec::with_capacity(neuron_pairs.len());
+        let mut y_coords = Vec::with_capacity(neuron_pairs.len());
+        let mut z_coords = Vec::with_capacity(neuron_pairs.len());
+        let mut potentials = Vec::with_capacity(neuron_pairs.len());
+        
+        for (neuron_id, potential) in neuron_pairs {
+            let neuron_id = neuron_id as u32;
+            x_coords.push(neuron_id % (width as u32));
+            y_coords.push(neuron_id / (width as u32));
+            z_coords.push(0); // Single channel grayscale
+            potentials.push(potential as f32);
+        }
+        
+        let neuron_count = x_coords.len();
+        
+        // Create neuron arrays from vectors
+        let neuron_arrays = NeuronVoxelXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)
+            .map_err(|e| SdkError::Other(format!("Failed to create neuron arrays: {:?}", e)))?;
+        
+        // Create cortical mapped data
+        let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
+        cortical_mapped.insert(cortical_id, neuron_arrays);
+        
+        // Serialize to binary
+        let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
+        let mut buffer = vec![0u8; bytes_needed];
+        cortical_mapped.try_serialize_struct_to_byte_slice(&mut buffer)
+            .map_err(|e| SdkError::Other(format!("Serialization failed: {:?}", e)))?;
+        
+        // Send binary XYZP data
+        socket.send(&buffer, 0)?;
+        
+        debug!("[CLIENT] ✓ Sent {} bytes XYZP binary ({} neurons)", buffer.len(), neuron_count);
         Ok(())
     }
     
     /// Receive motor data from FEAGI (non-blocking)
     ///
     /// Returns None if no data is available.
+    /// Motor data is in binary XYZP format (CorticalMappedXYZPNeuronVoxels).
     ///
     /// # Example
     /// ```ignore
+    /// use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
+    /// 
     /// if let Some(motor_data) = client.receive_motor_data()? {
-    ///     // Process motor commands
-    ///     println!("Motor data: {:?}", motor_data);
+    ///     // Process binary motor data
+    ///     for (cortical_id, neurons) in motor_data.iter() {
+    ///         println!("Motor area {:?}: {} neurons", cortical_id, neurons.len());
+    ///     }
     /// }
     /// ```
-    pub fn receive_motor_data(&self) -> Result<Option<serde_json::Value>> {
+    pub fn receive_motor_data(&self) -> Result<Option<feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels>> {
+        use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
+        
         if !self.registered {
             return Err(SdkError::NotRegistered);
         }
@@ -361,8 +424,34 @@ impl AgentClient {
         // Non-blocking receive
         match socket.recv_bytes(zmq::DONTWAIT) {
             Ok(data) => {
-                let motor_data: serde_json::Value = serde_json::from_slice(&data)?;
-                debug!("[CLIENT] ✓ Received motor data");
+                // ARCHITECTURE COMPLIANCE: Deserialize binary XYZP motor data using FeagiByteContainer
+                let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
+                let mut data_vec = data.to_vec();
+                
+                // Load bytes into container
+                byte_container.try_write_data_to_container_and_verify(&mut |bytes| {
+                    std::mem::swap(bytes, &mut data_vec);
+                    Ok(())
+                }).map_err(|e| SdkError::Other(format!("Failed to load motor data bytes: {:?}", e)))?;
+                
+                // Get number of structures (should be 1 for motor data)
+                let num_structures = byte_container.try_get_number_contained_structures()
+                    .map_err(|e| SdkError::Other(format!("Failed to get structure count: {:?}", e)))?;
+                
+                if num_structures == 0 {
+                    return Ok(None);
+                }
+                
+                // Extract first structure
+                let boxed_struct = byte_container.try_create_new_struct_from_index(0)
+                    .map_err(|e| SdkError::Other(format!("Failed to extract motor structure: {:?}", e)))?;
+                
+                // Downcast to CorticalMappedXYZPNeuronVoxels
+                let motor_data = boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronVoxels>()
+                    .ok_or_else(|| SdkError::Other("Motor data is not CorticalMappedXYZPNeuronVoxels".to_string()))?
+                    .clone();
+                
+                debug!("[CLIENT] ✓ Received motor data ({} bytes, {} areas)", data.len(), motor_data.len());
                 Ok(Some(motor_data))
             }
             Err(zmq::Error::EAGAIN) => Ok(None), // No data available
