@@ -144,6 +144,39 @@ impl AgentRegistry {
         self.agents.read().unwrap().len()
     }
     
+    /// Register agent directly (bypasses transport/validation for internal use)
+    ///
+    /// This is used by Python integration where validation/transport happens externally.
+    /// Use `register_agent()` for normal registration with full validation.
+    ///
+    /// # Arguments
+    /// * `agent_info` - Complete agent information
+    ///
+    /// # Returns
+    /// * `Ok(())` if successful
+    /// * `Err` if agent already exists or capacity reached
+    pub fn register_agent_direct(&self, agent_info: AgentInfo) -> Result<()> {
+        let mut agents = self.agents.write().unwrap();
+        
+        // Check if already registered
+        if agents.contains_key(&agent_info.agent_id) {
+            warn!("Agent already registered: {}", agent_info.agent_id);
+            return Err(RegistryError::AgentAlreadyExists(agent_info.agent_id.clone()));
+        }
+        
+        // Check capacity
+        if agents.len() >= self.max_agents {
+            warn!("Agent registry full ({}/{})", agents.len(), self.max_agents);
+            return Err(RegistryError::InvalidConfiguration("Registry full".to_string()));
+        }
+        
+        let agent_id = agent_info.agent_id.clone();
+        agents.insert(agent_id.clone(), agent_info);
+        
+        info!("✓ Agent registered directly: {} (total: {})", agent_id, agents.len());
+        Ok(())
+    }
+    
     /// Prune inactive agents
     ///
     /// # Arguments

@@ -1944,6 +1944,105 @@ impl PyAgentRegistry {
     fn prune_inactive_agents(&self) -> usize {
         self.registry.prune_inactive_agents(None)
     }
+    
+    /// Register agent directly (bypasses transport for Python integration)
+    /// 
+    /// Args:
+    ///     agent_id: Unique agent identifier
+    ///     agent_type: "sensory", "motor", or "both"
+    ///     capabilities_json: JSON string with agent capabilities
+    /// 
+    /// Returns:
+    ///     Result JSON with success status and message
+    fn register_agent_direct(
+        &self,
+        agent_id: String,
+        agent_type: String,
+        capabilities_json: String,
+    ) -> PyResult<String> {
+        use feagi_agent_registry::{AgentType, AgentCapabilities, AgentInfo};
+        
+        // Parse agent type
+        let rust_agent_type = match agent_type.to_lowercase().as_str() {
+            "sensory" => AgentType::Sensory,
+            "motor" => AgentType::Motor,
+            "both" => AgentType::Both,
+            _ => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Invalid agent type: {}", agent_type),
+                    "agent_id": agent_id,
+                });
+                return Ok(serde_json::to_string(&error_response).unwrap());
+            }
+        };
+        
+        // Parse capabilities from JSON
+        let capabilities: AgentCapabilities = match serde_json::from_str(&capabilities_json) {
+            Ok(caps) => caps,
+            Err(e) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to parse capabilities: {}", e),
+                    "agent_id": agent_id,
+                });
+                return Ok(serde_json::to_string(&error_response).unwrap());
+            }
+        };
+        
+        // Create agent info and add directly to registry
+        // Note: This bypasses the transport/validation layer for Python integration
+        let agent_info = AgentInfo::new(agent_id.clone(), rust_agent_type, capabilities);
+        
+        // Register directly (bypasses transport)
+        match self.registry.register_agent_direct(agent_info) {
+            Ok(_) => {
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": format!("Agent {} registered successfully", agent_id),
+                    "agent_id": agent_id,
+                    "agent_count": self.registry.agent_count(),
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+            Err(e) => {
+                let response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Registration failed: {}", e),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+        }
+    }
+    
+    /// Deregister agent directly
+    /// 
+    /// Args:
+    ///     agent_id: Agent identifier to remove
+    /// 
+    /// Returns:
+    ///     Result JSON with success status
+    fn deregister_agent_direct(&self, agent_id: String) -> PyResult<String> {
+        match self.registry.deregister_agent(&agent_id, None, "Python direct call") {
+            Ok(_) => {
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": format!("Agent {} deregistered successfully", agent_id),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+            Err(e) => {
+                let response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Deregistration failed: {}", e),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+        }
+    }
 }
 
 /// Module containing fast neural network operations
