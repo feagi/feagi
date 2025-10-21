@@ -43,6 +43,8 @@ pub struct BurstLoopRunner {
     pub viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
     /// Motor SHM writer (optional, None if not configured)
     pub motor_shm_writer: Arc<Mutex<Option<crate::motor_shm_writer::MotorSHMWriter>>>,
+    /// Visualization ZMQ publisher callback (optional, called after writing to SHM)
+    pub viz_zmq_publisher: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
 }
 
 impl BurstLoopRunner {
@@ -116,6 +118,7 @@ impl BurstLoopRunner {
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
             viz_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_viz_shm_writer
             motor_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_motor_shm_writer
+            viz_zmq_publisher: Arc::new(Mutex::new(None)), // Initialized later via set_viz_zmq_publisher
         }
     }
     
@@ -133,6 +136,16 @@ impl BurstLoopRunner {
         let mut guard = self.motor_shm_writer.lock().unwrap();
         *guard = Some(writer);
         Ok(())
+    }
+    
+    /// Set visualization ZMQ publisher callback (called from PNS after initialization)
+    pub fn set_viz_zmq_publisher<F>(&mut self, publisher: F)
+    where
+        F: Fn(&[u8]) + Send + Sync + 'static,
+    {
+        let mut guard = self.viz_zmq_publisher.lock().unwrap();
+        *guard = Some(Box::new(publisher));
+        println!("[BURST-RUNNER] 📡 Visualization ZMQ publisher attached");
     }
     
     /// Set burst frequency (can be called while running)
@@ -158,11 +171,12 @@ impl BurstLoopRunner {
         let frequency = self.frequency_hz;
         let running = self.running.clone();
         let viz_writer = self.viz_shm_writer.clone();
+        let viz_zmq_publisher = self.viz_zmq_publisher.clone();
         
         self.thread_handle = Some(thread::Builder::new()
             .name("feagi-burst-loop".to_string())
             .spawn(move || {
-                burst_loop(npu, frequency, running, viz_writer);
+                burst_loop(npu, frequency, running, viz_writer, viz_zmq_publisher);
             })
             .map_err(|e| format!("Failed to spawn burst loop thread: {}", e))?);
         
@@ -226,6 +240,7 @@ fn burst_loop(
     frequency_hz: f64,
     running: Arc<AtomicBool>,
     viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
+    viz_zmq_publisher: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
 ) {
     let timestamp = get_timestamp();
     println!("[{}] [BURST-LOOP] 🚀 Starting main loop at {:.2} Hz", timestamp, frequency_hz);
@@ -409,7 +424,26 @@ fn burst_loop(
                     // Write raw structure bytes to SHM
                     match writer.write_payload(&buffer) {
                         Ok(_) => {
-                            // Visualization data written successfully
+                            // Visualization data written successfully to SHM
+                            
+                            // Also publish to ZMQ if publisher is configured
+                            if let Some(publisher_guard) = viz_zmq_publisher.lock().ok() {
+                                if let Some(ref publisher) = *publisher_guard {
+                                    // 🔍 DEBUG: Log first 10 ZMQ publications
+                                    static ZMQ_PUBLISH_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                                    let count = ZMQ_PUBLISH_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    if count < 10 {
+                                        let timestamp = get_timestamp();
+                                        eprintln!("[{}] [BURST-LOOP] 📡 ZMQ PUBLISH #{}: {} bytes, {} cortical areas", 
+                                            timestamp, count + 1, buffer.len(), cortical_mapped.len());
+                                        eprintln!("[{}] [BURST-LOOP] 📡 First 32 bytes: {:?}", 
+                                            timestamp, &buffer[0..buffer.len().min(32)]);
+                                    }
+                                    
+                                    // Publish the same buffer to ZMQ (no extra serialization needed)
+                                    publisher(&buffer);
+                                }
+                            }
                         }
                         Err(e) => {
                             let timestamp = get_timestamp();

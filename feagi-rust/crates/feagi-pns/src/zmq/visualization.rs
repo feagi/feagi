@@ -77,6 +77,14 @@ impl VisualizationStream {
             }
         };
 
+        // 🔍 DEBUG: Log first 10 ZMQ sends
+        static SEND_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let count = SEND_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if count < 10 {
+            println!("🦀 [ZMQ-VIZ] SEND #{}: {} bytes to {}", count + 1, data.len(), self.bind_address);
+            println!("🦀 [ZMQ-VIZ] First 32 bytes: {:?}", &data[0..data.len().min(32)]);
+        }
+
         sock.send(data, 0)
             .map_err(|e| e.to_string())?;
 

@@ -368,6 +368,26 @@ impl RustNPU {
         }
     }
     
+    /// Attach PNS visualization ZMQ publisher to burst loop
+    /// After this, visualization data will be published to ZMQ in addition to SHM
+    fn attach_viz_zmq_publisher(&mut self, pns: &PyPNS) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let pns_clone = pns.pns.clone();
+            runner.lock().unwrap().set_viz_zmq_publisher(move |data: &[u8]| {
+                // Publish to ZMQ via PNS
+                if let Err(e) = pns_clone.lock().unwrap().publish_visualization(data) {
+                    eprintln!("[BURST-LOOP] ❌ Failed to publish to ZMQ: {}", e);
+                }
+            });
+            println!("[RUST-NPU] ✅ PNS ZMQ publisher attached to burst loop");
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
     /// Write binary neuron data to visualization SHM (Python encodes, Rust writes)
     /// 
     /// Args:
@@ -1850,6 +1870,16 @@ impl PyPNS {
             .deregister(&agent_id)
             .map(|_| format!("Agent {} deregistered", agent_id))
             .map_err(|e| PyValueError::new_err(format!("Deregistration failed: {}", e)))
+    }
+
+    /// Publish visualization data to all ZMQ subscribers
+    /// Called by burst engine after writing FQ data to SHM
+    fn publish_visualization(&self, data: &[u8]) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .publish_visualization(data)
+            .map_err(|e| PyValueError::new_err(format!("Failed to publish visualization: {}", e)))
     }
 }  // END of #[pymethods] impl PyPNS
 

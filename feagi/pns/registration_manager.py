@@ -235,11 +235,17 @@ class RegistrationManager:
                 self._update_capability_counts(sanitized_caps, increment=True)
 
                 # 8. Register capability rates
-                for rate_spec in capability_rates_to_register:
+                if capability_rates_to_register:
                     try:
                         rate_mgr = get_capability_rate_manager()
                         if rate_mgr:
-                            rate_mgr.register_capability_rate(rate_spec)
+                            approved, rejections = rate_mgr.register_agent_capabilities(
+                                request.agent_id,
+                                capability_rates_to_register
+                            )
+                            logger.info(f"Registered {len(approved)} capability rates for agent {request.agent_id}")
+                            if rejections:
+                                logger.warning(f"Rejected capabilities for {request.agent_id}: {rejections}")
                     except Exception as e:
                         logger.warning(f"Failed to register capability rate: {e}")
 
@@ -511,7 +517,9 @@ class RegistrationManager:
         if has_viz and not self._fq_sampler_states["visualization_enabled"]:
             if self._process_manager:
                 try:
-                    self._process_manager.enable_visualization_fq_sampler()
+                    # Create visualization FQ sampler (Rust burst engine + SHM writer)
+                    # Default to 60Hz for visualization (will be throttled per-agent by capability manager)
+                    self._process_manager.create_fq_sampler("visualization", 60.0)
                     self._fq_sampler_states["visualization_enabled"] = True
                     changes["visualization_fq_enabled"] = True
                     logger.info("🎨 Visualization FQ sampler ENABLED")
@@ -523,7 +531,8 @@ class RegistrationManager:
         if has_motor and not self._fq_sampler_states["motor_enabled"]:
             if self._process_manager:
                 try:
-                    self._process_manager.enable_motor_fq_sampler()
+                    # Create motor FQ sampler (Rust burst engine handles motor output)
+                    self._process_manager.create_fq_sampler("motor", 60.0)
                     self._fq_sampler_states["motor_enabled"] = True
                     changes["motor_fq_enabled"] = True
                     logger.info("🦾 Motor FQ sampler ENABLED")
@@ -544,7 +553,7 @@ class RegistrationManager:
             if self._capability_counts["visualization"] <= 0 and self._fq_sampler_states["visualization_enabled"]:
                 if self._process_manager:
                     try:
-                        self._process_manager.disable_visualization_fq_sampler()
+                        self._process_manager.disable_fq_sampler("visualization")
                         self._fq_sampler_states["visualization_enabled"] = False
                         changes["visualization_fq_disabled"] = True
                         logger.info("🎨 Visualization FQ sampler DISABLED")
@@ -557,7 +566,7 @@ class RegistrationManager:
             if self._capability_counts["motor"] <= 0 and self._fq_sampler_states["motor_enabled"]:
                 if self._process_manager:
                     try:
-                        self._process_manager.disable_motor_fq_sampler()
+                        self._process_manager.disable_fq_sampler("motor")
                         self._fq_sampler_states["motor_enabled"] = False
                         changes["motor_fq_disabled"] = True
                         logger.info("🦾 Motor FQ sampler DISABLED")

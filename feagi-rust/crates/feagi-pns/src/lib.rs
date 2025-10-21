@@ -45,9 +45,9 @@ pub struct PNSConfig {
 impl Default for PNSConfig {
     fn default() -> Self {
         Self {
-            zmq_rest_address: "tcp://0.0.0.0:5555".to_string(),
+            zmq_rest_address: "tcp://0.0.0.0:5563".to_string(),  // Changed from 5555 to 5563 (standard FEAGI REST port)
             zmq_motor_address: "tcp://0.0.0.0:30005".to_string(),
-            zmq_viz_address: "tcp://0.0.0.0:30000".to_string(),
+            zmq_viz_address: "tcp://0.0.0.0:5562".to_string(),  // Changed from 30000 to 5562 (standard FEAGI viz port)
             shm_base_path: "/tmp".to_string(),
         }
     }
@@ -172,6 +172,17 @@ impl PNS {
     /// Get agent registry (for external access)
     pub fn get_agent_registry(&self) -> Arc<RwLock<AgentRegistry>> {
         Arc::clone(&self.agent_registry)
+    }
+
+    /// Publish visualization data to all ZMQ subscribers
+    /// Called by burst engine after writing FQ data to SHM
+    pub fn publish_visualization(&self, data: &[u8]) -> Result<()> {
+        if let Some(streams) = self.zmq_streams.lock().as_ref() {
+            streams.publish_visualization(data)?;
+            Ok(())
+        } else {
+            Err(PNSError::NotRunning("ZMQ streams not started".to_string()))
+        }
     }
 }
 

@@ -73,5 +73,12 @@ impl ZmqStreams {
             .map_err(|e| PNSError::Zmq(format!("Viz stop: {}", e)))?;
         Ok(())
     }
+
+    /// Publish visualization data to ZMQ subscribers
+    pub fn publish_visualization(&self, data: &[u8]) -> Result<(), PNSError> {
+        self.viz_stream
+            .publish(data)
+            .map_err(|e| PNSError::Zmq(format!("Viz publish: {}", e)))
+    }
 }
 

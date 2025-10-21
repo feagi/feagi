@@ -1395,15 +1395,23 @@ class ProcessManager:
                 # The Rust burst loop samples FQ every burst and writes to SHM
                 # Per-agent rate limiting happens in capability rate manager
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
-                    from feagi.core.state_manager import FeagiStateManager
-                    sm = FeagiStateManager.instance()
-                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
-                    
-                    self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                    logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                    logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
-                    return True
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        sm = FeagiStateManager.instance()
+                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                        
+                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                        logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                        logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                        return True
+                    except Exception as e:
+                        # Burst loop may not be running yet if agent registers early
+                        if "Burst loop not running" in str(e):
+                            logger.info(f"🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts")
+                            return True
+                        else:
+                            raise
                 
                 # If Rust NPU not ready yet (early startup), that's OK
                 # The burst loop will start writing to SHM automatically once initialized
