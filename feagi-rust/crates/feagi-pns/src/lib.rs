@@ -15,7 +15,7 @@ pub mod shm;
 pub use agent_registry::{AgentRegistry, AgentInfo, AgentCapabilities};
 pub use registration::RegistrationHandler;
 pub use heartbeat::HeartbeatTracker;
-pub use zmq::{ZmqStreams, RestStream, MotorStream, VisualizationStream};
+pub use zmq::{ZmqStreams, RestStream, MotorStream, VisualizationStream, SensoryStream};
 
 #[derive(Error, Debug)]
 pub enum PNSError {
@@ -39,15 +39,17 @@ pub struct PNSConfig {
     pub zmq_rest_address: String,
     pub zmq_motor_address: String,
     pub zmq_viz_address: String,
+    pub zmq_sensory_address: String,
     pub shm_base_path: String,
 }
 
 impl Default for PNSConfig {
     fn default() -> Self {
         Self {
-            zmq_rest_address: "tcp://0.0.0.0:5563".to_string(),  // Changed from 5555 to 5563 (standard FEAGI REST port)
-            zmq_motor_address: "tcp://0.0.0.0:30005".to_string(),
-            zmq_viz_address: "tcp://0.0.0.0:5562".to_string(),  // Changed from 30000 to 5562 (standard FEAGI viz port)
+            zmq_rest_address: "tcp://0.0.0.0:5563".to_string(),  // REST/registration port
+            zmq_motor_address: "tcp://0.0.0.0:30005".to_string(), // Motor output port
+            zmq_viz_address: "tcp://0.0.0.0:5562".to_string(),    // Visualization output port
+            zmq_sensory_address: "tcp://0.0.0.0:5558".to_string(), // Sensory input port (PULL socket)
             shm_base_path: "/tmp".to_string(),
         }
     }
@@ -98,6 +100,17 @@ impl PNS {
         self.registration_handler.lock().set_sensory_agent_manager(manager);
         println!("🦀 [PNS] Sensory agent manager connected for SHM I/O");
     }
+    
+    /// Connect the Rust NPU to the sensory stream for direct injection
+    /// Should be called after starting the PNS
+    pub fn connect_npu_to_sensory_stream(&self, npu: Arc<std::sync::Mutex<feagi_burst_engine::RustNPU>>) {
+        if let Some(streams) = self.zmq_streams.lock().as_ref() {
+            streams.get_sensory_stream().set_npu(npu);
+            println!("🦀 [PNS] NPU connected to sensory stream for direct injection");
+        } else {
+            eprintln!("🦀 [PNS] [ERR] Cannot connect NPU: ZMQ streams not started");
+        }
+    }
 
     /// Set callback for agent registration events (for Python integration)
     pub fn set_on_agent_registered<F>(&self, callback: F)
@@ -128,6 +141,7 @@ impl PNS {
             &self.config.zmq_rest_address,
             &self.config.zmq_motor_address,
             &self.config.zmq_viz_address,
+            &self.config.zmq_sensory_address,
             Arc::clone(&self.registration_handler),
         )?;
 

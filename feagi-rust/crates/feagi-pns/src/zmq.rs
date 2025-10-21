@@ -3,10 +3,12 @@
 mod rest;
 mod motor;
 mod visualization;
+mod sensory;
 
 pub use rest::RestStream;
 pub use motor::MotorStream;
 pub use visualization::VisualizationStream;
+pub use sensory::SensoryStream;
 
 use crate::registration::RegistrationHandler;
 use crate::PNSError;
@@ -18,6 +20,7 @@ pub struct ZmqStreams {
     rest_stream: RestStream,
     motor_stream: MotorStream,
     viz_stream: VisualizationStream,
+    sensory_stream: SensoryStream,
 }
 
 impl ZmqStreams {
@@ -25,6 +28,7 @@ impl ZmqStreams {
         rest_address: &str,
         motor_address: &str,
         viz_address: &str,
+        sensory_address: &str,
         registration_handler: Arc<Mutex<RegistrationHandler>>,
     ) -> Result<Self, PNSError> {
         let context = Arc::new(zmq::Context::new());
@@ -41,10 +45,14 @@ impl ZmqStreams {
         let viz_stream = VisualizationStream::new(Arc::clone(&context), viz_address)
             .map_err(|e| PNSError::Zmq(format!("Viz stream: {}", e)))?;
 
+        let sensory_stream = SensoryStream::new(Arc::clone(&context), sensory_address)
+            .map_err(|e| PNSError::Zmq(format!("Sensory stream: {}", e)))?;
+
         Ok(Self {
             rest_stream,
             motor_stream,
             viz_stream,
+            sensory_stream,
         })
     }
 
@@ -58,6 +66,9 @@ impl ZmqStreams {
         self.viz_stream
             .start()
             .map_err(|e| PNSError::Zmq(format!("Viz start: {}", e)))?;
+        self.sensory_stream
+            .start()
+            .map_err(|e| PNSError::Zmq(format!("Sensory start: {}", e)))?;
         Ok(())
     }
 
@@ -71,7 +82,15 @@ impl ZmqStreams {
         self.viz_stream
             .stop()
             .map_err(|e| PNSError::Zmq(format!("Viz stop: {}", e)))?;
+        self.sensory_stream
+            .stop()
+            .map_err(|e| PNSError::Zmq(format!("Sensory stop: {}", e)))?;
         Ok(())
+    }
+    
+    /// Get reference to sensory stream (for NPU connection)
+    pub fn get_sensory_stream(&self) -> &SensoryStream {
+        &self.sensory_stream
     }
 
     /// Publish visualization data to ZMQ subscribers

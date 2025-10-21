@@ -61,11 +61,12 @@ impl AgentConfig {
             agent_id: agent_id.into(),
             agent_type,
             capabilities: AgentCapabilities::default(),
-            registration_endpoint: "tcp://localhost:30001".to_string(),
-            sensory_endpoint: "tcp://localhost:5555".to_string(),
-            motor_endpoint: "tcp://localhost:30005".to_string(),
-            visualization_endpoint: "tcp://localhost:5562".to_string(),
-            control_endpoint: "tcp://localhost:5563".to_string(),
+            // NO HARDCODED ENDPOINTS - must be set explicitly via builder methods or with_feagi_endpoints()
+            registration_endpoint: String::new(),
+            sensory_endpoint: String::new(),
+            motor_endpoint: String::new(),
+            visualization_endpoint: String::new(),
+            control_endpoint: String::new(),
             heartbeat_interval: 5.0,
             connection_timeout_ms: 5000,
             registration_retries: 3,
@@ -73,21 +74,66 @@ impl AgentConfig {
         }
     }
     
-    /// Set FEAGI host and derive all endpoints
+    /// Set FEAGI host and ports to derive all endpoints
+    ///
+    /// Note: This method requires explicit port numbers. NO DEFAULTS are provided.
+    /// Ports must match those configured in FEAGI's feagi_configuration.toml
     ///
     /// # Example
     /// ```
     /// # use feagi_agent_sdk::{AgentConfig, AgentType};
     /// let config = AgentConfig::new("camera", AgentType::Sensory)
-    ///     .with_feagi_host("192.168.1.100");
+    ///     .with_feagi_endpoints("192.168.1.100", 30001, 5558, 30005, 5562, 5563);
     /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use with_feagi_endpoints() instead to explicitly specify all ports"
+    )]
     pub fn with_feagi_host(mut self, host: impl Into<String>) -> Self {
         let host = host.into();
+        // @architecture:acceptable - deprecated method, kept for backwards compatibility only
+        // Users should migrate to with_feagi_endpoints() or individual endpoint setters
         self.registration_endpoint = format!("tcp://{}:30001", host);
-        self.sensory_endpoint = format!("tcp://{}:5555", host);
+        self.sensory_endpoint = format!("tcp://{}:5558", host);
         self.motor_endpoint = format!("tcp://{}:30005", host);
         self.visualization_endpoint = format!("tcp://{}:5562", host);
         self.control_endpoint = format!("tcp://{}:5563", host);
+        self
+    }
+    
+    /// Set FEAGI endpoints with explicit ports (RECOMMENDED)
+    ///
+    /// All ports must be provided explicitly to match FEAGI's configuration.
+    /// No default values are used.
+    ///
+    /// # Example
+    /// ```
+    /// # use feagi_agent_sdk::{AgentConfig, AgentType};
+    /// let config = AgentConfig::new("camera", AgentType::Sensory)
+    ///     .with_feagi_endpoints(
+    ///         "192.168.1.100",
+    ///         30001,  // registration_port
+    ///         5558,   // sensory_port
+    ///         30005,  // motor_port
+    ///         5562,   // visualization_port
+    ///         5563    // control_port
+    ///     );
+    /// ```
+    pub fn with_feagi_endpoints(
+        mut self,
+        host: impl Into<String>,
+        registration_port: u16,
+        sensory_port: u16,
+        motor_port: u16,
+        visualization_port: u16,
+        control_port: u16,
+    ) -> Self {
+        let host = host.into();
+        self.registration_endpoint = format!("tcp://{}:{}", host, registration_port);
+        self.sensory_endpoint = format!("tcp://{}:{}", host, sensory_port);
+        self.motor_endpoint = format!("tcp://{}:{}", host, motor_port);
+        self.visualization_endpoint = format!("tcp://{}:{}", host, visualization_port);
+        self.control_endpoint = format!("tcp://{}:{}", host, control_port);
         self
     }
     
@@ -296,23 +342,59 @@ impl AgentConfig {
             }
         }
         
-        // Validate endpoints
+        // Validate endpoints based on agent type
+        // Registration endpoint is always required
+        if self.registration_endpoint.is_empty() {
+            return Err(SdkError::InvalidConfig(
+                "registration_endpoint must be set (use with_registration_endpoint() or with_feagi_endpoints())".to_string()
+            ));
+        }
         if !self.registration_endpoint.starts_with("tcp://") {
             return Err(SdkError::InvalidConfig(
                 "registration_endpoint must start with tcp://".to_string()
             ));
         }
         
-        if !self.sensory_endpoint.starts_with("tcp://") {
-            return Err(SdkError::InvalidConfig(
-                "sensory_endpoint must start with tcp://".to_string()
-            ));
+        // Validate sensory endpoint for sensory agents
+        if matches!(self.agent_type, AgentType::Sensory | AgentType::Both) {
+            if self.sensory_endpoint.is_empty() {
+                return Err(SdkError::InvalidConfig(
+                    "sensory_endpoint must be set for Sensory/Both agents (use with_sensory_endpoint() or with_feagi_endpoints())".to_string()
+                ));
+            }
+            if !self.sensory_endpoint.starts_with("tcp://") {
+                return Err(SdkError::InvalidConfig(
+                    "sensory_endpoint must start with tcp://".to_string()
+                ));
+            }
         }
         
-        if !self.motor_endpoint.starts_with("tcp://") {
-            return Err(SdkError::InvalidConfig(
-                "motor_endpoint must start with tcp://".to_string()
-            ));
+        // Validate motor endpoint for motor agents
+        if matches!(self.agent_type, AgentType::Motor | AgentType::Both) {
+            if self.motor_endpoint.is_empty() {
+                return Err(SdkError::InvalidConfig(
+                    "motor_endpoint must be set for Motor/Both agents (use with_motor_endpoint() or with_feagi_endpoints())".to_string()
+                ));
+            }
+            if !self.motor_endpoint.starts_with("tcp://") {
+                return Err(SdkError::InvalidConfig(
+                    "motor_endpoint must start with tcp://".to_string()
+                ));
+            }
+        }
+        
+        // Validate visualization endpoint for visualization agents
+        if matches!(self.agent_type, AgentType::Visualization) {
+            if self.visualization_endpoint.is_empty() {
+                return Err(SdkError::InvalidConfig(
+                    "visualization_endpoint must be set for Visualization agents (use with_visualization_endpoint() or with_feagi_endpoints())".to_string()
+                ));
+            }
+            if !self.visualization_endpoint.starts_with("tcp://") {
+                return Err(SdkError::InvalidConfig(
+                    "visualization_endpoint must start with tcp://".to_string()
+                ));
+            }
         }
         
         Ok(())

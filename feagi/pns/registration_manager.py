@@ -464,21 +464,16 @@ class RegistrationManager:
         return self._feagi_ready
 
     def _get_transport_info(self, agent_type: str, capabilities: Dict[str, Any]) -> Dict[str, Any]:
-        """Get transport information for agent"""
-        try:
-            if load_feagi_config and get_agent_config:
-                config = load_feagi_config()
-                agent_cfg = get_agent_config(config)
-                return {
-                    "sensory_endpoint": f"tcp://{agent_cfg.get('host', '0.0.0.0')}:{agent_cfg.get('sensory_port', 5555)}",
-                    "motor_endpoint": f"tcp://{agent_cfg.get('host', '0.0.0.0')}:{agent_cfg.get('motor_port', 30005)}",
-                }
-        except Exception:
-            pass
+        """Get transport information for agent (MUST use config - NO fallback)"""
+        from feagi.config.toml_loader import get_port_config, get_host_config
+        
+        config = load_feagi_config()
+        port_config = get_port_config(config)
+        host_config = get_host_config(config)
         
         return {
-            "sensory_endpoint": "tcp://0.0.0.0:5555",
-            "motor_endpoint": "tcp://0.0.0.0:30005",
+            "sensory_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_sensory_port}",
+            "motor_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_motor_port}",
         }
 
     def _update_capability_counts(self, capabilities: Dict[str, Any], increment: bool) -> None:

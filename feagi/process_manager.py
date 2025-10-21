@@ -546,88 +546,18 @@ class ProcessManager:
                         "🏛️ Registration Manager initialized - central agent coordination ready"
                     )
                     
-                    # Start ZMQ registration listener
-                    try:
-                        logger.info("🦀 Starting ZMQ registration listener...")
-                        from feagi.pns.zmq_registration_listener import ZmqRegistrationListener
-                        
-                        # Get registration port from config (MUST be configured, no fallbacks)
-                        config = load_feagi_config()
-                        registration_port = config["agent"]["registration_port"]
-                        
-                        zmq_reg_listener = ZmqRegistrationListener(
-                            registration_manager=registration_manager,
-                            host="*",
-                            port=registration_port
-                        )
-                        zmq_reg_listener.start()
-                        
-                        # Store for later access
-                        self._zmq_registration_listener = zmq_reg_listener
-                        
-                        # Give it a moment to bind
-                        import time
-                        time.sleep(0.1)
-                        
-                        logger.info(f"✅ ZMQ registration listener initialized on port {registration_port}")
-                        
-                    except Exception as e:
-                        error_msg = str(e)
-                        if "Address already in use" in error_msg:
-                            logger.critical(
-                                f"❌ CRITICAL: Port {registration_port} is already in use! "
-                                f"Cannot start ZMQ agent registration. "
-                                f"On macOS, this is often caused by AirPlay Receiver. "
-                                f"Please disable AirPlay Receiver in System Settings > General > AirDrop & Handoff, "
-                                f"or configure a different port in feagi_configuration.toml under [agent] registration_port"
-                            )
-                            raise RuntimeError(
-                                f"FEAGI cannot start: Port {registration_port} is already in use. "
-                                f"Please free the port or change the configuration."
-                            )
-                        else:
-                            logger.error(f"❌ Failed to start ZMQ registration listener: {e}", exc_info=True)
-                            raise
+                    # ZMQ Registration Listener: NOW HANDLED BY RUST PNS
+                    # The Rust PNS (feagi-pns crate) provides zmq/rest.rs for agent registration
+                    # This eliminates the Python ZMQ registration listener
+                    logger.info("🦀 Agent registration handled by Rust PNS (feagi-pns/zmq/rest.rs)")
                     
-                    # Start ZMQ sensory data listener
-                    try:
-                        logger.info("🦀 Starting ZMQ sensory data listener...")
-                        from feagi.pns.zmq_sensory_listener import ZmqSensoryListener
-                        
-                        # Get sensory port from config (default 5555)
-                        sensory_port = 5555
-                        try:
-                            config = load_feagi_config()
-                            sensory_port = config.get("agent", {}).get("sensory_port", 5555)
-                        except Exception as e_config:
-                            logger.debug(f"Using default sensory port: {e_config}")
-                        
-                        # Get NPU interface from core API
-                        npu_interface = None
-                        if self._core_api and hasattr(self._core_api, 'npu_interface'):
-                            npu_interface = self._core_api.npu_interface
-                        
-                        if npu_interface:
-                            zmq_sensory_listener = ZmqSensoryListener(
-                                npu_interface=npu_interface,
-                                host="*",
-                                port=sensory_port
-                            )
-                            zmq_sensory_listener.start()
-                            
-                            # Store for later access
-                            self._zmq_sensory_listener = zmq_sensory_listener
-                            
-                            # Give it a moment to bind
-                            import time
-                            time.sleep(0.1)
-                            
-                            logger.info(f"✅ ZMQ sensory listener initialized on port {sensory_port}")
-                        else:
-                            logger.warning("⚠️ NPU interface not available, skipping ZMQ sensory listener")
-                        
-                    except Exception as e:
-                        logger.error(f"❌ Failed to start ZMQ sensory listener: {e}", exc_info=True)
+                    # ZMQ Sensory Listener: NOW HANDLED BY RUST PNS
+                    # The Rust PNS (feagi-pns crate) provides zmq/sensory.rs for sensory data
+                    # Benefits:
+                    #   - 10-100x faster XYZP binary deserialization (Rust vs Python)
+                    #   - Direct Rust→Rust NPU injection (no Python FFI overhead)
+                    #   - Consistent with Motor/Viz streams (all in Rust)
+                    logger.info("🦀 Sensory data reception handled by Rust PNS (feagi-pns/zmq/sensory.rs)")
                         # Non-fatal - can continue without sensory listener
                 else:
                     logger.error(
@@ -1566,21 +1496,10 @@ class ProcessManager:
             except Exception as e:
                 print(f"Error stopping heartbeat coordinator: {e}", file=sys.stderr, flush=True)
 
-            # Shutdown ZMQ registration listener
-            try:
-                if hasattr(self, '_zmq_registration_listener') and self._zmq_registration_listener:
-                    self._zmq_registration_listener.stop()
-                    print("🦀 ZMQ registration listener stopped", file=sys.stderr, flush=True)
-            except Exception as e:
-                print(f"Error stopping ZMQ registration listener: {e}", file=sys.stderr, flush=True)
-            
-            # Shutdown ZMQ sensory listener
-            try:
-                if hasattr(self, '_zmq_sensory_listener') and self._zmq_sensory_listener:
-                    self._zmq_sensory_listener.stop()
-                    print("🦀 ZMQ sensory listener stopped", file=sys.stderr, flush=True)
-            except Exception as e:
-                print(f"Error stopping ZMQ sensory listener: {e}", file=sys.stderr, flush=True)
+            # ZMQ Registration & Sensory Listeners: NOW HANDLED BY RUST PNS
+            # The Rust PNS manages all ZMQ streams lifecycle
+            # No need to stop them here - they're managed by the Rust PNS process
+            print("🦀 ZMQ streams (registration, sensory) managed by Rust PNS", file=sys.stderr, flush=True)
 
             # Import required modules for timeout handling
             import threading
