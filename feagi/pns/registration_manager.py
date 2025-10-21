@@ -520,12 +520,20 @@ class RegistrationManager:
                 agents_json = self._rust_registry.get_all_agents_json()
                 agents_list = json.loads(agents_json)
                 
-                # Extract custom capabilities for backward compatibility
+                # Convert list to dict (keyed by agent_id) for state manager
+                agents_dict = {}
                 for agent in agents_list:
-                    if "capabilities" in agent and "custom" in agent["capabilities"]:
-                        agent["capabilities"] = agent["capabilities"]["custom"]
+                    agent_id = agent.get("agent_id")
+                    if agent_id:
+                        # Extract custom capabilities for backward compatibility
+                        if "capabilities" in agent and "custom" in agent["capabilities"]:
+                            agent["capabilities"] = agent["capabilities"]["custom"]
+                        agents_dict[agent_id] = agent
                 
-                self._state_manager.update_registered_agents(agents_list)
+                # Use the correct state manager method
+                result = self._state_manager.set_connected_agents(agents_dict)
+                if result.is_err:
+                    logger.warning(f"Failed to update State Manager: {result.error}")
             except Exception as e:
                 logger.warning(f"Failed to update State Manager: {e}")
 

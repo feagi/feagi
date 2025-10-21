@@ -29,6 +29,14 @@ port = 8000         # Default API port, override with FEAGI_API_PORT for product
 workers = 1         # Can be overridden with $FEAGI_API_WORKERS
 reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
+[agent]
+# Agent registration and communication configuration
+# Port 30001 avoids conflicts with macOS AirPlay (port 5000)
+registration_port = 30001  # ZMQ agent registration endpoint (REQ/REP)
+sensory_port = 5555        # ZMQ sensory data input (PULL socket - agents PUSH sensory data here)
+motor_port = 30005         # ZMQ motor data output (PUB socket - agents SUB to receive motor commands)
+host = "0.0.0.0"           # Host for agent communication, can be overridden with FEAGI_AGENT_HOST
+
 [ports]
 # ZMQ Communication Ports
 #

@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use feagi_agent_registry::AgentTransport;
+extern crate zmq;
+extern crate serde_json;
 
 /// FEAGI Inference Engine - Standalone neural processing engine with online learning
 #[derive(Parser, Debug)]
@@ -234,15 +236,71 @@ fn run_engine(
     let mut burst_count: u64 = 0;
     let mut last_prune = std::time::Instant::now();
 
+    // Create ZMQ context and sockets for sensory/motor I/O
+    let ctx = zmq::Context::new();
+    
+    // Sensory input socket (PULL pattern - agents PUSH data to us)
+    let sensory_socket = ctx.socket(zmq::PULL)?;
+    sensory_socket.bind(&args.sensory_endpoint)?;
+    sensory_socket.set_rcvtimeo(10)?; // 10ms timeout for non-blocking
+    info!("✓ Sensory input bound to: {}", args.sensory_endpoint);
+    
+    // Motor output socket (PUB pattern - we PUBLISH motor data to agents)
+    let motor_socket = ctx.socket(zmq::PUB)?;
+    motor_socket.bind(&args.motor_endpoint)?;
+    info!("✓ Motor output bound to: {}", args.motor_endpoint);
+
     info!("🔄 Engine running (Press Ctrl+C to stop)...");
-    info!("  Registered agents will send sensory data to: {}", args.sensory_endpoint);
-    info!("  Motor output will be published to: {}", args.motor_endpoint);
+    info!("  Agents send sensory data to: {}", args.sensory_endpoint);
+    info!("  Motor output published to: {}", args.motor_endpoint);
 
     while running.load(Ordering::Relaxed) {
         let start = std::time::Instant::now();
 
-        // TODO: Process ZMQ sensory input from registered agents
-        // This will be implemented when we have the sensory injection logic
+        // Process ZMQ sensory input from registered agents
+        // Format: JSON with { "cortical_area_id": u32, "neuron_id_potential_pairs": [[id, potential], ...] }
+        loop {
+            match sensory_socket.recv_bytes(zmq::DONTWAIT) {
+                Ok(msg_bytes) => {
+                    // Parse JSON message
+                    match serde_json::from_slice::<serde_json::Value>(&msg_bytes) {
+                        Ok(json) => {
+                            // Extract neuron_id and potential pairs
+                            if let Some(pairs) = json.get("neuron_id_potential_pairs").and_then(|v| v.as_array()) {
+                                let mut injection_data: Vec<(u64, f32)> = Vec::new();
+                                for pair in pairs {
+                                    if let Some(arr) = pair.as_array() {
+                                        if arr.len() == 2 {
+                                            if let (Some(id), Some(pot)) = (arr[0].as_u64(), arr[1].as_f64()) {
+                                                injection_data.push((id, pot as f32));
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if !injection_data.is_empty() {
+                                    npu.inject_sensory_with_potentials(&injection_data);
+                                    if burst_count % (args.burst_hz * 10) == 0 {
+                                        debug!("Injected {} neurons from agent", injection_data.len());
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to parse sensory data: {}", e);
+                        }
+                    }
+                }
+                Err(zmq::Error::EAGAIN) => {
+                    // No more messages available (non-blocking)
+                    break;
+                }
+                Err(e) => {
+                    warn!("Sensory socket error: {}", e);
+                    break;
+                }
+            }
+        }
 
         // Execute neural burst
         match npu.process_burst() {
@@ -256,8 +314,41 @@ fn run_engine(
             }
         }
 
-        // TODO: Publish motor output via ZMQ to registered agents
-        // This will be implemented when we have the motor extraction logic
+        // Publish motor output via ZMQ to registered agents
+        // Extract fire queue data and publish to all subscribed motor agents
+        if let Some(fire_data) = npu.force_sample_fire_queue() {
+            if !fire_data.is_empty() {
+                // Convert fire data to JSON format
+                // Format: { "cortical_areas": { "area_id": { "neuron_ids": [...], "x": [...], "y": [...], "z": [...], "power": [...] } } }
+                let mut motor_json = serde_json::json!({
+                    "burst": burst_count,
+                    "cortical_areas": {}
+                });
+                
+                for (area_id, (ids, xs, ys, zs, ps)) in fire_data.iter() {
+                    if !ids.is_empty() {
+                        motor_json["cortical_areas"][area_id.to_string()] = serde_json::json!({
+                            "neuron_ids": ids,
+                            "x": xs,
+                            "y": ys,
+                            "z": zs,
+                            "power": ps,
+                        });
+                    }
+                }
+                
+                // Serialize and publish
+                if let Ok(motor_msg) = serde_json::to_vec(&motor_json) {
+                    if let Err(e) = motor_socket.send(&motor_msg, 0) {
+                        if burst_count % (args.burst_hz * 10) == 0 {
+                            warn!("Failed to publish motor output: {}", e);
+                        }
+                    } else if burst_count % (args.burst_hz * 10) == 0 {
+                        debug!("Published motor output: {} cortical areas", fire_data.len());
+                    }
+                }
+            }
+        }
 
         burst_count += 1;
 

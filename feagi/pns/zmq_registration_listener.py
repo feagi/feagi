@@ -59,7 +59,8 @@ class ZmqRegistrationListener:
             daemon=True
         )
         self.thread.start()
-        logger.info(f"🦀 ZMQ registration listener started on tcp://{self.host}:{self.port}")
+        logger.info(f"🦀 ZMQ registration listener thread started for tcp://{self.host}:{self.port}")
+        # Note: Actual bind success/failure will be logged by _listener_loop()
     
     def stop(self):
         """Stop the ZMQ registration listener"""
@@ -98,10 +99,11 @@ class ZmqRegistrationListener:
             # Bind to address
             bind_address = f"tcp://{self.host}:{self.port}"
             self.socket.bind(bind_address)
-            logger.info(f"🦀 ZMQ registration listener bound to {bind_address}")
             
             # Set receive timeout so we can check self.running periodically
             self.socket.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
+            
+            logger.info(f"✅ ZMQ registration listener SUCCESSFULLY bound to {bind_address}")
             
             while self.running:
                 try:
@@ -130,7 +132,16 @@ class ZmqRegistrationListener:
                         pass
         
         except Exception as e:
-            logger.error(f"Fatal error in ZMQ registration listener: {e}", exc_info=True)
+            error_msg = str(e)
+            if "Address already in use" in error_msg:
+                logger.critical(
+                    f"❌ CRITICAL: Cannot bind to tcp://{self.host}:{self.port} - Address already in use! "
+                    f"Another process is using port {self.port}."
+                )
+            else:
+                logger.error(f"Fatal error in ZMQ registration listener: {e}", exc_info=True)
+            # Re-raise to ensure calling code knows about the failure
+            raise
         finally:
             logger.info("ZMQ registration listener loop exited")
     
