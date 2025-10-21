@@ -33,12 +33,18 @@ class AgentRegistrationRequest:
         agent_type: str,
         agent_ip: str,
         capabilities: Dict[str, Any],
+        agent_data_port: Optional[int] = None,
+        agent_version: Optional[str] = None,
+        controller_version: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.agent_ip = agent_ip
         self.capabilities = capabilities
+        self.agent_data_port = agent_data_port
+        self.agent_version = agent_version
+        self.controller_version = controller_version
         self.metadata = metadata or {}
         self.registration_timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -191,11 +197,27 @@ class RegistrationManager:
                 
                 rust_capabilities_json = json.dumps(rust_capabilities)
                 
-                # 🦀 Register in Rust registry
+                # Prepare metadata for Rust registry
+                metadata = {}
+                if request.agent_data_port is not None:
+                    metadata["agent_data_port"] = request.agent_data_port
+                if request.agent_version:
+                    metadata["agent_version"] = request.agent_version
+                if request.controller_version:
+                    metadata["controller_version"] = request.controller_version
+                if request.agent_ip:
+                    metadata["agent_ip"] = request.agent_ip
+                if request.metadata:
+                    metadata.update(request.metadata)
+                
+                metadata_json = json.dumps(metadata) if metadata else None
+                
+                # 🦀 Register in Rust registry with metadata
                 result_json = self._rust_registry.register_agent_direct(
                     request.agent_id,
                     self._map_agent_type_to_rust(request.agent_type),
-                    rust_capabilities_json
+                    rust_capabilities_json,
+                    metadata_json
                 )
                 
                 result = json.loads(result_json)
@@ -319,9 +341,24 @@ class RegistrationManager:
         try:
             agent_json = self._rust_registry.get_agent_json(agent_id)
             agent = json.loads(agent_json)
+            
             # Extract custom capabilities for backward compatibility
             if "capabilities" in agent and "custom" in agent["capabilities"]:
                 agent["capabilities"] = agent["capabilities"]["custom"]
+            
+            # Metadata is now properly stored in agent["metadata"] by Rust
+            # Extract common metadata fields to top level for convenience
+            if "metadata" in agent and agent["metadata"]:
+                metadata = agent["metadata"]
+                if "agent_data_port" in metadata:
+                    agent["agent_data_port"] = metadata["agent_data_port"]
+                if "agent_version" in metadata:
+                    agent["agent_version"] = metadata["agent_version"]
+                if "controller_version" in metadata:
+                    agent["controller_version"] = metadata["controller_version"]
+                if "agent_ip" in metadata:
+                    agent["agent_ip"] = metadata["agent_ip"]
+            
             return agent
         except Exception:
             return None
@@ -332,10 +369,23 @@ class RegistrationManager:
             agents_json = self._rust_registry.get_all_agents_json()
             agents_list = json.loads(agents_json)
             
-            # Extract custom capabilities for backward compatibility
+            # Extract custom capabilities and metadata for each agent
             for agent in agents_list:
+                # Extract custom capabilities for backward compatibility
                 if "capabilities" in agent and "custom" in agent["capabilities"]:
                     agent["capabilities"] = agent["capabilities"]["custom"]
+                
+                # Extract common metadata fields to top level for convenience
+                if "metadata" in agent and agent["metadata"]:
+                    metadata = agent["metadata"]
+                    if "agent_data_port" in metadata:
+                        agent["agent_data_port"] = metadata["agent_data_port"]
+                    if "agent_version" in metadata:
+                        agent["agent_version"] = metadata["agent_version"]
+                    if "controller_version" in metadata:
+                        agent["controller_version"] = metadata["controller_version"]
+                    if "agent_ip" in metadata:
+                        agent["agent_ip"] = metadata["agent_ip"]
             
             return {
                 "agents": agents_list,
@@ -372,6 +422,9 @@ class RegistrationManager:
             "motor": "motor",
             "both": "both",
             "multimodal": "both",
+            "visualization": "visualization",
+            "infrastructure": "infrastructure",
+            "feagi_bridge": "infrastructure",  # Bridge is infrastructure type
         }
         return type_map.get(python_type.lower(), "sensory")
 
@@ -528,6 +581,19 @@ class RegistrationManager:
                         # Extract custom capabilities for backward compatibility
                         if "capabilities" in agent and "custom" in agent["capabilities"]:
                             agent["capabilities"] = agent["capabilities"]["custom"]
+                        
+                        # Extract common metadata fields to top level for convenience
+                        if "metadata" in agent and agent["metadata"]:
+                            metadata = agent["metadata"]
+                            if "agent_data_port" in metadata:
+                                agent["agent_data_port"] = metadata["agent_data_port"]
+                            if "agent_version" in metadata:
+                                agent["agent_version"] = metadata["agent_version"]
+                            if "controller_version" in metadata:
+                                agent["controller_version"] = metadata["controller_version"]
+                            if "agent_ip" in metadata:
+                                agent["agent_ip"] = metadata["agent_ip"]
+                        
                         agents_dict[agent_id] = agent
                 
                 # Use the correct state manager method

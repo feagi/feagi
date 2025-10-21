@@ -1,6 +1,6 @@
 //! Configuration for FEAGI Agent SDK
 
-use feagi_agent_registry::{AgentCapabilities, AgentType, VisionCapability, MotorCapability};
+use feagi_agent_registry::{AgentCapabilities, AgentType, VisionCapability, MotorCapability, VisualizationCapability};
 use crate::error::{Result, SdkError};
 
 /// Agent configuration builder
@@ -9,7 +9,7 @@ pub struct AgentConfig {
     /// Unique agent identifier
     pub agent_id: String,
     
-    /// Agent type (sensory, motor, or both)
+    /// Agent type (sensory, motor, both, visualization, or infrastructure)
     pub agent_type: AgentType,
     
     /// Agent capabilities
@@ -23,6 +23,12 @@ pub struct AgentConfig {
     
     /// FEAGI motor output endpoint (ZMQ SUB)
     pub motor_endpoint: String,
+    
+    /// FEAGI visualization stream endpoint (ZMQ SUB)
+    pub visualization_endpoint: String,
+    
+    /// FEAGI control/API endpoint (ZMQ REQ - REST over ZMQ)
+    pub control_endpoint: String,
     
     /// Heartbeat interval in seconds (0 = disabled)
     pub heartbeat_interval: f64,
@@ -58,6 +64,8 @@ impl AgentConfig {
             registration_endpoint: "tcp://localhost:30001".to_string(),
             sensory_endpoint: "tcp://localhost:5555".to_string(),
             motor_endpoint: "tcp://localhost:30005".to_string(),
+            visualization_endpoint: "tcp://localhost:5562".to_string(),
+            control_endpoint: "tcp://localhost:5563".to_string(),
             heartbeat_interval: 5.0,
             connection_timeout_ms: 5000,
             registration_retries: 3,
@@ -78,6 +86,8 @@ impl AgentConfig {
         self.registration_endpoint = format!("tcp://{}:30001", host);
         self.sensory_endpoint = format!("tcp://{}:5555", host);
         self.motor_endpoint = format!("tcp://{}:30005", host);
+        self.visualization_endpoint = format!("tcp://{}:5562", host);
+        self.control_endpoint = format!("tcp://{}:5563", host);
         self
     }
     
@@ -96,6 +106,18 @@ impl AgentConfig {
     /// Set motor output endpoint
     pub fn with_motor_endpoint(mut self, endpoint: impl Into<String>) -> Self {
         self.motor_endpoint = endpoint.into();
+        self
+    }
+    
+    /// Set visualization stream endpoint
+    pub fn with_visualization_endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.visualization_endpoint = endpoint.into();
+        self
+    }
+    
+    /// Set control/API endpoint
+    pub fn with_control_endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.control_endpoint = endpoint.into();
         self
     }
     
@@ -163,6 +185,30 @@ impl AgentConfig {
         self
     }
     
+    /// Add visualization capability
+    ///
+    /// # Example
+    /// ```
+    /// # use feagi_agent_sdk::{AgentConfig, AgentType};
+    /// let config = AgentConfig::new("brain_viz", AgentType::Visualization)
+    ///     .with_visualization_capability("3d_brain", Some((1920, 1080)), Some(30.0), false);
+    /// ```
+    pub fn with_visualization_capability(
+        mut self,
+        visualization_type: impl Into<String>,
+        resolution: Option<(usize, usize)>,
+        refresh_rate: Option<f64>,
+        bridge_proxy: bool,
+    ) -> Self {
+        self.capabilities.visualization = Some(VisualizationCapability {
+            visualization_type: visualization_type.into(),
+            resolution,
+            refresh_rate,
+            bridge_proxy,
+        });
+        self
+    }
+    
     /// Add custom capability
     ///
     /// # Example
@@ -195,6 +241,7 @@ impl AgentConfig {
         // Must have at least one capability
         if self.capabilities.vision.is_none()
             && self.capabilities.motor.is_none()
+            && self.capabilities.visualization.is_none()
             && self.capabilities.custom.is_empty()
         {
             return Err(SdkError::InvalidConfig(
@@ -224,6 +271,26 @@ impl AgentConfig {
                 {
                     return Err(SdkError::InvalidConfig(
                         "Bidirectional agent must have both input and output capabilities".to_string()
+                    ));
+                }
+            }
+            AgentType::Visualization => {
+                if self.capabilities.visualization.is_none() {
+                    return Err(SdkError::InvalidConfig(
+                        "Visualization agent must have visualization capability".to_string()
+                    ));
+                }
+            }
+            AgentType::Infrastructure => {
+                // Infrastructure agents can have any combination of capabilities
+                // No strict requirements as they may proxy multiple types
+                if self.capabilities.vision.is_none()
+                    && self.capabilities.motor.is_none()
+                    && self.capabilities.visualization.is_none()
+                    && self.capabilities.custom.is_empty()
+                {
+                    return Err(SdkError::InvalidConfig(
+                        "Infrastructure agent must declare at least one capability".to_string()
                     ));
                 }
             }

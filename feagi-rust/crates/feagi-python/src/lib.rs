@@ -1951,14 +1951,17 @@ impl PyAgentRegistry {
     ///     agent_id: Unique agent identifier
     ///     agent_type: "sensory", "motor", or "both"
     ///     capabilities_json: JSON string with agent capabilities
+    ///     metadata_json: Optional JSON string with agent metadata (version, ip, port, etc.)
     /// 
     /// Returns:
     ///     Result JSON with success status and message
+    #[pyo3(signature = (agent_id, agent_type, capabilities_json, metadata_json=None))]
     fn register_agent_direct(
         &self,
         agent_id: String,
         agent_type: String,
         capabilities_json: String,
+        metadata_json: Option<String>,
     ) -> PyResult<String> {
         use feagi_agent_registry::{AgentType, AgentCapabilities, AgentInfo};
         
@@ -1967,6 +1970,8 @@ impl PyAgentRegistry {
             "sensory" => AgentType::Sensory,
             "motor" => AgentType::Motor,
             "both" => AgentType::Both,
+            "visualization" => AgentType::Visualization,
+            "infrastructure" => AgentType::Infrastructure,
             _ => {
                 let error_response = serde_json::json!({
                     "success": false,
@@ -1992,7 +1997,24 @@ impl PyAgentRegistry {
         
         // Create agent info and add directly to registry
         // Note: This bypasses the transport/validation layer for Python integration
-        let agent_info = AgentInfo::new(agent_id.clone(), rust_agent_type, capabilities);
+        let mut agent_info = AgentInfo::new(agent_id.clone(), rust_agent_type, capabilities);
+        
+        // Parse and set metadata if provided
+        if let Some(meta_str) = metadata_json {
+            match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&meta_str) {
+                Ok(metadata) => {
+                    agent_info.metadata = metadata;
+                }
+                Err(e) => {
+                    let error_response = serde_json::json!({
+                        "success": false,
+                        "message": format!("Failed to parse metadata: {}", e),
+                        "agent_id": agent_id,
+                    });
+                    return Ok(serde_json::to_string(&error_response).unwrap());
+                }
+            }
+        }
         
         // Register directly (bypasses transport)
         match self.registry.register_agent_direct(agent_info) {

@@ -250,6 +250,25 @@ impl AgentRegistry {
                     ));
                 }
             }
+            AgentType::Visualization => {
+                if capabilities.visualization.is_none() {
+                    return Err(RegistryError::InvalidConfiguration(
+                        "Visualization agent must have visualization capability".to_string()
+                    ));
+                }
+            }
+            AgentType::Infrastructure => {
+                // Infrastructure agents are flexible - they can proxy any type
+                // Just require at least one capability to be declared
+                if capabilities.vision.is_none()
+                    && capabilities.motor.is_none()
+                    && capabilities.visualization.is_none()
+                    && capabilities.custom.is_empty() {
+                    return Err(RegistryError::InvalidConfiguration(
+                        "Infrastructure agent must declare at least one capability".to_string()
+                    ));
+                }
+            }
         }
         
         Ok(())

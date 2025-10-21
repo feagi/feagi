@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Type of agent based on I/O direction
+/// Type of agent based on I/O direction and purpose
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentType {
@@ -13,6 +13,10 @@ pub enum AgentType {
     Motor,
     /// Agent both sends and receives data
     Both,
+    /// Agent consumes visualization stream only (e.g., Brain Visualizer clients)
+    Visualization,
+    /// Infrastructure agent (e.g., bridges, proxies) - needs viz + control streams
+    Infrastructure,
 }
 
 /// Vision input capability
@@ -39,6 +43,22 @@ pub struct MotorCapability {
     pub source_cortical_areas: Vec<String>,
 }
 
+/// Visualization capability for agents that consume neural activity stream
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VisualizationCapability {
+    /// Type of visualization (3d_brain, 2d_plot, neural_graph, etc.)
+    pub visualization_type: String,
+    /// Display resolution if applicable
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<(usize, usize)>,
+    /// Refresh rate in Hz if applicable
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_rate: Option<f64>,
+    /// Whether this is a bridge/proxy agent (vs direct consumer)
+    #[serde(default)]
+    pub bridge_proxy: bool,
+}
+
 /// Agent capabilities describing what data it can provide/consume
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AgentCapabilities {
@@ -49,6 +69,10 @@ pub struct AgentCapabilities {
     /// Motor output capability
     #[serde(skip_serializing_if = "Option::is_none")]
     pub motor: Option<MotorCapability>,
+    
+    /// Visualization capability
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visualization: Option<VisualizationCapability>,
     
     /// Custom capabilities (extensible for audio, tactile, etc.)
     #[serde(flatten)]
@@ -132,6 +156,14 @@ mod tests {
         let both = AgentType::Both;
         let json = serde_json::to_string(&both).unwrap();
         assert_eq!(json, "\"both\"");
+        
+        let visualization = AgentType::Visualization;
+        let json = serde_json::to_string(&visualization).unwrap();
+        assert_eq!(json, "\"visualization\"");
+        
+        let infrastructure = AgentType::Infrastructure;
+        let json = serde_json::to_string(&infrastructure).unwrap();
+        assert_eq!(json, "\"infrastructure\"");
     }
 
     #[test]
@@ -144,6 +176,12 @@ mod tests {
         
         let both: AgentType = serde_json::from_str("\"both\"").unwrap();
         assert_eq!(both, AgentType::Both);
+        
+        let visualization: AgentType = serde_json::from_str("\"visualization\"").unwrap();
+        assert_eq!(visualization, AgentType::Visualization);
+        
+        let infrastructure: AgentType = serde_json::from_str("\"infrastructure\"").unwrap();
+        assert_eq!(infrastructure, AgentType::Infrastructure);
     }
 
     #[test]

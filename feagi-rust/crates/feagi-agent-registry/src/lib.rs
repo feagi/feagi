@@ -8,7 +8,7 @@ pub mod types;
 pub mod registry;
 pub mod transport;
 
-pub use types::{AgentInfo, AgentType, AgentCapabilities, VisionCapability, MotorCapability};
+pub use types::{AgentInfo, AgentType, AgentCapabilities, VisionCapability, MotorCapability, VisualizationCapability};
 pub use registry::AgentRegistry;
 pub use transport::{AgentTransport, TransportEndpoints};
 

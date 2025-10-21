@@ -48,6 +48,12 @@ pub struct AgentClient {
     /// Motor data socket (ZMQ SUB)
     motor_socket: Option<zmq::Socket>,
     
+    /// Visualization stream socket (ZMQ SUB)
+    viz_socket: Option<zmq::Socket>,
+    
+    /// Control/API socket (ZMQ REQ - REST over ZMQ)
+    control_socket: Option<zmq::Socket>,
+    
     /// Heartbeat service
     heartbeat: Option<HeartbeatService>,
     
@@ -72,6 +78,8 @@ impl AgentClient {
             registration_socket: None,
             sensory_socket: None,
             motor_socket: None,
+            viz_socket: None,
+            control_socket: None,
             heartbeat: None,
             registered: false,
         })
@@ -148,6 +156,33 @@ impl AgentClient {
             self.motor_socket = Some(motor_socket);
         }
         
+        // Visualization socket (SUB - for receiving neural activity stream from FEAGI)
+        if matches!(
+            self.config.agent_type,
+            feagi_agent_registry::AgentType::Visualization | feagi_agent_registry::AgentType::Infrastructure
+        ) {
+            let viz_socket = self.context.socket(zmq::SUB)?;
+            viz_socket.connect(&self.config.visualization_endpoint)?;
+            
+            // Subscribe to all visualization messages
+            viz_socket.set_subscribe(b"")?;
+            self.viz_socket = Some(viz_socket);
+            debug!("[CLIENT] ✓ Visualization socket created");
+        }
+        
+        // Control socket (REQ - for REST API requests over ZMQ)
+        if matches!(
+            self.config.agent_type,
+            feagi_agent_registry::AgentType::Infrastructure
+        ) {
+            let control_socket = self.context.socket(zmq::REQ)?;
+            control_socket.set_rcvtimeo(self.config.connection_timeout_ms as i32)?;
+            control_socket.set_sndtimeo(self.config.connection_timeout_ms as i32)?;
+            control_socket.connect(&self.config.control_endpoint)?;
+            self.control_socket = Some(control_socket);
+            debug!("[CLIENT] ✓ Control/API socket created");
+        }
+        
         debug!("[CLIENT] ✓ ZMQ sockets created");
         Ok(())
     }
@@ -161,6 +196,8 @@ impl AgentClient {
                 feagi_agent_registry::AgentType::Sensory => "sensory",
                 feagi_agent_registry::AgentType::Motor => "motor",
                 feagi_agent_registry::AgentType::Both => "both",
+                feagi_agent_registry::AgentType::Visualization => "visualization",
+                feagi_agent_registry::AgentType::Infrastructure => "infrastructure",
             },
             "capabilities": self.config.capabilities,
         });
@@ -331,6 +368,87 @@ impl AgentClient {
             Err(zmq::Error::EAGAIN) => Ok(None), // No data available
             Err(e) => Err(SdkError::Zmq(e)),
         }
+    }
+    
+    /// Receive visualization data from FEAGI (non-blocking)
+    ///
+    /// Returns None if no data is available.
+    ///
+    /// # Example
+    /// ```ignore
+    /// if let Some(viz_data) = client.receive_visualization_data()? {
+    ///     // Process neural activity data
+    ///     println!("Visualization data size: {} bytes", viz_data.len());
+    /// }
+    /// ```
+    pub fn receive_visualization_data(&self) -> Result<Option<Vec<u8>>> {
+        if !self.registered {
+            return Err(SdkError::NotRegistered);
+        }
+        
+        let socket = self.viz_socket.as_ref()
+            .ok_or_else(|| SdkError::Other("Visualization socket not initialized (not a visualization/infrastructure agent?)".to_string()))?;
+        
+        // Non-blocking receive
+        match socket.recv_bytes(zmq::DONTWAIT) {
+            Ok(data) => {
+                debug!("[CLIENT] ✓ Received visualization data ({} bytes)", data.len());
+                Ok(Some(data))
+            }
+            Err(zmq::Error::EAGAIN) => Ok(None), // No data available
+            Err(e) => Err(SdkError::Zmq(e)),
+        }
+    }
+    
+    /// Make a REST API request to FEAGI over ZMQ
+    ///
+    /// # Arguments
+    /// * `method` - HTTP method (GET, POST, PUT, DELETE)
+    /// * `route` - API route (e.g., "/v1/system/health_check")
+    /// * `data` - Optional request body for POST/PUT requests
+    ///
+    /// # Example
+    /// ```ignore
+    /// // GET request
+    /// let health = client.control_request("GET", "/v1/system/health_check", None)?;
+    ///
+    /// // POST request
+    /// let data = serde_json::json!({"key": "value"});
+    /// let response = client.control_request("POST", "/v1/some/endpoint", Some(data))?;
+    /// ```
+    pub fn control_request(
+        &self,
+        method: &str,
+        route: &str,
+        data: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
+        if !self.registered {
+            return Err(SdkError::NotRegistered);
+        }
+        
+        let socket = self.control_socket.as_ref()
+            .ok_or_else(|| SdkError::Other("Control socket not initialized (not an infrastructure agent?)".to_string()))?;
+        
+        // Prepare REST-over-ZMQ request
+        let mut request = serde_json::json!({
+            "method": method,
+            "route": route,
+            "headers": {"content-type": "application/json"},
+        });
+        
+        if let Some(body) = data {
+            request["body"] = body;
+        }
+        
+        // Send request
+        socket.send(request.to_string().as_bytes(), 0)?;
+        
+        // Wait for response
+        let response_bytes = socket.recv_bytes(0)?;
+        let response: serde_json::Value = serde_json::from_slice(&response_bytes)?;
+        
+        debug!("[CLIENT] ✓ Control request {} {} completed", method, route);
+        Ok(response)
     }
     
     /// Check if agent is registered
