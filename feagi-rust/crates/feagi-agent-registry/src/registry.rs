@@ -228,6 +228,7 @@ mod tests {
     use super::*;
     use crate::VisionCapability;
     
+    #[derive(Clone, Copy)]
     struct MockTransport;
     
     impl AgentTransport for MockTransport {
@@ -310,6 +311,382 @@ mod tests {
         
         assert!(result.is_err());
         assert_eq!(registry.agent_count(), 1);
+    }
+    
+    #[test]
+    fn test_capacity_limit() {
+        let registry = AgentRegistry::new(2, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        // Register first agent
+        registry.register_agent(
+            "agent1".to_string(),
+            AgentType::Sensory,
+            capabilities.clone(),
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        // Register second agent
+        registry.register_agent(
+            "agent2".to_string(),
+            AgentType::Sensory,
+            capabilities.clone(),
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        // Third registration should fail (capacity reached)
+        let result = registry.register_agent(
+            "agent3".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        );
+        
+        assert!(result.is_err());
+        assert_eq!(registry.agent_count(), 2);
+    }
+    
+    #[test]
+    fn test_deregister_agent() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        registry.register_agent(
+            "test_agent".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        assert_eq!(registry.agent_count(), 1);
+        
+        // Deregister
+        let result = registry.deregister_agent("test_agent", Some(&transport), "test");
+        assert!(result.is_ok());
+        assert_eq!(registry.agent_count(), 0);
+    }
+    
+    #[test]
+    fn test_deregister_nonexistent_agent() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        
+        let result = registry.deregister_agent("nonexistent", Some(&transport), "test");
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_get_agent() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        registry.register_agent(
+            "test_agent".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        let agent = registry.get_agent("test_agent").unwrap();
+        assert_eq!(agent.agent_id, "test_agent");
+        assert_eq!(agent.agent_type, AgentType::Sensory);
+    }
+    
+    #[test]
+    fn test_get_nonexistent_agent() {
+        let registry = AgentRegistry::new(10, 60000);
+        let result = registry.get_agent("nonexistent");
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_get_all_agents() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        registry.register_agent(
+            "agent1".to_string(),
+            AgentType::Sensory,
+            capabilities.clone(),
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        registry.register_agent(
+            "agent2".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        let agents = registry.get_all_agents();
+        assert_eq!(agents.len(), 2);
+    }
+    
+    #[test]
+    fn test_update_agent_activity() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        registry.register_agent(
+            "test_agent".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        let agent_before = registry.get_agent("test_agent").unwrap();
+        let last_seen_before = agent_before.last_seen;
+        
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        
+        registry.update_agent_activity("test_agent").unwrap();
+        
+        let agent_after = registry.get_agent("test_agent").unwrap();
+        assert!(agent_after.last_seen > last_seen_before);
+    }
+    
+    #[test]
+    fn test_prune_inactive_agents() {
+        let registry = AgentRegistry::new(10, 100); // 100ms timeout
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        // Register two agents
+        registry.register_agent(
+            "agent1".to_string(),
+            AgentType::Sensory,
+            capabilities.clone(),
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        registry.register_agent(
+            "agent2".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        ).unwrap();
+        
+        assert_eq!(registry.agent_count(), 2);
+        
+        // Wait for timeout
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        
+        // Prune inactive agents
+        let pruned = registry.prune_inactive_agents(Some(&transport));
+        assert_eq!(pruned, 2);
+        assert_eq!(registry.agent_count(), 0);
+    }
+    
+    #[test]
+    fn test_validation_empty_agent_id() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        let result = registry.register_agent(
+            "".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        );
+        
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_validation_sensory_without_capabilities() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let capabilities = AgentCapabilities::default();
+        
+        let result = registry.register_agent(
+            "test_agent".to_string(),
+            AgentType::Sensory,
+            capabilities,
+            &transport,
+            &endpoints,
+        );
+        
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_validation_motor_without_motor_capability() {
+        let registry = AgentRegistry::new(10, 60000);
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut capabilities = AgentCapabilities::default();
+        capabilities.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "i_vision".to_string(),
+        });
+        
+        let result = registry.register_agent(
+            "test_agent".to_string(),
+            AgentType::Motor,
+            capabilities,
+            &transport,
+            &endpoints,
+        );
+        
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_thread_safety() {
+        use std::sync::Arc;
+        use std::thread;
+        
+        let registry = Arc::new(AgentRegistry::new(100, 60000));
+        let transport = MockTransport;
+        let endpoints = TransportEndpoints::new(
+            "tcp://localhost:5555".to_string(),
+            "tcp://localhost:5556".to_string(),
+        );
+        
+        let mut handles = vec![];
+        
+        // Spawn 10 threads, each registering 5 agents
+        for thread_id in 0..10 {
+            let registry_clone = Arc::clone(&registry);
+            let endpoints_clone = endpoints.clone();
+            
+            let handle = thread::spawn(move || {
+                for agent_id in 0..5 {
+                    let agent_name = format!("agent_t{}_a{}", thread_id, agent_id);
+                    
+                    let mut capabilities = AgentCapabilities::default();
+                    capabilities.vision = Some(VisionCapability {
+                        modality: "camera".to_string(),
+                        dimensions: (640, 480),
+                        channels: 3,
+                        target_cortical_area: "i_vision".to_string(),
+                    });
+                    
+                    let _ = registry_clone.register_agent(
+                        agent_name,
+                        AgentType::Sensory,
+                        capabilities,
+                        &transport,
+                        &endpoints_clone,
+                    );
+                }
+            });
+            
+            handles.push(handle);
+        }
+        
+        // Wait for all threads to complete
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        
+        // Should have 50 registered agents
+        assert_eq!(registry.agent_count(), 50);
     }
 }
 

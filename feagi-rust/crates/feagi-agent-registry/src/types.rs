@@ -115,3 +115,176 @@ impl AgentInfo {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_agent_type_serialization() {
+        let sensory = AgentType::Sensory;
+        let json = serde_json::to_string(&sensory).unwrap();
+        assert_eq!(json, "\"sensory\"");
+        
+        let motor = AgentType::Motor;
+        let json = serde_json::to_string(&motor).unwrap();
+        assert_eq!(json, "\"motor\"");
+        
+        let both = AgentType::Both;
+        let json = serde_json::to_string(&both).unwrap();
+        assert_eq!(json, "\"both\"");
+    }
+
+    #[test]
+    fn test_agent_type_deserialization() {
+        let sensory: AgentType = serde_json::from_str("\"sensory\"").unwrap();
+        assert_eq!(sensory, AgentType::Sensory);
+        
+        let motor: AgentType = serde_json::from_str("\"motor\"").unwrap();
+        assert_eq!(motor, AgentType::Motor);
+        
+        let both: AgentType = serde_json::from_str("\"both\"").unwrap();
+        assert_eq!(both, AgentType::Both);
+    }
+
+    #[test]
+    fn test_vision_capability() {
+        let cap = VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "vision_1".to_string(),
+        };
+        
+        let json = serde_json::to_string(&cap).unwrap();
+        let parsed: VisionCapability = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(parsed.modality, "camera");
+        assert_eq!(parsed.dimensions, (640, 480));
+        assert_eq!(parsed.channels, 3);
+        assert_eq!(parsed.target_cortical_area, "vision_1");
+    }
+
+    #[test]
+    fn test_motor_capability() {
+        let cap = MotorCapability {
+            modality: "servo".to_string(),
+            output_count: 4,
+            source_cortical_areas: vec!["motor_1".to_string(), "motor_2".to_string()],
+        };
+        
+        let json = serde_json::to_string(&cap).unwrap();
+        let parsed: MotorCapability = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(parsed.modality, "servo");
+        assert_eq!(parsed.output_count, 4);
+        assert_eq!(parsed.source_cortical_areas.len(), 2);
+    }
+
+    #[test]
+    fn test_agent_capabilities_vision_only() {
+        let mut cap = AgentCapabilities::default();
+        cap.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (1920, 1080),
+            channels: 4,
+            target_cortical_area: "vision_hd".to_string(),
+        });
+        
+        let json = serde_json::to_string(&cap).unwrap();
+        let parsed: AgentCapabilities = serde_json::from_str(&json).unwrap();
+        
+        assert!(parsed.vision.is_some());
+        assert!(parsed.motor.is_none());
+        assert_eq!(parsed.vision.unwrap().dimensions, (1920, 1080));
+    }
+
+    #[test]
+    fn test_agent_capabilities_with_custom() {
+        let mut cap = AgentCapabilities::default();
+        cap.custom.insert(
+            "audio".to_string(),
+            serde_json::json!({"sample_rate": 44100, "channels": 2}),
+        );
+        
+        let json = serde_json::to_string(&cap).unwrap();
+        let parsed: AgentCapabilities = serde_json::from_str(&json).unwrap();
+        
+        assert!(parsed.custom.contains_key("audio"));
+    }
+
+    #[test]
+    fn test_agent_info_creation() {
+        let caps = AgentCapabilities::default();
+        
+        let info = AgentInfo::new(
+            "test-agent-1".to_string(),
+            AgentType::Sensory,
+            caps,
+        );
+        
+        assert_eq!(info.agent_id, "test-agent-1");
+        assert_eq!(info.agent_type, AgentType::Sensory);
+        assert_eq!(info.registered_at, info.last_seen);
+    }
+
+    #[test]
+    fn test_agent_info_activity_update() {
+        let caps = AgentCapabilities::default();
+        let mut info = AgentInfo::new(
+            "test-agent-1".to_string(),
+            AgentType::Sensory,
+            caps,
+        );
+        
+        let original_last_seen = info.last_seen;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        info.update_activity();
+        
+        assert!(info.last_seen > original_last_seen);
+    }
+
+    #[test]
+    fn test_agent_info_is_inactive() {
+        let caps = AgentCapabilities::default();
+        let info = AgentInfo::new(
+            "test-agent-1".to_string(),
+            AgentType::Sensory,
+            caps,
+        );
+        
+        // Should not be inactive with 1 hour timeout
+        assert!(!info.is_inactive(3600000));
+        
+        // Simulate old agent by manually setting last_seen to 0
+        let mut old_info = info.clone();
+        old_info.last_seen = 0;
+        
+        // Should be inactive with 1ms timeout
+        assert!(old_info.is_inactive(1));
+    }
+
+    #[test]
+    fn test_agent_info_serialization() {
+        let mut caps = AgentCapabilities::default();
+        caps.vision = Some(VisionCapability {
+            modality: "camera".to_string(),
+            dimensions: (640, 480),
+            channels: 3,
+            target_cortical_area: "vision_1".to_string(),
+        });
+        
+        let info = AgentInfo::new(
+            "test-agent-1".to_string(),
+            AgentType::Sensory,
+            caps,
+        );
+        
+        let json = serde_json::to_string(&info).unwrap();
+        let parsed: AgentInfo = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(parsed.agent_id, info.agent_id);
+        assert_eq!(parsed.agent_type, info.agent_type);
+        assert!(parsed.capabilities.vision.is_some());
+    }
+}
+

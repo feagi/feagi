@@ -1,0 +1,372 @@
+name: Rust Tests
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'feagi-rust/**'
+      - '.github/workflows/rust-tests.yml'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'feagi-rust/**'
+
+jobs:
+  detect-rust-changes:
+    name: Detect Rust Crate Changes
+    runs-on: ubuntu-latest
+    outputs:
+      feagi-types-changed: ${{ steps.check-changes.outputs.feagi-types-changed }}
+      feagi-burst-engine-changed: ${{ steps.check-changes.outputs.feagi-burst-engine-changed }}
+      feagi-connectome-serialization-changed: ${{ steps.check-changes.outputs.feagi-connectome-serialization-changed }}
+      feagi-agent-registry-changed: ${{ steps.check-changes.outputs.feagi-agent-registry-changed }}
+      feagi-python-changed: ${{ steps.check-changes.outputs.feagi-python-changed }}
+      feagi-inference-engine-changed: ${{ steps.check-changes.outputs.feagi-inference-engine-changed }}
+      run-all-rust-tests: ${{ steps.check-changes.outputs.run-all-rust-tests }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed Rust files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            feagi-rust/**/*.rs
+            feagi-rust/**/Cargo.toml
+
+      - name: Analyze changed crates
+        id: check-changes
+        run: |
+          echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
+          
+          # Initialize flags for all crates
+          TYPES_CHANGED=false
+          BURST_ENGINE_CHANGED=false
+          CONNECTOME_SER_CHANGED=false
+          AGENT_REGISTRY_CHANGED=false
+          PYTHON_CHANGED=false
+          INFERENCE_ENGINE_CHANGED=false
+          RUN_ALL_TESTS=false
+          
+          # Check if workspace-level files changed (run all tests)
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -E "(feagi-rust/Cargo.toml|feagi-rust/Cargo.lock)"; then
+            RUN_ALL_TESTS=true
+            echo "🚨 Workspace files changed - running all tests"
+          fi
+          
+          # Check feagi-types (affects all crates)
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-types/"; then
+            TYPES_CHANGED=true
+            RUN_ALL_TESTS=true
+            echo "🔧 feagi-types changed - running all tests (core dependency)"
+          fi
+          
+          # Check feagi-burst-engine
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-burst-engine/"; then
+            BURST_ENGINE_CHANGED=true
+            echo "🔥 feagi-burst-engine changes detected"
+          fi
+          
+          # Check feagi-connectome-serialization
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-connectome-serialization/"; then
+            CONNECTOME_SER_CHANGED=true
+            echo "💾 feagi-connectome-serialization changes detected"
+          fi
+          
+          # Check feagi-agent-registry
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-agent-registry/"; then
+            AGENT_REGISTRY_CHANGED=true
+            echo "📋 feagi-agent-registry changes detected"
+          fi
+          
+          # Check feagi-python
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-python/"; then
+            PYTHON_CHANGED=true
+            echo "🐍 feagi-python changes detected"
+          fi
+          
+          # Check feagi-inference-engine
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi-rust/crates/feagi-inference-engine/"; then
+            INFERENCE_ENGINE_CHANGED=true
+            echo "🚀 feagi-inference-engine changes detected"
+          fi
+          
+          # Set outputs
+          echo "feagi-types-changed=$TYPES_CHANGED" >> $GITHUB_OUTPUT
+          echo "feagi-burst-engine-changed=$BURST_ENGINE_CHANGED" >> $GITHUB_OUTPUT
+          echo "feagi-connectome-serialization-changed=$CONNECTOME_SER_CHANGED" >> $GITHUB_OUTPUT
+          echo "feagi-agent-registry-changed=$AGENT_REGISTRY_CHANGED" >> $GITHUB_OUTPUT
+          echo "feagi-python-changed=$PYTHON_CHANGED" >> $GITHUB_OUTPUT
+          echo "feagi-inference-engine-changed=$INFERENCE_ENGINE_CHANGED" >> $GITHUB_OUTPUT
+          echo "run-all-rust-tests=$RUN_ALL_TESTS" >> $GITHUB_OUTPUT
+
+  rust-format-check:
+    name: Rust Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting with rustfmt
+        run: |
+          cd feagi-rust
+          cargo fmt --all -- --check
+
+  rust-clippy:
+    name: Rust Clippy Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libzmq3-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: feagi-rust/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run clippy with strict settings
+        run: |
+          cd feagi-rust
+          cargo clippy --all-targets --all-features -- -D warnings
+
+  targeted-rust-tests:
+    name: Targeted Rust Crate Tests
+    runs-on: ubuntu-latest
+    needs: [detect-rust-changes, rust-format-check, rust-clippy]
+    if: github.event_name == 'pull_request' && needs.detect-rust-changes.outputs.run-all-rust-tests == 'false'
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libzmq3-dev
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: feagi-rust/target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Test feagi-burst-engine
+        if: needs.detect-rust-changes.outputs.feagi-burst-engine-changed == 'true'
+        run: |
+          echo "🔥 Running feagi-burst-engine tests..."
+          cd feagi-rust
+          cargo test -p feagi-burst-engine --lib --release -- --test-threads=1
+
+      - name: Test feagi-connectome-serialization
+        if: needs.detect-rust-changes.outputs.feagi-connectome-serialization-changed == 'true'
+        run: |
+          echo "💾 Running feagi-connectome-serialization tests..."
+          cd feagi-rust
+          cargo test -p feagi-connectome-serialization --lib --release -- --test-threads=1
+
+      - name: Test feagi-agent-registry
+        if: needs.detect-rust-changes.outputs.feagi-agent-registry-changed == 'true'
+        run: |
+          echo "📋 Running feagi-agent-registry tests..."
+          cd feagi-rust
+          cargo test -p feagi-agent-registry --lib --release -- --test-threads=1
+
+      - name: Test feagi-python bindings
+        if: needs.detect-rust-changes.outputs.feagi-python-changed == 'true'
+        run: |
+          echo "🐍 Running feagi-python tests..."
+          cd feagi-rust
+          cargo test -p feagi-python --lib --release -- --test-threads=1
+
+      - name: Test feagi-inference-engine
+        if: needs.detect-rust-changes.outputs.feagi-inference-engine-changed == 'true'
+        run: |
+          echo "🚀 Running feagi-inference-engine tests..."
+          cd feagi-rust
+          cargo test -p feagi-inference-engine --lib --release -- --test-threads=1
+
+      - name: Show test summary
+        if: always()
+        run: |
+          echo "## 📊 Targeted Rust Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Crate | Tests Run | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.detect-rust-changes.outputs.feagi-burst-engine-changed }}" == "true" ]; then
+            echo "| 🔥 feagi-burst-engine | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-rust-changes.outputs.feagi-connectome-serialization-changed }}" == "true" ]; then
+            echo "| 💾 feagi-connectome-serialization | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-rust-changes.outputs.feagi-agent-registry-changed }}" == "true" ]; then
+            echo "| 📋 feagi-agent-registry | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-rust-changes.outputs.feagi-python-changed }}" == "true" ]; then
+            echo "| 🐍 feagi-python | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.detect-rust-changes.outputs.feagi-inference-engine-changed }}" == "true" ]; then
+            echo "| 🚀 feagi-inference-engine | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Benefits**: Only affected crates tested, saving CI time!" >> $GITHUB_STEP_SUMMARY
+
+  rust-test-all:
+    name: Comprehensive Rust Tests
+    runs-on: ${{ matrix.os }}
+    needs: [detect-rust-changes, rust-format-check, rust-clippy]
+    if: always() && (needs.rust-format-check.result == 'success' && needs.rust-clippy.result == 'success') && (github.event_name == 'push' || (github.event_name == 'pull_request' && (needs.detect-rust-changes.result == 'skipped' || needs.detect-rust-changes.outputs.run-all-rust-tests == 'true')))
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libzmq3-dev
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install zeromq
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: feagi-rust/target
+          key: ${{ runner.os }}-${{ matrix.rust }}-cargo-test-all-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build all crates
+        run: |
+          cd feagi-rust
+          cargo build --all --release
+
+      - name: Run all Rust tests
+        run: |
+          cd feagi-rust
+          echo "🦀 Running all Rust tests on ${{ matrix.os }} with ${{ matrix.rust }}..."
+          cargo test --all --release -- --test-threads=1 --nocapture
+
+      - name: Test with all features enabled
+        run: |
+          cd feagi-rust
+          cargo test --all --all-features --release -- --test-threads=1
+
+      - name: Run doc tests
+        run: |
+          cd feagi-rust
+          cargo test --doc --all
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## ✅ Comprehensive Rust Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Rust Version**: ${{ matrix.rust }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tested Crates:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔧 feagi-types" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔥 feagi-burst-engine" >> $GITHUB_STEP_SUMMARY
+          echo "- 💾 feagi-connectome-serialization" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 feagi-agent-registry (24 tests)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐍 feagi-python (PyO3 bindings)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚀 feagi-inference-engine" >> $GITHUB_STEP_SUMMARY
+
+  rust-coverage:
+    name: Rust Code Coverage
+    runs-on: ubuntu-latest
+    needs: [rust-test-all]
+    if: always() && needs.rust-test-all.result == 'success'
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libzmq3-dev
+
+      - name: Install cargo-tarpaulin
+        run: |
+          cargo install cargo-tarpaulin
+
+      - name: Generate coverage
+        run: |
+          cd feagi-rust
+          cargo tarpaulin --all --all-features --out xml --output-dir ../coverage/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/cobertura.xml
+          flags: rust-tests
+          name: codecov-rust
+
+  status-check:
+    name: Rust Tests Status
+    runs-on: ubuntu-latest
+    needs: [rust-format-check, rust-clippy, rust-test-all]
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [ "${{ needs.rust-format-check.result }}" != "success" ]; then
+            echo "❌ Rust formatting check failed"
+            exit 1
+          fi
+          if [ "${{ needs.rust-clippy.result }}" != "success" ]; then
+            echo "❌ Clippy linting failed"
+            exit 1
+          fi
+          if [ "${{ needs.rust-test-all.result }}" != "success" ] && [ "${{ needs.rust-test-all.result }}" != "skipped" ]; then
+            echo "❌ Rust tests failed"
+            exit 1
+          fi
+          echo "✅ All Rust checks passed!"
+
