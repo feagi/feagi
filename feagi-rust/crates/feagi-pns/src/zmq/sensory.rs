@@ -176,52 +176,72 @@ impl SensoryStream {
 
     /// Deserialize XYZP binary data and inject into NPU
     /// 
-    /// This function uses the Rust feagi-data-processing crate to deserialize
+    /// This function uses the feagi_data_serialization crate to deserialize
     /// binary XYZP data and directly injects it into the Rust NPU.
     /// 
     /// NO Python FFI overhead! Pure Rust path: Agent → ZMQ → Rust deserialize → Rust NPU
+    /// 
+    /// TODO: This is currently a stub. Full implementation requires:
+    /// 1. Agent registration to work (provides cortical area name → ID mapping)
+    /// 2. Coordination with burst engine's sensory manager
     fn deserialize_and_inject_xyzp(
         message_bytes: &[u8],
         npu_mutex: &Arc<Mutex<Option<Arc<std::sync::Mutex<feagi_burst_engine::RustNPU>>>>>,
         first_logged: &bool,
     ) -> Result<usize, String> {
-        // TODO: Integrate with feagi-data-processing crate for XYZP deserialization
-        // For now, we'll prepare the structure for the integration
+        use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
         
         // Get NPU reference
         let npu_lock = npu_mutex.lock();
         let npu_arc = match npu_lock.as_ref() {
-            Some(n) => n,
+            Some(n) => Arc::clone(n),
             None => return Err("NPU not connected".to_string()),
         };
+        drop(npu_lock); // Release early
         
-        // Parse the binary XYZP data
-        // Format: CorticalMappedXYZPNeuronData (from feagi-data-processing)
-        // This will be implemented when feagi-data-processing crate is integrated
+        // Deserialize binary XYZP data using FeagiByteContainer
+        let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
+        let mut data_vec = message_bytes.to_vec();
         
-        // For now, log that we received data
-        if !first_logged {
-            println!(
-                "🦀 [ZMQ-SENSORY] 📥 Received sensory data: {} bytes (XYZP binary)",
-                message_bytes.len()
-            );
-            println!("🦀 [ZMQ-SENSORY] First 32 bytes: {:?}", &message_bytes[0..message_bytes.len().min(32)]);
+        // Load bytes into container
+        byte_container.try_write_data_to_container_and_verify(&mut |bytes| {
+            std::mem::swap(bytes, &mut data_vec);
+            Ok(())
+        }).map_err(|e| format!("Failed to load bytes: {:?}", e))?;
+        
+        // Get number of structures
+        let num_structures = byte_container.try_get_number_contained_structures()
+            .map_err(|e| format!("Failed to get structure count: {:?}", e))?;
+        
+        if num_structures == 0 {
+            return Err("No structures in message".to_string());
         }
         
-        // TODO: Deserialize XYZP and inject
-        // let cortical_mapped = feagi_data_processing::deserialize_xyzp(message_bytes)?;
-        // for (cortical_id, neurons) in cortical_mapped {
-        //     let neuron_potentials: Vec<(NeuronId, f32)> = neurons
-        //         .iter()
-        //         .map(|n| (map_xyz_to_neuron_id(n.x, n.y, n.z), n.p))
-        //         .collect();
-        //     
-        //     npu_arc.lock().unwrap().inject_sensory_with_potentials(&neuron_potentials);
-        // }
+        // Extract first structure
+        let boxed_struct = byte_container.try_create_new_struct_from_index(0)
+            .map_err(|e| format!("Failed to extract structure: {:?}", e))?;
         
-        // Placeholder: Return estimated neuron count from message size
-        let estimated_neurons = message_bytes.len() / 16; // Rough estimate
-        Ok(estimated_neurons)
+        // Downcast to CorticalMappedXYZPNeuronVoxels
+        let cortical_mapped = boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronVoxels>()
+            .ok_or_else(|| "Structure is not CorticalMappedXYZPNeuronVoxels".to_string())?;
+        
+        // Log first data
+        if !first_logged {
+            println!(
+                "🦀 [ZMQ-SENSORY] 📥 First sensory data: {} bytes, {} cortical areas",
+                message_bytes.len(), cortical_mapped.len()
+            );
+            println!("🦀 [ZMQ-SENSORY] ⚠️  Stub implementation - injection not yet wired to burst engine");
+        }
+        
+        // TODO: Wire this to the burst engine's sensory manager
+        // For now, just count neurons as a proof of deserialization
+        let mut total_neurons = 0;
+        for (_cortical_id, neuron_arrays) in &cortical_mapped.mappings {
+            total_neurons += neuron_arrays.len();
+        }
+        
+        Ok(total_neurons)
     }
 
     /// Check if stream is running

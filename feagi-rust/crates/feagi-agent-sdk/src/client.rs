@@ -146,7 +146,7 @@ impl AgentClient {
         // Motor socket (SUB - for receiving motor commands from FEAGI)
         if matches!(
             self.config.agent_type,
-            feagi_agent_registry::AgentType::Motor | feagi_agent_registry::AgentType::Both
+            feagi_pns::agent_registry::AgentType::Motor | feagi_pns::agent_registry::AgentType::Both
         ) {
             let motor_socket = self.context.socket(zmq::SUB)?;
             motor_socket.connect(&self.config.motor_endpoint)?;
@@ -159,7 +159,7 @@ impl AgentClient {
         // Visualization socket (SUB - for receiving neural activity stream from FEAGI)
         if matches!(
             self.config.agent_type,
-            feagi_agent_registry::AgentType::Visualization | feagi_agent_registry::AgentType::Infrastructure
+            feagi_pns::agent_registry::AgentType::Visualization | feagi_pns::agent_registry::AgentType::Infrastructure
         ) {
             let viz_socket = self.context.socket(zmq::SUB)?;
             viz_socket.connect(&self.config.visualization_endpoint)?;
@@ -173,7 +173,7 @@ impl AgentClient {
         // Control socket (REQ - for REST API requests over ZMQ)
         if matches!(
             self.config.agent_type,
-            feagi_agent_registry::AgentType::Infrastructure
+            feagi_pns::agent_registry::AgentType::Infrastructure
         ) {
             let control_socket = self.context.socket(zmq::REQ)?;
             control_socket.set_rcvtimeo(self.config.connection_timeout_ms as i32)?;
@@ -195,11 +195,11 @@ impl AgentClient {
             "body": {
                 "agent_id": self.config.agent_id,
                 "agent_type": match self.config.agent_type {
-                    feagi_agent_registry::AgentType::Sensory => "sensory",
-                    feagi_agent_registry::AgentType::Motor => "motor",
-                    feagi_agent_registry::AgentType::Both => "both",
-                    feagi_agent_registry::AgentType::Visualization => "visualization",
-                    feagi_agent_registry::AgentType::Infrastructure => "infrastructure",
+                    feagi_pns::agent_registry::AgentType::Sensory => "sensory",
+                    feagi_pns::agent_registry::AgentType::Motor => "motor",
+                    feagi_pns::agent_registry::AgentType::Both => "both",
+                    feagi_pns::agent_registry::AgentType::Visualization => "visualization",
+                    feagi_pns::agent_registry::AgentType::Infrastructure => "infrastructure",
                 },
                 "capabilities": self.config.capabilities,
             }
@@ -568,7 +568,7 @@ impl Drop for AgentClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use feagi_agent_registry::AgentType;
+    use feagi_pns::agent_registry::AgentType;
     
     #[test]
     fn test_client_creation() {

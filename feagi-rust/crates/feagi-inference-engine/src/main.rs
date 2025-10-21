@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use feagi_agent_registry::AgentTransport;
+use feagi_pns::agent_registry::AgentTransport;
 extern crate zmq;
 extern crate serde_json;
 
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize agent registry
     info!("Initializing agent registry...");
-    let registry = Arc::new(feagi_agent_registry::AgentRegistry::new(
+    let registry = Arc::new(std::sync::RwLock::new(feagi_pns::agent_registry::AgentRegistry::new(
         args.max_agents,
         args.agent_timeout_ms,
     ));

@@ -84,12 +84,20 @@ class RegistrationManager:
         self._process_manager = process_manager
 
         # 🦀 Rust agent registry - THE ONLY agent storage
+        # Get shared registry from PNS (single source of truth)
         try:
-            self._rust_registry = PyAgentRegistry(
-                max_agents=1000,
-                timeout_ms=60000
-            )
-            logger.info("🦀 Rust agent registry initialized")
+            if process_manager and hasattr(process_manager, '_pns') and process_manager._pns:
+                # Use shared registry from PNS (production path)
+                self._rust_registry = process_manager._pns.get_shared_registry()
+                logger.info("🦀 Using shared agent registry from Rust PNS (single source of truth)")
+            else:
+                # Fallback for testing/development
+                logger.warning("⚠️  PNS not available, creating standalone registry (testing mode)")
+                self._rust_registry = PyAgentRegistry(
+                    max_agents=1000,
+                    timeout_ms=60000
+                )
+                logger.info("🦀 Rust agent registry initialized in standalone mode")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Rust registry: {e}")
             raise

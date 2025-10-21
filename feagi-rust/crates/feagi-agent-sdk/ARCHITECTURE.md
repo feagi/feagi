@@ -30,7 +30,7 @@ The FEAGI Agent SDK provides a production-ready, cross-platform client library f
           │                                │        │
           ↓                                ↓        ↓
 ┌─────────────────────────────────────────────────────┐
-│         feagi-agent-registry (Rust)                 │
+│         feagi-pns::agent_registry (Rust)            │
 │         - Transport-agnostic core                   │
 │         - Agent lifecycle management                │
 └─────────────────────────────────────────────────────┘
@@ -46,7 +46,7 @@ The FEAGI Agent SDK provides a production-ready, cross-platform client library f
 
 ## 📦 **Component Architecture**
 
-### **1. feagi-agent-registry (Rust Crate)**
+### **1. feagi-pns::agent_registry (Rust Module)**
 
 **Purpose:** Server-side agent management (transport-agnostic)
 
@@ -140,7 +140,7 @@ PyAgentClient (Python wrapper)
       ↓ PyO3 FFI
 AgentClient (Rust implementation)
       ↓
-feagi-agent-registry (Rust)
+feagi-pns::agent_registry (Rust)
 ```
 
 **Key Features:**
@@ -525,7 +525,7 @@ maturin develop --release
 
 - [Rust SDK README](./README.md) - Rust-specific documentation
 - [Python Bindings README](../feagi-agent-sdk-py/README.md) - Python-specific documentation
-- [Agent Registry Documentation](../feagi-agent-registry/src/lib.rs) - Server-side registry
+- [Agent Registry Documentation](../feagi-pns/src/agent_registry.rs) - Server-side registry
 - [ZMQ Guide](https://zguide.zeromq.org/) - ZeroMQ documentation
 
 ---

@@ -20,7 +20,7 @@ path = "src/main.rs"
 feagi-types = { path = "../feagi-types" }
 feagi-burst-engine = { path = "../feagi-burst-engine", features = ["connectome-serialization"] }
 feagi-connectome-serialization = { path = "../feagi-connectome-serialization" }
-feagi-agent-registry = { path = "../feagi-agent-registry" }
+feagi-pns = { path = "../feagi-pns" }
 feagi_data_structures.workspace = true
 feagi_data_serialization.workspace = true
 

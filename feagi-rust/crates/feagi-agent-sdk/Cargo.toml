@@ -19,7 +19,7 @@ thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"], optional = true }
 
 # FEAGI internal crates
-feagi-agent-registry = { path = "../feagi-agent-registry" }
+feagi-pns = { path = "../feagi-pns" }
 
 # FEAGI data structures and serialization (for binary XYZP format)
 feagi_data_structures.workspace = true

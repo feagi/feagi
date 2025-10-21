@@ -1881,6 +1881,13 @@ impl PyPNS {
             .publish_visualization(data)
             .map_err(|e| PyValueError::new_err(format!("Failed to publish visualization: {}", e)))
     }
+    
+    /// Get the shared agent registry for Python RegistrationManager
+    /// This allows the RegistrationManager to use the same registry as PNS
+    fn get_shared_registry(&self) -> PyAgentRegistry {
+        let registry = self.pns.lock().unwrap().get_agent_registry();
+        PyAgentRegistry { registry }
+    }
 }  // END of #[pymethods] impl PyPNS
 
 // Standalone connectome serialization functions (bypass #[pymethods] macro issue)
@@ -1932,7 +1939,7 @@ fn load_connectome_from_file(py: Python, npu: Py<RustNPU>, file_path: String) ->
 /// Python wrapper for AgentRegistry
 #[pyclass]
 struct PyAgentRegistry {
-    registry: std::sync::Arc<feagi_agent_registry::AgentRegistry>,
+    registry: std::sync::Arc<parking_lot::RwLock<feagi_pns::agent_registry::AgentRegistry>>,
 }
 
 #[pymethods]
@@ -1940,46 +1947,50 @@ impl PyAgentRegistry {
     #[new]
     fn new(max_agents: usize, timeout_ms: u64) -> Self {
         Self {
-            registry: std::sync::Arc::new(feagi_agent_registry::AgentRegistry::new(max_agents, timeout_ms)),
+            registry: std::sync::Arc::new(parking_lot::RwLock::new(
+                feagi_pns::agent_registry::AgentRegistry::new(max_agents, timeout_ms)
+            )),
         }
     }
     
     /// Get count of registered agents
     fn agent_count(&self) -> usize {
-        self.registry.agent_count()
+        self.registry.read().count()
     }
     
     /// Get all registered agents as JSON string
     fn get_all_agents_json(&self) -> PyResult<String> {
-        let agents = self.registry.get_all_agents();
+        let registry_lock = self.registry.read();
+        let agents = registry_lock.get_all();
         serde_json::to_string(&agents)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agents: {}", e)))
     }
     
     /// Get specific agent as JSON string
     fn get_agent_json(&self, agent_id: &str) -> PyResult<String> {
-        let agent = self.registry.get_agent(agent_id)
-            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to get agent: {}", e)))?;
+        let registry_lock = self.registry.read();
+        let agent = registry_lock.get(agent_id)
+            .ok_or_else(|| PyErr::new::<PyValueError, _>(format!("Agent not found: {}", agent_id)))?;
         serde_json::to_string(&agent)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agent: {}", e)))
     }
     
     /// Update agent activity timestamp
     fn update_agent_activity(&self, agent_id: &str) -> PyResult<()> {
-        self.registry.update_agent_activity(agent_id)
+        self.registry.write().heartbeat(agent_id)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to update activity: {}", e)))
     }
     
     /// Prune inactive agents (returns count of pruned agents)
     fn prune_inactive_agents(&self) -> usize {
-        self.registry.prune_inactive_agents(None)
+        self.registry.write().prune_inactive_agents()
     }
     
     /// Register agent directly (bypasses transport for Python integration)
     /// 
     /// Args:
     ///     agent_id: Unique agent identifier
-    ///     agent_type: "sensory", "motor", or "both"
+    ///     agent_type: "sensory", "motor", "both", "visualization", or "infrastructure"
     ///     capabilities_json: JSON string with agent capabilities
     ///     metadata_json: Optional JSON string with agent metadata (version, ip, port, etc.)
     /// 
@@ -1993,7 +2004,7 @@ impl PyAgentRegistry {
         capabilities_json: String,
         metadata_json: Option<String>,
     ) -> PyResult<String> {
-        use feagi_agent_registry::{AgentType, AgentCapabilities, AgentInfo};
+        use feagi_pns::agent_registry::{AgentType, AgentCapabilities, AgentInfo, AgentTransport};
         
         // Parse agent type
         let rust_agent_type = match agent_type.to_lowercase().as_str() {
@@ -2027,7 +2038,13 @@ impl PyAgentRegistry {
         
         // Create agent info and add directly to registry
         // Note: This bypasses the transport/validation layer for Python integration
-        let mut agent_info = AgentInfo::new(agent_id.clone(), rust_agent_type, capabilities);
+        // Default to ZMQ transport for Python-registered agents
+        let mut agent_info = AgentInfo::new(
+            agent_id.clone(), 
+            rust_agent_type, 
+            capabilities,
+            AgentTransport::Zmq
+        );
         
         // Parse and set metadata if provided
         if let Some(meta_str) = metadata_json {
@@ -2047,13 +2064,14 @@ impl PyAgentRegistry {
         }
         
         // Register directly (bypasses transport)
-        match self.registry.register_agent_direct(agent_info) {
+        match self.registry.write().register(agent_info) {
             Ok(_) => {
+                let agent_count = self.registry.read().count();
                 let response = serde_json::json!({
                     "success": true,
                     "message": format!("Agent {} registered successfully", agent_id),
                     "agent_id": agent_id,
-                    "agent_count": self.registry.agent_count(),
+                    "agent_count": agent_count,
                 });
                 Ok(serde_json::to_string(&response).unwrap())
             }
@@ -2076,7 +2094,7 @@ impl PyAgentRegistry {
     /// Returns:
     ///     Result JSON with success status
     fn deregister_agent_direct(&self, agent_id: String) -> PyResult<String> {
-        match self.registry.deregister_agent(&agent_id, None, "Python direct call") {
+        match self.registry.write().deregister(&agent_id) {
             Ok(_) => {
                 let response = serde_json::json!({
                     "success": true,

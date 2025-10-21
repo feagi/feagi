@@ -75,7 +75,7 @@ impl PNS {
 
     /// Create a new PNS with custom configuration
     pub fn with_config(config: PNSConfig) -> Result<Self> {
-        let agent_registry = Arc::new(RwLock::new(AgentRegistry::new()));
+        let agent_registry = Arc::new(RwLock::new(AgentRegistry::with_defaults()));
         let heartbeat_tracker = Arc::new(Mutex::new(HeartbeatTracker::new()));
         let registration_handler = Arc::new(Mutex::new(
             RegistrationHandler::new(Arc::clone(&agent_registry))

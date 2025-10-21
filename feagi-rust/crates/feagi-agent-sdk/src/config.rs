@@ -1,6 +1,6 @@
 //! Configuration for FEAGI Agent SDK
 
-use feagi_agent_registry::{AgentCapabilities, AgentType, VisionCapability, MotorCapability, VisualizationCapability};
+use feagi_pns::agent_registry::{AgentCapabilities, AgentType, VisionCapability, MotorCapability, VisualizationCapability};
 use crate::error::{Result, SdkError};
 
 /// Agent configuration builder

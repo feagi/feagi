@@ -73,8 +73,8 @@ pub use client::AgentClient;
 pub use config::AgentConfig;
 pub use error::{Result, SdkError};
 
-// Re-export types from feagi-agent-registry
-pub use feagi_agent_registry::{
+// Re-export types from feagi-pns
+pub use feagi_pns::agent_registry::{
     AgentType,
     AgentCapabilities,
     VisionCapability,
