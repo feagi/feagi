@@ -285,33 +285,68 @@ impl SensoryStream {
             );
         }
         
-        // Inject XYZP data into NPU using cortical area mapping
+        // ARCHITECTURE NOTE: Injection must happen in Python to use cortical_id → cortical_idx mapping
+        // The Rust NPU works purely with cortical_idx (u32), but agents send cortical_id (string)
+        // Python's NPUInterface.inject_sensory_xyzp() does this conversion using genome data
+        //
+        // TODO: For now, we'll inject directly using the Rust NPU and log the cortical_id
+        // This will fail until we implement proper cortical_id → cortical_idx mapping in Rust
+        
         let mut total_injected = 0;
         let mut npu = npu_arc.lock().unwrap();
         
+        // DEBUG: Show all registered cortical areas in NPU
+        if !first_logged {
+            let registered_count = npu.get_registered_cortical_area_count();
+            println!("🦀 [ZMQ-SENSORY] 🔍 NPU has {} cortical areas registered", registered_count);
+            if registered_count > 0 {
+                println!("🦀 [ZMQ-SENSORY] 🔍 Registered cortical areas:");
+                for (idx, name) in npu.get_all_cortical_areas() {
+                    println!("🦀 [ZMQ-SENSORY] 🔍   - '{}' (idx={})", name, idx);
+                }
+            } else {
+                println!("🦀 [ZMQ-SENSORY] ❌ NPU has ZERO cortical areas registered!");
+                println!("🦀 [ZMQ-SENSORY] ❌ This means register_cortical_area() was NEVER called during genome loading");
+            }
+        }
+        
         for (cortical_id, neuron_arrays) in &cortical_mapped.mappings {
             // Convert CorticalID to string name
-            let cortical_name = cortical_id.to_string();
+            // CRITICAL: Don't use .to_string() - it wraps in quotes via Display impl!
+            // Use as_ascii_string() to get the raw string without formatting
+            let cortical_name = cortical_id.as_ascii_string();
+            
+            // Use NPU's existing mapping (area_id_to_name -> get_cortical_area_id)
+            let cortical_idx = match npu.get_cortical_area_id(&cortical_name) {
+                Some(idx) => idx,
+                None => {
+                    if !first_logged {
+                        println!("🦀 [ZMQ-SENSORY] ❌ Unknown cortical area: '{}'", cortical_name);
+                        println!("🦀 [ZMQ-SENSORY] ❌ Agent sent this, but NPU doesn't recognize it");
+                    }
+                    continue; // Skip this cortical area
+                }
+            };
             
             // Use borrow_xyzp_vectors to access the coordinate vectors
             let (x_coords, y_coords, z_coords, potentials) = neuron_arrays.borrow_xyzp_vectors();
             
-            // Build XYZP tuples for this cortical area
+            // Build neuron ID + potential pairs for direct injection
             let num_neurons = neuron_arrays.len();
-            let mut xyzp_data = Vec::with_capacity(num_neurons);
+            let mut neuron_potential_pairs = Vec::with_capacity(num_neurons);
             
+            // For each XYZ coordinate, find the neuron ID in the NPU
             for i in 0..num_neurons {
-                xyzp_data.push((
-                    x_coords[i],
-                    y_coords[i],
-                    z_coords[i],
-                    potentials[i],
-                ));
+                if let Some(neuron_id) = npu.get_neuron_at_coordinates(cortical_idx, x_coords[i], y_coords[i], z_coords[i]) {
+                    neuron_potential_pairs.push((neuron_id, potentials[i]));
+                }
             }
+            
+            let found_count = neuron_potential_pairs.len();
             
             // 🔍 DEBUG: Log first few coordinates to verify data
             if !first_logged && num_neurons > 0 {
-                println!("🦀 [ZMQ-SENSORY] 📍 Cortical area '{}': {} neurons", cortical_name, num_neurons);
+                println!("🦀 [ZMQ-SENSORY] 📍 Cortical area '{}' (idx={}): {} neurons", cortical_name, cortical_idx, num_neurons);
                 println!("🦀 [ZMQ-SENSORY]    First neuron: x={}, y={}, z={}, p={}", 
                          x_coords[0], y_coords[0], z_coords[0], potentials[0]);
                 if num_neurons > 1 {
@@ -319,25 +354,20 @@ impl SensoryStream {
                              x_coords[num_neurons-1], y_coords[num_neurons-1], 
                              z_coords[num_neurons-1], potentials[num_neurons-1]);
                 }
+                println!("🦀 [ZMQ-SENSORY]    Found {}/{} neurons in NPU", found_count, num_neurons);
             }
             
-            // Inject into NPU (will map cortical name → area_id → neuron_ids)
-            let injected = npu.inject_sensory_xyzp(&cortical_name, &xyzp_data);
-            total_injected += injected;
-            
-            if !first_logged {
-                if injected == 0 {
-                    println!("🦀 [ZMQ-SENSORY] ❌ ZERO neurons found for cortical area '{}'", cortical_name);
-                    println!("🦀 [ZMQ-SENSORY] ❌ This means:");
-                    println!("🦀 [ZMQ-SENSORY] ❌   1. Cortical area '{}' not in genome, OR", cortical_name);
-                    println!("🦀 [ZMQ-SENSORY] ❌   2. No neurons exist at those X,Y,Z coordinates");
-                } else if injected < num_neurons {
-                    println!("🦀 [ZMQ-SENSORY] ⚠️  Only {}/{} neurons found for cortical area '{}'", 
-                             injected, num_neurons, cortical_name);
-                } else {
-                    println!("🦀 [ZMQ-SENSORY] ✅ Injected {}/{} neurons for '{}'", 
-                             injected, num_neurons, cortical_name);
+            // Inject using cortical_idx (proper architecture!)
+            if !neuron_potential_pairs.is_empty() {
+                npu.inject_sensory_with_potentials(&neuron_potential_pairs);
+                total_injected += found_count;
+                
+                if !first_logged {
+                    println!("🦀 [ZMQ-SENSORY] ✅ Injected {}/{} neurons for '{}' (idx={})", 
+                             found_count, num_neurons, cortical_name, cortical_idx);
                 }
+            } else if !first_logged {
+                println!("🦀 [ZMQ-SENSORY] ⚠️  No neurons found at XYZ coordinates for cortical area '{}'", cortical_name);
             }
         }
         

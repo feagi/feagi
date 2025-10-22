@@ -394,6 +394,18 @@ impl RustNPU {
         None
     }
     
+    /// Get the number of registered cortical areas
+    pub fn get_registered_cortical_area_count(&self) -> usize {
+        self.area_id_to_name.len()
+    }
+    
+    /// Get all registered cortical areas as (idx, name) pairs
+    pub fn get_all_cortical_areas(&self) -> Vec<(u32, String)> {
+        self.area_id_to_name.iter()
+            .map(|(&idx, name)| (idx, name.clone()))
+            .collect()
+    }
+    
     /// Find neuron ID at specific X,Y,Z coordinates within a cortical area
     /// Returns None if no neuron exists at that position
     pub fn get_neuron_at_coordinates(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<NeuronId> {
@@ -418,7 +430,10 @@ impl RustNPU {
         let cortical_area = match self.get_cortical_area_id(cortical_name) {
             Some(id) => id,
             None => {
-                eprintln!("[NPU] ❌ Unknown cortical area: {}", cortical_name);
+                eprintln!("[NPU] ❌ Unknown cortical area: '{}'", cortical_name);
+                eprintln!("[NPU] ❌ Available cortical areas: {:?}", 
+                    self.area_id_to_name.values().collect::<Vec<_>>());
+                eprintln!("[NPU] ❌ Total registered: {}", self.area_id_to_name.len());
                 return 0;
             }
         };
