@@ -142,35 +142,44 @@ class FeagiAgentAPI:
                     detail="Registration system unavailable - FEAGI not fully initialized"
                 )
 
-            # Aggressive on-demand cleanup: remove stale agents before returning
-            try:
-                inactive_ms = 60000
-                if load_feagi_config and get_timeout_config:
-                    cfg = load_feagi_config()
-                    to = get_timeout_config(cfg)
-                    inactive_ms = int(getattr(to, "inactive_client_timeout", inactive_ms))
-                cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(20, int(inactive_ms / 1000)))
-                current = registration_manager.list_agents()
-                for a in list(current.get("agents", [])):
-                    try:
-                        last_seen_iso = a.get("last_seen") or ""
-                        agent_id = a.get("agent_id", "")
-                        if not agent_id:
-                            continue
-                        if not last_seen_iso:
-                            # No last_seen: treat as stale
-                            registration_manager.deregister_agent(agent_id)
-                            continue
-                        last_seen = datetime.fromisoformat(last_seen_iso)
-                        if last_seen < cutoff:
-                            registration_manager.deregister_agent(agent_id)
-                    except Exception:
-                        continue
-            except Exception:
-                # Best-effort: if cleanup fails, continue to return current list
-                pass
-
+            # Get agent list (with optional cleanup of stale agents)
             agents_data = registration_manager.list_agents()
+            
+            # Optional: Remove stale agents (disabled for performance - heartbeat timeout handles this)
+            # Uncomment if on-demand cleanup is needed
+            # try:
+            #     inactive_ms = 60000
+            #     if load_feagi_config and get_timeout_config:
+            #         cfg = load_feagi_config()
+            #         to = get_timeout_config(cfg)
+            #         inactive_ms = int(getattr(to, "inactive_client_timeout", inactive_ms))
+            #     cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(20, int(inactive_ms / 1000)))
+            #     for a in list(agents_data.get("agents", [])):
+            #         try:
+            #             last_seen_value = a.get("last_seen")
+            #             agent_id = a.get("agent_id", "")
+            #             if not agent_id:
+            #                 continue
+            #             if not last_seen_value:
+            #                 registration_manager.deregister_agent(agent_id)
+            #                 continue
+            #             
+            #             # Handle both u64 milliseconds (from Rust) and ISO strings (legacy)
+            #             if isinstance(last_seen_value, (int, float)):
+            #                 # Rust registry: u64 milliseconds since epoch
+            #                 last_seen = datetime.fromtimestamp(last_seen_value / 1000, tz=timezone.utc)
+            #             else:
+            #                 # Legacy: ISO format string
+            #                 last_seen = datetime.fromisoformat(str(last_seen_value))
+            #             
+            #             if last_seen < cutoff:
+            #                 registration_manager.deregister_agent(agent_id)
+            #         except Exception:
+            #             continue
+            #     # Refresh list after cleanup
+            #     agents_data = registration_manager.list_agents()
+            # except Exception:
+            #     pass
             agent_ids = [
                 agent["agent_id"] for agent in agents_data.get("agents", [])
             ]

@@ -24,25 +24,22 @@ FEAGI supports multiple GPU backends for 5-50x performance improvement:
 
 **Note**: GPU acceleration is optional. FEAGI runs efficiently on CPU-only systems.
 
-## Deployment
+## Installation
 
-### Prerequisites
-- Python 3.9+ 
-- Rust toolchain (install from https://rustup.rs/)
+### For Users (Recommended)
 
-### Build Rust NPU (Required)
-FEAGI requires the Rust NPU extension for high-performance neural processing:
+Install FEAGI from PyPI with pre-built binaries - **no Rust toolchain required**:
 
 ```bash
-# Linux/macOS
-cd feagi_core/feagi-rust
-cargo build --release --workspace
-cp target/release/libfeagi_rust.* ../../feagi_rust.so
+# 1. Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Windows
-cd feagi_core\feagi-rust
-cargo build --release --workspace
-copy target\release\feagi_rust.dll ..\..\feagi_rust.pyd
+# 2. Install FEAGI (includes pre-compiled Rust extensions + all dependencies)
+pip install feagi
+
+# 3. Start FEAGI
+python -m feagi.main
 ```
 ### Platform-Specific Setup
 
@@ -114,15 +111,18 @@ python -m feagi.main
 Once platform dependencies are installed:
 
 ```bash
-# 1. Create and activate virtual environment
-cd feagi_core
+# 1. Clone the repository
+git clone https://github.com/neuraville/feagi.git
+cd feagi/feagi_core
+
+# 2. Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate  # Windows: .\venv\Scripts\Activate.ps1
 
-# 2. Install FEAGI with dependencies
+# 3. Install in development mode (builds Rust automatically)
 pip install -e .
 
-# 3. Start FEAGI
+# 4. Start FEAGI
 python -m feagi.main
 ```
 
@@ -163,12 +163,10 @@ For high-performance local communication, configure SHM storage:
 
 **Linux (Optimal - uses RAM-backed tmpfs):**
 ```bash
-# 1. Build Rust NPU (see "Build Rust NPU" section above)
+# One command installs everything (FEAGI + all dependencies)
+pip install feagi
 
-# 2. Install FEAGI core with dependencies
-pip install -e .
-
-# 3. Start FEAGI with default configuration
+# Ready to run immediately
 python -m feagi.main
 # Already configured by default - /dev/shm is RAM-backed
 # Verify tmpfs is available:
@@ -429,6 +427,40 @@ python -c "from feagi.bdu.models.array_backend import detect_available_backends;
 - Enable debug mode to see GPU utilization: `python -m feagi.main --debug-npu`
 - Check GPU is actually being used (not falling back to CPU)
 
+## Troubleshooting
+
+### No Pre-built Wheel Available
+
+If you see an error like:
+```
+ERROR: Could not find a version that satisfies the requirement feagi
+```
+
+Your platform may not have a pre-built wheel. Install Rust and build from source:
+
+```bash
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Install FEAGI (will compile Rust extensions)
+pip install feagi --no-binary feagi
+```
+
+### Verify Rust Extensions Loaded
+
+```bash
+python -c "from feagi import feagi_rust; print('✅ Rust extensions working')"
+```
+
+### Installation Takes Long Time
+
+If installation is compiling from source (5-10 minutes), you likely don't have a pre-built wheel for your platform. This is expected on:
+- ARM Linux (except aarch64)
+- Alpine Linux (musl libc)
+- FreeBSD, OpenBSD
+- Python versions older than 3.8
+
 ## Development
 
 ### Running Tests
@@ -498,6 +530,21 @@ python -m feagi.tools.benchmark --compare-backends
 
 # Profile specific brain operations
 python -m feagi.main --profile --genome your_genome.json
+```
+
+### Building Rust Extensions Manually
+
+For development work on the Rust components:
+
+```bash
+cd feagi-rust
+cargo build --release --workspace
+
+# Copy extension to Python package
+# Linux/macOS:
+cp target/release/libfeagi_rust.so ../feagi/feagi_rust.so
+# Windows:
+copy target\release\feagi_rust.dll ..\feagi\feagi_rust.pyd
 ```
 
 ## Documentation

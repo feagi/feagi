@@ -43,6 +43,8 @@ pub struct BurstLoopRunner {
     pub viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
     /// Motor SHM writer (optional, None if not configured)
     pub motor_shm_writer: Arc<Mutex<Option<crate::motor_shm_writer::MotorSHMWriter>>>,
+    /// Visualization ZMQ publisher callback (optional, called after writing to SHM)
+    pub viz_zmq_publisher: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
 }
 
 impl BurstLoopRunner {
@@ -116,6 +118,7 @@ impl BurstLoopRunner {
             sensory_manager: Arc::new(Mutex::new(sensory_manager)),
             viz_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_viz_shm_writer
             motor_shm_writer: Arc::new(Mutex::new(None)), // Initialized later via attach_motor_shm_writer
+            viz_zmq_publisher: Arc::new(Mutex::new(None)), // Initialized later via set_viz_zmq_publisher
         }
     }
     
@@ -133,6 +136,16 @@ impl BurstLoopRunner {
         let mut guard = self.motor_shm_writer.lock().unwrap();
         *guard = Some(writer);
         Ok(())
+    }
+    
+    /// Set visualization ZMQ publisher callback (called from PNS after initialization)
+    pub fn set_viz_zmq_publisher<F>(&mut self, publisher: F)
+    where
+        F: Fn(&[u8]) + Send + Sync + 'static,
+    {
+        let mut guard = self.viz_zmq_publisher.lock().unwrap();
+        *guard = Some(Box::new(publisher));
+        println!("[BURST-RUNNER] 📡 Visualization ZMQ publisher attached");
     }
     
     /// Set burst frequency (can be called while running)
@@ -158,11 +171,12 @@ impl BurstLoopRunner {
         let frequency = self.frequency_hz;
         let running = self.running.clone();
         let viz_writer = self.viz_shm_writer.clone();
+        let viz_zmq_publisher = self.viz_zmq_publisher.clone();
         
         self.thread_handle = Some(thread::Builder::new()
             .name("feagi-burst-loop".to_string())
             .spawn(move || {
-                burst_loop(npu, frequency, running, viz_writer);
+                burst_loop(npu, frequency, running, viz_writer, viz_zmq_publisher);
             })
             .map_err(|e| format!("Failed to spawn burst loop thread: {}", e))?);
         
@@ -226,6 +240,7 @@ fn burst_loop(
     frequency_hz: f64,
     running: Arc<AtomicBool>,
     viz_shm_writer: Arc<Mutex<Option<crate::viz_shm_writer::VizSHMWriter>>>,
+    viz_zmq_publisher: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
 ) {
     let timestamp = get_timestamp();
     println!("[{}] [BURST-LOOP] 🚀 Starting main loop at {:.2} Hz", timestamp, frequency_hz);
@@ -255,12 +270,6 @@ fn burst_loop(
             let mut npu_lock = npu.lock().unwrap();
             match npu_lock.process_burst() {
                 Ok(result) => {
-                    // Log if no neurons fired (debugging power neuron issue)
-                    if result.neuron_count == 0 {
-                        let timestamp = get_timestamp();
-                        eprintln!("[{}] [BURST-#{}] ⚠️ process_burst() returned 0 neurons!", 
-                            timestamp, burst_num + 1);
-                    }
                     total_neurons_fired += result.neuron_count;
                     result.neuron_count
                 }
@@ -274,47 +283,6 @@ fn burst_loop(
         
         burst_num += 1;
         // Note: NPU.process_burst() already incremented its internal burst_count
-        
-        // 🔥 LOG ACTUAL NEURON FIRING AT NPU LEVEL (every burst)
-        {
-            let timestamp = get_timestamp();
-            let mut npu_lock = npu.lock().unwrap();
-            let fire_data_opt = npu_lock.force_sample_fire_queue();
-            
-            if let Some(fire_data) = fire_data_opt {
-                if fire_data.is_empty() {
-                    eprintln!("[{}] [BURST-#{}] ⚠️ Fire Queue EMPTY (no areas)", timestamp, burst_num);
-                } else {
-                    let mut found_origin = false;
-                    // Check each area in the fire queue for (0,0,0) firing
-                    for (area_id, (_id_vec, x_vec, y_vec, z_vec, _p_vec)) in fire_data.iter() {
-                        let area_name_opt = npu_lock.get_cortical_area_name(*area_id).map(|s| s.to_string());
-                        if let Some(area_name) = area_name_opt {
-                            let neuron_count = _id_vec.len();
-                            
-                            // Check if (0,0,0) is firing in this area
-                            let has_origin = (0..neuron_count).any(|i| {
-                                x_vec[i] == 0 && y_vec[i] == 0 && z_vec[i] == 0
-                            });
-                            
-                            if has_origin {
-                                eprintln!("[{}] [BURST-#{}] 🔥 [{}] (0,0,0) FIRING - {} total neurons", 
-                                    timestamp, burst_num, area_name, neuron_count);
-                                found_origin = true;
-                            }
-                        }
-                    }
-                    
-                    // If Fire Queue has data but no (0,0,0) firing, log it
-                    if !found_origin {
-                        eprintln!("[{}] [BURST-#{}] ⚫ {} areas firing, but no (0,0,0)", 
-                            timestamp, burst_num, fire_data.len());
-                    }
-                }
-            } else {
-                eprintln!("[{}] [BURST-#{}] ❌ Fire Queue is None!", timestamp, burst_num);
-            }
-        }
         
         // Write visualization data to SHM (if attached)
         {
@@ -409,7 +377,15 @@ fn burst_loop(
                     // Write raw structure bytes to SHM
                     match writer.write_payload(&buffer) {
                         Ok(_) => {
-                            // Visualization data written successfully
+                            // Visualization data written successfully to SHM
+                            
+                            // Also publish to ZMQ if publisher is configured
+                            if let Some(publisher_guard) = viz_zmq_publisher.lock().ok() {
+                                if let Some(ref publisher) = *publisher_guard {
+                                    // Publish the same buffer to ZMQ (no extra serialization needed)
+                                    publisher(&buffer);
+                                }
+                            }
                         }
                         Err(e) => {
                             let timestamp = get_timestamp();

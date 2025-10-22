@@ -3,8 +3,10 @@ from typing import Any, Dict
 from feagi.core.state_manager import FeagiStateManager
 # BurstEngine has been moved to pure Rust - no Python wrapper needed
 # Fire Ledger is now in Rust - accessed via rust_npu.get_fire_ledger_history()
-from feagi.plasticity.service import PlasticityService, PlasticityConfig
-from feagi.plasticity.memory_neuron_array import MemoryNeuronArray, MemoryNeuronLifecycleConfig
+# NOTE: Plasticity has been migrated to Rust (feagi-plasticity crate)
+# Python plasticity service is disabled until Rust integration is complete
+# from feagi.plasticity.service import PlasticityService, PlasticityConfig
+# from feagi.plasticity.memory_neuron_array import MemoryNeuronArray, MemoryNeuronLifecycleConfig
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 
@@ -21,43 +23,8 @@ class CoreAPI(CoreAPIService):
         self._memory_manager = None
         self._plasticity_service = None
 
-        # Configure PlasticityService from TOML (no fallbacks)
-        p_cfg = config.get('plasticity') if isinstance(config, dict) else None
-        if isinstance(p_cfg, dict):
-            required = ['queue_capacity', 'max_ops_per_burst', 'stdp', 'memory']
-            if all(k in p_cfg for k in required):
-                svc_cfg = PlasticityConfig(
-                    queue_capacity=int(p_cfg['queue_capacity']),
-                    max_ops_per_burst=int(p_cfg['max_ops_per_burst']),
-                    stdp=dict(p_cfg['stdp']),
-                    memory=dict(p_cfg['memory']),
-                )
-                # Start service
-                import sys
-                debug_mem = '--debug-mem' in sys.argv
-                
-                npu_interface = getattr(connectome_manager, '_npu_interface', None)
-                # Fire Ledger is now in Rust - provide a thin compatibility wrapper
-                fire_ledger = None  # PlasticityService can access Fire Ledger via BurstEngine.rust_npu if needed
-                if npu_interface and isinstance(svc_cfg.queue_capacity, int):
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] Initializing PlasticityService...")
-                        print(f"[DEBUG-MEM] WARNING: Fire Ledger is None - Plasticity needs Rust integration update")
-                    
-                    svc = PlasticityService(
-                        fire_ledger=fire_ledger,
-                        npu_interface=npu_interface,
-                        plasticity_config=svc_cfg,
-                        state_manager=self._state_manager,
-                    )
-                    svc.start()
-                    self._plasticity_service = svc
-                    # Note: Burst engine is now in Rust - plasticity integration needs update
-                    
-                    if debug_mem:
-                        print(f"[DEBUG-MEM] ✅ PlasticityService initialized")
-                elif debug_mem:
-                    print(f"[DEBUG-MEM] ❌ Failed to initialize PlasticityService - npu_interface: {npu_interface is not None}, queue_capacity: {svc_cfg.queue_capacity}")
+        # NOTE: Plasticity service disabled - migrated to Rust
+        # Will be re-enabled when Rust plasticity is integrated with NPU
 
     # Exposed getters for ProcessManager
     def get_burst_engine(self):

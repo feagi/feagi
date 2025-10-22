@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "feagi-agent-sdk-py"
+version = "0.1.0"
+description = "Python bindings for FEAGI Agent SDK (Rust-backed)"
+authors = [{name = "FEAGI Team", email = "feagi@neuraville.com"}]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["feagi", "neural-network", "agent", "sdk"]
+license = {text = "Apache-2.0"}
+
+[project.urls]
+Homepage = "https://github.com/feagi/feagi"
+Documentation = "https://github.com/feagi/feagi"
+Repository = "https://github.com/feagi/feagi"
+
+[tool.maturin]
+module-name = "feagi_agent_sdk_py"
+

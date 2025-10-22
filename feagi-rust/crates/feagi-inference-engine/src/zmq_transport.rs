@@ -36,18 +36,32 @@ impl ZmqTransport {
         })
     }
     
-    /// Receive registration request (blocking)
+    /// Receive registration request (with timeout)
     ///
     /// Returns (agent_id, agent_type, capabilities) parsed from JSON
+    /// Timeout in milliseconds (default: 1000ms)
     pub fn receive_registration_request(&self) -> Result<RegistrationRequest> {
-        let msg = self.response_socket.recv_msg(0)
-            .map_err(|e| RegistryError::TransportError(format!("Failed to receive message: {}", e)))?;
-        
-        let json_str = msg.as_str()
-            .ok_or_else(|| RegistryError::TransportError("Invalid UTF-8 in message".to_string()))?;
-        
-        serde_json::from_str(json_str)
-            .map_err(|e| RegistryError::SerializationError(e))
+        // Poll with 1 second timeout
+        match self.response_socket.poll(zmq::POLLIN, 1000) {
+            Ok(rc) if rc > 0 => {
+                // Message available
+                let msg = self.response_socket.recv_msg(0)
+                    .map_err(|e| RegistryError::TransportError(format!("Failed to receive message: {}", e)))?;
+                
+                let json_str = msg.as_str()
+                    .ok_or_else(|| RegistryError::TransportError("Invalid UTF-8 in message".to_string()))?;
+                
+                serde_json::from_str(json_str)
+                    .map_err(|e| RegistryError::SerializationError(e))
+            }
+            Ok(_) => {
+                // Timeout - no message available
+                Err(RegistryError::TransportError("timeout".to_string()))
+            }
+            Err(e) => {
+                Err(RegistryError::TransportError(format!("Poll error: {}", e)))
+            }
+        }
     }
 }
 

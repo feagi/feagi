@@ -8,7 +8,8 @@ members = [
     "crates/feagi-bdu",
     "crates/feagi-pns",
     "crates/feagi-connectome-serialization",
-    "crates/feagi-agent-registry",
+    "crates/feagi-agent-sdk",
+    "crates/feagi-agent-sdk-py",
     "crates/feagi-inference-engine",
 ]
 
@@ -34,6 +35,9 @@ bytemuck = { version = "1.14", features = ["derive"] }  # Type casting for GPU b
 # Published FEAGI data crates (v0.0.50-beta.49 with callback feature)
 feagi_data_structures = "0.0.50-beta.49"
 feagi_data_serialization = "0.0.50-beta.49"
+
+# Workspace-internal crates
+feagi-connectome-serialization = { path = "crates/feagi-connectome-serialization" }
 
 # PyO3 for Python bindings
 pyo3 = { version = "0.22", features = ["extension-module"] }

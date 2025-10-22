@@ -368,6 +368,26 @@ impl RustNPU {
         }
     }
     
+    /// Attach PNS visualization ZMQ publisher to burst loop
+    /// After this, visualization data will be published to ZMQ in addition to SHM
+    fn attach_viz_zmq_publisher(&mut self, pns: &PyPNS) -> PyResult<()> {
+        if let Some(runner) = &mut self.burst_runner {
+            let pns_clone = pns.pns.clone();
+            runner.lock().unwrap().set_viz_zmq_publisher(move |data: &[u8]| {
+                // Publish to ZMQ via PNS
+                if let Err(e) = pns_clone.lock().unwrap().publish_visualization(data) {
+                    eprintln!("[BURST-LOOP] ❌ Failed to publish to ZMQ: {}", e);
+                }
+            });
+            println!("[RUST-NPU] ✅ PNS ZMQ publisher attached to burst loop");
+            Ok(())
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Burst loop not running - call start_burst_loop() first"
+            ))
+        }
+    }
+    
     /// Write binary neuron data to visualization SHM (Python encodes, Rust writes)
     /// 
     /// Args:
@@ -1780,6 +1800,14 @@ impl PyPNS {
         }
     }
 
+    /// Connect the Rust NPU to the PNS sensory stream for direct binary injection
+    /// This enables the PNS ZMQ sensory stream to deserialize XYZP data and inject directly into the NPU
+    fn connect_npu_to_sensory_stream(&self, rust_npu: &RustNPU) -> PyResult<()> {
+        let npu_arc = Arc::clone(&rust_npu.npu);
+        self.pns.lock().unwrap().connect_npu_to_sensory_stream(npu_arc);
+        Ok(())
+    }
+
     /// Register an agent (called via ZMQ REST stream)
     /// This is handled internally by the PNS's REST stream
     /// Use this only for direct registration from Python
@@ -1851,6 +1879,23 @@ impl PyPNS {
             .map(|_| format!("Agent {} deregistered", agent_id))
             .map_err(|e| PyValueError::new_err(format!("Deregistration failed: {}", e)))
     }
+
+    /// Publish visualization data to all ZMQ subscribers
+    /// Called by burst engine after writing FQ data to SHM
+    fn publish_visualization(&self, data: &[u8]) -> PyResult<()> {
+        self.pns
+            .lock()
+            .unwrap()
+            .publish_visualization(data)
+            .map_err(|e| PyValueError::new_err(format!("Failed to publish visualization: {}", e)))
+    }
+    
+    /// Get the shared agent registry for Python RegistrationManager
+    /// This allows the RegistrationManager to use the same registry as PNS
+    fn get_shared_registry(&self) -> PyAgentRegistry {
+        let registry = self.pns.lock().unwrap().get_agent_registry();
+        PyAgentRegistry { registry }
+    }
 }  // END of #[pymethods] impl PyPNS
 
 // Standalone connectome serialization functions (bypass #[pymethods] macro issue)
@@ -1902,7 +1947,7 @@ fn load_connectome_from_file(py: Python, npu: Py<RustNPU>, file_path: String) ->
 /// Python wrapper for AgentRegistry
 #[pyclass]
 struct PyAgentRegistry {
-    registry: std::sync::Arc<feagi_agent_registry::AgentRegistry>,
+    registry: std::sync::Arc<parking_lot::RwLock<feagi_pns::agent_registry::AgentRegistry>>,
 }
 
 #[pymethods]
@@ -1910,39 +1955,176 @@ impl PyAgentRegistry {
     #[new]
     fn new(max_agents: usize, timeout_ms: u64) -> Self {
         Self {
-            registry: std::sync::Arc::new(feagi_agent_registry::AgentRegistry::new(max_agents, timeout_ms)),
+            registry: std::sync::Arc::new(parking_lot::RwLock::new(
+                feagi_pns::agent_registry::AgentRegistry::new(max_agents, timeout_ms)
+            )),
         }
     }
     
     /// Get count of registered agents
     fn agent_count(&self) -> usize {
-        self.registry.agent_count()
+        self.registry.read().count()
     }
     
     /// Get all registered agents as JSON string
     fn get_all_agents_json(&self) -> PyResult<String> {
-        let agents = self.registry.get_all_agents();
+        let registry_lock = self.registry.read();
+        let agents = registry_lock.get_all();
         serde_json::to_string(&agents)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agents: {}", e)))
     }
     
     /// Get specific agent as JSON string
     fn get_agent_json(&self, agent_id: &str) -> PyResult<String> {
-        let agent = self.registry.get_agent(agent_id)
-            .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to get agent: {}", e)))?;
+        let registry_lock = self.registry.read();
+        let agent = registry_lock.get(agent_id)
+            .ok_or_else(|| PyErr::new::<PyValueError, _>(format!("Agent not found: {}", agent_id)))?;
         serde_json::to_string(&agent)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to serialize agent: {}", e)))
     }
     
     /// Update agent activity timestamp
     fn update_agent_activity(&self, agent_id: &str) -> PyResult<()> {
-        self.registry.update_agent_activity(agent_id)
+        self.registry.write().heartbeat(agent_id)
             .map_err(|e| PyErr::new::<PyValueError, _>(format!("Failed to update activity: {}", e)))
     }
     
     /// Prune inactive agents (returns count of pruned agents)
     fn prune_inactive_agents(&self) -> usize {
-        self.registry.prune_inactive_agents(None)
+        self.registry.write().prune_inactive_agents()
+    }
+    
+    /// Register agent directly (bypasses transport for Python integration)
+    /// 
+    /// Args:
+    ///     agent_id: Unique agent identifier
+    ///     agent_type: "sensory", "motor", "both", "visualization", or "infrastructure"
+    ///     capabilities_json: JSON string with agent capabilities
+    ///     metadata_json: Optional JSON string with agent metadata (version, ip, port, etc.)
+    /// 
+    /// Returns:
+    ///     Result JSON with success status and message
+    #[pyo3(signature = (agent_id, agent_type, capabilities_json, metadata_json=None))]
+    fn register_agent_direct(
+        &self,
+        agent_id: String,
+        agent_type: String,
+        capabilities_json: String,
+        metadata_json: Option<String>,
+    ) -> PyResult<String> {
+        use feagi_pns::agent_registry::{AgentType, AgentCapabilities, AgentInfo, AgentTransport};
+        
+        // Parse agent type
+        let rust_agent_type = match agent_type.to_lowercase().as_str() {
+            "sensory" => AgentType::Sensory,
+            "motor" => AgentType::Motor,
+            "both" => AgentType::Both,
+            "visualization" => AgentType::Visualization,
+            "infrastructure" => AgentType::Infrastructure,
+            _ => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Invalid agent type: {}", agent_type),
+                    "agent_id": agent_id,
+                });
+                return Ok(serde_json::to_string(&error_response).unwrap());
+            }
+        };
+        
+        // Parse capabilities from JSON
+        let capabilities: AgentCapabilities = match serde_json::from_str(&capabilities_json) {
+            Ok(caps) => caps,
+            Err(e) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to parse capabilities: {}", e),
+                    "agent_id": agent_id,
+                });
+                return Ok(serde_json::to_string(&error_response).unwrap());
+            }
+        };
+        
+        // Create agent info and add directly to registry
+        // Note: This bypasses the transport/validation layer for Python integration
+        // Default to ZMQ transport for Python-registered agents
+        let mut agent_info = AgentInfo::new(
+            agent_id.clone(), 
+            rust_agent_type, 
+            capabilities,
+            AgentTransport::Zmq
+        );
+        
+        // Parse and set metadata if provided
+        if let Some(meta_str) = metadata_json {
+            match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&meta_str) {
+                Ok(metadata) => {
+                    agent_info.metadata = metadata;
+                }
+                Err(e) => {
+                    let error_response = serde_json::json!({
+                        "success": false,
+                        "message": format!("Failed to parse metadata: {}", e),
+                        "agent_id": agent_id,
+                    });
+                    return Ok(serde_json::to_string(&error_response).unwrap());
+                }
+            }
+        }
+        
+        // Register directly (bypasses transport)
+        let register_result = {
+            let mut registry_guard = self.registry.write();
+            registry_guard.register(agent_info)
+        }; // Explicitly drop write lock before acquiring read lock
+        
+        match register_result {
+            Ok(_) => {
+                let agent_count = self.registry.read().count();
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": format!("Agent {} registered successfully", agent_id),
+                    "agent_id": agent_id,
+                    "agent_count": agent_count,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+            Err(e) => {
+                let response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Registration failed: {}", e),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+        }
+    }
+    
+    /// Deregister agent directly
+    /// 
+    /// Args:
+    ///     agent_id: Agent identifier to remove
+    /// 
+    /// Returns:
+    ///     Result JSON with success status
+    fn deregister_agent_direct(&self, agent_id: String) -> PyResult<String> {
+        match self.registry.write().deregister(&agent_id) {
+            Ok(_) => {
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": format!("Agent {} deregistered successfully", agent_id),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+            Err(e) => {
+                let response = serde_json::json!({
+                    "success": false,
+                    "message": format!("Deregistration failed: {}", e),
+                    "agent_id": agent_id,
+                });
+                Ok(serde_json::to_string(&response).unwrap())
+            }
+        }
     }
 }
 

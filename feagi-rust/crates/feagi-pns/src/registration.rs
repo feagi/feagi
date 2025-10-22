@@ -1,14 +1,13 @@
 // Registration Handler - processes agent registration requests
 
 use crate::agent_registry::{
-    AgentCapabilities, AgentInfo, AgentRegistry, AgentTransport, MotorCapability,
-    SensoryCapability, VizCapability,
+    AgentCapabilities, AgentInfo, AgentRegistry, AgentTransport, AgentType,
+    MotorCapability, SensoryCapability, VisualizationCapability,
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 /// Registration request from agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,18 +102,16 @@ impl RegistrationHandler {
             shm_paths.insert("sensory".to_string(), shm_path);
         }
 
-        if let Some(ref mut motor) = allocated_capabilities.motor {
+        if allocated_capabilities.motor.is_some() {
             let shm_path = format!(
                 "{}/feagi-shm-{}-motor.bin",
                 self.shm_base_path, request.agent_id
             );
-            motor.shm_path = Some(shm_path.clone());
             shm_paths.insert("motor".to_string(), shm_path);
         }
 
-        if let Some(ref mut viz) = allocated_capabilities.visualization {
+        if allocated_capabilities.visualization.is_some() {
             let shm_path = format!("{}/feagi-shared-mem-visualization_stream.bin", self.shm_base_path);
-            viz.shm_path = Some(shm_path.clone());
             shm_paths.insert("visualization".to_string(), shm_path);
         }
 
@@ -125,15 +122,23 @@ impl RegistrationHandler {
             AgentTransport::Zmq
         };
 
-        // Create agent info
-        let agent_info = AgentInfo {
-            agent_id: request.agent_id.clone(),
-            agent_type: request.agent_type.clone(),
-            capabilities: allocated_capabilities,
-            registered_at: Instant::now(),
-            last_heartbeat: Instant::now(),
-            transport,
+        // Parse agent type string to enum
+        let agent_type_enum = match request.agent_type.to_lowercase().as_str() {
+            "sensory" => AgentType::Sensory,
+            "motor" => AgentType::Motor,
+            "both" => AgentType::Both,
+            "visualization" => AgentType::Visualization,
+            "infrastructure" => AgentType::Infrastructure,
+            _ => return Err(format!("Invalid agent type: {}", request.agent_type)),
         };
+
+        // Create agent info using the new constructor
+        let agent_info = AgentInfo::new(
+            request.agent_id.clone(),
+            agent_type_enum,
+            allocated_capabilities,
+            transport,
+        );
 
         // Register in registry
         self.agent_registry
@@ -200,30 +205,32 @@ impl RegistrationHandler {
         &self,
         caps_json: &serde_json::Value,
     ) -> Result<AgentCapabilities, String> {
-        let mut capabilities = AgentCapabilities {
-            sensory: None,
-            motor: None,
-            visualization: None,
-        };
+        // Try to deserialize directly from JSON first (handles new agent SDK format)
+        if let Ok(capabilities) = serde_json::from_value::<AgentCapabilities>(caps_json.clone()) {
+            return Ok(capabilities);
+        }
+        
+        // Fall back to manual parsing for legacy format
+        let mut capabilities = AgentCapabilities::default();
 
-        // Parse sensory capability
+        // Parse legacy sensory capability
         if let Some(sensory) = caps_json.get("sensory") {
             if let Some(rate_hz) = sensory.get("rate_hz").and_then(|v| v.as_f64()) {
                 capabilities.sensory = Some(SensoryCapability {
                     rate_hz,
-                    shm_path: None, // Will be allocated
-                    cortical_mappings: HashMap::new(), // TODO: Extract from genome
+                    shm_path: None,
+                    cortical_mappings: HashMap::new(),
                 });
             }
         }
 
-        // Parse motor capability
+        // Parse motor capability (support both legacy and new format)
         if let Some(motor) = caps_json.get("motor") {
             if motor.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false) {
-                let rate_hz = motor.get("rate_hz").and_then(|v| v.as_f64()).unwrap_or(20.0);
                 capabilities.motor = Some(MotorCapability {
-                    rate_hz,
-                    shm_path: None, // Will be allocated
+                    modality: motor.get("modality").and_then(|v| v.as_str()).unwrap_or("generic").to_string(),
+                    output_count: motor.get("output_count").and_then(|v| v.as_u64()).unwrap_or(1) as usize,
+                    source_cortical_areas: vec![],
                 });
             }
         }
@@ -231,10 +238,11 @@ impl RegistrationHandler {
         // Parse visualization capability
         if let Some(viz) = caps_json.get("visualization") {
             if viz.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false) {
-                let rate_hz = viz.get("rate_hz").and_then(|v| v.as_f64()).unwrap_or(30.0);
-                capabilities.visualization = Some(VizCapability {
-                    rate_hz,
-                    shm_path: None, // Will be allocated
+                capabilities.visualization = Some(VisualizationCapability {
+                    visualization_type: viz.get("type").and_then(|v| v.as_str()).unwrap_or("generic").to_string(),
+                    resolution: None,
+                    refresh_rate: viz.get("rate_hz").and_then(|v| v.as_f64()),
+                    bridge_proxy: viz.get("bridge_proxy").and_then(|v| v.as_bool()).unwrap_or(false),
                 });
             }
         }

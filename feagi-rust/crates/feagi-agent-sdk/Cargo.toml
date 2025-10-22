@@ -1,0 +1,39 @@
+[package]
+name = "feagi-agent-sdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["FEAGI Team"]
+description = "Client SDK for building FEAGI agents in Rust"
+license = "Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+# Core dependencies
+zmq = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"  # Still needed for registration/heartbeat messages
+log = "0.4"
+thiserror = "1.0"
+
+# Async runtime (optional, for async API)
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+# FEAGI internal crates
+feagi-pns = { path = "../feagi-pns" }
+
+# FEAGI data structures and serialization (for binary XYZP format)
+feagi_data_structures.workspace = true
+feagi_data_serialization.workspace = true
+
+[dev-dependencies]
+env_logger = "0.11"
+criterion = "0.5"
+
+[features]
+default = []
+async = ["tokio"]
+
+[[example]]
+name = "simple_sensory_agent"
+path = "examples/simple_sensory_agent.rs"
+

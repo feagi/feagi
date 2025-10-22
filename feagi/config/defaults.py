@@ -179,6 +179,12 @@ DEFAULT_CONFIG = {
             },
         },
     },
+    "agent": {
+        "registration_port": int(os.environ.get("FEAGI_AGENT_REGISTRATION_PORT", "30001")),  # ZMQ agent registration port (30001 avoids macOS AirPlay on 5000)
+        "sensory_port": int(os.environ.get("FEAGI_AGENT_SENSORY_PORT", "5555")),  # ZMQ sensory data input port (PULL socket)
+        "motor_port": int(os.environ.get("FEAGI_AGENT_MOTOR_PORT", "30005")),  # ZMQ motor data output port (PUB socket)
+        "host": os.environ.get("FEAGI_AGENT_HOST", "0.0.0.0"),  # Host for agent communication
+    },
     "pns": {
         "enabled": True,
         "adapters": {

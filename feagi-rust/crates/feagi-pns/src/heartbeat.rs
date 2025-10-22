@@ -43,7 +43,7 @@ impl HeartbeatTracker {
                 }
 
                 // Check for stale agents
-                let stale_agents = agent_registry.read().get_stale_agents(timeout);
+                let stale_agents = agent_registry.read().get_stale_agents();
 
                 if !stale_agents.is_empty() {
                     println!(

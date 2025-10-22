@@ -430,12 +430,7 @@ class SystemService(BaseService):
             except ImportError:
                 pass
 
-            try:
-                import torch
-
-                versions["torch"] = torch.__version__
-            except ImportError:
-                pass
+            # GPU detection via Rust WGPU (no torch needed)
 
             return versions
         except Exception as e:
@@ -650,7 +645,7 @@ class SystemService(BaseService):
 
             process_manager = get_process_manager()
             if process_manager:
-                success = process_manager.enable_viz_fq_sampler()
+                success = process_manager.create_fq_sampler("visualization", 60.0)
                 if success:
                     self.logger.info(
                         "✅ Visualization FQ sampler enabled via REST API"
@@ -679,17 +674,11 @@ class SystemService(BaseService):
 
             process_manager = get_process_manager()
             if process_manager:
-                success = process_manager.disable_viz_fq_sampler()
-                if success:
-                    self.logger.info(
-                        "✅ Visualization FQ sampler disabled via REST API"
-                    )
-                    return True
-                else:
-                    self.logger.error(
-                        "❌ Failed to disable visualization FQ sampler"
-                    )
-                    return False
+                process_manager.disable_fq_sampler("visualization")
+                self.logger.info(
+                    "✅ Visualization FQ sampler disabled via REST API"
+                )
+                return True
             else:
                 self.logger.error("❌ Process manager not available")
                 return False

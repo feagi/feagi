@@ -168,8 +168,28 @@ class BrainService(BaseService):
                         
                         rust_npu.attach_viz_shm_writer(viz_shm_path)
                         self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
+                        
+                        # Attach ZMQ publisher (publishes viz data to port 5562 for Bridge/remote clients)
+                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: Attempting to attach ZMQ publisher...")
+                        from feagi.process_manager import get_process_manager
+                        process_manager = get_process_manager()
+                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: process_manager={process_manager}")
+                        if process_manager:
+                            has_pns = hasattr(process_manager, '_pns')
+                            self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: has _pns attribute={has_pns}")
+                            if has_pns:
+                                pns = process_manager._pns
+                                self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: _pns={pns}")
+                                rust_npu.attach_viz_zmq_publisher(pns)
+                                self.logger.info(f"📡 [RUST-BURST] ✅ Visualization ZMQ publisher attached (port 5562)")
+                            else:
+                                self.logger.warning(f"📡 [RUST-BURST] ❌ PNS not available (_pns attribute missing)")
+                        else:
+                            self.logger.warning(f"📡 [RUST-BURST] ❌ ProcessManager not available")
                     except Exception as e:
-                        self.logger.warning(f"🎨 [RUST-BURST] Could not attach viz SHM writer: {e}")
+                        self.logger.error(f"🎨 [RUST-BURST] ❌ Exception during attachment: {e}")
+                        import traceback
+                        self.logger.error(f"🎨 [RUST-BURST] Traceback: {traceback.format_exc()}")
                     
                     # Keep this thread alive to monitor (but burst loop runs in Rust)
                     import time

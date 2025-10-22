@@ -15,7 +15,7 @@ pub mod shm;
 pub use agent_registry::{AgentRegistry, AgentInfo, AgentCapabilities};
 pub use registration::RegistrationHandler;
 pub use heartbeat::HeartbeatTracker;
-pub use zmq::{ZmqStreams, RestStream, MotorStream, VisualizationStream};
+pub use zmq::{ZmqStreams, RestStream, MotorStream, VisualizationStream, SensoryStream};
 
 #[derive(Error, Debug)]
 pub enum PNSError {
@@ -39,15 +39,17 @@ pub struct PNSConfig {
     pub zmq_rest_address: String,
     pub zmq_motor_address: String,
     pub zmq_viz_address: String,
+    pub zmq_sensory_address: String,
     pub shm_base_path: String,
 }
 
 impl Default for PNSConfig {
     fn default() -> Self {
         Self {
-            zmq_rest_address: "tcp://0.0.0.0:5555".to_string(),
-            zmq_motor_address: "tcp://0.0.0.0:30005".to_string(),
-            zmq_viz_address: "tcp://0.0.0.0:30000".to_string(),
+            zmq_rest_address: "tcp://0.0.0.0:5563".to_string(),  // REST/registration port
+            zmq_motor_address: "tcp://0.0.0.0:30005".to_string(), // Motor output port
+            zmq_viz_address: "tcp://0.0.0.0:5562".to_string(),    // Visualization output port
+            zmq_sensory_address: "tcp://0.0.0.0:5558".to_string(), // Sensory input port (PULL socket)
             shm_base_path: "/tmp".to_string(),
         }
     }
@@ -73,7 +75,7 @@ impl PNS {
 
     /// Create a new PNS with custom configuration
     pub fn with_config(config: PNSConfig) -> Result<Self> {
-        let agent_registry = Arc::new(RwLock::new(AgentRegistry::new()));
+        let agent_registry = Arc::new(RwLock::new(AgentRegistry::with_defaults()));
         let heartbeat_tracker = Arc::new(Mutex::new(HeartbeatTracker::new()));
         let registration_handler = Arc::new(Mutex::new(
             RegistrationHandler::new(Arc::clone(&agent_registry))
@@ -97,6 +99,17 @@ impl PNS {
         // Also propagate to registration handler
         self.registration_handler.lock().set_sensory_agent_manager(manager);
         println!("🦀 [PNS] Sensory agent manager connected for SHM I/O");
+    }
+    
+    /// Connect the Rust NPU to the sensory stream for direct injection
+    /// Should be called after starting the PNS
+    pub fn connect_npu_to_sensory_stream(&self, npu: Arc<std::sync::Mutex<feagi_burst_engine::RustNPU>>) {
+        if let Some(streams) = self.zmq_streams.lock().as_ref() {
+            streams.get_sensory_stream().set_npu(npu);
+            println!("🦀 [PNS] NPU connected to sensory stream for direct injection");
+        } else {
+            eprintln!("🦀 [PNS] [ERR] Cannot connect NPU: ZMQ streams not started");
+        }
     }
 
     /// Set callback for agent registration events (for Python integration)
@@ -128,6 +141,7 @@ impl PNS {
             &self.config.zmq_rest_address,
             &self.config.zmq_motor_address,
             &self.config.zmq_viz_address,
+            &self.config.zmq_sensory_address,
             Arc::clone(&self.registration_handler),
         )?;
 
@@ -172,6 +186,17 @@ impl PNS {
     /// Get agent registry (for external access)
     pub fn get_agent_registry(&self) -> Arc<RwLock<AgentRegistry>> {
         Arc::clone(&self.agent_registry)
+    }
+
+    /// Publish visualization data to all ZMQ subscribers
+    /// Called by burst engine after writing FQ data to SHM
+    pub fn publish_visualization(&self, data: &[u8]) -> Result<()> {
+        if let Some(streams) = self.zmq_streams.lock().as_ref() {
+            streams.publish_visualization(data)?;
+            Ok(())
+        } else {
+            Err(PNSError::NotRunning("ZMQ streams not started".to_string()))
+        }
     }
 }
 

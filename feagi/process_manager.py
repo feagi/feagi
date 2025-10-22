@@ -545,6 +545,20 @@ class ProcessManager:
                     logger.info(
                         "🏛️ Registration Manager initialized - central agent coordination ready"
                     )
+                    
+                    # ZMQ Registration Listener: NOW HANDLED BY RUST PNS
+                    # The Rust PNS (feagi-pns crate) provides zmq/rest.rs for agent registration
+                    # This eliminates the Python ZMQ registration listener
+                    logger.info("🦀 Agent registration handled by Rust PNS (feagi-pns/zmq/rest.rs)")
+                    
+                    # ZMQ Sensory Listener: NOW HANDLED BY RUST PNS
+                    # The Rust PNS (feagi-pns crate) provides zmq/sensory.rs for sensory data
+                    # Benefits:
+                    #   - 10-100x faster XYZP binary deserialization (Rust vs Python)
+                    #   - Direct Rust→Rust NPU injection (no Python FFI overhead)
+                    #   - Consistent with Motor/Viz streams (all in Rust)
+                    logger.info("🦀 Sensory data reception handled by Rust PNS (feagi-pns/zmq/sensory.rs)")
+                        # Non-fatal - can continue without sensory listener
                 else:
                     logger.error(
                         "❌ Failed to initialize Registration Manager"
@@ -569,26 +583,23 @@ class ProcessManager:
                 # Create Rust PNS
                 pns = feagi_rust.PyPNS()
                 
-                # Connect PNS to burst engine for SHM I/O coordination
-                if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
-                    rust_npu_integration = self._core_api._rust_npu_integration
-                    if rust_npu_integration and rust_npu_integration._rust_npu:
-                        pns.connect_to_burst_engine(rust_npu_integration._rust_npu)
-                        logger.info("🦀 PNS connected to burst engine's sensory agent manager")
-                    else:
-                        logger.warning("🦀 PNS created but burst engine not yet initialized - will connect later")
-                else:
-                    logger.warning("🦀 PNS created but core API not yet initialized - will connect later")
-
-                # Register Python callbacks for agent lifecycle events
+                # Register Python callbacks for agent lifecycle events (BEFORE start)
                 logger.info("🦀 Registering Python callbacks with Rust PNS")
                 pns.set_on_agent_registered(self._on_agent_registered)
                 pns.set_on_agent_deregistered(self._on_agent_deregistered)
                 logger.info("🦀 Callbacks registered successfully")
 
-                # Start PNS ZMQ streams
+                # Start PNS ZMQ streams (creates sensory stream)
                 pns.start()
                 logger.info("🦀 PNS ZMQ streams started successfully")
+                
+                # CRITICAL: Connect NPU to sensory stream AFTER pns.start()
+                # This must happen after ZMQ streams are created
+                if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
+                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU for direct injection")
+                else:
+                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized - sensory injection disabled")
                 
                 # Store PNS for access by registration manager and other components
                 self._processes["zmq_server"] = pns  # Use same key for compatibility
@@ -1177,6 +1188,7 @@ class ProcessManager:
                 logger.info(
                     "🏛️ Registration Manager initialized - central agent coordination ready"
                 )
+                # Note: ZMQ registration listener is started in init_important_processes()
                 return True
             else:
                 logger.error(
@@ -1310,15 +1322,23 @@ class ProcessManager:
                 # The Rust burst loop samples FQ every burst and writes to SHM
                 # Per-agent rate limiting happens in capability rate manager
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
-                    from feagi.core.state_manager import FeagiStateManager
-                    sm = FeagiStateManager.instance()
-                    shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                    viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
-                    
-                    self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                    logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                    logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
-                    return True
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        sm = FeagiStateManager.instance()
+                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                        
+                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
+                        logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                        logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                        return True
+                    except Exception as e:
+                        # Burst loop may not be running yet if agent registers early
+                        if "Burst loop not running" in str(e):
+                            logger.info(f"🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts")
+                            return True
+                        else:
+                            raise
                 
                 # If Rust NPU not ready yet (early startup), that's OK
                 # The burst loop will start writing to SHM automatically once initialized
@@ -1464,7 +1484,17 @@ class ProcessManager:
             # Stop running flag to signal all services to stop
             self._running = False
 
-            # Shutdown heartbeat coordinator first
+            # Shutdown registration manager FIRST to prevent lazy-load deadlocks
+            try:
+                from feagi.pns.registration_manager import get_registration_manager
+                registration_manager = get_registration_manager()
+                if registration_manager:
+                    registration_manager.shutdown()
+                    print("🦀 Registration manager shutdown signaled", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"Error signaling registration manager shutdown: {e}", file=sys.stderr, flush=True)
+
+            # Shutdown heartbeat coordinator
             try:
                 from feagi.api.v1.agent_heartbeat_coordinator import get_heartbeat_coordinator
                 heartbeat_coordinator = get_heartbeat_coordinator()
@@ -1472,6 +1502,11 @@ class ProcessManager:
                 print("💔 Heartbeat coordinator shutdown initiated", file=sys.stderr, flush=True)
             except Exception as e:
                 print(f"Error stopping heartbeat coordinator: {e}", file=sys.stderr, flush=True)
+
+            # ZMQ Registration & Sensory Listeners: NOW HANDLED BY RUST PNS
+            # The Rust PNS manages all ZMQ streams lifecycle
+            # No need to stop them here - they're managed by the Rust PNS process
+            print("🦀 ZMQ streams (registration, sensory) managed by Rust PNS", file=sys.stderr, flush=True)
 
             # Import required modules for timeout handling
             import threading

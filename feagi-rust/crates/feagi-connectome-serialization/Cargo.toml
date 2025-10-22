@@ -24,8 +24,8 @@ thiserror.workspace = true
 lz4 = { version = "1.24", optional = true }
 
 [features]
-default = []
-compression = ["lz4"]  # Optional LZ4 compression for smaller files
+default = ["compression"]  # LZ4 compression enabled by default
+compression = ["lz4"]
 
 [dev-dependencies]
 tempfile = "3.8"  # For testing

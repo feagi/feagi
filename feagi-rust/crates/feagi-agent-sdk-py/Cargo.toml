@@ -1,0 +1,30 @@
+[package]
+name = "feagi-agent-sdk-py"
+version = "0.1.0"
+edition = "2021"
+authors = ["FEAGI Team"]
+description = "Python bindings for FEAGI Agent SDK (built with Rust)"
+license = "Apache-2.0"
+
+[lib]
+name = "feagi_agent_sdk_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 for Python bindings
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+# Our Rust SDK
+feagi-agent-sdk = { path = "../feagi-agent-sdk" }
+feagi-pns = { path = "../feagi-pns" }
+
+# FEAGI data structures and serialization (for binary XYZP format)
+feagi_data_serialization.workspace = true
+
+# Serialization
+serde_json = "1.0"
+log = "0.4"
+
+[build-dependencies]
+pyo3-build-config = "0.22"
+
