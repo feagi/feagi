@@ -3,15 +3,16 @@ name = "feagi-plasticity"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license = "PROPRIETARY"  # Different license for IP protection
+license = "Apache-2.0"
 repository.workspace = true
-description = "FEAGI plasticity algorithms (proprietary)"
+description = "FEAGI plasticity algorithms - STDP and memory formation"
 
 [dependencies]
 feagi-types = { path = "../feagi-types" }
 thiserror.workspace = true
 rayon.workspace = true
-ndarray.workspace = true
+ahash.workspace = true
+sha2 = "0.10"
 
 [features]
 default = []

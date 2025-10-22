@@ -71,7 +71,6 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.5",
     "psutil>=5.8.0",
-    "pyroaring>=1.0.0",
     "packaging>=21.0.0",
 ]
 
