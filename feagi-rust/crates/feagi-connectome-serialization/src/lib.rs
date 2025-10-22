@@ -77,7 +77,9 @@ pub type Result<T> = std::result::Result<T, ConnectomeError>;
 const MAGIC: &[u8; 5] = b"FEAGI";
 
 /// Current format version (increment when format changes)
-const FORMAT_VERSION: u32 = 1;
+/// Version 1: Original format without compression
+/// Version 2: Added flags byte for compression support
+const FORMAT_VERSION: u32 = 2;
 
 /// Complete connectome snapshot
 ///
@@ -219,17 +221,22 @@ pub fn load_connectome<P: AsRef<Path>>(path: P) -> Result<ConnectomeSnapshot> {
     file.read_exact(&mut version_bytes)?;
     let version = u32::from_le_bytes(version_bytes);
 
-    if version != FORMAT_VERSION {
+    // Support version 1 (no compression) and version 2 (with compression)
+    if version != 1 && version != 2 {
         return Err(ConnectomeError::VersionMismatch {
             file_version: version,
             expected_version: FORMAT_VERSION,
         });
     }
 
-    // Read flags
-    let mut flags = [0u8; 1];
-    file.read_exact(&mut flags)?;
-    let is_compressed = (flags[0] & 1) != 0;
+    // Read flags (only in version 2)
+    let is_compressed = if version == 2 {
+        let mut flags = [0u8; 1];
+        file.read_exact(&mut flags)?;
+        (flags[0] & 1) != 0
+    } else {
+        false // Version 1 files are never compressed
+    };
 
     // Read checksum
     let mut checksum_bytes = [0u8; 8];
