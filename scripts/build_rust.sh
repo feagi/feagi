@@ -99,11 +99,29 @@ build_crate() {
     
     if [ -z "$CRATE" ] || [ "$CRATE" == "all" ]; then
         print_header "Building All FEAGI Core Crates"
-        print_info "Building workspace in release mode..."
+        print_info "Building workspace and Python extension module..."
         
-        if cargo build --release; then
-            print_success "All crates built successfully"
-            install_library
+        # Build Rust workspace (excluding feagi-agent-sdk-py which has different requirements)
+        if cargo build --release --workspace --exclude feagi-agent-sdk-py; then
+            print_success "All Rust crates built successfully"
+            
+            # Build and install feagi-python using maturin
+            print_info "Building Python extension module with maturin..."
+            if command -v maturin &> /dev/null; then
+                cd "$FEAGI_RUST_DIR/crates/feagi-python"
+                if maturin develop --release; then
+                    print_success "Python extension module installed successfully"
+                else
+                    print_error "Failed to install Python extension module!"
+                    print_info "Try manually: cd feagi-rust/crates/feagi-python && maturin develop --release"
+                    exit 1
+                fi
+                cd "$FEAGI_RUST_DIR"
+            else
+                print_error "maturin not found! Install it with: pip install maturin"
+                print_info "Then run: cd feagi-rust/crates/feagi-python && maturin develop --release"
+                exit 1
+            fi
         else
             print_error "Build failed!"
             exit 1

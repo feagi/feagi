@@ -19,8 +19,6 @@
 
 use feagi_types::*;
 use crate::fire_structures::{FireQueue, FiringNeuron};
-use rayon::prelude::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Fast PCG hash for deterministic pseudo-random number generation
 /// Based on PCG family of PRNGs: https://www.pcg-random.org/
@@ -29,7 +27,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// excitability checks without requiring a mutable RNG state.
 #[inline(always)]
 fn pcg_hash(input: u32) -> u32 {
-    let mut state = input.wrapping_mul(747796405).wrapping_add(2891336453);
+    let state = input.wrapping_mul(747796405).wrapping_add(2891336453);
     let word = ((state >> ((state >> 28) + 4)) ^ state).wrapping_mul(277803737);
     (word >> 22) ^ word
 }
@@ -169,7 +167,7 @@ fn process_single_neuron(
     // Semantics: refractory_period=1 → fire, block 1 burst, fire
     // When countdown=1, this burst is blocked, then countdown becomes 0 for next burst
     if neuron_array.refractory_countdowns[idx] > 0 {
-        let old_countdown = neuron_array.refractory_countdowns[idx];
+        let _old_countdown = neuron_array.refractory_countdowns[idx];
         
         // Decrement countdown for next burst
         neuron_array.refractory_countdowns[idx] -= 1;
@@ -182,7 +180,7 @@ fn process_single_neuron(
             && consecutive_fire_limit > 0 
             && neuron_array.consecutive_fire_counts[idx] >= consecutive_fire_limit {
             // Reset happens when countdown expires (Option A logic)
-            let old_count = neuron_array.consecutive_fire_counts[idx];
+            let _old_count = neuron_array.consecutive_fire_counts[idx];
             neuron_array.consecutive_fire_counts[idx] = 0;
             // if neuron_id.0 == 16438 {
             //     println!("[RUST-16438] → BLOCKED by refrac (countdown {} → {}), count reset {} → 0", 
@@ -331,7 +329,9 @@ fn process_single_neuron(
 ///
 /// Process 8 neurons at once using AVX2 SIMD instructions.
 /// This will be enabled once we have sufficient test coverage.
-#[cfg(feature = "simd")]
+/// 
+/// Migration status: Scaffolded for future performance optimization after Python parity achieved.
+/// Warning about unused code is expected - will be integrated in phase 2 optimization.
 pub fn process_neural_dynamics_simd(
     fcl: &FireCandidateList,
     neuron_array: &mut NeuronArray,

@@ -22,6 +22,10 @@ const VERSION: u32 = 1;
 const HEADER_SIZE: usize = 256;
 
 /// Shared memory header (matches Python struct format "<8sIIIQQII212s")
+/// 
+/// Migration status: SHM reader partially migrated from Python. This struct will be used
+/// once the full SHM protocol implementation is completed.
+/// Warning about unused struct is expected during migration.
 #[repr(C, packed)]
 struct ShmHeader {
     magic: [u8; 8],           // 8 bytes

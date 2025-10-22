@@ -5,7 +5,6 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::thread;
 use feagi_data_serialization::FeagiSerializable;
-use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
 
 /// Sensory stream for receiving sensory data from agents
 #[derive(Clone)]

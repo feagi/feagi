@@ -341,7 +341,6 @@ impl AgentClient {
         // This serializes data using feagi_data_structures for cross-platform compatibility
         use feagi_data_structures::neuron_voxels::xyzp::{CorticalMappedXYZPNeuronVoxels, NeuronVoxelXYZPArrays};
         use feagi_data_structures::genomic::CorticalID;
-        use feagi_data_serialization::FeagiSerializable;
         
         // Get cortical area and dimensions from vision capability
         let vision_cap = self.config.capabilities.vision.as_ref()
@@ -372,7 +371,7 @@ impl AgentClient {
             potentials.push(potential as f32);
         }
         
-        let neuron_count = x_coords.len();
+        let _neuron_count = x_coords.len(); // Reserved for future validation
         
         // Create neuron arrays from vectors
         let neuron_arrays = NeuronVoxelXYZPArrays::new_from_vectors(x_coords, y_coords, z_coords, potentials)

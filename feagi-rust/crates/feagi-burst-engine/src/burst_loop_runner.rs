@@ -91,7 +91,7 @@ impl BurstLoopRunner {
                 static FIRST_POTENTIALS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                 if !FIRST_POTENTIALS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) && !neuron_potential_pairs.is_empty() {
                     println!("[FCL-INJECT]    First 5 potentials from data:");
-                    for (idx, (neuron_id, p)) in neuron_potential_pairs.iter().take(5).enumerate() {
+                    for (_idx, (neuron_id, p)) in neuron_potential_pairs.iter().take(5).enumerate() {
                         println!("[FCL-INJECT]      [{:?}] p={:.3}", neuron_id, p);
                     }
                     FIRST_POTENTIALS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -304,7 +304,8 @@ fn burst_loop(
                 }
                 
                 if let Some(fire_data) = fire_data_opt {
-                    // Debug: Log first successful viz write
+                    // Debug: Log first successful viz write (for migration debugging)
+                    // Warning about unused static is expected - kept for development debugging
                     static FIRST_VIZ_WRITE_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                     
             // Encode as raw Type 11 structure (no container wrapper, like rust-py-libs pattern)
@@ -314,10 +315,10 @@ fn burst_loop(
             
             // Convert FQ data to CorticalMappedXYZPNeuronVoxels
             let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
-            let mut total_neurons = 0;
+            let mut _total_neurons = 0;
             
             for (area_id, (_id_vec, x_vec, y_vec, z_vec, p_vec)) in fire_data.iter() {
-                total_neurons += _id_vec.len();
+                _total_neurons += _id_vec.len();
                 
                 // Debug: Log what areas we're encoding
                 static FIRST_AREAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);

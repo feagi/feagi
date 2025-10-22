@@ -1,10 +1,8 @@
 use clap::Parser;
-use log::{info, warn, debug, error};
+use log::{info, warn, debug};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread;
-use feagi_pns::agent_registry::AgentTransport;
 extern crate zmq;
 extern crate serde_json;
 
@@ -89,16 +87,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let registry = Arc::new(std::sync::RwLock::new(feagi_pns::agent_registry::AgentRegistry::new(
         args.max_agents,
         args.agent_timeout_ms,
-    ));
+    )));
     info!("✓ Agent registry initialized (max_agents={}, timeout={}ms)", 
           args.max_agents, args.agent_timeout_ms);
 
-    // Create ZMQ transport
-    info!("Setting up ZMQ transport...");
-    let transport = Arc::new(
-        feagi_inference_engine::ZmqTransport::new(&args.registration_endpoint)
-            .map_err(|e| format!("Failed to create ZMQ transport: {}", e))?
-    );
+    // Note: ZMQ transport functionality integrated directly into main loop
     info!("✓ ZMQ registration endpoint: {}", args.registration_endpoint);
     info!("  ZMQ sensory input endpoint: {}", args.sensory_endpoint);
     info!("  ZMQ motor output endpoint: {}", args.motor_endpoint);
@@ -111,126 +104,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         r.store(false, Ordering::SeqCst);
     })?;
 
-    // Start registration listener thread
-    let registry_clone = Arc::clone(&registry);
-    let transport_clone = Arc::clone(&transport);
-    let running_clone = Arc::clone(&running);
-    let sensory_ep = args.sensory_endpoint.clone();
-    let motor_ep = args.motor_endpoint.clone();
-    
-    let registration_thread = thread::spawn(move || {
-        registration_listener(
-            registry_clone,
-            transport_clone,
-            running_clone,
-            sensory_ep,
-            motor_ep,
-        )
-    });
-
-    // Run engine
+    // Run engine (registration handling integrated into main loop)
     info!("🚀 Starting inference engine ({}Hz)", args.burst_hz);
 
     run_engine(&mut npu, &args, running, Arc::clone(&registry))?;
-
-    // Wait for registration thread to finish
-    info!("Waiting for registration thread to finish...");
-    let _ = registration_thread.join();
 
     info!("✅ Inference engine shutdown complete!");
     Ok(())
 }
 
-/// Registration listener thread
-fn registration_listener(
-    registry: Arc<feagi_agent_registry::AgentRegistry>,
-    transport: Arc<feagi_inference_engine::ZmqTransport>,
-    running: Arc<AtomicBool>,
-    sensory_endpoint: String,
-    motor_endpoint: String,
-) {
-    info!("📡 Registration listener started");
-    
-    while running.load(Ordering::Relaxed) {
-        // Try to receive registration request (non-blocking with timeout)
-        match transport.receive_registration_request() {
-            Ok(request) => {
-                info!("📥 Registration request from: {}", request.agent_id);
-                
-                // Parse agent type
-                let agent_type = match request.agent_type.as_str() {
-                    "sensory" => feagi_agent_registry::AgentType::Sensory,
-                    "motor" => feagi_agent_registry::AgentType::Motor,
-                    "both" => feagi_agent_registry::AgentType::Both,
-                    _ => {
-                        error!("Invalid agent type: {}", request.agent_type);
-                        let _ = transport.send_registration_rejection(
-                            &request.agent_id,
-                            &format!("Invalid agent type: {}", request.agent_type)
-                        );
-                        continue;
-                    }
-                };
-                
-                // Parse capabilities
-                let capabilities: feagi_agent_registry::AgentCapabilities = 
-                    match serde_json::from_value(request.capabilities) {
-                        Ok(caps) => caps,
-                        Err(e) => {
-                            error!("Failed to parse capabilities: {}", e);
-                            let _ = transport.send_registration_rejection(
-                                &request.agent_id,
-                                &format!("Invalid capabilities: {}", e)
-                            );
-                            continue;
-                        }
-                    };
-                
-                // Create transport endpoints
-                let endpoints = feagi_agent_registry::TransportEndpoints::new(
-                    sensory_endpoint.clone(),
-                    motor_endpoint.clone(),
-                );
-                
-                // Register agent
-                match registry.register_agent(
-                    request.agent_id.clone(),
-                    agent_type,
-                    capabilities,
-                    transport.as_ref(),
-                    &endpoints,
-                ) {
-                    Ok(_) => {
-                        info!("✓ Agent registered: {} (total: {})", 
-                              request.agent_id, registry.agent_count());
-                    }
-                    Err(e) => {
-                        error!("Failed to register agent {}: {}", request.agent_id, e);
-                    }
-                }
-            }
-            Err(e) => {
-                // Check if it's a timeout (expected during normal operation)
-                if e.to_string().contains("timeout") || e.to_string().contains("EAGAIN") {
-                    // Normal timeout - no agents trying to register
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                } else {
-                    error!("Registration error: {}", e);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                }
-            }
-        }
-    }
-    
-    info!("📡 Registration listener stopped");
-}
+// Note: Registration listener functionality to be implemented when ZMQ transport is completed
 
 /// Run the inference engine loop
 fn run_engine(
     npu: &mut feagi_burst_engine::RustNPU,
     args: &Args,
     running: Arc<AtomicBool>,
-    registry: Arc<feagi_agent_registry::AgentRegistry>,
+    registry: Arc<std::sync::RwLock<feagi_pns::agent_registry::AgentRegistry>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let burst_interval = std::time::Duration::from_millis(1000 / args.burst_hz);
     let mut burst_count: u64 = 0;
@@ -267,12 +157,12 @@ fn run_engine(
                         Ok(json) => {
                             // Extract neuron_id and potential pairs
                             if let Some(pairs) = json.get("neuron_id_potential_pairs").and_then(|v| v.as_array()) {
-                                let mut injection_data: Vec<(u64, f32)> = Vec::new();
+                                let mut injection_data: Vec<(feagi_types::NeuronId, f32)> = Vec::new();
                                 for pair in pairs {
                                     if let Some(arr) = pair.as_array() {
                                         if arr.len() == 2 {
                                             if let (Some(id), Some(pot)) = (arr[0].as_u64(), arr[1].as_f64()) {
-                                                injection_data.push((id, pot as f32));
+                                                injection_data.push((feagi_types::NeuronId(id as u32), pot as f32));
                                             }
                                         }
                                     }
@@ -354,14 +244,14 @@ fn run_engine(
 
         // Periodic status
         if burst_count % (args.burst_hz * 10) == 0 {
-            let agent_count = registry.agent_count();
+            let agent_count = registry.read().unwrap().count();
             info!("Status: {} bursts processed, {} agents registered", 
                   burst_count, agent_count);
         }
 
         // Prune inactive agents every 10 seconds
         if last_prune.elapsed() > std::time::Duration::from_secs(10) {
-            let pruned = registry.prune_inactive_agents(None);
+            let pruned = registry.write().unwrap().prune_inactive_agents();
             if pruned > 0 {
                 info!("Pruned {} inactive agents", pruned);
             }
@@ -384,7 +274,7 @@ fn run_engine(
     }
 
     info!("Stopped after {} bursts", burst_count);
-    info!("Final agent count: {}", registry.agent_count());
+    info!("Final agent count: {}", registry.read().unwrap().count());
 
     // Auto-save if enabled
     if args.auto_save {

@@ -30,11 +30,10 @@
 use feagi_types::*;
 use crate::neural_dynamics::*;
 use crate::synaptic_propagation::SynapticPropagationEngine;
-use crate::fire_structures::{FireQueue, FiringNeuron};
+use crate::fire_structures::FireQueue;
 use crate::fire_ledger::RustFireLedger;
 use crate::fq_sampler::{FQSampler, SamplingMode};
 use ahash::AHashMap;
-use std::time::Duration;
 
 /// Burst processing result
 #[derive(Debug, Clone)]
@@ -1008,6 +1007,10 @@ impl RustNPU {
 }
 
 /// Phase 1 injection result
+/// 
+/// Migration status: Metrics struct for burst processing. Will be used for monitoring
+/// and debugging once telemetry system is migrated from Python.
+/// Warning about unused struct is expected during migration.
 #[derive(Debug)]
 struct InjectionResult {
     power_injections: usize,
@@ -1092,21 +1095,22 @@ fn phase1_injection_with_synapses(
     }
     
     // Log first injection and EVERY time power neurons disappear
-    static mut FIRST_INJECTION: bool = false;
-    static mut LAST_POWER_COUNT: usize = 0;
-    unsafe {
-        if !FIRST_INJECTION && power_count > 0 {
-            println!("[POWER-INJECTION] ✅ Injected {} power neurons into FCL", power_count);
-            FIRST_INJECTION = true;
-            LAST_POWER_COUNT = power_count;
-        } else if power_count == 0 && FIRST_INJECTION {
-            // Power neurons disappeared after working!
-            println!("[POWER-INJECTION] ❌ ERROR: Power neurons DISAPPEARED! (was {}, now 0)", LAST_POWER_COUNT);
-            LAST_POWER_COUNT = 0;
-        } else if power_count == 0 && !FIRST_INJECTION {
-            println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
-            FIRST_INJECTION = true;
-        }
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    static FIRST_INJECTION: AtomicBool = AtomicBool::new(false);
+    static LAST_POWER_COUNT: AtomicUsize = AtomicUsize::new(0);
+    
+    if !FIRST_INJECTION.load(Ordering::Relaxed) && power_count > 0 {
+        println!("[POWER-INJECTION] ✅ Injected {} power neurons into FCL", power_count);
+        FIRST_INJECTION.store(true, Ordering::Relaxed);
+        LAST_POWER_COUNT.store(power_count, Ordering::Relaxed);
+    } else if power_count == 0 && FIRST_INJECTION.load(Ordering::Relaxed) {
+        // Power neurons disappeared after working!
+        let last_count = LAST_POWER_COUNT.load(Ordering::Relaxed);
+        println!("[POWER-INJECTION] ❌ ERROR: Power neurons DISAPPEARED! (was {}, now 0)", last_count);
+        LAST_POWER_COUNT.store(0, Ordering::Relaxed);
+    } else if power_count == 0 && !FIRST_INJECTION.load(Ordering::Relaxed) {
+        println!("[POWER-INJECTION] ⚠️ WARNING: No neurons found with cortical_idx=1");
+        FIRST_INJECTION.store(true, Ordering::Relaxed);
     }
     
     // 2. Synaptic Propagation
