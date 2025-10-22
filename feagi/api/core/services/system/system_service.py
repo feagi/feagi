@@ -430,12 +430,7 @@ class SystemService(BaseService):
             except ImportError:
                 pass
 
-            try:
-                import torch
-
-                versions["torch"] = torch.__version__
-            except ImportError:
-                pass
+            # GPU detection via Rust WGPU (no torch needed)
 
             return versions
         except Exception as e:

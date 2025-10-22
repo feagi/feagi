@@ -54,10 +54,6 @@ After comprehensive audit of all Python and Rust dependencies:
 
 ## Critical Components Analysis
 
-### PyTorch (BSD-3-Clause)
-**Status:** ✅ Safe  
-**Notes:** Modified BSD license from Facebook. Includes patent grant. Fully compatible with Apache 2.0.
-
 ### NumPy/SciPy (BSD-3-Clause)
 **Status:** ✅ Safe  
 **Notes:** Standard BSD license. No restrictions.

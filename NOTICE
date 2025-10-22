@@ -26,11 +26,6 @@ License: LGPL-3.0 (ZeroMQ C library) + MIT OR Apache-2.0 (Rust bindings)
 Website: https://zeromq.org/
 Usage: Message queue communication (dynamically linked via Rust, not statically compiled)
 
-PyTorch
-License: BSD-3-Clause (Modified BSD License)
-Copyright: Facebook, Inc. and its affiliates
-Website: https://pytorch.org/
-
 NumPy
 License: BSD-3-Clause
 Copyright: NumPy Developers

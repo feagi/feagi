@@ -207,39 +207,34 @@ def get_memory_info() -> Dict[str, int]:
 
 
 def get_cuda_info() -> Dict[str, Any]:
-    """Get CUDA GPU information if available.
+    """Get GPU information via Rust WGPU (cross-platform: CUDA, Metal, Vulkan, DX12).
 
     Returns:
-        Dictionary containing CUDA information:
-        - available: Whether CUDA is available
-        - version: CUDA version
-        - devices: List of CUDA devices with their properties
+        Dictionary containing GPU information:
+        - available: Whether GPU is available
+        - backend: GPU backend (wgpu)
+        - devices: List of GPU devices
     """
-    cuda_info = {"available": False, "version": None, "devices": []}
+    gpu_info = {"available": False, "version": None, "devices": []}
 
     try:
-        import torch
-
-        if torch.cuda.is_available():
-            cuda_info["available"] = True
-            cuda_info["version"] = torch.version.cuda
-
-            for i in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(i)
-                device_info = {
-                    "id": i,
-                    "name": props.name,
-                    "total_memory": props.total_memory,
-                    "compute_capability": f"{props.major}.{props.minor}",
-                    "multi_processor_count": props.multi_processor_count,
-                }
-                cuda_info["devices"].append(device_info)
-    except ImportError:
-        logger.warning("PyTorch not available. CUDA detection skipped.")
+        import feagi_rust
+        
+        # Use Rust WGPU for GPU detection (works across CUDA, Metal, Vulkan, DX12)
+        gpu_devices = feagi_rust.detect_gpu_devices()
+        
+        if gpu_devices and len(gpu_devices) > 0:
+            gpu_info["available"] = True
+            gpu_info["devices"] = gpu_devices
+            gpu_info["backend"] = "wgpu"
+            
+    except (ImportError, AttributeError):
+        # Rust extensions not available or GPU detection not implemented yet
+        pass
     except Exception as e:
-        logger.warning(f"Error detecting CUDA: {e}")
+        logger.warning(f"Error detecting GPU via Rust WGPU: {e}")
 
-    return cuda_info
+    return gpu_info
 
 
 def get_metal_info() -> Dict[str, Any]:

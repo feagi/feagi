@@ -22,7 +22,6 @@ All dependencies (Python and Rust) are compatible with Apache 2.0 license. No pr
 | **pydantic-settings** | MIT | ✅ Yes | Permissive |
 | **numpy** | BSD-3-Clause | ✅ Yes | Permissive |
 | **scipy** | BSD-3-Clause | ✅ Yes | Permissive |
-| **torch (PyTorch)** | BSD-3-Clause | ✅ Yes | Permissive, Facebook modified BSD |
 | **httpx** | BSD-3-Clause | ✅ Yes | Permissive |
 | **PyYAML** | MIT | ✅ Yes | Permissive |
 | **tomli** | MIT | ✅ Yes | Permissive (Python <3.11) |
