@@ -861,6 +861,11 @@ class CorticalAreaService(BaseService):
                 raise ValueError("GenomeService unavailable or genome not loaded")
 
             genome = getattr(self._genome_service, "_current_genome", None)
+            
+            # Fallback to StateManager if GenomeService instance doesn't have loaded genome
+            if not genome and self.state_manager:
+                genome = self.state_manager.genome
+            
             if not genome or "blueprint" not in genome or not isinstance(genome["blueprint"], dict):
                 raise ValueError("Genome blueprint missing or invalid")
 

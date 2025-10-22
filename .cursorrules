@@ -235,6 +235,26 @@ Only skip ruff fixes if:
 
 ---
 
+## 13. AI Assistant Behavior Rules
+
+### 13.1. Documentation Creation (FORBIDDEN)
+**NEVER create markdown documentation files unless explicitly requested:**
+- Do NOT create README.md, GUIDE.md, or any *.md files proactively
+- Do NOT create documentation directories
+- Only create docs when user explicitly says "create documentation" or "write a guide"
+- If user asks for a feature, implement it. Don't document it unless asked.
+
+### 13.2. Communication Style
+**Be succinct and direct:**
+- Get straight to the point
+- No fluff or verbose explanations
+- Answer the question, don't lecture
+- Code over words
+- If user asks "does X exist?", answer: "Yes" or "No" with location. That's it.
+- Save detailed explanations for when user asks "how" or "why"
+
+---
+
 ## Final Reminder
 
 Every hardcoded value is a potential source of failure across platforms. No code may be merged unless it passes architecture compliance tests and adheres to all configuration rules.
