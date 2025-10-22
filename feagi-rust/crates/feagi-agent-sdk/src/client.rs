@@ -382,16 +382,24 @@ impl AgentClient {
         let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
         cortical_mapped.insert(cortical_id, neuron_arrays);
         
-        // Serialize to binary
-        let bytes_needed = cortical_mapped.get_number_of_bytes_needed();
-        let mut buffer = vec![0u8; bytes_needed];
-        cortical_mapped.try_serialize_struct_to_byte_slice(&mut buffer)
-            .map_err(|e| SdkError::Other(format!("Serialization failed: {:?}", e)))?;
+        // Serialize to binary using FeagiByteContainer (version 2 container format)
+        let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
+        byte_container.overwrite_byte_data_with_single_struct_data(&cortical_mapped, 0)
+            .map_err(|e| SdkError::Other(format!("Failed to serialize to container: {:?}", e)))?;
         
-        // Send binary XYZP data
+        let buffer = byte_container.get_byte_ref().to_vec();
+        
+        // Send binary XYZP data (version 2 container format)
         socket.send(&buffer, 0)?;
         
-        debug!("[CLIENT] ✓ Sent {} bytes XYZP binary ({} neurons)", buffer.len(), neuron_count);
+        // Always log first send to confirm data flow
+        static FIRST_SEND_LOGGED: std::sync::Once = std::sync::Once::new();
+        FIRST_SEND_LOGGED.call_once(|| {
+            println!("🦀 [AGENT-SDK] ✅ First sensory send: {} bytes XYZP binary → port 5558", buffer.len());
+            println!("🦀 [AGENT-SDK] ✅ Cortical area: {}", cortical_area);
+        });
+        
+        debug!("[CLIENT] ✓ Sent {} bytes XYZP binary", buffer.len());
         Ok(())
     }
     

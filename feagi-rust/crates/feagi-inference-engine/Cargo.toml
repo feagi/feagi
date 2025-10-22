@@ -18,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 # FEAGI Components
 feagi-types = { path = "../feagi-types" }
-feagi-burst-engine = { path = "../feagi-burst-engine", features = ["connectome-serialization"] }
+feagi-burst-engine = { path = "../feagi-burst-engine" }
 feagi-connectome-serialization = { path = "../feagi-connectome-serialization" }
 feagi-pns = { path = "../feagi-pns" }
 feagi_data_structures.workspace = true

@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 feagi-types = { path = "../feagi-types" }
-feagi-burst-engine = { path = "../feagi-burst-engine", features = ["connectome-serialization"] }
+feagi-burst-engine = { path = "../feagi-burst-engine" }
 feagi-plasticity = { path = "../feagi-plasticity" }
 feagi-pns = { path = "../feagi-pns" }
 feagi-connectome-serialization = { path = "../feagi-connectome-serialization" }
@@ -33,5 +33,4 @@ pyo3-build-config = "0.22"
 
 [features]
 extension-module = ["pyo3/extension-module"]
-connectome-serialization = ["feagi-burst-engine/connectome-serialization"]
-default = ["extension-module", "connectome-serialization"]
+default = ["extension-module"]

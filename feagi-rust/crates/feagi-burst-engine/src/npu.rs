@@ -383,6 +383,65 @@ impl RustNPU {
         self.area_id_to_name.get(&area_id).map(|s| s.as_str())
     }
     
+    /// Get the cortical area ID for a given cortical name
+    /// Returns None if the name is not registered
+    pub fn get_cortical_area_id(&self, cortical_name: &str) -> Option<u32> {
+        for (&area_id, name) in &self.area_id_to_name {
+            if name == cortical_name {
+                return Some(area_id);
+            }
+        }
+        None
+    }
+    
+    /// Find neuron ID at specific X,Y,Z coordinates within a cortical area
+    /// Returns None if no neuron exists at that position
+    pub fn get_neuron_at_coordinates(&self, cortical_area: u32, x: u32, y: u32, z: u32) -> Option<NeuronId> {
+        for neuron_idx in 0..self.neuron_array.count {
+            if self.neuron_array.valid_mask[neuron_idx] 
+                && self.neuron_array.cortical_areas[neuron_idx] == cortical_area {
+                let coord_idx = neuron_idx * 3;
+                if self.neuron_array.coordinates[coord_idx] == x
+                    && self.neuron_array.coordinates[coord_idx + 1] == y
+                    && self.neuron_array.coordinates[coord_idx + 2] == z {
+                    return Some(NeuronId(neuron_idx as u32));
+                }
+            }
+        }
+        None
+    }
+    
+    /// Inject sensory neurons using cortical area name and XYZ coordinates
+    /// This is the high-level API for sensory injection from agents
+    pub fn inject_sensory_xyzp(&mut self, cortical_name: &str, xyzp_data: &[(u32, u32, u32, f32)]) -> usize {
+        // Find cortical area ID
+        let cortical_area = match self.get_cortical_area_id(cortical_name) {
+            Some(id) => id,
+            None => {
+                eprintln!("[NPU] ❌ Unknown cortical area: {}", cortical_name);
+                return 0;
+            }
+        };
+        
+        // Convert XYZ coordinates to neuron IDs
+        let mut neuron_potential_pairs = Vec::with_capacity(xyzp_data.len());
+        let mut found_count = 0;
+        
+        for &(x, y, z, potential) in xyzp_data {
+            if let Some(neuron_id) = self.get_neuron_at_coordinates(cortical_area, x, y, z) {
+                neuron_potential_pairs.push((neuron_id, potential));
+                found_count += 1;
+            }
+        }
+        
+        // Inject found neurons
+        if !neuron_potential_pairs.is_empty() {
+            self.inject_sensory_with_potentials(&neuron_potential_pairs);
+        }
+        
+        found_count
+    }
+    
     /// Export connectome snapshot (for saving to file)
     /// 
     /// This captures the complete NPU state including all neurons, synapses,

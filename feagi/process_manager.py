@@ -583,26 +583,23 @@ class ProcessManager:
                 # Create Rust PNS
                 pns = feagi_rust.PyPNS()
                 
-                # Connect PNS to burst engine for SHM I/O coordination
-                if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
-                    rust_npu_integration = self._core_api._rust_npu_integration
-                    if rust_npu_integration and rust_npu_integration._rust_npu:
-                        pns.connect_to_burst_engine(rust_npu_integration._rust_npu)
-                        logger.info("🦀 PNS connected to burst engine's sensory agent manager")
-                    else:
-                        logger.warning("🦀 PNS created but burst engine not yet initialized - will connect later")
-                else:
-                    logger.warning("🦀 PNS created but core API not yet initialized - will connect later")
-
-                # Register Python callbacks for agent lifecycle events
+                # Register Python callbacks for agent lifecycle events (BEFORE start)
                 logger.info("🦀 Registering Python callbacks with Rust PNS")
                 pns.set_on_agent_registered(self._on_agent_registered)
                 pns.set_on_agent_deregistered(self._on_agent_deregistered)
                 logger.info("🦀 Callbacks registered successfully")
 
-                # Start PNS ZMQ streams
+                # Start PNS ZMQ streams (creates sensory stream)
                 pns.start()
                 logger.info("🦀 PNS ZMQ streams started successfully")
+                
+                # CRITICAL: Connect NPU to sensory stream AFTER pns.start()
+                # This must happen after ZMQ streams are created
+                if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
+                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU for direct injection")
+                else:
+                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized - sensory injection disabled")
                 
                 # Store PNS for access by registration manager and other components
                 self._processes["zmq_server"] = pns  # Use same key for compatibility

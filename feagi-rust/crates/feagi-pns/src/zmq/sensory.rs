@@ -125,6 +125,12 @@ impl SensoryStream {
 
                 if !poll_items[0].is_readable() {
                     drop(sock_guard);
+                    // Log waiting every 5 seconds
+                    static POLL_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                    let count = POLL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if count % 5 == 0 {
+                        println!("🦀 [ZMQ-SENSORY] ⏳ Waiting for sensory data on port 5558... (poll #{})", count);
+                    }
                     continue;
                 }
 
@@ -199,7 +205,7 @@ impl SensoryStream {
         };
         drop(npu_lock); // Release early
         
-        // Deserialize binary XYZP data using FeagiByteContainer
+        // Deserialize binary XYZP data using FeagiByteContainer (version 2 container format)
         let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
         let mut data_vec = message_bytes.to_vec();
         
@@ -231,17 +237,74 @@ impl SensoryStream {
                 "🦀 [ZMQ-SENSORY] 📥 First sensory data: {} bytes, {} cortical areas",
                 message_bytes.len(), cortical_mapped.len()
             );
-            println!("🦀 [ZMQ-SENSORY] ⚠️  Stub implementation - injection not yet wired to burst engine");
         }
         
-        // TODO: Wire this to the burst engine's sensory manager
-        // For now, just count neurons as a proof of deserialization
-        let mut total_neurons = 0;
-        for (_cortical_id, neuron_arrays) in &cortical_mapped.mappings {
-            total_neurons += neuron_arrays.len();
+        // Inject XYZP data into NPU using cortical area mapping
+        let mut total_injected = 0;
+        let mut npu = npu_arc.lock().unwrap();
+        
+        for (cortical_id, neuron_arrays) in &cortical_mapped.mappings {
+            // Convert CorticalID to string name
+            let cortical_name = cortical_id.to_string();
+            
+            // Use borrow_xyzp_vectors to access the coordinate vectors
+            let (x_coords, y_coords, z_coords, potentials) = neuron_arrays.borrow_xyzp_vectors();
+            
+            // Build XYZP tuples for this cortical area
+            let num_neurons = neuron_arrays.len();
+            let mut xyzp_data = Vec::with_capacity(num_neurons);
+            
+            for i in 0..num_neurons {
+                xyzp_data.push((
+                    x_coords[i],
+                    y_coords[i],
+                    z_coords[i],
+                    potentials[i],
+                ));
+            }
+            
+            // 🔍 DEBUG: Log first few coordinates to verify data
+            if !first_logged && num_neurons > 0 {
+                println!("🦀 [ZMQ-SENSORY] 📍 Cortical area '{}': {} neurons", cortical_name, num_neurons);
+                println!("🦀 [ZMQ-SENSORY]    First neuron: x={}, y={}, z={}, p={}", 
+                         x_coords[0], y_coords[0], z_coords[0], potentials[0]);
+                if num_neurons > 1 {
+                    println!("🦀 [ZMQ-SENSORY]    Last neuron: x={}, y={}, z={}, p={}", 
+                             x_coords[num_neurons-1], y_coords[num_neurons-1], 
+                             z_coords[num_neurons-1], potentials[num_neurons-1]);
+                }
+            }
+            
+            // Inject into NPU (will map cortical name → area_id → neuron_ids)
+            let injected = npu.inject_sensory_xyzp(&cortical_name, &xyzp_data);
+            total_injected += injected;
+            
+            if !first_logged {
+                if injected == 0 {
+                    println!("🦀 [ZMQ-SENSORY] ❌ ZERO neurons found for cortical area '{}'", cortical_name);
+                    println!("🦀 [ZMQ-SENSORY] ❌ This means:");
+                    println!("🦀 [ZMQ-SENSORY] ❌   1. Cortical area '{}' not in genome, OR", cortical_name);
+                    println!("🦀 [ZMQ-SENSORY] ❌   2. No neurons exist at those X,Y,Z coordinates");
+                } else if injected < num_neurons {
+                    println!("🦀 [ZMQ-SENSORY] ⚠️  Only {}/{} neurons found for cortical area '{}'", 
+                             injected, num_neurons, cortical_name);
+                } else {
+                    println!("🦀 [ZMQ-SENSORY] ✅ Injected {}/{} neurons for '{}'", 
+                             injected, num_neurons, cortical_name);
+                }
+            }
         }
         
-        Ok(total_neurons)
+        if !first_logged {
+            if total_injected == 0 {
+                println!("🦀 [ZMQ-SENSORY] ❌ FATAL: NO NEURONS INJECTED INTO NPU!");
+                println!("🦀 [ZMQ-SENSORY] ❌ Check genome: does it have the cortical areas being sent?");
+            } else {
+                println!("🦀 [ZMQ-SENSORY] ✅ Injected {} neurons into NPU → FCL", total_injected);
+            }
+        }
+        
+        Ok(total_injected)
     }
 
     /// Check if stream is running

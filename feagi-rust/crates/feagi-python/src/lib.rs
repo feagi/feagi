@@ -1800,6 +1800,14 @@ impl PyPNS {
         }
     }
 
+    /// Connect the Rust NPU to the PNS sensory stream for direct binary injection
+    /// This enables the PNS ZMQ sensory stream to deserialize XYZP data and inject directly into the NPU
+    fn connect_npu_to_sensory_stream(&self, rust_npu: &RustNPU) -> PyResult<()> {
+        let npu_arc = Arc::clone(&rust_npu.npu);
+        self.pns.lock().unwrap().connect_npu_to_sensory_stream(npu_arc);
+        Ok(())
+    }
+
     /// Register an agent (called via ZMQ REST stream)
     /// This is handled internally by the PNS's REST stream
     /// Use this only for direct registration from Python
