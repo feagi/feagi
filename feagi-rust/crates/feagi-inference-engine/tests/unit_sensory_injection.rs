@@ -1,12 +1,15 @@
 //! Unit tests for sensory injection module
+//! 
+//! NOTE: DISABLED - Video/image processing is now handled by external agents via ZMQ
+//! This test module is kept for reference but all tests are disabled.
 
-use image::{DynamicImage, RgbImage};
+// use image::{DynamicImage, RgbImage};
 
 // Re-export the sensory injection module for testing
 // Note: In a real setup, these would be in the main crate and we'd use them here
 // For now, we'll test the public API through integration tests
 
-#[cfg(test)]
+#[cfg(all(test, feature = "image-processing-disabled"))]
 mod sensory_injector_tests {
     use super::*;
 

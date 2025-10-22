@@ -1,6 +1,9 @@
 //! Unit tests for video reader module
+//! 
+//! NOTE: DISABLED - Video/image processing is now handled by external agents via ZMQ
+//! This test module is kept for reference but all tests are disabled.
 
-#[cfg(test)]
+#[cfg(all(test, feature = "video-processing-disabled"))]
 mod video_config_tests {
     #[test]
     fn test_video_loop_config() {
@@ -73,9 +76,9 @@ mod video_config_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "video-processing-disabled"))]
 mod frame_processing_tests {
-    use image::{DynamicImage, RgbImage};
+    // use image::{DynamicImage, RgbImage};
 
     #[test]
     fn test_frame_resize() {

@@ -499,8 +499,8 @@ impl RustNPU {
                 area_mapping,
             };
             
-            let mut runner = burst_runner.lock().unwrap();
-            let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+            let runner = burst_runner.lock().unwrap();
+            let sensory_mgr = runner.sensory_manager.lock().unwrap();
             sensory_mgr.register_agent(config).map_err(|e| {
                 PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
                     format!("Failed to register sensory agent: {}", e)
@@ -533,7 +533,7 @@ impl RustNPU {
         })?;
         
         let runner = burst_runner.lock().unwrap();
-        let mut sensory_mgr = runner.sensory_manager.lock().unwrap();
+        let sensory_mgr = runner.sensory_manager.lock().unwrap();
         sensory_mgr.deregister_agent(&agent_id).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
                 format!("Failed to deregister sensory agent: {}", e)
@@ -1816,14 +1816,14 @@ impl PyPNS {
         let caps_json: serde_json::Value = serde_json::from_str(&capabilities)
             .map_err(|e| PyValueError::new_err(format!("Invalid capabilities JSON: {}", e)))?;
 
-        let request = feagi_pns::registration::RegistrationRequest {
+        let _request = feagi_pns::registration::RegistrationRequest {
             agent_id,
             agent_type,
             capabilities: caps_json,
         };
 
         let handler = self.pns.lock().unwrap().get_agent_registry();
-        let registry = handler.read();
+        let _registry = handler.read();
         // Note: This is a simplified version - real registration happens via ZMQ REST stream
         Ok(format!("Use PNS ZMQ REST stream for registration"))
     }

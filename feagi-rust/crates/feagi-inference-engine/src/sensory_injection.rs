@@ -6,8 +6,10 @@
 use anyhow::Result;
 use feagi_burst_engine::RustNPU;
 use feagi_types::NeuronId;
-use image::DynamicImage;
 use log::{debug, warn};
+
+// Note: Video/image processing is now handled by external agents
+// This module is kept for backward compatibility but image processing features are disabled
 
 /// Sensory data injector for video frames
 ///

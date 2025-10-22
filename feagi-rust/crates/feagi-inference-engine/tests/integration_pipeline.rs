@@ -114,6 +114,7 @@ fn test_npu_burst_processing() {
 }
 
 #[test]
+#[ignore] // Video/image processing now handled by external agents, see ZMQ sensory integration
 fn test_sensory_injection_batch() {
     // Test injecting a batch of neuron IDs
     let connectome = create_minimal_test_connectome();

@@ -27,10 +27,6 @@ feagi_data_serialization.workspace = true
 # ZMQ for agent communication
 zmq = "0.10"
 
-# Video processing (now handled by external agents)
-ffmpeg-next = "7.0"
-image = "0.25"
-
 # CLI and Config
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
