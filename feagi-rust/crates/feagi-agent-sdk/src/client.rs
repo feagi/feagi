@@ -397,6 +397,17 @@ impl AgentClient {
         FIRST_SEND_LOGGED.call_once(|| {
             println!("🦀 [AGENT-SDK] ✅ First sensory send: {} bytes XYZP binary → port 5558", buffer.len());
             println!("🦀 [AGENT-SDK] ✅ Cortical area: {}", cortical_area);
+            
+            // DEBUG: Log first 64 bytes to diagnose format
+            println!("🦀 [AGENT-SDK] 🔍 DEBUG: First 64 bytes (hex):");
+            let preview = &buffer[..std::cmp::min(64, buffer.len())];
+            for (i, chunk) in preview.chunks(16).enumerate() {
+                print!("🦀 [AGENT-SDK]   {:04x}: ", i * 16);
+                for byte in chunk {
+                    print!("{:02x} ", byte);
+                }
+                println!();
+            }
         });
         
         debug!("[CLIENT] ✓ Sent {} bytes XYZP binary", buffer.len());

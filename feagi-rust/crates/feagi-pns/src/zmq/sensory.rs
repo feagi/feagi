@@ -4,6 +4,8 @@
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::thread;
+use feagi_data_serialization::FeagiSerializable;
+use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
 
 /// Sensory stream for receiving sensory data from agents
 #[derive(Clone)]
@@ -205,31 +207,75 @@ impl SensoryStream {
         };
         drop(npu_lock); // Release early
         
-        // Deserialize binary XYZP data using FeagiByteContainer (version 2 container format)
-        let mut byte_container = feagi_data_serialization::FeagiByteContainer::new_empty();
-        let mut data_vec = message_bytes.to_vec();
+        // Deserialize binary XYZP data using FeagiByteContainer
+        // The agent SDK creates a FeagiByteContainer with CorticalMappedXYZPNeuronVoxels and sends it
+        // We must use the container API to properly extract the struct
         
-        // Load bytes into container
-        byte_container.try_write_data_to_container_and_verify(&mut |bytes| {
-            std::mem::swap(bytes, &mut data_vec);
-            Ok(())
-        }).map_err(|e| format!("Failed to load bytes: {:?}", e))?;
-        
-        // Get number of structures
-        let num_structures = byte_container.try_get_number_contained_structures()
-            .map_err(|e| format!("Failed to get structure count: {:?}", e))?;
-        
-        if num_structures == 0 {
-            return Err("No structures in message".to_string());
+        // DEBUG: Log first 64 bytes to diagnose format
+        if !first_logged {
+            println!("🦀 [ZMQ-SENSORY] 🔍 DEBUG: First 64 bytes (hex):");
+            let preview = &message_bytes[..std::cmp::min(64, message_bytes.len())];
+            for (i, chunk) in preview.chunks(16).enumerate() {
+                print!("🦀 [ZMQ-SENSORY]   {:04x}: ", i * 16);
+                for byte in chunk {
+                    print!("{:02x} ", byte);
+                }
+                println!();
+            }
         }
         
-        // Extract first structure
-        let boxed_struct = byte_container.try_create_new_struct_from_index(0)
-            .map_err(|e| format!("Failed to extract structure: {:?}", e))?;
+        // CRITICAL FIX: FeagiByteContainer API is broken for reading existing containers
+        // The try_write_* methods do NOT set is_data_valid flag when loading existing data
+        // We must manually parse the container and deserialize the struct directly
         
-        // Downcast to CorticalMappedXYZPNeuronVoxels
-        let cortical_mapped = boxed_struct.as_any().downcast_ref::<CorticalMappedXYZPNeuronVoxels>()
-            .ok_or_else(|| "Structure is not CorticalMappedXYZPNeuronVoxels".to_string())?;
+        // Validate container header manually
+        if message_bytes.len() < 8 {
+            return Err(format!("Message too short: {} bytes", message_bytes.len()));
+        }
+        
+        let version = message_bytes[0];
+        let struct_count = message_bytes[3];
+        let data_size = u32::from_le_bytes([
+            message_bytes[4],
+            message_bytes[5],
+            message_bytes[6],
+            message_bytes[7],
+        ]) as usize;
+        
+        if !first_logged {
+            println!("🦀 [ZMQ-SENSORY] 🔍 Manual container parsing:");
+            println!("🦀 [ZMQ-SENSORY] 🔍   version = {}", version);
+            println!("🦀 [ZMQ-SENSORY] 🔍   struct_count = {}", struct_count);
+            println!("🦀 [ZMQ-SENSORY] 🔍   data_size = {}", data_size);
+        }
+        
+        if version != 2 {
+            return Err(format!("Expected version 2, got {}", version));
+        }
+        
+        if struct_count != 1 {
+            return Err(format!("Expected 1 struct, got {}", struct_count));
+        }
+        
+        // CRITICAL: Struct data starts at byte 8 (NO per-struct size metadata!)
+        // The container format is: [0-3: global header] + [4-7: data_size] + [8...: struct data]
+        let struct_data_start = 8;
+        let struct_data_end = 8 + data_size;
+        
+        if message_bytes.len() < struct_data_end {
+            return Err(format!("Message too short: {} < {}", message_bytes.len(), struct_data_end));
+        }
+        
+        let struct_data = &message_bytes[struct_data_start..struct_data_end];
+        
+        // Manually deserialize CorticalMappedXYZPNeuronVoxels from struct data
+        let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
+        cortical_mapped.try_deserialize_and_update_self_from_byte_slice(struct_data)
+            .map_err(|e| format!("Failed to deserialize: {:?}", e))?;
+        
+        if !first_logged {
+            println!("🦀 [ZMQ-SENSORY] ✅ Manually deserialized CorticalMappedXYZPNeuronVoxels");
+        }
         
         // Log first data
         if !first_logged {
