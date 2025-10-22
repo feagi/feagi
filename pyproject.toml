@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi_connector"
-version = "0.1.0"
+version = "2.1.0"
 description = "Client library for connecting agents to FEAGI"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -28,6 +28,7 @@ dependencies = [
     "pyzmq>=24.0.0",
     "aiohttp>=3.9.0",
     "toml>=0.10.2",  # FEAGI 2.0 standard configuration loader
+    "requests>=2.31.0",  # For cortical area resolution auto-detection
     # Note: feagi-agent-sdk-py must be installed separately for new client:
     #   cd feagi_core/feagi-rust/crates/feagi-agent-sdk-py
     #   maturin develop --release

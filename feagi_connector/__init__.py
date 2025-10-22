@@ -102,7 +102,7 @@ __all__ = [
     "stream_segmented_camera",
 ]
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"  # Added cortical area resolution auto-detection
 
 # Print version info on import to help debug version mismatches
 import sys

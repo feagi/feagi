@@ -196,6 +196,70 @@ class FeagiAgentClient:
             logger.error(f"Configuration validation failed: {e}")
             raise
     
+    def detect_cortical_area_resolution(self, cortical_area: str, feagi_host: Optional[str] = None) -> Optional[Tuple[int, int, int]]:
+        """
+        Detect the resolution (dimensions) of a cortical area from FEAGI
+        
+        Args:
+            cortical_area: Name of the cortical area (e.g., "iic400")
+            feagi_host: Optional FEAGI host. If not provided, uses configured host.
+        
+        Returns:
+            Tuple of (width, height, depth) if successful, None otherwise
+            
+        Note:
+            Requires FEAGI to be running and accessible via REST API (port 8000)
+        """
+        try:
+            import requests
+            
+            # Use provided host or fall back to configured host
+            host = feagi_host or self._feagi_host
+            if not host:
+                logger.warning("No FEAGI host specified for resolution detection")
+                return None
+            
+            # Query FEAGI REST API for cortical area properties
+            api_url = f"http://{host}:8000/v1/cortical_area/multi/cortical_area_properties"
+            payload = {"cortical_ids": [cortical_area]}
+            
+            logger.debug(f"Querying FEAGI for '{cortical_area}' dimensions...")
+            response = requests.post(api_url, json=payload, timeout=2.0)
+            
+            if response.status_code == 200:
+                properties_list = response.json()
+                
+                # Response format: list of cortical area objects
+                # Find the matching cortical area
+                for area in properties_list:
+                    if area.get("id") == cortical_area:
+                        dimensions = area.get("dimensions", [])
+                        
+                        if len(dimensions) == 3:
+                            x_dim, y_dim, z_dim = dimensions
+                            logger.info(f"✓ Detected {cortical_area} resolution: {x_dim}x{y_dim}x{z_dim}")
+                            return (x_dim, y_dim, z_dim)
+                        else:
+                            logger.warning(f"Cortical area '{cortical_area}' has invalid dimensions: {dimensions}")
+                            return None
+                
+                # Not found in response
+                logger.warning(f"Cortical area '{cortical_area}' not found in FEAGI")
+                return None
+            else:
+                if response.status_code == 404:
+                    logger.warning(f"FEAGI cortical area endpoint not found (HTTP 404) - likely no genome loaded yet")
+                else:
+                    logger.warning(f"Failed to query FEAGI cortical properties: HTTP {response.status_code}")
+                return None
+                
+        except ImportError:
+            logger.warning("'requests' library not available - install with: pip install requests")
+            return None
+        except Exception as e:
+            logger.debug(f"Resolution detection failed: {e}")
+            return None
+    
     def connect(self):
         """
         Connect to FEAGI and register the agent
