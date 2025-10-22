@@ -59,12 +59,9 @@ def _encode(data: bytes, encoding: str) -> Tuple[bytes, int]:
         comp = zlib.compress(data)
         return comp, len(data)
     if encoding == "lz4":
-        try:
-            import lz4.block as lz4b  # type: ignore
-        except Exception as e:
-            raise ValueError("lz4 compression not available") from e
-        comp = lz4b.compress(data)
-        return comp, len(data)
+        # LZ4 compression moved to Rust (feagi-connectome-serialization)
+        # Use feagi_rust.save_connectome_to_file() instead
+        raise ValueError("LZ4 compression deprecated in Python - use Rust snapshot functions")
     raise ValueError(f"Unsupported encoding: {encoding}")
 
 
@@ -78,12 +75,9 @@ def _decode(data: bytes, encoding: str, uncompressed_length: int) -> bytes:
             pass
         return raw
     if encoding == "lz4":
-        try:
-            import lz4.block as lz4b  # type: ignore
-        except Exception as e:
-            raise ValueError("lz4 decompression not available") from e
-        raw = lz4b.decompress(data, uncompressed_size=uncompressed_length)
-        return raw
+        # LZ4 decompression moved to Rust (feagi-connectome-serialization)
+        # Use feagi_rust.load_connectome_from_file() instead
+        raise ValueError("LZ4 decompression deprecated in Python - use Rust snapshot functions")
     raise ValueError(f"Unsupported encoding: {encoding}")
 
 

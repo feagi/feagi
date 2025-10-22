@@ -31,7 +31,6 @@ All dependencies (Python and Rust) are compatible with Apache 2.0 license. No pr
 | **psutil** | BSD-3-Clause | ✅ Yes | Permissive |
 | **pyroaring** | MIT | ✅ Yes | Permissive |
 | **packaging** | Apache 2.0 / BSD-3-Clause | ✅ Yes | Dual licensed |
-| **lz4** | BSD-3-Clause | ✅ Yes | Permissive |
 
 ### Development Dependencies
 

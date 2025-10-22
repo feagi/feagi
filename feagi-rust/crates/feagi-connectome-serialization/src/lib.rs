@@ -143,7 +143,7 @@ impl Default for ConnectomeMetadata {
     }
 }
 
-/// Save a connectome to a file
+/// Save a connectome to a file with optional LZ4 compression
 ///
 /// # Arguments
 /// * `snapshot` - The connectome snapshot to save
@@ -154,9 +154,10 @@ impl Default for ConnectomeMetadata {
 /// [Header]
 /// - Magic: "FEAGI" (5 bytes)
 /// - Version: u32 (4 bytes)
+/// - Flags: u8 (1 byte) - bit 0: compressed
 /// - Checksum: u64 (8 bytes, CRC64 of data)
 /// [Data]
-/// - Bincode-serialized ConnectomeSnapshot
+/// - Bincode-serialized ConnectomeSnapshot (optionally LZ4 compressed)
 /// ```
 pub fn save_connectome<P: AsRef<Path>>(
     snapshot: &ConnectomeSnapshot,
@@ -172,17 +173,31 @@ pub fn save_connectome<P: AsRef<Path>>(
     let data = bincode::serialize(snapshot)
         .map_err(|e| ConnectomeError::Serialization(e.to_string()))?;
 
-    // Calculate checksum (simple CRC64)
-    let checksum = calculate_checksum(&data);
+    // Compress if feature enabled
+    #[cfg(feature = "compression")]
+    let (final_data, flags) = {
+        let compressed = lz4::block::compress(&data, None, false)
+            .map_err(|e| ConnectomeError::Compression(e.to_string()))?;
+        (compressed, 1u8) // Flag bit 0 = compressed
+    };
+    
+    #[cfg(not(feature = "compression"))]
+    let (final_data, flags) = (data, 0u8);
+
+    // Write flags
+    file.write_all(&[flags])?;
+
+    // Calculate checksum
+    let checksum = calculate_checksum(&final_data);
     file.write_all(&checksum.to_le_bytes())?;
 
     // Write data
-    file.write_all(&data)?;
+    file.write_all(&final_data)?;
 
     Ok(())
 }
 
-/// Load a connectome from a file
+/// Load a connectome from a file with automatic LZ4 decompression
 ///
 /// # Arguments
 /// * `path` - File path to read from
@@ -211,20 +226,42 @@ pub fn load_connectome<P: AsRef<Path>>(path: P) -> Result<ConnectomeSnapshot> {
         });
     }
 
+    // Read flags
+    let mut flags = [0u8; 1];
+    file.read_exact(&mut flags)?;
+    let is_compressed = (flags[0] & 1) != 0;
+
     // Read checksum
     let mut checksum_bytes = [0u8; 8];
     file.read_exact(&mut checksum_bytes)?;
     let expected_checksum = u64::from_le_bytes(checksum_bytes);
 
     // Read data
-    let mut data = Vec::new();
-    file.read_to_end(&mut data)?;
+    let mut compressed_data = Vec::new();
+    file.read_to_end(&mut compressed_data)?;
 
     // Verify checksum
-    let actual_checksum = calculate_checksum(&data);
+    let actual_checksum = calculate_checksum(&compressed_data);
     if actual_checksum != expected_checksum {
         return Err(ConnectomeError::ChecksumMismatch);
     }
+
+    // Decompress if needed
+    let data = if is_compressed {
+        #[cfg(feature = "compression")]
+        {
+            lz4::block::decompress(&compressed_data, None)
+                .map_err(|e| ConnectomeError::Compression(format!("Decompression failed: {}", e)))?
+        }
+        #[cfg(not(feature = "compression"))]
+        {
+            return Err(ConnectomeError::Compression(
+                "File is compressed but compression feature is not enabled".to_string()
+            ));
+        }
+    } else {
+        compressed_data
+    };
 
     // Deserialize
     let snapshot: ConnectomeSnapshot = bincode::deserialize(&data)
