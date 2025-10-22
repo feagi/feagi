@@ -9,8 +9,11 @@
 //!
 //! Reads sensory data from SHM using the LatestOnlySharedSlot protocol.
 //! Compatible with Python feagi/api/zmq/neural/latest_only_slot.py
+//!
+//! Note: SHM functionality is Unix-only. Windows uses ZMQ for agent communication.
 
 use std::fs::File;
+#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use memmap2::MmapMut;
@@ -49,6 +52,8 @@ pub struct SlotData {
 }
 
 /// Shared memory reader for latest-only sensory data
+/// Only available on Unix systems (Linux, macOS)
+#[cfg(unix)]
 pub struct ShmReader {
     path: PathBuf,
     _file: File,
@@ -56,6 +61,37 @@ pub struct ShmReader {
     last_sequence: u64,
 }
 
+/// Stub for Windows (SHM not supported)
+#[cfg(not(unix))]
+pub struct ShmReader {
+    #[allow(dead_code)]
+    path: PathBuf,
+}
+
+/// Windows stub implementation
+#[cfg(not(unix))]
+impl ShmReader {
+    /// Open SHM - not supported on Windows
+    pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Shared memory is not supported on Windows. Use ZMQ for agent communication."
+        ))
+    }
+    
+    /// Read latest - stub for Windows
+    pub fn read_latest(&mut self) -> Option<SlotData> {
+        None
+    }
+    
+    /// Get path - stub for Windows
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+/// Unix implementation
+#[cfg(unix)]
 impl ShmReader {
     /// Open an existing SHM slot for reading
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {

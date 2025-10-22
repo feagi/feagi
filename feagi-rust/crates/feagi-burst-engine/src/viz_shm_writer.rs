@@ -30,9 +30,12 @@
 //!   [4:...]  Payload data (binary neuron data)
 //!   [...end] Padding (zeros to fill slot)
 //! ```
+//!
+//! Note: SHM functionality is Unix-only. Windows uses ZMQ for visualization streaming.
 
 use std::path::PathBuf;
 use std::fs::OpenOptions;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use memmap2::MmapMut;
 
@@ -84,11 +87,19 @@ impl VizSHMWriter {
         let total_size = HEADER_SIZE + (num_slots as usize * slot_size);
         
         // Create/open SHM file
+        #[cfg(unix)]
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .mode(0o666) // rw-rw-rw-
+            .open(&shm_path)?;
+        
+        #[cfg(not(unix))]
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
             .open(&shm_path)?;
         
         // Set file size
