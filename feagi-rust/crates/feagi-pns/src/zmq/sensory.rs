@@ -104,7 +104,6 @@ impl SensoryStream {
         thread::spawn(move || {
             println!("🦀 [ZMQ-SENSORY] Processing loop started");
 
-            let mut first_data_logged = false;
             let mut message_count = 0u64;
 
             while *running.lock() {
@@ -127,12 +126,6 @@ impl SensoryStream {
 
                 if !poll_items[0].is_readable() {
                     drop(sock_guard);
-                    // Log waiting every 5 seconds
-                    static POLL_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-                    let count = POLL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    if count % 5 == 0 {
-                        println!("🦀 [ZMQ-SENSORY] ⏳ Waiting for sensory data on port 5558... (poll #{})", count);
-                    }
                     continue;
                 }
 
@@ -149,10 +142,9 @@ impl SensoryStream {
                         let message_bytes = msg.as_ref();
                         
                         // Try to deserialize as binary XYZP data (using feagi-data-processing)
-                        match Self::deserialize_and_inject_xyzp(message_bytes, &npu, &first_data_logged) {
+                        match Self::deserialize_and_inject_xyzp(message_bytes, &npu) {
                             Ok(neuron_count) => {
                                 *total_neurons.lock() += neuron_count as u64;
-                                first_data_logged = true;
                                 
                                 // Log periodically
                                 if message_count % 100 == 0 {
@@ -184,18 +176,13 @@ impl SensoryStream {
 
     /// Deserialize XYZP binary data and inject into NPU
     /// 
-    /// This function uses the feagi_data_serialization crate to deserialize
-    /// binary XYZP data and directly injects it into the Rust NPU.
+    /// Receives binary XYZP data from agents, deserializes it using feagi_data_serialization,
+    /// and directly injects it into the Rust NPU. Pure Rust path with no Python FFI overhead.
     /// 
-    /// NO Python FFI overhead! Pure Rust path: Agent → ZMQ → Rust deserialize → Rust NPU
-    /// 
-    /// TODO: This is currently a stub. Full implementation requires:
-    /// 1. Agent registration to work (provides cortical area name → ID mapping)
-    /// 2. Coordination with burst engine's sensory manager
+    /// Returns the number of neurons injected.
     fn deserialize_and_inject_xyzp(
         message_bytes: &[u8],
         npu_mutex: &Arc<Mutex<Option<Arc<std::sync::Mutex<feagi_burst_engine::RustNPU>>>>>,
-        first_logged: &bool,
     ) -> Result<usize, String> {
         use feagi_data_structures::neuron_voxels::xyzp::CorticalMappedXYZPNeuronVoxels;
         
@@ -207,28 +194,7 @@ impl SensoryStream {
         };
         drop(npu_lock); // Release early
         
-        // Deserialize binary XYZP data using FeagiByteContainer
-        // The agent SDK creates a FeagiByteContainer with CorticalMappedXYZPNeuronVoxels and sends it
-        // We must use the container API to properly extract the struct
-        
-        // DEBUG: Log first 64 bytes to diagnose format
-        if !first_logged {
-            println!("🦀 [ZMQ-SENSORY] 🔍 DEBUG: First 64 bytes (hex):");
-            let preview = &message_bytes[..std::cmp::min(64, message_bytes.len())];
-            for (i, chunk) in preview.chunks(16).enumerate() {
-                print!("🦀 [ZMQ-SENSORY]   {:04x}: ", i * 16);
-                for byte in chunk {
-                    print!("{:02x} ", byte);
-                }
-                println!();
-            }
-        }
-        
-        // CRITICAL FIX: FeagiByteContainer API is broken for reading existing containers
-        // The try_write_* methods do NOT set is_data_valid flag when loading existing data
-        // We must manually parse the container and deserialize the struct directly
-        
-        // Validate container header manually
+        // Validate container header
         if message_bytes.len() < 8 {
             return Err(format!("Message too short: {} bytes", message_bytes.len()));
         }
@@ -242,12 +208,6 @@ impl SensoryStream {
             message_bytes[7],
         ]) as usize;
         
-        if !first_logged {
-            println!("🦀 [ZMQ-SENSORY] 🔍 Manual container parsing:");
-            println!("🦀 [ZMQ-SENSORY] 🔍   version = {}", version);
-            println!("🦀 [ZMQ-SENSORY] 🔍   struct_count = {}", struct_count);
-            println!("🦀 [ZMQ-SENSORY] 🔍   data_size = {}", data_size);
-        }
         
         if version != 2 {
             return Err(format!("Expected version 2, got {}", version));
@@ -257,8 +217,7 @@ impl SensoryStream {
             return Err(format!("Expected 1 struct, got {}", struct_count));
         }
         
-        // CRITICAL: Struct data starts at byte 8 (NO per-struct size metadata!)
-        // The container format is: [0-3: global header] + [4-7: data_size] + [8...: struct data]
+        // Struct data starts at byte 8 (after global header + data_size)
         let struct_data_start = 8;
         let struct_data_end = 8 + data_size;
         
@@ -268,63 +227,25 @@ impl SensoryStream {
         
         let struct_data = &message_bytes[struct_data_start..struct_data_end];
         
-        // Manually deserialize CorticalMappedXYZPNeuronVoxels from struct data
+        // Deserialize CorticalMappedXYZPNeuronVoxels
         let mut cortical_mapped = CorticalMappedXYZPNeuronVoxels::new();
         cortical_mapped.try_deserialize_and_update_self_from_byte_slice(struct_data)
             .map_err(|e| format!("Failed to deserialize: {:?}", e))?;
         
-        if !first_logged {
-            println!("🦀 [ZMQ-SENSORY] ✅ Manually deserialized CorticalMappedXYZPNeuronVoxels");
-        }
-        
-        // Log first data
-        if !first_logged {
-            println!(
-                "🦀 [ZMQ-SENSORY] 📥 First sensory data: {} bytes, {} cortical areas",
-                message_bytes.len(), cortical_mapped.len()
-            );
-        }
-        
-        // ARCHITECTURE NOTE: Injection must happen in Python to use cortical_id → cortical_idx mapping
-        // The Rust NPU works purely with cortical_idx (u32), but agents send cortical_id (string)
-        // Python's NPUInterface.inject_sensory_xyzp() does this conversion using genome data
-        //
-        // TODO: For now, we'll inject directly using the Rust NPU and log the cortical_id
-        // This will fail until we implement proper cortical_id → cortical_idx mapping in Rust
-        
+        // Inject XYZP data into NPU
         let mut total_injected = 0;
         let mut npu = npu_arc.lock().unwrap();
         
-        // DEBUG: Show all registered cortical areas in NPU
-        if !first_logged {
-            let registered_count = npu.get_registered_cortical_area_count();
-            println!("🦀 [ZMQ-SENSORY] 🔍 NPU has {} cortical areas registered", registered_count);
-            if registered_count > 0 {
-                println!("🦀 [ZMQ-SENSORY] 🔍 Registered cortical areas:");
-                for (idx, name) in npu.get_all_cortical_areas() {
-                    println!("🦀 [ZMQ-SENSORY] 🔍   - '{}' (idx={})", name, idx);
-                }
-            } else {
-                println!("🦀 [ZMQ-SENSORY] ❌ NPU has ZERO cortical areas registered!");
-                println!("🦀 [ZMQ-SENSORY] ❌ This means register_cortical_area() was NEVER called during genome loading");
-            }
-        }
-        
         for (cortical_id, neuron_arrays) in &cortical_mapped.mappings {
-            // Convert CorticalID to string name
-            // CRITICAL: Don't use .to_string() - it wraps in quotes via Display impl!
-            // Use as_ascii_string() to get the raw string without formatting
+            // Convert CorticalID to string (use as_ascii_string, not to_string which adds quotes)
             let cortical_name = cortical_id.as_ascii_string();
             
-            // Use NPU's existing mapping (area_id_to_name -> get_cortical_area_id)
+            // Resolve cortical name to NPU index
             let cortical_idx = match npu.get_cortical_area_id(&cortical_name) {
                 Some(idx) => idx,
                 None => {
-                    if !first_logged {
-                        println!("🦀 [ZMQ-SENSORY] ❌ Unknown cortical area: '{}'", cortical_name);
-                        println!("🦀 [ZMQ-SENSORY] ❌ Agent sent this, but NPU doesn't recognize it");
-                    }
-                    continue; // Skip this cortical area
+                    eprintln!("[ZMQ-SENSORY] Warning: Unknown cortical area '{}'", cortical_name);
+                    continue;
                 }
             };
             
@@ -342,41 +263,10 @@ impl SensoryStream {
                 }
             }
             
-            let found_count = neuron_potential_pairs.len();
-            
-            // 🔍 DEBUG: Log first few coordinates to verify data
-            if !first_logged && num_neurons > 0 {
-                println!("🦀 [ZMQ-SENSORY] 📍 Cortical area '{}' (idx={}): {} neurons", cortical_name, cortical_idx, num_neurons);
-                println!("🦀 [ZMQ-SENSORY]    First neuron: x={}, y={}, z={}, p={}", 
-                         x_coords[0], y_coords[0], z_coords[0], potentials[0]);
-                if num_neurons > 1 {
-                    println!("🦀 [ZMQ-SENSORY]    Last neuron: x={}, y={}, z={}, p={}", 
-                             x_coords[num_neurons-1], y_coords[num_neurons-1], 
-                             z_coords[num_neurons-1], potentials[num_neurons-1]);
-                }
-                println!("🦀 [ZMQ-SENSORY]    Found {}/{} neurons in NPU", found_count, num_neurons);
-            }
-            
-            // Inject using cortical_idx (proper architecture!)
+            // Inject into NPU
             if !neuron_potential_pairs.is_empty() {
                 npu.inject_sensory_with_potentials(&neuron_potential_pairs);
-                total_injected += found_count;
-                
-                if !first_logged {
-                    println!("🦀 [ZMQ-SENSORY] ✅ Injected {}/{} neurons for '{}' (idx={})", 
-                             found_count, num_neurons, cortical_name, cortical_idx);
-                }
-            } else if !first_logged {
-                println!("🦀 [ZMQ-SENSORY] ⚠️  No neurons found at XYZ coordinates for cortical area '{}'", cortical_name);
-            }
-        }
-        
-        if !first_logged {
-            if total_injected == 0 {
-                println!("🦀 [ZMQ-SENSORY] ❌ FATAL: NO NEURONS INJECTED INTO NPU!");
-                println!("🦀 [ZMQ-SENSORY] ❌ Check genome: does it have the cortical areas being sent?");
-            } else {
-                println!("🦀 [ZMQ-SENSORY] ✅ Injected {} neurons into NPU → FCL", total_injected);
+                total_injected += neuron_potential_pairs.len();
             }
         }
         

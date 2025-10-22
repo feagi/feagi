@@ -270,12 +270,6 @@ fn burst_loop(
             let mut npu_lock = npu.lock().unwrap();
             match npu_lock.process_burst() {
                 Ok(result) => {
-                    // Log if no neurons fired (debugging power neuron issue)
-                    if result.neuron_count == 0 {
-                        let timestamp = get_timestamp();
-                        eprintln!("[{}] [BURST-#{}] ⚠️ process_burst() returned 0 neurons!", 
-                            timestamp, burst_num + 1);
-                    }
                     total_neurons_fired += result.neuron_count;
                     result.neuron_count
                 }
@@ -289,47 +283,6 @@ fn burst_loop(
         
         burst_num += 1;
         // Note: NPU.process_burst() already incremented its internal burst_count
-        
-        // 🔥 LOG ACTUAL NEURON FIRING AT NPU LEVEL (every burst)
-        {
-            let timestamp = get_timestamp();
-            let mut npu_lock = npu.lock().unwrap();
-            let fire_data_opt = npu_lock.force_sample_fire_queue();
-            
-            if let Some(fire_data) = fire_data_opt {
-                if fire_data.is_empty() {
-                    eprintln!("[{}] [BURST-#{}] ⚠️ Fire Queue EMPTY (no areas)", timestamp, burst_num);
-                } else {
-                    let mut found_origin = false;
-                    // Check each area in the fire queue for (0,0,0) firing
-                    for (area_id, (_id_vec, x_vec, y_vec, z_vec, _p_vec)) in fire_data.iter() {
-                        let area_name_opt = npu_lock.get_cortical_area_name(*area_id).map(|s| s.to_string());
-                        if let Some(area_name) = area_name_opt {
-                            let neuron_count = _id_vec.len();
-                            
-                            // Check if (0,0,0) is firing in this area
-                            let has_origin = (0..neuron_count).any(|i| {
-                                x_vec[i] == 0 && y_vec[i] == 0 && z_vec[i] == 0
-                            });
-                            
-                            if has_origin {
-                                eprintln!("[{}] [BURST-#{}] 🔥 [{}] (0,0,0) FIRING - {} total neurons", 
-                                    timestamp, burst_num, area_name, neuron_count);
-                                found_origin = true;
-                            }
-                        }
-                    }
-                    
-                    // If Fire Queue has data but no (0,0,0) firing, log it
-                    if !found_origin {
-                        eprintln!("[{}] [BURST-#{}] ⚫ {} areas firing, but no (0,0,0)", 
-                            timestamp, burst_num, fire_data.len());
-                    }
-                }
-            } else {
-                eprintln!("[{}] [BURST-#{}] ❌ Fire Queue is None!", timestamp, burst_num);
-            }
-        }
         
         // Write visualization data to SHM (if attached)
         {
@@ -429,17 +382,6 @@ fn burst_loop(
                             // Also publish to ZMQ if publisher is configured
                             if let Some(publisher_guard) = viz_zmq_publisher.lock().ok() {
                                 if let Some(ref publisher) = *publisher_guard {
-                                    // 🔍 DEBUG: Log first 10 ZMQ publications
-                                    static ZMQ_PUBLISH_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-                                    let count = ZMQ_PUBLISH_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                    if count < 10 {
-                                        let timestamp = get_timestamp();
-                                        eprintln!("[{}] [BURST-LOOP] 📡 ZMQ PUBLISH #{}: {} bytes, {} cortical areas", 
-                                            timestamp, count + 1, buffer.len(), cortical_mapped.len());
-                                        eprintln!("[{}] [BURST-LOOP] 📡 First 32 bytes: {:?}", 
-                                            timestamp, &buffer[0..buffer.len().min(32)]);
-                                    }
-                                    
                                     // Publish the same buffer to ZMQ (no extra serialization needed)
                                     publisher(&buffer);
                                 }
