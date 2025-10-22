@@ -19,18 +19,33 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "feagi"
 version = "0.1.0"
-description = "Framework for Evolutionary Artificial General Intelligence"
+description = "Framework for Evolutionary Artificial General Intelligence - Brain-like neural simulation engine with Rust acceleration"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "Neuraville Inc.", email = "feagi@neuraville.com"}
 ]
+keywords = [
+    "artificial-intelligence",
+    "neural-network",
+    "brain-simulation",
+    "agi",
+    "cognitive-architecture",
+    "neuroscience",
+    "evolutionary-algorithms",
+    "rust",
+    "high-performance",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -39,6 +54,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Rust",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
 ]
 dependencies = [
     "fastapi>=0.95.0",

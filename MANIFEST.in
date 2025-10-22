@@ -1,0 +1,38 @@
+# Include Rust source files and build configuration
+recursive-include feagi-rust *.rs
+recursive-include feagi-rust *.toml
+include feagi-rust/Cargo.lock
+
+# Include configuration files
+include feagi_configuration.toml
+include *.toml
+include *.yaml
+include *.yml
+
+# Include documentation
+include README.md
+include LICENSE
+include NOTICE
+include CONTRIBUTING.md
+recursive-include docs *.md
+
+# Include tests (for source distributions)
+recursive-include tests *.py
+recursive-include tests *.json
+recursive-include tests *.toml
+
+# Exclude build artifacts and cache
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.dll
+global-exclude .DS_Store
+prune feagi-rust/target
+prune .pytest_cache
+prune .mypy_cache
+prune cache
+prune tmp
+prune output
+

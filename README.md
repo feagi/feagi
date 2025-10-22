@@ -2,43 +2,63 @@
 
 FEAGI (Framework for Evolutionary Artificial General Intelligence) Core is the main neural simulation engine that provides brain-like processing capabilities.
 
-## Deployment
+## Installation
 
-### Prerequisites
-- Python 3.9+ 
-- Rust toolchain (install from https://rustup.rs/)
+### For Users (Recommended)
 
-### Build Rust NPU (Required)
-FEAGI requires the Rust NPU extension for high-performance neural processing:
-
-```bash
-# Linux/macOS
-cd feagi_core/feagi-rust
-cargo build --release --workspace
-cp target/release/libfeagi_rust.* ../../feagi_rust.so
-
-# Windows
-cd feagi_core\feagi-rust
-cargo build --release --workspace
-copy target\release\feagi_rust.dll ..\..\feagi_rust.pyd
-```
-
-### Deploy FEAGI in 3 Steps
+Install FEAGI from PyPI with pre-built binaries - **no Rust toolchain required**:
 
 ```bash
 # 1. Create and activate virtual environment
-cd feagi_core
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install FEAGI with dependencies
-pip install -e .
+# 2. Install FEAGI (includes pre-compiled Rust extensions + all dependencies)
+pip install feagi
 
 # 3. Start FEAGI
 python -m feagi.main
 ```
 
-### Verify Deployment
+**What gets installed automatically:**
+- FEAGI core (pre-compiled Rust extensions included)
+- All Python dependencies (FastAPI, NumPy, PyTorch, etc.)
+- No manual dependency installation needed!
+
+**Supported Platforms:**
+- Linux (x86_64): Ubuntu 20.04+, CentOS 7+, Debian 10+
+- macOS: Intel (10.9+) and Apple Silicon (11.0+)
+- Windows: Windows 10+ (64-bit)
+- Python: 3.8, 3.9, 3.10, 3.11, 3.12
+
+### For Developers (From Source)
+
+If you're developing FEAGI or on an unsupported platform:
+
+**Prerequisites:**
+- Python 3.8+
+- Rust toolchain (install from https://rustup.rs/)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/neuraville/feagi.git
+cd feagi/feagi_core
+
+# 2. Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install in development mode (builds Rust automatically)
+pip install -e .
+
+# 4. Start FEAGI
+python -m feagi.main
+```
+
+The Rust extensions will be compiled automatically during `pip install -e .`
+
+### Verify Installation
+
 Once FEAGI starts, verify it's running:
 ```bash
 # Check health endpoint
@@ -54,15 +74,19 @@ FEAGI is now ready to accept connections on:
 
 ## Quick Start
 
-### Installation
+### Using Pre-built Package (No Rust Required)
 ```bash
-# 1. Build Rust NPU (see "Build Rust NPU" section above)
+# One command installs everything (FEAGI + all dependencies)
+pip install feagi
 
-# 2. Install FEAGI core with dependencies
-pip install -e .
-
-# 3. Start FEAGI with default configuration
+# Ready to run immediately
 python -m feagi.main
+```
+
+### Using Docker
+```bash
+docker pull feagi/feagi:latest
+docker run -p 8000:8000 -p 5558:5558 -p 5564:5564 feagi/feagi:latest
 ```
 
 ### Default Ports
@@ -118,6 +142,40 @@ Environment overrides available:
 - `FEAGI_API_HOST`, `FEAGI_API_PORT`
 - `FEAGI_ZMQ_HOST`
 
+## Troubleshooting
+
+### No Pre-built Wheel Available
+
+If you see an error like:
+```
+ERROR: Could not find a version that satisfies the requirement feagi
+```
+
+Your platform may not have a pre-built wheel. Install Rust and build from source:
+
+```bash
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Install FEAGI (will compile Rust extensions)
+pip install feagi --no-binary feagi
+```
+
+### Verify Rust Extensions Loaded
+
+```bash
+python -c "from feagi import feagi_rust; print('✅ Rust extensions working')"
+```
+
+### Installation Takes Long Time
+
+If installation is compiling from source (5-10 minutes), you likely don't have a pre-built wheel for your platform. This is expected on:
+- ARM Linux (except aarch64)
+- Alpine Linux (musl libc)
+- FreeBSD, OpenBSD
+- Python versions older than 3.8
+
 ## Development
 
 ### Running Tests
@@ -142,6 +200,21 @@ python -m feagi.main --debug-npu
 
 # Full debug mode
 python -m feagi.main --debug-api --debug-npu --log-level DEBUG
+```
+
+### Building Rust Extensions Manually
+
+For development work on the Rust components:
+
+```bash
+cd feagi-rust
+cargo build --release --workspace
+
+# Copy extension to Python package
+# Linux/macOS:
+cp target/release/libfeagi_rust.so ../feagi/feagi_rust.so
+# Windows:
+copy target\release\feagi_rust.dll ..\feagi\feagi_rust.pyd
 ```
 
 ## Documentation

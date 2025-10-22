@@ -1,0 +1,82 @@
+FEAGI - Framework for Evolutionary Artificial General Intelligence
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+
+This software incorporates components from the projects listed below.
+
+================================================================================
+
+ZeroMQ (via PyZMQ)
+License: LGPL-3.0 (ZeroMQ library) + BSD-3-Clause (PyZMQ bindings)
+Website: https://zeromq.org/
+Usage: Message queue communication (dynamically linked, not statically compiled)
+
+PyTorch
+License: BSD-3-Clause (Modified BSD License)
+Copyright: Facebook, Inc. and its affiliates
+Website: https://pytorch.org/
+
+NumPy
+License: BSD-3-Clause
+Copyright: NumPy Developers
+Website: https://numpy.org/
+
+SciPy
+License: BSD-3-Clause
+Copyright: SciPy Developers
+Website: https://scipy.org/
+
+FastAPI
+License: MIT
+Copyright: Sebastián Ramírez
+Website: https://fastapi.tiangolo.com/
+
+Uvicorn
+License: BSD-3-Clause
+Copyright: Encode OSS Ltd.
+Website: https://www.uvicorn.org/
+
+Pydantic
+License: MIT
+Copyright: Samuel Colvin
+Website: https://pydantic-docs.helpmanual.io/
+
+Rust Dependencies (Dual-Licensed MIT OR Apache-2.0):
+- rayon: Data parallelism library
+- ndarray: N-dimensional array library
+- thiserror: Error handling
+- pyo3: Python bindings
+- ahash: Fast hashing
+- wgpu: GPU acceleration
+
+All other dependencies are licensed under MIT, BSD, or Apache 2.0 licenses.
+
+For a complete list of dependencies and their licenses, see:
+- Python: Run `pip-licenses --format=markdown`
+- Rust: Run `cargo-license` in the feagi-rust directory
+
+Full license texts are available in the LICENSE-THIRD-PARTY.txt file.
+
+================================================================================
+
+EXPORT CONTROL NOTICE
+
+This software may be subject to U.S. export control laws. By downloading or
+using this software, you agree to comply with all applicable export laws and
+regulations.
+
