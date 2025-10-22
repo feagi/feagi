@@ -170,7 +170,7 @@ class FeagiAgentClient:
             self._vision_height = height
             self._cortical_area = cortical_area
             
-            logger.info(f"Added vision capability: {width}x{height}x{channels} → {cortical_area}")
+            logger.debug(f"Added vision capability: {width}x{height}x{channels} → {cortical_area}")
         
         # Store network config for direct ZMQ access and logging
         self._feagi_host = feagi_host
@@ -180,18 +180,18 @@ class FeagiAgentClient:
         if motor_capability:
             modality, output_count, cortical_areas = motor_capability
             self._config.with_motor_capability(modality, output_count, cortical_areas)
-            logger.info(f"Added motor capability: {output_count} outputs ← {cortical_areas}")
+            logger.debug(f"Added motor capability: {output_count} outputs ← {cortical_areas}")
         
         if custom_capabilities:
             import json
             for key, value in custom_capabilities.items():
                 self._config.with_custom_capability(key, json.dumps(value))
-                logger.info(f"Added custom capability: {key}")
+                logger.debug(f"Added custom capability: {key}")
         
         # Validate configuration
         try:
             self._config.validate()
-            logger.info("Configuration validated successfully")
+            logger.debug("Configuration validated successfully")
         except Exception as e:
             logger.error(f"Configuration validation failed: {e}")
             raise
@@ -298,10 +298,8 @@ class FeagiAgentClient:
             raise RuntimeError("Agent not connected. Call connect() first.")
         
         try:
-            # Send via Rust SDK (JSON format for now - XYZP binary needs updated libs)
+            # Send via Rust SDK
             self._client.send_sensory_data(neuron_pairs)
-            logger.debug(f"✓ Sent {len(neuron_pairs)} neurons")
-            
         except Exception as e:
             logger.error(f"Failed to send sensory data: {e}")
             raise
