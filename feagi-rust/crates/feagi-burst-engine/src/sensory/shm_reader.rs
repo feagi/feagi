@@ -12,10 +12,12 @@
 //!
 //! Note: SHM functionality is Unix-only. Windows uses ZMQ for agent communication.
 
+#[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use memmap2::MmapMut;
 use std::io;
 
@@ -72,7 +74,7 @@ pub struct ShmReader {
 #[cfg(not(unix))]
 impl ShmReader {
     /// Open SHM - not supported on Windows
-    pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+    pub fn open<P: AsRef<Path>>(_path: P) -> io::Result<Self> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "Shared memory is not supported on Windows. Use ZMQ for agent communication."

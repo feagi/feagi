@@ -33,6 +33,7 @@
 
 use std::path::PathBuf;
 use std::fs::OpenOptions;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use memmap2::MmapMut;
 
@@ -84,11 +85,19 @@ impl MotorSHMWriter {
         }
         
         // Open/create SHM file with proper permissions
+        #[cfg(unix)]
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .mode(0o600) // Unix permissions
+            .open(&shm_path)?;
+        
+        #[cfg(not(unix))]
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
             .open(&shm_path)?;
         
         // Set file size
