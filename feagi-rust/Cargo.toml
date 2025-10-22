@@ -11,6 +11,7 @@ members = [
     "crates/feagi-agent-sdk",
     "crates/feagi-agent-sdk-py",
     "crates/feagi-inference-engine",
+    # "crates/feagi-zmq-server",  # Optional: High-performance ZMQ server (experimental)
 ]
 
 [workspace.package]
