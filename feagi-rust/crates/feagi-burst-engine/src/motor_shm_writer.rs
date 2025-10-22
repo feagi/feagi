@@ -44,7 +44,8 @@ const DEFAULT_SLOT_SIZE: usize = 1 * 1024 * 1024; // 1 MB per slot
 
 /// Motor SHM Writer (Ring Buffer Format)
 pub struct MotorSHMWriter {
-    /// SHM file path
+    /// SHM file path (kept for future debugging/logging during migration)
+    /// Warning about unused field is expected - will be used for error messages
     shm_path: PathBuf,
     
     /// Memory-mapped file
@@ -201,7 +202,7 @@ impl MotorSHMWriter {
 
 impl Drop for MotorSHMWriter {
     fn drop(&mut self) {
-        if let Some(mut mmap) = self.mmap.take() {
+        if let Some(mmap) = self.mmap.take() {
             let _ = mmap.flush();
         }
         println!("[MOTOR-SHM] Writer closed after {} frames written", self.frame_seq);

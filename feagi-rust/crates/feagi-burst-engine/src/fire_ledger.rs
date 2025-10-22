@@ -22,7 +22,7 @@
 
 use ahash::AHashMap;
 use std::collections::VecDeque;
-use feagi_types::{NeuronId, CorticalAreaId};
+use feagi_types::NeuronId;
 
 use crate::fire_structures::FireQueue;
 

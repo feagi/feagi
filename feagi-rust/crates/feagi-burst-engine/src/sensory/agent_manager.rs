@@ -35,6 +35,10 @@ pub struct AgentConfig {
 pub type FclInjectionCallback = Arc<dyn Fn(u32, Vec<(u32, u32, u32, f32)>) + Send + Sync>;
 
 /// Thread handle for an agent's polling thread
+/// 
+/// Migration status: Agent management being migrated from Python. The agent_id field
+/// will be used for logging and debugging once full agent lifecycle management is ported.
+/// Warning about unused field is expected during migration.
 struct AgentThread {
     agent_id: String,
     handle: JoinHandle<()>,
@@ -106,7 +110,7 @@ impl AgentManager {
         };
         
         match thread {
-            Some(mut thread) => {
+            Some(thread) => {
                 // Signal thread to stop
                 thread.stop_flag.store(true, Ordering::Release);
                 

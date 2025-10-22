@@ -3,7 +3,6 @@
 
 use parking_lot::{Mutex, RwLock};
 use std::sync::Arc;
-use std::thread;
 use thiserror::Error;
 
 pub mod agent_registry;
