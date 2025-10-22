@@ -171,9 +171,11 @@ build_crate() {
             pause_on_error 1 "Rust toolchain not available"
         fi
         
-        # Build Rust workspace (excluding feagi-agent-sdk-py which has different requirements)
+        # Build Rust workspace (excluding crates with special requirements)
+        # - feagi-agent-sdk-py: Needs separate maturin build
+        # - feagi-inference-engine: Experimental, requires FFmpeg (hard to setup on Windows)
         print_info "Building Rust workspace (this may take a few minutes)..."
-        if cargo build --release --workspace --exclude feagi-agent-sdk-py; then
+        if cargo build --release --workspace --exclude feagi-agent-sdk-py --exclude feagi-inference-engine; then
             print_success "All Rust crates built successfully"
             echo ""
             
@@ -297,7 +299,7 @@ main() {
             echo "  feagi-connectome-serialization   Build connectome serialization"
             echo "  feagi-agent-sdk                  Build agent SDK (Rust)"
             echo "  feagi-agent-sdk-py               Build agent SDK (Python bindings, requires maturin)"
-            echo "  feagi-inference-engine           Build standalone inference engine (experimental)"
+            echo "  feagi-inference-engine           Build inference engine (experimental, requires FFmpeg)"
             echo "  --list                           Show all available crates"
             echo ""
             echo "Examples:"

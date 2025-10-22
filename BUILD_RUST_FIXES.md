@@ -67,8 +67,8 @@ pub struct ShmReader { /* Windows stub */ }
 - `feagi-agent-sdk` - Rust SDK for agents
 - `feagi-agent-sdk-py` - Python bindings (excluded from workspace, needs separate build)
 
-✅ **Experimental**:
-- `feagi-inference-engine` - Standalone inference engine
+⚠️ **Experimental** (Not built by default):
+- `feagi-inference-engine` - Standalone inference engine (requires FFmpeg)
 
 ---
 
@@ -110,7 +110,8 @@ bash scripts/build_rust.sh feagi-burst-engine  # Build only burst engine
 - **SHM (Shared Memory)** is disabled on Windows
 - Use **ZMQ** for all agent communication instead
 - Brain Visualizer must use ZMQ streaming (not SHM)
-- Performance may differ slightly due to ZMQ overhead
+- **Inference Engine** not built by default (requires FFmpeg setup)
+- Performance may differ slightly due to ZMQ overhead vs SHM
 
 ---
 
