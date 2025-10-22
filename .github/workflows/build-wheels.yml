@@ -4,12 +4,6 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      test_pypi:
-        description: 'Publish to TestPyPI instead of PyPI'
-        required: false
-        type: boolean
-        default: true
 
 jobs:
   build-wheels:
@@ -109,13 +103,13 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Publish to PyPI
+    name: Publish to TestPyPI (Production PyPI Disabled)
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     environment:
-      name: pypi
-      url: https://pypi.org/project/feagi/
+      name: test-pypi
+      url: https://test.pypi.org/project/feagi/
     permissions:
       id-token: write  # For trusted publishing
 
@@ -132,23 +126,24 @@ jobs:
           cp dist-artifacts/wheels-*/*.whl dist/
           ls -lh dist/
 
-      - name: Publish to Test PyPI
-        if: github.event_name == 'workflow_dispatch' && inputs.test_pypi
+      - name: Publish to Test PyPI ONLY
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
           verbose: true
 
-      - name: Publish to PyPI
-        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.test_pypi)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: true
-          verbose: true
+      # Production PyPI publishing is DISABLED
+      # To enable: change environment to 'pypi' and uncomment below
+      # - name: Publish to PyPI
+      #   if: github.event_name == 'release'
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     skip-existing: true
+      #     verbose: true
 
   test-install:
-    name: Test installation from PyPI
+    name: Test installation from TestPyPI
     needs: [publish]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -162,16 +157,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Wait for PyPI to update
+      - name: Wait for TestPyPI to update
         run: sleep 60
 
-      - name: Install from PyPI
+      - name: Install from TestPyPI
         run: |
-          pip install feagi
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ feagi
           python -c "import feagi; print(f'✅ FEAGI {feagi.__version__} installed successfully')"
           python -c "from feagi import feagi_rust; print('✅ Rust extensions loaded')"
 
       - name: Verify no compilation occurred
         run: |
-          echo "If you see this message, installation was successful without Rust compilation!"
+          echo "✅ Installation from TestPyPI successful without Rust compilation!"
 
