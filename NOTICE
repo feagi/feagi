@@ -21,10 +21,10 @@ This software incorporates components from the projects listed below.
 
 ================================================================================
 
-ZeroMQ (via PyZMQ)
-License: LGPL-3.0 (ZeroMQ library) + BSD-3-Clause (PyZMQ bindings)
+ZeroMQ (via Rust zmq crate)
+License: LGPL-3.0 (ZeroMQ C library) + MIT OR Apache-2.0 (Rust bindings)
 Website: https://zeromq.org/
-Usage: Message queue communication (dynamically linked, not statically compiled)
+Usage: Message queue communication (dynamically linked via Rust, not statically compiled)
 
 PyTorch
 License: BSD-3-Clause (Modified BSD License)

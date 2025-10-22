@@ -27,7 +27,7 @@ After comprehensive audit of all Python and Rust dependencies:
 | BSD-3-Clause | ~15 | ✅ Safe | NumPy, PyTorch, psutil |
 | Apache 2.0 | ~8 | ✅ Safe | packaging, pytest-asyncio |
 | MIT OR Apache-2.0 | ~12 | ✅ Safe | Most Rust crates |
-| LGPL-3.0* | 1 | ⚠️ Reviewed | ZeroMQ (dynamic link only) |
+| LGPL-3.0* | 1 | ✅ Safe | ZeroMQ C library (via Rust, dynamic link) |
 
 *ZeroMQ LGPL is acceptable - see detailed analysis in LICENSE_AUDIT.md
 
@@ -62,13 +62,14 @@ After comprehensive audit of all Python and Rust dependencies:
 **Status:** ✅ Safe  
 **Notes:** Standard BSD license. No restrictions.
 
-### ZeroMQ via PyZMQ (LGPL-3.0 + BSD)
+### ZeroMQ via Rust (LGPL-3.0 + MIT/Apache-2.0)
 **Status:** ✅ Safe with dynamic linking  
 **Implementation:** 
-- PyZMQ bindings: BSD-3-Clause (safe)
-- ZeroMQ library: LGPL-3.0 (dynamically linked)
-- We don't modify ZeroMQ source
-- We don't statically compile ZeroMQ
+- Rust `zmq` crate: MIT OR Apache-2.0 (safe)
+- ZeroMQ C library: LGPL-3.0 (dynamically linked)
+- We use Rust bindings (not Python PyZMQ)
+- No source modification
+- No static compilation
 - LGPL allows dynamic linking without disclosure
 
 ### FastAPI (MIT)

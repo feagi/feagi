@@ -26,7 +26,6 @@ All dependencies (Python and Rust) are compatible with Apache 2.0 license. No pr
 | **httpx** | BSD-3-Clause | ✅ Yes | Permissive |
 | **PyYAML** | MIT | ✅ Yes | Permissive |
 | **tomli** | MIT | ✅ Yes | Permissive (Python <3.11) |
-| **pyzmq** | BSD-3-Clause + LGPL-3.0 | ⚠️ **REVIEW** | ZeroMQ library itself is LGPL |
 | **python-jose** | MIT | ✅ Yes | Permissive |
 | **passlib** | BSD-3-Clause | ✅ Yes | Permissive |
 | **python-multipart** | Apache 2.0 | ✅ Yes | Same license! |
@@ -105,41 +104,22 @@ All dependencies (Python and Rust) are compatible with Apache 2.0 license. No pr
 
 ---
 
-## Critical Review: PyZMQ + ZeroMQ (LGPL)
+## ZeroMQ Licensing
 
-### Background
-- **PyZMQ**: Python bindings (BSD-3-Clause) ✅
-- **ZeroMQ library**: Core C library (LGPL-3.0) ⚠️
-
-### LGPL Compatibility with Apache 2.0
-
-**LGPL allows:**
-- ✅ Dynamic linking (library as separate component)
-- ✅ Use as a separate process/service
-- ✅ Distribution without source code disclosure
-- ❌ Static linking requires source disclosure
-
-### Current Usage in FEAGI
-
-```python
-# FEAGI uses PyZMQ as a separate library (dynamic linking)
-import zmq
-context = zmq.Context()
-socket = context.socket(zmq.PUB)
-```
+### Rust ZMQ Crate (Used in feagi-pns)
 
 **Status: ✅ SAFE**
-- PyZMQ is dynamically linked
-- ZeroMQ runs as separate process/library
-- No source code modification
-- No static compilation into FEAGI binary
+- Rust `zmq` crate: MIT OR Apache-2.0 (dual licensed)
+- ZeroMQ C library: LGPL-3.0 (dynamically linked)
+- We use Rust zmq bindings, which link to libzmq dynamically
+- No Python PyZMQ dependency anymore - removed in favor of Rust implementation
 
-### Compliance Requirements
+### LGPL Compliance
 
-1. ✅ Include ZeroMQ license in NOTICE file
-2. ✅ Acknowledge ZeroMQ in documentation
-3. ✅ No modification of ZeroMQ source code
-4. ✅ Dynamic linking only (current implementation)
+- ✅ Dynamic linking only (via Rust zmq crate)
+- ✅ No modification of ZeroMQ source
+- ✅ Include ZeroMQ acknowledgment in NOTICE file
+- ✅ No static compilation
 
 ---
 
