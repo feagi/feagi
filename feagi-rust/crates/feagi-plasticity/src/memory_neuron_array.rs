@@ -414,6 +414,15 @@ mod tests {
     use super::*;
     
     #[test]
+    fn test_lifecycle_config_default() {
+        let config = MemoryNeuronLifecycleConfig::default();
+        assert_eq!(config.initial_lifespan, 20);
+        assert_eq!(config.lifespan_growth_rate, 3.0);
+        assert_eq!(config.longterm_threshold, 100);
+        assert_eq!(config.max_reactivations, 1000);
+    }
+    
+    #[test]
     fn test_create_memory_neuron() {
         let mut array = MemoryNeuronArray::new(1000);
         let config = MemoryNeuronLifecycleConfig::default();
@@ -425,6 +434,44 @@ mod tests {
         let idx = neuron_idx.unwrap();
         assert!(array.is_active[idx]);
         assert_eq!(array.cortical_area_ids[idx], 100);
+        assert_eq!(array.lifespan_current[idx], config.initial_lifespan);
+        assert_eq!(array.activation_count[idx], 1);
+        assert_eq!(array.creation_burst[idx], 0);
+    }
+    
+    #[test]
+    fn test_create_duplicate_pattern() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        let pattern_hash = [1u8; 32];
+        let idx1 = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        // Creating with same pattern should reactivate existing neuron
+        let idx2 = array.create_memory_neuron(pattern_hash, 100, 1, &config).unwrap();
+        
+        assert_eq!(idx1, idx2);
+        assert_eq!(array.activation_count[idx1], 2); // Should have been reactivated
+    }
+    
+    #[test]
+    fn test_multiple_neurons() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        let mut neurons = Vec::new();
+        for i in 0..10 {
+            let mut pattern_hash = [0u8; 32];
+            pattern_hash[0] = i;
+            let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+            neurons.push(idx);
+        }
+        
+        assert_eq!(neurons.len(), 10);
+        assert_eq!(array.next_available_index, 10);
+        
+        let stats = array.get_stats();
+        assert_eq!(stats.active_neurons, 10);
     }
     
     #[test]
@@ -436,8 +483,25 @@ mod tests {
         let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
         
         let initial_count = array.activation_count[idx];
+        let initial_lifespan = array.lifespan_current[idx];
+        
         assert!(array.reactivate_memory_neuron(idx, 1));
+        
         assert_eq!(array.activation_count[idx], initial_count + 1);
+        assert_eq!(array.last_activation_burst[idx], 1);
+        
+        // Lifespan should have grown
+        let expected_lifespan = initial_lifespan + config.lifespan_growth_rate as u32;
+        assert_eq!(array.lifespan_current[idx], expected_lifespan);
+    }
+    
+    #[test]
+    fn test_reactivate_invalid_neuron() {
+        let mut array = MemoryNeuronArray::new(1000);
+        
+        // Try to reactivate non-existent neuron
+        assert!(!array.reactivate_memory_neuron(0, 1));
+        assert!(!array.reactivate_memory_neuron(999, 1));
     }
     
     #[test]
@@ -457,7 +521,66 @@ mod tests {
         // Age again - should die
         let died = array.age_memory_neurons(2);
         assert_eq!(died.len(), 1);
+        assert_eq!(died[0], idx);
         assert!(!array.is_active[idx]);
+        
+        // Pattern should no longer be findable
+        let found = array.find_neuron_by_pattern(&pattern_hash);
+        assert!(found.is_none());
+    }
+    
+    #[test]
+    fn test_age_multiple_neurons() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let mut config = MemoryNeuronLifecycleConfig::default();
+        config.initial_lifespan = 5;
+        
+        let mut neurons = Vec::new();
+        for i in 0..10 {
+            let mut pattern_hash = [0u8; 32];
+            pattern_hash[0] = i;
+            let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+            neurons.push(idx);
+        }
+        
+        // Age 5 times - all should die
+        for burst in 1..=5 {
+            let died = array.age_memory_neurons(burst);
+            if burst < 5 {
+                assert_eq!(died.len(), 0);
+            } else {
+                assert_eq!(died.len(), 10);
+            }
+        }
+        
+        let stats = array.get_stats();
+        assert_eq!(stats.active_neurons, 0);
+        assert_eq!(stats.dead_neurons, 10);
+    }
+    
+    #[test]
+    fn test_longterm_memory_no_aging() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let mut config = MemoryNeuronLifecycleConfig::default();
+        config.initial_lifespan = 100;
+        
+        let pattern_hash = [1u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        // Convert to long-term memory
+        let converted = array.check_longterm_conversion(100);
+        assert_eq!(converted.len(), 1);
+        assert!(array.is_longterm_memory[idx]);
+        
+        let initial_lifespan = array.lifespan_current[idx];
+        
+        // Age many times - should not affect long-term memory
+        for burst in 1..=50 {
+            array.age_memory_neurons(burst);
+        }
+        
+        assert!(array.is_active[idx]);
+        assert_eq!(array.lifespan_current[idx], initial_lifespan); // Should not change
     }
     
     #[test]
@@ -471,7 +594,201 @@ mod tests {
         
         let converted = array.check_longterm_conversion(100);
         assert_eq!(converted.len(), 1);
+        assert_eq!(converted[0], idx);
         assert!(array.is_longterm_memory[idx]);
+        
+        // Second check should not convert again
+        let converted2 = array.check_longterm_conversion(100);
+        assert_eq!(converted2.len(), 0);
+    }
+    
+    #[test]
+    fn test_longterm_conversion_threshold() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let mut config = MemoryNeuronLifecycleConfig::default();
+        config.initial_lifespan = 50;
+        
+        let pattern_hash = [1u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        // Should not convert below threshold
+        let converted = array.check_longterm_conversion(100);
+        assert_eq!(converted.len(), 0);
+        assert!(!array.is_longterm_memory[idx]);
+        
+        // Grow lifespan through reactivations
+        for burst in 1..=20 {
+            array.reactivate_memory_neuron(idx, burst);
+        }
+        
+        // Now should convert
+        let converted = array.check_longterm_conversion(100);
+        assert_eq!(converted.len(), 1);
+        assert!(array.is_longterm_memory[idx]);
+    }
+    
+    #[test]
+    fn test_find_neuron_by_pattern() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        let pattern_hash = [1u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        let found = array.find_neuron_by_pattern(&pattern_hash);
+        assert_eq!(found, Some(idx));
+        
+        // Different pattern should not be found
+        let pattern_hash2 = [2u8; 32];
+        let found2 = array.find_neuron_by_pattern(&pattern_hash2);
+        assert_eq!(found2, None);
+    }
+    
+    #[test]
+    fn test_get_active_neurons_by_area() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        // Create neurons in different areas
+        for area in vec![100, 200] {
+            for i in 0..5 {
+                let mut pattern_hash = [0u8; 32];
+                pattern_hash[0] = (area / 100) as u8;
+                pattern_hash[1] = i;
+                array.create_memory_neuron(pattern_hash, area, 0, &config);
+            }
+        }
+        
+        let area100_neurons = array.get_active_neurons_by_area(100);
+        let area200_neurons = array.get_active_neurons_by_area(200);
+        
+        assert_eq!(area100_neurons.len(), 5);
+        assert_eq!(area200_neurons.len(), 5);
+        
+        // Non-existent area
+        let area999_neurons = array.get_active_neurons_by_area(999);
+        assert_eq!(area999_neurons.len(), 0);
+    }
+    
+    #[test]
+    fn test_get_neuron_id() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        let pattern_hash = [1u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        let neuron_id = array.get_neuron_id(idx);
+        assert!(neuron_id.is_some());
+        
+        // Invalid index
+        let invalid_id = array.get_neuron_id(999);
+        assert!(invalid_id.is_none());
+    }
+    
+    #[test]
+    fn test_index_reuse() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let mut config = MemoryNeuronLifecycleConfig::default();
+        config.initial_lifespan = 1;
+        
+        let pattern_hash = [1u8; 32];
+        let idx1 = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        assert_eq!(idx1, 0);
+        
+        // Let it die
+        array.age_memory_neurons(1);
+        assert!(!array.is_active[idx1]);
+        
+        // Create new neuron - should reuse index
+        let pattern_hash2 = [2u8; 32];
+        let idx2 = array.create_memory_neuron(pattern_hash2, 100, 2, &config).unwrap();
+        assert_eq!(idx2, 0); // Should reuse index 0
+        assert_eq!(array.next_available_index, 1); // Should not have advanced
+    }
+    
+    #[test]
+    fn test_get_stats() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        // Create some neurons
+        for i in 0..10 {
+            let mut pattern_hash = [0u8; 32];
+            pattern_hash[0] = i;
+            array.create_memory_neuron(pattern_hash, 100, 0, &config);
+        }
+        
+        let stats = array.get_stats();
+        assert_eq!(stats.total_capacity, 1000);
+        assert_eq!(stats.active_neurons, 10);
+        assert_eq!(stats.longterm_neurons, 0);
+        assert_eq!(stats.dead_neurons, 0);
+        assert!(stats.avg_lifespan > 0.0);
+        assert!(stats.avg_activation_count >= 1.0);
+        assert!(stats.memory_usage_bytes > 0);
+    }
+    
+    #[test]
+    fn test_capacity_exhaustion() {
+        let mut array = MemoryNeuronArray::new(5);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        // Create neurons up to capacity
+        for i in 0..5 {
+            let mut pattern_hash = [0u8; 32];
+            pattern_hash[0] = i;
+            let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config);
+            assert!(idx.is_some());
+        }
+        
+        // Try to create beyond capacity
+        let pattern_hash = [99u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config);
+        assert!(idx.is_none());
+    }
+    
+    #[test]
+    fn test_reset() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig::default();
+        
+        // Create some neurons
+        for i in 0..5 {
+            let mut pattern_hash = [0u8; 32];
+            pattern_hash[0] = i;
+            array.create_memory_neuron(pattern_hash, 100, 0, &config);
+        }
+        
+        assert_eq!(array.next_available_index, 5);
+        
+        array.reset();
+        
+        assert_eq!(array.next_available_index, 0);
+        let stats = array.get_stats();
+        assert_eq!(stats.active_neurons, 0);
+    }
+    
+    #[test]
+    fn test_lifespan_growth_on_reactivation() {
+        let mut array = MemoryNeuronArray::new(1000);
+        let config = MemoryNeuronLifecycleConfig {
+            initial_lifespan: 10,
+            lifespan_growth_rate: 5.0,
+            longterm_threshold: 100,
+            max_reactivations: 1000,
+        };
+        
+        let pattern_hash = [1u8; 32];
+        let idx = array.create_memory_neuron(pattern_hash, 100, 0, &config).unwrap();
+        
+        assert_eq!(array.lifespan_current[idx], 10);
+        
+        array.reactivate_memory_neuron(idx, 1);
+        assert_eq!(array.lifespan_current[idx], 15);
+        
+        array.reactivate_memory_neuron(idx, 2);
+        assert_eq!(array.lifespan_current[idx], 20);
     }
 }
 

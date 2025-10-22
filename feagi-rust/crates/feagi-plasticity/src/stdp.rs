@@ -170,6 +170,37 @@ mod tests {
         let config = STDPConfig::default();
         assert_eq!(config.lookback_steps, 20);
         assert_eq!(config.tau_pre, 20.0);
+        assert_eq!(config.tau_post, 20.0);
+        assert_eq!(config.a_plus, 0.01);
+        assert_eq!(config.a_minus, 0.012);
+    }
+    
+    #[test]
+    fn test_stdp_config_custom() {
+        let config = STDPConfig {
+            lookback_steps: 50,
+            tau_pre: 30.0,
+            tau_post: 25.0,
+            a_plus: 0.02,
+            a_minus: 0.015,
+            max_pairs_per_synapse: 10,
+        };
+        
+        assert_eq!(config.lookback_steps, 50);
+        assert_eq!(config.tau_pre, 30.0);
+    }
+    
+    #[test]
+    fn test_activity_factors_empty() {
+        let sources = vec![];
+        let targets = vec![];
+        let source_history = vec![];
+        let target_history = vec![];
+        
+        let (pre, post) = compute_activity_factors(&sources, &targets, &source_history, &target_history);
+        
+        assert_eq!(pre.len(), 0);
+        assert_eq!(post.len(), 0);
     }
     
     #[test]
@@ -188,6 +219,34 @@ mod tests {
     }
     
     #[test]
+    fn test_activity_factors_all_active() {
+        let sources = vec![NeuronId(1), NeuronId(2), NeuronId(3)];
+        let targets = vec![NeuronId(10), NeuronId(11), NeuronId(12)];
+        let source_history = vec![NeuronId(1), NeuronId(2), NeuronId(3)];
+        let target_history = vec![NeuronId(10), NeuronId(11), NeuronId(12)];
+        
+        let (pre, post) = compute_activity_factors(&sources, &targets, &source_history, &target_history);
+        
+        assert_eq!(pre.len(), 3);
+        assert_eq!(post.len(), 3);
+        assert!(pre.iter().all(|&x| x == 1.0));
+        assert!(post.iter().all(|&x| x == 1.0));
+    }
+    
+    #[test]
+    fn test_timing_factors_empty() {
+        let config = STDPConfig::default();
+        let sources = vec![];
+        let targets = vec![];
+        let source_history = vec![];
+        let target_history = vec![];
+        
+        let factors = compute_timing_factors(&sources, &targets, &source_history, &target_history, &config);
+        
+        assert_eq!(factors.len(), 0);
+    }
+    
+    #[test]
     fn test_timing_factors_potentiation() {
         let config = STDPConfig::default();
         let sources = vec![NeuronId(1)];
@@ -200,6 +259,7 @@ mod tests {
         let factors = compute_timing_factors(&sources, &targets, &source_history, &target_history, &config);
         
         assert!(factors[0] > 0.0); // Should be positive (potentiation)
+        assert!(factors[0] <= config.a_plus); // Should be bounded by a_plus
     }
     
     #[test]
@@ -215,6 +275,93 @@ mod tests {
         let factors = compute_timing_factors(&sources, &targets, &source_history, &target_history, &config);
         
         assert!(factors[0] < 0.0); // Should be negative (depression)
+        assert!(factors[0] >= -config.a_minus); // Should be bounded by -a_minus
+    }
+    
+    #[test]
+    fn test_timing_factors_same_timestep() {
+        let config = STDPConfig::default();
+        let sources = vec![NeuronId(1)];
+        let targets = vec![NeuronId(10)];
+        
+        // Both fired at same timestep
+        let source_history = vec![(5, NeuronId(1))];
+        let target_history = vec![(5, NeuronId(10))];
+        
+        let factors = compute_timing_factors(&sources, &targets, &source_history, &target_history, &config);
+        
+        assert_eq!(factors[0], config.a_plus); // Should be strong potentiation
+    }
+    
+    #[test]
+    fn test_timing_factors_no_history() {
+        let config = STDPConfig::default();
+        let sources = vec![NeuronId(1), NeuronId(2)];
+        let targets = vec![NeuronId(10), NeuronId(11)];
+        
+        // No firing history for these neurons
+        let source_history = vec![(5, NeuronId(99))];
+        let target_history = vec![(10, NeuronId(99))];
+        
+        let factors = compute_timing_factors(&sources, &targets, &source_history, &target_history, &config);
+        
+        assert_eq!(factors[0], 0.0); // No change if neurons didn't fire
+        assert_eq!(factors[1], 0.0);
+    }
+    
+    #[test]
+    fn test_timing_factors_exponential_decay() {
+        let config = STDPConfig::default();
+        let sources = vec![NeuronId(1)];
+        let targets = vec![NeuronId(10)];
+        
+        // Test that closer spikes have stronger effects
+        let source_history1 = vec![(5, NeuronId(1))];
+        let target_history1 = vec![(6, NeuronId(10))]; // dt = 1
+        
+        let factors1 = compute_timing_factors(&sources, &targets, &source_history1, &target_history1, &config);
+        
+        let source_history2 = vec![(5, NeuronId(1))];
+        let target_history2 = vec![(15, NeuronId(10))]; // dt = 10
+        
+        let factors2 = compute_timing_factors(&sources, &targets, &source_history2, &target_history2, &config);
+        
+        assert!(factors1[0] > factors2[0]); // Closer spikes should have stronger effect
+    }
+    
+    #[test]
+    fn test_group_synapses_by_area_pairs() {
+        let mut neuron_to_area = HashMap::new();
+        neuron_to_area.insert(1, 10);
+        neuron_to_area.insert(2, 10);
+        neuron_to_area.insert(3, 20);
+        neuron_to_area.insert(11, 30);
+        neuron_to_area.insert(12, 30);
+        neuron_to_area.insert(13, 40);
+        
+        let sources = vec![NeuronId(1), NeuronId(2), NeuronId(3)];
+        let targets = vec![NeuronId(11), NeuronId(12), NeuronId(13)];
+        
+        let groups = group_synapses_by_area_pairs(&sources, &targets, &neuron_to_area);
+        
+        // Should have 3 groups: (10,30), (10,30), (20,40)
+        assert!(groups.contains_key(&(10, 30)));
+        assert!(groups.contains_key(&(20, 40)));
+        
+        let group_10_30 = &groups[&(10, 30)];
+        assert_eq!(group_10_30.len(), 2); // Two synapses from area 10 to area 30
+    }
+    
+    #[test]
+    fn test_group_synapses_missing_neurons() {
+        let neuron_to_area = HashMap::new(); // Empty mapping
+        
+        let sources = vec![NeuronId(1), NeuronId(2)];
+        let targets = vec![NeuronId(10), NeuronId(11)];
+        
+        let groups = group_synapses_by_area_pairs(&sources, &targets, &neuron_to_area);
+        
+        assert_eq!(groups.len(), 0); // Should have no groups if neurons not found
     }
 }
 

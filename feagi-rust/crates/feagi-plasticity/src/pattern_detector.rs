@@ -321,6 +321,14 @@ mod tests {
     use super::*;
     
     #[test]
+    fn test_pattern_config_default() {
+        let config = PatternConfig::default();
+        assert_eq!(config.default_temporal_depth, 3);
+        assert_eq!(config.min_activity_threshold, 1);
+        assert_eq!(config.max_pattern_cache_size, 10000);
+    }
+    
+    #[test]
     fn test_pattern_detection() {
         let config = PatternConfig::default();
         let detector = PatternDetector::new(config);
@@ -349,6 +357,58 @@ mod tests {
         let pattern = pattern.unwrap();
         assert_eq!(pattern.temporal_depth, 3);
         assert_eq!(pattern.total_activity, 4);
+        assert_eq!(pattern.timestep_neuron_counts, vec![2, 2]);
+        assert_eq!(pattern.upstream_areas, vec![1, 2]);
+    }
+    
+    #[test]
+    fn test_pattern_detection_empty() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let bitmaps = vec![];
+        let upstream_areas = vec![1];
+        
+        let pattern = detector.detect_pattern(100, &upstream_areas, 10, bitmaps, None);
+        assert!(pattern.is_none());
+        
+        let stats = detector.get_stats();
+        assert_eq!(stats.empty_patterns, 1);
+    }
+    
+    #[test]
+    fn test_pattern_detection_no_upstream() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap = HashSet::new();
+        bitmap.insert(1);
+        
+        let bitmaps = vec![bitmap];
+        let upstream_areas = vec![];
+        
+        let pattern = detector.detect_pattern(100, &upstream_areas, 10, bitmaps, None);
+        assert!(pattern.is_none());
+    }
+    
+    #[test]
+    fn test_pattern_detection_below_threshold() {
+        let mut config = PatternConfig::default();
+        config.min_activity_threshold = 10;
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap = HashSet::new();
+        bitmap.insert(1);
+        bitmap.insert(2);
+        
+        let bitmaps = vec![bitmap];
+        let upstream_areas = vec![1];
+        
+        let pattern = detector.detect_pattern(100, &upstream_areas, 10, bitmaps, None);
+        assert!(pattern.is_none());
+        
+        let stats = detector.get_stats();
+        assert_eq!(stats.empty_patterns, 1);
     }
     
     #[test]
@@ -370,6 +430,7 @@ mod tests {
         let stats = detector.get_stats();
         assert_eq!(stats.cache_misses, 1);
         assert_eq!(stats.cache_hits, 0);
+        assert_eq!(stats.patterns_detected, 1);
         
         // Second detection - cache hit
         let pattern2 = detector.detect_pattern(100, &upstream_areas, 11, bitmaps, None);
@@ -377,6 +438,28 @@ mod tests {
         
         let stats = detector.get_stats();
         assert_eq!(stats.cache_hits, 1);
+        assert_eq!(stats.patterns_detected, 1); // Still 1, cache hit doesn't create new pattern
+        
+        // Patterns should be equal
+        assert_eq!(pattern1.unwrap().pattern_hash, pattern2.unwrap().pattern_hash);
+    }
+    
+    #[test]
+    fn test_cache_eviction() {
+        let mut config = PatternConfig::default();
+        config.max_pattern_cache_size = 2;
+        let detector = PatternDetector::new(config);
+        
+        // Create 3 different patterns
+        for i in 0..3 {
+            let mut bitmap = HashSet::new();
+            bitmap.insert(i);
+            detector.detect_pattern(100, &vec![1], 10, vec![bitmap], None);
+        }
+        
+        // Cache should have at most 2 patterns
+        let cache = detector.pattern_cache.lock().unwrap();
+        assert!(cache.len() <= 2);
     }
     
     #[test]
@@ -393,6 +476,135 @@ mod tests {
         let hash2 = detector.create_pattern_hash(&[bitmap]);
         
         assert_eq!(hash1, hash2);
+    }
+    
+    #[test]
+    fn test_different_patterns_different_hashes() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap1 = HashSet::new();
+        bitmap1.insert(1);
+        bitmap1.insert(2);
+        
+        let mut bitmap2 = HashSet::new();
+        bitmap2.insert(1);
+        bitmap2.insert(3); // Different from bitmap1
+        
+        let hash1 = detector.create_pattern_hash(&[bitmap1]);
+        let hash2 = detector.create_pattern_hash(&[bitmap2]);
+        
+        assert_ne!(hash1, hash2);
+    }
+    
+    #[test]
+    fn test_temporal_order_sensitivity() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap1 = HashSet::new();
+        bitmap1.insert(1);
+        
+        let mut bitmap2 = HashSet::new();
+        bitmap2.insert(2);
+        
+        // Different temporal orders should produce different hashes
+        let hash1 = detector.create_pattern_hash(&[bitmap1.clone(), bitmap2.clone()]);
+        let hash2 = detector.create_pattern_hash(&[bitmap2, bitmap1]);
+        
+        assert_ne!(hash1, hash2);
+    }
+    
+    #[test]
+    fn test_configure_area_temporal_depth() {
+        let config = PatternConfig::default();
+        let default_temp_depth = config.default_temporal_depth;
+        let detector = PatternDetector::new(config);
+        
+        detector.configure_area_temporal_depth(100, 5);
+        
+        let depth = detector.get_area_temporal_depth(100);
+        assert_eq!(depth, 5);
+        
+        // Unconfigured area should use default
+        let default_depth = detector.get_area_temporal_depth(999);
+        assert_eq!(default_depth, default_temp_depth);
+    }
+    
+    #[test]
+    fn test_clear_cache() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap = HashSet::new();
+        bitmap.insert(1);
+        detector.detect_pattern(100, &vec![1], 10, vec![bitmap], None);
+        
+        // Cache should have entries
+        {
+            let cache = detector.pattern_cache.lock().unwrap();
+            assert!(!cache.is_empty());
+        }
+        
+        detector.clear_cache();
+        
+        // Cache should be empty
+        let cache = detector.pattern_cache.lock().unwrap();
+        assert!(cache.is_empty());
+    }
+    
+    #[test]
+    fn test_reset_stats() {
+        let config = PatternConfig::default();
+        let detector = PatternDetector::new(config);
+        
+        let mut bitmap = HashSet::new();
+        bitmap.insert(1);
+        detector.detect_pattern(100, &vec![1], 10, vec![bitmap], None);
+        
+        let stats = detector.get_stats();
+        assert!(stats.patterns_detected > 0);
+        
+        detector.reset_stats();
+        
+        let stats = detector.get_stats();
+        assert_eq!(stats.patterns_detected, 0);
+        assert_eq!(stats.cache_hits, 0);
+        assert_eq!(stats.cache_misses, 0);
+    }
+    
+    #[test]
+    fn test_batch_pattern_detector() {
+        let config = PatternConfig::default();
+        let batch_detector = BatchPatternDetector::new(config);
+        
+        let detector = batch_detector.get_detector(100, 5);
+        
+        let mut bitmap = HashSet::new();
+        bitmap.insert(1);
+        let pattern = detector.detect_pattern(100, &vec![1], 10, vec![bitmap], None);
+        
+        assert!(pattern.is_some());
+    }
+    
+    #[test]
+    fn test_batch_stats() {
+        let config = PatternConfig::default();
+        let batch_detector = BatchPatternDetector::new(config);
+        
+        // Create patterns for multiple areas
+        for area_idx in vec![100, 200, 300] {
+            let detector = batch_detector.get_detector(area_idx, 3);
+            let mut bitmap = HashSet::new();
+            bitmap.insert(area_idx);
+            detector.detect_pattern(area_idx, &vec![1], 10, vec![bitmap], None);
+        }
+        
+        let stats = batch_detector.get_batch_stats();
+        assert_eq!(stats.len(), 3);
+        assert!(stats.contains_key(&100));
+        assert!(stats.contains_key(&200));
+        assert!(stats.contains_key(&300));
     }
 }
 
