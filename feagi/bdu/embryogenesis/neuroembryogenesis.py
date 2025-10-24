@@ -1055,13 +1055,11 @@ class NeuroEmbryogenesis:
                 
                 # In additive mode, skip neurogenesis for areas that already have neurons
                 if hasattr(self, 'additive_mode') and self.additive_mode:
-                    # Check if this area already has neurons
-                    npu_interface = getattr(self.connectome_manager, "_npu_interface", None)
-                    if npu_interface:
-                        existing_neurons = npu_interface.get_neurons_by_area(area.cortical_idx)
-                        if len(existing_neurons) > 0:
-                            logger.info(f"Additive mode: Skipping neurogenesis for area {cortical_id} (already has {len(existing_neurons)} neurons)")
-                            continue
+                    # Check if this area already has neurons (fast check via area object)
+                    # If area has _neuron_indices set, it already has neurons
+                    if hasattr(area, '_neuron_indices') and len(area._neuron_indices) > 0:
+                        logger.info(f"Additive mode: Skipping neurogenesis for area {cortical_id} (already has {len(area._neuron_indices)} neurons)")
+                        continue
 
                 # Calculate neuron count for this area
                 width, height, depth = area.dimensions
@@ -1402,18 +1400,17 @@ class NeuroEmbryogenesis:
                         except Exception:
                             dst_is_memory = False
 
-                        # For non-memory edges, require neurons on non-memory areas
+                        # For non-memory edges, require areas to exist
+                        # (Areas without neurons shouldn't exist after neurogenesis)
                         if not src_is_memory:
-                            src_neurons = self.connectome_manager.get_neurons_by_area(src_id) or []
-                            if len(src_neurons) == 0:
+                            if src_id not in self.connectome_manager.cortical_areas:
                                 raise RuntimeError(
-                                    f"Synaptogenesis preflight failed: source area {src_id} has no neurons"
+                                    f"Synaptogenesis preflight failed: source area {src_id} doesn't exist"
                                 )
                         if not dst_is_memory:
-                            dst_neurons = self.connectome_manager.get_neurons_by_area(dst_id) or []
-                            if len(dst_neurons) == 0:
+                            if dst_id not in self.connectome_manager.cortical_areas:
                                 raise RuntimeError(
-                                    f"Synaptogenesis preflight failed: destination area {dst_id} has no neurons"
+                                    f"Synaptogenesis preflight failed: destination area {dst_id} doesn't exist"
                                 )
 
                 # Create synapses if mappings were found
@@ -2522,17 +2519,12 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
-                # Get source area and neurons once
-                src_area = self.connectome_manager.cortical_areas[src_area_id]
-                src_neurons = self.connectome_manager.get_neurons_by_area(
-                    src_area_id
-                )
-
-                if not src_neurons:
-                    logger.warning(
-                        f"No neurons found in source area {src_area_id}"
-                    )
+                # Get source area (existence check - area should have neurons after neurogenesis)
+                if src_area_id not in self.connectome_manager.cortical_areas:
+                    logger.warning(f"Source area {src_area_id} doesn't exist")
                     continue
+                
+                src_area = self.connectome_manager.cortical_areas[src_area_id]
 
                 # CRITICAL: All cortical areas should ALWAYS have properties initialized
                 # If not, this indicates a serious bug in area creation
@@ -2725,18 +2717,11 @@ class NeuroEmbryogenesis:
                                 # Skip synaptogenesis for memory morphology
                                 continue
 
-                            #  NON-MEMORY MORPHOLOGIES: proceed with
-                            #  synaptogenesis
-                            #  Get destination neurons lazily here to avoid
-                            #  false warnings for memory mappings
-                            dst_neurons = (
-                                self.connectome_manager.get_neurons_by_area(
-                                    dst_area_id
-                                )
-                            )
-                            if not dst_neurons:
+                            #  NON-MEMORY MORPHOLOGIES: proceed with synaptogenesis
+                            #  Check destination area exists (fast check)
+                            if dst_area_id not in self.connectome_manager.cortical_areas:
                                 logger.warning(
-                                    f"No neurons found in destination area {dst_area_id}"
+                                    f"Destination area {dst_area_id} doesn't exist"
                                 )
                                 continue
 

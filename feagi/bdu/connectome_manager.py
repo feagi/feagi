@@ -4373,17 +4373,11 @@ class ConnectomeManager:
             logger.error("Rust NPU did not return neuron IDs")
             return []
 
-        # Register neurons with cortical area
-        # NOTE: Rust NPU now tracks all neuron data (area, position, properties)
-        # ConnectomeManager only maintains CorticalArea's neuron registry for genome operations
-        for i, neuron_id in enumerate(neuron_ids):
-            area.add_neuron(neuron_id, positions[i])
-            
-            # Populate Rust Morton hash for ultra-fast lookups
-            if self._rust_morton_hash is not None:
-                x, y, z = positions[i]
-                self._rust_morton_hash.add_neuron(cortical_id, x, y, z, neuron_id)
-
+        # ARCHITECTURE: All neuron data now in Rust NPU (single source of truth)
+        # Python CorticalArea tracking removed - it was redundant and caused 4s delays
+        # Rust NPU owns: neuron IDs, positions, cortical areas, all properties
+        # Python CorticalArea object is legacy - only keeping for genome compatibility
+        
         # Update state manager with new neuron count
         if len(neuron_ids) > 0:
             self._update_neuron_count_only()
