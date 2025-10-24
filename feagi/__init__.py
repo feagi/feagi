@@ -14,6 +14,12 @@ __version__ = "0.1.0"
 # Import key components for easy access
 from feagi.core.resource_mgr import ResourceManager
 
+# Backward compatibility: Make feagi.rust accessible as feagi_rust module
+# This allows old code using "import feagi_rust" to continue working
+import sys
+from feagi import rust as _rust_module
+sys.modules['feagi_rust'] = _rust_module
+
 
 # Create a factory function to initialize a complete FEAGI system
 def create_feagi(config=None):

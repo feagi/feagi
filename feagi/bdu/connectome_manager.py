@@ -11,7 +11,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-import torch
 
 from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
 from feagi.core.state_manager import get_state_manager
