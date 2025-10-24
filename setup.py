@@ -13,27 +13,15 @@
 # limitations under the License.
 
 """
-Setup configuration for FEAGI with Rust extensions.
+Setup configuration for FEAGI.
 
-This file configures setuptools-rust to compile the Rust components
-during package installation. Pre-built binary wheels are provided for
-common platforms via CI/CD, so most users won't need Rust installed.
+NOTE: Rust extensions have been moved to the feagi-rust-py-libs package.
+Install separately: pip install feagi-rust-py-libs
 """
 
 from setuptools import setup
-from setuptools_rust import Binding, RustExtension
 
 setup(
-    rust_extensions=[
-        RustExtension(
-            "feagi.feagi_rust",
-            path="feagi-rust/crates/feagi-python/Cargo.toml",
-            binding=Binding.PyO3,
-            debug=False,
-            features=["extension-module"],
-        )
-    ],
-    # Ensure Rust extensions are built before Python package
     zip_safe=False,
 )
 
