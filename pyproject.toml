@@ -92,6 +92,11 @@ dev = [
     "memory-profiler>=0.60.0",
     "dataclasses-json>=0.5.7",
 ]
+gpu = [
+    # GPU monitoring support for different vendors
+    "nvidia-ml-py>=12.535.133",  # NVIDIA GPU monitoring (pynvml)
+    "amdsmi>=6.2.0",             # AMD GPU monitoring
+]
 docs = [
     # Documentation is now handled by Docusaurus (see /website folder)
     # No Python dependencies needed for docs generation

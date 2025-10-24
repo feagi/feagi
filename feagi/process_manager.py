@@ -1077,7 +1077,9 @@ class ProcessManager:
 
             #  Start as daemon thread (in Rust: tokio::spawn with proper task
             #  management)
-            api_thread = threading.Thread(target=run_api_service, daemon=True)
+            api_thread = threading.Thread(
+                target=run_api_service, daemon=True, name="API-Service"
+            )
             api_thread.start()
 
             logger.info(
@@ -1224,7 +1226,7 @@ class ProcessManager:
                 time.sleep(monitor_interval)  # Use configurable interval
 
         self._monitor_thread = threading.Thread(
-            target=monitor_processes, daemon=True
+            target=monitor_processes, daemon=True, name="Process-Monitor"
         )
         self._monitor_thread.start()
 
@@ -1613,7 +1615,7 @@ class ProcessManager:
 
                     # Run shutdown with timeout using a separate thread
                     shutdown_thread = threading.Thread(
-                        target=shutdown_service, daemon=True
+                        target=shutdown_service, daemon=True, name=f"Shutdown-{name}"
                     )
                     shutdown_thread.start()
                     shutdown_thread.join(timeout=graceful_shutdown_timeout)
@@ -2271,7 +2273,7 @@ class SleepManager:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread = threading.Thread(target=self._run, daemon=True, name="Sleep-Manager")
         self._thread.start()
 
     def stop(self) -> None:

@@ -223,7 +223,7 @@ class BrainService(BaseService):
 
             # Start the burst engine in a daemon thread
             burst_thread = threading.Thread(
-                target=run_burst_engine, daemon=True
+                target=run_burst_engine, daemon=True, name="Burst-Engine"
             )
             burst_thread.start()
 
@@ -274,7 +274,7 @@ class BrainService(BaseService):
 
             # Start monitoring thread
             monitor_thread = threading.Thread(
-                target=monitor_startup, daemon=True
+                target=monitor_startup, daemon=True, name="Startup-Monitor"
             )
             monitor_thread.start()
 

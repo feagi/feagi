@@ -641,6 +641,88 @@ def main():
             f"Sensory={port_config.get('zmq_sensory_port')}, "
             f"Motor={port_config.get('zmq_motor_port')}"
         )
+        
+        # Apply CPU affinity if configured (cross-platform)
+        try:
+            system_config = config.get("system", {})
+            cpu_affinity = system_config.get("cpu_affinity", [])
+            if cpu_affinity:  # Non-empty list means user wants to pin cores
+                import psutil
+                current_process = psutil.Process()
+                
+                # Try to set CPU affinity (works on Linux, Windows; limited/unavailable on macOS)
+                try:
+                    current_process.cpu_affinity(cpu_affinity)
+                    logger.info(f"CPU affinity set to cores: {cpu_affinity}")
+                except (AttributeError, OSError) as e:
+                    # macOS doesn't support CPU affinity - use nice/ionice as alternative
+                    logger.warning(f"CPU affinity not supported on {platform.system()}: {e}")
+                    if platform.system() == "Darwin":  # macOS
+                        logger.info("Alternative: Use 'sudo renice' or taskpolicy to control FEAGI's CPU priority")
+                        logger.info(f"  Example: sudo renice -n -10 -p {os.getpid()}")
+            else:
+                logger.info("CPU affinity: Using all available cores (default)")
+        except Exception as e:
+            logger.warning(f"Failed to configure CPU settings: {e}")
+
+        # Apply process priority if configured (cross-platform)
+        try:
+            system_config = config.get("system", {})
+            priority_config = system_config.get("priority", 0)
+            
+            if priority_config != 0:  # Non-zero means user wants to change priority
+                import psutil
+                current_process = psutil.Process()
+                
+                if platform.system() == "Windows":
+                    # Windows uses priority class strings
+                    priority_map = {
+                        "realtime": psutil.REALTIME_PRIORITY_CLASS,
+                        "high": psutil.HIGH_PRIORITY_CLASS,
+                        "above_normal": psutil.ABOVE_NORMAL_PRIORITY_CLASS,
+                        "normal": psutil.NORMAL_PRIORITY_CLASS,
+                        "below_normal": psutil.BELOW_NORMAL_PRIORITY_CLASS,
+                        "idle": psutil.IDLE_PRIORITY_CLASS,
+                    }
+                    
+                    if isinstance(priority_config, str):
+                        priority_class = priority_map.get(priority_config.lower())
+                        if priority_class:
+                            try:
+                                current_process.nice(priority_class)
+                                logger.info(f"Process priority set to: {priority_config.upper()}")
+                            except (PermissionError, OSError) as e:
+                                logger.warning(f"Failed to set priority to '{priority_config}': {e}")
+                                logger.info("Run as Administrator to set high/realtime priority on Windows")
+                        else:
+                            logger.warning(f"Invalid Windows priority: '{priority_config}'. Use: realtime, high, above_normal, normal, below_normal, idle")
+                    else:
+                        logger.warning(f"Windows requires string priority (e.g., 'high'), got: {priority_config}")
+                
+                else:  # Linux/macOS use nice values
+                    if isinstance(priority_config, int):
+                        if -20 <= priority_config <= 19:
+                            try:
+                                # Get current nice value first
+                                current_nice = os.nice(0)
+                                # Calculate increment needed
+                                increment = priority_config - current_nice
+                                if increment != 0:
+                                    os.nice(increment)
+                                    logger.info(f"Process priority (nice value) set to: {priority_config}")
+                            except (PermissionError, OSError) as e:
+                                logger.warning(f"Failed to set nice value to {priority_config}: {e}")
+                                if priority_config < 0:
+                                    logger.info(f"Run with sudo to set negative nice values (higher priority)")
+                                    logger.info(f"  Example: sudo python -m feagi.main")
+                        else:
+                            logger.warning(f"Nice value must be between -20 and 19, got: {priority_config}")
+                    else:
+                        logger.warning(f"Linux/macOS requires integer nice value, got: {priority_config}")
+            else:
+                logger.info("Process priority: Using normal priority (default)")
+        except Exception as e:
+            logger.warning(f"Failed to configure process priority: {e}")
 
     except FeagiConfigurationError as e:
         logger.error("[ERR] CONFIGURATION ERROR [ERR]")
@@ -798,7 +880,7 @@ def main():
             os._exit(1)  # Force exit without cleanup
 
         # Start force exit timer in daemon thread
-        force_exit_thread = threading.Thread(target=force_exit, daemon=True)
+        force_exit_thread = threading.Thread(target=force_exit, daemon=True, name="Force-Exit-Timer")
         force_exit_thread.start()
 
         try:

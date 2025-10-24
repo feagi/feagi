@@ -22,8 +22,11 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import time
+import psutil
+import threading
+import os
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -766,6 +769,165 @@ class SystemAPI:
             logger.error(f"Error getting FCL status: {e}")
             raise ValueError(f"Failed to get FCL status: {str(e)}")
 
+    def _get_thread_names(self) -> Dict[int, str]:
+        """Map OS thread IDs to Python thread names.
+        
+        Returns a dict mapping native thread ID to thread name.
+        Uses thread.ident (guaranteed available) as the key.
+        """
+        thread_names = {}
+        
+        try:
+            # Get all Python threads
+            for thread in threading.enumerate():
+                try:
+                    # Use thread.ident which matches psutil thread IDs
+                    thread_id = thread.ident
+                    if thread_id:
+                        thread_names[thread_id] = thread.name
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug(f"Failed to enumerate thread names: {e}")
+        
+        return thread_names
+    
+    def _get_thread_core_mapping(self, pid: int) -> Dict[int, int]:
+        """Get which CPU core each thread is currently running on.
+        
+        Returns dict mapping thread_id -> core_id.
+        Only works on Linux. Returns empty dict on other platforms.
+        """
+        thread_cores = {}
+        
+        # Linux-specific: Read /proc/<pid>/task/<tid>/stat
+        if os.path.exists(f"/proc/{pid}/task"):
+            try:
+                for tid in os.listdir(f"/proc/{pid}/task"):
+                    try:
+                        stat_file = f"/proc/{pid}/task/{tid}/stat"
+                        with open(stat_file, 'r') as f:
+                            stat_data = f.read()
+                            # CPU number is field 39 (0-indexed: 38)
+                            fields = stat_data.split()
+                            if len(fields) > 38:
+                                core_id = int(fields[38])
+                                thread_cores[int(tid)] = core_id
+                    except (FileNotFoundError, ValueError, IndexError):
+                        pass
+            except Exception as e:
+                logger.debug(f"Failed to read thread-core mapping: {e}")
+        
+        return thread_cores
+    
+    def _get_gpu_metrics(self) -> Optional[Dict[str, Any]]:
+        """Get GPU utilization metrics across different GPU vendors.
+        
+        Supports NVIDIA (via pynvml), AMD (via amdsmi), and Apple Silicon.
+        Returns None if no GPU detected or libraries unavailable.
+        """
+        gpu_info = {
+            "vendor": "unknown",
+            "devices": [],
+            "total_memory_MB": 0,
+            "used_memory_MB": 0,
+            "available": False,
+        }
+        
+        # Try NVIDIA GPUs first (most common for ML workloads)
+        try:
+            import pynvml
+            
+            pynvml.nvmlInit()
+            device_count = pynvml.nvmlDeviceGetCount()
+            
+            if device_count > 0:
+                gpu_info["vendor"] = "NVIDIA"
+                gpu_info["available"] = True
+                
+                for i in range(device_count):
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                    name = pynvml.nvmlDeviceGetName(handle)
+                    if isinstance(name, bytes):
+                        name = name.decode('utf-8')
+                    
+                    memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                    temperature = pynvml.nvmlDeviceGetTemperature(
+                        handle, pynvml.NVML_TEMPERATURE_GPU
+                    )
+                    power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # mW to W
+                    
+                    device_info = {
+                        "id": i,
+                        "name": name,
+                        "memory_total_MB": round(memory.total / (1024 * 1024), 2),
+                        "memory_used_MB": round(memory.used / (1024 * 1024), 2),
+                        "memory_free_MB": round(memory.free / (1024 * 1024), 2),
+                        "memory_percent": round((memory.used / memory.total) * 100, 2),
+                        "gpu_utilization_percent": utilization.gpu,
+                        "memory_utilization_percent": utilization.memory,
+                        "temperature_celsius": temperature,
+                        "power_watts": round(power, 2),
+                    }
+                    
+                    gpu_info["devices"].append(device_info)
+                    gpu_info["total_memory_MB"] += device_info["memory_total_MB"]
+                    gpu_info["used_memory_MB"] += device_info["memory_used_MB"]
+                
+                pynvml.nvmlShutdown()
+                return gpu_info
+                
+        except ImportError:
+            pass  # pynvml not installed
+        except Exception as e:
+            logger.debug(f"Failed to get NVIDIA GPU metrics: {e}")
+        
+        # Try AMD GPUs
+        try:
+            import amdsmi
+            
+            amdsmi.amdsmi_init()
+            devices = amdsmi.amdsmi_get_processor_handles()
+            
+            if devices:
+                gpu_info["vendor"] = "AMD"
+                gpu_info["available"] = True
+                
+                for i, device in enumerate(devices):
+                    try:
+                        name = amdsmi.amdsmi_get_gpu_asic_info(device)["market_name"]
+                        memory = amdsmi.amdsmi_get_gpu_memory_usage(device)
+                        utilization = amdsmi.amdsmi_get_gpu_activity(device)
+                        temperature = amdsmi.amdsmi_get_gpu_temperature(device, 0)
+                        
+                        device_info = {
+                            "id": i,
+                            "name": name,
+                            "memory_total_MB": round(memory["vram_total"] / (1024 * 1024), 2),
+                            "memory_used_MB": round(memory["vram_used"] / (1024 * 1024), 2),
+                            "memory_percent": round((memory["vram_used"] / memory["vram_total"]) * 100, 2),
+                            "gpu_utilization_percent": utilization["gfx_activity"],
+                            "temperature_celsius": temperature,
+                        }
+                        
+                        gpu_info["devices"].append(device_info)
+                        gpu_info["total_memory_MB"] += device_info["memory_total_MB"]
+                        gpu_info["used_memory_MB"] += device_info["memory_used_MB"]
+                    except Exception as e:
+                        logger.debug(f"Failed to get AMD GPU {i} metrics: {e}")
+                
+                amdsmi.amdsmi_shutdown()
+                return gpu_info
+                
+        except ImportError:
+            pass  # amdsmi not installed
+        except Exception as e:
+            logger.debug(f"Failed to get AMD GPU metrics: {e}")
+        
+        # No GPU detected or libraries unavailable
+        return None
+
     @system_endpoint("GET", "/processes")
     def get_active_processes(self) -> Dict[str, Any]:
         """Return details about active FEAGI processes/tasks managed by the
@@ -809,7 +971,7 @@ class SystemAPI:
                         try:
                             p = psutil.Process(pid)
                             mi = p.memory_info()
-                            entry["rss_mb"] = round(mi.rss / (1024 * 1024), 2)
+                            entry["rss_MB"] = round(mi.rss / (1024 * 1024), 2)
                             # Non-blocking CPU snapshot
                             entry["cpu_percent"] = p.cpu_percent(interval=0.0)
                         except Exception:
@@ -854,6 +1016,145 @@ class SystemAPI:
                     "status": "unknown",
                     "is_running": False,
                 }
+
+            # Process resource metrics for main FEAGI process
+            process = psutil.Process()
+            pid = process.pid
+            
+            # CPU metrics with 100ms sampling for accuracy
+            cpu_percent = process.cpu_percent(interval=0.1)
+            
+            # Get CPU affinity (which cores FEAGI is allowed to run on)
+            # Also load what was requested from config for comparison
+            try:
+                from feagi.config.toml_loader import load_feagi_config
+                config = load_feagi_config()
+                requested_affinity = config.get("system", {}).get("cpu_affinity", [])
+            except Exception:
+                requested_affinity = []
+            
+            try:
+                cpu_affinity = process.cpu_affinity()
+                num_allowed_cores = len(cpu_affinity)
+                cpu_percent_per_allowed_core = cpu_percent / num_allowed_cores if num_allowed_cores > 0 else 0
+                affinity_enforced = True
+            except (AttributeError, OSError):
+                # cpu_affinity() not available on all platforms (e.g., macOS)
+                cpu_affinity = list(range(psutil.cpu_count(logical=True)))
+                num_allowed_cores = len(cpu_affinity)
+                cpu_percent_per_allowed_core = cpu_percent / num_allowed_cores if num_allowed_cores > 0 else 0
+                affinity_enforced = False
+            
+            # Get Python thread names (these are the meaningful names we set)
+            python_thread_names = [t.name for t in threading.enumerate()]
+            
+            # Get detailed memory info
+            mem_info = process.memory_info()
+            memory_breakdown = {
+                "physical_ram_MB": round(mem_info.rss / (1024 * 1024), 2),  # Actual RAM used
+            }
+            
+            # Only include virtual memory on Linux (meaningless on macOS due to liberal address space)
+            import platform
+            if platform.system() == "Linux":
+                memory_breakdown["virtual_memory_MB"] = round(mem_info.vms / (1024 * 1024), 2)
+            
+            # Add platform-specific memory details (Linux only)
+            if hasattr(mem_info, 'shared'):  # Linux
+                memory_breakdown["shared_libraries_MB"] = round(mem_info.shared / (1024 * 1024), 2)
+            if hasattr(mem_info, 'text'):  # Linux
+                memory_breakdown["code_MB"] = round(mem_info.text / (1024 * 1024), 2)
+            if hasattr(mem_info, 'data'):  # Linux
+                memory_breakdown["data_heap_MB"] = round(mem_info.data / (1024 * 1024), 2)
+            
+            # Try to get FEAGI-specific memory breakdown from ConnectomeManager
+            feagi_memory_breakdown = {}
+            try:
+                from feagi.bdu.connectome_manager import ConnectomeManager
+                cm = ConnectomeManager.instance()
+                if cm:
+                    # Get connectome data sizes
+                    try:
+                        import sys
+                        
+                        # Neuron array memory
+                        if hasattr(cm, 'neurons') and cm.neurons is not None:
+                            feagi_memory_breakdown["neurons_MB"] = round(sys.getsizeof(cm.neurons) / (1024 * 1024), 2)
+                        
+                        # Synapse/connectome memory
+                        if hasattr(cm, 'connectome') and cm.connectome is not None:
+                            feagi_memory_breakdown["connectome_MB"] = round(sys.getsizeof(cm.connectome) / (1024 * 1024), 2)
+                        
+                        # Memory manager
+                        if hasattr(cm, 'memory_manager') and cm.memory_manager is not None:
+                            feagi_memory_breakdown["memory_manager_MB"] = round(sys.getsizeof(cm.memory_manager) / (1024 * 1024), 2)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            
+            if feagi_memory_breakdown:
+                memory_breakdown["feagi_components"] = feagi_memory_breakdown
+            
+            summary["process_metrics"] = {
+                "pid": pid,
+                "cpu_percent_total": round(cpu_percent, 2),
+                "cpu_percent_per_core": round(cpu_percent_per_allowed_core, 2),
+                "physical_ram_MB": round(mem_info.rss / (1024 * 1024), 2),
+                "ram_percent_of_system": round(process.memory_percent(), 2),
+                "memory_breakdown": memory_breakdown,
+                "num_threads": process.num_threads(),
+                "threads": python_thread_names,  # FEAGI thread names
+            }
+            
+            # FEAGI CPU allocation info (which cores FEAGI can use)
+            summary["cpu_info"] = {
+                "total_system_cores": psutil.cpu_count(logical=True),
+                "physical_cores": psutil.cpu_count(logical=False),
+                "feagi_allowed_cores": cpu_affinity,
+                "feagi_num_cores": num_allowed_cores,
+                "feagi_cpu_capacity_percent": round((num_allowed_cores / psutil.cpu_count(logical=True)) * 100, 2),
+                "affinity_requested": requested_affinity if requested_affinity else "all",
+                "affinity_enforced": affinity_enforced,
+            }
+            
+            # Add current process priority
+            try:
+                # Get configured priority from TOML
+                priority_config = config.get("system", {}).get("priority", 0)
+                
+                # Get actual current priority
+                if platform.system() == "Windows":
+                    # Windows: Get priority class constant
+                    current_nice = process.nice()
+                    priority_class_map = {
+                        psutil.REALTIME_PRIORITY_CLASS: "realtime",
+                        psutil.HIGH_PRIORITY_CLASS: "high",
+                        psutil.ABOVE_NORMAL_PRIORITY_CLASS: "above_normal",
+                        psutil.NORMAL_PRIORITY_CLASS: "normal",
+                        psutil.BELOW_NORMAL_PRIORITY_CLASS: "below_normal",
+                        psutil.IDLE_PRIORITY_CLASS: "idle",
+                    }
+                    current_priority = priority_class_map.get(current_nice, f"unknown({current_nice})")
+                else:
+                    # Linux/macOS: Get nice value
+                    current_priority = process.nice()
+                
+                summary["cpu_info"]["priority"] = {
+                    "configured": priority_config,
+                    "actual": current_priority,
+                }
+            except Exception as e:
+                summary["cpu_info"]["priority"] = {
+                    "configured": "unknown",
+                    "actual": "unknown",
+                    "error": str(e)
+                }
+            
+            # GPU metrics (if available)
+            gpu_metrics = self._get_gpu_metrics()
+            if gpu_metrics:
+                summary["gpu_info"] = gpu_metrics
 
             return {"available": True, "processes": procs, "summary": summary}
         except Exception as e:

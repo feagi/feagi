@@ -730,7 +730,7 @@ async def set_api_state_ready():
     state.set_api_state(ServiceState.READY)
     # Start FD monitor thread
     try:
-        t = threading.Thread(target=_fd_monitor_thread, daemon=True)
+        t = threading.Thread(target=_fd_monitor_thread, daemon=True, name="FD-Monitor")
         t.start()
     except Exception:
         pass
