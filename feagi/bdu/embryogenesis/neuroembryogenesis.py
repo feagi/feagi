@@ -2997,13 +2997,11 @@ class NeuroEmbryogenesis:
                     "[MEMORY-MORPHOLOGY] Registering memory mapping without creating synapses"
                 )
 
-                #  Import and call syn_memory directly to populate memory
-                #  register
-                from feagi.bdu.connectivity.rules.functions import syn_memory
-                
-                # Create memory register and populate it
+                #  Populate memory register (inlined from old syn_memory function)
                 memory_register = {}
-                syn_memory(src_area_id, dst_area_id, memory_register)
+                if dst_area_id not in memory_register:
+                    memory_register[dst_area_id] = set()
+                memory_register[dst_area_id].add(src_area_id)
                 logger.info(
                     f"[MEMORY-MORPHOLOGY] Memory register updated: {memory_register}"
                 )
